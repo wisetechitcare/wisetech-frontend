@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { getAuth } from '@/app/modules/auth/core/AuthHelpers';
 
 const BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 

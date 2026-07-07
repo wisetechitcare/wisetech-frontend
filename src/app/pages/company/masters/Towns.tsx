@@ -1,6 +1,5 @@
 ﻿import MaterialTable from '@app/modules/common/components/MaterialTable';
 import TextInput from '@app/modules/common/inputs/TextInput';
-import { KTIcon } from '@metronic/helpers';
 import { RootState } from '@redux/store';
 import { fetchCompanyOverview } from '@services/company';
 import { createNewTowns, fetchAllTowns, updateTownById } from '@services/options';
@@ -11,6 +10,15 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Modal } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import * as Yup from 'yup';
+import {
+  ConfigPageLayout,
+  ConfigSectionCard,
+  C,
+  FONT,
+  SP,
+  RADIUS,
+  KEYFRAMES,
+} from '@app/modules/configuration';
 
 const townSchema = Yup.object({
     name: Yup.string().required().label('Town'),
@@ -69,29 +77,34 @@ function Towns() {
     };
 
     const columns = useMemo<MRT_ColumnDef<ITown>[]>(
-        () => [
-            {
-                accessorKey: "name",
-                header: "Name",
-                Cell: ({ renderedCellValue }) => renderedCellValue
-            },
-            ...(isAdmin
-                ? [{
+        () => {
+            const cols: MRT_ColumnDef<ITown>[] = [
+                {
+                    accessorKey: "name",
+                    header: "Name",
+                    Cell: ({ renderedCellValue }) => renderedCellValue
+                },
+            ];
+
+            if (isAdmin) {
+                cols.push({
                     accessorKey: "actions",
                     header: "Actions",
-                    Cell: ({ row }: any) => {
-                        // const res = hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.editOthers);
-                        return <button
+                    Cell: ({ row }: any) => (
+                        <button
                             className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
                             onClick={() => handleEditClick(row.original.id)}
+                            style={{ cursor: 'pointer' }}
                         >
-                            <KTIcon iconName='pencil' className='fs-3' />
+                            <i className="bi bi-pencil" style={{ fontSize: '16px' }} />
                         </button>
-                    },
-                }]
-                : []),
-        ],
-        [data]
+                    ),
+                });
+            }
+
+            return cols;
+        },
+        [isAdmin, data]
     );
 
     const handleClose = () => {
@@ -131,59 +144,157 @@ function Towns() {
 
     return (
         <>
-            <div className="d-flex flex-wrap justify-content-center align-items-center  mt-5">
-                {/* {isAdmin && hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.create) &&  */}
-                <div className="d-flex align-items-center justify-content-between w-100">
-                    <h2>Towns</h2>
-                    <div
-                        className='card-toolbar text-end'
-                        data-bs-toggle='tooltip'
-                        data-bs-placement='top'
-                        data-bs-trigger='hover'
-                        title='Click to add a new Employee Type'
-                    >
-                        <button onClick={() => setShowModal(true)} className='btn btn-md btn-light-primary'>
-                            <KTIcon iconName='plus' className='fs-2' />
-                            New Town
-                        </button>
-                    </div>
-
+            <style>{KEYFRAMES}</style>
+            <ConfigPageLayout
+              title="Towns"
+              subtitle="Manage towns and geographical locations"
+              icon="bi-geo-alt"
+              actions={
+                isAdmin ? (
+                  <button
+                    onClick={() => setShowModal(true)}
+                    style={{
+                      backgroundColor: C.primary,
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: RADIUS.md,
+                      padding: '8px 16px',
+                      fontFamily: FONT.body,
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: `0 4px 12px ${C.primaryShadow}`,
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`;
+                    }}
+                  >
+                    <i className="bi bi-plus-lg" style={{ fontSize: '14px' }} />
+                    New Town
+                  </button>
+                ) : null
+              }
+            >
+              <ConfigSectionCard
+                title={`${data.length} Town${data.length !== 1 ? 's' : ''}`}
+                description="View and manage all towns and geographical locations"
+                icon="bi-pin-map"
+                iconColor="amber"
+                badge={{ label: `${data.length}`, color: C.amber, bg: C.amberLight }}
+                loading={loading}
+              >
+                <div style={{ marginTop: SP.md }}>
+                  <MaterialTable
+                    columns={columns}
+                    data={data}
+                    tableName="Towns"
+                    employeeId={employeeId}
+                    muiTableProps={{
+                      sx: {
+                        '& .MuiTableCell-head': {
+                          backgroundColor: C.bgSection,
+                          fontWeight: 600,
+                          fontSize: '13px',
+                          color: C.textPrimary,
+                          fontFamily: FONT.body,
+                        },
+                      },
+                    }}
+                  />
                 </div>
-            </div>
-            <div className="">
-                {/* {hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.readOthers) && (
-                  )} */}
-                <MaterialTable columns={columns} data={data} tableName="town" employeeId={employeeId} />
-            </div>
-            <Modal show={showModal} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>{editMode ? 'Edit ' : 'Create a new'} Town</Modal.Title>
+              </ConfigSectionCard>
+            </ConfigPageLayout>
+
+            <Modal show={showModal} onHide={handleClose} centered backdropClassName="modal-backdrop-blur">
+                <Modal.Header closeButton style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
+                    <Modal.Title style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '16px', color: C.textPrimary }}>
+                        {editMode ? 'Edit Town' : 'Create New Town'}
+                    </Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
+                <Modal.Body style={{ padding: SP.lg }}>
                     <Formik initialValues={initialValues} onSubmit={handleSubmit} validationSchema={townSchema}>
                         {(formikProps) => (
-                            <Form className='des-flex flex-column'>
-                                <div className="row">
-                                    <div className="col-lg-12">
-                                        <TextInput
-                                            isRequired={true}
-                                            label="Name"
-                                            formikField="name"
-                                        />
-                                    </div>
+                            <Form>
+                                <div style={{ marginBottom: SP.lg }}>
+                                    <TextInput
+                                        isRequired={true}
+                                        label="Town Name"
+                                        formikField="name"
+                                    />
                                 </div>
-                                <div className='d-flex justify-content-between pt-10'>
-                                    <button type='submit' className='btn btn-primary' disabled={loading || !formikProps.isValid}>
-                                        {!loading && 'Save Changes'}
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SP.md, paddingTop: SP.lg }}>
+                                  <button
+                                    type='button'
+                                    onClick={handleClose}
+                                    style={{
+                                      backgroundColor: C.bgCard,
+                                      color: C.textSecondary,
+                                      border: `1px solid ${C.border}`,
+                                      borderRadius: RADIUS.md,
+                                      padding: '8px 16px',
+                                      fontFamily: FONT.body,
+                                      fontWeight: 500,
+                                      fontSize: '13px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = C.bgSection;
+                                      e.currentTarget.style.borderColor = C.borderDark;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = C.bgCard;
+                                      e.currentTarget.style.borderColor = C.border;
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                    <button
+                                      type='submit'
+                                      disabled={loading || !formikProps.isValid}
+                                      style={{
+                                        backgroundColor: loading || !formikProps.isValid ? `${C.primary}80` : C.primary,
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: RADIUS.md,
+                                        padding: '8px 16px',
+                                        fontFamily: FONT.body,
+                                        fontWeight: 600,
+                                        fontSize: '13px',
+                                        cursor: loading || !formikProps.isValid ? 'not-allowed' : 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        transition: 'all 0.2s ease',
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        if (!loading && formikProps.isValid) {
+                                          e.currentTarget.style.transform = 'translateY(-2px)';
+                                          e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
+                                        }
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                        e.currentTarget.style.boxShadow = 'none';
+                                      }}
+                                    >
+                                        {!loading && (editMode ? 'Update Town' : 'Create Town')}
                                         {loading && (
-                                            <span className='indicator-progress' style={{ display: 'block' }}>
-                                                Please wait...{' '}
-                                                <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', border: `2px solid rgba(255,255,255,0.3)`, borderTopColor: '#fff', animation: 'spin 0.6s linear infinite' }} />
+                                                Please wait...
                                             </span>
                                         )}
-                                    </button>
-                                    <button type='button' className='btn btn-secondary ms-2 text-white' onClick={handleClose}>
-                                        Cancel
                                     </button>
                                 </div>
                             </Form>
@@ -191,6 +302,16 @@ function Towns() {
                     </Formik>
                 </Modal.Body>
             </Modal>
+
+            <style>{`
+              @keyframes spin {
+                to { transform: rotate(360deg); }
+              }
+              .modal-backdrop-blur {
+                background-color: rgba(0, 0, 0, 0.2);
+                backdrop-filter: blur(2px);
+              }
+            `}</style>
         </>
     );
 }

@@ -67,7 +67,5 @@ export const PROJECT_CHART_SETTINGS_MODAL_TYPE = {
     COMPANY: "company"
 }
 
-export const SHOW_PROJECT_BUTTONS='showProjectButtons';
-
 // Dashboard
 export const DASHBOARD_SETTINGS='dashboardSettings';

@@ -62,10 +62,10 @@ export const getAllLeadsComplete = async (fields?: string[]) => {
 /**
  * Get lead by ID
  */
-export const getLeadById = async (id: string) => {
+export const getLeadById = async (id: string, params?: Record<string, any>) => {
   try {
     const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_LEAD_BY_ID.replace(':id', id)}`;
-    const response = await axios.get(endpoint);
+    const response = await axios.get(endpoint, { params });
     return response;
   } catch (error) {
     console.error(`Error fetching lead with ID ${id}:`, error);

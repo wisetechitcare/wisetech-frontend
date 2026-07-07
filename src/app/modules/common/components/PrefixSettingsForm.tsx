@@ -241,7 +241,6 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
                 className="form-control"
                 value={typeLabel}
                 readOnly
-                disabled
                 name="identifier"
                 type="text"
               />

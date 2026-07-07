@@ -21,7 +21,7 @@ import {
   getAllPriority,
   createPriority,
   updatePriority,
-  
+
   getAllPersetTasks,
   createPresetTask,
   updatePresetTask,
@@ -37,26 +37,15 @@ import Loader from "@app/modules/common/utils/Loader";
 import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "./../../../../../types/deleteConfirmation";
-
-// Common button styles
-const buttonStyles = {
-  base: {
-    border: "1px solid #9D4141",
-    fontWeight: 500,
-    color: "#9D4141",
-    backgroundColor: "transparent",
-    borderRadius: "5px",
-    cursor: "pointer",
-    transition: "all 0.3s ease-in-out",
-    paddingLeft: "20px",
-    paddingRight: "20px",
-    height: "40px",
-  },
-  hover: {
-    color: "white",
-    backgroundColor: "#9D4141",
-  },
-};
+import {
+  ConfigPageLayout,
+  ConfigSectionCard,
+  C,
+  FONT,
+  SP,
+  RADIUS,
+  KEYFRAMES,
+} from '@app/modules/configuration';
 
 
 
@@ -327,267 +316,229 @@ const TasksConfigure = () => {
     return <Loader />;
   }
 
+  // Helper component for item chips
+  const ItemChip = ({ item, onEdit, onDelete, showColor = false, showDelete = true }: any) => (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: C.bgSection,
+        padding: `${SP.sm} ${SP.md}`,
+        borderRadius: RADIUS.lg,
+        border: `1px solid ${C.border}`,
+        transition: 'all 0.2s ease',
+        cursor: 'pointer',
+        gap: SP.sm,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = C.bgCard;
+        e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = C.bgSection;
+        e.currentTarget.style.boxShadow = 'none';
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flex: 1, minWidth: 0 }}>
+        {showColor && item.color && (
+          <div
+            style={{
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              backgroundColor: item.color,
+              flexShrink: 0,
+            }}
+          />
+        )}
+        <span style={{
+          fontFamily: FONT.body,
+          fontSize: '13px',
+          color: C.textPrimary,
+          fontWeight: 500,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }} title={item.name}>
+          {item.name}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: SP.xs, flexShrink: 0 }}>
+        <button
+          onClick={() => onEdit(item)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: C.info,
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'color 0.2s ease',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.color = C.primary}
+          onMouseLeave={(e) => e.currentTarget.style.color = C.info}
+        >
+          <i className="bi bi-pencil" style={{ fontSize: '14px' }} />
+        </button>
+        {showDelete && (
+          <button
+            onClick={() => onDelete(item.id)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: C.danger,
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              transition: 'color 0.2s ease',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#c41e3a'}
+            onMouseLeave={(e) => e.currentTarget.style.color = C.danger}
+          >
+            <i className="bi bi-trash" style={{ fontSize: '14px' }} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div>
-      {/* Configure Heading */}
-      <div
-        className="d-flex pb-4"
-        style={{ fontFamily: "Barlow", fontSize: "24px", fontWeight: "600" }}
+    <>
+      <style>{KEYFRAMES}</style>
+      <ConfigPageLayout
+        title="Tasks Configuration"
+        subtitle="Manage task statuses, priorities, and preset tasks"
+        icon="bi-list-check"
       >
-        Configure
-      </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 
-      {/* Category Card */}
-      <div
-        className="card"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-          <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Tasks Statuses</h5>
-            <button
-              onClick={handleCategoryModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
-            >
-              New Status
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {projectCategories.map((category) => (
-              <div key={category.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: category.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: "pointer"
-                    }} title={category.name}>{category.name.length > 10 ? `${category.name.slice(0, 14)}...` : category.name}</div>
+          {/* Task Statuses Card */}
+          <ConfigSectionCard
+            title={`Task Statuses (${projectCategories.length})`}
+            description="Define and manage different task status categories"
+            icon="bi-list-ul"
+            iconColor="blue"
+            badge={{ label: `${projectCategories.length}`, color: C.info, bg: C.infoLight }}
+            primaryAction={{
+              label: 'New Status',
+              icon: 'bi-plus-lg',
+              onClick: handleCategoryModalOpen,
+              variant: 'primary',
+            }}
+          >
+            <div style={{ marginTop: SP.md }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
+                {projectCategories.map((category) => (
+                  <ItemChip
+                    key={category.id}
+                    item={category}
+                    onEdit={handleCategoryEdit}
+                    onDelete={() => {}}
+                    showColor={true}
+                    showDelete={false}
+                  />
+                ))}
+                {projectCategories.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted, fontFamily: FONT.body }}>
+                    <i className="bi bi-inbox" style={{ fontSize: '24px', display: 'block', marginBottom: SP.sm, opacity: 0.4 }} />
+                    No statuses configured yet
                   </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleCategoryEdit(category)}
-                    ></i>
-                    {/* <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleDelete(category.id, "category")}
-                    ></i> */}
-                    {category.subCategories}
-                  </div>
-                </div>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
+            </div>
+          </ConfigSectionCard>
 
-      {/* Subcategory Card */}
-      <div
-        className="card mt-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-          <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Priority</h5>
-            <button
-              onClick={handleSubcategoryModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
-            >
-             New Priority
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {projectSubcategories.map((subcategory) => (
-              <div key={subcategory.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: subcategory.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: "pointer"
-                    }} title={subcategory.name}>{subcategory.name.length > 10 ? `${subcategory.name.slice(0, 14)}...` : subcategory.name}</div>
+          {/* Priority Card */}
+          <ConfigSectionCard
+            title={`Task Priorities (${projectSubcategories.length})`}
+            description="Define priority levels for task management"
+            icon="bi-exclamation-circle"
+            iconColor="purple"
+            badge={{ label: `${projectSubcategories.length}`, color: C.purple, bg: C.purpleLight }}
+            primaryAction={{
+              label: 'New Priority',
+              icon: 'bi-plus-lg',
+              onClick: handleSubcategoryModalOpen,
+              variant: 'primary',
+            }}
+          >
+            <div style={{ marginTop: SP.md }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
+                {projectSubcategories.map((subcategory) => (
+                  <ItemChip
+                    key={subcategory.id}
+                    item={subcategory}
+                    onEdit={handleSubcategoryEdit}
+                    onDelete={() => {}}
+                    showColor={true}
+                    showDelete={false}
+                  />
+                ))}
+                {projectSubcategories.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted, fontFamily: FONT.body }}>
+                    <i className="bi bi-inbox" style={{ fontSize: '24px', display: 'block', marginBottom: SP.sm, opacity: 0.4 }} />
+                    No priorities configured yet
                   </div>
-                  <div className="ms-4 d-flex gap-3">
-                     <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleSubcategoryEdit(subcategory)}
-                    ></i>
-                    {/*<i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() =>
-                        handleDelete(subcategory.id, "subcategory")
-                      }
-                    ></i> */}
-                    {/* {subcategory.subCategories} */}
-                  </div>
-                </div>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
+            </div>
+          </ConfigSectionCard>
 
-      {/* Preset Tasks services */}
-      <div
-        className="card mt-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-           <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Preset Tasks</h5>
-            <button
-              onClick={handleServiceModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
-            >
-              New Preset Task
-            </button>
-          </div>
-          <div className="row mt-4">
-            {projectServices.map((stakeholder) => (
-              <div key={stakeholder.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    {/* <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: stakeholder.color,
-                      }}
-                    ></div> */}
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: "pointer"
-                    }} title={stakeholder.name}>{stakeholder.name.length > 10 ? `${stakeholder.name.slice(0, 14)}...` : stakeholder.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleServiceEdit(stakeholder)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={async () => {
-                        const confirmed = await deleteConfirmation(`Are you sure you want to delete "${stakeholder.name}"?`);
-                        if (confirmed) {
-                          try {
-                            await deletePresetTask(stakeholder.id);
-                            fetchProjectServices();
-                            successConfirmation("Preset Task deleted successfully");
-                          } catch (err) {
-                            alert('Failed to delete preset task.');
-                          }
+          {/* Preset Tasks Card */}
+          <ConfigSectionCard
+            title={`Preset Tasks (${projectServices.length})`}
+            description="Create and manage predefined task templates"
+            icon="bi-clipboard-check"
+            iconColor="amber"
+            badge={{ label: `${projectServices.length}`, color: C.amber, bg: C.amberLight }}
+            primaryAction={{
+              label: 'New Preset Task',
+              icon: 'bi-plus-lg',
+              onClick: handleServiceModalOpen,
+              variant: 'primary',
+            }}
+          >
+            <div style={{ marginTop: SP.md }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
+                {projectServices.map((task) => (
+                  <ItemChip
+                    key={task.id}
+                    item={task}
+                    onEdit={handleServiceEdit}
+                    onDelete={async (id: string) => {
+                      const item = projectServices.find(t => t.id === id);
+                      const confirmed = await deleteConfirmation(`Are you sure you want to delete "${item?.name}"?`);
+                      if (confirmed) {
+                        try {
+                          await deletePresetTask(id);
+                          fetchProjectServices();
+                          successConfirmation("Preset Task deleted successfully");
+                        } catch (err) {
+                          alert('Failed to delete preset task.');
                         }
-                      }}
-                    ></i>
-                    
+                      }
+                    }}
+                    showColor={false}
+                    showDelete={true}
+                  />
+                ))}
+                {projectServices.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted, fontFamily: FONT.body }}>
+                    <i className="bi bi-inbox" style={{ fontSize: '24px', display: 'block', marginBottom: SP.sm, opacity: 0.4 }} />
+                    No preset tasks configured yet
                   </div>
-                </div>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
+          </ConfigSectionCard>
         </div>
-      </div>
+      </ConfigPageLayout>
 
       {/* Modals */}
-      {/* Category Modal */}
+      {/* Task Status Modal */}
       <ProjectConfigForm
         show={showCategoryModal}
         onClose={handleCategoryModalClose}
@@ -598,7 +549,7 @@ const TasksConfigure = () => {
         title="Task Status"
       />
 
-      {/* Subcategory Modal */}
+      {/* Task Priority Modal */}
       <ProjectConfigForm
         show={showSubcategoryModal}
         onClose={handleSubcategoryModalClose}
@@ -606,10 +557,10 @@ const TasksConfigure = () => {
         initialData={editingSubcategory}
         isEditing={!!editingSubcategory}
         type="taskPriority"
-        title="Proirity"
+        title="Priority"
       />
 
-      {/* Service Modal */}
+      {/* Preset Task Modal */}
       <ProjectConfigForm
         show={showServiceModal}
         onClose={handleServiceModalClose}
@@ -619,11 +570,7 @@ const TasksConfigure = () => {
         isEditing={!!editingService}
         initialData={editingService}
       />
-
-      
-      {/* Delete Confirmation Modal for Project Services */}
-      {/* {serviceDeleteConfirmation.DeleteModal} */}
-    </div>
+    </>
   );
 };
 

@@ -171,23 +171,58 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
         };
     }, [tableName, employeeId]); // DO NOT include defaultPreferences here to prevent loops
 
-    // Reset default preferences when columns change - SEPARATE EFFECT
+    // Reconcile preferences when the SET of columns changes - SEPARATE EFFECT.
+    //
+    // IMPORTANT: reconcile on the *set* of accessorKeys (added / removed columns),
+    // NOT on their order. The previous version compared the ordered `columnOrder`
+    // arrays, but MRT persists its own column order (internal column ids + any user
+    // drag-reorder), so the saved order never equals the raw code order. That made
+    // this effect fire on *every* column-identity change (e.g. whenever a page's
+    // `columns` memo recomputes after a data fetch), wiping columnVisibility back to
+    // defaults. Combined with a page that refetches when visible columns change
+    // (onVisibleColumnsChange), that closed an infinite fetch⇄reset loop and also
+    // silently discarded the user's hidden-column choices.
     useEffect(() => {
         if (isInitialized && columns.length > 0) {
             setPreferences(prevPrefs => {
-                // Only update if columns actually changed
-                const newColumnOrder = columns.map(col => col.accessorKey).filter(Boolean);
-                const prevColumnOrder = prevPrefs.columnOrder;
-                
-                // Check if columns actually changed
-                if (JSON.stringify(newColumnOrder) !== JSON.stringify(prevColumnOrder)) {
-                    return {
-                        ...prevPrefs,
-                        ...defaultPreferences // Use new defaults when columns change
-                    };
+                const codeKeys: string[] = columns.map(col => col.accessorKey).filter(Boolean);
+                const codeKeySet = new Set(codeKeys);
+                const knownKeys = Object.keys(prevPrefs.columnVisibility || {});
+
+                const hasNewColumn = codeKeys.some(k => !(k in (prevPrefs.columnVisibility || {})));
+                const hasStaleColumn = knownKeys.some(k => !codeKeySet.has(k));
+
+                // Same set of columns (only reordered / same identity) → keep the
+                // user's persisted visibility, order, sizing, etc. untouched.
+                if (!hasNewColumn && !hasStaleColumn) {
+                    return prevPrefs;
                 }
-                
-                return prevPrefs; // No change needed
+
+                // Columns were genuinely added/removed: preserve every existing
+                // choice, add defaults only for brand-new columns, drop stale ones.
+                // ALSO: respect new meta.defaultVisible settings to apply new defaults
+                // when a column's visibility rule changes (e.g., meta.defaultVisible added).
+                const nextVisibility: Record<string, boolean> = {};
+                columns.forEach((col: any) => {
+                    const k = col.accessorKey;
+                    if (!k) return;
+                    const hasMeta = col.meta?.defaultVisible !== undefined;
+                    const isNewColumn = !(k in (prevPrefs.columnVisibility || {}));
+                    // If column has explicit meta.defaultVisible and is NOT brand-new,
+                    // apply the new meta rule (override any saved preference).
+                    if (hasMeta && !isNewColumn) {
+                        nextVisibility[k] = col.meta?.defaultVisible !== false;
+                    } else {
+                        nextVisibility[k] = k in (prevPrefs.columnVisibility || {})
+                            ? prevPrefs.columnVisibility[k]
+                            : col.meta?.defaultVisible !== false;
+                    }
+                });
+
+                return {
+                    ...prevPrefs,
+                    columnVisibility: nextVisibility,
+                };
             });
         }
     }, [columns, isInitialized]); // Don't include defaultPreferences

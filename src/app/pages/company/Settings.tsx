@@ -7,7 +7,7 @@ import RolesAndPermissions from './settings/RolesAndPermissions';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import GeneralSettings from './settings/GeneralSettings';
 import SandwichLeave from './settings/SandwhichLeave';
-import LeadsProjectCompanyChartSettings from './settings/LeadsProjectCompanyChartSettings';
+import ChartVisibilitySettings from './settings/ChartVisibilitySettings';
 
 const settingsBreadCrumb: Array<PageLink> = [
     {
@@ -189,7 +189,7 @@ function Settings() {
                     <img src={miscellaneousIcons.leftArrow} alt="" style={{width: "36px", height: "36px", cursor: 'pointer'}} onClick={handleCloseLeadsProjectsCompanyModal}/>
                     <h2 className='my-auto'>Chart Settings</h2>
                 </div>
-                <LeadsProjectCompanyChartSettings/>
+                <ChartVisibilitySettings/>
             </Modal.Body>
             </Modal> */}
 

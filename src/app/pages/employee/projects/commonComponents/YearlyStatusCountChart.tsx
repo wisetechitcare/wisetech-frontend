@@ -2,7 +2,7 @@
 import ReactApexChart from "react-apexcharts";
 import { Col, Card } from "react-bootstrap";
 import { ChartDialogModal } from "../../leads/overview/components/ChartDialogModal";
-import { ProjectDialogModal } from "../overview/components/ProjectDialogModal";
+
 import { Dayjs } from "dayjs";
 
 type TransformedSeriesItem = {
@@ -22,9 +22,11 @@ interface YearlyStatusCountChartProps {
   isThisLead?: boolean;
   isThisBelongsToLead?: boolean;
   isThisProjectModal?: boolean;
-  isThisCompanyTypeModal?: boolean; 
+  isThisCompanyTypeModal?: boolean;
   startDate?: Dayjs;
   endDate?: Dayjs;
+  // Project section (Received Leads): restrict drill-down table to received/project leads.
+  receivedOnly?: boolean;
 }
 
 const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
@@ -39,6 +41,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
   isThisCompanyTypeModal = false, // Add this new prop
   startDate,
   endDate,
+  receivedOnly = false,
 }) => {
   
   // Transform data for ApexCharts
@@ -55,26 +58,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
   const [monthlyStatusName, setMonthlyStatusName] = useState<string | null>(null);
   const [monthlyStatusId, setMonthlyStatusId] = useState<string | null>(null);
 
-  const [openCompanyType, setOpenCompanyType] = useState(false);
-  const [companyTypeName, setCompanyTypeName] = useState<string | null>(null);
-  const [companyTypeId, setCompanyTypeId] = useState<string | null>(null);
-
   const handleLocationChartClick = (selectedLabel: string, selectedId: string) => {
-    
-    if (isThisCompanyTypeModal) {
-      const companyTypeData = data?.find((item: any) => item.id === selectedId || item.label === selectedId);
-      
-      if (companyTypeData) {
-        setCompanyTypeName(selectedLabel);
-        setCompanyTypeId(selectedId);
-      } else {
-        setCompanyTypeName(selectedLabel);
-        setCompanyTypeId(selectedId);
-      }
-      setOpenCompanyType(true);
-      return;
-    }
-
     const monthlyStatus: any = data?.find(
       (location: any) => location.location === selectedLabel
     );
@@ -90,7 +74,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
 
   const options: ApexCharts.ApexOptions = {
     chart: {
-      type: "bar",
+      type: "area",
       stacked: stacked,
       events: {
         dataPointSelection: (event: any, chartContext: any, config: any) => {
@@ -120,27 +104,52 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
       },
     },
     colors: data.map((item) => item.color),
-    plotOptions: {
-      bar: {
-        horizontal: false,
-        columnWidth: "55%",
-        dataLabels: {
-          position: "center",
-        },
+    // Smooth trend line with a soft gradient fill — reads as a trend, not blocks.
+    stroke: {
+      curve: "smooth",
+      width: 3,
+    },
+    fill: {
+      type: "gradient",
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.4,
+        opacityTo: 0.05,
+        stops: [0, 90, 100],
       },
+    },
+    markers: {
+      size: 4,
+      strokeWidth: 2,
+      strokeColors: "#ffffff",
+      hover: { size: 7 },
+    },
+    grid: {
+      borderColor: "#EEF2F7",
+      strokeDashArray: 4,
+      yaxis: { lines: { show: true } },
+      xaxis: { lines: { show: false } },
     },
     dataLabels: {
       enabled: true,
       formatter: function (val: number, opts: any) {
-        if (val === 0) return "";
+        if (!val) return "";
         return val.toString();
       },
-      offsetY: 0,
+      offsetY: -8,
+      background: {
+        enabled: true,
+        foreColor: "#0F172A",
+        borderRadius: 6,
+        padding: 4,
+        opacity: 0.9,
+        borderWidth: 0,
+      } as any,
       style: {
-        fontSize: "14px",
-        fontWeight: "600",
+        fontSize: "12px",
+        fontWeight: "700",
         fontFamily: "Inter",
-        colors: ["#ffffff"],
+        colors: ["#0F172A"],
       },
     },
     xaxis: {
@@ -344,7 +353,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
                 <ReactApexChart
                   options={options}
                   series={series}
-                  type="bar"
+                  type="area"
                   width="100%"
                   height={height}
                 />
@@ -364,7 +373,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
                   }}
                 >
                   <div>
-                    <i className="bi bi-bar-chart" style={{ fontSize: "32px", color: "#9CAFC9" }}></i>
+                    <i className="bi bi-graph-up-arrow" style={{ fontSize: "32px", color: "#9CAFC9" }}></i>
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -399,34 +408,16 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
       </Card>
 
       {/* Location Modal */}
-      {isThisBelongsToLead && ( 
+      {isThisBelongsToLead && (
         <ChartDialogModal
           open={openMonthlyLeadByStatus}
           onClose={() => setOpenMonthlyLeadByStatus(false)}
           monthlyStatusName={monthlyStatusName || undefined}
           monthlyStatusId={monthlyStatusId || undefined}
+          receivedOnly={receivedOnly || undefined}
         />
       )}
 
-      {/* Project Modal */}
-      {isThisProjectModal && ( 
-        <ProjectDialogModal
-          open={openMonthlyLeadByStatus}
-          onClose={() => setOpenMonthlyLeadByStatus(false)}
-          monthlyStatusName={monthlyStatusName || undefined}
-          monthlyStatusId={monthlyStatusId || undefined}
-        />
-      )}
-
-      {/* Company Type Modal */}
-      {isThisCompanyTypeModal && (
-        <ProjectDialogModal
-          open={openCompanyType}
-          onClose={() => setOpenCompanyType(false)}
-          projectCompanyTypeName={companyTypeName || undefined}
-          projectCompanyTypeId={companyTypeId || undefined}
-        />
-      )}
     </>
   );
 };

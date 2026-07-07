@@ -9,8 +9,17 @@ import CompanyConfigForm from "./components/CompanyConfigForm";
 import { Container } from "react-bootstrap";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "../../../../../types/deleteConfirmation";
-import LeadsProjectCompanyChartSettings from "@pages/company/settings/LeadsProjectCompanyChartSettings";
+import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySettings";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
+import {
+  ConfigPageLayout,
+  ConfigSectionCard,
+  C,
+  FONT,
+  SP,
+  RADIUS,
+  KEYFRAMES,
+} from '@app/modules/configuration';
 // import { useContactConfig } from "@hooks/useContactConfig"; // Moved to ContactConfigMain
 
 
@@ -307,23 +316,119 @@ const CompanyConfigMain = () => {
       </Container>
     );
   }
-  
+
+  // Helper component for item chips
+  const ItemChip = ({ item, onEdit, onDelete, showColor = false }: any) => (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: C.bgSection,
+        padding: `${SP.sm} ${SP.md}`,
+        borderRadius: RADIUS.lg,
+        border: `1px solid ${C.border}`,
+        transition: 'all 0.2s ease',
+        cursor: 'pointer',
+        gap: SP.sm,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = C.bgCard;
+        e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = C.bgSection;
+        e.currentTarget.style.boxShadow = 'none';
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flex: 1, minWidth: 0 }}>
+        {showColor && item.color && (
+          <div
+            style={{
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              backgroundColor: item.color,
+              flexShrink: 0,
+            }}
+          />
+        )}
+        <span style={{
+          fontFamily: FONT.body,
+          fontSize: '13px',
+          color: C.textPrimary,
+          fontWeight: 500,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }} title={item.name}>
+          {item.name}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: SP.xs, flexShrink: 0 }}>
+        <button
+          onClick={() => onEdit(item)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: C.info,
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'color 0.2s ease',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.color = C.primary}
+          onMouseLeave={(e) => e.currentTarget.style.color = C.info}
+        >
+          <i className="bi bi-pencil" style={{ fontSize: '14px' }} />
+        </button>
+        <button
+          onClick={() => onDelete(item.id)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: C.danger,
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'color 0.2s ease',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.color = '#c41e3a'}
+          onMouseLeave={(e) => e.currentTarget.style.color = C.danger}
+        >
+          <i className="bi bi-trash" style={{ fontSize: '14px' }} />
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div>
-      {/* Configure Heading */}
-      <div className="d-flex pb-4" style={{ fontFamily: "Barlow", fontSize: "24px", fontWeight: "600" }}>Company Config</div>
+    <>
+      <style>{KEYFRAMES}</style>
+      <ConfigPageLayout
+        title="Company Configuration"
+        subtitle="Manage company settings, services, types, and rating factors"
+        icon="bi-building"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 
-      {/* Prefix Settings Card */}
-      <div className="card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <h5 className="card-title mb-4" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "16px" }}>Company Prefix Settings</h5>
-          <PrefixSettingsForm
-            typeLabel="Company"
-            typeValue="COMPANY"
-          />
-        </div>
-      </div>
+          {/* Prefix Settings Card */}
+          <ConfigSectionCard
+            title="Prefix Settings"
+            description="Configure company prefix for ID generation"
+            icon="bi-hash"
+            iconColor="primary"
+            compact={false}
+          >
+            <div style={{ marginTop: SP.md }}>
+              <PrefixSettingsForm
+                typeLabel="Company"
+                typeValue="COMPANY"
+              />
+            </div>
+          </ConfigSectionCard>
 
       {/* Unified Company Hierarchy: Type → Sub-type → Service → Sub-service */}
       <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
@@ -370,77 +475,42 @@ const CompanyConfigMain = () => {
         </div>
       </div>
 
-      {/* Rating Factor Card */}
-      <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Rating Factors </h5>
-            <button
-              onClick={handleRatingFactorModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Rating Factor
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {ratingFactors.map((ratingFactor: any) => (
-              <div key={ratingFactor.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: ratingFactor.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: 'pointer'
-                    }} title={ratingFactor.name}>{ratingFactor.name.length > 10 ? ratingFactor.name.slice(0, 10) + '...' : ratingFactor.name}</div>
+          {/* Rating Factors Card */}
+          <ConfigSectionCard
+            title={`Rating Factors (${ratingFactors.length})`}
+            description="Define rating factors for company evaluation"
+            icon="bi-star"
+            iconColor="amber"
+            badge={{ label: `${ratingFactors.length}`, color: C.amber, bg: C.amberLight }}
+            primaryAction={{
+              label: 'New Factor',
+              icon: 'bi-plus-lg',
+              onClick: handleRatingFactorModalOpen,
+              variant: 'primary',
+            }}
+          >
+            <div style={{ marginTop: SP.md }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
+                {ratingFactors.map((ratingFactor: any) => (
+                  <ItemChip
+                    key={ratingFactor.id}
+                    item={ratingFactor}
+                    onEdit={handleRatingFactorEdit}
+                    onDelete={handleRatingFactorDelete}
+                    showColor={true}
+                  />
+                ))}
+                {ratingFactors.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted, fontFamily: FONT.body }}>
+                    <i className="bi bi-inbox" style={{ fontSize: '24px', display: 'block', marginBottom: SP.sm, opacity: 0.4 }} />
+                    No factors configured yet
                   </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleRatingFactorEdit(ratingFactor)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleRatingFactorDelete(ratingFactor.id)}
-                    ></i>
-                  </div>
-                </div>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
+          </ConfigSectionCard>
         </div>
-      </div>
-
+      </ConfigPageLayout>
 
       {/* Modals */}
       <CompanyConfigForm
@@ -456,25 +526,6 @@ const CompanyConfigMain = () => {
         // resolves immediately instead of racing the form's own fetch on first open.
         companyTypes={companyTypes}
       />
-      {/* Contact-related modals moved to ContactConfigMain */}
-      {/* <CompanyConfigForm
-        show={showCompanyRoleTypeModal}
-        onClose={handleReferralTypeModalClose}
-        onSuccess={fetchContactRoleTypes}
-        initialData={editingCompanyRoleType}
-        isEditing={!!editingCompanyRoleType}
-        type="contact-role-type"
-        title="Contact Role Type"
-      />
-      <CompanyConfigForm
-        show={showContactStatusModal}
-        onClose={handleContactStatusModalClose}
-        onSuccess={fetchContactStatuses}
-        initialData={editingContactStatus}
-        isEditing={!!editingContactStatus}
-        type="contact-status"
-        title="Contact Status"
-      /> */}
       <CompanyConfigForm
         show={showRatingFactorModal}
         onClose={handleRatingFactorModalClose}
@@ -497,17 +548,7 @@ const CompanyConfigMain = () => {
 
       {/* Delete Confirmation Modal for Company Types */}
       {companyTypeDeleteConfirmation.DeleteModal}
-
-      {/* Delete Confirmation Modal for Contact Role Types - Now in ContactConfigMain */}
-      {/* {contactRoleTypeDeleteConfirmation.DeleteModal} */}
-
-
-      {/* <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">  
-          <LeadsProjectCompanyChartSettings type={PROJECT_CHART_SETTINGS_MODAL_TYPE.COMPANY}/>
-        </div>
-      </div> */}
-    </div>
+    </>
   );
 };
 

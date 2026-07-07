@@ -9,6 +9,7 @@ import {
 import { successConfirmation } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
+import { C, FONT, SP, RADIUS } from "@app/modules/configuration";
 
 interface EmployeeConfigItem {
   id: string;
@@ -124,13 +125,13 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
 
   return (
     <>
-      <Modal show={show} onHide={onClose} centered style={{ zIndex: 1500 }}>
+      <Modal show={show} onHide={onClose} centered backdropClassName="modal-backdrop-blur">
         <Modal.Header
           closeButton
-          style={{ borderBottom: "none", paddingBottom: "8px" }}
+          style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}
         >
           <Modal.Title
-            style={{ fontWeight: "600", fontSize: "18px", color: "#1a1a1a" }}
+            style={{ fontWeight: 600, fontSize: "18px", color: C.textPrimary, fontFamily: FONT.body }}
           >
             {isEditing ? "Edit" : "New"} {title}
           </Modal.Title>
@@ -143,18 +144,34 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
         >
           {({ values, setFieldValue }) => (
             <FormikForm>
-              <Modal.Body style={{ paddingTop: "16px" }}>
-                {error && <div className="alert alert-danger mb-3">{error}</div>}
+              <Modal.Body style={{ padding: SP.lg }}>
+                {error && (
+                  <div
+                    style={{
+                      backgroundColor: '#fee2e2',
+                      border: `1px solid #fecaca`,
+                      borderRadius: RADIUS.md,
+                      padding: SP.md,
+                      marginBottom: SP.lg,
+                      color: '#7f1d1d',
+                      fontFamily: FONT.body,
+                      fontSize: '14px',
+                    }}
+                  >
+                    {error}
+                  </div>
+                )}
 
                 {/* Name Input */}
-                <div className="mb-4">
+                <div style={{ marginBottom: SP.lg }}>
                   <label
-                    className="form-label"
                     style={{
-                      fontWeight: "500",
-                      color: "#1a1a1a",
+                      fontWeight: 500,
+                      color: C.textPrimary,
                       fontSize: "14px",
-                      marginBottom: "8px",
+                      marginBottom: SP.sm,
+                      display: 'block',
+                      fontFamily: FONT.body,
                     }}
                   >
                     {getFieldLabel(type)}
@@ -174,66 +191,79 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
                     placeholder={getFieldPlaceholder(type)}
                     className="form-control"
                     style={{
-                      backgroundColor: "#f8f9fa",
-                      border: "1px solid #e9ecef",
-                      borderRadius: "8px",
-                      padding: "12px 16px",
+                      backgroundColor: C.bgCard,
+                      border: `1px solid ${C.border}`,
+                      borderRadius: RADIUS.md,
+                      padding: SP.md,
                       fontSize: "14px",
-                      color: "#6c757d",
-                      fontFamily: "Inter, sans-serif",
+                      color: C.textPrimary,
+                      fontFamily: FONT.body,
                     }}
                     disabled={isSubmitting}
                   />
-                  <ErrorMessage
-                    name="name"
-                    component="div"
-                    className="text-danger mt-1"
-                  />
+                  <ErrorMessage name="name">
+                    {(msg: string) => (
+                      <div style={{ color: '#dc3545', marginTop: '4px', fontSize: '12px', fontFamily: FONT.body }}>
+                        {msg}
+                      </div>
+                    )}
+                  </ErrorMessage>
                 </div>
 
                 {/* Color Picker */}
-                <div className="mb-4">
+                <div style={{ marginBottom: SP.lg }}>
                   <label
-                    className="form-label"
                     style={{
-                      fontWeight: "500",
-                      color: "#1a1a1a",
+                      fontWeight: 500,
+                      color: C.textPrimary,
                       fontSize: "14px",
-                      marginBottom: "8px",
+                      marginBottom: SP.sm,
+                      display: 'block',
+                      fontFamily: FONT.body,
                     }}
                   >
                     Choose Color (Optional)
                   </label>
-                  <div className="position-relative">
+                  <div style={{ position: 'relative' }}>
                     <div
-                      className="d-flex align-items-center justify-content-between"
                       style={{
-                        backgroundColor: "#f8f9fa",
-                        border: "1px solid #e9ecef",
-                        borderRadius: "8px",
-                        padding: "12px 16px",
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: C.bgCard,
+                        border: `1px solid ${C.border}`,
+                        borderRadius: RADIUS.md,
+                        padding: SP.md,
                         cursor: "pointer",
                         fontSize: "14px",
-                        color: "#6c757d",
+                        color: C.textSecondary,
+                        transition: 'all 0.2s ease',
                       }}
                       onClick={() => document.getElementById("colorInput")?.click()}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = C.primary;
+                        e.currentTarget.style.backgroundColor = '#fafafa';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = C.border;
+                        e.currentTarget.style.backgroundColor = C.bgCard;
+                      }}
                     >
-                      <div className="d-flex align-items-center">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: SP.md }}>
                         <div
-                          className="rounded-circle me-3"
                           style={{
                             width: "20px",
                             height: "20px",
+                            borderRadius: '50%',
                             backgroundColor: values.color || "#8B4444",
-                            border: "2px solid #fff",
+                            border: `2px solid #fff`,
                             boxShadow: "0 0 0 1px rgba(0,0,0,0.1)",
                           }}
                         />
-                        <span>Choose Color</span>
+                        <span style={{ fontFamily: FONT.body }}>Choose Color</span>
                       </div>
                       <span
-                        className="text-uppercase fw-medium"
-                        style={{ fontSize: "12px", color: "#6c757d" }}
+                        style={{ fontSize: "12px", color: C.textMuted, fontFamily: FONT.body, fontWeight: 600 }}
                       >
                         {values.color || "#8B4444"}
                       </span>
@@ -256,30 +286,77 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
                       }}
                     />
                   </div>
-                  <ErrorMessage
-                    name="color"
-                    component="div"
-                    className="text-danger mt-1"
-                  />
+                  <ErrorMessage name="color">
+                    {(msg: string) => (
+                      <div style={{ color: '#dc3545', marginTop: '4px', fontSize: '12px', fontFamily: FONT.body }}>
+                        {msg}
+                      </div>
+                    )}
+                  </ErrorMessage>
                 </div>
               </Modal.Body>
 
-              <Modal.Footer style={{ borderTop: "none", paddingTop: "0" }}>
-                <Button
-                  variant="primary"
+              <Modal.Footer style={{ borderTop: `1px solid ${C.border}`, padding: `${SP.lg}`, gap: SP.md }}>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                  style={{
+                    backgroundColor: C.bgCard,
+                    color: C.textSecondary,
+                    border: `1px solid ${C.border}`,
+                    borderRadius: RADIUS.md,
+                    padding: `8px 16px`,
+                    fontFamily: FONT.body,
+                    fontWeight: 500,
+                    fontSize: "13px",
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    opacity: isSubmitting ? 0.6 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSubmitting) {
+                      e.currentTarget.style.backgroundColor = C.bgSection;
+                      e.currentTarget.style.borderColor = C.borderDark;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = C.bgCard;
+                    e.currentTarget.style.borderColor = C.border;
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
                   type="submit"
                   disabled={isSubmitting}
                   style={{
-                    backgroundColor: "#8B4444",
+                    backgroundColor: isSubmitting ? `${C.primary}80` : C.primary,
+                    color: "#fff",
                     border: "none",
-                    borderRadius: "8px",
-                    padding: "10px 24px",
-                    fontWeight: "500",
-                    fontSize: "14px",
+                    borderRadius: RADIUS.md,
+                    padding: "8px 16px",
+                    fontFamily: FONT.body,
+                    fontWeight: 600,
+                    fontSize: "13px",
+                    cursor: isSubmitting ? "not-allowed" : "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSubmitting) {
+                      e.currentTarget.style.backgroundColor = C.primaryMid;
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = C.primary;
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
                   {isSubmitting ? "Saving..." : isEditing ? "Update" : "Save"}
-                </Button>
+                </button>
               </Modal.Footer>
             </FormikForm>
           )}
@@ -290,19 +367,20 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
         .form-control:focus,
         .form-select:focus {
           background-color: #fff !important;
-          border-color: #8b4444 !important;
-          box-shadow: 0 0 0 0.2rem rgba(139, 68, 68, 0.1) !important;
-          color: #495057 !important;
+          border-color: ${C.primary} !important;
+          box-shadow: 0 0 0 0.2rem rgba(157, 65, 65, 0.1) !important;
+          color: ${C.textPrimary} !important;
         }
 
         .form-control::placeholder {
-          color: #adb5bd !important;
+          color: ${C.textMuted} !important;
         }
 
         .modal-content {
-          border-radius: 12px !important;
+          border-radius: ${RADIUS.lg} !important;
           border: none !important;
-          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1) !important;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+          background-color: #fff !important;
         }
 
         .btn-close {
@@ -310,18 +388,9 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
           opacity: 0.6 !important;
         }
 
-        .btn-primary:hover {
-          background-color: #7a3a3a !important;
-        }
-
-        .btn-secondary:hover {
-          background-color: #5a6268 !important;
-        }
-
-        .btn-primary:disabled,
-        .btn-secondary:disabled {
-          background-color: #ccc !important;
-          opacity: 0.6 !important;
+        .modal-backdrop-blur {
+          background-color: rgba(0, 0, 0, 0.2);
+          backdrop-filter: blur(2px);
         }
       `}</style>
     </>
