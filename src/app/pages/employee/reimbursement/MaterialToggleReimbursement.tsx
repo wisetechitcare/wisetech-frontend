@@ -40,6 +40,8 @@ interface MaterialToggleProps {
   checkOwnWithOthers?: boolean,
   /** When 'submissions', renders a batch/submission-level table instead of request-level rows. */
   viewMode?: 'requests' | 'submissions',
+  /** Optional element rendered between the toggle group and the date selector. */
+  actionSlot?: React.ReactNode,
 }
 
 const MaterialToggleReimbursement = ({
@@ -55,6 +57,7 @@ const MaterialToggleReimbursement = ({
   viewOthers = false,
   checkOwnWithOthers = false,
   viewMode = 'requests',
+  actionSlot,
 }: MaterialToggleProps) => {
 
   const dispatch = useDispatch();
@@ -167,41 +170,45 @@ const MaterialToggleReimbursement = ({
           <ToggleButton value="allTime">All Time</ToggleButton>
         </ToggleButtonGroup>
 
-        {alignment == "monthly" && (
-          <DateSelector
-            onPrevious={() => {
-              const newMonth = month.subtract(1, "month");
-              handleDatesChange("decrement", "month", setMonth);
-              toggleItemsActions?.monthly(newMonth);
-              onPeriodChange?.('monthly', newMonth);
-            }}
-            onNext={() => {
-              const newMonth = month.add(1, "month");
-              handleDatesChange("increment", "month", setMonth);
-              toggleItemsActions?.monthly(newMonth);
-              onPeriodChange?.('monthly', newMonth);
-            }}
-            displayValue={month.format("MMM YYYY")}
-          />
-        )}
+        <div className="d-flex align-items-center gap-3">
+          {actionSlot}
 
-        {alignment == "yearly" && (
-          <DateSelector
-            onPrevious={() => {
-              const newYear = year.subtract(1, "year");
-              handleDatesChange("decrement", "year", setYear);
-              toggleItemsActions?.yearly(newYear);
-              onPeriodChange?.('yearly', newYear);
-            }}
-            onNext={() => {
-              const newYear = year.add(1, "year");
-              handleDatesChange("increment", "year", setYear);
-              toggleItemsActions?.yearly(newYear);
-              onPeriodChange?.('yearly', newYear);
-            }}
-            displayValue={formatFiscalYearLabel(fiscalYear)}
-          />
-        )}
+          {alignment == "monthly" && (
+            <DateSelector
+              onPrevious={() => {
+                const newMonth = month.subtract(1, "month");
+                handleDatesChange("decrement", "month", setMonth);
+                toggleItemsActions?.monthly(newMonth);
+                onPeriodChange?.('monthly', newMonth);
+              }}
+              onNext={() => {
+                const newMonth = month.add(1, "month");
+                handleDatesChange("increment", "month", setMonth);
+                toggleItemsActions?.monthly(newMonth);
+                onPeriodChange?.('monthly', newMonth);
+              }}
+              displayValue={month.format("MMM YYYY")}
+            />
+          )}
+
+          {alignment == "yearly" && (
+            <DateSelector
+              onPrevious={() => {
+                const newYear = year.subtract(1, "year");
+                handleDatesChange("decrement", "year", setYear);
+                toggleItemsActions?.yearly(newYear);
+                onPeriodChange?.('yearly', newYear);
+              }}
+              onNext={() => {
+                const newYear = year.add(1, "year");
+                handleDatesChange("increment", "year", setYear);
+                toggleItemsActions?.yearly(newYear);
+                onPeriodChange?.('yearly', newYear);
+              }}
+              displayValue={formatFiscalYearLabel(fiscalYear)}
+            />
+          )}
+        </div>
       </div>
 
       {viewMode === 'submissions' ? (

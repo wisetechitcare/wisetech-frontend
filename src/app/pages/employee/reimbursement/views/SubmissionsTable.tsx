@@ -4,13 +4,16 @@ import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { MRT_ColumnDef } from 'material-react-table';
 import { Modal } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
-import { IReimbursementsUpdate } from '@models/employee';
+import { IReimbursementsUpdate, IReimbursementPayment } from '@models/employee';
 import ReimbursementEditModal from '../components/ReimbursementEditModal';
 import {
   fetchReimbursementBatches,
   fetchReimbursementBatchById,
   deleteEmployeeReimbursement,
   fetchApprovalInstanceByRequest,
+  fetchApprovalStatus,
+  fetchReimbursementPayments,
+  downloadReimbursementBillPdf,
 } from '@services/employee';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { deleteConfirmation } from '@utils/modal';
@@ -174,6 +177,12 @@ function SubmissionDetailModal({
   const [approvalInstanceId, setApprovalInstanceId] = useState<string | null>(null);
   const [pendingEditRow, setPendingEditRow] = useState<IReimbursementsUpdate | null>(null);
   const [showPartialApprovalWarning, setShowPartialApprovalWarning] = useState(false);
+  const [downloadingBill, setDownloadingBill] = useState(false);
+
+  const currentCompanyId = useSelector((state: RootState) => state.company?.currentCompany?.id || '');
+  const subOrganization   = useSelector((state: RootState) => state.company?.currentCompany?.name || '');
+  const empDepartment     = useSelector((state: RootState) => state.employee.currentEmployee.departments?.name || '');
+  const empRole           = useSelector((state: RootState) => state.employee.currentEmployee.designations?.role || '');
 
   const isPartiallyApproved = approvalCurrentLevel > 1;
 
@@ -247,6 +256,7 @@ function SubmissionDetailModal({
         accessorKey: 'expenseDate',
         header: 'Date',
         enableColumnActions: false,
+        muiTableHeadCellProps: { sx: { backgroundColor: '#aa393d', color: '#ffffff', fontWeight: 700 } },
         Cell: ({ row }: any) => fmtDate(row.original.expenseDate),
         Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
       },
@@ -273,6 +283,7 @@ function SubmissionDetailModal({
         accessorKey: 'client',
         header: 'Company Name',
         enableColumnActions: false,
+        muiTableHeadCellProps: { sx: { backgroundColor: '#aa393d', color: '#ffffff', fontWeight: 700 } },
         Cell: ({ row }: any) =>
           row.original.clientCompany?.companyName ||
           resolveClientCompany(row.original.clientCompanyId) ||
@@ -282,6 +293,7 @@ function SubmissionDetailModal({
         accessorKey: 'project',
         header: 'Project Name',
         enableColumnActions: false,
+        muiTableHeadCellProps: { sx: { backgroundColor: '#aa393d', color: '#ffffff', fontWeight: 700 } },
         Cell: ({ row }: any) =>
           row.original.project?.title || resolveProject(row.original.projectId) || 'N/A',
       },
@@ -289,12 +301,14 @@ function SubmissionDetailModal({
         accessorKey: 'type',
         header: 'Type',
         enableColumnActions: false,
+        muiTableHeadCellProps: { sx: { backgroundColor: '#aa393d', color: '#ffffff', fontWeight: 700 } },
         Cell: ({ row }: any) => row.original.reimbursementType?.type || row.original.type || 'N/A',
       },
       {
         accessorKey: 'amount',
         header: 'Amount',
         enableColumnActions: false,
+        muiTableHeadCellProps: { sx: { backgroundColor: '#aa393d', color: '#ffffff', fontWeight: 700 } },
         Cell: ({ row }: any) => `₹${fmtAmount(row.original.amount)}`,
         Footer: () => <span className="fw-bold">₹{fmtAmount(detailTotal)}</span>,
       },
@@ -302,18 +316,21 @@ function SubmissionDetailModal({
         accessorKey: 'fromLocation',
         header: 'From Location',
         enableColumnActions: false,
+        muiTableHeadCellProps: { sx: { backgroundColor: '#aa393d', color: '#ffffff', fontWeight: 700 } },
         Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
       },
       {
         accessorKey: 'toLocation',
         header: 'To Location',
         enableColumnActions: false,
+        muiTableHeadCellProps: { sx: { backgroundColor: '#aa393d', color: '#ffffff', fontWeight: 700 } },
         Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
       },
       {
         accessorKey: 'description',
-        header: 'Note',
+        header: 'Remark',
         enableColumnActions: false,
+        muiTableHeadCellProps: { sx: { backgroundColor: '#aa393d', color: '#ffffff', fontWeight: 700 } },
         Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
       },
       {
@@ -502,6 +519,27 @@ function SubmissionDetailModal({
     ],
   );
 
+  const handleDownloadBill = async () => {
+    if (!batch?.id) return;
+    setDownloadingBill(true);
+    try {
+      const blob = await downloadReimbursementBillPdf(batch.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Reimbursement_Bill_${batch.submissionId || batch.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('❌ PDF Download Error:', error);
+      alert('Failed to download reimbursement bill. Please try again.');
+    } finally {
+      setDownloadingBill(false);
+    }
+  };
+
   return (
     <>
       <style>{`.submission-detail-modal { max-width: 90vw !important; width: 95vw; }`}</style>
@@ -513,16 +551,52 @@ function SubmissionDetailModal({
         dialogClassName="submission-detail-modal"
       >
         <Modal.Header closeButton>
-          <div>
-            <Modal.Title className="fs-4 fw-bold">
-              Submission Details — {batch?.submissionId || ''}
-            </Modal.Title>
-            {batch && (
-              <div className="text-muted fs-7 mt-1">
-                {displayedReimbursements.length} request{displayedReimbursements.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
-                ₹{fmtAmount(detailTotal)} total&nbsp;·&nbsp;Submitted{' '}
-                {fmtDate(batch.submittedAt)}
-              </div>
+          <div className="d-flex align-items-center gap-3 flex-grow-1 pe-2">
+            <div>
+              <Modal.Title className="fs-4 fw-bold">
+                Submission Details — {batch?.submissionId || ''}
+              </Modal.Title>
+              {batch && (
+                <div className="text-muted fs-7 mt-1">
+                  {displayedReimbursements.length} request{displayedReimbursements.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
+                  ₹{fmtAmount(detailTotal)} total&nbsp;·&nbsp;Submitted{' '}
+                  {fmtDate(batch.submittedAt)}
+                </div>
+              )}
+            </div>
+            {batch && displayedReimbursements.some(r => resolveStatusNum(r.status) === 1) && (
+              <button
+                className="btn d-flex align-items-center gap-2 px-3 ms-auto"
+                style={{
+                  height: '35px',
+                  background: '#aa393d',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: downloadingBill ? 'not-allowed' : 'pointer',
+                  pointerEvents: 'auto',
+                }}
+                onClick={handleDownloadBill}
+                disabled={downloadingBill || loading}
+                title="Download Reimbursement Bill"
+              >
+                {downloadingBill ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm" />
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                    <span>Download Slip</span>
+                  </>
+                )}
+              </button>
             )}
           </div>
         </Modal.Header>

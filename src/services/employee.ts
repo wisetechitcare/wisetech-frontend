@@ -1392,6 +1392,32 @@ export const fetchApprovalInstanceByRequest = async (requestModel: string, reque
     return data;
 }
 
+// Download reimbursement bill PDF for a batch (returns a Blob).
+// Uses the shared axios instance so the auth interceptor attaches the Bearer token.
+export const downloadReimbursementBillPdf = async (batchId: string): Promise<Blob> => {
+    const endpoint = `${API_BASE_URL}/api/reimbursements/${batchId}/download-bill`;
+    const { data } = await axios.get(endpoint, { responseType: 'blob' });
+    return data;
+}
+
+// Download a consolidated reimbursement bill PDF for an employee over a period.
+// from/to are ISO dates (YYYY-MM-DD); omit for an all-time bill.
+export const downloadEmployeePeriodBillPdf = async (
+    employeeId: string,
+    params?: { from?: string; to?: string; label?: string },
+): Promise<Blob> => {
+    const endpoint = `${API_BASE_URL}/api/reimbursements/employee/${employeeId}/download-bill`;
+    const { data } = await axios.get(endpoint, {
+        params: {
+            ...(params?.from ? { from: params.from } : {}),
+            ...(params?.to ? { to: params.to } : {}),
+            ...(params?.label ? { label: params.label } : {}),
+        },
+        responseType: 'blob',
+    });
+    return data;
+}
+
 export const fetchMyApprovees = async () => {
     const { data } = await axios.get(`${API_BASE_URL}/api/approvals/my-approvees`);
     return data;

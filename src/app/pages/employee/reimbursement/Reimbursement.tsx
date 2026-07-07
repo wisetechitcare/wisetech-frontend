@@ -24,7 +24,7 @@ import {
   fetchEmpMonthlyReimbursements,
   fetchEmpYearlyReimbursements,
 } from "@utils/statistics";
-import { IReimbursementsCreate, IReimbursementsFetch, IReimbursementsUpdate } from "@models/employee";
+import { IReimbursementsCreate, IReimbursementsFetch, IReimbursementsUpdate, IReimbursementPayment } from "@models/employee";
 import { Modal } from "react-bootstrap";
 import { Form, Formik, FormikValues, useField } from "formik";
 import { Option } from "@models/dropdown";
@@ -34,7 +34,9 @@ import DateInput from "@app/modules/common/inputs/DateInput";
 import { createNewTowns, fetchAllReimbursementTypes, fetchAllTowns } from "@services/options";
 import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropdown";
 import { uploadUserAsset } from "@services/uploader";
-import { createPendingReimbursementDraft, updatePendingReimbursementDraft, updateReimbursementById } from "@services/employee";
+import { createPendingReimbursementDraft, updatePendingReimbursementDraft, updateReimbursementById, fetchReimbursementBatches, fetchApprovalInstanceByRequest, fetchApprovalStatus, fetchReimbursementPayments, downloadEmployeePeriodBillPdf } from "@services/employee";
+import { fetchBranchById, fetchCompanyLogo, fetchCompanyOverview, fetchOrganizationById } from "@services/company";
+import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import ReimbursementPaymentHistoryTable from "./components/ReimbursementPaymentHistoryTable";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
@@ -123,7 +125,30 @@ function Reimbursement() {
   const employeeCode = useSelector(
     (state: RootState) => state.employee.currentEmployee.employeeCode
   );
+  const empDepartment = useSelector(
+    (state: RootState) => state.employee.currentEmployee.departments?.name || ''
+  );
+  const empRole = useSelector(
+    (state: RootState) => state.employee.currentEmployee.designations?.role || ''
+  );
+  const subOrganization = useSelector(
+    (state: RootState) => state.company?.currentCompany?.name || ''
+  );
+  const currentCompanyId = useSelector(
+    (state: RootState) => state.company?.currentCompany?.id || ''
+  );
+  const branchId = useSelector(
+    (state: RootState) => (state.employee.currentEmployee as any)?.branchId || ''
+  );
   const authUser = useSelector((state: RootState) => state.auth.currentUser);
+
+  const [companyLogoUrl, setCompanyLogoUrl]   = useState('');
+  const [companyName_, setCompanyName_]       = useState('');
+  const [companyAddress_, setCompanyAddress_] = useState('');
+  const [companyPhone_, setCompanyPhone_]     = useState('');
+  const [companyWeb_, setCompanyWeb_]         = useState('');
+  const [companyCIN_, setCompanyCIN_]         = useState('');
+  const [companyGST_, setCompanyGST_]         = useState('');
   const employeeName = `${authUser.firstName ?? ''} ${authUser.lastName ?? ''}`.trim();
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
 
@@ -208,6 +233,46 @@ function Reimbursement() {
     fetchAllReimbursementsTypesData();
     loadClientTypeAndCompanyData();
   }, []);
+
+  useEffect(() => {
+    const loadCompanyInfo = async () => {
+      try {
+        let overview: any = null;
+        if (currentCompanyId) {
+          const r = await fetchOrganizationById(currentCompanyId);
+          const list = r?.data?.companyOverview;
+          overview = Array.isArray(list) ? list[0] : list;
+        } else {
+          const r = await fetchCompanyOverview();
+          const list = r?.data?.companyOverview;
+          overview = Array.isArray(list) ? list[0] : list;
+        }
+        if (overview) {
+          setCompanyLogoUrl(overview.logo || '');
+          setCompanyName_(overview.name || '');
+          setCompanyPhone_(overview.contactNumber || '');
+          setCompanyWeb_(overview.websiteUrl || '');
+          setCompanyCIN_(overview.certificateOfIncorporation || '');
+          setCompanyGST_(overview.gstNumber || '');
+        } else {
+          // fallback: fetch global logo separately
+          const logoRes = await fetchCompanyLogo();
+          setCompanyLogoUrl(logoRes?.data?.logo || '');
+        }
+      } catch {
+        fetchCompanyLogo().then((r: any) => setCompanyLogoUrl(r?.data?.logo || '')).catch(() => {});
+      }
+    };
+    loadCompanyInfo();
+  }, [currentCompanyId]);
+
+  useEffect(() => {
+    if (branchId) {
+      fetchBranchById(branchId).then((r: any) => {
+        setCompanyAddress_(r?.data?.branch?.address || '');
+      }).catch(() => {});
+    }
+  }, [branchId]);
 
   const fetchAllReimbursementsTypesData = async () => {
     const reimbursementResponse = await fetchAllReimbursementTypesFromDb();
@@ -424,6 +489,61 @@ function Reimbursement() {
     setCurrentPeriod({ alignment, date });
   };
 
+  const [downloadingBill, setDownloadingBill] = useState(false);
+
+  const handleDownloadBill = async () => {
+    if (!employeeId) {
+      alert('Employee information is unavailable.');
+      return;
+    }
+
+    const hasApproved = reimbursementData.some((r) => r.status === 'Approved');
+    if (!hasApproved) {
+      alert('No approved reimbursements found for the selected period.');
+      return;
+    }
+
+    setDownloadingBill(true);
+    try {
+      const { alignment, date } = currentPeriod;
+
+      let from: string | undefined;
+      let to: string | undefined;
+      let label = 'All Time';
+
+      if (alignment === 'monthly') {
+        from = date.startOf('month').format('YYYY-MM-DD');
+        to = date.endOf('month').format('YYYY-MM-DD');
+        label = date.format('MMM YYYY');
+      } else if (alignment === 'yearly') {
+        try {
+          const fy = await generateFiscalYearFromGivenYear(date);
+          from = fy.startDate ? dayjs(fy.startDate).format('YYYY-MM-DD') : date.startOf('year').format('YYYY-MM-DD');
+          to = fy.endDate ? dayjs(fy.endDate).format('YYYY-MM-DD') : date.endOf('year').format('YYYY-MM-DD');
+        } catch {
+          from = date.startOf('year').format('YYYY-MM-DD');
+          to = date.endOf('year').format('YYYY-MM-DD');
+        }
+        label = `FY ${date.format('YYYY')}`;
+      }
+
+      const blob = await downloadEmployeePeriodBillPdf(employeeId, { from, to, label });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Reimbursement_Bill_${label.replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('❌ PDF Download Error:', error);
+      alert('Failed to download reimbursement bill. Please try again.');
+    } finally {
+      setDownloadingBill(false);
+    }
+  };
+
   const handleClose = () => {
     setShow(false);
     setEditMode(false);
@@ -570,6 +690,40 @@ function Reimbursement() {
         viewOthers={false}
         viewMode="submissions"
         selectedEmployeeId={employeeId}
+        actionSlot={
+          <button
+            className="btn d-flex align-items-center gap-2 px-3"
+            style={{
+              height: '35px',
+              background: '#aa393d',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: downloadingBill ? 'not-allowed' : 'pointer',
+              pointerEvents: 'auto',
+            }}
+            onClick={handleDownloadBill}
+            disabled={downloadingBill}
+            title="Download Reimbursement Slip"
+          >
+            {downloadingBill ? (
+              <>
+                <span className="spinner-border spinner-border-sm" />
+                <span>Generating...</span>
+              </>
+            ) : (
+              <>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span>Download Reimbursement Slip</span>
+              </>
+            )}
+          </button>
+        }
       />
 
       {employeeId && (
