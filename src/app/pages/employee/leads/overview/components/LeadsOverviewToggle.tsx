@@ -257,6 +257,7 @@ const LeadsOverviewToggle = ({
           options={[
             { label: 'Monthly', value: 'monthly' },
             { label: 'Yearly', value: 'yearly' },
+            { label: 'All Time', value: 'alltime' },
             { label: 'Custom', value: 'custom' },
           ]}
           onChange={(val) => handleChange(null as any, val)}

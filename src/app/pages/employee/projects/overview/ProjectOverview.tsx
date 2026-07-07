@@ -68,12 +68,16 @@ const ProjectOverview = () => {
       ? monthStart
       : alignment === "yearly"
       ? yearStart
+      : alignment === "alltime"
+      ? dayjs("2000-01-01")
       : customStartDate ?? null;
   const activeEnd: Dayjs | null =
     alignment === "monthly"
       ? monthEnd
       : alignment === "yearly"
       ? yearEnd
+      : alignment === "alltime"
+      ? dayjs("2099-12-31")
       : customEndDate ?? null;
 
   const startDate = activeStart ?? undefined;
@@ -338,6 +342,7 @@ const ProjectOverview = () => {
           options={[
             { label: "Monthly", value: "monthly" },
             { label: "Yearly", value: "yearly" },
+            { label: "All Time", value: "alltime" },
             { label: "Custom", value: "custom" },
           ]}
           onChange={(val) => setAlignment(val)}
@@ -360,6 +365,12 @@ const ProjectOverview = () => {
               onPrevious={() => navigateYear("prev")}
               onNext={() => navigateYear("next")}
             />
+          )}
+
+          {alignment === "alltime" && (
+            <div style={{ textAlign: "center", opacity: 0.7, fontSize: "14px" }}>
+              All-Time Summary
+            </div>
           )}
 
           {alignment === "custom" && (

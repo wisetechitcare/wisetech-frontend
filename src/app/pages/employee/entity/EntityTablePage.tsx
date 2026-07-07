@@ -12,6 +12,7 @@ import {
   TextField,
   InputAdornment,
 } from "@mui/material";
+import { getRowBackgroundColor } from "@app/modules/common/design-tokens";
 import { deleteLead, getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
@@ -575,7 +576,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             // Lead-as-master: project-only fields live on the 1:1 execution
             // extension + lead scalars now; the legacy `project` row is a fallback.
             projectId: lead?.projectId || project?.id || "",
-            projectPrefix: project?.prefix || "",
+            projectPrefix: lead?.originalProjectPrefix || project?.prefix || "",
             projectStatus: exec?.projectStatus || project?.status || null,
             projectStartDate: lead?.startDate || project?.startDate || "",
             projectEndDate: lead?.endDate || project?.endDate || "",
@@ -769,8 +770,13 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         Cell: ({ row }: any) => {
           const st = row?.original?.status;
           return st?.name ? (
-            <div className="badge badge-light" style={{ backgroundColor: st.color, color: "white" }}>
-              {st.name}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              backgroundColor: st.color || '#64748B',
+              borderRadius: '16px', padding: '4px 10px 4px 8px',
+            }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#fff' }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#fff' }}>{st.name}</span>
             </div>
           ) : (
             "N/A"
@@ -845,8 +851,13 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           Cell: ({ row }: any) => {
             const st = row?.original?.projectStatus;
             return st?.name ? (
-              <div className="badge badge-light" style={{ backgroundColor: st.color || "#64748B", color: "white" }}>
-                {st.name}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                backgroundColor: st.color || '#64748B',
+                borderRadius: '16px', padding: '4px 10px 4px 8px',
+              }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#fff' }} />
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#fff' }}>{st.name}</span>
               </div>
             ) : (
               "N/A"
@@ -1314,12 +1325,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
 
   // Row tint: project phase wins for project rows, lead-status color otherwise.
   const rowBackground = (row: any) => {
-    if (row?.isProject) {
-      if (row.isDelayed) return "#FFF1F320";
-      const t = PHASE_THEMES[row.entityPhase as keyof typeof PHASE_THEMES];
-      return t ? `${t.bg}` : `${row?.status?.color}20`;
-    }
-    return `${row?.status?.color}20`;
+    const statusColor = row?.isProject ? row?.projectStatus?.color : row?.status?.color;
+    return statusColor ? `${statusColor}20` : "#F1F5F9";
   };
 
   return (

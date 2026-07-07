@@ -24,6 +24,9 @@ import SummarySection from './detail/sections/SummarySection';
 import { TasksTab, TimesheetTab, ReimbursementTab } from './detail/sections/ProjectModuleTabs';
 import DocumentsTab from './detail/sections/DocumentsTab';
 import AuditSection from './detail/sections/AuditSection';
+import TeamsSection from './detail/sections/TeamsSection';
+import BillingSection from './detail/sections/BillingSection';
+import ProjectStatusControl from './detail/ProjectStatusControl';
 
 /**
  * Unified Entity detail page. ONE entity, ONE page. The Lead is the master; the
@@ -145,6 +148,10 @@ const EntityDetailPage: React.FC = () => {
         return <DocumentsTab lead={lead} vm={vm} isProject={isProject} projectId={projectId} onExport={() => setShowProposalModal(true)} />;
       case 'audit':
         return <AuditSection leadId={leadId} isProject={isProject} projectId={projectId} onChanged={fetchLeadDetails} />;
+      case 'teams':
+        return <TeamsSection lead={lead} />;
+      case 'billing':
+        return <BillingSection lead={lead} />;
       default:
         return null;
     }
@@ -172,19 +179,12 @@ const EntityDetailPage: React.FC = () => {
               </button>
               <div className="flex-grow-1">
                 <div className="text-muted small font-inter d-flex align-items-center flex-wrap gap-2">
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: isProject ? phaseTheme.bg : '#F1F5F9', color: isProject ? phaseTheme.fg : '#475569', borderRadius: '999px', padding: '3px 12px', fontSize: '11px', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: isProject ? phaseTheme.fg : '#475569', display: 'inline-block' }} />
-                    {isProject ? `LEAD → PROJECT · ${phaseTheme.label.toUpperCase()}` : 'LEAD'}
-                  </span>
                   <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '13px' }}>{`#${lead?.prefix || 'N/A'}`}</span>
                   {isProject && lead?.project?.prefix && (
                     <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '13px', color: '#0A5C2A' }}>· {`Project #${lead.project.prefix}`}</span>
                   )}
                   {(lead?.revisionCount !== undefined && lead?.revisionCount !== null) && (
                     <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '13px', color: '#64748B' }}>· {`R${lead.revisionCount}`}</span>
-                  )}
-                  {lead?.status?.name && (
-                    <span className="badge" style={{ backgroundColor: lead.status.color || '#64748B', color: '#fff', fontSize: '10px' }}>{lead.status.name}</span>
                   )}
                 </div>
                 <div className="d-flex align-items-center gap-2">
@@ -200,6 +200,30 @@ const EntityDetailPage: React.FC = () => {
             </div>
 
             <div className="d-flex align-items-center gap-2 flex-wrap">
+              {isProject ? (
+                <ProjectStatusControl
+                  leadId={leadId!}
+                  projectStatusId={lead?.execution?.projectStatusId}
+                  projectStatus={lead?.execution?.projectStatus}
+                  onChanged={fetchLeadDetails}
+                  prefix="Project - "
+                />
+              ) : (
+                <button
+                  disabled
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    border: `1px solid ${lead?.status?.color || '#64748B'}44`, 
+                    background: `${lead?.status?.color || '#64748B'}12`, 
+                    color: lead?.status?.color || '#64748B',
+                    borderRadius: 999, padding: '7px 14px', cursor: 'default',
+                    fontFamily: 'Inter, sans-serif', fontSize: 12.5, fontWeight: 700,
+                  }}
+                >
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: lead?.status?.color || '#64748B', display: 'inline-block' }} />
+                  Lead - {lead?.status?.name || 'Set status'}
+                </button>
+              )}
               <Button variant="primary" onClick={openEdit} style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}>
                 <KTIcon iconName="pencil" className="fs-2" /> Edit
               </Button>

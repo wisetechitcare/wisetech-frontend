@@ -59,7 +59,10 @@ export type LeadSectionKey =
     | 'financials'
     | 'timeline'
     | 'purchaseOrder'
-    | 'handledBy';
+    | 'handledBy'
+    | 'internalTeam'
+    | 'externalTeam'
+    | 'projectStatus';
 
 export const updateLeadSection = (
     id: string,
