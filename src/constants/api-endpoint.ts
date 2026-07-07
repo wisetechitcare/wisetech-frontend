@@ -408,6 +408,7 @@ export const LEAD_PROJECT_COMPANY = {
     DELETE_PROJECT: 'api/lead-project-companies/projects/:id',
 
     GET_PROJECTS_BY_COMPANY_ID: "api/lead-project-companies/projects/company/:companyId",
+    GET_PROJECTS_BY_EMPLOYEE_ID: "api/lead-project-companies/projects/employee/:employeeId",
     GET_RATING_BY_COMPANY_ID: "api/lead-project-companies/company/rating/:companyId",
     GET_LEADS_BY_COMPANY_ID: "api/lead-project-companies/company/leads/:companyId",
 
