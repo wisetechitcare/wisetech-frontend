@@ -1,4 +1,4 @@
-1import { FC, lazy, Suspense, useEffect, useState } from 'react'
+import { FC, lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { MasterLayout } from '../../_metronic/layout/MasterLayout'
 import TopBarProgress from 'react-topbar-progress-indicator'
@@ -45,6 +45,7 @@ const LoanDetails = lazy(() => import('@pages/employee/loans/personal/views/Loan
 const EmployeesLoanMain = lazy(() => import('@pages/employee/loans/admin/EmployeesLoanMain'))
 const PersonalKpiMain = lazy(() => import('@pages/employee/kpis/personal/PersonalKpiMain'))
 const LeadsMain = lazy(() => import('@pages/employee/leads/LeadsMain'))
+const LeadDetails = lazy(() => import('@modules/crm/leads/pages/LeadDetailPage'))
 // Opt-in beta: migrated EnterpriseForm wizard (parallel to classic LeadFormModal)
 const LeadWizardBetaPage = lazy(() => import('@pages/employee/leads/lead/LeadWizardBetaPage'))
 const ProjectsMain = lazy(() => import('@pages/employee/projects/ProjectsMain'))

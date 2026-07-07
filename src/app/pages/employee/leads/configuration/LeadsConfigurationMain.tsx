@@ -41,8 +41,8 @@ interface ColorChipProps {
   name: string;
   color: string;
   badge?: string;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 const ColorChip: React.FC<ColorChipProps> = ({ name, color, badge, onEdit, onDelete }) => {
@@ -592,7 +592,7 @@ const LeadsConfigurationMain = () => {
                         name={r.reason}
                         color={r.color}
                         onEdit={canManageLeads ? () => handleCancellationReasonEdit(r) : undefined}
-                        onDelete={canManageLeads ? () => handleCancellationReasonDelete(r.id!) : undefined}
+                        onDelete={canManageLeads ? () => { void handleCancellationReasonDelete(r.id!); } : undefined}
                       />
                     ))}
                   </ChipGrid>
