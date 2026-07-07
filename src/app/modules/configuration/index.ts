@@ -18,4 +18,4 @@ export { default as ConfigStatsCards } from './ConfigStatsCards';
 export type { ConfigStatsCardsProps, ConfigStatCard } from './ConfigStatsCards';
 
 // Design tokens
-export { C, FONT, T, SP, RADIUS, BTN, ICON_COLORS, KEYFRAMES } from './ConfigDesignSystem';
+export { C, FONT, T, SP, RADIUS, BTN, ICON_COLORS, KEYFRAMES, MOTION, MIN_TOUCH_TARGET_PX } from './ConfigDesignSystem';

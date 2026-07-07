@@ -58,8 +58,9 @@ export default function BranchCard({
           <Typography
             component="div"
             sx={{ fontFamily: T.font.family, fontSize: 13, color: T.color.inkSoft, mt: 0.6, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-            dangerouslySetInnerHTML={{ __html: branch?.address ?? '' }}
-          />
+          >
+            {branch?.address ?? ''}
+          </Typography>
         </Box>
       </Stack>
 

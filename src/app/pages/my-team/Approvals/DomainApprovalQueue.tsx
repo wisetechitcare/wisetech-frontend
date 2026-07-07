@@ -12,6 +12,15 @@ import { getSocket } from '@utils/socketClient';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
 
+// A single leave segment within a multi-segment (sandwich) group request — one LeaveTracker row.
+type LeaveSegment = {
+  leaveType?: string | null;
+  isPaid?: boolean;
+  days?: number;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+};
+
 type RequestDetails = {
   subType?: string | null;
   dateFrom?: string | null;
@@ -28,6 +37,12 @@ type RequestDetails = {
   checkInLocation?: string | null;
   checkOutLocation?: string | null;
   submittedAt?: string | null;
+  // Group leave requests only (workflowType='LeaveRequestGroup', SANDWICH_RULES.md §8 D-4) —
+  // a sandwich-bridged leave spans multiple LeaveTracker rows/leave types under one approval.
+  segments?: LeaveSegment[] | null;
+  totalDays?: number | null;
+  paidDays?: number | null;
+  unpaidDays?: number | null;
 };
 
 type ApprovalStep = {
@@ -506,6 +521,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       Cell: ({ row }) => {
         const type = row.original.instance.workflowType;
         const subType = row.original.requestDetails?.subType;
+        const segments = row.original.requestDetails?.segments;
 
         let label: string;
         let color: string;
@@ -516,6 +532,24 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         if (type === 'attendance') {
           const { checkIn, checkOut } = row.original.requestDetails ?? {};
           return <AttendancePunchStack checkIn={checkIn} checkOut={checkOut} />;
+        }
+
+        // Multi-segment sandwich leave (SANDWICH_RULES.md §8 D-4): one badge per leave type, not
+        // a single merged label — `subType` here is a joined string ("Casual Leaves, Unpaid
+        // Leaves") which would otherwise render as one misleadingly-colored chip.
+        if (type === 'leave' && segments && segments.length > 1) {
+          return (
+            <div className='d-flex flex-wrap gap-1'>
+              {segments.map((seg, i) => (
+                <span key={`${seg.leaveType}-${i}`} className='badge' style={{
+                  backgroundColor: getLeaveTypeColor(seg.leaveType ?? ''), color: 'white', fontWeight: 500,
+                  fontSize: 10, padding: '4px 7px', borderRadius: 10,
+                }}>
+                  {seg.leaveType ?? 'Leave'}{typeof seg.days === 'number' ? ` (${seg.days}d)` : ''}
+                </span>
+              ))}
+            </div>
+          );
         }
 
         if (type === 'leave' && subType) {
@@ -578,7 +612,12 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         const to = dateTo ? formatDateWithDay(dateTo) : null;
         const session = String(halfDaySession || '').toUpperCase();
         const isRange = !!(to && to !== from);
-        const days = leaveDayCount(dateFrom, dateTo, isHalfDay);
+        // Multi-segment sandwich leave: rd.totalDays is the real chargeable-day sum (paid +
+        // sandwich Unpaid) computed backend-side from the segments — a naive dateTo−dateFrom
+        // diff on the outer range would over-count by including every calendar day in between,
+        // not just chargeable ones (SANDWICH_RULES.md §8 D-4).
+        const hasSegments = !!rd.segments && rd.segments.length > 1;
+        const days = hasSegments ? (rd.totalDays ?? 0) : leaveDayCount(dateFrom, dateTo, isHalfDay);
         return (
           <div className='d-flex flex-column'>
             <span className='text-dark fw-semibold fs-7'>{from}</span>
@@ -587,6 +626,18 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
               <span className='badge badge-light-primary fw-bold fs-8 mt-1 align-self-start'>
                 ½ day{session === 'AM' || session === 'PM' ? ` (${session})` : ''}
               </span>
+            ) : hasSegments ? (
+              <div className='d-flex flex-wrap gap-1 mt-1'>
+                <span className='badge badge-light-primary fw-bold fs-8'>
+                  {days} {days === 1 ? 'day' : 'days'} total
+                </span>
+                {!!rd.paidDays && (
+                  <span className='badge badge-light-success fw-bold fs-8'>{rd.paidDays} paid</span>
+                )}
+                {!!rd.unpaidDays && (
+                  <span className='badge badge-light-secondary fw-bold fs-8'>{rd.unpaidDays} unpaid</span>
+                )}
+              </div>
             ) : (
               <span className='badge badge-light-primary fw-bold fs-8 mt-1 align-self-start'>
                 {days} {days === 1 ? 'day' : 'days'}

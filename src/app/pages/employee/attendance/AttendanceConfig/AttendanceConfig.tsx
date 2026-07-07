@@ -762,14 +762,13 @@ const AttendanceConfig: React.FC = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Sandwich Leave */}
-      <Modal show={showSandwichModal} onHide={() => setShowSandwichModal(false)} size="xl" centered>
-        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
-          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
-            Sandwich Leave Rules
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
+      {/* Sandwich Leave — the component renders its own gradient header (with close + Add Rule),
+          so no Modal.Header here; contentClassName rounds the modal shell to match. */}
+      {/* enforceFocus off: the component opens MUI Dialogs (add/edit, audit, delete) in portals
+          outside this Modal's DOM — bootstrap's focus enforcement would fight MUI's focus trap,
+          breaking typing in the form and burning CPU in a focus tug-of-war. */}
+      <Modal show={showSandwichModal} onHide={() => setShowSandwichModal(false)} size="xl" centered enforceFocus={false} contentClassName="sandwich-dialog-content">
+        <Modal.Body style={{ padding: 0 }}>
           <SandwichLeave showSandWhichLeaveModal={(v: boolean) => setShowSandwichModal(v)} />
         </Modal.Body>
       </Modal>

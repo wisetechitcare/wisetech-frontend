@@ -22,6 +22,7 @@ import { calculateProRatedMonths, calculateFiscalMonth } from '@utils/fiscalYear
 import { getCumulativeAllowedLeaves, getCurrentFiscalMonthIndex, calculateLeavesTakenByType, calculateCumulativeSummary, buildCumulativeInputs } from '@utils/balanceProgressUtils';
 import { getWorkingDays } from '@utils/leaves';
 import { allocateLeave, expandChargeableDates, isWithinProbation, TypeBalance } from '@utils/leaveAllocation';
+import { parseWorkingDays } from '@utils/workingDays';
 import { LEAVE_POLICY_KEY } from '@constants/configurations-key';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
@@ -107,9 +108,14 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
   const employeeBranchIdFromRedux = useSelector((state: RootState) => state.employee.currentEmployee.branchId);
   const employeeBranchId = employeeBranchIdProp || employeeBranchIdFromRedux; // Use prop if provided (admin mode), else Redux
 
-  // Get branch working/off days configuration
+  // Get branch working/off days configuration. Use parseWorkingDays() (SANDWICH_RULES.md
+  // Invariant I-9), not a raw JSON.parse — the Redux value can arrive as an already-parsed
+  // object (the common case), and JSON.parse(object) throws uncaught here (no try/catch),
+  // which would crash this form's render. A working Saturday must never be silently mis-read
+  // as an off-day (the same regression fixed in ApplyLeave.tsx — this file had an independent,
+  // still-broken copy of the same bug, D-3).
   const workingAndOffDaysString = useSelector((state: RootState) => state.employee.currentEmployee?.branches?.workingAndOffDays);
-  const workingAndOffDays = workingAndOffDaysString ? JSON.parse(workingAndOffDaysString) : {};
+  const workingAndOffDays = parseWorkingDays(workingAndOffDaysString);
 
   // Get public holidays from Redux
   const publicHolidays = useSelector((state: RootState) => state.attendanceStats.publicHolidays) || [];

@@ -591,6 +591,14 @@ export const COMPANY_SERVICES = {
     GET_ALL: 'api/lead-project-companies/company/services',
 };
 
+export const SANDWICH_RULE = {
+    LIST: "api/sandwich-rules",
+    CREATE: "api/sandwich-rules",
+    UPDATE: "api/sandwich-rules/:id",
+    DELETE: "api/sandwich-rules/:id",
+    AUDIT_LOG: "api/sandwich-rules/:id/audit",
+};
+
 export const SUBCOMPANY_SERVICES = {
     CREATE: 'api/lead-project-companies/sub-company/:subCompanyId/services',
     UPDATE: 'api/lead-project-companies/sub-company/:subCompanyId/services',
