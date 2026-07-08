@@ -310,11 +310,12 @@ export const buildEntityVM = (lead: any): EntityVM => {
   };
 };
 
-// ── ONE tab set. Summary is the comprehensive "everything" page (lead → project
-//    → company/contact → scope → commercials → docs → system). The operational
-//    project modules (Tasks / Timesheet / Reimbursement) are promoted to their
-//    own top-level tabs and only appear once the lead is a project. Audit is
-//    always present. ─────────────────────────────────────────────────────────
+// ── ONE tab set. Leads / Projects / Commercial were previously bundled behind
+//    a single "Summary" tab with its own internal pill sub-nav; they're now
+//    top-level tabs in their own right (Projects only once the lead is a
+//    project). The operational project modules (Tasks / Timesheet /
+//    Reimbursement) are their own top-level tabs too and only appear once the
+//    lead is a project. Audit is always present. ─────────────────────────────
 
 export interface TabDef {
   key: string;
@@ -324,7 +325,9 @@ export interface TabDef {
 }
 
 export const ENTITY_TABS: TabDef[] = [
-  { key: 'summary', label: 'Summary', icon: 'bi bi-grid-1x2' },
+  { key: 'leads', label: 'Leads', icon: 'bi bi-person-lines-fill' },
+  { key: 'projects', label: 'Projects', icon: 'bi bi-kanban', projectOnly: true },
+  { key: 'commercial', label: 'Commercial', icon: 'bi bi-cash-stack' },
   { key: 'tasks', label: 'Tasks', icon: 'bi bi-check2-square', projectOnly: true },
   { key: 'timesheet', label: 'Timesheet', icon: 'bi bi-stopwatch', projectOnly: true },
   { key: 'reimbursement', label: 'Reimbursement', icon: 'bi bi-wallet2', projectOnly: true },

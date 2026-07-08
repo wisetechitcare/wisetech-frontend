@@ -41,7 +41,7 @@ const EntityDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
 
-  const [activeTab, setActiveTab] = useState<string>('summary');
+  const [activeTab, setActiveTab] = useState<string>('leads');
   const [lead, setLead] = useState<any | null>(null);
   const [company, setCompany] = useState<any | null>(null);
   const [contact, setContact] = useState<any | null>(null);
@@ -76,7 +76,7 @@ const EntityDetailPage: React.FC = () => {
   }, [lead]);
 
   useEffect(() => {
-    if (!tabs.some(t => t.key === activeTab)) setActiveTab('summary');
+    if (!tabs.some(t => t.key === activeTab)) setActiveTab('leads');
   }, [tabs, activeTab]);
 
   const fetchLeadDetails = useCallback(async () => {
@@ -128,7 +128,9 @@ const EntityDetailPage: React.FC = () => {
   const renderTab = () => {
     if (error || !lead || !vm) return <div className="alert alert-danger">{error || 'No data available'}</div>;
     switch (activeTab) {
-      case 'summary':
+      case 'leads':
+      case 'projects':
+      case 'commercial':
         return (
           <SummarySection
             lead={lead}
@@ -136,6 +138,7 @@ const EntityDetailPage: React.FC = () => {
             company={company}
             contact={contact}
             onJump={openEdit}
+            view={activeTab}
           />
         );
       case 'tasks':

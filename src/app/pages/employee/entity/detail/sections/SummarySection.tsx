@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import { DetailCard, DetailRow, DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
@@ -84,75 +84,14 @@ const SectionHeading: React.FC<{ icon: string; title: string; color?: string }> 
   </div>
 );
 
-type SubKey = 'leads' | 'projects' | 'commercial';
-interface SubDef {
-  key: SubKey;
-  label: string;
-  icon: string;
-  projectOnly?: boolean;
-}
-const SUB_PAGES: SubDef[] = [
-  { key: 'leads', label: 'Leads', icon: 'bi bi-person-lines-fill' },
-  { key: 'projects', label: 'Projects', icon: 'bi bi-kanban', projectOnly: true },
-  { key: 'commercial', label: 'Commercial', icon: 'bi bi-cash-stack' },
-];
+export type SummaryView = 'leads' | 'projects' | 'commercial';
 
 /**
- * Segmented pill sub-nav inside the Summary tab. Styled to match the Audit Trail
- * Timeline/Compare/Insights toggle: one rounded track on a light slate ground,
- * the active sub-page raised as a white card, the rest flat.
- */
-const SubNav: React.FC<{ items: SubDef[]; active: SubKey; onChange: (k: SubKey) => void }> = ({ items, active, onChange }) => (
-  <div
-    style={{
-      display: 'inline-flex',
-      gap: 3,
-      flexWrap: 'wrap',
-      marginBottom: 18,
-      background: '#EEF2F6',
-      padding: 4,
-      borderRadius: 12,
-    }}
-  >
-    {items.map(s => {
-      const isActive = s.key === active;
-      return (
-        <button
-          key={s.key}
-          type="button"
-          onClick={() => onChange(s.key)}
-          aria-pressed={isActive}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 7,
-            border: 'none',
-            background: isActive ? '#fff' : 'transparent',
-            color: isActive ? '#AA393D' : '#475569',
-            borderRadius: 9,
-            padding: '7px 16px',
-            cursor: 'pointer',
-            fontFamily: 'Inter',
-            fontSize: 13,
-            fontWeight: isActive ? 700 : 500,
-            boxShadow: isActive ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-            transition: 'background 0.15s ease, color 0.15s ease',
-          }}
-        >
-          <i className={s.icon} />
-          {s.label}
-        </button>
-      );
-    })}
-  </div>
-);
-
-/**
- * Summary — the entity overview area, divided into focused sub-pages via an
- * in-tab segmented nav (Overview / Client / Scope & Commercials / Project /
- * System). Each sub-page is one concern; the long single-scroll is gone. The
- * operational project modules (Tasks / Timesheet / Reimbursement) and Documents
- * remain their own top-level tabs.
+ * Summary — the entity overview area, divided into focused views (Leads /
+ * Projects / Commercial), now selected by the page's own top-level tab bar
+ * rather than an internal pill sub-nav. Each view is one concern; the long
+ * single-scroll is gone. The operational project modules (Tasks / Timesheet /
+ * Reimbursement) and Documents remain their own top-level tabs.
  */
 const SummarySection: React.FC<{
   lead: any;
@@ -160,17 +99,18 @@ const SummarySection: React.FC<{
   company?: any;
   contact?: any;
   onJump: (step: number) => void;
-}> = ({ lead, vm, company, contact, onJump }) => {
+  view: SummaryView;
+}> = ({ lead, vm, company, contact, onJump, view }) => {
   const allEmployees = useSelector((s: RootState) => s.allEmployees?.list) || [];
   const isProject = !!lead?.status?.isProjectTrigger || !!lead?.project;
   const p = lead?.project || {};
   // Lead-as-master: execution-only fields now come from the lead's 1:1 execution
   // extension. Fall back to the (transitional) project row when present.
   const exec = lead?.execution || {};
-  const [sub, setSub] = useState<SubKey>('leads');
 
-  const subPages = useMemo(() => SUB_PAGES.filter(s => !s.projectOnly || isProject), [isProject]);
-  const active = subPages.some(s => s.key === sub) ? sub : 'leads';
+  // Projects is project-only; fall back to Leads if the tab is somehow active
+  // on a non-project lead (e.g. right after a status change removes it).
+  const active = view === 'projects' && !isProject ? 'leads' : view;
 
   const owner = employeeUserName(lead?.assignedTo) || employeeNameById(allEmployees, lead?.assignedToId) || DASH;
   const missing = computeMissingInfo(lead);
@@ -339,7 +279,6 @@ const SummarySection: React.FC<{
 
   return (
     <div>
-      <SubNav items={subPages} active={active} onChange={setSub} />
       {active === 'leads' && Leads}
       {active === 'projects' && isProject && Projects}
       {active === 'commercial' && Commercial}
