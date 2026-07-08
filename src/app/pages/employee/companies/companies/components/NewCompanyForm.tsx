@@ -998,21 +998,6 @@ const NewCompanyForm: React.FC<Props> = ({
             enableReinitialize={true}
           >
             {({ setFieldValue, values, isSubmitting }) => {
-              // Auto-update Google Maps Link when latitude and longitude change
-              useEffect(() => {
-                const latitude = values.latitude;
-                const longitude = values.longitude;
-                
-                if (latitude && longitude && latitude !== '' && longitude !== '') {
-                  const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-                  
-                  // Only update if the current googleMapsLink is different
-                  // if (values.googleMapsLink !== googleMapsUrl) {
-                  //   setFieldValue('googleMapsLink', googleMapsUrl);
-                  // }
-                }
-              }, [values.latitude, values.longitude, setFieldValue, values.googleMapsLink]);
-
               return (
               <FormikForm>
                 {/* <Modal.Header>
