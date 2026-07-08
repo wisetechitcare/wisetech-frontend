@@ -412,13 +412,30 @@ export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
   );
 };
 
+/**
+ * Build the Referring Contact option source for a single referral row.
+ * Reverse-lookup friendly like buildRowContacts above: with no company chosen
+ * yet, list every contact (tagged with its company) so the user can find a
+ * person directly; once a Referring Company is picked, forward-filter to it.
+ */
+const buildReferralContacts = (ref: any, props: LeadSectionsProps): any[] => {
+  const allContacts = props.contacts || [];
+  if (!ref.referringCompany) return allContacts;
+  return allContacts.filter((c: any) => String(c.companyId) === String(ref.referringCompany));
+};
+
 // Referral Details Section
 export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
   const employeeOptions = (props.employees || [])
     .filter(x => x.isActive !== false)
     .sort((a, b) => (a.employeeName || "").localeCompare(b.employeeName || ""))
-    .map(x => ({ value: x.employeeId, label: x.employeeName }));
+    .map(x => ({ 
+      value: x.employeeId, 
+      label: x.employeeName,
+      avatar: x.avatar || x.users?.avatar || null
+    }));
+  const companyNameById = new Map((props.companies || []).map((c: any) => [c.id, c.companyName]));
 
   // The referral-type dropdown stores the type's ID (a UUID), NOT the literal
   // string "INTERNAL". Resolve the selected type and read its isInternal flag
@@ -462,6 +479,7 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                         if (isInternalReferral(newType)) {
                           setFieldValue(`referrals.${index}.referringCompanyType`, "");
                           setFieldValue(`referrals.${index}.referringCompany`, "");
+                          setFieldValue(`referrals.${index}.referringContact`, "");
                         } else {
                           setFieldValue(`referrals.${index}.referredByEmployeeId`, "");
                         }
@@ -475,6 +493,7 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                         formikField={`referrals.${index}.referredByEmployeeId`}
                         inputLabel="Referring Employee"
                         options={employeeOptions}
+                        showColor={true}
                       />
                     </Grid>
                   ) : (
@@ -493,6 +512,24 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                           formikField={`referrals.${index}.referringCompany`}
                           inputLabel="Referring Company"
                           options={(props.companies || []).map(x => ({ value: x.id, label: x.companyName }))}
+                          onChange={(opt: any) => {
+                            setFieldValue(`referrals.${index}.referringCompany`, opt?.value || "");
+                            // The previously picked contact may belong to a different
+                            // company now — clear it so a stale pairing can't be saved.
+                            setFieldValue(`referrals.${index}.referringContact`, "");
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <DropDownInput
+                          isRequired={false}
+                          formikField={`referrals.${index}.referringContact`}
+                          inputLabel="Referring Contact"
+                          options={buildReferralContacts(ref, props).map((c: any) => {
+                            const base = c.fullName || c.name || "Unnamed Contact";
+                            const cName = companyNameById.get(c.companyId);
+                            return { value: c.id, label: cName ? `${base} — ${cName}` : base };
+                          })}
                         />
                       </Grid>
                     </>
@@ -504,7 +541,7 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
               variant="outline-primary"
               size="sm"
               type="button"
-              onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "" })}
+              onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "", referringContact: "" })}
               className="align-self-start fw-bold mt-1"
             >
               + Add Referral Source
