@@ -512,7 +512,6 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
   useEffect(() => {
     const code = (addressData.pincode || "").trim();
     if (/^\d{6}$/.test(code)) lookupPincode(code);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addressData.pincode]);
 
   const copyCoordinates = () => {

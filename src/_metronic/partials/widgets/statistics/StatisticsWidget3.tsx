@@ -1,4 +1,4 @@
-﻿
+ 
 import {useEffect, useRef, FC} from 'react'
 import DOMPurify from 'dompurify'
 import ApexCharts, {ApexOptions} from 'apexcharts'
@@ -45,7 +45,6 @@ const StatisticsWidget3: FC<Props> = ({className, title, description, change, co
         chart.destroy()
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartRef, mode])
 
   return (
