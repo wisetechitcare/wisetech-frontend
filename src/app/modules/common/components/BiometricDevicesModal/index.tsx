@@ -5,7 +5,7 @@ import {
   Dialog, Box, Stack, Typography, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Chip, Tooltip, IconButton, Button, TextField, Select,
   MenuItem, ListItemText, CircularProgress, InputAdornment, Paper,
-  FormControl, FormHelperText, Skeleton, Drawer,
+  FormControl, FormHelperText, Skeleton, Drawer, Divider, useMediaQuery,
 } from '@mui/material';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
@@ -86,13 +86,26 @@ function LastSynced({ ts }: { ts: string | null }) {
 
 function StatTile({ label, value, tone, icon }: { label: string; value: ReactNode; tone: string; icon: ReactNode }) {
   return (
-    <Paper variant="outlined" sx={{ flex: 1, minWidth: 128, p: 1.5, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: 1.25, background: 'linear-gradient(180deg, #ffffff 0%, #FCFDFF 100%)' }}>
-      <Box sx={{ width: 36, height: 36, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: `${tone}14`, color: tone, flexShrink: 0 }}>{icon}</Box>
+    <Paper variant="outlined" sx={{ minWidth: 0, p: 1.5, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: 1.25, background: 'linear-gradient(180deg, #ffffff 0%, #FCFDFF 100%)' }}>
+      <Box sx={{ width: 42, height: 42, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: `${tone}1A`, color: tone, border: `1px solid ${tone}2E`, flexShrink: 0 }}>{icon}</Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 18, fontWeight: 750, lineHeight: 1.1, color: 'text.primary' }}>{value}</Typography>
-        <Typography sx={{ fontSize: 10.5, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>{label}</Typography>
+        <Typography noWrap sx={{ fontSize: 19, fontWeight: 750, lineHeight: 1.15, color: 'text.primary' }}>{value}</Typography>
+        <Typography noWrap sx={{ fontSize: 10.5, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>{label}</Typography>
       </Box>
     </Paper>
+  );
+}
+
+function LabeledField({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      <Typography sx={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 0.25 }}>
+        {label}
+      </Typography>
+      <Typography component="div" sx={{ fontSize: 12.5, color: 'text.primary', fontFamily: mono ? 'monospace' : undefined, wordBreak: 'break-word' }}>
+        {value}
+      </Typography>
+    </Box>
   );
 }
 
@@ -240,53 +253,141 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
   ];
 
   const busy = (id: string) => !!actionLoading[id];
+  const isMobile = useMediaQuery('(max-width:899.95px)');
+
+  // Larger, tactile action buttons (tinted, ~40px hit targets) — reused by the desktop table
+  // and the mobile cards so behaviour and sizing stay identical everywhere.
+  const renderActions = (d: IBiometricDevice) => {
+    const btnSx = (tone: string) => ({
+      width: 40, height: 40, borderRadius: '10px', color: tone,
+      bgcolor: `${tone}1A`, border: `1px solid ${tone}3D`,
+      transition: 'background-color .15s, border-color .15s',
+      '&:hover': { bgcolor: `${tone}30`, borderColor: `${tone}66` },
+      '&.Mui-disabled': { color: `${tone}59`, bgcolor: `${tone}0D`, borderColor: `${tone}1F` },
+    });
+    return (
+      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ rowGap: 0.75 }}>
+        <Tooltip title="Test connection">
+          <span><IconButton sx={btnSx(T.color.indigo)} disabled={busy(d.id)} onClick={() => handleTest(d)}>
+            {actionLoading[d.id] === 'test' ? <CircularProgress size={18} /> : <KTIcon iconName="pulse" className="fs-3" />}
+          </IconButton></span>
+        </Tooltip>
+        {d.connectionMode !== 'PUSH' && (
+          <Tooltip title="Pull today's logs">
+            <span><IconButton sx={btnSx(T.color.success)} disabled={busy(d.id)} onClick={() => handleSync(d)}>
+              {actionLoading[d.id] === 'sync' ? <CircularProgress size={18} /> : <KTIcon iconName="arrows-circle" className="fs-3" />}
+            </IconButton></span>
+          </Tooltip>
+        )}
+        <Tooltip title="Sync history">
+          <span><IconButton sx={btnSx(T.color.inkSoft)} disabled={busy(d.id)} onClick={() => openHistory(d)}>
+            <KTIcon iconName="time" className="fs-3" />
+          </IconButton></span>
+        </Tooltip>
+        <Tooltip title="Edit device">
+          <span><IconButton sx={btnSx(T.color.warning)} disabled={busy(d.id)} onClick={() => openEdit(d)}>
+            <KTIcon iconName="pencil" className="fs-3" />
+          </IconButton></span>
+        </Tooltip>
+        <Tooltip title={d.isActive ? 'Deactivate' : 'Activate'}>
+          <span><IconButton sx={btnSx(d.isActive ? T.color.danger : T.color.success)} disabled={busy(d.id)} onClick={() => handleToggle(d)}>
+            {actionLoading[d.id] === 'toggle' ? <CircularProgress size={18} /> : <KTIcon iconName="switch" className="fs-3" />}
+          </IconButton></span>
+        </Tooltip>
+        <Tooltip title="Delete device">
+          <span><IconButton sx={btnSx(T.color.danger)} disabled={busy(d.id)} onClick={() => handleDelete(d)}>
+            {actionLoading[d.id] === 'delete' ? <CircularProgress size={18} /> : <KTIcon iconName="trash" className="fs-3" />}
+          </IconButton></span>
+        </Tooltip>
+      </Stack>
+    );
+  };
+
+  // Mobile/tablet card — a device shown as a self-contained card so nothing is clipped by a
+  // horizontally-scrolling table on small screens.
+  const renderDeviceCard = (d: IBiometricDevice) => (
+    <Paper key={d.id} variant="outlined" sx={{ p: 2.25, borderRadius: '14px', borderLeft: '4px solid', borderLeftColor: T.color.brand, fontFamily: T.font.family, opacity: actionLoading[d.id] === 'delete' ? 0.5 : 1 }}>
+      <Stack spacing={1.75}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontFamily: T.font.family, fontWeight: 700, fontSize: 16, lineHeight: 1.25, color: T.color.ink, wordBreak: 'break-word' }}>{d.name}</Typography>
+            <Typography sx={{ fontFamily: 'monospace', fontSize: 12.5, color: T.color.inkSoft, mt: 0.4 }}>{d.deviceIp}:{d.devicePort}</Typography>
+          </Box>
+          <StatusChip device={d} />
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ rowGap: 1 }}>
+          <ModeChip mode={d.connectionMode} />
+          <SyncChip status={d.lastSyncStatus} />
+        </Stack>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, p: 1.5, borderRadius: '10px', bgcolor: T.color.panel }}>
+          <LabeledField label="Serial #" value={d.serialNumber} mono />
+          <LabeledField label="Last synced" value={<LastSynced ts={d.lastSyncedAt} />} />
+        </Box>
+        <Divider sx={{ borderColor: T.color.line }} />
+        <Box>
+          <Typography sx={{ fontFamily: T.font.family, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: T.color.inkFaint, mb: 0.75 }}>Actions</Typography>
+          {renderActions(d)}
+        </Box>
+      </Stack>
+    </Paper>
+  );
 
   return (
     <>
-    <Dialog open={show} onClose={onClose} maxWidth="lg" fullWidth disableEnforceFocus PaperProps={{ sx: { borderRadius: '16px', fontFamily: T.font.family } }}>
+    <Dialog open={show} onClose={onClose} maxWidth="lg" fullWidth fullScreen={isMobile} disableEnforceFocus PaperProps={{ sx: { borderRadius: isMobile ? 0 : '16px', fontFamily: T.font.family, display: 'flex', flexDirection: 'column' } }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, px: 2.75, py: 1.75, background: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)', borderBottom: '3px solid #C0392B', color: '#fff' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, px: { xs: 2, sm: 2.75 }, py: { xs: 1.5, sm: 1.75 }, background: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)', borderBottom: '3px solid #C0392B', color: '#fff', flexShrink: 0 }}>
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-          <Box sx={{ width: 42, height: 42, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', flexShrink: 0 }}>
+          <Box sx={{ width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', flexShrink: 0 }}>
             <KTIcon iconName="fingerprint-scanning" className="fs-1" />
           </Box>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 750, fontSize: 16.5, color: '#fff', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {branchName} — Biometric Devices
+            <Typography sx={{ fontFamily: T.font.family, fontWeight: 700, fontSize: { xs: 15.5, sm: 17 }, color: '#fff', lineHeight: 1.25 }}>
+              Biometric Devices
             </Typography>
-            <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.72)' }}>
-              {loading ? 'Loading…' : `${devices.length} device${devices.length !== 1 ? 's' : ''} configured`}
+            <Typography sx={{ fontFamily: T.font.family, fontSize: 12.5, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {branchName} · {loading ? 'Loading…' : `${devices.length} device${devices.length !== 1 ? 's' : ''}`}
             </Typography>
           </Box>
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-          {!showForm && (
-            <Button variant="contained" size="small" startIcon={<KTIcon iconName="plus" className="fs-5" />} onClick={openCreate} sx={{ bgcolor: '#fff', color: 'primary.main', '&:hover': { bgcolor: '#EAF0FA' } }}>Add Device</Button>
+          {!showForm && !isMobile && (
+            <Button variant="contained" size="small" startIcon={<KTIcon iconName="plus" className="fs-5" />} onClick={openCreate} sx={{ fontFamily: T.font.family, textTransform: 'none', fontWeight: 600, borderRadius: '9px', bgcolor: '#fff', color: 'primary.main', '&:hover': { bgcolor: '#EAF0FA' } }}>Add Device</Button>
           )}
-          <IconButton onClick={onClose} size="small" aria-label="Close" sx={{ color: '#fff' }}><KTIcon iconName="cross" className="fs-3" /></IconButton>
+          <IconButton onClick={onClose} aria-label="Close" sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.10)', width: 38, height: 38, '&:hover': { bgcolor: 'rgba(255,255,255,0.20)' } }}><KTIcon iconName="cross" className="fs-3" /></IconButton>
         </Stack>
       </Box>
 
       {/* Body */}
-      <Box sx={{ bgcolor: T.color.panel, p: 2, maxHeight: '74vh', overflowY: 'auto' }}>
-        {/* KPI stat strip */}
+      <Box sx={{ bgcolor: T.color.panel, p: { xs: 1.5, sm: 2 }, maxHeight: isMobile ? 'none' : '74vh', flex: isMobile ? 1 : 'none', overflowY: 'auto' }}>
+        {/* Mobile: primary action lives in the body (header stays uncluttered). */}
+        {isMobile && !showForm && devices.length > 0 && (
+          <Button
+            fullWidth variant="contained" onClick={openCreate}
+            startIcon={<KTIcon iconName="plus" className="fs-5" />}
+            sx={{ fontFamily: T.font.family, textTransform: 'none', fontWeight: 700, fontSize: 14, borderRadius: '10px', py: 1.15, mb: 2, boxShadow: 'none' }}
+          >
+            Add Device
+          </Button>
+        )}
+        {/* KPI stat strip — responsive: 2 columns on phones, 4 on wider screens. */}
         {!loading && devices.length > 0 && (
-          <Stack direction="row" spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap' }}>
-            <StatTile label="Devices" value={devices.length} tone={T.color.brand} icon={<KTIcon iconName="fingerprint-scanning" className="fs-3" />} />
-            <StatTile label="Active" value={devices.filter(d => d.isActive).length} tone={T.color.success} icon={<KTIcon iconName="check-circle" className="fs-3" />} />
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1.5, mb: 2 }}>
+            <StatTile label="Devices" value={devices.length} tone={T.color.brand} icon={<KTIcon iconName="fingerprint-scanning" className="fs-2" />} />
+            <StatTile label="Active" value={devices.filter(d => d.isActive).length} tone={T.color.success} icon={<KTIcon iconName="check-circle" className="fs-2" />} />
             <StatTile
               label="Needs attention"
               value={devices.filter(d => !d.isActive || d.consecutiveFailures > 0).length}
               tone={devices.some(d => !d.isActive || d.consecutiveFailures > 0) ? T.color.danger : T.color.neutral}
-              icon={<KTIcon iconName="information-5" className="fs-3" />}
+              icon={<KTIcon iconName="information-5" className="fs-2" />}
             />
             <StatTile
               label="Last sync"
               value={relTime(devices.reduce<string | null>((acc, d) => (d.lastSyncedAt && (!acc || new Date(d.lastSyncedAt) > new Date(acc)) ? d.lastSyncedAt : acc), null))}
               tone={T.color.indigo}
-              icon={<KTIcon iconName="time" className="fs-3" />}
+              icon={<KTIcon iconName="time" className="fs-2" />}
             />
-          </Stack>
+          </Box>
         )}
         {/* Add / Edit form */}
         {showForm && (
@@ -401,9 +502,14 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
             </Typography>
             <Button variant="contained" size="small" startIcon={<KTIcon iconName="plus" className="fs-5" />} onClick={openCreate} sx={{ mt: 2 }}>Add Device</Button>
           </Stack>
+        ) : isMobile ? (
+          // Small screens: card list — no horizontal scroll, full-size action buttons.
+          <Stack spacing={1.5}>
+            {devices.map(renderDeviceCard)}
+          </Stack>
         ) : (
           <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: '12px' }}>
-            <Table size="small" sx={{ minWidth: 760 }}>
+            <Table size="small" sx={{ minWidth: 820 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: 'rgba(30, 58, 138, 0.05)' }}>
                   {['Device', 'IP : Port', 'Serial #', 'Mode', 'Status', 'Last Synced', 'Sync', 'Actions'].map(h => (
@@ -421,42 +527,7 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
                     <TableCell><StatusChip device={d} /></TableCell>
                     <TableCell><LastSynced ts={d.lastSyncedAt} /></TableCell>
                     <TableCell><SyncChip status={d.lastSyncStatus} /></TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={0.25}>
-                        <Tooltip title="Test connection">
-                          <span><IconButton size="small" sx={{ color: T.color.indigo }} disabled={busy(d.id)} onClick={() => handleTest(d)}>
-                            {actionLoading[d.id] === 'test' ? <CircularProgress size={15} /> : <KTIcon iconName="pulse" className="fs-5" />}
-                          </IconButton></span>
-                        </Tooltip>
-                        {d.connectionMode !== 'PUSH' && (
-                          <Tooltip title="Pull today's logs">
-                            <span><IconButton size="small" sx={{ color: T.color.success }} disabled={busy(d.id)} onClick={() => handleSync(d)}>
-                              {actionLoading[d.id] === 'sync' ? <CircularProgress size={15} /> : <KTIcon iconName="arrows-circle" className="fs-5" />}
-                            </IconButton></span>
-                          </Tooltip>
-                        )}
-                        <Tooltip title="Sync history">
-                          <span><IconButton size="small" sx={{ color: T.color.inkSoft }} disabled={busy(d.id)} onClick={() => openHistory(d)}>
-                            <KTIcon iconName="time" className="fs-5" />
-                          </IconButton></span>
-                        </Tooltip>
-                        <Tooltip title="Edit device">
-                          <span><IconButton size="small" sx={{ color: T.color.warning }} disabled={busy(d.id)} onClick={() => openEdit(d)}>
-                            <KTIcon iconName="pencil" className="fs-5" />
-                          </IconButton></span>
-                        </Tooltip>
-                        <Tooltip title={d.isActive ? 'Deactivate' : 'Activate'}>
-                          <span><IconButton size="small" sx={{ color: d.isActive ? T.color.danger : T.color.success }} disabled={busy(d.id)} onClick={() => handleToggle(d)}>
-                            {actionLoading[d.id] === 'toggle' ? <CircularProgress size={15} /> : <KTIcon iconName="switch" className="fs-5" />}
-                          </IconButton></span>
-                        </Tooltip>
-                        <Tooltip title="Delete device">
-                          <span><IconButton size="small" sx={{ color: T.color.danger }} disabled={busy(d.id)} onClick={() => handleDelete(d)}>
-                            {actionLoading[d.id] === 'delete' ? <CircularProgress size={15} /> : <KTIcon iconName="trash" className="fs-5" />}
-                          </IconButton></span>
-                        </Tooltip>
-                      </Stack>
-                    </TableCell>
+                    <TableCell sx={{ minWidth: 300 }}>{renderActions(d)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

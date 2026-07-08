@@ -63,8 +63,16 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
             accessorKey: "totalDays",
             header: "Total Days",
             Cell: ({ row }: any) => {
-                const { dateFrom, dateTo } = row.original;
+                const { dateFrom, dateTo, isHalfDay, halfDaySession } = row.original;
                 if (!dateFrom || !dateTo) return <span className='text-muted fs-7'>-</span>;
+                if (isHalfDay) {
+                    const session = String(halfDaySession || '').toUpperCase();
+                    return (
+                        <span className='badge badge-light-primary fw-bold fs-8'>
+                            ½ day{session === 'AM' || session === 'PM' ? ` (${session})` : ''}
+                        </span>
+                    );
+                }
                 const days = dayjs(dateTo).diff(dayjs(dateFrom), 'day') + 1;
                 return (
                     <span className='badge badge-light-primary fw-bold fs-8'>

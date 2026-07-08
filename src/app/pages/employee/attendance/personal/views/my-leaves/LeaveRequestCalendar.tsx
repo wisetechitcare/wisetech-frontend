@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 
 import dayjs, { Dayjs } from 'dayjs';
 
@@ -29,6 +29,8 @@ import { SandwichRuleBanner } from './leave/SandwichRuleBanner';
 import { previewSandwichImpact, getSandwichRiskDateSet } from './leave/sandwichPreview';
 
 import type { Holiday, LeaveRecord, SelectionPhase, CumulativeSummary } from './leave/leaveTypes';
+
+import LeaveColorLegend from './leave/LeaveColorLegend';
 
 
 
@@ -64,11 +66,17 @@ interface LeaveRequestCalendarProps {
 
   isUnpaidType?: boolean;
 
+  isCumulativeExempt?: boolean;
+
   editingLeaveId?: string;
 
   inlineFormWarning?: string;
 
   sandwichLeaveEnabled?: boolean;
+
+  onOverlapChange?: (hasOverlap: boolean) => void;
+
+  segmentColorByDate?: Record<string, string>;
 
 }
 
@@ -106,11 +114,17 @@ const LeaveRequestCalendar = ({
 
   isUnpaidType = false,
 
+  isCumulativeExempt = false,
+
   editingLeaveId,
 
   inlineFormWarning,
 
   sandwichLeaveEnabled = false,
+
+  onOverlapChange,
+
+  segmentColorByDate,
 
 }: LeaveRequestCalendarProps) => {
 
@@ -154,7 +168,7 @@ const LeaveRequestCalendar = ({
 
         date: dayjs(h?.date).format('YYYY-MM-DD'),
 
-        name: h?.name || h?.holiday_name || h?.title || 'Holiday',
+        name: h?.holiday?.name || h?.name || h?.holiday_name || h?.title || 'Holiday',
 
       })),
 
@@ -193,6 +207,10 @@ const LeaveRequestCalendar = ({
           dateTo: l.dateTo,
 
           status: typeof l.statusNumber === 'number' ? l.statusNumber : Status.ApprovalNeeded,
+
+          isHalfDay: !!l.isHalfDay,
+
+          halfDaySession: l.halfDaySession ?? null,
 
         })),
 
@@ -379,6 +397,8 @@ const LeaveRequestCalendar = ({
 
     isUnpaidType,
 
+    isCumulativeExempt: isCumulativeExempt || isUnpaidType,
+
     excludeLeaveId: editingLeaveId,
 
   });
@@ -390,6 +410,12 @@ const LeaveRequestCalendar = ({
     (a) => a.id.startsWith('holiday-') || a.id === 'weekend' || a.id === 'past',
 
   );
+
+  const hasOverlap = calendarAlerts.some((a) => a.id === 'overlap');
+
+  useEffect(() => {
+    onOverlapChange?.(hasOverlap);
+  }, [hasOverlap, onOverlapChange]);
 
 
 
@@ -702,9 +728,13 @@ const LeaveRequestCalendar = ({
 
           sandwichRiskDates={sandwichRiskDates}
 
+          segmentColorByDate={segmentColorByDate}
+
         />
 
       </div>
+
+      <LeaveColorLegend />
 
 
 

@@ -449,7 +449,8 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
     if (OPEN_CAGE_API_KEY) {
       try {
         const { data } = await axios.get(
-          `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${OPEN_CAGE_API_KEY}&no_annotations=1&limit=1&language=en`
+          `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${OPEN_CAGE_API_KEY}&no_annotations=1&limit=1&language=en`,
+          { withCredentials: false }
         );
         const result = data?.results?.[0];
         if (result) {
@@ -461,7 +462,9 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
       }
     }
     try {
-      const { data } = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lng}`);
+      // withCredentials must stay off for third-party APIs — they respond with
+      // Access-Control-Allow-Origin: * which rejects credentialed requests.
+      const { data } = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lng}`, { withCredentials: false });
       if (data && data.address) {
         parseAddressComponents(data);
       }
@@ -477,7 +480,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
     lastPincodeLookup.current = code;
     setPincodeLoading(true);
     try {
-      const { data } = await axios.get(`https://api.postalpincode.in/pincode/${code}`);
+      const { data } = await axios.get(`https://api.postalpincode.in/pincode/${code}`, { withCredentials: false });
       const postOffices = data?.[0]?.PostOffice || [];
 
       if (postOffices.length > 0) {
@@ -546,7 +549,8 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
           // Add &addressdetails=1 to get address components in search results
           // Add &countrycodes=in to prioritize India (for Indian locations)
           const { data } = await axios.get(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=5&addressdetails=1&countrycodes=in`
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=5&addressdetails=1&countrycodes=in`,
+            { withCredentials: false }
           );
           if (data && data.length > 0) {
             setSearchResults(data);
@@ -570,7 +574,8 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
         if (searchTimeout.current) clearTimeout(searchTimeout.current);
         try {
           const { data } = await axios.get(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1&countrycodes=in`
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1&countrycodes=in`,
+            { withCredentials: false }
           );
           if (data && data.length > 0) {
             setSearchResults(data);

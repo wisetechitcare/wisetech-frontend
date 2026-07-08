@@ -514,6 +514,11 @@
   background: rgba(245, 158, 11, 0.2);
 }
 
+.lrc-day__badge--halfday {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.14);
+}
+
 .lrc-day-tooltip {
   position: absolute;
   bottom: calc(100% + 6px);

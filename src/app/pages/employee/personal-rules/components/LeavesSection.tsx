@@ -213,19 +213,17 @@ const LeavesSection: React.FC<LeavesSectionProps> = ({ sectionRef }) => {
           </Card.Body>
         </Card>
 
-        {/* Sandwich Leave Modal - Read Only */}
+        {/* Sandwich Leave Modal - Read Only. The component renders its own gradient header
+            (with close button), so no Modal.Header here; contentClassName rounds the shell. */}
       <Modal
         show={showSandwichLeaveModal}
         onHide={() => handleCloseSandwichLeaveModal(false)}
         size="xl"
         centered
+        enforceFocus={false}
+        contentClassName="sandwich-dialog-content"
       >
-        <Modal.Header style={{ padding: '20px', backgroundColor: '#f7f9fc', border: 'none' }} closeButton>
-          <Modal.Title style={{ fontSize: '24px', fontWeight: 600, fontFamily: 'Barlow, sans-serif', letterSpacing: '0.24px' }}>
-            Sandwich Leave Settings
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: '0', backgroundColor: '#f7f9fc' }}>
+        <Modal.Body style={{ padding: '0' }}>
           <SandwichLeave showSandWhichLeaveModal={handleCloseSandwichLeaveModal} readOnly={true} />
         </Modal.Body>
       </Modal>

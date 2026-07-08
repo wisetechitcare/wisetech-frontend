@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿// import * as Yup from 'yup';
+// import * as Yup from 'yup';
 // import { RootState, store } from '@redux/store';
 // import { Field, Form, Formik, FormikValues } from 'formik';
 // import { useDispatch, useSelector } from 'react-redux';
@@ -1156,8 +1156,8 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     const [distanceAllowedFromOfficeInMeters, setDistanceAllowedFromOfficeInMeters] = useState(0);
     const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>('');
     const allEmpDetails = useSelector((state: RootState) => state.employee.currentEmployee);
-    const branchLatitude = allEmpDetails.branches?.latitude!;
-    const branchLongitude = allEmpDetails.branches?.longitude!;
+    const branchLatitude = allEmpDetails.branches?.latitude;
+    const branchLongitude = allEmpDetails.branches?.longitude;
     const publicHolidays = useSelector((state: RootState) => state.attendanceStats.publicHolidays);
     const branchDetails = useSelector((state: RootState) => state.employee?.currentEmployee?.branches);
     const employeeWorkingAndOffDays = parseWorkingDays(branchDetails?.workingAndOffDays);

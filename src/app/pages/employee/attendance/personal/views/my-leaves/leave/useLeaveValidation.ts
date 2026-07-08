@@ -45,6 +45,8 @@ export interface UseLeaveValidationParams {
   cumulativeSummary?: CumulativeSummary | null;
   countTotalLeaves?: number;
   isUnpaidType?: boolean;
+  /** True when the selected type is exempt from cumulative pacing (Unpaid OR Maternal). */
+  isCumulativeExempt?: boolean;
   excludeLeaveId?: string;
 }
 
@@ -62,6 +64,7 @@ export function useLeaveValidation(params: UseLeaveValidationParams): LeaveAlert
     cumulativeSummary,
     countTotalLeaves,
     isUnpaidType,
+    isCumulativeExempt,
     excludeLeaveId,
   } = params;
 
@@ -112,7 +115,7 @@ export function useLeaveValidation(params: UseLeaveValidationParams): LeaveAlert
         push('type-empty', 'warning', 'No balance remaining for this leave type.');
       }
 
-      if (!isUnpaidType && cumulativeSummary && chargeable > cumulativeSummary.remaining) {
+      if (!isCumulativeExempt && cumulativeSummary && chargeable > cumulativeSummary.remaining) {
         push(
           'cumulative',
           'warning',
@@ -147,6 +150,7 @@ export function useLeaveValidation(params: UseLeaveValidationParams): LeaveAlert
     cumulativeSummary,
     countTotalLeaves,
     isUnpaidType,
+    isCumulativeExempt,
     excludeLeaveId,
   ]);
 }

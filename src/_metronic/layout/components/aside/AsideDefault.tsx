@@ -26,15 +26,19 @@ const AsideDefault: FC = () => {
   const parsedLs = ls ? JSON.parse(ls) : null
 
   async function signout() {
-    const response = await logout(parsedLs.token, parsedLs.id)
-    if (!response.hasError) {
-      removeAuth()
-      localStorage.removeItem("selectedCompany")
-      localStorage.removeItem("selectedBranch")
-      dispatch(logoutUser())
-      navigate('/auth')
-      location.reload()
+    // Cookie sessions have no token in localStorage — the backend resolves it
+    // from the httpOnly cookie. Clear local state even if the API call fails.
+    try {
+      await logout(parsedLs?.token, parsedLs?.id)
+    } catch (error) {
+      console.error('Logout API failed — clearing local session anyway:', error)
     }
+    removeAuth()
+    localStorage.removeItem("selectedCompany")
+    localStorage.removeItem("selectedBranch")
+    dispatch(logoutUser())
+    navigate('/auth')
+    location.reload()
   }
   return (
     <div

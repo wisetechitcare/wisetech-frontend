@@ -16,8 +16,11 @@ export const getAllDocuments = async () => {
 
 export const downloadDocument = async (url: string, fileName: string) => {
   try {
+    // Presigned S3 URL — credentials must stay off: S3 CORS can't answer
+    // credentialed requests, the browser would hard-block the response.
     const response = await axios.get(url, {
       responseType: 'blob',
+      withCredentials: false,
     });
     
     const contentType = response.headers['content-type'];
@@ -46,10 +49,12 @@ export const previewDocument = async (url: string, fileName: string) => {
       return;
     }
 
+    // Presigned S3 URL — same credential rule as downloadDocument above.
     const response = await axios.get(url, {
       responseType: 'blob',
+      withCredentials: false,
     });
-    
+
     const contentType = response.headers['content-type'];
     const mimeType = typeof contentType === 'string' ? contentType : undefined;
     const blob = new Blob([response.data], { type: mimeType });
@@ -88,7 +93,7 @@ export const downloadDocumentsAsZip = async (files: { url: string; name: string 
 
   const downloadPromises = files.map(async (file) => {
     try {
-      const response = await axios.get(file.url, { responseType: 'blob' });
+      const response = await axios.get(file.url, { responseType: 'blob', withCredentials: false });
       folder?.file(file.name, response.data);
     } catch (error) {
       console.error(`Failed to download ${file.name}:`, error);

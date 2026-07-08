@@ -2,6 +2,14 @@
 import {AuthModel} from './_models'
 
 const AUTH_LOCAL_STORAGE_KEY = 'wise_tech_login'
+
+// The JWT lives in an httpOnly cookie set by the backend (XSS-safe) and is
+// sent automatically because axios runs with `withCredentials: true`.
+// This module-level copy only bridges the current tab's session (header
+// fallback) — it is never persisted, so injected scripts can't steal it
+// from storage.
+let inMemoryToken: string | undefined
+
 const getAuth = () => {
   if (!localStorage) {
     return
@@ -15,7 +23,6 @@ const getAuth = () => {
   try {
     const auth = JSON.parse(lsValue)
     if (auth) {
-      // You can easily check auth_token expiration also
       return auth
     }
   } catch (error) {
@@ -29,7 +36,11 @@ const setAuth = (auth: any) => {
   }
 
   try {
-    const lsValue = JSON.stringify(auth)
+    // Keep the token in memory for this session; persist everything else.
+    // localStorage must never hold the JWT — any XSS could read it there.
+    inMemoryToken = auth?.token
+    const {token: _token, api_token: _apiToken, ...persistable} = auth ?? {}
+    const lsValue = JSON.stringify(persistable)
     localStorage.setItem(AUTH_LOCAL_STORAGE_KEY, lsValue)
   } catch (error) {
     console.error('AUTH LOCAL STORAGE SAVE ERROR', error)
@@ -37,6 +48,7 @@ const setAuth = (auth: any) => {
 }
 
 const removeAuth = () => {
+  inMemoryToken = undefined
   if (!localStorage) {
     return
   }
@@ -50,11 +62,16 @@ const removeAuth = () => {
 
 export function setupAxios(axios: any) {
   axios.defaults.headers.Accept = 'application/json'
+  // Send the httpOnly auth cookie on every request (the backend CORS config
+  // already runs with credentials: true).
+  axios.defaults.withCredentials = true
   axios.interceptors.request.use(
     (config: {headers: {Authorization: string}}) => {
-      const auth = getAuth()
-      if (auth && auth.token) {
-        config.headers.Authorization = `Bearer ${auth.token}`
+      // Header fallback: in-memory token (this session) or a token persisted
+      // by a pre-cookie release. New sessions rely on the httpOnly cookie.
+      const token = inMemoryToken || getAuth()?.token
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
       }
 
       return config
@@ -70,6 +87,19 @@ export function setupAxios(axios: any) {
         return Promise.reject(error);
       }
 
+      // Session expired: the httpOnly cookie (or legacy token) no longer
+      // authenticates. Without this, an expired session leaves a dead app —
+      // every fetch fails silently and nothing routes back to login.
+      // Auth endpoints are excluded: a 401 there means wrong credentials,
+      // which the login form handles itself.
+      const status = error.response?.status;
+      const requestUrl: string = error.config?.url || '';
+      if (status === 401 && !requestUrl.includes('/api/auth/') && getAuth()) {
+        removeAuth();
+        window.location.href = '/auth';
+        return Promise.reject(error);
+      }
+
       // Determine if the error is a true network failure (no response from server).
       if (!error.response && error.message === 'Network Error') {
         // Always dispatch backend-down — App.tsx does the real internet check
@@ -79,7 +109,7 @@ export function setupAxios(axios: any) {
         // Server reachable but returning gateway/service errors — backend is down
         window.dispatchEvent(new Event('backend-down'));
       }
-      
+
       return Promise.reject(error);
     }
   )}
