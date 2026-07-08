@@ -1174,7 +1174,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 isRequired={true}
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               {/* Company Type — MAIN types only (sub-types live in the next field). */}
                               <MultiSelectWithInlineCreate
                                 formikField="companyTypes"
@@ -1190,7 +1190,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 createFieldPlaceholder="Enter company type name..."
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               {/* Services — children of the selected company type(s). */}
                               <MultiSelectWithInlineCreate
                                 formikField="subTypes"
@@ -1236,7 +1236,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 parentEmptyHint="Select a company type first to add a service under it."
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <MultiSelectWithInlineCreate
                                 formikField="services"
                                 inputLabel="Sub-services"
@@ -1356,7 +1356,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                           </div>
                                         )}
 
-                                        <div className="col-md-6">
+                                        <div className="col-lg-6">
                                           <DropDownInput
                                             formikField={`referenceType.${index}.referenceType`}
                                             inputLabel="Referral Type"
@@ -1376,7 +1376,7 @@ const NewCompanyForm: React.FC<Props> = ({
 
                                         {reference.referenceType ===
                                           "INTERNAL" && (
-                                          <div className="col-md-6">
+                                          <div className="col-lg-6">
                                             <DropDownInput
                                               formikField={`referenceType.${index}.internalReferenceEmployeeId`}
                                               inputLabel="Referral Contact"
@@ -1389,7 +1389,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                         {reference.referenceType ===
                                           "EXTERNAL" && (
                                           <>
-                                            <div className="col-md-6">
+                                            <div className="col-lg-6">
                                               <DropDownInput
                                                 formikField={`referenceType.${index}.externalReferenceCompanyTypeId`}
                                                 inputLabel="Referral Company Type"
@@ -1403,7 +1403,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                               />
                                             </div>
 
-                                            <div className="col-md-6">
+                                            <div className="col-lg-6">
                                               <DropDownInput
                                                 formikField={`referenceType.${index}.externalReferenceCompanyId`}
                                                 inputLabel="Referral Company"
@@ -1434,7 +1434,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                               />
                                             </div>
 
-                                            <div className="col-md-6">
+                                            <div className="col-lg-6">
                                               <DropDownInput
                                                 formikField={`referenceType.${index}.externalReferenceSubCompanyId`}
                                                 inputLabel="Referral Sub Company"
@@ -1462,7 +1462,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                               />
                                             </div>
 
-                                            <div className="col-md-6">
+                                            <div className="col-lg-6">
                                               <DropDownInput
                                                 formikField={`referenceType.${index}.externalReferenceContactId`}
                                                 inputLabel="Referral Contact"
@@ -1551,7 +1551,7 @@ const NewCompanyForm: React.FC<Props> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <div className="row g-3">
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <PhoneNumberInput
                                 formikField="phone"
                                 label="Phone"
@@ -1559,7 +1559,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 placeholder="Enter phone"
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <PhoneNumberInput
                                 formikField="phone2"
                                 label="Phone 2"
@@ -1567,21 +1567,21 @@ const NewCompanyForm: React.FC<Props> = ({
                                 placeholder="Enter phone 2"
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <TextInput
                                 formikField="fax"
                                 label="FAX"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="email"
                                 label="Email"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="website"
                                 label="Website"
@@ -1630,14 +1630,14 @@ const NewCompanyForm: React.FC<Props> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <div className="row g-3">
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="addressLine1"
                                 label="Address"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DropDownInput
                                 formikField="country"
                                 inputLabel="Country"
@@ -1669,7 +1669,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 }
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DropDownInput
                                 formikField="state"
                                 inputLabel="State"
@@ -1704,7 +1704,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 disabled={!values.country}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DropDownInput
                                 formikField="city"
                                 inputLabel="City"
@@ -1730,14 +1730,14 @@ const NewCompanyForm: React.FC<Props> = ({
                                 disabled={!values.state}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="area"
                                 label="Locality"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="zipCode"
                                 label="Zip Code"
@@ -1746,21 +1746,21 @@ const NewCompanyForm: React.FC<Props> = ({
                             </div>                                     <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
                                 <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
                                 <div className="row g-3">
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="googleMapsLink"
                                       label="Google Map Link"
                                       isRequired={false}
                                     />
                                   </div>
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="gmbProfileUrl"
                                       label="Google Business Link"
                                       isRequired={false}
                                     />
                                   </div>
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="latitude"
                                       label="Latitude"
@@ -1768,7 +1768,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                       inputValidation="signed-decimal"
                                     />
                                   </div>
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="longitude"
                                       label="Longitude"
@@ -1838,14 +1838,14 @@ const NewCompanyForm: React.FC<Props> = ({
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <div className="row g-3">
                             {/* GST: number + its own compact attachment */}
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="gstNumber"
                                 label="GST Number"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DragDropFileField
                                 label="GST Document"
                                 compact
@@ -1859,14 +1859,14 @@ const NewCompanyForm: React.FC<Props> = ({
                               />
                             </div>
                             {/* PAN: number + its own compact attachment */}
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="panNumber"
                                 label="PAN Number"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DragDropFileField
                                 label="PAN Document"
                                 compact
@@ -1938,7 +1938,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 {visibleFields.map((field) => (
                                   <div
                                     key={field.id}
-                                    className={field.type === "file" ? "col-md-12" : "col-md-6"}
+                                    className={field.type === "file" ? "col-md-12" : "col-lg-6"}
                                   >
                                     {renderCustomField(field, section.id)}
                                   </div>
