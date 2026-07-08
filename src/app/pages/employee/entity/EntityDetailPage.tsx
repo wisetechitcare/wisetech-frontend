@@ -16,6 +16,7 @@ import LeadWizardModal from '@pages/employee/leads/lead/LeadWizardModal';
 import ProposalTemplatePage from '@pages/employee/leads/lead/components/ProposalTemplatePage';
 import { DMSProvider } from '@pages/employee/leads/lead/components/dms/store/DmsContext';
 
+import { canDo } from '@utils/can';
 import { isProjectEntity, getProjectPhase, PHASE_THEMES } from './entityUtils';
 import { DensityProvider } from './detail/density';
 import { buildEntityVM, ENTITY_TABS } from './detail/facets';
@@ -133,6 +134,7 @@ const EntityDetailPage: React.FC = () => {
             company={company}
             contact={contact}
             onJump={openEdit}
+            canViewCommercials={canDo('crm.leads', 'update')}
           />
         );
       case 'tasks':
@@ -200,12 +202,16 @@ const EntityDetailPage: React.FC = () => {
             </div>
 
             <div className="d-flex align-items-center gap-2 flex-wrap">
-              <Button variant="primary" onClick={openEdit} style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}>
-                <KTIcon iconName="pencil" className="fs-2" /> Edit
-              </Button>
-              <Button variant="info" onClick={() => setShowProposalModal(true)} style={{ backgroundColor: '#7239ea', borderColor: '#7239ea', color: 'white' }}>
-                <KTIcon iconName="file-down" className="fs-2" /> Export
-              </Button>
+              {canDo('crm.leads', 'update') && (
+                <Button variant="primary" onClick={openEdit} style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}>
+                  <KTIcon iconName="pencil" className="fs-2" /> Edit
+                </Button>
+              )}
+              {canDo('crm.leads', 'update') && (
+                <Button variant="info" onClick={() => setShowProposalModal(true)} style={{ backgroundColor: '#7239ea', borderColor: '#7239ea', color: 'white' }}>
+                  <KTIcon iconName="file-down" className="fs-2" /> Export
+                </Button>
+              )}
             </div>
           </div>
 

@@ -33,7 +33,7 @@ import {
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
 import { ProjectPointsConfigSection } from '@app/modules/projectPoints';
-import { can } from '@utils/can';
+import { canDo } from '@utils/can';
 
 // ─── ColorChip ────────────────────────────────────────────────────────────────
 
@@ -213,7 +213,7 @@ const TABS: ConfigTab[] = [
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const LeadsConfigurationMain = () => {
-  const canManageLeads = can('crm.leads.update.all');
+  const canManageLeads = canDo('crm.leads', 'update');
   const [activeTab, setActiveTab] = useState('lead');
   const [loading, setLoading] = useState(false);
 

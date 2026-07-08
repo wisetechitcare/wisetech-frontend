@@ -6,7 +6,7 @@ import * as dmsService from '../services/dmsService';
 import { formatBytes, formatDate, getStatusConfig, getExportTypeConfig } from '../utils/dmsUtils';
 import { successConfirmation, errorConfirmation, rejectConfirmation } from '@utils/modal';
 import type { DMSFile } from '../types/dms.types';
-import { can } from '@utils/can';
+import { canDo } from '@utils/can';
 
 interface FileDetailsSidebarProps {
   file: DMSFile | null;
@@ -179,7 +179,7 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
               }
             }
           },
-          ...(can('crm.leads.update.all') ? [
+          ...(canDo('crm.leads', 'update') ? [
             { icon: 'pencil', label: 'Rename', action: () => setIsRenaming(true) },
             { icon: 'trash', label: 'Delete', action: handleDelete, danger: true },
           ] : []),

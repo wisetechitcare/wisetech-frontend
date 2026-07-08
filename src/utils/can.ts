@@ -40,3 +40,11 @@ const SCOPE_TIERS = ['self', 'team', 'department', 'all', 'global'];
 // model - see SectionGuard's `requireGrant` prop.
 export const canViewModule = (module: string): boolean =>
   SCOPE_TIERS.some((scope) => can(`${module}.view.${scope}`));
+
+// True if the current user holds `<module>.<action>` at ANY scope tier. The
+// backend resolves the user's broadest granted scope per action and enforces
+// the real record-level reach (self/team/department) server-side, so the UI
+// only needs "can they do this action at all" to decide whether to show the
+// affordance. e.g. canDo('crm.leads', 'update'), canDo('crm.leads', 'delete').
+export const canDo = (module: string, action: string): boolean =>
+  SCOPE_TIERS.some((scope) => can(`${module}.${action}.${scope}`));

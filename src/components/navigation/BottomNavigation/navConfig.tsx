@@ -12,7 +12,7 @@
 import { sidePanelIcons, reimbursementsIcons } from '@metronic/assets/sidepanelicons'
 import { isSectionBlocked } from '@utils/accessAreas'
 import { hasPermission } from '@utils/authAbac'
-import { can } from '@utils/can'
+import { can, canViewModule } from '@utils/can'
 import {
   permissionConstToUseWithHasPermission,
   uiControlResourceNameMapWithCamelCase,
@@ -94,7 +94,9 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
     to: '/qc/leads',
     match: ['/qc/leads', '/leads/', '/employee/lead/'],
     order: 60,
-    isVisible: () => !isSectionBlocked('crm.leads'),
+    // Default-deny to match the desktop sidebar + route guard (requireGrant):
+    // visible only when not blocked AND the user has a crm.leads view grant.
+    isVisible: () => !isSectionBlocked('crm.leads') && canViewModule('crm.leads'),
   },
   {
     id: 'projects',

@@ -45,7 +45,6 @@ const LoanDetails = lazy(() => import('@pages/employee/loans/personal/views/Loan
 const EmployeesLoanMain = lazy(() => import('@pages/employee/loans/admin/EmployeesLoanMain'))
 const PersonalKpiMain = lazy(() => import('@pages/employee/kpis/personal/PersonalKpiMain'))
 const LeadsMain = lazy(() => import('@pages/employee/leads/LeadsMain'))
-const LeadDetails = lazy(() => import('@modules/crm/leads/pages/LeadDetailPage'))
 // Opt-in beta: migrated EnterpriseForm wizard (parallel to classic LeadFormModal)
 const LeadWizardBetaPage = lazy(() => import('@pages/employee/leads/lead/LeadWizardBetaPage'))
 const ProjectsMain = lazy(() => import('@pages/employee/projects/ProjectsMain'))
@@ -484,23 +483,27 @@ const PrivateRoutes = () => {
         <Route
           path='/qc/leads/wizard-beta'
           element={
-            <SuspensedView>
-              <LeadWizardBetaPage />
-            </SuspensedView>}
+            <SectionGuard module='crm.leads' requireGrant>
+              <SuspensedView>
+                <LeadWizardBetaPage />
+              </SuspensedView>
+            </SectionGuard>}
         />
         <Route
           path='/qc/leads/wizard-beta/:id'
           element={
-            <SuspensedView>
-              <LeadWizardBetaPage />
-            </SuspensedView>}
+            <SectionGuard module='crm.leads' requireGrant>
+              <SuspensedView>
+                <LeadWizardBetaPage />
+              </SuspensedView>
+            </SectionGuard>}
         />
         <Route
           path='/leads/:id'
           element={
             <SectionGuard module='crm.leads' requireGrant>
               <SuspensedView>
-                <LeadDetails />
+                <EntityDetailPage />
               </SuspensedView>
             </SectionGuard>
           }
@@ -561,7 +564,7 @@ const PrivateRoutes = () => {
           element={
             <SectionGuard module='crm.leads' requireGrant>
               <SuspensedView>
-                <LeadDetails />
+                <EntityDetailPage />
               </SuspensedView>
             </SectionGuard>
           }

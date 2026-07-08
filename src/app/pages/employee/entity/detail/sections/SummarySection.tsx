@@ -163,7 +163,10 @@ const SummarySection: React.FC<{
   company?: any;
   contact?: any;
   onJump: (step: number) => void;
-}> = ({ lead, vm, company, contact, onJump }) => {
+  // Write-gated: the Scope & Commercials sub-tab exposes project financials
+  // (rates/costs) that read-only users must not see.
+  canViewCommercials?: boolean;
+}> = ({ lead, vm, company, contact, onJump, canViewCommercials = true }) => {
   const allEmployees = useSelector((s: RootState) => s.allEmployees?.list) || [];
   const isProject = !!lead?.status?.isProjectTrigger || !!lead?.project;
   const p = lead?.project || {};
@@ -172,7 +175,10 @@ const SummarySection: React.FC<{
   const exec = lead?.execution || {};
   const [sub, setSub] = useState<SubKey>('overview');
 
-  const subPages = useMemo(() => SUB_PAGES.filter(s => !s.projectOnly || isProject), [isProject]);
+  const subPages = useMemo(
+    () => SUB_PAGES.filter(s => (!s.projectOnly || isProject) && (s.key !== 'scope' || canViewCommercials)),
+    [isProject, canViewCommercials],
+  );
   const active = subPages.some(s => s.key === sub) ? sub : 'overview';
 
   const owner = employeeUserName(lead?.assignedTo) || employeeNameById(allEmployees, lead?.assignedToId) || DASH;

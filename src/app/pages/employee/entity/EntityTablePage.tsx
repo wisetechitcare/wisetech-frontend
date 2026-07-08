@@ -13,6 +13,7 @@ import {
   InputAdornment,
 } from "@mui/material";
 import { deleteLead, getAllLeadsComplete } from "@services/leads";
+import { canDo } from "@utils/can";
 import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -205,6 +206,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const today = dayjs();
+
+  // Action-specific RBAC gates (any scope tier; backend enforces record-level
+  // scope and returns 403 for out-of-scope rows).
+  const canCreateLead = canDo('crm.leads', 'create');
+  const canUpdateLead = canDo('crm.leads', 'update');
+  const canDeleteLead = canDo('crm.leads', 'delete');
 
   // ── Responsive ──────────────────────────────────────────────────────────────
   const theme = useTheme();
@@ -954,7 +961,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       },
     ];
 
-    const actions: any[] = isDrillDown
+    const actions: any[] = isDrillDown || (!canUpdateLead && !canDeleteLead)
       ? []
       : [
         {
@@ -964,32 +971,36 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           enableEditing: false,
           Cell: ({ row }: { row: any }) => (
             <Box sx={{ display: "flex", gap: "8px" }}>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const currLead = rawLeadsDatas.find((l: any) => l.id === row.original.id);
-                  setFormValues(mapLeadToFormInitialValues(currLead));
-                }}
-              >
-                <KTIcon iconName="pencil" className="fs-2" />
-              </button>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteLead(row.original.id);
-                }}
-              >
-                <KTIcon iconName="trash" className="fs-2" />
-              </button>
+              {canUpdateLead && (
+                <button
+                  className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const currLead = rawLeadsDatas.find((l: any) => l.id === row.original.id);
+                    setFormValues(mapLeadToFormInitialValues(currLead));
+                  }}
+                >
+                  <KTIcon iconName="pencil" className="fs-2" />
+                </button>
+              )}
+              {canDeleteLead && (
+                <button
+                  className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteLead(row.original.id);
+                  }}
+                >
+                  <KTIcon iconName="trash" className="fs-2" />
+                </button>
+              )}
             </Box>
           ),
         },
       ];
 
     return [...base, ...leadOnly, ...projectCols, ...tail, ...actions];
-  }, [view, projectColumnsActive, isDrillDown, projectServices, projectCategories, projectSubcategories, allemployees, rawLeadsDatas]);
+  }, [view, projectColumnsActive, isDrillDown, projectServices, projectCategories, projectSubcategories, allemployees, rawLeadsDatas, canUpdateLead, canDeleteLead]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleDeleteLead = async (id: string) => {
@@ -1352,47 +1363,51 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
               width: isMobile ? '100%' : 'auto',
               marginLeft: isMobile ? '0' : 'auto',
             }}>
-              <button
-                className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
-                onClick={() => setShowBulkImport(true)}
-                style={{
-                  backgroundColor: "#fff",
-                  color: "#AA393D",
-                  border: "1px solid #E2E8F0",
-                  boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                  borderRadius: "6px",
-                  padding: "0 12px",
-                  fontSize: "12px",
-                  height: "32px",
-                  display: 'flex',
-                  alignItems: 'center',
-                  flex: isMobile ? 1 : 'none',
-                  justifyContent: 'center'
-                }}
-              >
-                <KTIcon iconName="cloud-download" className="fs-6 me-1" />
-                Bulk Import
-              </button>
-              <button
-                className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
-                onClick={() => setFormValues({ leadTemplateId: "blank" })}
-                style={{
-                  backgroundColor: "#AA393D",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "0 12px",
-                  fontSize: "12px",
-                  height: "32px",
-                  display: 'flex',
-                  alignItems: 'center',
-                  boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                  flex: isMobile ? 1 : 'none',
-                  justifyContent: 'center'
-                }}
-              >
-                + New Lead
-              </button>
+              {canCreateLead && (
+                <button
+                  className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+                  onClick={() => setShowBulkImport(true)}
+                  style={{
+                    backgroundColor: "#fff",
+                    color: "#AA393D",
+                    border: "1px solid #E2E8F0",
+                    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                    borderRadius: "6px",
+                    padding: "0 12px",
+                    fontSize: "12px",
+                    height: "32px",
+                    display: 'flex',
+                    alignItems: 'center',
+                    flex: isMobile ? 1 : 'none',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <KTIcon iconName="cloud-download" className="fs-6 me-1" />
+                  Bulk Import
+                </button>
+              )}
+              {canCreateLead && (
+                <button
+                  className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+                  onClick={() => setFormValues({ leadTemplateId: "blank" })}
+                  style={{
+                    backgroundColor: "#AA393D",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "0 12px",
+                    fontSize: "12px",
+                    height: "32px",
+                    display: 'flex',
+                    alignItems: 'center',
+                    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                    flex: isMobile ? 1 : 'none',
+                    justifyContent: 'center'
+                  }}
+                >
+                  + New Lead
+                </button>
+              )}
             </div>
           )}
         </div>

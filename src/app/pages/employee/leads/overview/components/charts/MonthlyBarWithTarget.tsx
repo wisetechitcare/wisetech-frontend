@@ -3,7 +3,7 @@ import { Card, Button, Spinner, Form } from "react-bootstrap";
 import dayjs from "dayjs";
 import { getMonthlyLeadAnalytics } from "@services/lead";
 import ManageTargetModal from "../modals/ManageTargetModal";
-import { can } from "@utils/can";
+import { canDo } from "@utils/can";
 import {
   BarChart,
   Bar,
@@ -273,7 +273,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
               </h5>
             </div>
             <div className="d-flex align-items-center gap-2">
-              {can('crm.leads.update.all') && (
+              {canDo('crm.leads', 'update') && (
               <Button
                 variant="outline-success"
                 size="sm"

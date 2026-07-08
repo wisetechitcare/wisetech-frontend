@@ -5,14 +5,14 @@ import { useDMS } from '../store/DmsContext';
 import type { ViewMode, SortField, SortOrder } from '../types/dms.types';
 import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal';
 import * as dmsService from '../services/dmsService';
-import { can } from '@utils/can';
+import { canDo } from '@utils/can';
 
 interface ExplorerToolbarProps {
   onUploadClick: () => void;
 }
 
 export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick }) => {
-  const canManageLeads = can('crm.leads.update.all');
+  const canManageLeads = canDo('crm.leads', 'update');
   const { state, dispatch, deleteFiles } = useDMS();
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);

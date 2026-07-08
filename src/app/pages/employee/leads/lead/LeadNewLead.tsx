@@ -60,7 +60,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import LeadBulkImport from "./LeadBulkImport";
-import { can } from "@utils/can";
+import { canDo } from "@utils/can";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -667,7 +667,12 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // chartSettingsUpdated only changes visual config — no data re-fetch needed
   useEventBus(EVENT_KEYS.closeChartDialogModal, handleCloseChartSettingsModal);
 
-  const canManageLeads = can('crm.leads.update.all');
+  // Action-specific gates (any scope tier). The backend enforces the real
+  // record-level scope (self/team/department) and returns 403 for out-of-scope
+  // rows, so the UI just decides whether to surface each affordance.
+  const canCreateLead = canDo('crm.leads', 'create');
+  const canUpdateLead = canDo('crm.leads', 'update');
+  const canDeleteLead = canDo('crm.leads', 'delete');
 
   const hideNewLeadButton =
     statusId ||
@@ -971,7 +976,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         return "N/A";
       },
     },
-    ...(hideNewLeadButton || !canManageLeads
+    ...(hideNewLeadButton || (!canUpdateLead && !canDeleteLead)
       ? []
       : [
         {
@@ -981,28 +986,32 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           enableEditing: false,
           Cell: ({ row }: { row: any }) => (
             <Box sx={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const currLead = rawLeadsData.find(
-                    (l: any) => l.id === row.original.id,
-                  );
-                  setFormValues(mapLeadToFormInitialValues(currLead));
-                  setSelectedLead(row.original);
-                }}
-              >
-                <KTIcon iconName="pencil" className="fs-2" />
-              </button>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteLead(row.original.id);
-                }}
-              >
-                <KTIcon iconName="trash" className="fs-2" />
-              </button>
+              {canUpdateLead && (
+                <button
+                  className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const currLead = rawLeadsData.find(
+                      (l: any) => l.id === row.original.id,
+                    );
+                    setFormValues(mapLeadToFormInitialValues(currLead));
+                    setSelectedLead(row.original);
+                  }}
+                >
+                  <KTIcon iconName="pencil" className="fs-2" />
+                </button>
+              )}
+              {canDeleteLead && (
+                <button
+                  className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteLead(row.original.id);
+                  }}
+                >
+                  <KTIcon iconName="trash" className="fs-2" />
+                </button>
+              )}
             </Box>
           ),
         },
@@ -1014,7 +1023,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     allemployees,
     rawLeadsData,
     hideNewLeadButton,
-    canManageLeads,
+    canUpdateLead,
+    canDeleteLead,
     fileLocCompanyMap,
     fileLocTypeMap,
   ]);
@@ -1410,7 +1420,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             marginTop: isMobile ? '8px' : '0'
           }}>
             {/* Primary Buttons */}
-            {!hideNewLeadButton && canManageLeads && (
+            {!hideNewLeadButton && canCreateLead && (
               <div style={{
                 display: 'flex',
                 alignItems: 'center',

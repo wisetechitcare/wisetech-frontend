@@ -6,7 +6,7 @@ import { formatBytes, getStatusConfig } from '../utils/dmsUtils';
 import type { DMSFile } from '../types/dms.types';
 import * as dmsService from '../services/dmsService';
 import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal';
-import { can } from '@utils/can';
+import { canDo } from '@utils/can';
 
 interface DocumentCardProps {
   file: DMSFile;
@@ -103,7 +103,7 @@ const FileActionsDropdown: React.FC<{ file: DMSFile; onClose: () => void; onPrev
     }
   };
 
-  const canManageLeads = can('crm.leads.update.all');
+  const canManageLeads = canDo('crm.leads', 'update');
 
   const actions = [
     { icon: 'eye', label: 'Preview', action: () => { handlePreview(); onClose(); } },
