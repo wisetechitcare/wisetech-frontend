@@ -5,7 +5,7 @@ import { useLayout } from '../../core'
 import { useSidebarCollapse } from '../../core/SidebarCollapseContext'
 import { HeaderToolbar } from './HeaderToolbar'
 import { KTIcon } from '@metronic/helpers'
-import { useMediaQuery, useTheme } from '@mui/material';
+import { useIsMobile } from '@components/navigation/BottomNavigation/useIsMobile'
 
 // Compact WiseTech mark (favicon) shown when the sidebar is collapsed.
 const WtSquareLogo = () => (
@@ -23,8 +23,7 @@ export function HeaderWrapper() {
   const splashLogo = 'https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2'
   const { classes, attributes } = useLayout()
   const { collapsed, toggle } = useSidebarCollapse()
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const isMobile = useIsMobile()
 
   return (
     <div

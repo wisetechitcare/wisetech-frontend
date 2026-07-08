@@ -6,6 +6,7 @@ import { uploadCompanyAsset } from '@services/uploader';
 import { dateFormatter } from '@utils/date';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { IconBuilding, IconHierarchy, IconImage, IconClose } from '@app/modules/common/components/icons/OrgIcons';
+import './OrganizationFormModal.responsive.css';
 
 const C = { brand: '#9D4141', brandSoft: '#FBEEEE', brandBorder: '#EBD2D2', ink: '#1F2430', inkSoft: '#5A6172', line: '#E7E9EF', panel: '#F7F7F9' };
 
@@ -120,7 +121,7 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="org-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>Organization Name <span style={{ color: C.brand }}>*</span></label>
             <input style={{ ...inputStyle, borderColor: errors.name ? '#F3B4B4' : C.line }} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Wisetech Interiors Pvt. Ltd." />

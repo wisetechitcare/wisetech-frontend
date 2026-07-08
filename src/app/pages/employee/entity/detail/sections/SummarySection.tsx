@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import { DetailCard, DetailRow, DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
@@ -84,75 +84,14 @@ const SectionHeading: React.FC<{ icon: string; title: string; color?: string }> 
   </div>
 );
 
-type SubKey = 'leads' | 'projects' | 'commercial';
-interface SubDef {
-  key: SubKey;
-  label: string;
-  icon: string;
-  projectOnly?: boolean;
-}
-const SUB_PAGES: SubDef[] = [
-  { key: 'leads', label: 'Leads', icon: 'bi bi-person-lines-fill' },
-  { key: 'projects', label: 'Projects', icon: 'bi bi-kanban', projectOnly: true },
-  { key: 'commercial', label: 'Commercial', icon: 'bi bi-cash-stack' },
-];
+export type SummaryView = 'leads' | 'projects' | 'commercial';
 
 /**
- * Segmented pill sub-nav inside the Summary tab. Styled to match the Audit Trail
- * Timeline/Compare/Insights toggle: one rounded track on a light slate ground,
- * the active sub-page raised as a white card, the rest flat.
- */
-const SubNav: React.FC<{ items: SubDef[]; active: SubKey; onChange: (k: SubKey) => void }> = ({ items, active, onChange }) => (
-  <div
-    style={{
-      display: 'inline-flex',
-      gap: 3,
-      flexWrap: 'wrap',
-      marginBottom: 18,
-      background: '#EEF2F6',
-      padding: 4,
-      borderRadius: 12,
-    }}
-  >
-    {items.map(s => {
-      const isActive = s.key === active;
-      return (
-        <button
-          key={s.key}
-          type="button"
-          onClick={() => onChange(s.key)}
-          aria-pressed={isActive}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 7,
-            border: 'none',
-            background: isActive ? '#fff' : 'transparent',
-            color: isActive ? '#AA393D' : '#475569',
-            borderRadius: 9,
-            padding: '7px 16px',
-            cursor: 'pointer',
-            fontFamily: 'Inter',
-            fontSize: 13,
-            fontWeight: isActive ? 700 : 500,
-            boxShadow: isActive ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-            transition: 'background 0.15s ease, color 0.15s ease',
-          }}
-        >
-          <i className={s.icon} />
-          {s.label}
-        </button>
-      );
-    })}
-  </div>
-);
-
-/**
- * Summary — the entity overview area, divided into focused sub-pages via an
- * in-tab segmented nav (Overview / Client / Scope & Commercials / Project /
- * System). Each sub-page is one concern; the long single-scroll is gone. The
- * operational project modules (Tasks / Timesheet / Reimbursement) and Documents
- * remain their own top-level tabs.
+ * Summary — the entity overview area, divided into focused views (Leads /
+ * Projects / Commercial), now selected by the page's own top-level tab bar
+ * rather than an internal pill sub-nav. Each view is one concern; the long
+ * single-scroll is gone. The operational project modules (Tasks / Timesheet /
+ * Reimbursement) and Documents remain their own top-level tabs.
  */
 const SummarySection: React.FC<{
   lead: any;
@@ -160,17 +99,18 @@ const SummarySection: React.FC<{
   company?: any;
   contact?: any;
   onJump: (step: number) => void;
-}> = ({ lead, vm, company, contact, onJump }) => {
+  view: SummaryView;
+}> = ({ lead, vm, company, contact, onJump, view }) => {
   const allEmployees = useSelector((s: RootState) => s.allEmployees?.list) || [];
   const isProject = !!lead?.status?.isProjectTrigger || !!lead?.project;
   const p = lead?.project || {};
   // Lead-as-master: execution-only fields now come from the lead's 1:1 execution
   // extension. Fall back to the (transitional) project row when present.
   const exec = lead?.execution || {};
-  const [sub, setSub] = useState<SubKey>('leads');
 
-  const subPages = useMemo(() => SUB_PAGES.filter(s => !s.projectOnly || isProject), [isProject]);
-  const active = subPages.some(s => s.key === sub) ? sub : 'leads';
+  // Projects is project-only; fall back to Leads if the tab is somehow active
+  // on a non-project lead (e.g. right after a status change removes it).
+  const active = view === 'projects' && !isProject ? 'leads' : view;
 
   const owner = employeeUserName(lead?.assignedTo) || employeeNameById(allEmployees, lead?.assignedToId) || DASH;
   const missing = computeMissingInfo(lead);
@@ -198,34 +138,16 @@ const SummarySection: React.FC<{
   //           notes, system metadata (everything that belongs to the lead). ─────
   const Leads = (
     <div>
-      <div style={{ position: 'relative', background: `linear-gradient(135deg, ${health.color}14 0%, ${C.bgCard} 58%)`, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, boxShadow: C.shadowCard, padding: '14px 18px 14px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', overflow: 'visible' }}>
-        <span style={{ position: 'absolute', left: 0, top: 10, bottom: 10, width: 5, borderRadius: '0 4px 4px 0', background: `linear-gradient(${health.color}, ${health.color}99)` }} aria-hidden />
-        <HealthGauge health={health} probability={probability} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <MissingInfoChip items={missing} onJump={onJump} />
-          {isProject && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, backgroundColor: C.successLight, color: '#16a34a', border: `1px solid ${C.success}33`, borderRadius: RADIUS.full, padding: '6px 13px', fontFamily: FONT.body, fontSize: 12, fontWeight: 700 }}>
-              <i className="bi bi-kanban-fill" /> Project active
-            </span>
-          )}
-          {lead?.isCancelled && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, backgroundColor: C.dangerLight, color: C.danger, border: `1px solid ${C.danger}33`, borderRadius: RADIUS.full, padding: '6px 13px', fontFamily: FONT.body, fontSize: 12, fontWeight: 700 }}>
-              <i className="bi bi-x-octagon-fill" /> Cancelled
-            </span>
-          )}
-        </div>
-      </div>
+
 
       {/* Primary lead identity — the "main things", lead number first. */}
       <StatGrid
         items={[
+          { label: 'Inquiry Date', value: fmtDate(lead?.inquiryDate), icon: 'bi bi-calendar-event', accent: 'teal' },
           { label: 'Lead No.', value: lead?.prefix || DASH, icon: 'bi bi-hash', accent: 'primary' },
           { label: 'Status', value: <DetailStatusBadge status={lead?.status?.name || DASH} color={lead?.status?.color} />, icon: 'bi bi-activity', accent: 'blue' },
           { label: 'Assigned To', value: owner, icon: 'bi bi-person-badge', accent: 'purple' },
-          { label: 'Lead Type', value: lead?.leadType ? String(lead.leadType).replace(/_/g, ' ') : DASH, icon: 'bi bi-tag', accent: 'teal' },
-          { label: 'Priority', value: lead?.priority || DASH, icon: 'bi bi-flag', accent: 'warning' },
           { label: 'Lead Source', value: leadSource, icon: 'bi bi-signpost-split', accent: 'info' },
-          { label: 'Inquiry Date', value: fmtDate(lead?.inquiryDate), icon: 'bi bi-calendar-event', accent: 'teal' },
           { label: 'Next Follow-up', value: fmtDate(lead?.nextFollowUpDate), icon: 'bi bi-calendar-check', accent: 'amber' },
         ]}
       />
@@ -305,7 +227,6 @@ const SummarySection: React.FC<{
         items={[
           { label: 'Project Status', value: <DetailStatusBadge status={execStatus?.name || DASH} color={execStatus?.color} />, icon: 'bi bi-kanban', accent: 'blue' },
           { label: 'Project Manager', value: pmName, icon: 'bi bi-person-workspace', accent: 'primary' },
-          { label: 'Progress', value: progress != null ? `${progress}%` : DASH, icon: 'bi bi-hourglass-split', accent: delayed ? 'danger' : 'warning' },
           { label: 'Start Date', value: fmtDate(execStart), icon: 'bi bi-calendar-event', accent: 'teal' },
           { label: 'Expected Closure', value: fmtDate(execEnd), icon: 'bi bi-calendar-check', accent: 'green' },
         ]}
@@ -339,7 +260,6 @@ const SummarySection: React.FC<{
 
   return (
     <div>
-      <SubNav items={subPages} active={active} onChange={setSub} />
       {active === 'leads' && Leads}
       {active === 'projects' && isProject && Projects}
       {active === 'commercial' && Commercial}

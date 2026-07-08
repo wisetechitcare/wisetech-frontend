@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import { useDispatch } from 'react-redux';
@@ -39,9 +39,22 @@ const EntityDetailPage: React.FC = () => {
   const params = useParams<{ leadId?: string; id?: string }>();
   const leadId = params.leadId || params.id;
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
 
-  const [activeTab, setActiveTab] = useState<string>('summary');
+  // ── Entry context — the SAME page behaves differently by origin. The Projects
+  //    table (and legacy /projects/:id links) navigate with state.isProject, the
+  //    Leads tables pass only state.leadData. From Projects: land on the Projects
+  //    tab with the full project tab set. From Leads: land on Leads and hide the
+  //    project-only tabs entirely (Projects/Tasks/Timesheet/…), even for a
+  //    received lead. Direct URLs / notifications carry no state and keep the
+  //    full data-driven view. history.state survives refresh, so the context
+  //    sticks until the user navigates in from the other table. ────────────────
+  const navState = (location.state ?? {}) as { isProject?: boolean; leadData?: unknown };
+  const fromProjects = navState.isProject === true;
+  const fromLeads = !fromProjects && navState.leadData != null;
+
+  const [activeTab, setActiveTab] = useState<string>(fromProjects ? 'projects' : 'leads');
   const [lead, setLead] = useState<any | null>(null);
   const [company, setCompany] = useState<any | null>(null);
   const [contact, setContact] = useState<any | null>(null);
@@ -59,8 +72,12 @@ const EntityDetailPage: React.FC = () => {
 
   // Project-only tabs (Tasks/Timesheet/Reimbursement) show for ANY project-trigger
   // lead — they fetch operational data by lead id, so a linked project row is no
-  // longer required (lead-as-master).
-  const tabs = useMemo(() => ENTITY_TABS.filter(t => !t.projectOnly || isProject), [isProject]);
+  // longer required (lead-as-master). Entering from the Leads table suppresses
+  // them entirely (lead-focused view), regardless of project status.
+  const tabs = useMemo(
+    () => ENTITY_TABS.filter(t => !t.projectOnly || (isProject && !fromLeads)),
+    [isProject, fromLeads],
+  );
   const vm = useMemo(() => (lead ? buildEntityVM(lead) : null), [lead]);
 
   // Live counts surfaced AS TAB BADGES (replaces the redundant related-records
@@ -76,8 +93,11 @@ const EntityDetailPage: React.FC = () => {
   }, [lead]);
 
   useEffect(() => {
-    if (!tabs.some(t => t.key === activeTab)) setActiveTab('summary');
-  }, [tabs, activeTab]);
+    // Wait for the lead to load — until then isProject is false and this would
+    // clobber the Projects landing tab requested by the Projects-table entry.
+    if (!lead) return;
+    if (!tabs.some(t => t.key === activeTab)) setActiveTab('leads');
+  }, [lead, tabs, activeTab]);
 
   const fetchLeadDetails = useCallback(async () => {
     if (!leadId) {
@@ -128,7 +148,9 @@ const EntityDetailPage: React.FC = () => {
   const renderTab = () => {
     if (error || !lead || !vm) return <div className="alert alert-danger">{error || 'No data available'}</div>;
     switch (activeTab) {
-      case 'summary':
+      case 'leads':
+      case 'projects':
+      case 'commercial':
         return (
           <SummarySection
             lead={lead}
@@ -136,6 +158,7 @@ const EntityDetailPage: React.FC = () => {
             company={company}
             contact={contact}
             onJump={openEdit}
+            view={activeTab}
           />
         );
       case 'tasks':
@@ -172,35 +195,53 @@ const EntityDetailPage: React.FC = () => {
       <div className="d-flex flex-column flex-lg-row p-6">
         <div className="flex-lg-row-fluid">
           {/* ── Header ── */}
-          <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
-            <div className="d-flex align-items-center gap-2 gap-md-3 flex-grow-1">
-              <button className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm" onClick={() => navigate(-1)}>
-                <img src={miscellaneousIcons.leftArrow} alt="Back" style={{ width: '36px', height: '36px', cursor: 'pointer' }} />
+          <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-4 mb-2">
+            <div className="d-flex align-items-start gap-3 flex-grow-1" style={{ minWidth: 0 }}>
+              <button 
+                className="btn btn-icon btn-active-light-primary" 
+                onClick={() => navigate(-1)}
+                style={{ width: '40px', height: '40px', flexShrink: 0, border: 'none', background: 'transparent' }}
+              >
+                <img src={miscellaneousIcons.leftArrow} alt="Back" style={{ width: '36px', height: '36px' }} />
               </button>
-              <div className="flex-grow-1">
-                <div className="text-muted small font-inter d-flex align-items-center flex-wrap gap-2">
-                  <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '13px' }}>{`#${lead?.prefix || 'N/A'}`}</span>
+              
+              <div className="d-flex flex-column flex-grow-1" style={{ minWidth: 0 }}>
+                {/* Meta string */}
+                <div className="d-flex align-items-center flex-wrap gap-2 mb-1" style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 600, letterSpacing: '0.5px' }}>
+                  <span style={{ color: '#64748B' }}>{`#${lead?.prefix || 'N/A'}`}</span>
                   {isProject && lead?.project?.prefix && (
-                    <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '13px', color: '#0A5C2A' }}>· {`Project #${lead.project.prefix}`}</span>
+                    <>
+                      <span style={{ color: '#CBD5E1' }}>•</span>
+                      <span style={{ color: '#059669' }}>{`Project #${lead.project.prefix}`}</span>
+                    </>
                   )}
                   {(lead?.revisionCount !== undefined && lead?.revisionCount !== null) && (
-                    <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '13px', color: '#64748B' }}>· {`R${lead.revisionCount}`}</span>
+                    <>
+                      <span style={{ color: '#CBD5E1' }}>•</span>
+                      <span style={{ color: '#94A3B8' }}>{`R${lead.revisionCount}`}</span>
+                    </>
                   )}
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <h2 className="mb-0 text-truncate" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: '24px' }}>{lead?.title}</h2>
                   {lead?.priority && (
-                    <div className="d-flex align-items-center gap-1">
-                      <KTIcon iconName="star" className="fs-6 text-warning" />
-                      <span className="text-muted small">{lead.priority}</span>
-                    </div>
+                    <>
+                      <span style={{ color: '#CBD5E1' }}>•</span>
+                      <span className="d-inline-flex align-items-center gap-1" style={{ color: '#F59E0B' }}>
+                        <i className="bi bi-star-fill" style={{ fontSize: '11px', marginTop: '-1px' }} /> {lead.priority}
+                      </span>
+                    </>
                   )}
                 </div>
+                
+                {/* Title */}
+                <h2 className="mb-0 text-truncate" style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '26px', color: '#0F172A', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+                  {lead?.title || 'Unnamed Entity'}
+                </h2>
               </div>
             </div>
 
-            <div className="d-flex align-items-center gap-2 flex-wrap">
-              {isProject ? (
+            {/* Actions — from the Leads table the header stays lead-flavoured
+                (lead status pill), even when the lead is also a project. */}
+            <div className="d-flex flex-wrap align-items-stretch align-items-sm-center gap-2 mt-1 mt-md-0">
+              {isProject && !fromLeads ? (
                 <ProjectStatusControl
                   leadId={leadId!}
                   projectStatusId={lead?.execution?.projectStatusId}
@@ -209,27 +250,38 @@ const EntityDetailPage: React.FC = () => {
                   prefix="Project - "
                 />
               ) : (
-                <button
-                  disabled
+                <div
                   style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 8,
-                    border: `1px solid ${lead?.status?.color || '#64748B'}44`, 
-                    background: `${lead?.status?.color || '#64748B'}12`, 
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    border: `1px solid ${lead?.status?.color || '#64748B'}33`, 
+                    background: `${lead?.status?.color || '#64748B'}14`, 
                     color: lead?.status?.color || '#64748B',
-                    borderRadius: 999, padding: '7px 14px', cursor: 'default',
-                    fontFamily: 'Inter, sans-serif', fontSize: 12.5, fontWeight: 700,
+                    borderRadius: '8px', padding: '8px 14px',
+                    fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 700,
                   }}
                 >
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: lead?.status?.color || '#64748B', display: 'inline-block' }} />
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: lead?.status?.color || '#64748B', display: 'inline-block' }} />
                   Lead - {lead?.status?.name || 'Set status'}
-                </button>
+                </div>
               )}
-              <Button variant="primary" onClick={openEdit} style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}>
-                <KTIcon iconName="pencil" className="fs-2" /> Edit
-              </Button>
-              <Button variant="info" onClick={() => setShowProposalModal(true)} style={{ backgroundColor: '#7239ea', borderColor: '#7239ea', color: 'white' }}>
-                <KTIcon iconName="file-down" className="fs-2" /> Export
-              </Button>
+              
+              <button 
+                type="button" 
+                className="btn btn-sm" 
+                onClick={openEdit} 
+                style={{ backgroundColor: '#AA393D', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
+              >
+                <i className="bi bi-pencil-fill" style={{ fontSize: '12px' }} /> Edit
+              </button>
+              
+              <button 
+                type="button" 
+                className="btn btn-sm" 
+                onClick={() => setShowProposalModal(true)} 
+                style={{ backgroundColor: '#7239ea', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
+              >
+                <i className="bi bi-file-earmark-arrow-down-fill" style={{ fontSize: '13px' }} /> Export
+              </button>
             </div>
           </div>
 

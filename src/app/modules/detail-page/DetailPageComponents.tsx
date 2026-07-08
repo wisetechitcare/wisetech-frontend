@@ -1,6 +1,7 @@
 import React, { type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { C, FONT, ICON_COLORS, RADIUS, SP } from '../configuration/ConfigDesignSystem';
+import './DetailPageResponsive.css';
 
 export type AccentColor = keyof typeof ICON_COLORS;
 
@@ -138,6 +139,7 @@ export const DetailRow: React.FC<{
   isLast?: boolean;
 }> = ({ label, value, isLast }) => (
   <div
+    className="detail-row"
     style={{
       display: 'flex',
       alignItems: 'flex-start',
@@ -161,6 +163,7 @@ export const DetailRow: React.FC<{
       {label}
     </span>
     <div
+      className="detail-row-value"
       style={{
         fontFamily: FONT.body,
         fontSize: '13px',
@@ -377,6 +380,7 @@ export const DetailInfoGrid: React.FC<{
   gap?: string;
 }> = ({ columns = 2, children, gap = '0 20px' }) => (
   <div
+    className="detail-info-grid"
     style={{
       display: 'grid',
       gridTemplateColumns: `repeat(${columns}, 1fr)`,
@@ -463,6 +467,7 @@ export const DetailProfileBlock: React.FC<{
 // ── DetailSummaryBar ─────────────────────────────────────────────────────────
 export const DetailSummaryBar: React.FC<{ items: SummaryItem[] }> = ({ items }) => (
   <div
+    className="detail-summary-bar"
     style={{
       display: 'grid',
       gridTemplateColumns: `repeat(${items.length}, 1fr)`,

@@ -1,0 +1,35 @@
+/*
+ * Responsive overrides for the shared detail-page primitives (DetailSummaryBar,
+ * DetailRow, FieldRow). These primitives are laid out with inline styles for
+ * desktop, which stays untouched here — every rule below is scoped under a
+ * max-width query matching the app's shared mobile/tablet breakpoint (see
+ * useIsMobile.ts) and needs !important only to win over the inline desktop
+ * styles that continue to apply unchanged at >=992px.
+ */
+
+@media (max-width: 991.98px) {
+  .detail-summary-bar {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .detail-info-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .detail-summary-bar {
+    grid-template-columns: 1fr !important;
+  }
+  .detail-row,
+  .field-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+  }
+  .detail-row-value,
+  .field-row-value {
+    text-align: left !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}

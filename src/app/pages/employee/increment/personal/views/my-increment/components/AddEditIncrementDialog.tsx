@@ -174,7 +174,7 @@ const AddEditIncrementDialog = ({ show, onHide, record, employeeName, employeeId
                     )}
 
                     {/* Salary inputs */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2.5 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', '@media (min-width:992px)': { gridTemplateColumns: '1fr 1fr' }, gap: 2, mb: 2.5 }}>
                         <Form.Group>
                             <Form.Label style={{ color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>
                                 Effective Salary

@@ -1,0 +1,23 @@
+/*
+ * Responsive overrides for the Audit tab's DiffViewer. Desktop stays
+ * untouched — these rules only apply below 991.98px, matching the app's
+ * shared mobile/tablet breakpoint (see useIsMobile.ts), and need
+ * !important only to win over the inline desktop styles that continue to
+ * apply unchanged at >=992px.
+ */
+
+@media (max-width: 991.98px) {
+  .diff-row {
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+  .diff-row-label {
+    width: 100% !important;
+  }
+  .diff-sidebyside-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .diff-sidebyside-header {
+    padding-left: 14px !important;
+  }
+}
