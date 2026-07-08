@@ -2,6 +2,7 @@ import React, { useState, type CSSProperties } from 'react';
 import Select from 'react-select';
 import { C, FONT, RADIUS } from '../configuration/ConfigDesignSystem';
 import { DetailCard, type AccentColor } from './DetailPageComponents';
+import './DetailPageResponsive.css';
 
 /**
  * EditableDetailCard — a DetailCard that flips between read-only and inline-edit
@@ -132,6 +133,7 @@ export const FieldRow: React.FC<{ label: string; children: React.ReactNode; isLa
   label, children, isLast, align = 'center',
 }) => (
   <div
+    className="field-row"
     style={{
       display: 'flex',
       alignItems: align === 'start' ? 'flex-start' : 'center',
@@ -146,7 +148,7 @@ export const FieldRow: React.FC<{ label: string; children: React.ReactNode; isLa
     <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: C.textSecondary, flexShrink: 0, lineHeight: 1.45 }}>
       {label}
     </span>
-    <div style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: C.textPrimary, textAlign: 'right', lineHeight: 1.45, wordBreak: 'break-word', maxWidth: '65%' }}>
+    <div className="field-row-value" style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: C.textPrimary, textAlign: 'right', lineHeight: 1.45, wordBreak: 'break-word', maxWidth: '65%' }}>
       {children}
     </div>
   </div>
