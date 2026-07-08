@@ -7,13 +7,17 @@ export const apiClient = axios.create({
     baseURL: BASE_URL,
     headers: { 'Content-Type': 'application/json' },
     timeout: 30_000,
+    // Auth travels in the httpOnly cookie set at login (XSS-safe).
+    withCredentials: true,
 });
 
-// ── Request: attach Bearer token ──────────────────────────────────────────────
+// ── Request: legacy Bearer-token fallback ─────────────────────────────────────
+// New sessions authenticate via the httpOnly cookie. Sessions persisted by a
+// pre-cookie release may still hold a token in localStorage — honor it until
+// the user re-logs in.
 
 apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        // App stores the JWT under 'wise_tech_login' as { token, id }
         const raw = localStorage.getItem('wise_tech_login');
         if (raw) {
             try {

@@ -1,5 +1,6 @@
 
 import {FC, useState} from 'react'
+import DOMPurify from 'dompurify'
 import clsx from 'clsx'
 import {
   toAbsoluteUrl,
@@ -137,7 +138,7 @@ const ChatInner: FC<Props> = ({isDrawer = false}) => {
                     `text-${message.type === 'in' ? 'start' : 'end'}`
                   )}
                   data-kt-element='message-text'
-                  dangerouslySetInnerHTML={{__html: message.text}}
+                  dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(message.text)}}
                 ></div>
               </div>
             </div>

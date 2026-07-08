@@ -200,9 +200,13 @@ function OpenLeaveRequests() {
                   }
                   currentDate.setDate(currentDate.getDate() + 1);
                 }
+                // Half-day leaves count as 0.5 of a working day.
+                if (requestToHandle?.isHalfDay && leaveDays > 0) {
+                    leaveDays = 0.5;
+                }
             }
         }
-        
+
         leaveDays = Number(leaveDays)
         const workingDaysFactorId = requestRaised?.id;
         const workingDaysScore = workingDaysWeightage * leaveDays

@@ -878,7 +878,7 @@ const getBlockingMessage = async () => {
     //  thisisforattendance
 
     return (
-        <div className={isDashboard ? "d-flex flex-column h-100" : "mb-10 "}>
+        <div className={isDashboard ? "d-flex flex-column" : "mb-10 "}>
             {isDashboard ? (
                 <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                     <div>
@@ -1001,7 +1001,7 @@ const getBlockingMessage = async () => {
             </div>
 
             {/* <LeaveOverview /> */}
-            <div className={isDashboard ? "flex-grow-1" : ""}>
+            <div>
                 <AttendanceOverview notificationToggle={notificationToggle} dashboard={!isDashboard} />
             </div>
 

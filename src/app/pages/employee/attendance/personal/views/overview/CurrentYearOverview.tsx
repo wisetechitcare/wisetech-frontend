@@ -80,11 +80,16 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
         
             if (!employeeId) return;
             
-            const { data: { leaves } } = await fetchEmployeeLeaves(selectedEmployeeId ?? currentEmployeeId);
+            const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
             const totalLeaves = await customLeaves(leaves);
             dispatch(saveLeaves(totalLeaves));
             const filteredLeavesHolidays = filterLeavesPublicHolidays(startDate!, endDate!, true);
-            setTotalLeavesCount(filteredLeavesHolidays!.customLeaves.length || 0);
+            // Half-day leaves count as 0.5 of a leave day.
+            const totalLeaveDays = (filteredLeavesHolidays?.customLeaves || []).reduce(
+                (sum: number, l: any) => sum + (l.isHalfDay ? 0.5 : 1),
+                0,
+            );
+            setTotalLeavesCount(totalLeaveDays || 0);
         }
 
         fetchLeaves();

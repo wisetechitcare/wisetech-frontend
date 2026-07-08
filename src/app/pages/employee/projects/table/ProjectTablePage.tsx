@@ -30,6 +30,7 @@ import {
   fetchAllStates,
   fetchAllCities,
 } from "@services/options";
+import { getRowBackgroundColor } from "@app/modules/common/design-tokens";
 import { AppDispatch, RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import eventBus from "@utils/EventBus";
@@ -338,7 +339,7 @@ const ProjectTablePage = () => {
             // Project-specific fields — sourced from lead.execution (lead-as-master)
             // with lead scalars and the transitional lead.project as fallbacks.
             projectId: lead?.projectId || project?.id || "N/A",
-            projectPrefix: lead?.prefix || project?.prefix || "N/A",
+            projectPrefix: lead?.originalProjectPrefix || project?.prefix || "N/A",
             projectStatus: exec?.projectStatus || project?.status || null,
             projectStartDate: startVal || "N/A",
             projectEndDate: endVal || "N/A",
@@ -477,8 +478,13 @@ const ProjectTablePage = () => {
         Cell: ({ row }: any) => {
           const st = row?.original?.projectStatus;
           return st?.name ? (
-            <div className="badge badge-light" style={{ backgroundColor: st.color || "#64748B", color: "white" }}>
-              {st.name}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              backgroundColor: st.color || '#64748B',
+              borderRadius: '16px', padding: '4px 10px 4px 8px',
+            }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#fff' }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#fff' }}>{st.name}</span>
             </div>
           ) : (
             "N/A"
@@ -787,9 +793,8 @@ const ProjectTablePage = () => {
   };
 
   const rowBackground = (row: any) => {
-    if (row?.isDelayed) return "#FFF1F320";
-    const t = PHASE_THEMES[row?.entityPhase as keyof typeof PHASE_THEMES];
-    return t ? `${t.bg}` : "#F1F5F9";
+    const statusColor = row?.projectStatus?.color || row?.status?.color;
+    return statusColor ? `${statusColor}20` : "#F1F5F9";
   };
 
   return (

@@ -11,6 +11,10 @@ export interface ConfigSettingsRowProps {
   actionIcon?: string;
   onAction?: () => void;
   rightContent?: React.ReactNode;
+  /** Full-width content rendered beneath the header row, inside the same card (divided by a hairline).
+   * Use for rich sub-content that doesn't fit the label/right-content mould — a visual strip, a mini
+   * chart, an inline detail panel. Omit for a plain row (output is identical to before). */
+  footer?: React.ReactNode;
   active?: boolean;
   disabled?: boolean;
   compact?: boolean;
@@ -29,7 +33,7 @@ const Shimmer: React.FC<{ width?: string; height?: string; radius?: string }> = 
 
 const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
   label, description, icon, iconColor = 'primary',
-  value, actionLabel, actionIcon, onAction, rightContent,
+  value, actionLabel, actionIcon, onAction, rightContent, footer,
   active = false, disabled = false, compact = false, loading = false,
 }) => {
   const [hov, setHov] = useState(false);
@@ -37,16 +41,16 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
 
   const scheme = ICON_COLORS[iconColor] ?? ICON_COLORS.primary;
 
+  // The card chrome (border, radius, shadow, active tint, hover lift) lives on this outer wrapper so
+  // an optional full-width `footer` can share the same card as the header row. When no footer is
+  // passed the visual result is identical to the original single-row card.
   return (
     <div
-      className="cfg-settings-row"
       onMouseEnter={() => !disabled && setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: compact ? '14px 20px' : '18px 22px',
+        flexDirection: 'column',
         backgroundColor: active ? C.primaryLight : '#fff',
         border: `1px solid ${hov ? '#d1d5e0' : C.border}`,
         borderRadius: RADIUS.xl,
@@ -56,7 +60,6 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
         transition: 'all 0.18s ease',
         opacity: disabled ? 0.5 : 1,
         cursor: disabled ? 'not-allowed' : 'default',
-        gap: SP.md,
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -69,7 +72,21 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
         backgroundColor: hov ? scheme.color : 'transparent',
         opacity: 0.6,
         transition: 'background-color 0.18s ease',
+        zIndex: 1,
       }} />
+
+      {/* Header row — keeps the .cfg-settings-row class so the design system's responsive
+          breakpoints (flex-wrap, padding, full-width right-content on phones) still apply. */}
+      <div
+        className="cfg-settings-row"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: compact ? '14px 20px' : '18px 22px',
+          gap: SP.md,
+        }}
+      >
 
       {/* Icon + label */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0 }}>
@@ -179,6 +196,19 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
           </>
         )}
       </div>
+      </div>
+
+      {/* Optional full-width footer, divided from the header by a hairline */}
+      {footer && !loading && (
+        <div style={{
+          padding: compact ? '0 20px 14px' : '0 22px 18px',
+          borderTop: `1px solid ${C.border}`,
+          paddingTop: compact ? '12px' : '14px',
+          marginTop: '2px',
+        }}>
+          {footer}
+        </div>
+      )}
     </div>
   );
 };

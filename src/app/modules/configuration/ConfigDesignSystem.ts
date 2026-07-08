@@ -218,6 +218,31 @@ export const BTN = {
   } as CSSProperties,
 };
 
+// ─── Motion ───────────────────────────────────────────────────────────────────
+// Named duration/easing tokens (pattern: Razorpay Blade + Material Design 3 motion specs) so a
+// hover/transition/animation reaches for a named intent instead of a one-off magic-number string.
+// Purely additive — nothing consumes these yet; adopt incrementally in place of ad-hoc
+// `transition: 'all 0.2s ease'`-style literals as components are touched.
+
+export const MOTION = {
+  duration: {
+    quick: '150ms',      // micro-interactions: hover, toggle thumb, icon color swap
+    standard: '250ms',   // routine transitions: card lift, chip color change
+    emphasized: '400ms', // something that should draw the eye: modal entrance, success state
+  },
+  easing: {
+    standard: 'cubic-bezier(0.4, 0, 0.2, 1)',   // routine, symmetric movement
+    entrance: 'cubic-bezier(0, 0, 0.2, 1)',      // decelerate in — element appearing
+    exit: 'cubic-bezier(0.4, 0, 1, 1)',          // accelerate out — element leaving
+    emphasized: 'cubic-bezier(0.2, 0, 0, 1)',    // user-initiated, attention-worthy motion
+  },
+};
+
+// Minimum interactive hit target (Carbon/Apple HIG accessibility convention) — a tappable icon
+// button on a mobile-width screen should sit in at least a 44x44px hit area even if the icon
+// glyph itself is smaller, so it's comfortably tappable without misses.
+export const MIN_TOUCH_TARGET_PX = 44;
+
 // ─── Section Icon Background Colors ──────────────────────────────────────────
 
 export const ICON_COLORS: Record<string, { bg: string; color: string }> = {

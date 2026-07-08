@@ -1,6 +1,6 @@
 import axios from "axios";
 import { EMPLOYEE } from "@constants/api-endpoint";
-import { ICheckInPayload, ICheckOutPayload, IValidateTokenInOut, ILeaveRequest, IReimbursementsCreate, IGrossPayDeductions, IPayment, AttendanceRequest, Attendance, ApprovedAttendanceRequest, IGrossPayConfiguration, IGrossPayConfigurationResponse, IGrossPayConfigurationHistoryResponse, IValidationResult, DynamicFieldConfig, IDeductionConfiguration, IDeductionConfigurationResponse, IDeductionConfigurationHistoryResponse } from "@models/employee";
+import { ICheckInPayload, ICheckOutPayload, IValidateTokenInOut, ILeaveRequest, IReimbursementsCreate, IGrossPayDeductions, IPayment, AttendanceRequest, Attendance, ApprovedAttendanceRequest, IGrossPayConfiguration, IGrossPayConfigurationResponse, IGrossPayConfigurationHistoryResponse, IValidationResult, DynamicFieldConfig, IDeductionConfiguration, IDeductionConfigurationResponse, IDeductionConfigurationHistoryResponse, LeaveDocument } from "@models/employee";
 import dayjs, { Dayjs } from "dayjs";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
@@ -187,16 +187,6 @@ export const fetchCurrentEmployeeByEmpId = async (employeeId: string) => {
     }
     catch (err) {
         throw err;
-    }
-}
-
-export const fetchEmployeeDiscretionaryBalanceById = async (employeeId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_DISCRETIONARY_BALANCE.replace(':id', employeeId)}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (error) {
-        throw error;
     }
 }
 
@@ -607,6 +597,76 @@ export const createEmployeeLeaveRequest = async (payload: ILeaveRequest) => {
     }
 }
 
+export type { LeaveDocument };
+
+/** Approval-chain row for the employee's leave workflow (resolved to a name on the client). */
+export interface ApprovalChainLevel {
+    level: number;
+    approverId: string;
+    isActive: boolean;
+    approverName?: string;
+    approverRole?: string;
+}
+
+/**
+ * Upload one or more leave attachments (multipart). Returns persisted document metadata
+ * ({ key, name, size, contentType, url }) to attach to the leave-request payload.
+ */
+export const uploadLeaveDocuments = async (files: File[]): Promise<LeaveDocument[]> => {
+    if (!files || files.length === 0) return [];
+    const form = new FormData();
+    files.forEach((f) => form.append('files', f, f.name));
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPLOAD_LEAVE_DOCUMENTS}`;
+    const { data } = await axios.post(endpoint, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return data?.data?.documents ?? [];
+};
+
+/**
+ * Fetch the current employee's multi-level leave approval chain (self-readable endpoint).
+ * Returns rows ordered by level; approver names are resolved on the client.
+ */
+export const fetchLeaveApprovalChain = async (): Promise<ApprovalChainLevel[]> => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.LEAVE_APPROVAL_CHAIN}`;
+    const { data } = await axios.get(endpoint);
+    const rows = (data?.data ?? data ?? []) as any[];
+    return (Array.isArray(rows) ? rows : [])
+        .filter((r) => r.isActive !== false && r.approverId)
+        .sort((a, b) => Number(a.level) - Number(b.level))
+        .map((r) => ({ level: Number(r.level), approverId: String(r.approverId), isActive: r.isActive !== false }));
+};
+
+/** One level of the live approval timeline after submit. */
+export interface LeaveApprovalStatusLevel {
+    level: number;
+    approverId: string;
+    approverName?: string;
+    status: 'pending' | 'approved' | 'rejected' | string;
+    actedAt?: string | null;
+    comments?: string;
+}
+
+/** Live approval status for a submitted leave request (the workflow instance timeline). */
+export interface LeaveApprovalStatus {
+    instanceId: string;
+    currentLevel: number;
+    totalLevels: number;
+    status: 'pending' | 'approved' | 'rejected' | string;
+    levels: LeaveApprovalStatusLevel[];
+}
+
+/**
+ * Fetch the LIVE approval status (timeline) for a submitted leave request.
+ * `requestId` is the LeaveTracker id (manual path) or the requestGroupId (auto-allocated).
+ * Returns null when no workflow instance exists (no chain configured) — caller falls back
+ * to the static chain preview.
+ */
+export const fetchLeaveApprovalStatus = async (requestId: string): Promise<LeaveApprovalStatus | null> => {
+    if (!requestId) return null;
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.LEAVE_APPROVAL_STATUS}/${requestId}`;
+    const { data } = await axios.get(endpoint);
+    return (data?.data ?? null) as LeaveApprovalStatus | null;
+};
+
 export const updateEmployeeRequestById = async (id: string, payload: ILeaveRequest) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_EMPLOYEE_LEAVE_REQUEST}?id=${id}`;
@@ -740,6 +800,8 @@ export const fetchCompleteLeaveTrack = async (employeeId: string) => {
                 const dayOfWeek = date.getDay();
                 if (dayOfWeek !== 0 && dayOfWeek !== 6) dayCount++;
             }
+            // Half-day leaves cost 0.5 of a working day.
+            if (leave.isHalfDay && dayCount > 0) return 0.5;
             return dayCount;
         };
 

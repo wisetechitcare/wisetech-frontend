@@ -53,7 +53,14 @@ function LeavesAndBalance() {
   const handleChange = useCallback((index: number, field: string, value: string) => {
     setLeaveOptions((prevOptions) => {
       const updated = [...prevOptions];
-      updated[index][field] = field === "numberOfDays" ? parseInt(value) : value;
+      if (field === "numberOfDays") {
+        updated[index][field] = parseInt(value);
+      } else if (field === "carryForwardLimit") {
+        // Empty = no cap (unlimited carry-forward).
+        updated[index][field] = value === "" ? null : parseInt(value);
+      } else {
+        updated[index][field] = value;
+      }
       return updated;
     });
   }, []);
@@ -89,6 +96,7 @@ function LeavesAndBalance() {
             return await createLeaveOption({
               leaveType: leave.leaveType,
               numberOfDays: leave.numberOfDays,
+              carryForwardLimit: leave.carryForwardLimit ?? null,
               branchId,
               canApprove,
             });
@@ -97,6 +105,7 @@ function LeavesAndBalance() {
               branchId,
               leaveType: leave.leaveType,
               numberOfDays: leave.numberOfDays,
+              carryForwardLimit: leave.carryForwardLimit ?? null,
             });
           }
         } catch (error) {
@@ -121,12 +130,17 @@ function LeavesAndBalance() {
   return (
     <div className="p-8 mt-3 bg-white rounded shadow-sm">
       {/* <h5>Leaves and balance</h5> */}
-      <small className="text-muted d-block text-center">Max. days per year</small>
 
       {isLoading ? (
         <div className="text-center my-3">Loading...</div>
       ) : (
         <div className="mt-3">
+          <Row className="align-items-center mb-2 text-muted fw-semibold fs-8">
+            <Col md={4}>Leave Type</Col>
+            <Col md={3}>Days / year</Col>
+            <Col md={3}>Carry-forward cap</Col>
+            <Col md={2}></Col>
+          </Row>
           {filteredLeaveOptions.map((leave) => {
             const index = leavesOptions.findIndex((l) => l.id === leave.id);
 
@@ -134,7 +148,7 @@ function LeavesAndBalance() {
               <Row key={leave.id || index} className="align-items-center mb-2">
                 {leave.isEditing ? (
                   <>
-                    <Col md={6}>
+                    <Col md={4}>
                       <Form.Control
                         type="text"
                         placeholder="Leave Type"
@@ -146,21 +160,33 @@ function LeavesAndBalance() {
                     <Col md={3}>
                       <Form.Control
                         type="number"
-                        placeholder="Days"
+                        placeholder="Days / year"
                         value={leave.numberOfDays}
                         onChange={(e) => handleChange(index, "numberOfDays", e.target.value)}
                       />
                     </Col>
+                    <Col md={3}>
+                      <Form.Control
+                        type="number"
+                        placeholder="Carry-fwd cap"
+                        title="Max days carried to next year. Leave blank for no cap."
+                        value={leave.carryForwardLimit ?? ""}
+                        onChange={(e) => handleChange(index, "carryForwardLimit", e.target.value)}
+                      />
+                    </Col>
                   </>
-                ) : (   
+                ) : (
                   <>
-                    <Col md={6}>
+                    <Col md={4}>
                       <strong>{leave.leaveType}</strong>
                     </Col>
                     <Col md={3}>{leave.numberOfDays}</Col>
+                    <Col md={3}>
+                      {leave.carryForwardLimit ?? <span className="text-muted">No cap</span>}
+                    </Col>
                   </>
                 )}
-                <Col md={3}>
+                <Col md={2}>
                   <i
                     className="bi bi-pencil-square text-primary cursor-pointer me-3"
                     onClick={() => handleEditToggle(index)}

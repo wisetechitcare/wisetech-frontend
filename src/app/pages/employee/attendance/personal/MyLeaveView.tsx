@@ -1,6 +1,7 @@
 import { Button, Dialog, DialogContent, styled } from '@mui/material'
 import { useEffect, useState } from 'react';
 import LeaveRequestForm from './views/my-leaves/LeaveRequestForm';
+import ApplyLeave from './views/my-leaves/ApplyLeave';
 import BalanceProgress from './views/my-leaves/BalanceProgress';
 import Leaves from './views/my-leaves/Leaves';
 import { hasPermission } from '@utils/authAbac';
@@ -11,9 +12,8 @@ import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { toAbsoluteUrl } from '@metronic/helpers';
 import { handleDatesChange } from '@utils/statistics';
 import DateSelector from '@components/DateSelector';
-import { Modal } from 'react-bootstrap';
 import MyLeaveManagementRequests from './views/my-leaves/MyLeaveManagementRequests';
-import SmartInsightsPanel from './views/my-leaves/SmartInsightsPanel';
+// import SmartInsightsPanel from './views/my-leaves/SmartInsightsPanel';
 import { generateUserInsights } from './views/my-leaves/utils/insightGenerator';
 import { generateMonthlySuggestions } from './views/my-leaves/utils/suggestionEngine';
 import { useSelector } from 'react-redux';
@@ -109,25 +109,24 @@ const PersonalLeaveView = () => {
 
                 </div>
             </div>
-            <h3 className='fw-bold font-barlow mb-0'>Leaves</h3>
-            <Modal
-                show={open}
-                onHide={handleClose}
-                centered
-                size="lg"
-                scrollable
-                dialogClassName="lrc-leave-modal"
-                contentClassName="lrc-leave-modal__content"
-            >
-                <Modal.Header closeButton className="lrc-leave-modal__header">
-                    <Modal.Title>Leave Request</Modal.Title>
-                </Modal.Header>
-                <Modal.Body className="lrc-leave-modal__body">
-                    <LeaveRequestForm onClose={handleClose} startDateNew={startDateNew} endDateNew={endDateNew} />
-                </Modal.Body>
-            </Modal>
+            {/* Apply-Leave v4 — the component owns its own card/sheet + header; we provide the backdrop. */}
+            {open && (
+                <div
+                    onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 1050, background: 'rgba(15,23,42,.45)',
+                        display: 'flex',
+                        alignItems: typeof window !== 'undefined' && window.innerWidth < 768 ? 'flex-end' : 'center',
+                        justifyContent: 'center',
+                        padding: typeof window !== 'undefined' && window.innerWidth < 768 ? 0 : 24,
+                        overflowY: 'auto',
+                    }}
+                >
+                    <ApplyLeave onClose={handleClose} />
+                </div>
+            )}
             
-            <SmartInsightsPanel insights={insights} />
+            {/* <SmartInsightsPanel insights={insights} /> */}
             
             {/* <div className="row g-4 mb-5">
                 <div className="col-12 col-xl-6">

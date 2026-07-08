@@ -125,6 +125,12 @@ export const calculateLeaveDays = (
         }
     }
 
+    // Half-day leaves always cost 0.5 of a working day (mirrors the backend's
+    // getChargeableLeaveDays). Only applies when the day is a working day (dayCount > 0).
+    if (leave.isHalfDay && dayCount > 0) {
+        return 0.5;
+    }
+
     return dayCount;
 };
 
@@ -264,7 +270,6 @@ export const hasPendingOrApprovedEncashTransfer = async (
  *                         For mid-year joiners, this is remaining months from join date to FY end
  *                         For employees present since FY start, this is elapsed months
  * @param hasPendingOrApprovedTransfer - Whether there's a pending/approved transfer request
- * @param allowedPerMonth - Maximum leaves allowed per month (set by admin per employee)
  * @param tenureMonths - Number of months since employee joined the company (for Annual Leaves)
  */
 export const calculateLeaveBalances = (
@@ -304,8 +309,8 @@ export const calculateLeaveBalances = (
             balances[leaveType] = totalYearlyDays + addonLeaveAllowanceCount + transferred;
         } else if (leaveType === MATERNAL_LEAVES) {
             // BUG 4 FIX: Maternal leave is a special-purpose leave (e.g. 90 days at once).
-            // It must NOT be pro-rated or capped by allowedPerMonth — the employee gets
-            // the full yearly allocation available from day 1.
+            // It must NOT be pro-rated — the employee gets the full yearly allocation
+            // available from day 1.
             proRated[leaveType] = totalYearlyDays + transferred;
             balances[leaveType] = totalYearlyDays + transferred;
         } else {
@@ -316,72 +321,6 @@ export const calculateLeaveBalances = (
 
     return { balances, proRated };
 };
-
-/**
- * Build leave data for UI display
- */
-// export const buildLeaveData = (
-//     leavesTakenCount: Record<string, number>,
-//     proRatedBalances: Record<string, number>,
-//     leaveBalances: Record<string, number>,
-//     allowedPerMonth: number = 1
-// ) => {
-//     // debugger;
-//     // console.log("buildLeaveData called with:", { leavesTakenCount, proRatedBalances, leaveBalances });
-
-//     const paidLeaves = [
-//         {
-//             label: ANNUAL_LEAVES,
-//             used: leavesTakenCount[ANNUAL_LEAVES] || 0,
-//             total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
-//             color: '#9D4141',
-//             allowedPerMonth, // Only for Annual leaves
-//             showAllowedPerMonth: true
-//         },
-//         {
-//             label: SICK_LEAVES,
-//             used: leavesTakenCount[SICK_LEAVES] || 0,
-//             total: leaveBalances[SICK_LEAVES] || 0,
-//             color: '#9D4141',
-//             showAllowedPerMonth: false // Not applicable for Sick leaves
-//         },
-//         {
-//             label: FLOATER_LEAVES,
-//             used: leavesTakenCount[FLOATER_LEAVES] || 0,
-//             total: leaveBalances[FLOATER_LEAVES] || 0,
-//             color: '#9D4141',
-//             showAllowedPerMonth: false // Not applicable for Floater leaves
-//         },
-//         {
-//             label: CASUAL_LEAVES,
-//             used: leavesTakenCount[CASUAL_LEAVES] || 0,
-//             total: proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0,
-//             color: '#9D4141',
-//             allowedPerMonth, // Only for Casual leaves
-//             showAllowedPerMonth: true
-//         },
-//         {
-//             label: MATERNAL_LEAVES,
-//             used: leavesTakenCount[MATERNAL_LEAVES] || 0,
-//             total: proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0,
-//             color: '#9D4141',
-//             allowedPerMonth, // Only for Maternal leaves
-//             showAllowedPerMonth: true
-//         },
-
-//     ];
-//     const unpaidLeaves = [
-//         {
-//             label: UNPAID_LEAVES,
-//             used: leavesTakenCount[UNPAID_LEAVES] || 0,
-//             total: leaveBalances[UNPAID_LEAVES] || 0,
-//             color: '#9D4141',
-//             showAllowedPerMonth: false // Not applicable for Unpaid leaves
-//         },
-//     ];
-
-//     return {paidLeaves, unpaidLeaves};
-// };
 
 /**
  * Build leave data for UI display - split into paid and unpaid
@@ -397,14 +336,12 @@ export const buildLeaveData = (
             used: leavesTakenCount[ANNUAL_LEAVES] || 0,
             total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
             color: '#9D4141',
-            showAllowedPerMonth: false
         },
         {
             label: SICK_LEAVES,
             used: leavesTakenCount[SICK_LEAVES] || 0,
             total: leaveBalances[SICK_LEAVES] || 0,
             color: '#9D4141',
-            showAllowedPerMonth: false
         },
         {
             // label: 'Paid Leaves',  // Renamed from Floater Leaves
@@ -412,21 +349,18 @@ export const buildLeaveData = (
             used: leavesTakenCount[FLOATER_LEAVES] || 0,
             total: leaveBalances[FLOATER_LEAVES] || 0,
             color: '#9D4141',
-            showAllowedPerMonth: false
         },
         {
             label: CASUAL_LEAVES,
             used: leavesTakenCount[CASUAL_LEAVES] || 0,
             total: proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0,
             color: '#9D4141',
-            showAllowedPerMonth: false
         },
         {
             label: MATERNAL_LEAVES,
             used: leavesTakenCount[MATERNAL_LEAVES] || 0,
             total: proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0,
             color: '#9D4141',
-            showAllowedPerMonth: false
         },
     ];
 
@@ -452,7 +386,6 @@ export const buildLeaveData = (
             used: leavesTakenCount[UNPAID_LEAVES] || 0,
             total: derivedUnpaidAssigned,   // always derived: 365 − totalPaidAssigned
             color: '#9D4141',
-            showAllowedPerMonth: false
         },
     ];
 
@@ -472,6 +405,50 @@ export const buildLeaveData = (
         grandTotalUsed: totalPaidUsed + totalUnpaidUsed,
         grandTotalAssigned: TOTAL_YEAR_DAYS,  // Always 365 — never paid+unpaid sum
     };
+};
+
+/**
+ * Shape returned by buildCumulativeInputs — the single, authoritative input set for
+ * the Cumulative Leave Allowance calculation.
+ */
+export interface CumulativeInputs {
+    /** Sum of full annual allocation for the cumulative-paced paid types (Annual + Casual + Sick + Floater). Excludes Maternal & Unpaid. */
+    totalNonMaternalPaidAllocated: number;
+    /** Per-type used+pending days (leaveTaken + pendingDays), keyed by leave type. Authoritative, from leave_balance. */
+    takenIncludingPendingByType: Record<string, number>;
+}
+
+/**
+ * Build the canonical inputs for the Cumulative Leave Allowance from the backend
+ * `leavesSummary` (the per-employee LeaveBalance DTO — the single source of truth that
+ * `recalculateBalance` maintains). Both the dashboard (BalanceProgress) and the Apply-Leave
+ * modal (LeaveRequestForm) MUST derive cumulative numbers from this one helper so they can
+ * never drift apart.
+ *
+ * Uses authoritative `numberOfDays` (= totalAllocated, addon already merged for Annual),
+ * `leaveTaken` (= usedDays) and `pendingDays` straight from the balance API — matching what
+ * the backend cumulative gate enforces (`usedDays + pendingDays`). Only the four
+ * cumulative-paced types are counted; Maternal (full allocation from day 1) and Unpaid are
+ * intentionally excluded, mirroring calculateCumulativeSummary.
+ *
+ * @param leavesSummary - The `leavesSummary` array from fetchEmployeeLeaveBalance.
+ */
+export const buildCumulativeInputs = (leavesSummary: any[] = []): CumulativeInputs => {
+    const CUMULATIVE_PAID_TYPES = [ANNUAL_LEAVES, CASUAL_LEAVES, SICK_LEAVES, FLOATER_LEAVES];
+
+    let totalNonMaternalPaidAllocated = 0;
+    const takenIncludingPendingByType: Record<string, number> = {};
+
+    (leavesSummary || []).forEach((summary: any) => {
+        const leaveType = summary?.leaveType;
+        if (!CUMULATIVE_PAID_TYPES.includes(leaveType)) return;
+
+        totalNonMaternalPaidAllocated += Number(summary.numberOfDays) || 0;
+        takenIncludingPendingByType[leaveType] =
+            (Number(summary.leaveTaken) || 0) + (Number(summary.pendingDays) || 0);
+    });
+
+    return { totalNonMaternalPaidAllocated, takenIncludingPendingByType };
 };
 
 /**
@@ -555,8 +532,6 @@ export const calculateTotalAvailableLeaves = (
     leaveBalances: Record<string, number>,
     leavesTakenCount: Record<string, number>,
     transferredLeavesInCurrentFiscal: Record<string, number> = {},
-    // discretionaryLeaveBoolean: boolean,
-    // discretionaryLeaveBalance: number
 ) => {
     // Calculate available = Total - Taken - BeingTransferred
     const annualAvailable = Math.max(0, (proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0) - (leavesTakenCount[ANNUAL_LEAVES] || 0) - (transferredLeavesInCurrentFiscal[ANNUAL_LEAVES] || 0));
@@ -564,12 +539,6 @@ export const calculateTotalAvailableLeaves = (
     const sickAvailable = Math.max(0, (leaveBalances[SICK_LEAVES] || 0) - (leavesTakenCount[SICK_LEAVES] || 0) - (transferredLeavesInCurrentFiscal[SICK_LEAVES] || 0));
     const floaterAvailable = Math.max(0, (leaveBalances[FLOATER_LEAVES] || 0) - (leavesTakenCount[FLOATER_LEAVES] || 0) - (transferredLeavesInCurrentFiscal[FLOATER_LEAVES] || 0));
     const maternalAvailable = Math.max(0, (proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0) - (leavesTakenCount[MATERNAL_LEAVES] || 0) - (transferredLeavesInCurrentFiscal[MATERNAL_LEAVES] || 0));
-
-    // Treat discretionary casual leaves as part of the total casual bucket before subtracting used/transfer amounts
-    // const discretionaryExtra = discretionaryLeaveBoolean === true ? Number(discretionaryLeaveBalance ?? 0) : 0;
-    // const casualBaseTotal = proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0;
-    // const casualCombinedTotal = casualBaseTotal + discretionaryExtra;
-    // const casualAvailable = Math.max(0, casualCombinedTotal - (leavesTakenCount[CASUAL_LEAVES] || 0) - (transferredLeavesInCurrentFiscal[CASUAL_LEAVES] || 0));
 
     return {
         totalLeaves: annualAvailable + casualAvailable + sickAvailable + floaterAvailable + maternalAvailable,

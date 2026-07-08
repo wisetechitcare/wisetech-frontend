@@ -468,9 +468,9 @@ export const deleteFaqById = async (faqId: string) => {
     }
 }
 
-export const getAllAnnouncements = async () => {
+export const getAllAnnouncements = async (scope?: 'me') => {
     try {
-        const endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_ANNOUNCEMENTS}`;
+        const endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_ANNOUNCEMENTS}${scope ? `?scope=${scope}` : ''}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (error) {

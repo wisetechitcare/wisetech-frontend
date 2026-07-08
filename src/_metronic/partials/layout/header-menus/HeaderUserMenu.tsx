@@ -30,15 +30,21 @@ const HeaderUserMenu: FC = () => {
   const avatarUrl = currEmployee?.avatar;
 
   async function signout() {
-    const response = await logout(parsedLs.token, parsedLs.id)
-    if (!response.hasError) {
-      removeAuth()
-      localStorage.removeItem("selectedCompany")
-      localStorage.removeItem("selectedBranch")
-      dispatch(logoutUser())
-      navigate('/auth')
-      location.reload()
+    // Best-effort server logout (blacklists the JWT + clears the httpOnly
+    // cookie). Cookie sessions have no token in localStorage — the backend
+    // resolves it from the cookie. Never strand the user locally: even if the
+    // API call fails, clear local state and leave.
+    try {
+      await logout(parsedLs?.token, parsedLs?.id)
+    } catch (error) {
+      console.error('Logout API failed — clearing local session anyway:', error)
     }
+    removeAuth()
+    localStorage.removeItem("selectedCompany")
+    localStorage.removeItem("selectedBranch")
+    dispatch(logoutUser())
+    navigate('/auth')
+    location.reload()
   }
 
   return (

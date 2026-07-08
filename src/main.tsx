@@ -68,9 +68,14 @@ const parsedLs = ls ? JSON.parse(ls) : null
 const container = document.getElementById('root')
 const currentUser = getAuth();
 
+// Sessions started after the httpOnly-cookie migration have no token in
+// localStorage — the cookie carries auth and the server validates it on the
+// bootstrap calls below. Only legacy (pre-cookie) sessions still persist a
+// readable token, so the client-side expiry check applies to them alone.
+const hasLegacyToken = Boolean(currentUser?.token);
 let isTokenExpired = false;
-if (currentUser?.token) {
-  const decodedToken = jwtDecode(currentUser?.token);
+if (hasLegacyToken) {
+  const decodedToken = jwtDecode(currentUser.token);
 
   if (decodedToken.iat && decodedToken.exp) {
     const currentTime = Math.floor(Date.now() / 1000);
@@ -92,7 +97,11 @@ const renderApp = () => {
   )
 }
 
-if (parsedLs?.token && parsedLs?.id && !isTokenExpired) {
+// A session exists when we have a persisted user id. Cookie sessions carry no
+// readable token — if the httpOnly cookie is missing/expired, the bootstrap
+// request 401s and the catch below routes to login. Legacy sessions are still
+// short-circuited client-side when their persisted token has expired.
+if (parsedLs?.id && (!hasLegacyToken || !isTokenExpired)) {
   store
     .dispatch(fetchRolesAndPermissions())
     .unwrap()

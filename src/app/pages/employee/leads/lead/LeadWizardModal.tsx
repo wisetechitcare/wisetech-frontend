@@ -3019,6 +3019,31 @@ const LeadWizardModal = ({
     companyCascade.handleSubCompanyChange(index, subCompanyId, companyId);
     setFieldValue(`leadTeams.${index}.contactId`, "");
   };
+  // Reverse cascade: picking a Contact Person back-fills Company Type / Company /
+  // Sub Company from the contact's own linkage, then repopulates the cascade option
+  // lists so those upstream dropdowns render their labels. Lets the user find a
+  // person without remembering which company they belong to.
+  const handleWizardContactChange = (index: number, contactId: string, setFieldValue: any) => {
+    setFieldValue(`leadTeams.${index}.contactId`, contactId || "");
+    if (!contactId) return;
+    const contact = (contacts || []).find((c: any) => String(c.id) === String(contactId));
+    if (!contact) return;
+    const companyId = contact.companyId ? String(contact.companyId) : "";
+    const subCompanyId = contact.subCompanyId ? String(contact.subCompanyId) : "";
+    const company = (companies || []).find((c: any) => String(c.id) === String(companyId));
+    const companyTypeId = company?.companyTypeId ? String(company.companyTypeId) : "";
+
+    if (companyTypeId) setFieldValue(`leadTeams.${index}.companyTypeId`, companyTypeId);
+    if (companyId) setFieldValue(`leadTeams.${index}.companyId`, companyId);
+    setFieldValue(`leadTeams.${index}.subCompanyId`, subCompanyId);
+
+    if (companyTypeId) companyCascade.handleCompanyTypeChange(index, companyTypeId);
+    if (companyId) {
+      Promise.resolve(companyCascade.handleCompanyChange(index, companyId)).then(() => {
+        if (subCompanyId) companyCascade.handleSubCompanyChange(index, subCompanyId, companyId);
+      });
+    }
+  };
 
   return (
     <div>
@@ -3211,6 +3236,7 @@ const LeadWizardModal = ({
                       handleCompanyTypeChange={handleWizardCompanyTypeChange}
                       handleCompanyChange={handleWizardCompanyChange}
                       handleSubCompanyChange={handleWizardSubCompanyChange}
+                      handleContactChange={handleWizardContactChange}
                       prefix={prefix}
                       setPrefix={setPrefix}
                       isEditMode={isEditMode}

@@ -14,7 +14,9 @@ export const login = async (emailId: string, password: string) => {
     }
 }
 
-export const logout = async (token: string, userId: string) => {
+// token is optional: cookie sessions don't persist it client-side — the
+// backend falls back to the httpOnly cookie to blacklist the JWT.
+export const logout = async (token: string | undefined, userId: string | undefined) => {
     try {
         const endpoint = `${API_BASE_URL}/${AUTH.LOGOUT}`;
         const { data } = await axios.post(endpoint, { token, userId });

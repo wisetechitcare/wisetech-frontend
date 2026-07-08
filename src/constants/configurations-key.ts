@@ -10,6 +10,9 @@ export const PROFESSIONAL_FEES_ENABLED_LIST = 'professionalFeesEmployees';
 export const CUSTOM_SALARY = 'custom';
 export const SANDWICH_LEAVE_KEY = 'sandwichLeaveSettings';
 export const DATE_SETTINGS_KEY = 'dateSettings';
+/** Multi-type auto-allocation policy: probation, priority order, cumulative overflow.
+ *  Must match backend LEAVE_POLICY_MODULE in utils/leavePolicyConfig.ts. */
+export const LEAVE_POLICY_KEY = 'leave policy';
 export const LOAN_KEY = 'loan';
 export const LEAVE_ATTENDANCE_KEY = 'leaveAttendance';
 export const DISABLE_LAUNCH_DEDUCTION_TIME_KEY = 'disableLaunchDeductionTime';

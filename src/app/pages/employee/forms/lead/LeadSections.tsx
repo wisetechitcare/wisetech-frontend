@@ -59,6 +59,8 @@ interface LeadSectionsProps {
   handleCompanyTypeChange: (index: number, typeId: string, setFieldValue: Function) => void;
   handleCompanyChange: (index: number, companyId: string, setFieldValue: Function) => void;
   handleSubCompanyChange: (index: number, subCompanyId: string, companyId: string, setFieldValue: Function) => void;
+  // Reverse cascade: selecting a Contact Person back-fills Company Type / Company / Sub Company.
+  handleContactChange: (index: number, contactId: string, setFieldValue: Function) => void;
   teamFilteredContacts: any;
 
   // other options
@@ -69,6 +71,39 @@ interface LeadSectionsProps {
   hasDefaultStatus: () => boolean;
   formikProps: any;
 }
+
+/**
+ * Build the Contact Person option source for a single leadTeams row.
+ *
+ * Reverse-lookup friendly: with nothing selected upstream we return EVERY
+ * contact (so the user can find a person without remembering their company).
+ * Once a Company (or just a Company Type) is chosen we forward-filter, and the
+ * cascade-provided list (props.teamFilteredContacts[index]) always wins when it
+ * has been populated.
+ */
+const buildRowContacts = (team: any, index: number, props: LeadSectionsProps): any[] => {
+  const allContacts = props.contacts || [];
+  const cascadeContacts = props.teamFilteredContacts && props.teamFilteredContacts[index];
+  if (Array.isArray(cascadeContacts) && cascadeContacts.length > 0) {
+    return cascadeContacts;
+  }
+  if (team.companyId) {
+    return allContacts.filter((c: any) =>
+      team.subCompanyId
+        ? c.subCompanyId === team.subCompanyId || c.companyId === team.companyId
+        : c.companyId === team.companyId
+    );
+  }
+  if (team.companyTypeId) {
+    const typeCompanyIds = new Set(
+      (props.companies || [])
+        .filter((c: any) => String(c.companyTypeId) === String(team.companyTypeId))
+        .map((c: any) => c.id)
+    );
+    return allContacts.filter((c: any) => typeCompanyIds.has(c.companyId));
+  }
+  return allContacts;
+};
 
 // 1. Lead Details Section
 export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
@@ -147,6 +182,17 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                   const selectedCompany = props.companies.find((c: any) => c.id === team.companyId);
                   const filteredSubCompanies = props.teamFilteredSubCompanies[index] || (selectedCompany?.subCompanies || []);
 
+                  // Reverse-lookup friendly contact list (see ClientCompaniesSection).
+                  const rowContacts = buildRowContacts(team, index, props);
+                  const companyNameById = new Map(
+                    (props.companies || []).map((c: any) => [c.id, c.companyName])
+                  );
+                  const contactOptions = rowContacts.map((x: any) => {
+                    const cName = companyNameById.get(x.companyId);
+                    const base = x.fullName || x.name || "Unnamed Contact";
+                    return { value: x.id, label: cName ? `${base} — ${cName}` : base };
+                  });
+
                   return (
                     <div key={index} className="p-4 border rounded bg-light position-relative">
                       <IconButton
@@ -188,14 +234,10 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                           <DropDownInput
                             formikField={`leadTeams.${index}.contactId`}
                             inputLabel="Contact Person"
-                            options={((props.teamFilteredContacts && props.teamFilteredContacts[index]) || (props.contacts || [])
-                              .filter((c: any) => {
-                                if (team.subCompanyId) {
-                                  return c.subCompanyId === team.subCompanyId || c.companyId === team.companyId;
-                                }
-                                return c.companyId === team.companyId;
-                              }))
-                              .map((x: any) => ({ value: x.id, label: x.fullName || x.name || "Unnamed Contact" }))}
+                            options={contactOptions}
+                            onChange={(val: any) =>
+                              props.handleContactChange(index, val?.value, setFieldValue)
+                            }
                             isRequired={false}
                           />
                         </Grid>
@@ -506,6 +548,18 @@ export const CommercialsSection: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Meeting Schedule subsection */}
+      <div className="card shadow-sm border p-6 bg-white mb-6">
+        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+          Meeting Schedule
+        </Typography>
+        <div className="text-center py-4">
+          <p className="text-gray-500 fs-6">
+            This module is planned for future scope and is currently not in use.
+          </p>
+        </div>
+      </div>
     </>
   );
 };
@@ -550,21 +604,7 @@ export const RemarksAndDocumentsSection: React.FC<LeadSectionsProps> = (props) =
         </Grid>
       </div>
 
-      <div className="card shadow-sm border p-6 bg-white mb-6">
-        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-          Documents & Drawings
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <TextInput
-              formikField="fileLocation"
-              label="File Location / Document Path"
-              placeholder="Enter the location where documents and drawings are stored (e.g., shared folder path, cloud storage link)"
-              isRequired={false}
-            />
-          </Grid>
-        </Grid>
-      </div>
+
     </>
   );
 };
@@ -1093,6 +1133,21 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                 props.teamFilteredSubCompanies[index] ||
                 (selectedCompany?.subCompanies || []);
 
+              // Contact Person list — reverse-lookup friendly. When nothing
+              // upstream is chosen we show EVERY contact so the user can pick a
+              // person without remembering their company; picking one back-fills
+              // Company Type / Company / Sub Company via handleContactChange.
+              // Forward filtering still applies once a company/type is selected.
+              const rowContacts = buildRowContacts(team, index, props);
+              const companyNameById = new Map(
+                (props.companies || []).map((c: any) => [c.id, c.companyName])
+              );
+              const contactOptions = rowContacts.map((x: any) => {
+                const cName = companyNameById.get(x.companyId);
+                const base = x.fullName || x.name || "Unnamed Contact";
+                return { value: x.id, label: cName ? `${base} — ${cName}` : base };
+              });
+
               return (
                 <div key={index} className="wt-entry-card">
                   <button
@@ -1152,14 +1207,10 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                       <DropDownInput
                         formikField={`leadTeams.${index}.contactId`}
                         inputLabel="Contact Person"
-                        options={((props.teamFilteredContacts && props.teamFilteredContacts[index]) || (props.contacts || [])
-                          .filter((c: any) => {
-                            if (team.subCompanyId) {
-                              return c.subCompanyId === team.subCompanyId || c.companyId === team.companyId;
-                            }
-                            return c.companyId === team.companyId;
-                          }))
-                          .map((x: any) => ({ value: x.id, label: x.fullName || x.name || "Unnamed Contact" }))}
+                        options={contactOptions}
+                        onChange={(val: any) =>
+                          props.handleContactChange(index, val?.value, setFieldValue)
+                        }
                         isRequired={false}
                       />
                     </Grid>
@@ -1334,21 +1385,7 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
   );
 };
 
-// Meeting Details Section
-export const MeetingDetailsSection: React.FC<LeadSectionsProps> = () => {
-  return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
-      <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-        Meeting Details
-      </Typography>
-      <div className="text-center py-4">
-        <p className="text-gray-500 fs-6">
-          This section is currently in development and not yet active.
-        </p>
-      </div>
-    </div>
-  );
-};
+
 
 /**
  * 19. Proposal Configuration Section

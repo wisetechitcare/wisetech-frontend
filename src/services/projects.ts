@@ -567,6 +567,17 @@ export const getProjectsByCompanyId = async (
     }
 }
 
+// Get projects an employee is involved in (assignee / PM / team / internal member)
+export const getProjectsByEmployeeId = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECTS_BY_EMPLOYEE_ID.replace(":employeeId", id)}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 // Get rating by company id
 export const getRatingByCompanyId = async (id: string) => {
     try {

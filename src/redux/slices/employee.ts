@@ -73,9 +73,6 @@ export interface Employee {
         updatedAt: string;
     }>;
     attendanceRequestRaiseLimit?: number | null;
-    allowedPerMonth?: number | null;
-    discretionaryLeaveBalance?: number | null;
-    discretionaryLeaveBoolean?: boolean | null;
 }
 
 interface EmployeeState {

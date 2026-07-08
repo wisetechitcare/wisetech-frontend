@@ -558,7 +558,6 @@ const LeadsConfigurationMain = () => {
                         key={s.id}
                         name={s.name}
                         color={s.color}
-                        badge={s.isProjectTrigger ? 'Project Trigger' : undefined}
                         onEdit={() => handleEdit(s)}
                         onDelete={() => handleDelete(s.id!)}
                       />

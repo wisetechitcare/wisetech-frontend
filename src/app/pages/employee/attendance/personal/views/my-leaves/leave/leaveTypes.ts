@@ -16,6 +16,8 @@ export interface LeaveRecord {
   dateFrom: string;
   dateTo: string;
   status: number;
+  isHalfDay?: boolean;
+  halfDaySession?: string | null;
 }
 
 export interface CumulativeSummary {

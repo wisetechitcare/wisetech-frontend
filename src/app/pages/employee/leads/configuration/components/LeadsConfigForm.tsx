@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
@@ -301,39 +301,6 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
                 </div>
               )}
 
-              {/* Project Trigger Checkbox - Show only for status type */}
-              {type === "status" && (
-                <div className="mb-4">
-                  <div className="form-check">
-                    <input
-                      type="checkbox"
-                      id="isProjectTrigger"
-                      name="isProjectTrigger"
-                      className="form-check-input"
-                      checked={(values as any).isProjectTrigger}
-                      onChange={(e) => setFieldValue("isProjectTrigger", e.target.checked)}
-                    />
-                    <label
-                      className="form-check-label"
-                      htmlFor="isProjectTrigger"
-                      style={{
-                        fontWeight: '500',
-                        color: '#1a1a1a',
-                        fontSize: '14px',
-                        fontFamily: 'Inter, sans-serif',
-                      }}
-                    >
-                      Treat leads in this status as Projects
-                    </label>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px', fontFamily: 'Inter, sans-serif' }}>
-                    Moving a lead into this status creates its project record and reveals the
-                    Project view (tasks, timesheets, reimbursements, financials). Moving it out
-                    removes the project record.
-                  </div>
-                  <ErrorMessage name="isProjectTrigger" component="div" className="text-danger mt-1" />
-                </div>
-              )}
 
               {/* Lost Outcome Checkbox - Show only for status type */}
               {type === "status" && (

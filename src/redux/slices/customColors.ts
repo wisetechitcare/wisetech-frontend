@@ -44,6 +44,8 @@ export interface ILeaveTypesColor {
     maternalLeaveColor: string,
     floaterLeaveColor: string,
     unpaidLeaveColor: string,
+    sandwichColor?: string,
+    halfDayColor?: string,
 }
 export interface ICustomColorCode {
     id: string,
@@ -99,6 +101,8 @@ const initialState: ICustomColorCode = {
         maternalLeaveColor: '#9B59B6',
         floaterLeaveColor: '#F39C12',
         unpaidLeaveColor: '#95A5A6',
+        sandwichColor: '#92400E',
+        halfDayColor: '#1D4ED8',
     },
 };
 
@@ -113,7 +117,9 @@ export const customColorsSlice = createSlice({
             if (action.payload?.workingPattern) state.workingPattern = action.payload.workingPattern;
             if (action.payload?.workingLocation) state.workingLocation = action.payload.workingLocation;
             if (action.payload?.momentsThatMatter) state.momentsThatMatter = action.payload.momentsThatMatter;
-            if (action.payload?.leaveTypes) state.leaveTypes = action.payload.leaveTypes;
+            // Merge so newly-added tokens (sandwich/half-day) keep their defaults when an
+            // older server payload doesn't include them.
+            if (action.payload?.leaveTypes) state.leaveTypes = { ...state.leaveTypes, ...action.payload.leaveTypes };
         },
     }
 })

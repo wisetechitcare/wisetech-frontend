@@ -11,11 +11,14 @@ dayjs.extend(timezone);
  * @param leave - Leave object with dateFrom and dateTo
  * @returns Number of days in the leave period
  */
-export const getLeaveDays = (leave: { dateFrom: any; dateTo: any }): number => {
+export const getLeaveDays = (leave: { dateFrom: any; dateTo: any; isHalfDay?: boolean | null }): number => {
     const from = dayjs(leave.dateFrom);
     const to = dayjs(leave.dateTo);
     const days = to.diff(from, 'day') + 1;
-    return days > 0 ? days : 0;
+    if (days <= 0) return 0;
+    // Half-day leaves are constrained to a single day and always cost 0.5.
+    if (leave.isHalfDay) return 0.5;
+    return days;
 };
 
 /**
@@ -25,7 +28,7 @@ export const getLeaveDays = (leave: { dateFrom: any; dateTo: any }): number => {
  * @returns Number of working days
  */
 export const getWorkingDays = (
-    leave: { dateFrom: any; dateTo: any },
+    leave: { dateFrom: any; dateTo: any; isHalfDay?: boolean | null },
     publicHolidays: string[] = []
 ): number => {
     const from = dayjs(leave.dateFrom);
@@ -44,6 +47,9 @@ export const getWorkingDays = (
 
         current = current.add(1, 'day');
     }
+
+    // Half-day leaves cost 0.5 of a working day (mirrors the backend getChargeableLeaveDays).
+    if (leave.isHalfDay && workingDays > 0) return 0.5;
 
     return workingDays;
 };

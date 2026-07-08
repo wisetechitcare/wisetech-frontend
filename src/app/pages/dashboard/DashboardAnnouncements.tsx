@@ -11,17 +11,12 @@ import { RootState, store } from "@redux/store";
 import { ShareWith } from "@constants/statistics";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 
-interface IShareWith {
-  EVERYONE: string;
-  SELECTED_MEMBERS: string;
-}
-
 interface IAnnouncement {
   id: string;
   title: string;
   description: string;
   imageUrl?: string;
-  shareWith: IShareWith;
+  shareWith: string;
   departmentId?: string | null;
   fromDate: string;
   toDate: string;
@@ -39,7 +34,6 @@ const DashboardAnnouncements = () => {
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [imageRatio, setImageRatio] = useState<number>(1.5);
 
-  console.log("Current Announcement: ===================>", currentAnnouncement);
   const navigate = useNavigate();
 
   // Extract userId as a primitive to prevent unnecessary re-renders and API calls
@@ -101,7 +95,7 @@ const DashboardAnnouncements = () => {
       try {
         const {
           data: { announcements },
-        } = await getAllAnnouncements();
+        } = await getAllAnnouncements('me');
 
         if (announcements?.length > 0) {
           setcurrentAnnouncement(announcements[0]);
