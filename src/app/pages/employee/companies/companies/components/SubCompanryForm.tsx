@@ -622,7 +622,10 @@ const SubCompanyForm: React.FC<Props> = ({
             validationSchema={validationSchema}
             enableReinitialize={true}
           >
-            {({ setFieldValue, values, isSubmitting }) => {
+            {/* Named (capitalized) function, not an anonymous arrow, so
+                react-hooks/rules-of-hooks recognizes this as a component and
+                allows the useEffect call below it. */}
+            {function FormikBody({ setFieldValue, values, isSubmitting }) {
               // Auto-update Google Maps Link when latitude and longitude change
               useEffect(() => {
                 const latitude = values.latitude;

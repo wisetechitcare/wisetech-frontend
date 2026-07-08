@@ -3088,7 +3088,10 @@ const LeadWizardModal = ({
               enableReinitialize={true}
               innerRef={formikRef}
             >
-              {(formikProps) => {
+              {/* Named (capitalized) function, not an anonymous arrow, so
+                  react-hooks/rules-of-hooks recognizes this as a component
+                  and allows the useEffect calls below it. */}
+              {function FormikBody(formikProps) {
                 const {
                   values,
                   setFieldValue,
