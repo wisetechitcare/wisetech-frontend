@@ -6,6 +6,7 @@ import DailyShiftTime from './component/DailyShiftTime';
 import OtherSettings from './component/OtherSettings';
 import LeaveTypesBalance from './component/LeaveTypesBalance';
 import SandwichLeave from '@pages/company/settings/SandwhichLeave';
+import LeavePolicy from '@pages/company/settings/LeavePolicy';
 import Appearance from './component/Appearance';
 import AddonLeavesAllowanceCard from '@app/modules/common/components/AddonLeavesAllowanceCard';
 import {
@@ -230,6 +231,7 @@ const AttendanceConfig: React.FC = () => {
   const [showAppearanceModal,    setShowAppearanceModal]    = useState(false);
   const [showAddonLeavesModal,   setShowAddonLeavesModal]   = useState(false);
   const [showLeaveTypesModal,    setShowLeaveTypesModal]    = useState(false);
+  const [showLeavePolicyModal,   setShowLeavePolicyModal]   = useState(false);
 
   // Remount keys for modals
   const [shiftKey,        setShiftKey]        = useState(0);
@@ -670,6 +672,17 @@ const AttendanceConfig: React.FC = () => {
                     onAction={() => setShowAddonLeavesModal(true)}
                   />
                 </div>
+                <div className="col-12 col-md-6">
+                  <ConfigSettingsRow
+                    label="Auto-Allocation Policy"
+                    description="Probation restriction, paid-type consumption priority, and cumulative overflow"
+                    icon="bi-shuffle"
+                    iconColor="blue"
+                    actionLabel="Configure"
+                    actionIcon="bi-arrow-right"
+                    onAction={() => setShowLeavePolicyModal(true)}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -749,14 +762,13 @@ const AttendanceConfig: React.FC = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Sandwich Leave */}
-      <Modal show={showSandwichModal} onHide={() => setShowSandwichModal(false)} size="xl" centered>
-        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
-          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
-            Sandwich Leave Rules
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
+      {/* Sandwich Leave — the component renders its own gradient header (with close + Add Rule),
+          so no Modal.Header here; contentClassName rounds the modal shell to match. */}
+      {/* enforceFocus off: the component opens MUI Dialogs (add/edit, audit, delete) in portals
+          outside this Modal's DOM — bootstrap's focus enforcement would fight MUI's focus trap,
+          breaking typing in the form and burning CPU in a focus tug-of-war. */}
+      <Modal show={showSandwichModal} onHide={() => setShowSandwichModal(false)} size="xl" centered enforceFocus={false} contentClassName="sandwich-dialog-content">
+        <Modal.Body style={{ padding: 0 }}>
           <SandwichLeave showSandWhichLeaveModal={(v: boolean) => setShowSandwichModal(v)} />
         </Modal.Body>
       </Modal>
@@ -782,6 +794,18 @@ const AttendanceConfig: React.FC = () => {
         </Modal.Header>
         <Modal.Body style={{ padding: '24px', backgroundColor: C.bgPage }}>
           <AddonLeavesAllowanceCard />
+        </Modal.Body>
+      </Modal>
+
+      {/* Auto-Allocation Policy */}
+      <Modal show={showLeavePolicyModal} onHide={() => setShowLeavePolicyModal(false)} size="lg" centered>
+        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
+          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
+            Auto-Allocation Policy
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
+          <LeavePolicy />
         </Modal.Body>
       </Modal>
 

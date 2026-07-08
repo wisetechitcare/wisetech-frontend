@@ -1,5 +1,6 @@
-﻿
+ 
 import {useEffect, useRef, FC} from 'react'
+import DOMPurify from 'dompurify'
 import ApexCharts, {ApexOptions} from 'apexcharts'
 import {getCSS, getCSSVariableValue} from '../../../assets/ts/_utils'
 import {useThemeMode} from '../../layout/theme-mode/ThemeModeProvider'
@@ -44,7 +45,6 @@ const StatisticsWidget3: FC<Props> = ({className, title, description, change, co
         chart.destroy()
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartRef, mode])
 
   return (
@@ -59,7 +59,7 @@ const StatisticsWidget3: FC<Props> = ({className, title, description, change, co
 
             <span
               className='text-muted fw-semibold mt-1'
-              dangerouslySetInnerHTML={{__html: description}}
+              dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(description)}}
             ></span>
           </div>
 

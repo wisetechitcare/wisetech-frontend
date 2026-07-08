@@ -49,6 +49,8 @@ export interface LeaveCalendarGridProps {
   existingLeaves: LeaveRecord[];
   disabled?: boolean;
   sandwichRiskDates?: Set<string>;
+  /** Optional ISO-date → colour map to tint the selected days by their allocated leave type. */
+  segmentColorByDate?: Record<string, string>;
 }
 
 export function LeaveCalendarGrid({
@@ -73,6 +75,7 @@ export function LeaveCalendarGrid({
   existingLeaves,
   disabled,
   sandwichRiskDates = new Set(),
+  segmentColorByDate,
 }: LeaveCalendarGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const keyboardNavActive = useRef(false);
@@ -124,6 +127,18 @@ export function LeaveCalendarGrid({
           else map.set(iso, 'mid');
           cur = cur.add(1, 'day');
         }
+      }
+    }
+    return map;
+  }, [existingLeaves]);
+
+  // Half-day existing leaves are single-day; map their date -> session label for a badge.
+  const halfDayMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const l of existingLeaves) {
+      if (l.isHalfDay && dayjs(l.dateFrom).isSame(dayjs(l.dateTo), 'day')) {
+        const session = (l.halfDaySession || '').toUpperCase();
+        map.set(dayjs(l.dateFrom).format('YYYY-MM-DD'), session === 'PM' ? 'PM' : 'AM');
       }
     }
     return map;
@@ -226,6 +241,7 @@ export function LeaveCalendarGrid({
             const isSun = d.day() === 0;
             const existPos = existLeaveMap.get(iso) ?? null;
             const existing = existPos !== null;
+            const halfSession = halfDayMap.get(iso) ?? null;
 
             const existClasses: string[] = [];
             if (existPos && !inRange) {
@@ -240,11 +256,24 @@ export function LeaveCalendarGrid({
 
             const isSandwich = sandwichRiskDates.has(iso);
             const focused = iso === focusIso;
+
+            // Per-day allocation tint: endpoints solid, in-range days a light wash of the
+            // allocated leave type's colour (keys cover only charged working days).
+            const segColor = inRange && segmentColorByDate ? segmentColorByDate[iso] : undefined;
+            const segStyle = segColor
+              ? (isStart || isEnd)
+                ? { backgroundColor: segColor, borderColor: segColor, color: '#fff' }
+                : { backgroundColor: `${segColor}2E`, color: '#2b2e30' }
+              : undefined;
             const holRecord = publicHolidaysRaw.find(
               (p: any) => dayjs(p?.date).format('YYYY-MM-DD') === iso,
             );
             const holName =
-              holRecord?.name || holRecord?.holiday_name || holRecord?.title || 'Holiday';
+              holRecord?.holiday?.name ||
+              holRecord?.name ||
+              holRecord?.holiday_name ||
+              holRecord?.title ||
+              'Holiday';
 
             if (!inMonth) {
               return <div key={iso} className="lrc-day lrc-day--outside" aria-hidden="true" />;
@@ -269,6 +298,7 @@ export function LeaveCalendarGrid({
                 type="button"
                 role="gridcell"
                 className={classNames}
+                style={segStyle}
                 aria-label={`${d.format('dddd, D MMMM YYYY')}${isHol ? `, ${holName}` : ''}${isWk ? ', weekend' : ''}${isSandwich ? ', sandwich rule may apply' : ''}`}
                 aria-selected={!!inRange}
                 aria-disabled={past || disabled}
@@ -281,11 +311,12 @@ export function LeaveCalendarGrid({
                 onFocus={() => onFocusIso(iso)}
               >
                 <span className="lrc-day__num">{d.format('D')}</span>
-                {(isHol || (isWk && !inRange) || isSandwich) && (
+                {(isHol || (isWk && !inRange) || isSandwich || halfSession) && (
                   <span className="lrc-day__badges" aria-hidden="true">
                     {isHol && <span className="lrc-day__badge lrc-day__badge--holiday">H</span>}
                     {isWk && !inRange && <span className="lrc-day__badge lrc-day__badge--weekend">W</span>}
                     {isSandwich && <span className="lrc-day__badge lrc-day__badge--sandwich">S</span>}
+                    {halfSession && <span className="lrc-day__badge lrc-day__badge--halfday">½{halfSession}</span>}
                   </span>
                 )}
                 {isHol && <span className="lrc-day__dot" aria-hidden="true" />}

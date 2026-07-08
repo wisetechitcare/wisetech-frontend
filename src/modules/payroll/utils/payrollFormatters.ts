@@ -44,7 +44,10 @@ export const sumBreakdownEarnings = (entries: Record<string, any> | undefined) =
 export const formatValue = (value: any, type?: string) => {
     if (value === null || value === undefined) return '-';
     if (typeof value === 'number') {
-        const formatted = Math.round(value).toString();
+        // Preserve fractional values (e.g. 0.5 day for half-day leave); show integers cleanly.
+        const formatted = Number.isInteger(value)
+            ? value.toString()
+            : (Math.round(value * 100) / 100).toString();
         return type === 'percentage' ? `${formatted}%` : formatted;
     }
     return value.toString();

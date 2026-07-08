@@ -137,6 +137,9 @@ export const EMPLOYEE = {
     LEAVE_BALANCE: "api/employee/leave-balance",
     LEAVE_ALLOCATION: "api/employee/leave-allocation",
     LEAVES: "api/employee/leaves",
+    UPLOAD_LEAVE_DOCUMENTS: "api/employee/leave/documents",
+    LEAVE_APPROVAL_CHAIN: "api/employee/leave/approval-chain",
+    LEAVE_APPROVAL_STATUS: "api/employee/leave/approval-status",
     GET_WIZARD_DATA: "api/employee/wizard",
     GET_ADDRESS_DETAILS: "api/employee/address-details?employeeId=",
     CREATE_EMPLOYEE_LEAVE_REQUEST: "api/employee/leave-request",
@@ -586,6 +589,14 @@ export const COMPANY_SERVICES = {
     UPDATE: 'api/lead-project-companies/company/services/:id',
     DELETE: 'api/lead-project-companies/company/services/:id',
     GET_ALL: 'api/lead-project-companies/company/services',
+};
+
+export const SANDWICH_RULE = {
+    LIST: "api/sandwich-rules",
+    CREATE: "api/sandwich-rules",
+    UPDATE: "api/sandwich-rules/:id",
+    DELETE: "api/sandwich-rules/:id",
+    AUDIT_LOG: "api/sandwich-rules/:id/audit",
 };
 
 export const SUBCOMPANY_SERVICES = {

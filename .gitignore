@@ -7,3 +7,9 @@ dist
 .claude/
 .claude/agents/
 .github/agents
+
+# Manual patch / variant-file workflow is banned — use branches + PRs
+*.patch
+*.diff
+*_diff.txt
+*.labbai.*

@@ -1,5 +1,6 @@
-﻿
+ 
 import { FC } from 'react'
+import DOMPurify from 'dompurify'
 import {toAbsoluteUrl} from '../../../helpers'
 
 type Props = {
@@ -35,7 +36,7 @@ const MixedWidget5: FC<Props> = ({className, time, image, title, description}) =
           {/* end::Link */}
 
           {/* begin::Desc */}
-          <p className='py-3' dangerouslySetInnerHTML={{__html: description}}></p>
+          <p className='py-3' dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(description)}}></p>
           {/* end::Desc */}
         </div>
 
