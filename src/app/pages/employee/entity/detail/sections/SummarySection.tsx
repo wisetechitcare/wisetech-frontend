@@ -138,34 +138,16 @@ const SummarySection: React.FC<{
   //           notes, system metadata (everything that belongs to the lead). ─────
   const Leads = (
     <div>
-      <div style={{ position: 'relative', background: `linear-gradient(135deg, ${health.color}14 0%, ${C.bgCard} 58%)`, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, boxShadow: C.shadowCard, padding: '14px 18px 14px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', overflow: 'visible' }}>
-        <span style={{ position: 'absolute', left: 0, top: 10, bottom: 10, width: 5, borderRadius: '0 4px 4px 0', background: `linear-gradient(${health.color}, ${health.color}99)` }} aria-hidden />
-        <HealthGauge health={health} probability={probability} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <MissingInfoChip items={missing} onJump={onJump} />
-          {isProject && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, backgroundColor: C.successLight, color: '#16a34a', border: `1px solid ${C.success}33`, borderRadius: RADIUS.full, padding: '6px 13px', fontFamily: FONT.body, fontSize: 12, fontWeight: 700 }}>
-              <i className="bi bi-kanban-fill" /> Project active
-            </span>
-          )}
-          {lead?.isCancelled && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, backgroundColor: C.dangerLight, color: C.danger, border: `1px solid ${C.danger}33`, borderRadius: RADIUS.full, padding: '6px 13px', fontFamily: FONT.body, fontSize: 12, fontWeight: 700 }}>
-              <i className="bi bi-x-octagon-fill" /> Cancelled
-            </span>
-          )}
-        </div>
-      </div>
+
 
       {/* Primary lead identity — the "main things", lead number first. */}
       <StatGrid
         items={[
+          { label: 'Inquiry Date', value: fmtDate(lead?.inquiryDate), icon: 'bi bi-calendar-event', accent: 'teal' },
           { label: 'Lead No.', value: lead?.prefix || DASH, icon: 'bi bi-hash', accent: 'primary' },
           { label: 'Status', value: <DetailStatusBadge status={lead?.status?.name || DASH} color={lead?.status?.color} />, icon: 'bi bi-activity', accent: 'blue' },
           { label: 'Assigned To', value: owner, icon: 'bi bi-person-badge', accent: 'purple' },
-          { label: 'Lead Type', value: lead?.leadType ? String(lead.leadType).replace(/_/g, ' ') : DASH, icon: 'bi bi-tag', accent: 'teal' },
-          { label: 'Priority', value: lead?.priority || DASH, icon: 'bi bi-flag', accent: 'warning' },
           { label: 'Lead Source', value: leadSource, icon: 'bi bi-signpost-split', accent: 'info' },
-          { label: 'Inquiry Date', value: fmtDate(lead?.inquiryDate), icon: 'bi bi-calendar-event', accent: 'teal' },
           { label: 'Next Follow-up', value: fmtDate(lead?.nextFollowUpDate), icon: 'bi bi-calendar-check', accent: 'amber' },
         ]}
       />
@@ -245,7 +227,6 @@ const SummarySection: React.FC<{
         items={[
           { label: 'Project Status', value: <DetailStatusBadge status={execStatus?.name || DASH} color={execStatus?.color} />, icon: 'bi bi-kanban', accent: 'blue' },
           { label: 'Project Manager', value: pmName, icon: 'bi bi-person-workspace', accent: 'primary' },
-          { label: 'Progress', value: progress != null ? `${progress}%` : DASH, icon: 'bi bi-hourglass-split', accent: delayed ? 'danger' : 'warning' },
           { label: 'Start Date', value: fmtDate(execStart), icon: 'bi bi-calendar-event', accent: 'teal' },
           { label: 'Expected Closure', value: fmtDate(execEnd), icon: 'bi bi-calendar-check', accent: 'green' },
         ]}

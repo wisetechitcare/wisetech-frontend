@@ -263,21 +263,17 @@ export const buildEntityVM = (lead: any): EntityVM => {
   };
   const fileLocation = {
     path: lead?.fileLocation || undefined,
-    company: lead?.fileLocationCompany || undefined,
-    companyType: lead?.fileLocationCompanyType || undefined,
+    company: lead?.fileLocationCompanyName || lead?.fileLocationCompany || undefined,
+    companyType: lead?.fileLocationCompanyTypeName || lead?.fileLocationCompanyType || undefined,
   };
 
   // ── SYSTEM (pure record metadata only — operational flags live in Execution,
   //    file location lives in Documents, so they are NOT duplicated here) ──
   const systemRows: KV[] = [
-    { label: 'Lead Number', value: lead?.prefix, minLevel: 'detailed' },
     { label: 'Created By', value: employeeUserName(lead?.createdBy), minLevel: 'detailed' },
     { label: 'Created', value: fmtDateTime(lead?.createdAt), minLevel: 'detailed' },
     { label: 'Last Edited By', value: employeeUserName(lead?.updatedBy), minLevel: 'detailed' },
     { label: 'Last Edited', value: fmtDateTime(lead?.updatedAt), minLevel: 'detailed' },
-    { label: 'Lead ID', value: lead?.id, minLevel: 'advanced' },
-    { label: 'Active', value: lead?.isActive ? 'Yes' : 'No', minLevel: 'advanced' },
-    { label: 'Location Flag', value: lead?.isLocationIncorrect ? 'Marked incorrect' : 'OK', minLevel: 'advanced' },
   ];
 
   // Project edits flow through the lead (Lead-as-master), so the project's own

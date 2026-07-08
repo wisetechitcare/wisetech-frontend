@@ -118,7 +118,7 @@ const ProjectDetailSection: React.FC<{ lead: any }> = ({ lead }) => {
                 {editing ? (
                   <>
                     <FieldRow label="Project Manager"><SelectEditor value={draft.projectManagerId} options={employeeOptions} onChange={v => set({ projectManagerId: v })} /></FieldRow>
-                    <FieldRow label="Assigned (Lead)"><SelectEditor value={draft.assignedToId} options={employeeOptions} onChange={v => set({ assignedToId: v })} /></FieldRow>
+
                     <FieldRow label="Execution Team"><SelectEditor value={draft.teamId} options={teamOptions} onChange={v => set({ teamId: v })} /></FieldRow>
                     <FieldRow label="Project Status"><SelectEditor value={draft.projectStatusId} options={statusOptions} onChange={v => set({ projectStatusId: v })} /></FieldRow>
                     <FieldRow label="Visibility"><SelectEditor value={draft.projectAccess} options={accessOptions} onChange={v => set({ projectAccess: v })} /></FieldRow>
@@ -127,7 +127,7 @@ const ProjectDetailSection: React.FC<{ lead: any }> = ({ lead }) => {
                   </>
                 ) : (
                   <>
-                    <DetailRow label="Assigned (Lead)" value={empName(lead?.assignedToId) || employeeUserName(lead?.assignedTo) || DASH} />
+
                     <DetailRow label="Execution Team" value={teamName} />
                     <DetailRow label="Project Status" value={ex.projectStatus?.name ? <DetailStatusBadge status={ex.projectStatus.name} color={ex.projectStatus.color} /> : DASH} />
                     <DetailRow label="Visibility" value={titleCase(ex.projectAccess)} />
@@ -153,23 +153,14 @@ const ProjectDetailSection: React.FC<{ lead: any }> = ({ lead }) => {
               editing ? (
                 <>
                   <FieldRow label="Project Start Date"><DateEditor value={draft.startDate} onChange={v => set({ startDate: v })} /></FieldRow>
-                  <FieldRow label="Expected Completion"><DateEditor value={draft.endDate} onChange={v => set({ endDate: v })} /></FieldRow>
-                  <FieldRow label="Received / PO Date" isLast><DateEditor value={draft.receivedDate} onChange={v => set({ receivedDate: v })} /></FieldRow>
+                  <FieldRow label="Expected Completion" isLast><DateEditor value={draft.endDate} onChange={v => set({ endDate: v })} /></FieldRow>
                 </>
               ) : (
                 <>
                   <DetailRow label="Start Date" value={fmtDate(lead?.startDate)} />
                   <DetailRow label="Expected Completion" value={fmtDate(lead?.endDate)} />
-                  <DetailRow label="Received / PO Date" value={fmtDate(lead?.receivedDate)} />
-                  <div style={{ padding: '12px 0 4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'Inter', fontSize: 12, fontWeight: 600, color: '#64748B', marginBottom: 6 }}>
-                      <span>Progress</span>
-                      <span style={{ color: '#1E293B' }}>{progress != null ? `${progress}%` : DASH}</span>
-                    </div>
-                    <div style={{ height: 8, background: '#EEF2F6', borderRadius: 999, overflow: 'hidden' }}>
-                      <div style={{ width: `${progress != null ? Math.min(100, Math.max(0, progress)) : 0}%`, height: '100%', background: 'linear-gradient(90deg,#f5a623,#f59e0b)', borderRadius: 999, transition: 'width .4s ease' }} />
-                    </div>
-                  </div>
+
+
                 </>
               )
             )}

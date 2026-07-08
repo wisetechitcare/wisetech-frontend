@@ -1,5 +1,6 @@
 import React, { useState, type CSSProperties } from 'react';
-import Select from 'react-select';
+import Select, { components } from 'react-select';
+import { ColourOption, SingleValue, DropdownIndicator } from '../common/inputs/ColorInDropdwon';
 import { C, FONT, RADIUS } from '../configuration/ConfigDesignSystem';
 import { DetailCard, type AccentColor } from './DetailPageComponents';
 import './DetailPageResponsive.css';
@@ -244,9 +245,10 @@ const searchableSelectStyles: any = {
 export const SearchableSelectEditor: React.FC<{
   value: any;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  options: any[];
   placeholder?: string;
-}> = ({ value, onChange, options, placeholder = 'Select…' }) => (
+  showColor?: boolean;
+}> = ({ value, onChange, options, placeholder = 'Select…', showColor }) => (
   <Select
     options={options}
     value={options.find(o => String(o.value) === String(value ?? '')) ?? null}
@@ -258,6 +260,11 @@ export const SearchableSelectEditor: React.FC<{
     menuPosition="fixed"
     styles={searchableSelectStyles}
     classNamePrefix="react-select"
+    components={showColor ? {
+      Option: ColourOption,
+      SingleValue,
+      DropdownIndicator,
+    } : {}}
   />
 );
 
