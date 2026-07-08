@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {AuthModel} from './_models'
 
 const AUTH_LOCAL_STORAGE_KEY = 'wise_tech_login'
