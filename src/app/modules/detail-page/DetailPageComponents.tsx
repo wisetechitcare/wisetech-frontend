@@ -380,6 +380,7 @@ export const DetailInfoGrid: React.FC<{
   gap?: string;
 }> = ({ columns = 2, children, gap = '0 20px' }) => (
   <div
+    className="detail-info-grid"
     style={{
       display: 'grid',
       gridTemplateColumns: `repeat(${columns}, 1fr)`,

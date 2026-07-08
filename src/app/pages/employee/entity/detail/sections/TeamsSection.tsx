@@ -308,28 +308,30 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
 
               return (
                 <div>
-                  {/* column captions for the edit grid */}
-                  {rows.length > 0 && (
-                    <div style={{ display: 'flex', gap: 8, padding: '0 0 6px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      <div style={{ flex: 2, minWidth: 160 }}>Employee</div>
-                      <div style={{ flex: 1, minWidth: 130 }}>Start</div>
-                      <div style={{ flex: 1, minWidth: 130 }}>End</div>
-                      <div style={{ flex: 1, minWidth: 120 }}>Status</div>
-                      <div style={{ width: 32 }} />
-                    </div>
-                  )}
-                  {rows.length === 0 && (
-                    <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '8px 0 12px' }}>No members yet — add one below{team?.name ? ` or seed the whole ${team.name} team` : ''}.</div>
-                  )}
-                  {rows.map((m, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
-                      <div style={{ flex: 2, minWidth: 160 }}><SelectEditor value={m.employeeId} options={employeeOptions} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" /></div>
-                      <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.startDate} onChange={v => update(i, { startDate: v })} /></div>
-                      <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.endDate} onChange={v => update(i, { endDate: v })} /></div>
-                      <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={m.isActive !== false} onChange={v => update(i, { isActive: v })} onLabel="Active" offLabel="Inactive" /></div>
-                      <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
-                    </div>
-                  ))}
+                  <div style={{ overflowX: 'auto' }}>
+                    {/* column captions for the edit grid */}
+                    {rows.length > 0 && (
+                      <div style={{ display: 'flex', gap: 8, padding: '0 0 6px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        <div style={{ flex: 2, minWidth: 160 }}>Employee</div>
+                        <div style={{ flex: 1, minWidth: 130 }}>Start</div>
+                        <div style={{ flex: 1, minWidth: 130 }}>End</div>
+                        <div style={{ flex: 1, minWidth: 120 }}>Status</div>
+                        <div style={{ width: 32 }} />
+                      </div>
+                    )}
+                    {rows.length === 0 && (
+                      <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '8px 0 12px' }}>No members yet — add one below{team?.name ? ` or seed the whole ${team.name} team` : ''}.</div>
+                    )}
+                    {rows.map((m, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
+                        <div style={{ flex: 2, minWidth: 160 }}><SelectEditor value={m.employeeId} options={employeeOptions} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" /></div>
+                        <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.startDate} onChange={v => update(i, { startDate: v })} /></div>
+                        <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.endDate} onChange={v => update(i, { endDate: v })} /></div>
+                        <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={m.isActive !== false} onChange={v => update(i, { isActive: v })} onLabel="Active" offLabel="Inactive" /></div>
+                        <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
+                      </div>
+                    ))}
+                  </div>
                   <button type="button" onClick={add} style={addBtn}><i className="bi bi-plus-lg" /> Add member</button>
                   {teamMembers.length > 0 && (
                     <button type="button" onClick={seedFromTeam} style={seedBtn}>
@@ -460,27 +462,29 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
 
               return (
                 <div>
-                  {rows.length > 0 && (
-                    <div style={{ display: 'flex', gap: 8, padding: '0 0 6px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      <div style={{ flex: 1, minWidth: 140 }}>Company Type</div>
-                      <div style={{ flex: 1, minWidth: 150 }}>Company</div>
-                      <div style={{ flex: 1, minWidth: 150 }}>Sub Company</div>
-                      <div style={{ flex: 1, minWidth: 150 }}>Contact Person</div>
-                      <div style={{ width: 32 }} />
-                    </div>
-                  )}
-                  {rows.length === 0 && (
-                    <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '8px 0 12px' }}>No client company linked yet — add one below.</div>
-                  )}
-                  {rows.map((t, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
-                      <div style={{ flex: 1, minWidth: 140 }}><SearchableSelectEditor value={t.companyTypeId} options={companyTypeOptions} onChange={v => update(i, { companyTypeId: v })} placeholder="Select type" /></div>
-                      <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" /></div>
-                      <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => onSubCompanyChange(i, v)} placeholder="Select sub company" /></div>
-                      <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => onContactChange(i, v)} placeholder="Select contact" /></div>
-                      <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
-                    </div>
-                  ))}
+                  <div style={{ overflowX: 'auto' }}>
+                    {rows.length > 0 && (
+                      <div style={{ display: 'flex', gap: 8, padding: '0 0 6px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        <div style={{ flex: 1, minWidth: 140 }}>Company Type</div>
+                        <div style={{ flex: 1, minWidth: 150 }}>Company</div>
+                        <div style={{ flex: 1, minWidth: 150 }}>Sub Company</div>
+                        <div style={{ flex: 1, minWidth: 150 }}>Contact Person</div>
+                        <div style={{ width: 32 }} />
+                      </div>
+                    )}
+                    {rows.length === 0 && (
+                      <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '8px 0 12px' }}>No client company linked yet — add one below.</div>
+                    )}
+                    {rows.map((t, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
+                        <div style={{ flex: 1, minWidth: 140 }}><SearchableSelectEditor value={t.companyTypeId} options={companyTypeOptions} onChange={v => update(i, { companyTypeId: v })} placeholder="Select type" /></div>
+                        <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" /></div>
+                        <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => onSubCompanyChange(i, v)} placeholder="Select sub company" /></div>
+                        <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => onContactChange(i, v)} placeholder="Select contact" /></div>
+                        <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
+                      </div>
+                    ))}
+                  </div>
                   <button type="button" onClick={add} style={addBtn}><i className="bi bi-plus-lg" /> Add client company connection</button>
                 </div>
               );

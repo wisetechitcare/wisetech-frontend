@@ -11,6 +11,9 @@
   .detail-summary-bar {
     grid-template-columns: repeat(2, 1fr) !important;
   }
+  .detail-info-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (max-width: 575.98px) {

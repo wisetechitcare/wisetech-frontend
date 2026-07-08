@@ -281,21 +281,23 @@ const ProjectDetailSection: React.FC<{ lead: any }> = ({ lead }) => {
                   {entries.length === 0 && (
                     <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '8px 0 12px' }}>No entries yet — add one below.</div>
                   )}
-                  {entries.map((e, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
-                      <div style={{ flex: 2, minWidth: 160 }}><SelectEditor value={e.employeeId} options={employeeOptions} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" /></div>
-                      <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={e.handledDate} onChange={v => update(i, { handledDate: v })} /></div>
-                      <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={e.handledOutDate} onChange={v => update(i, { handledOutDate: v })} /></div>
-                      <button
-                        type="button"
-                        onClick={() => remove(i)}
-                        title="Remove"
-                        style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, border: '1px solid #f1416c33', background: '#fff1f3', color: '#9b1c44', cursor: 'pointer' }}
-                      >
-                        <i className="bi bi-trash" />
-                      </button>
-                    </div>
-                  ))}
+                  <div style={{ overflowX: 'auto' }}>
+                    {entries.map((e, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
+                        <div style={{ flex: 2, minWidth: 160 }}><SelectEditor value={e.employeeId} options={employeeOptions} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" /></div>
+                        <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={e.handledDate} onChange={v => update(i, { handledDate: v })} /></div>
+                        <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={e.handledOutDate} onChange={v => update(i, { handledOutDate: v })} /></div>
+                        <button
+                          type="button"
+                          onClick={() => remove(i)}
+                          title="Remove"
+                          style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, border: '1px solid #f1416c33', background: '#fff1f3', color: '#9b1c44', cursor: 'pointer' }}
+                        >
+                          <i className="bi bi-trash" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                   <button
                     type="button"
                     onClick={add}
