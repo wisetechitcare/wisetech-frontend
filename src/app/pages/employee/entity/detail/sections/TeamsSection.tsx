@@ -167,10 +167,17 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const contactById = useMemo(() => new Map(allContacts.map((c: any) => [String(c.id), c])), [allContacts]);
   const companyNameById = useMemo(() => new Map(companies.map((c: any) => [String(c.id), c.companyName])), [companies]);
 
-  const companyTypeOptions = useMemo(() => companyTypes.map((t: any) => ({ value: t.id, label: t.name })), [companyTypes]);
+  const byLabel = (a: { label: string }, b: { label: string }) =>
+    a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+
+  const companyTypeOptions = useMemo(
+    () => companyTypes.map((t: any) => ({ value: t.id, label: t.name })).sort(byLabel),
+    [companyTypes],
+  );
   const companyOptionsFor = (typeId?: string) => companies
     .filter((c: any) => !typeId || c.companyTypeId === typeId)
-    .map((c: any) => ({ value: c.id, label: c.companyName }));
+    .map((c: any) => ({ value: c.id, label: c.companyName }))
+    .sort(byLabel);
   // Sub-companies/contacts are filtered to the chosen company when one is set,
   // but list EVERYTHING (tagged with its company name) when it isn't — so the
   // user can pick one first and let it back-fill the company.
@@ -181,7 +188,8 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       const base = s.subCompanyName || s.name;
       const cn = companyNameById.get(String(s.mainCompanyId));
       return { value: s.id, label: (!companyId && cn) ? `${base} — ${cn}` : base };
-    });
+    })
+    .sort(byLabel);
   const contactOptionsFor = (companyId?: string) => (companyId
     ? allContacts.filter((c: any) => String(c.companyId) === String(companyId))
     : allContacts)
@@ -189,7 +197,8 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       const base = c.fullName || c.name || 'Unnamed Contact';
       const cn = companyNameById.get(String(c.companyId));
       return { value: c.id, label: cn ? `${base} — ${cn}` : base };
-    });
+    })
+    .sort(byLabel);
 
   return (
     <div>
