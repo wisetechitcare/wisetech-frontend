@@ -131,7 +131,7 @@ const Weekly = ({
 
     return (
         <>
-           <LeaderBoardCore
+           <LeaderBoardCore period="weekly"
             overviewData={overviewData}
             startDate={effectiveStartDate}
             endDate={effectiveEndDate}

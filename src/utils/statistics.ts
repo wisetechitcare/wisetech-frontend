@@ -2788,7 +2788,7 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
         });
 
         const { checkIn = '', checkOut = '', employeeId } = attendanceRecord || {};
-        const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WEEKEND, WORKING_WEEKEND, HOLIDAY, RAISE_REQUEST } = ATTENDANCE_STATUS;
+        const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WEEKEND, WORKING_WEEKEND, HOLIDAY, RAISE_REQUEST, ADMIN_RAISE_REQUEST } = ATTENDANCE_STATUS;
         // console.log("checkIn",checkIn);
         // console.log("checkOut",checkOut);
 
@@ -2840,7 +2840,9 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
         let status;
 
         if (isMarkedViaRequest) {
-            status = RAISE_REQUEST;
+            // Distinguish a request the employee raised from one an admin raised on
+            // their behalf so they render in different colours.
+            status = matchingRequest?.isAdminRaised ? ADMIN_RAISE_REQUEST : RAISE_REQUEST;
         } else if (checkIn && checkOut) {
             status = isWeekend ? WORKING_WEEKEND : PRESENT;
         } else if (checkIn && !checkOut) {
@@ -2920,6 +2922,7 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             approvedOrRejectedDate: attendanceRequest.updatedAt,
             reportsToId: attendanceRequest?.employee?.reportsToId ?? null,
             hasApprovalInstance: attendanceRequest.hasApprovalInstance ?? false,
+            isAdminRaised: attendanceRequest.isAdminRaised ?? false,
         }
 
         result.push(request);

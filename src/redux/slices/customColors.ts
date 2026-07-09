@@ -8,6 +8,7 @@ export interface IAttendanceCalendarColor {
     weekendColor: string,
     workingWeekendColor: string,
     markedPresentViaRequestRaisedColor: string,
+    adminRaisedRequestColor?: string,
 }
 
 export interface IAttendanceOverviewColor {
@@ -67,6 +68,7 @@ const initialState: ICustomColorCode = {
         weekendColor: "#9B59B6",
         workingWeekendColor: "#E67E22",
         markedPresentViaRequestRaisedColor: "#1ABC9C",
+        adminRaisedRequestColor: "#F97316",
     },
     attendanceOverview: {
         presentColor: "#2ECC71",
@@ -112,7 +114,9 @@ export const customColorsSlice = createSlice({
     reducers: {
         setCustomColors: (state, action: PayloadAction<ICustomColorCode>) => {
             if (action.payload?.id) state.id = action.payload.id;
-            if (action.payload?.attendanceCalendar) state.attendanceCalendar = action.payload.attendanceCalendar;
+            // Merge so newly-added tokens (adminRaisedRequestColor) keep their defaults
+            // when an older server payload doesn't include them.
+            if (action.payload?.attendanceCalendar) state.attendanceCalendar = { ...state.attendanceCalendar, ...action.payload.attendanceCalendar };
             if (action.payload?.attendanceOverview) state.attendanceOverview = action.payload.attendanceOverview;
             if (action.payload?.workingPattern) state.workingPattern = action.payload.workingPattern;
             if (action.payload?.workingLocation) state.workingLocation = action.payload.workingLocation;

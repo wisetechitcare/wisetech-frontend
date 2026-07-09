@@ -30,7 +30,7 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
     useEffect(() => {
         if (!formikProps.submitCount) return;
         const errors = formikProps.errors || {};
-        if (errors.designationId || errors.departmentId || errors.branchId || errors.workingMethodId) {
+        if (errors.organizationId || errors.designationId || errors.departmentId || errors.branchId || errors.teamId || errors.workingMethodId) {
             setActiveSection("employee_info");
             return;
         }
@@ -120,6 +120,10 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
         ),
         leave_settings: (
             <div>
+                <div className="alert alert-warning d-flex align-items-center py-2 px-3 mb-4" role="alert">
+                    <i className="fa-solid fa-triangle-exclamation me-2" />
+                    <span className="fs-7">Please review the leave settings once before saving — allocations depend on the selected branch.</span>
+                </div>
                 <LeaveAllocationStep />
             </div>
         ),

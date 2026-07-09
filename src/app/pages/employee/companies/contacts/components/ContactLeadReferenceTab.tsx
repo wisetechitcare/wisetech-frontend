@@ -11,7 +11,7 @@ interface Referral {
 }
 
 const ContactLeadReferenceTab: React.FC<{ referrals?: Referral[] }> = ({ referrals = [] }) => {
-  const [range, setRange] = useState<PeriodRange>({ mode: "monthly", start: null, end: null, label: "" });
+  const [range, setRange] = useState<PeriodRange>({ mode: "allyear", start: null, end: null, label: "All time" });
 
   const filtered = useMemo(() => {
     if (!range.start || !range.end) return referrals;
@@ -27,7 +27,7 @@ const ContactLeadReferenceTab: React.FC<{ referrals?: Referral[] }> = ({ referra
   return (
     <div>
       <div className="mb-3">
-        <PeriodFilter onChange={setRange} initialMode="monthly" storageKey="contactLeadReferencePeriodMode" />
+        <PeriodFilter onChange={setRange} initialMode="allyear" storageKey="contactLeadReferencePeriodMode" />
       </div>
 
       <LeadReferralAnalytics

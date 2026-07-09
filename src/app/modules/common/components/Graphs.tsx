@@ -1990,7 +1990,7 @@ export const StatisticsTable = ({
             Cell: ({ renderedCellValue }: any) => {
                 if (!renderedCellValue) return null;
 
-                const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WEEKEND, WORKING_WEEKEND, RAISE_REQUEST, ON_LEAVE, HOLIDAY, LEAVE_TYPE } = ATTENDANCE_STATUS;
+                const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WEEKEND, WORKING_WEEKEND, RAISE_REQUEST, ADMIN_RAISE_REQUEST, ON_LEAVE, HOLIDAY, LEAVE_TYPE } = ATTENDANCE_STATUS;
                 const { ANNUAL_LEAVE, CASUAL_LEAVE, FLOATER_LEAVE, SICK_LEAVE, UNPAID_LEAVE, MATERNAL_LEAVE } = LEAVE_TYPE;
                 // Define color mapping
                 const statusColors: Record<string, string> = {
@@ -2001,6 +2001,7 @@ export const StatisticsTable = ({
                     [WEEKEND]: colorValuesForAttendanceCalendar?.weekendColor || "", // Default Gray
                     [WORKING_WEEKEND]: colorValuesForAttendanceCalendar?.workingWeekendColor || "#6610f2", // Default Purple
                     [RAISE_REQUEST]: colorValuesForAttendanceCalendar?.markedPresentViaRequestRaisedColor || '#6610f2',
+                    [ADMIN_RAISE_REQUEST]: colorValuesForAttendanceCalendar?.adminRaisedRequestColor || '#F97316', // Default Orange — admin raised on employee's behalf
                     [HOLIDAY]: colorValues?.holidayColor || "#17a2b8", // Default Cyan
                     [ANNUAL_LEAVE]: leaveTypesColor?.annualLeaveColor || "#2ECC71",
                     [CASUAL_LEAVE]: leaveTypesColor?.casualLeaveColor || "#3498DB",
@@ -2129,6 +2130,7 @@ export const StatisticsTable = ({
                             [ATTENDANCE_STATUS.WORKING_WEEKEND]: colorValuesForAttendanceCalendar?.workingWeekendColor || "#6610f2",
                             [ATTENDANCE_STATUS.CHECK_OUT_MISSING]: missingColor?.missingCheckoutColor || '#ffff',
                             [ATTENDANCE_STATUS.RAISE_REQUEST]: colorValuesForAttendanceCalendar?.markedPresentViaRequestRaisedColor || '#6610f2',
+                            [ATTENDANCE_STATUS.ADMIN_RAISE_REQUEST]: colorValuesForAttendanceCalendar?.adminRaisedRequestColor || '#F97316',
                             [ATTENDANCE_STATUS.LEAVE]: colorValuesForAttendanceCalendar?.onLeaveColor || '#6610f2',
                             [ATTENDANCE_STATUS.CHECK_IN_MISSING]: missingColor?.missingCheckoutColor || '#6610f2',
                             // Singular keys (ATTENDANCE_STATUS.LEAVE_TYPE constants)
