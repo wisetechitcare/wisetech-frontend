@@ -126,7 +126,15 @@ const SummarySection: React.FC<{
     : employeeNameById(allEmployees, exec?.projectManagerId);
   const pmName = execManager || projectManagerName(p, allEmployees) || DASH;
   const execStatus = exec?.projectStatus || p?.status || null;
+  // Most specific first: a referral traces back to an actual person (contact or
+  // internal employee) or company — show that name instead of a generic bucket
+  // like "Other". Only fall back to the direct-source / raw type label when no
+  // referral detail is on record.
+  const referral = (lead?.referrals || [])[0];
   const leadSource =
+    referral?.referredByContact?.fullName ||
+    employeeUserName(referral?.referredByEmployee) ||
+    referral?.referringCompany?.companyName ||
     lead?.leadDirectSource?.name ||
     lead?.source?.name ||
     (lead?.leadSourceType ? String(lead.leadSourceType).replace(/_/g, ' ') : '') ||
@@ -225,7 +233,9 @@ const SummarySection: React.FC<{
       <SectionHeading icon="bi bi-kanban" title="Project Snapshot" color={ICON_COLORS.green.color} />
       <StatGrid
         items={[
+          { label: 'Project No.', value: lead?.prefix || DASH, icon: 'bi bi-hash', accent: 'primary' },
           { label: 'Project Status', value: <DetailStatusBadge status={execStatus?.name || DASH} color={execStatus?.color} />, icon: 'bi bi-kanban', accent: 'blue' },
+          { label: 'Execution Team', value: exec?.team?.name || DASH, icon: 'bi bi-people', accent: 'purple' },
           { label: 'Project Manager', value: pmName, icon: 'bi bi-person-workspace', accent: 'primary' },
           { label: 'Start Date', value: fmtDate(execStart), icon: 'bi bi-calendar-event', accent: 'teal' },
           { label: 'Expected Closure', value: fmtDate(execEnd), icon: 'bi bi-calendar-check', accent: 'green' },
@@ -254,7 +264,7 @@ const SummarySection: React.FC<{
   const Commercial = (
     <div>
       <SectionHeading icon="bi bi-cash-stack" title="Commercials" color="#16a34a" />
-      <CommercialsSection vm={vm} />
+      <CommercialsSection vm={vm} rawLead={lead} />
     </div>
   );
 

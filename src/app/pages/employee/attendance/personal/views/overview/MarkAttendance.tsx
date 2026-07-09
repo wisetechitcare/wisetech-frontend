@@ -4,6 +4,7 @@ import { KTIcon } from "@metronic/helpers";
 import { RootState, store } from "@redux/store";
 import { formatDate } from "@utils/date";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { useDispatch, useSelector } from "react-redux";
 import { Modal } from "react-bootstrap";
@@ -116,6 +117,23 @@ function MarkAttendance({ variant = 'default' }: MarkAttendanceProps) {
         dispatch(toggleOpenModal(false));
         setIsLocationLoading(false);
     }
+
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    // Landed here from the mobile bottom-nav "+" quick-actions sheet — kick off
+    // the same check-in/checkout flow the visible button triggers, instead of
+    // making the user find/tap it. Clears the nav state after so a back/forward
+    // or refresh doesn't re-trigger it. Only fires once device + location gating
+    // (isDeviceNotDesktop / latitudeNew,longitudeNew) has already resolved, same
+    // as the manual button — see the disabled-state checks in the render below.
+    useEffect(() => {
+        if ((location.state as any)?.quickAction === 'markAttendance' && isDeviceNotDesktop) {
+            handleCheckClick();
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isDeviceNotDesktop]);
 
     useEffect(() => {
         if(Object.keys(workingAndOfDays).length != 7) {

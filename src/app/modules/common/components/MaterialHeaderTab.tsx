@@ -15,6 +15,11 @@ interface MaterialTabProps {
     activeTab?: number;
     onTabChange?: (index: number) => void;
     aboveContent?: React.ReactNode;
+    /** Hides the MUI-generated "<"/">" scroll-arrow buttons that appear beside the
+     * tab strip when it can scroll — those can look like a stray back button, which
+     * is confusing on modules with only a couple of short tabs. The strip stays
+     * `scrollable` (swipeable) either way; this only hides the arrow affordance. */
+    hideScrollButtons?: boolean;
 }
 
 const CustomizedTabs = styled(Tabs)({
@@ -62,7 +67,7 @@ const CustomizedTabs = styled(Tabs)({
     },
 });
 
-const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent }: MaterialTabProps) => {
+const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hideScrollButtons }: MaterialTabProps) => {
     const [value, setValue] = useState(0);
     useEffect(() => {
         if (typeof activeTab === 'number') {
@@ -86,7 +91,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent }: M
                 textColor="primary"
                 indicatorColor="primary"
                 variant="scrollable"
-                scrollButtons="auto"
+                scrollButtons={hideScrollButtons ? false : "auto"}
                 style={{ zIndex: 50 }}
             >
                 {tabItems.map((tabItem, index) => {

@@ -1,4 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
+import { T as UiTokens } from '@app/modules/common/components/ui/tokens';
 import { useEffect, useRef, useState } from 'react';
 import { parseWorkingDays } from '@utils/workingDays';
 import { useFormik } from 'formik';
@@ -21,11 +22,12 @@ import { deleteConfirmation, errorConfirmation, successConfirmation } from '@uti
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import PublicHoliday from '@app/pages/company/PublicHoliday';
-import { KTIcon } from '@metronic/helpers';
+import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
 import LeaveRequestForm from './attendance/personal/views/my-leaves/LeaveRequestForm';
 import Holiday from '@pages/company/Holiday';
 import './CustomCalendar.premium.css';
 import MeetingsForm from './attendance/personal/views/my-leaves/MeetingsForm';
+import SmartAvatar from '@app/modules/common/components/SmartAvatar';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { fetchAllColors } from '@services/options';
@@ -35,9 +37,12 @@ import {
   SHOW_BIRTHDAYS_INTERNAL, 
   SHOW_BIRTHDAYS_INTERNAL_INACTIVE,
   SHOW_BIRTHDAYS_EXTERNAL, 
-  SHOW_ANNIVERSARIES_INTERNAL, 
+  SHOW_ANNIVERSARIES_INTERNAL,
   SHOW_ANNIVERSARIES_INTERNAL_INACTIVE,
   SHOW_ANNIVERSARIES_EXTERNAL,
+  SHOW_MARRIAGE_ANNIVERSARY_INTERNAL,
+  SHOW_MARRIAGE_ANNIVERSARY_INTERNAL_INACTIVE,
+  SHOW_MARRIAGE_ANNIVERSARY_EXTERNAL,
   SHOW_SATURDAY_ON_CALENDAR,
   SHOW_SUNDAY_ON_CALENDAR,
   SHOW_MEETINGS_ON_CALENDAR
@@ -74,12 +79,14 @@ const Ico = ({ n, cls = '' }: { n: string; cls?: string }) => (
 // Category → premium look (icon / accent / soft tint / label). Keeps the palette
 // consistent regardless of the arbitrary configured event colours.
 const CAT: Record<string, { color: string; tint: string; icon: string; label: string }> = {
-    holiday: { color: 'var(--mrd-accent)', tint: 'var(--mrd-accent-tint)', icon: 'sun', label: 'Public holiday' },
+    holiday: { color: 'var(--mrd-primary)', tint: 'var(--mrd-primary-tint)', icon: 'sun', label: 'Public holiday' },
     meeting: { color: 'var(--mrd-violet)', tint: 'var(--mrd-violet-tint)', icon: 'video', label: 'Meeting' },
     birthday: { color: 'var(--mrd-rose)', tint: 'var(--mrd-rose-tint)', icon: 'cake', label: 'Birthday' },
     'contact-birthday': { color: 'var(--mrd-rose)', tint: 'var(--mrd-rose-tint)', icon: 'cake', label: 'Birthday · contact' },
     anniversary: { color: 'var(--mrd-blue)', tint: 'var(--mrd-blue-tint)', icon: 'award', label: 'Work anniversary' },
     'contact-anniversary': { color: 'var(--mrd-blue)', tint: 'var(--mrd-blue-tint)', icon: 'award', label: 'Anniversary · contact' },
+    'marriage-anniversary': { color: 'var(--mrd-amber)', tint: 'var(--mrd-amber-tint)', icon: 'heart', label: 'Marriage anniversary' },
+    'contact-marriage-anniversary': { color: 'var(--mrd-amber)', tint: 'var(--mrd-amber-tint)', icon: 'heart', label: 'Marriage anniversary · contact' },
     event: { color: 'var(--mrd-primary)', tint: 'var(--mrd-primary-tint)', icon: 'calendar', label: 'Event' },
 };
 
@@ -90,7 +97,8 @@ const LEGEND: { key: string; label: string; color: string; types: string[] }[] =
     { key: 'meeting', label: 'Meetings', color: 'var(--mrd-violet)', types: ['meeting'] },
     { key: 'birthday', label: 'Birthdays', color: 'var(--mrd-rose)', types: ['birthday', 'contact-birthday'] },
     { key: 'anniversary', label: 'Anniversaries', color: 'var(--mrd-blue)', types: ['anniversary', 'contact-anniversary'] },
-    { key: 'holiday', label: 'Holidays', color: 'var(--mrd-accent)', types: ['holiday'] },
+    { key: 'marriage-anniversary', label: 'Marriage Anniversaries', color: 'var(--mrd-amber)', types: ['marriage-anniversary', 'contact-marriage-anniversary'] },
+    { key: 'holiday', label: 'Holidays', color: 'var(--mrd-primary)', types: ['holiday'] },
 ];
 
 // View options shown in the shared PeriodTabs (same control used app-wide).
@@ -180,6 +188,13 @@ function CustomCalendar() {
     const [maxColumns, setMaxColumns] = useState(2);
     // Day selected in the right-hand detail panel (independent of the create flow).
     const [panelDate, setPanelDate] = useState<Date>(new Date());
+    // Below this width the day-detail panel (.mrd-panel) stops being an
+    // always-stacked block and becomes an on-demand bottom sheet instead —
+    // otherwise its five sections (timeline/create/upcoming/quick actions/
+    // legend) would dump a very long scroll between the calendar and the
+    // bento cards on every phone. Matches the existing 760px CSS breakpoint.
+    const [isMobile, setIsMobile] = useState(false);
+    const [panelSheetOpen, setPanelSheetOpen] = useState(false);
     const [branchWorkingAndOffDays, setBranchWorkingAndOffDays] = useState<any>({});
     // console.log("branchWorkingAndOffDays =>",branchWorkingAndOffDays)
     const selectRef = useRef(null);
@@ -219,7 +234,7 @@ function CustomCalendar() {
                             title: eventName,
                             start: startDate,
                             end: endDate,
-                            color: "#AA393D"
+                            color: UiTokens.color.accent
                         });
                     }
                     setLoading(false);
@@ -262,7 +277,8 @@ function CustomCalendar() {
 
     const handleDateSelect = (selectInfo: any) => {
         setSelectedDateTimeInfo(selectInfo);
-        setShowOptionsModal(true);
+        setPanelDate(new Date(selectInfo.startStr));
+        if (isMobile) setPanelSheetOpen(true);
     };
 
     const handleShowLeaveRequestForm = () => {
@@ -323,6 +339,9 @@ function CustomCalendar() {
             showAnniversariesInternalRes,
             showAnniversariesInternalInactiveRes,
             showAnniversariesExternalRes,
+            showMarriageAnnyInternalRes,
+            showMarriageAnnyInternalInactiveRes,
+            showMarriageAnnyExternalRes,
             showSaturdayRes,
             showSundayRes,
             showMeetingsRes,
@@ -341,6 +360,9 @@ function CustomCalendar() {
             fetchConfiguration(SHOW_ANNIVERSARIES_INTERNAL).catch(() => null),
             fetchConfiguration(SHOW_ANNIVERSARIES_INTERNAL_INACTIVE).catch(() => null),
             fetchConfiguration(SHOW_ANNIVERSARIES_EXTERNAL).catch(() => null),
+            fetchConfiguration(SHOW_MARRIAGE_ANNIVERSARY_INTERNAL).catch(() => null),
+            fetchConfiguration(SHOW_MARRIAGE_ANNIVERSARY_INTERNAL_INACTIVE).catch(() => null),
+            fetchConfiguration(SHOW_MARRIAGE_ANNIVERSARY_EXTERNAL).catch(() => null),
             fetchConfiguration(SHOW_SATURDAY_ON_CALENDAR).catch(() => null),
             fetchConfiguration(SHOW_SUNDAY_ON_CALENDAR).catch(() => null),
             fetchConfiguration(SHOW_MEETINGS_ON_CALENDAR).catch(() => null),
@@ -354,6 +376,9 @@ function CustomCalendar() {
           const parsedAnnyInt = safeJsonParse(showAnniversariesInternalRes?.data?.configuration?.configuration || '{}');
           const parsedAnnyIntInactive = safeJsonParse(showAnniversariesInternalInactiveRes?.data?.configuration?.configuration || '{}');
           const parsedAnnyExt = safeJsonParse(showAnniversariesExternalRes?.data?.configuration?.configuration || '{}');
+          const parsedMarriageAnnyInt = safeJsonParse(showMarriageAnnyInternalRes?.data?.configuration?.configuration || '{}');
+          const parsedMarriageAnnyIntInactive = safeJsonParse(showMarriageAnnyInternalInactiveRes?.data?.configuration?.configuration || '{}');
+          const parsedMarriageAnnyExt = safeJsonParse(showMarriageAnnyExternalRes?.data?.configuration?.configuration || '{}');
           const parsedSaturday = safeJsonParse(showSaturdayRes?.data?.configuration?.configuration || '{}');
           const parsedSunday = safeJsonParse(showSundayRes?.data?.configuration?.configuration || '{}');
           const parsedMeetings = safeJsonParse(showMeetingsRes?.data?.configuration?.configuration || '{}');
@@ -364,6 +389,9 @@ function CustomCalendar() {
           const showAnniversariesInternalEnabled = parsedAnnyInt.enabled ?? parsedAnnyInt.showAnniversariesInternal ?? false;
           const showAnniversariesInternalInactiveEnabled = parsedAnnyIntInactive.enabled ?? false;
           const showAnniversariesExternalEnabled = parsedAnnyExt.enabled ?? parsedAnnyExt.showAnniversariesExternal ?? false;
+          const showMarriageAnnyInternalEnabled = parsedMarriageAnnyInt.enabled ?? false;
+          const showMarriageAnnyInternalInactiveEnabled = parsedMarriageAnnyIntInactive.enabled ?? false;
+          const showMarriageAnnyExternalEnabled = parsedMarriageAnnyExt.enabled ?? false;
           const showSaturdayEnabled = parsedSaturday.enabled ?? false;
           const showSundayEnabled = parsedSunday.enabled ?? false;
           const showMeetingsEnabled = parsedMeetings.enabled ?? false;
@@ -374,6 +402,9 @@ function CustomCalendar() {
           const parsedColorAnnyInt = parsedAnnyInt.color || anniversariesColor || '#9C27B0';
           const parsedColorAnnyIntInactive = parsedAnnyIntInactive.color || '#9C27B0';
           const parsedColorAnnyExt = parsedAnnyExt.color || '#f57c00';
+          const parsedColorMarriageAnnyInt = parsedMarriageAnnyInt.color || '#E64980';
+          const parsedColorMarriageAnnyIntInactive = parsedMarriageAnnyIntInactive.color || '#E64980';
+          const parsedColorMarriageAnnyExt = parsedMarriageAnnyExt.color || '#AE3EC9';
           const parsedColorSaturday = parsedSaturday.color || '#FFB300';
           const parsedColorSunday = parsedSunday.color || '#F44336';
           const parsedColorMeetings = parsedMeetings.color || '#2196F3';
@@ -442,6 +473,15 @@ function CustomCalendar() {
               .filter(Boolean)
           );
 
+          const employeeMapByUserId = new Map(
+            (allEmployeeDateOfjoining?.data?.employees || [])
+              .map((employee: any) => {
+                const uid = employee?.users?.id ?? employee?.userId;
+                return uid ? [uid, employee] : null;
+              })
+              .filter(Boolean) as [any, any][]
+          );
+
           // Fetch contacts birthdays if external configs are enabled
           let allContacts: any[] = [];
           if (showBirthdaysExternalEnabled || showAnniversariesExternalEnabled) {
@@ -473,6 +513,9 @@ function CustomCalendar() {
               const bgColor = isInactive ? parsedColorBdayIntInactive : parsedColorBdayInt;
               const iconToUse = isInactive ? parsedBdayIntInactive.icon : parsedBdayInt.icon;
 
+              const empRecord = employeeMapByUserId.get(user.id);
+              const resolvedAvatar = empRecord?.avatar || user.avatar || empRecord?.users?.avatar || null;
+
               return {
                 title: `${user.firstName} ${user.lastName}'s Birthday${isInactive ? ' (Inactive Employee)' : ''}`,
                 start: nextBirthday.format('YYYY-MM-DD'),
@@ -487,7 +530,7 @@ function CustomCalendar() {
                   user: {
                     id: user.id,
                     name: `${user.firstName} ${user.lastName}`,
-                    avatar: user.avatar
+                    avatar: resolvedAvatar
                   }
                 }
               };
@@ -556,7 +599,7 @@ function CustomCalendar() {
                   user: {
                     id: employee.users.id,
                     name: `${employee.users.firstName} ${employee.users.lastName}`,
-                    avatar: employee.users.avatar
+                    avatar: employee.avatar || employee.users?.avatar || null
                   }
                 }
               };
@@ -585,6 +628,84 @@ function CustomCalendar() {
                   extendedProps: {
                     type: 'contact-anniversary',
                     icon: parsedAnnyExt.icon,
+                    contact: c
+                  }
+                };
+              });
+          }
+
+          // 5. Process employee marriage anniversaries (Internal Team) — same
+          // recurrence math as Work Anniversary, driven by `employee.anniversary`
+          // (the marriage/wedding date captured on the employee profile) instead
+          // of `dateOfJoining`. Uses a distinct `marriage-anniversary` type so it
+          // doesn't collide with the Work Anniversary category/legend/filters.
+          let employeeMarriageAnniversaries: any[] = [];
+
+          employeeMarriageAnniversaries = allEmployeeDateOfjoining?.data?.employees
+            ?.filter((employee: any) => employee.anniversary && employee?.users)
+            .map((employee: any) => {
+              const marriageAnniversaryDate = dayjs(employee.anniversary);
+              const today = dayjs().startOf('day');
+              let nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(today.year());
+              if (nextMarriageAnniversary.isBefore(today, 'day')) {
+                nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(Number(currentYear));
+              }
+              const isInactive = employee.isActive === false || employee.users?.isActive === false;
+
+              if (isInactive && !showMarriageAnnyInternalInactiveEnabled) return null;
+              if (!isInactive && !showMarriageAnnyInternalEnabled) return null;
+
+              const bgColor = isInactive ? parsedColorMarriageAnnyIntInactive : parsedColorMarriageAnnyInt;
+              const iconToUse = isInactive ? parsedMarriageAnnyIntInactive.icon : parsedMarriageAnnyInt.icon;
+
+              return {
+                title: `${employee.users.firstName} ${employee.users.lastName}'s Marriage Anniversary${isInactive ? ' (Inactive Employee)' : ''}`,
+                start: nextMarriageAnniversary.format('YYYY-MM-DD'),
+                allDay: true,
+                color: bgColor,
+                textColor: '#FFFFFF',
+                borderColor: bgColor,
+                className: 'marriage-anniversary-event',
+                extendedProps: {
+                  type: 'marriage-anniversary',
+                  icon: iconToUse,
+                  user: {
+                    id: employee.users.id,
+                    name: `${employee.users.firstName} ${employee.users.lastName}`,
+                    avatar: employee.avatar || employee.users?.avatar || null
+                  }
+                }
+              };
+            }).filter(Boolean) || [];
+
+          // 6. Process contact marriage anniversaries (External Team) — reuses the
+          // same `contact.anniversary` field as Work Anniversary's External Team
+          // (there's no separate "marriage" date on the Contact model), so a
+          // contact with both toggles enabled will surface on both. Kept
+          // consistent with the existing External Team convention rather than
+          // inventing a second contact field.
+          let contactMarriageAnniversaries: any[] = [];
+          if (showMarriageAnnyExternalEnabled) {
+            contactMarriageAnniversaries = allContacts
+              .filter((c: any) => c.anniversary)
+              .map((c: any) => {
+                const marriageAnniversaryDate = dayjs(c.anniversary);
+                const today = dayjs().startOf('day');
+                let nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(today.year());
+                if (nextMarriageAnniversary.isBefore(today, 'day')) {
+                  nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(Number(currentYear));
+                }
+                return {
+                  title: `${c.name}'s Marriage Anniversary`,
+                  start: nextMarriageAnniversary.format('YYYY-MM-DD'),
+                  allDay: true,
+                  color: parsedColorMarriageAnnyExt,
+                  textColor: '#FFFFFF',
+                  borderColor: parsedColorMarriageAnnyExt,
+                  className: 'marriage-anniversary-event-external',
+                  extendedProps: {
+                    type: 'contact-marriage-anniversary',
+                    icon: parsedMarriageAnnyExt.icon,
                     contact: c
                   }
                 };
@@ -648,6 +769,8 @@ function CustomCalendar() {
             ...contactBirthdays,
             ...employeeAnniversaries,
             ...contactAnniversaries,
+            ...employeeMarriageAnniversaries,
+            ...contactMarriageAnniversaries,
             ...meetingEvents
           ];
       
@@ -698,11 +821,26 @@ function CustomCalendar() {
             else {
                 setMaxColumns(2);
             }
+            setIsMobile(window.innerWidth <= 760);
         }
         updateColumns();
         window.addEventListener('resize', updateColumns);
         return () => window.removeEventListener('resize', updateColumns);
     }, []);
+
+    // Lock background scroll while the mobile day-detail sheet is open, and
+    // let Escape close it (the same affordance the backdrop/close button give).
+    useEffect(() => {
+        if (!isMobile || !panelSheetOpen) return;
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setPanelSheetOpen(false); };
+        window.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.body.style.overflow = prevOverflow;
+            window.removeEventListener('keydown', onKeyDown);
+        };
+    }, [isMobile, panelSheetOpen]);
 
     /* -----------------------------------------------------------------
        Derived, presentation-only data. Built entirely from state that is
@@ -714,7 +852,49 @@ function CustomCalendar() {
     const evDateOf = (e: any) => e.date || e.start;
     const evType = (e: any): string => e.extendedProps?.type || (e.date ? 'holiday' : 'event');
     const evMeta = (e: any) => CAT[evType(e)] || CAT.event;
-    const allDayTypes = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'holiday'];
+    
+
+    const renderProfileOrIcon = (
+        e: any,
+        size: number,
+        shape: "circle" | "rounded" = "circle",
+        fallbackClass: string,
+        useDotFallback: boolean = false
+    ) => {
+        const type = evType(e);
+        const isProfileEvent = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary'].includes(type);
+        
+        if (isProfileEvent) {
+            const user = e.extendedProps?.user;
+            const contact = e.extendedProps?.contact;
+            const name = user?.name || contact?.name || e.title || '';
+            const imageUrl = user?.avatar || contact?.profilePhoto || null;
+            const id = user?.id || contact?.id || null;
+            
+            return (
+                <SmartAvatar
+                    name={name}
+                    id={id}
+                    imageUrl={resolveAvatarUrl(imageUrl)}
+                    size={size}
+                    shape={shape}
+                    imageFit="cover"
+                />
+            );
+        }
+        
+        const m = evMeta(e);
+        if (useDotFallback) {
+            return <span className={fallbackClass} style={{ background: m.color }} />;
+        }
+        
+        return (
+            <span className={fallbackClass} style={{ background: m.tint, color: m.color }}>
+                <Ico n={m.icon} cls="sm" />
+            </span>
+        );
+    };
+    const allDayTypes = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary', 'holiday'];
     const evTimeOf = (e: any) => {
         const s = e.start;
         if (!s || allDayTypes.includes(evType(e))) return '';
@@ -815,7 +995,15 @@ function CustomCalendar() {
     const panelPrev = () => setPanelDate((d) => dayjs(d).subtract(1, 'day').toDate());
     const panelNext = () => setPanelDate((d) => dayjs(d).add(1, 'day').toDate());
     const panelToday = () => setPanelDate(new Date());
-    const openCreateFor = (d: Date) => { setSelectedDateTimeInfo({ startStr: dayjs(d).format('YYYY-MM-DD') } as any); setShowOptionsModal(true); };
+    const openCreateFor = (d: Date) => {
+        setSelectedDateTimeInfo({ startStr: dayjs(d).format('YYYY-MM-DD') } as any);
+        setShowOptionsModal(true);
+        // On mobile the "Select Event Type" chooser lives inside the day panel, which is a
+        // bottom sheet translated off-screen until panelSheetOpen flips it into view — without
+        // this the FAB/"New" button silently did nothing on mobile (desktop's panel is a
+        // static rail with no sheet state, so it never needed this).
+        if (isMobile) setPanelSheetOpen(true);
+    };
 
     // Quick-action shortcuts — open the same forms as the "Select Event Type"
     // modal, pre-seeded with the currently selected panel day.
@@ -834,32 +1022,59 @@ function CustomCalendar() {
                     <PageTitle breadcrumbs={calendarBreadcrumbs}>Calendar</PageTitle>
 
                     {/* Premium toolbar — reuses the shared PeriodTabs + PeriodNavigator
-                        so behaviour stays consistent with the rest of the app. */}
+                        so behaviour stays consistent with the rest of the app. The
+                        "Workspace calendar" title always sits on its own row; the view
+                        tabs + Today + date nav always share a single controls row below
+                        it, at every viewport — a simpler, more predictable structure
+                        than title/tabs and today/nav splitting left/right. */}
                     <div className="mrd-toolbar">
-                        <div className="mrd-toolbar__left">
-                            <div className="mrd-eyebrow">Workspace calendar</div>
+                        <div className="mrd-eyebrow mrd-toolbar__title">Workspace calendar</div>
+                        <div className="mrd-toolbar__controls">
                             <PeriodTabs
                                 value={selectedViewForCalendar}
                                 options={CALENDAR_VIEW_OPTIONS}
                                 onChange={handleViewChangeByValue}
                                 ariaLabel="calendar view selection"
+                                selectedColor="var(--mrd-primary)"
                             />
-                        </div>
-                        <div className="mrd-toolbar__right">
-                            <button type="button" className="mrd-btn" onClick={handleToday}>Today</button>
+                            <span className="mrd-spacer" />
+                            {/* Icon-only on mobile (CSS hides .mrd-btn__lbl there) — the tabs
+                                + this + the date navigator's two fixed 32px icon buttons need
+                                more width than most phones have as plain text, and unlike the
+                                navigator this button has no unavoidable minimum content. */}
+                            <button type="button" className="mrd-btn mrd-btn--today" onClick={handleToday} aria-label="Jump to today" title="Today">
+                                <Ico n="calendar" cls="sm" />
+                                <span className="mrd-btn__lbl">Today</span>
+                            </button>
                             <PeriodNavigator
                                 label={periodTitle}
                                 onPrevious={handlePrevPeriod}
                                 onNext={handleNextPeriod}
                                 previousTitle="Previous"
                                 nextTitle="Next"
-                                minWidth={170}
+                                // 170px was tuned for desktop; on mobile that alone pushed the
+                                // navigator past what's left after the view tabs + Today button,
+                                // wrapping it to its own row. 108px still fits "July 2026" with
+                                // room to spare and keeps everything on one line.
+                                minWidth={isMobile ? 108 : 170}
+                                labelColor="var(--mrd-primary)"
                             />
-                            <button type="button" className="mrd-btn mrd-btn--primary" onClick={() => openCreateFor(panelDate)}>
+                            {/* Hidden below 760px (mrd-btn--new) — the mrd-fab below takes over
+                                so the controls row doesn't have to fit a fourth element on a
+                                narrow phone. */}
+                            <button type="button" className="mrd-btn mrd-btn--primary mrd-btn--new" onClick={() => openCreateFor(panelDate)}>
                                 <Ico n="plus" cls="sm" /> New
                             </button>
                         </div>
                     </div>
+
+                    {/* Mobile-only floating Create action — replaces the toolbar's "New"
+                        button below 760px (see .mrd-btn--new / .mrd-fab in the CSS) so the
+                        primary create action stays reachable with a thumb without crowding
+                        the compact toolbar. Respects safe-area-inset-bottom. */}
+                    <button type="button" className="mrd-fab" onClick={() => openCreateFor(panelDate)} aria-label="Create new event">
+                        <Ico n="plus" />
+                    </button>
 
                     <div className="mrd-main">
                         {/* ---- Main calendar card (FullCalendar engine, restyled) ---- */}
@@ -869,23 +1084,46 @@ function CustomCalendar() {
                                 locale={enGbLocale}
                                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, bootstrapPlugin, multiMonthPlugin]}
                                 headerToolbar={false}
+                                // "July 2026" vs "Jul 2026" — a few px that matter when the title
+                                // sits in the same one-line row as the view tabs + Today button
+                                // and the date navigator's two fixed-width icon buttons.
+                                titleFormat={isMobile ? { month: 'short', year: 'numeric' } : { month: 'long', year: 'numeric' }}
                                 views={{
                                     multiMonthYear: {
                                         type: "multiMonthYear",
                                         multiMonthMaxColumns: maxColumns,
-                                        multiMonthMinWidth: 300,
+                                        // 300px can exceed a 320-375px phone viewport once card
+                                        // padding is subtracted, forcing horizontal scroll in Year
+                                        // view. Narrower minimum on mobile keeps it in-bounds.
+                                        multiMonthMinWidth: isMobile ? 250 : 300,
                                     },
                                 }}
                                 initialView="dayGridMonth"
                                 weekends={true}
+                                fixedWeekCount={false}
                                 events={visibleEvents}
-                                eventContent={renderEventContent}
+                                eventContent={(info: any) => renderEventContent(info, isMobile)}
+                                // Flags the view root so the CSS can lay dots out in a
+                                // wrapping row instead of FullCalendar's default one-per-line
+                                // stack — scoped to exactly the views/viewport that render
+                                // dots (Day view keeps its normal stacked full pills).
+                                viewClassNames={(arg: any) =>
+                                    isMobile && (arg.view.type === 'dayGridMonth' || arg.view.type === 'dayGridWeek')
+                                        ? ['mrd-compact-events']
+                                        : []
+                                }
                                 dayCellContent={renderDayCellContent}
                                 eventDisplay='block'
+                                // A day column is only ~55px wide on a phone in Month/Week
+                                // view — without a cap FullCalendar renders every event
+                                // stacked full-height, which is what made cells unreadable.
+                                // true = auto-fit to the cell's own height, collapsing the
+                                // rest into the already-styled "+N more" popover link.
+                                dayMaxEvents={true}
                                 selectable={true}
                                 // editable={true}
                                 select={handleDateSelect}
-                                dateClick={(info: any) => setPanelDate(info.date)}
+                                dateClick={(info: any) => { setPanelDate(info.date); if (isMobile) setPanelSheetOpen(true); }}
                                 longPressDelay={1}
                                 // eventClick={handleEventClick}
                                 ref={calendarRef}
@@ -895,15 +1133,49 @@ function CustomCalendar() {
                             />
                         </section>
 
-                        {/* ---- Right-hand day detail panel (Linear/Notion style) ---- */}
-                        <aside className="mrd-card mrd-panel">
+                        {/* Compact mobile trigger bar — glanceable day summary that opens the
+                            bottom sheet on tap. Hidden while the sheet itself is open. */}
+                        {isMobile && !panelSheetOpen && (
+                            <button type="button" className="mrd-daybar" onClick={() => setPanelSheetOpen(true)}>
+                                <span className="mrd-daybar__date">
+                                    <strong>{dayjs(panelDate).format('MMM D')}</strong>
+                                    <span>{panelLabel}</span>
+                                </span>
+                                <span className="mrd-spacer" />
+                                <span className="mrd-daybar__count">
+                                    {panelEvents.length ? `${panelEvents.length} event${panelEvents.length > 1 ? 's' : ''}` : 'No events'}
+                                </span>
+                                <Ico n="chevR" cls="sm" />
+                            </button>
+                        )}
+
+                        {/* Backdrop for the mobile bottom-sheet variant of the panel below —
+                            inert/invisible on tablet+ (CSS), tapping it closes the sheet. */}
+                        {isMobile && (
+                            <div
+                                className={`mrd-panel-backdrop${panelSheetOpen ? ' is-open' : ''}`}
+                                onClick={() => setPanelSheetOpen(false)}
+                                aria-hidden="true"
+                            />
+                        )}
+
+                        {/* ---- Day detail panel (Linear/Notion style) — a persistent side
+                            rail on tablet/laptop/desktop; an on-demand bottom sheet on mobile
+                            (opened by tapping a day, or the compact bar below) so its five
+                            sections don't dump a long scroll under the calendar on every phone. ---- */}
+                        <aside className={`mrd-card mrd-panel${isMobile ? ' mrd-panel--sheet' : ''}${panelSheetOpen ? ' is-open' : ''}`}>
                             <div className="mrd-panel__head">
                                 <div className="mrd-panel__top">
+                                    {isMobile && <span className="mrd-panel__grabber" aria-hidden="true" />}
                                     <span className="mrd-eyebrow">{panelLabel}</span>
                                     <span className="mrd-spacer" />
                                     <button type="button" className="mrd-navbtn" onClick={panelPrev} aria-label="Previous day"><Ico n="chevL" cls="sm" /></button>
-                                    <button type="button" className="mrd-navbtn" onClick={panelToday} title="Jump to today" style={{ width: 'auto', padding: '0 11px', fontSize: 12, fontWeight: 600 }}>Today</button>
                                     <button type="button" className="mrd-navbtn" onClick={panelNext} aria-label="Next day"><Ico n="chevR" cls="sm" /></button>
+                                    {isMobile && (
+                                        <button type="button" className="mrd-navbtn" onClick={() => setPanelSheetOpen(false)} aria-label="Close day details">
+                                            <Ico n="x" cls="sm" />
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="mrd-panel__date">
                                     <h2>{dayjs(panelDate).format('MMM D')}</h2>
@@ -963,7 +1235,7 @@ function CustomCalendar() {
                                                     <span className="mrd-tl__node" style={{ borderColor: m.color }} />
                                                     <div className="mrd-tl__time">{evTimeOf(e) || 'All day'}</div>
                                                     <div className="mrd-tl__card">
-                                                        <span className="mrd-tl__ic" style={{ background: m.tint, color: m.color }}><Ico n={m.icon} cls="sm" /></span>
+                                                        {renderProfileOrIcon(e, 36, "circle", "mrd-tl__ic")}
                                                         <div style={{ flex: 1, minWidth: 0 }}>
                                                             <div className="mrd-tl__title">{e.title}</div>
                                                             <div className="mrd-tl__sub">{m.label}</div>
@@ -1000,7 +1272,9 @@ function CustomCalendar() {
                                                 const m = evMeta(e);
                                                 return (
                                                     <button type="button" className="mrd-up__row" key={i} onClick={() => setPanelDate(new Date(evDateOf(e)))}>
-                                                        <span className="mrd-up__dot" style={{ background: m.color }} />
+                                                        <span className="mrd-up__col">
+                                                            {renderProfileOrIcon(e, 32, "circle", "mrd-up__dot", true)}
+                                                        </span>
                                                         <span className="mrd-up__main">
                                                             <span className="mrd-up__t">{e.title}</span>
                                                             <span className="mrd-up__s">{relLabel(evDateOf(e))} · {evTimeOf(e) || 'All day'}</span>
@@ -1066,7 +1340,7 @@ function CustomCalendar() {
                         (see .mrd-chooser above) instead of a centered modal. */}
 
             {/* Holiday Form Modal */}
-            <Modal show={showHolidayForm} onHide={handleCloseHolidayForm} centered>
+            <Modal show={showHolidayForm} onHide={handleCloseHolidayForm} centered fullscreen="md-down">
                 <Modal.Header closeButton>
                     <Modal.Title>Create New Holiday</Modal.Title>
                 </Modal.Header>
@@ -1082,7 +1356,7 @@ function CustomCalendar() {
             </Modal>
 
             {/* Leave Request Form Modal */}
-            <Modal show={showLeaveRequestForm} onHide={handleCloseLeaveRequestForm} centered>
+            <Modal show={showLeaveRequestForm} onHide={handleCloseLeaveRequestForm} centered fullscreen="md-down">
                 <Modal.Header closeButton>
                     <Modal.Title>Create New Leave Request</Modal.Title>
                 </Modal.Header>
@@ -1092,7 +1366,7 @@ function CustomCalendar() {
             </Modal>
 
             {/* Add New Holiday Form Modal */}
-            <Modal show={showNewHolidayForm} onHide={handleCloseNewHolidayForm} centered>
+            <Modal show={showNewHolidayForm} onHide={handleCloseNewHolidayForm} centered fullscreen="md-down">
                 <Modal.Header closeButton>
                     <Modal.Title>Add New Holiday</Modal.Title>
                 </Modal.Header>
@@ -1105,7 +1379,7 @@ function CustomCalendar() {
             </Modal>
 
                     {/* Add new Meeting form model */}
-                    <Modal show={showMeetingsForm} onHide={handleCloseMeetingForm} centered>
+                    <Modal show={showMeetingsForm} onHide={handleCloseMeetingForm} centered fullscreen="md-down">
                         <Modal.Header closeButton>
                             <Modal.Title>Add New Meetings</Modal.Title>
                         </Modal.Header>
@@ -1115,7 +1389,7 @@ function CustomCalendar() {
                     </Modal>
 
                     {/* Event Form Modal */}
-                    <Modal show={showEventForm} onHide={handleCloseEventForm} centered>
+                    <Modal show={showEventForm} onHide={handleCloseEventForm} centered fullscreen="md-down">
                         <Modal.Header closeButton>
                             <Modal.Title className='px-9'>Create New Event</Modal.Title>
                         </Modal.Header>
@@ -1220,7 +1494,7 @@ function CustomCalendar() {
                                 const m = evMeta(e);
                                 return (
                                     <div className="mrd-row" key={i}>
-                                        <span className="mrd-av" style={{ background: m.tint, color: m.color }}><Ico n={m.icon} cls="sm" /></span>
+                                        {renderProfileOrIcon(e, 34, "circle", "mrd-av")}
                                         <div className="mrd-row__main"><div className="mrd-row__t">{e.title}</div><div className="mrd-row__s">{(evTimeOf(e) || 'All day')} · {m.label}</div></div>
                                         <span className={`mrd-tag ${evTimeOf(e) ? 'mrd-tag--today' : 'mrd-tag--wk'}`}>{evTimeOf(e) || 'All day'}</span>
                                     </div>
@@ -1259,7 +1533,7 @@ function CustomCalendar() {
                                 const m = evMeta(e);
                                 return (
                                     <div className="mrd-row" key={i}>
-                                        <span className="mrd-av" style={{ background: m.tint, color: m.color }}><Ico n={m.icon} cls="sm" /></span>
+                                        {renderProfileOrIcon(e, 34, "circle", "mrd-av")}
                                         <div className="mrd-row__main"><div className="mrd-row__t">{e.title}</div><div className="mrd-row__s">{m.label}</div></div>
                                         <span className="mrd-tag mrd-tag--wk">{relLabel(e.start)}</span>
                                     </div>
@@ -1325,11 +1599,42 @@ function CustomCalendar() {
         </>
     );
 }
-function renderEventContent(eventInfo: any) {
+const resolveAvatarUrl = (url?: string | null) => {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+        return url;
+    }
+    if (!url.startsWith('media/') && !url.startsWith('/media/')) {
+        const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
+        return toAbsoluteUrl(`media/${cleanUrl}`);
+    }
+    return toAbsoluteUrl(url);
+};
+
+function renderEventContent(eventInfo: any, isMobile = false) {
     const ev = eventInfo.event;
     const type: string = ev.extendedProps?.type || (ev.allDay ? 'holiday' : 'event');
-    const dotColor = ev.backgroundColor || eventInfo.backgroundColor || '#295D8E';
-    const allDayTypes = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'holiday'];
+    const dotColor = ev.backgroundColor || eventInfo.backgroundColor || UiTokens.color.brand;
+    const allDayTypes = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary', 'holiday'];
+
+    // A day column is only ~50-60px wide on a phone in Month/Week view (7 columns
+    // across the screen) — the full avatar+time+title pill becomes unreadable
+    // "letter soup" at that width. Day view is a single full-width column, so it
+    // keeps the rich pill. Full details are always one tap away via the mobile
+    // day-detail sheet, so a dot here is genuinely sufficient, not a data loss.
+    const viewType: string = eventInfo.view?.type || '';
+    const compactDot = isMobile && (viewType === 'dayGridMonth' || viewType === 'dayGridWeek');
+    if (compactDot) {
+        return (
+            <span
+                className="mrd-ev__dotonly"
+                style={{ background: dotColor }}
+                title={ev.title}
+                role="img"
+                aria-label={ev.title}
+            />
+        );
+    }
 
     let time = '';
     if (ev.start && !ev.allDay && !allDayTypes.includes(type)) {
@@ -1337,9 +1642,39 @@ function renderEventContent(eventInfo: any) {
         if (d.isValid() && d.format('HH:mm') !== '00:00') time = d.format('h:mm');
     }
 
+    const isProfileEvent = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary'].includes(type);
+    let avatarNode = null;
+    if (isProfileEvent) {
+        const user = ev.extendedProps?.user;
+        const contact = ev.extendedProps?.contact;
+        const name = user?.name || contact?.name || ev.title || '';
+        const imageUrl = user?.avatar || contact?.profilePhoto || null;
+        const id = user?.id || contact?.id || null;
+        
+        avatarNode = (
+            <SmartAvatar
+                name={name}
+                id={id}
+                imageUrl={resolveAvatarUrl(imageUrl)}
+                size={18}
+                shape="circle"
+                imageFit="cover"
+            />
+        );
+    } else {
+        avatarNode = <span className='mrd-ev__dot' style={{ background: dotColor }} />;
+    }
+
     return (
-        <div className='fullcalendar__event__wrapper'>
-            <span className='mrd-ev__dot' style={{ background: dotColor }} />
+        <div 
+            className='fullcalendar__event__wrapper'
+            style={{
+                ['--event-bg' as any]: `color-mix(in srgb, ${dotColor} 12%, transparent)`,
+                ['--event-border' as any]: `color-mix(in srgb, ${dotColor} 20%, transparent)`,
+                ['--event-hover-bg' as any]: `color-mix(in srgb, ${dotColor} 20%, transparent)`
+            }}
+        >
+            {avatarNode}
             {time && <span className='mrd-ev__time'>{time}</span>}
             <span className='mrd-ev__t'>{ev.title}</span>
         </div>

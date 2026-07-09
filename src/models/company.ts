@@ -10,6 +10,8 @@ export interface IPublicHoliday {
     from?: string;
     to?: string;
     holiday?: IHoliday;
+    /** Branch scope: unset/null = company-wide (all locations); set = this branch only. */
+    branchId?: string | null;
 }
 
 export interface IHoliday {
@@ -228,6 +230,7 @@ export interface IPublicHolidayUpdate {
     companyId?: string;
     from?: string;
     to?: string;
+    branchId?: string | null;
 }
 
 export interface IShareWith {

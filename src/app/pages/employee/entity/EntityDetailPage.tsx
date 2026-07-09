@@ -208,12 +208,10 @@ const EntityDetailPage: React.FC = () => {
               <div className="d-flex flex-column flex-grow-1" style={{ minWidth: 0 }}>
                 {/* Meta string */}
                 <div className="d-flex align-items-center flex-wrap gap-2 mb-1" style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 600, letterSpacing: '0.5px' }}>
-                  <span style={{ color: '#64748B' }}>{`#${lead?.prefix || 'N/A'}`}</span>
-                  {isProject && lead?.project?.prefix && (
-                    <>
-                      <span style={{ color: '#CBD5E1' }}>•</span>
-                      <span style={{ color: '#059669' }}>{`Project #${lead.project.prefix}`}</span>
-                    </>
+                  {isProject && activeTab !== 'leads' ? (
+                    <span style={{ color: '#059669' }}>{`#${lead?.originalProjectPrefix || lead?.project?.prefix || 'N/A'}`}</span>
+                  ) : (
+                    <span style={{ color: '#64748B' }}>{`#${lead?.prefix || 'N/A'}`}</span>
                   )}
                   {(lead?.revisionCount !== undefined && lead?.revisionCount !== null) && (
                     <>
@@ -238,50 +236,64 @@ const EntityDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Actions — from the Leads table the header stays lead-flavoured
-                (lead status pill), even when the lead is also a project. */}
+            {/* Status pill follows the active tab: Lead status while on the Leads
+                tab, Project status everywhere else (once the lead is a project).
+                Edit/Export stay lead-only actions, shown only on the Leads tab. */}
             <div className="d-flex flex-wrap align-items-stretch align-items-sm-center gap-2 mt-1 mt-md-0">
-              {isProject && !fromLeads ? (
+              {isProject && !fromLeads && activeTab !== 'leads' ? (
                 <ProjectStatusControl
                   leadId={leadId!}
                   projectStatusId={lead?.execution?.projectStatusId}
                   projectStatus={lead?.execution?.projectStatus}
+                  actualEndDate={lead?.actualEndDate}
                   onChanged={fetchLeadDetails}
                   prefix="Project - "
                 />
               ) : (
                 <div
                   style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    border: `1px solid ${lead?.status?.color || '#64748B'}33`, 
-                    background: `${lead?.status?.color || '#64748B'}14`, 
+                    display: 'inline-flex', alignItems: 'center', gap: 9,
+                    border: `1px solid ${lead?.status?.color || '#64748B'}3D`,
+                    background: `linear-gradient(180deg, ${lead?.status?.color || '#64748B'}17, ${lead?.status?.color || '#64748B'}0A)`,
                     color: lead?.status?.color || '#64748B',
-                    borderRadius: '8px', padding: '8px 14px',
-                    fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 700,
+                    borderRadius: 10, padding: '7px 14px',
+                    fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 700,
+                    letterSpacing: '-0.1px',
+                    boxShadow: `0 1px 2px ${lead?.status?.color || '#64748B'}14`,
                   }}
                 >
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: lead?.status?.color || '#64748B', display: 'inline-block' }} />
+                  <span
+                    style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: lead?.status?.color || '#64748B', display: 'inline-block',
+                      boxShadow: `0 0 0 3px ${lead?.status?.color || '#64748B'}22`,
+                    }}
+                  />
                   Lead - {lead?.status?.name || 'Set status'}
                 </div>
               )}
               
-              <button 
-                type="button" 
-                className="btn btn-sm" 
-                onClick={openEdit} 
-                style={{ backgroundColor: '#AA393D', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
-              >
-                <i className="bi bi-pencil-fill" style={{ fontSize: '12px' }} /> Edit
-              </button>
-              
-              <button 
-                type="button" 
-                className="btn btn-sm" 
-                onClick={() => setShowProposalModal(true)} 
-                style={{ backgroundColor: '#7239ea', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
-              >
-                <i className="bi bi-file-earmark-arrow-down-fill" style={{ fontSize: '13px' }} /> Export
-              </button>
+              {activeTab === 'leads' && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={openEdit}
+                    style={{ backgroundColor: '#AA393D', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
+                  >
+                    <i className="bi bi-pencil-fill" style={{ fontSize: '12px' }} /> Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => setShowProposalModal(true)}
+                    style={{ backgroundColor: '#7239ea', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
+                  >
+                    <i className="bi bi-file-earmark-arrow-down-fill" style={{ fontSize: '13px' }} /> Export
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
