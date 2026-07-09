@@ -1,6 +1,7 @@
 import React, { useState, type CSSProperties } from 'react';
 import Select, { components } from 'react-select';
 import { ColourOption, SingleValue, DropdownIndicator } from '../common/inputs/ColorInDropdwon';
+import PlainDatePicker from '../common/inputs/PlainDatePicker';
 import { C, FONT, RADIUS } from '../configuration/ConfigDesignSystem';
 import { DetailCard, type AccentColor } from './DetailPageComponents';
 import './DetailPageResponsive.css';
@@ -269,7 +270,7 @@ export const SearchableSelectEditor: React.FC<{
 );
 
 export const DateEditor: React.FC<{ value: any; onChange: (v: string) => void }> = ({ value, onChange }) => (
-  <input type="date" style={{ ...baseInput, cursor: 'pointer' }} value={toDateInputValue(value)} onChange={e => onChange(e.target.value)} />
+  <PlainDatePicker value={toDateInputValue(value)} onChange={onChange} />
 );
 
 export const ToggleEditor: React.FC<{ value: boolean; onChange: (v: boolean) => void; onLabel?: string; offLabel?: string }> = ({

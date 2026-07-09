@@ -76,7 +76,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
 
   // After a save, ask the detail page to refetch the lead (it listens on this bus)
   // so read-mode values + a fresh revisionCount reflect the change.
-  const saveSection = (section: 'internalTeam' | 'externalTeam' | 'executionTeam', data: any) =>
+  const saveSection = (section: 'internalTeam' | 'externalTeam' | 'executionTeam' | 'projectManager', data: any) =>
     updateLeadSection(leadId, section, data, rev).then(() => {
       if (leadId) eventBus.emit(EVENT_KEYS.leadUpdated, { id: leadId });
     });
@@ -115,6 +115,31 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
         alert(e?.response?.data?.message || 'Could not update the execution team. Please try again.');
       })
       .finally(() => setSavingTeam(false));
+  };
+
+  // ── Project Manager picker — same pattern as the Execution Team picker above:
+  //    a button opens a dialog with its own explicit Save, writing ONLY
+  //    leadExecution.projectManagerId via the dedicated `projectManager` section
+  //    (team/status/access/flags stay untouched). ─────────────────────────────
+  const [savingPm, setSavingPm] = useState(false);
+  const [showPmModal, setShowPmModal] = useState(false);
+  const [draftPmId, setDraftPmId] = useState<string>(ex.projectManagerId || '');
+
+  const openPmModal = () => {
+    setDraftPmId(ex.projectManagerId || '');
+    setShowPmModal(true);
+  };
+
+  const confirmPmChange = () => {
+    if (draftPmId === (ex.projectManagerId || '') || savingPm) return;
+    setSavingPm(true);
+    saveSection('projectManager', { projectManagerId: draftPmId || null })
+      .then(() => setShowPmModal(false))
+      .catch((e: any) => {
+        // eslint-disable-next-line no-alert
+        alert(e?.response?.data?.message || 'Could not update the project manager. Please try again.');
+      })
+      .finally(() => setSavingPm(false));
   };
 
   // ── Internal roster: persisted members win; otherwise fall back to the live
@@ -267,11 +292,12 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 if (toAdd.length) set({ internalMembers: [...rows, ...toAdd] });
               };
 
-              // Execution-team control — a button that opens a dialog with its own
-              // explicit Save (same target as Summary → Ownership). Shown in read
-              // mode above the roster; nothing is written until Save is clicked.
+              // Execution-team / Project-manager controls — each a button that opens
+              // its own dialog with its own explicit Save (same targets as Summary →
+              // Ownership). Shown in read mode above the roster; nothing is written
+              // until Save is clicked.
               const teamPicker = (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', marginBottom: 14, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
+                <div style={{ flex: 1, minWidth: 260, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 8, background: '#2563eb14', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <i className="bi bi-diagram-3" />
                   </div>
@@ -282,6 +308,27 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                   <button type="button" onClick={openTeamModal} style={{ ...addBtn, marginTop: 0, flexShrink: 0, whiteSpace: 'nowrap' }}>
                     <i className="bi bi-arrow-left-right" /> {team?.name ? 'Change Team' : 'Assign Team'}
                   </button>
+                </div>
+              );
+              const pmName = empName(ex.projectManagerId);
+              const pmPicker = (
+                <div style={{ flex: 1, minWidth: 260, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, background: '#7c3aed14', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <i className="bi bi-person-workspace" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Project Manager</div>
+                    <div style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ex.projectManagerId ? pmName : 'No manager selected'}</div>
+                  </div>
+                  <button type="button" onClick={openPmModal} style={{ ...addBtn, marginTop: 0, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    <i className="bi bi-arrow-left-right" /> {ex.projectManagerId ? 'Change Manager' : 'Assign Manager'}
+                  </button>
+                </div>
+              );
+              const ownershipPickers = (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+                  {teamPicker}
+                  {pmPicker}
                 </div>
               );
 
@@ -322,7 +369,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                     </div>
                   </div>
                 );
-                return <div>{teamPicker}{readBody}</div>;
+                return <div>{ownershipPickers}{readBody}</div>;
               }
 
               return (
@@ -391,6 +438,37 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}
           >
             {savingTeam ? 'Saving...' : 'Save'}
+          </button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Project-manager dialog: opened by the "Assign/Change Manager" button above.
+          Nothing is written until Save is clicked. */}
+      <Modal show={showPmModal} onHide={() => !savingPm && setShowPmModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title style={{ fontSize: 14, fontWeight: 600 }}>Assign Project Manager</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ padding: 16 }}>
+          <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+            Project Manager
+          </div>
+          <SearchableSelectEditor value={draftPmId} options={employeeOptions} onChange={setDraftPmId} placeholder="Select project manager" />
+          <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#94A3B8', marginTop: 10 }}>
+            Execution Team and Status are unaffected.
+          </div>
+        </Modal.Body>
+        <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6' }}>
+          <button type="button" className="btn btn-light btn-sm" onClick={() => setShowPmModal(false)} disabled={savingPm}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={confirmPmChange}
+            disabled={savingPm || draftPmId === (ex.projectManagerId || '')}
+            style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}
+          >
+            {savingPm ? 'Saving...' : 'Save'}
           </button>
         </Modal.Footer>
       </Modal>

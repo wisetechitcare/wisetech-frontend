@@ -11,6 +11,10 @@ interface PeriodTabsProps {
     onChange: (value: string) => void;
     ariaLabel?: string;
     sx?: SxProps<Theme>;
+    /** Color of the selected tab's text. Defaults to the app's red brand color;
+     * pass a page-specific accent (e.g. the blue design tokens) to opt just that
+     * page's usage into a different palette without touching every other caller. */
+    selectedColor?: string;
 }
 
 const PeriodTabs = ({
@@ -19,6 +23,7 @@ const PeriodTabs = ({
     onChange,
     ariaLabel = 'period selection',
     sx,
+    selectedColor = '#aa393d',
 }: PeriodTabsProps) => (
     <ToggleButtonGroup
         value={value}
@@ -65,7 +70,7 @@ const PeriodTabs = ({
             },
             '& .Mui-selected': {
                 backgroundColor: '#ffffff !important',
-                color: '#aa393d !important',
+                color: `${selectedColor} !important`,
                 fontWeight: 700,
                 boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
             },

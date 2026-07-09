@@ -5,7 +5,7 @@ import { Button } from "@mui/material";
 import { getAllTasks, deleteTask, getTasksByProjectId, getAllTasksWithMetrics } from "@services/tasks";
 import React, { useEffect, useState, useCallback } from "react";
 import TaskForm from "./components/TaskForm";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { deleteConfirmation, successConfirmation } from "@utils/modal";
 import dayjs from "dayjs";
 import Loader from "@app/modules/common/utils/Loader";
@@ -24,6 +24,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
     const [open, setOpen] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
     const [tasksMetrics, setTasksMetrics] = useState<any[]>([]);
 
     const fetchTasks = useCallback(async () => {
@@ -58,6 +59,17 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
         setIsEdit(false);
         setShowTaskModal(true);
     };
+
+    // Landed here from the mobile bottom-nav "+" quick-actions sheet — open the
+    // New Task modal immediately instead of making the user find/tap the button.
+    // Clears the nav state after so a back/forward or refresh doesn't re-trigger it.
+    useEffect(() => {
+        if ((location.state as any)?.quickAction === 'newTask') {
+            handleNewTaskClick();
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleEditTask = (task: any) => {
         setSelectedTask(task);

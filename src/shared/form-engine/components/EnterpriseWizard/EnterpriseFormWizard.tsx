@@ -41,10 +41,10 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
   const [animKey, setAnimKey] = useState(0);
   const [summaryCollapsed, setSummaryCollapsed] = useState(false);
 
-  const summaryRows = typeof summary.rows === "function" ? summary.rows(values) : summary.rows;
   const isLastStep = currentStep === visibleSteps.length - 1;
   const isFirstStep = currentStep === 0;
   const currentStepDef = visibleSteps[currentStep];
+  const summaryRows = typeof summary.rows === "function" ? summary.rows(values, currentStepDef) : summary.rows;
   const isSaveStep = isLastStep || !!currentStepDef?.isSubmitStep;
   const StepComponent = currentStepDef?.component;
 

@@ -6,6 +6,15 @@ export interface ConfigSettingsRowProps {
   description?: string;
   icon?: string;
   iconColor?: 'primary' | 'blue' | 'green' | 'purple' | 'amber' | 'teal' | 'danger' | 'warning';
+  /** Per-instance override for the icon badge + hover accent line color, taking
+   * precedence over `iconColor`. Use to opt a specific page into a different
+   * palette (e.g. the shared design-tokens blue) without touching every other
+   * page that still uses the default burgundy `ICON_COLORS` scheme. */
+  accentColor?: string;
+  /** Override for the icon badge background AND the card's "active" tint.
+   * Defaults to a soft tint of `accentColor` (icon bg) / `C.primaryLight` (active
+   * card tint) when omitted, so passing only `accentColor` still looks coherent. */
+  accentBg?: string;
   value?: React.ReactNode;
   actionLabel?: string;
   actionIcon?: string;
@@ -32,14 +41,17 @@ const Shimmer: React.FC<{ width?: string; height?: string; radius?: string }> = 
 );
 
 const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
-  label, description, icon, iconColor = 'primary',
+  label, description, icon, iconColor = 'primary', accentColor, accentBg,
   value, actionLabel, actionIcon, onAction, rightContent, footer,
   active = false, disabled = false, compact = false, loading = false,
 }) => {
   const [hov, setHov] = useState(false);
   const [btnHov, setBtnHov] = useState(false);
 
-  const scheme = ICON_COLORS[iconColor] ?? ICON_COLORS.primary;
+  const scheme = accentColor
+    ? { color: accentColor, bg: accentBg ?? `${accentColor}14` }
+    : (ICON_COLORS[iconColor] ?? ICON_COLORS.primary);
+  const activeTint = accentColor ? (accentBg ?? `${accentColor}14`) : C.primaryLight;
 
   // The card chrome (border, radius, shadow, active tint, hover lift) lives on this outer wrapper so
   // an optional full-width `footer` can share the same card as the header row. When no footer is
@@ -51,7 +63,7 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: active ? C.primaryLight : '#fff',
+        backgroundColor: active ? activeTint : '#fff',
         border: `1px solid ${hov ? '#d1d5e0' : C.border}`,
         borderRadius: RADIUS.xl,
         boxShadow: hov

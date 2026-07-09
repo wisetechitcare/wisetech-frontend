@@ -7,6 +7,7 @@ import { useBottomNavigation } from './useBottomNavigation'
 import { BottomNavProvider, useBottomNavBadges } from './BottomNavProvider'
 import { BottomNavItem } from './BottomNavItem'
 import { BottomNavMore } from './BottomNavMore'
+import { BottomNavQuickActions } from './BottomNavQuickActions'
 import { BottomNavBadge } from './BottomNavBadge'
 import { sumBadges } from './utils'
 import './BottomNav.css'
@@ -20,10 +21,12 @@ function BottomNavBar() {
   const badges = useBottomNavBadges()
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false)
 
-  // Close the More sheet whenever the route changes.
+  // Close the More sheet / quick-actions sheet whenever the route changes.
   useEffect(() => {
     setMoreOpen(false)
+    setQuickActionsOpen(false)
   }, [location.pathname])
 
   const hasOverflow = overflow.length > 0
@@ -62,10 +65,10 @@ function BottomNavBar() {
             <button
               type="button"
               className="bottom-nav__center-btn"
-              aria-label="Add Item"
-              onClick={() => {
-                console.log('Plus button clicked')
-              }}
+              aria-label="Quick actions"
+              aria-haspopup="dialog"
+              aria-expanded={quickActionsOpen}
+              onClick={() => setQuickActionsOpen(true)}
             >
               <i className="bi bi-plus-lg" />
             </button>
@@ -82,6 +85,8 @@ function BottomNavBar() {
           ))}
         </motion.div>
       </nav>
+
+      <BottomNavQuickActions open={quickActionsOpen} onClose={() => setQuickActionsOpen(false)} />
     </>
   )
 }
