@@ -10,6 +10,7 @@ import ClientContactsForm from "./ClientContactsForm";
 import ContactLeadReferenceTab from "./ContactLeadReferenceTab";
 import CompanyReferences from "../../companies/components/CompanyReferences";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
+import { canDo } from "@utils/can";
 
 type TabType = "overview" | "lead-reference" | "company-references" | "projects";
 
@@ -24,6 +25,8 @@ const ContactMainToggle = () => {
   const [contact, setContact] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [show, setShow] = useState(false);
+  // Edit is a write affordance: hidden for read-only viewers.
+  const canEditContact = canDo("crm.contacts", "update");
 
   const fetchCompanyDetails = async () => {
     if (!contactId) return;
@@ -179,7 +182,7 @@ const ContactMainToggle = () => {
         </div> */}
         <div className="d-flex align-items-center gap-2">
           {/* Edit Button show only for tab overview */}
-          {activeTab === "overview" && (
+          {activeTab === "overview" && canEditContact && (
             <>
               <Button
                 variant="primary"
@@ -281,7 +284,7 @@ const ContactMainToggle = () => {
           </div>
 
           {/* Mobile Action Buttons inside dropdown */}
-          {activeTab === "overview" && (
+          {activeTab === "overview" && canEditContact && (
             <div className="dropdown">
               <button
                 className="btn btn-sm btn-primary dropdown-toggle"

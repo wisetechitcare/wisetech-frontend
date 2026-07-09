@@ -136,15 +136,22 @@ export function AsideMenuMain() {
       {/* {showAppSettings &&
         <>
           {hasPermission(uiControlResourceNameMapWithCamelCase.leadProjectCompaniesContact, permissionConstToUseWithHasPermission.readOthers) && <> */}
+          {(
+            (!isSectionBlocked('crm.leads') && canViewModule('crm.leads')) ||
+            (!isSectionBlocked('projects') && canViewModule('projects')) ||
+            (!isSectionBlocked('crm.companies') && canViewModule('crm.companies')) ||
+            (!isSectionBlocked('crm.contacts') && canViewModule('crm.contacts'))
+          ) && (
           <div className='menu-item'>
             <div className='menu-content py-2'>
               <span className='menu-section text-muted text-uppercase fs-5 ls-1 fw-semibold'>Project Management</span>
             </div>
           </div>
+          )}
             {!isSectionBlocked('crm.leads') && canViewModule('crm.leads') && <AsideMenuItem to='/qc/leads' icon={sidePanelIcons.leads.default} activeIcon={sidePanelIcons.leads.active} title='Leads' fontIcon='bi-layers' />}
-            {!isSectionBlocked('projects') && <AsideMenuItem to='/qc/projects' icon={sidePanelIcons.projects.default} activeIcon={sidePanelIcons.projects.active} title='Projects' fontIcon='bi-layers' />}
-            {!isSectionBlocked('crm.companies') && <AsideMenuItem to='/qc/companies' icon={sidePanelIcons.companiesIcon.default} activeIcon={sidePanelIcons.companiesIcon.active} title='Companies' fontIcon='bi-layers' />}
-            {!isSectionBlocked('crm.contacts') && <AsideMenuItem to='/qc/contacts' icon={sidePanelIcons.contactsIcon.default} activeIcon={sidePanelIcons.contactsIcon.active} title='Contacts' fontIcon='bi-layers' />}
+            {!isSectionBlocked('projects') && canViewModule('projects') && <AsideMenuItem to='/qc/projects' icon={sidePanelIcons.projects.default} activeIcon={sidePanelIcons.projects.active} title='Projects' fontIcon='bi-layers' />}
+            {!isSectionBlocked('crm.companies') && canViewModule('crm.companies') && <AsideMenuItem to='/qc/companies' icon={sidePanelIcons.companiesIcon.default} activeIcon={sidePanelIcons.companiesIcon.active} title='Companies' fontIcon='bi-layers' />}
+            {!isSectionBlocked('crm.contacts') && canViewModule('crm.contacts') && <AsideMenuItem to='/qc/contacts' icon={sidePanelIcons.contactsIcon.default} activeIcon={sidePanelIcons.contactsIcon.active} title='Contacts' fontIcon='bi-layers' />}
           {/* </>}
         </>} */}
  

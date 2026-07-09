@@ -173,10 +173,10 @@ const SummarySection: React.FC<{
   const [sub, setSub] = useState<SubKey>('leads');
 
   const subPages = useMemo(
-    () => SUB_PAGES.filter(s => (!s.projectOnly || isProject) && (s.key !== 'scope' || canViewCommercials)),
+    () => SUB_PAGES.filter(s => (!s.projectOnly || isProject) && (s.key !== 'commercial' || canViewCommercials)),
     [isProject, canViewCommercials],
   );
-  const active = subPages.some(s => s.key === sub) ? sub : 'overview';
+  const active = subPages.some(s => s.key === sub) ? sub : 'leads';
 
   const owner = employeeUserName(lead?.assignedTo) || employeeNameById(allEmployees, lead?.assignedToId) || DASH;
   const missing = computeMissingInfo(lead);

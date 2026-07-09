@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { useNavigate } from "react-router-dom";
 import { Button } from "react-bootstrap";
+import { canDo } from "@utils/can";
 import ClientContactsForm from "../../contacts/components/ClientContactsForm";
 import { getClientContactsByCompanyId, deleteClientContact } from "@services/companies";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -183,11 +184,13 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
 
   return (
     <div>
-      <div className="d-flex justify-content-end align-items-center mb-4">
-        <Button variant="primary" onClick={handleAddNewClick}>
-          Add New Contact
-        </Button>
-      </div>
+      {canDo("crm.contacts", "create") && (
+        <div className="d-flex justify-content-end align-items-center mb-4">
+          <Button variant="primary" onClick={handleAddNewClick}>
+            Add New Contact
+          </Button>
+        </div>
+      )}
 
       <MaterialTable
         columns={columns}

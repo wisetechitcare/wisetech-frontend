@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Modal } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import DailyShiftTime from './component/DailyShiftTime';
@@ -242,11 +242,28 @@ const AttendanceConfig: React.FC = () => {
   const canEditConfig = usePermission('settings.manage.all');
   const [rootOrgId, setRootOrgId] = useState<string>('');
   const [rootOrgName, setRootOrgName] = useState<string>('Organization');
-  const [branchOptions, setBranchOptions] = useState<Array<{ id: string; name: string; orgName?: string }>>([]);
+  const [branchOptions, setBranchOptions] = useState<Array<{ id: string; name: string; orgName?: string; companyId?: string }>>([]);
   // Sub-orgs (descendants of the root org) — each gets its own scope tab so an org-level
   // default can be set per sub-org, matching the Org → Sub-Org → Branch resolve chain.
   const [subOrgOptions, setSubOrgOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [configScope, setConfigScope] = useState<{ companyId?: string; branchId?: string }>({});
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+
+  const toggleNode = useCallback((id: string) => {
+    setExpandedNodes(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  }, []);
+
+  useEffect(() => {
+    const initial: Record<string, boolean> = {};
+    if (rootOrgId) initial[rootOrgId] = true;
+    subOrgOptions.forEach(o => {
+      initial[o.id] = true;
+    });
+    setExpandedNodes(initial);
+  }, [rootOrgId, subOrgOptions]);
 
   useEffect(() => {
     (async () => {
@@ -278,13 +295,19 @@ const AttendanceConfig: React.FC = () => {
 
         const res = await fetchAllBranches();
         const branches = res?.data?.branches ?? res?.data ?? [];
-        setBranchOptions(branches.map((b: any) => ({ id: b.id, name: b.name, orgName: b.company?.name })));
+        setBranchOptions(branches.map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          orgName: b.company?.name,
+          companyId: b.companyId || b.company?.id
+        })));
       } catch { /* non-fatal — selector falls back to org default */ }
     })();
   }, []);
 
   // Data
   const [isLoading, setIsLoading] = useState(true);
+  const [isShiftLoading, setIsShiftLoading] = useState(false);
   const [otherSettingsData, setOtherSettingsData] = useState<OtherSettingsData>({
     enableLunchDeduction: false,
     onSiteHolidayWeekendSettings: false,
@@ -304,6 +327,7 @@ const AttendanceConfig: React.FC = () => {
 
   const loadDailyShiftData = useCallback(async () => {
     try {
+      setIsShiftLoading(true);
       const [dayWiseShiftsRes, leaveManagementRes] = await Promise.all([
         fetchDayWiseShifts(configScope),
         fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, configScope),
@@ -343,6 +367,8 @@ const AttendanceConfig: React.FC = () => {
       setEnforceOnsiteDeadline(enforce);
     } catch (e) {
       console.error('Error loading shift data:', e);
+    } finally {
+      setIsShiftLoading(false);
     }
   }, [configScope]);
 
@@ -384,10 +410,209 @@ const AttendanceConfig: React.FC = () => {
     }
   }, []);
 
+  // Load general configuration only on initial mount
   useEffect(() => {
     loadOtherSettingsData();
+  }, [loadOtherSettingsData]);
+
+  // Load shift data on mount and whenever configScope changes
+  useEffect(() => {
     loadDailyShiftData();
-  }, [loadOtherSettingsData, loadDailyShiftData]);
+  }, [loadDailyShiftData]);
+
+  // Group branches by companyId
+  const branchesByCompany = useMemo(() => {
+    const map: Record<string, typeof branchOptions> = {};
+    branchOptions.forEach(b => {
+      const cid = b.companyId || '';
+      if (!map[cid]) {
+        map[cid] = [];
+      }
+      map[cid].push(b);
+    });
+    return map;
+  }, [branchOptions]);
+
+  const renderScopeTree = () => {
+    const nodes: React.ReactNode[] = [];
+
+    // 1. Root Org Item
+    const rootActive = !configScope.branchId && configScope.companyId === rootOrgId;
+    const rootBranches = branchesByCompany[rootOrgId] || [];
+    const hasRootChildren = subOrgOptions.length > 0 || rootBranches.length > 0;
+    const rootExpanded = !!expandedNodes[rootOrgId];
+
+    nodes.push(
+      <div
+        key={rootOrgId}
+        className={`tree-node-item ${rootActive ? 'node-active' : ''}`}
+        onClick={() => setConfigScope({ companyId: rootOrgId })}
+        style={{ paddingLeft: '8px' }}
+      >
+        {hasRootChildren ? (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleNode(rootOrgId);
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '18px',
+              height: '18px',
+              marginRight: '6px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              transition: 'transform 0.2s ease',
+              transform: rootExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+            }}
+          >
+            <i className="bi bi-chevron-right" style={{ fontSize: '10px', color: rootActive ? C.primary : C.textMuted }} />
+          </span>
+        ) : (
+          <span style={{ width: '18px', marginRight: '6px' }} />
+        )}
+        <i className="bi bi-building-fill" style={{ fontSize: '14px', marginRight: '8px', color: rootActive ? C.primary : C.textPrimary }} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+          {rootOrgName}
+        </span>
+        <span style={{
+          fontSize: '9.5px',
+          fontWeight: 700,
+          color: rootActive ? C.primary : C.textMuted,
+          backgroundColor: rootActive ? '#fcebeb' : '#f1f3f7',
+          padding: '2px 6px',
+          borderRadius: RADIUS.sm,
+          marginLeft: '6px',
+        }}>
+          Org
+        </span>
+      </div>
+    );
+
+    // Render children of Root Org (branches belonging to root org and sub-orgs)
+    if (rootExpanded && hasRootChildren) {
+      // A. Render Root Org direct branches first
+      rootBranches.forEach(b => {
+        const active = configScope.branchId === b.id;
+        nodes.push(
+          <div
+            key={`branch-${b.id}`}
+            className={`tree-node-item ${active ? 'node-active' : ''}`}
+            onClick={() => setConfigScope({ branchId: b.id })}
+            style={{ paddingLeft: '32px' }}
+          >
+            <i className="bi bi-geo-alt-fill" style={{ fontSize: '14px', marginRight: '8px', color: active ? C.primary : C.textSecondary }} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+              {b.name}
+            </span>
+            <span style={{
+              fontSize: '9.5px',
+              fontWeight: 700,
+              color: active ? '#15803d' : '#6c757d',
+              backgroundColor: active ? '#e8fced' : '#f1f3f7',
+              padding: '2px 6px',
+              borderRadius: RADIUS.sm,
+              marginLeft: '6px',
+            }}>
+              Branch
+            </span>
+          </div>
+        );
+      });
+
+      // B. Render Sub-Orgs
+      subOrgOptions.forEach(subOrg => {
+        const subOrgActive = !configScope.branchId && configScope.companyId === subOrg.id;
+        const subOrgBranches = branchesByCompany[subOrg.id] || [];
+        const hasSubOrgChildren = subOrgBranches.length > 0;
+        const subOrgExpanded = !!expandedNodes[subOrg.id];
+
+        nodes.push(
+          <div
+            key={subOrg.id}
+            className={`tree-node-item ${subOrgActive ? 'node-active' : ''}`}
+            onClick={() => setConfigScope({ companyId: subOrg.id })}
+            style={{ paddingLeft: '24px' }}
+          >
+            {hasSubOrgChildren ? (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleNode(subOrg.id);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '18px',
+                  height: '18px',
+                  marginRight: '6px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s ease',
+                  transform: subOrgExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                }}
+              >
+                <i className="bi bi-chevron-right" style={{ fontSize: '10px', color: subOrgActive ? C.primary : C.textMuted }} />
+              </span>
+            ) : (
+              <span style={{ width: '18px', marginRight: '6px' }} />
+            )}
+            <i className="bi bi-diagram-3-fill" style={{ fontSize: '14px', marginRight: '8px', color: subOrgActive ? C.primary : C.textPrimary }} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+              {subOrg.name}
+            </span>
+            <span style={{
+              fontSize: '9.5px',
+              fontWeight: 700,
+              color: subOrgActive ? C.primary : C.textMuted,
+              backgroundColor: subOrgActive ? '#fcebeb' : '#f1f3f7',
+              padding: '2px 6px',
+              borderRadius: RADIUS.sm,
+              marginLeft: '6px',
+            }}>
+              Sub-Org
+            </span>
+          </div>
+        );
+
+        // Render Sub-Org branches
+        if (subOrgExpanded && hasSubOrgChildren) {
+          subOrgBranches.forEach(b => {
+            const active = configScope.branchId === b.id;
+            nodes.push(
+              <div
+                key={`branch-${b.id}`}
+                className={`tree-node-item ${active ? 'node-active' : ''}`}
+                onClick={() => setConfigScope({ branchId: b.id })}
+                style={{ paddingLeft: '48px' }}
+              >
+                <i className="bi bi-geo-alt-fill" style={{ fontSize: '14px', marginRight: '8px', color: active ? C.primary : C.textSecondary }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                  {b.name}
+                </span>
+                <span style={{
+                  fontSize: '9.5px',
+                  fontWeight: 700,
+                  color: active ? '#15803d' : '#6c757d',
+                  backgroundColor: active ? '#e8fced' : '#f1f3f7',
+                  padding: '2px 6px',
+                  borderRadius: RADIUS.sm,
+                  marginLeft: '6px',
+                }}>
+                  Branch
+                </span>
+              </div>
+            );
+          });
+        }
+      });
+    }
+
+    return nodes;
+  };
 
   if (isLoading) return <Loader />;
 
@@ -395,7 +620,36 @@ const AttendanceConfig: React.FC = () => {
 
   return (
     <>
-      <style>{KEYFRAMES}</style>
+      <style>{`
+        ${KEYFRAMES}
+        .tree-node-item {
+          display: flex;
+          align-items: center;
+          padding: 8px 12px;
+          border-radius: 8px;
+          cursor: pointer;
+          color: #181C32;
+          font-weight: 500;
+          font-size: 13px;
+          font-family: 'Inter', sans-serif;
+          transition: all 0.15s ease;
+          user-select: none;
+          margin-bottom: 2px;
+          border: 1px solid transparent;
+        }
+        .tree-node-item:hover {
+          background-color: #f5f6fa !important;
+        }
+        .tree-node-item.node-active {
+          background-color: #fdf3f4 !important;
+          border-color: rgba(157,65,65,0.15) !important;
+          color: #9d4141 !important;
+          font-weight: 600 !important;
+        }
+        .tree-node-item.node-active:hover {
+          background-color: #fcebeb !important;
+        }
+      `}</style>
 
       <div
         className="container-fluid py-6 px-0 cfg-fade-in"
@@ -413,212 +667,270 @@ const AttendanceConfig: React.FC = () => {
           {/* ══════════════════════════════════════════════════════ */}
           {activeTab === 'attendance' && (
             <div key="attendance" className="cfg-fade-in">
-
-              {/* Section heading */}
-              <div style={{ marginBottom: SP.lg, paddingBottom: SP.md, borderBottom: `1px solid #f0f2f7` }}>
-                <h2 style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '17px', color: C.textPrimary, margin: 0, letterSpacing: '-0.2px' }}>
-                  Shift &amp; Timing Settings
-                </h2>
-                <p style={{ fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted, margin: '4px 0 0 0', fontWeight: 400 }}>
-                  Configure daily work schedules, lunch breaks, and grace periods.
-                </p>
-              </div>
-
-              {/* ── Scope tabs ──────────────────────────────────────────────
-                  Switch the shift config view between the organization default and each branch
-                  override. The Daily Shift Time card, Default Shift Rules, and the Configure modal
-                  all follow the active tab — so you can click through branches and instantly see
-                  what shift each one uses. (Replaces the in-modal "Configuring for" dropdown.) */}
-              {(subOrgOptions.length > 0 || branchOptions.length > 0) && (
-                <div style={{ marginBottom: SP.lg }}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'stretch', width: '100%' }}>
-                    {[
-                      // Root org default
-                      { kind: 'org' as const, id: rootOrgId, label: rootOrgName, scope: { companyId: rootOrgId } },
-                      // One default tab per sub-org
-                      ...subOrgOptions.map((o) => ({ kind: 'org' as const, id: o.id, label: o.name, scope: { companyId: o.id } })),
-                      // One override tab per branch (labelled with its owning org)
-                      ...branchOptions.map((b) => ({ kind: 'branch' as const, id: b.id, label: b.orgName ? `${b.orgName} › ${b.name}` : b.name, scope: { branchId: b.id } })),
-                    ].map((b) => {
-                      const active = b.kind === 'branch'
-                        ? configScope.branchId === b.id
-                        : (!configScope.branchId && configScope.companyId === b.id);
-                      const label = b.label;
-                      return (
-                        <button
-                          key={`${b.kind}-${b.id || 'org'}`}
-                          type="button"
-                          onClick={() => setConfigScope(b.scope)}
-                          style={{
-                            padding: '7px 14px',
-                            borderRadius: 8,
-                            fontSize: '12.5px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            // Wrap long org›branch labels instead of overflowing on narrow screens.
-                            whiteSpace: 'normal',
-                            wordBreak: 'break-word',
-                            maxWidth: '100%',
-                            textAlign: 'center',
-                            lineHeight: 1.3,
-                            fontFamily: FONT.body,
-                            border: active ? '1px solid #9d4141' : '1px solid #e4e6ef',
-                            background: active ? '#9d4141' : '#fff',
-                            color: active ? '#fff' : '#5e6278',
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p style={{ fontFamily: FONT.body, fontSize: '12px', color: configScope.branchId ? '#9d4141' : '#6c757d', margin: '8px 0 0 0' }}>
-                    {configScope.branchId
-                      ? 'Showing this branch’s override — the cards and Configure below apply to this branch only.'
-                      : (configScope.companyId && configScope.companyId !== rootOrgId)
-                        ? 'Showing this sub-org’s default — applies to every branch under it unless that branch has its own override.'
-                        : 'Showing the organization default — applies to every sub-org & branch unless they have their own override.'}
-                  </p>
-                </div>
-              )}
-
-              <div className="row g-4">
-                {/* ── Daily Shift Time card ────────────────────── */}
-                <div className="col-12 col-lg-7">
-                  <ConfigSectionCard
-                    title="Daily Shift Time"
-                    description="Manage check-in, check-out, and total shift hours per day"
-                    icon="bi-calendar-week"
-                    iconColor="blue"
-                    primaryAction={canEditConfig ? {
-                      label: 'Configure',
-                      icon: 'bi-pencil',
-                      variant: 'outline',
-                      onClick: () => { setShiftKey((k) => k + 1); setShowDailyShiftModal(true); },
-                    } : undefined}
-                  >
-                    {/* Column headers */}
+              <div className="row g-6">
+                
+                {/* Left Column: Scope Selector sidebar */}
+                {(subOrgOptions.length > 0 || branchOptions.length > 0) && (
+                  <div className="col-12 col-lg-4 col-xl-3 mb-6 mb-lg-0">
                     <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      padding: '0 0 10px 0',
-                      marginBottom: '2px',
+                      backgroundColor: '#fff',
+                      borderRadius: RADIUS.xl,
+                      border: `1px solid ${C.border}`,
+                      boxShadow: '0 2px 12px rgba(24,28,50,0.05)',
+                      padding: '20px',
+                      position: 'sticky',
+                      top: '20px',
                     }}>
-                      <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', width: '90px' }}>Day</span>
-                      <div style={{ display: 'flex', gap: '24px', flex: 1, justifyContent: 'flex-end' }}>
-                        <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', minWidth: '72px', textAlign: 'center' }}>In</span>
-                        <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', minWidth: '72px', textAlign: 'center' }}>Out</span>
-                        <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', minWidth: '58px', textAlign: 'center' }}>Total</span>
+                      <div style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #f0f2f7' }}>
+                        <h3 style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '15px', color: C.textPrimary, margin: 0, letterSpacing: '-0.2px' }}>
+                          Configuration Scope
+                        </h3>
+                        <p style={{ fontFamily: FONT.body, fontSize: '11px', color: C.textMuted, margin: '4px 0 0 0' }}>
+                          Select unit to view &amp; customize settings
+                        </p>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '550px', overflowY: 'auto' }}>
+                        {renderScopeTree()}
                       </div>
                     </div>
+                  </div>
+                )}
 
-                    {dailyShiftData.map((item) => (
-                      <ShiftRow key={item.day} {...item} />
-                    ))}
+                {/* Right Column: Settings Cards */}
+                <div className={(subOrgOptions.length > 0 || branchOptions.length > 0) ? "col-12 col-lg-8 col-xl-9" : "col-12"}>
+                  {/* Dynamic Scope Alert Banner */}
+                  {(() => {
+                    const activeBranch = configScope.branchId ? branchOptions.find(b => b.id === configScope.branchId) : undefined;
+                    const activeSubOrg = !configScope.branchId && configScope.companyId !== rootOrgId
+                      ? subOrgOptions.find(o => o.id === configScope.companyId)
+                      : undefined;
 
-                    {/* Lunch / Grace info tiles */}
-                    <div style={{ marginTop: SP.md, paddingTop: SP.md, borderTop: '1px dashed #e5e7eb' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        {[
-                          { label: 'Lunch Time',     val: lunchTime,          icon: 'bi-cup-hot' },
-                          { label: 'Deduction',      val: deductionTime,      icon: 'bi-dash-circle' },
-                          { label: 'Grace – Office', val: graceTimeOffice,    icon: 'bi-building' },
-                          { label: 'Grace – Site',   val: enforceOnsiteDeadline ? graceTimeOnSite : 'Disabled', icon: 'bi-geo-alt' },
-                        ].map(({ label, val, icon }) => (
-                          <div key={label} style={{
-                            background: 'linear-gradient(135deg, #fafbfd 0%, #f4f6fb 100%)',
-                            border: '1px solid #eaecf3',
-                            borderRadius: RADIUS.lg,
-                            padding: '12px 14px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                          }}>
-                            <div style={{
-                              width: '30px', height: '30px',
-                              borderRadius: RADIUS.md,
-                              backgroundColor: '#fff',
-                              border: '1px solid #e5e7eb',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              flexShrink: 0,
-                            }}>
-                              <i className={`bi ${icon}`} style={{ fontSize: '13px', color: '#6b7280' }} />
-                            </div>
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 500, color: '#9ca3af', marginBottom: '1px' }}>{label}</div>
-                              <div style={{ fontFamily: FONT.body, fontSize: '13.5px', fontWeight: 700, color: C.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</div>
-                            </div>
+                    let bannerTitle = '';
+                    let bannerDesc = '';
+                    let bannerIcon = 'bi-building';
+                    let bannerBg = '#fdf3f4';
+                    let bannerBorder = 'rgba(157,65,65,0.2)';
+                    let bannerColor = '#9d4141';
+
+                    if (activeBranch) {
+                      bannerTitle = activeBranch.name;
+                      bannerDesc = 'Branch Override — changes made below will apply only to this branch.';
+                      bannerIcon = 'bi-geo-alt-fill';
+                      bannerBg = '#f0fdf4';
+                      bannerBorder = '#bbf7d0';
+                      bannerColor = '#15803d';
+                    } else if (activeSubOrg) {
+                      bannerTitle = activeSubOrg.name;
+                      bannerDesc = 'Sub-Organization Default — applies to all branches under this sub-organization unless overridden.';
+                      bannerIcon = 'bi-diagram-3-fill';
+                      bannerBg = '#eff6ff';
+                      bannerBorder = '#bfdbfe';
+                      bannerColor = '#0369a1';
+                    } else {
+                      bannerTitle = rootOrgName;
+                      bannerDesc = 'Organization Default — applies to all sub-organizations and branches unless overridden.';
+                      bannerIcon = 'bi-building-fill';
+                      bannerBg = '#fdf3f4';
+                      bannerBorder = 'rgba(157,65,65,0.2)';
+                      bannerColor = '#9d4141';
+                    }
+
+                    return (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '14px',
+                        padding: '14px 18px',
+                        backgroundColor: bannerBg,
+                        border: `1px solid ${bannerBorder}`,
+                        borderRadius: RADIUS.lg,
+                        marginBottom: SP.lg,
+                        animation: 'cfgFadeIn 0.3s ease',
+                      }}>
+                        <div style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: RADIUS.md,
+                          backgroundColor: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                          color: bannerColor,
+                          fontSize: '16px',
+                          flexShrink: 0,
+                        }}>
+                          <i className={`bi ${bannerIcon}`} />
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '13.5px', color: C.textPrimary, lineHeight: 1.2 }}>
+                            {bannerTitle}
                           </div>
-                        ))}
+                          <div style={{ fontFamily: FONT.body, fontSize: '11.5px', color: C.textSecondary, marginTop: '2px' }}>
+                            {bannerDesc}
+                          </div>
+                        </div>
                       </div>
+                    );
+                  })()}
+
+                  <div style={{
+                    opacity: isShiftLoading ? 0.6 : 1,
+                    pointerEvents: isShiftLoading ? 'none' : 'auto',
+                    transition: 'opacity 0.15s ease',
+                  }}>
+
+                    {/* Section heading */}
+                    <div style={{ marginBottom: SP.lg, paddingBottom: SP.md, borderBottom: `1px solid #f0f2f7` }}>
+                      <h2 style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '17px', color: C.textPrimary, margin: 0, letterSpacing: '-0.2px' }}>
+                        Shift &amp; Timing Settings
+                      </h2>
+                      <p style={{ fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted, margin: '4px 0 0 0', fontWeight: 400 }}>
+                        Configure daily work schedules, lunch breaks, and grace periods.
+                      </p>
                     </div>
-                  </ConfigSectionCard>
-                </div>
 
-                {/* ── Other Settings card ──────────────────────── */}
-                <div className="col-12 col-lg-5">
-                  <ConfigSectionCard
-                    title="Attendance Settings"
-                    description="Control policies, distance limits, and request windows"
-                    icon="bi-sliders2"
-                    iconColor="primary"
-                    primaryAction={canEditConfig ? {
-                      label: 'Configure',
-                      icon: 'bi-pencil',
-                      variant: 'outline',
-                      onClick: () => { setOtherSettingsKey((k) => k + 1); setShowOtherSettingsModal(true); },
-                    } : undefined}
-                  >
-                    <SettingToggleRow
-                      label="Show Data Up to Today"
-                      value=""
-                      enabled={otherSettingsData.showDataUpToToday}
-                    />
-                    <SettingToggleRow
-                      label="Enable Lunch Deduction Time"
-                      value=""
-                      enabled={otherSettingsData.enableLunchDeduction}
-                    />
-                    <SettingToggleRow
-                      label="On-site, Holiday & Weekend Late Settings"
-                      value=""
-                      enabled={otherSettingsData.onSiteHolidayWeekendSettings}
-                    />
-                    <SettingToggleRow
-                      label="Check-in Distance (meters)"
-                      value={`${otherSettingsData.allowedDistance} m`}
-                    />
-                    <SettingToggleRow
-                      label="Restrict Attendance Requests"
-                      value={`${otherSettingsData.restrictAttendanceRequestDays} days`}
-                    />
-                    <SettingToggleRow
-                      label="Annual Leaves per Month"
-                      value={otherSettingsData.monthlyAnnualLeaveLimit}
-                    />
-                  </ConfigSectionCard>
-                </div>
-              </div>
+                  <div className="row g-4">
+                    {/* ── Daily Shift Time card ────────────────────── */}
+                    <div className="col-12 col-lg-7">
+                      <ConfigSectionCard
+                        title="Daily Shift Time"
+                        description="Manage check-in, check-out, and total shift hours per day"
+                        icon="bi-calendar-week"
+                        iconColor="blue"
+                        primaryAction={canEditConfig ? {
+                          label: 'Configure',
+                          icon: 'bi-pencil',
+                          variant: 'outline',
+                          onClick: () => { setShiftKey((k) => k + 1); setShowDailyShiftModal(true); },
+                        } : undefined}
+                      >
+                        {/* Column headers */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          padding: '0 0 10px 0',
+                          marginBottom: '2px',
+                        }}>
+                          <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', width: '90px' }}>Day</span>
+                          <div style={{ display: 'flex', gap: '24px', flex: 1, justifyContent: 'flex-end' }}>
+                            <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', minWidth: '72px', textAlign: 'center' }}>In</span>
+                            <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', minWidth: '72px', textAlign: 'center' }}>Out</span>
+                            <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', minWidth: '58px', textAlign: 'center' }}>Total</span>
+                          </div>
+                        </div>
 
-              {/* Default Shift Rules */}
-              <div style={{ marginTop: SP.xl }}>
-                <div style={{ marginBottom: SP.md, paddingBottom: SP.md, borderBottom: '1px solid #f0f2f7' }}>
-                  <h2 style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '17px', color: C.textPrimary, margin: 0, letterSpacing: '-0.2px' }}>
-                    Default Shift Rules
-                  </h2>
-                  <p style={{ fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted, margin: '4px 0 0 0', fontWeight: 400 }}>
-                    Rules applied to all employees unless individually overridden.
-                  </p>
-                </div>
-                <div style={{
-                  backgroundColor: '#fff',
-                  borderRadius: RADIUS.xl,
-                  border: `1px solid ${C.border}`,
-                  boxShadow: '0 2px 12px rgba(24,28,50,0.05)',
-                  padding: SP.lg,
-                }}>
-                  <Rules fromAdmin={true} readOnly title="Default Shift Rules" hideGeneralSettings={true} scope={configScope} />
+                        {dailyShiftData.map((item) => (
+                          <ShiftRow key={item.day} {...item} />
+                        ))}
+
+                        {/* Lunch / Grace info tiles */}
+                        <div style={{ marginTop: SP.md, paddingTop: SP.md, borderTop: '1px dashed #e5e7eb' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            {[
+                              { label: 'Lunch Time',     val: lunchTime,          icon: 'bi-cup-hot' },
+                              { label: 'Deduction',      val: deductionTime,      icon: 'bi-dash-circle' },
+                              { label: 'Grace – Office', val: graceTimeOffice,    icon: 'bi-building' },
+                              { label: 'Grace – Site',   val: enforceOnsiteDeadline ? graceTimeOnSite : 'Disabled', icon: 'bi-geo-alt' },
+                            ].map(({ label, val, icon }) => (
+                              <div key={label} style={{
+                                background: 'linear-gradient(135deg, #fafbfd 0%, #f4f6fb 100%)',
+                                border: '1px solid #eaecf3',
+                                borderRadius: RADIUS.lg,
+                                padding: '12px 14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                              }}>
+                                <div style={{
+                                  width: '30px', height: '30px',
+                                  borderRadius: RADIUS.md,
+                                  backgroundColor: '#fff',
+                                  border: '1px solid #e5e7eb',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  flexShrink: 0,
+                                }}>
+                                  <i className={`bi ${icon}`} style={{ fontSize: '13px', color: '#6b7280' }} />
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 500, color: '#9ca3af', marginBottom: '1px' }}>{label}</div>
+                                  <div style={{ fontFamily: FONT.body, fontSize: '13.5px', fontWeight: 700, color: C.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </ConfigSectionCard>
+                    </div>
+
+                    {/* ── Other Settings card ──────────────────────── */}
+                    <div className="col-12 col-lg-5">
+                      <ConfigSectionCard
+                        title="Attendance Settings"
+                        description="Control policies, distance limits, and request windows"
+                        icon="bi-sliders2"
+                        iconColor="primary"
+                        primaryAction={canEditConfig ? {
+                          label: 'Configure',
+                          icon: 'bi-pencil',
+                          variant: 'outline',
+                          onClick: () => { setOtherSettingsKey((k) => k + 1); setShowOtherSettingsModal(true); },
+                        } : undefined}
+                      >
+                        <SettingToggleRow
+                          label="Show Data Up to Today"
+                          value=""
+                          enabled={otherSettingsData.showDataUpToToday}
+                        />
+                        <SettingToggleRow
+                          label="Enable Lunch Deduction Time"
+                          value=""
+                          enabled={otherSettingsData.enableLunchDeduction}
+                        />
+                        <SettingToggleRow
+                          label="On-site, Holiday & Weekend Late Settings"
+                          value=""
+                          enabled={otherSettingsData.onSiteHolidayWeekendSettings}
+                        />
+                        <SettingToggleRow
+                          label="Check-in Distance (meters)"
+                          value={`${otherSettingsData.allowedDistance} m`}
+                        />
+                        <SettingToggleRow
+                          label="Restrict Attendance Requests"
+                          value={`${otherSettingsData.restrictAttendanceRequestDays} days`}
+                        />
+                        <SettingToggleRow
+                          label="Annual Leaves per Month"
+                          value={otherSettingsData.monthlyAnnualLeaveLimit}
+                        />
+                      </ConfigSectionCard>
+                    </div>
+                  </div>
+
+                  {/* Default Shift Rules */}
+                  <div style={{ marginTop: SP.xl }}>
+                    <div style={{ marginBottom: SP.md, paddingBottom: SP.md, borderBottom: '1px solid #f0f2f7' }}>
+                      <h2 style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '17px', color: C.textPrimary, margin: 0, letterSpacing: '-0.2px' }}>
+                        Default Shift Rules
+                      </h2>
+                      <p style={{ fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted, margin: '4px 0 0 0', fontWeight: 400 }}>
+                        Rules applied to all employees unless individually overridden.
+                      </p>
+                    </div>
+                    <div style={{
+                      backgroundColor: '#fff',
+                      borderRadius: RADIUS.xl,
+                      border: `1px solid ${C.border}`,
+                      boxShadow: '0 2px 12px rgba(24,28,50,0.05)',
+                      padding: SP.lg,
+                    }}>
+                      <Rules fromAdmin={true} readOnly title="Default Shift Rules" hideGeneralSettings={true} scope={configScope} />
+                    </div>
+                  </div>
+
+                  </div>
                 </div>
               </div>
             </div>

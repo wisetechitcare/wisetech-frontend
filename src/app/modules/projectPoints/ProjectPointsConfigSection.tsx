@@ -15,7 +15,7 @@ import ProjectPointsConfigModal from "./ProjectPointsConfigModal";
  * Configuration → Project Points. Self-contained card: list + add/edit/delete +
  * enable/disable + reorder (move up/down, persisted). Drop into the config page.
  */
-const ProjectPointsConfigSection: React.FC = () => {
+const ProjectPointsConfigSection: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     const [points, setPoints] = useState<ProjectPointMaster[]>([]);
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -79,7 +79,7 @@ const ProjectPointsConfigSection: React.FC = () => {
             description="Reusable templates that auto-populate the Project Details section on new leads and projects."
             icon="bi-list-check"
             iconColor="teal"
-            primaryAction={{ label: "New Project Point", icon: "bi-plus-lg", onClick: openAdd, variant: "primary" }}
+            primaryAction={readOnly ? undefined : { label: "New Project Point", icon: "bi-plus-lg", onClick: openAdd, variant: "primary" }}
             loading={loading}
         >
             {points.length === 0 ? (
@@ -108,18 +108,20 @@ const ProjectPointsConfigSection: React.FC = () => {
                                     {(p.defaultHeading || p.title)}{p.defaultDescription ? ` — ${p.defaultDescription}` : ""}
                                 </div>
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                <button type="button" title="Move up" disabled={idx === 0} onClick={() => move(idx, -1)}
-                                    style={iconBtn("#64748b", idx === 0)}><i className="bi bi-arrow-up" /></button>
-                                <button type="button" title="Move down" disabled={idx === points.length - 1} onClick={() => move(idx, 1)}
-                                    style={iconBtn("#64748b", idx === points.length - 1)}><i className="bi bi-arrow-down" /></button>
-                                <button type="button" title={p.isActive ? "Disable" : "Enable"} onClick={() => toggleActive(p)}
-                                    style={iconBtn(p.isActive ? "#059669" : "#94a3b8")}>
-                                    <i className={p.isActive ? "bi bi-toggle-on" : "bi bi-toggle-off"} />
-                                </button>
-                                <button type="button" title="Edit" onClick={() => openEdit(p)} style={iconBtn("#4f82c4")}><i className="bi bi-pencil" /></button>
-                                <button type="button" title="Delete" onClick={() => handleDelete(p)} style={iconBtn("#ef4444")}><i className="bi bi-trash" /></button>
-                            </div>
+                            {!readOnly && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                    <button type="button" title="Move up" disabled={idx === 0} onClick={() => move(idx, -1)}
+                                        style={iconBtn("#64748b", idx === 0)}><i className="bi bi-arrow-up" /></button>
+                                    <button type="button" title="Move down" disabled={idx === points.length - 1} onClick={() => move(idx, 1)}
+                                        style={iconBtn("#64748b", idx === points.length - 1)}><i className="bi bi-arrow-down" /></button>
+                                    <button type="button" title={p.isActive ? "Disable" : "Enable"} onClick={() => toggleActive(p)}
+                                        style={iconBtn(p.isActive ? "#059669" : "#94a3b8")}>
+                                        <i className={p.isActive ? "bi bi-toggle-on" : "bi bi-toggle-off"} />
+                                    </button>
+                                    <button type="button" title="Edit" onClick={() => openEdit(p)} style={iconBtn("#4f82c4")}><i className="bi bi-pencil" /></button>
+                                    <button type="button" title="Delete" onClick={() => handleDelete(p)} style={iconBtn("#ef4444")}><i className="bi bi-trash" /></button>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

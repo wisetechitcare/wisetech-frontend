@@ -12,6 +12,7 @@ import { PageTitle } from "@metronic/layout/core";
 import LeadNewLead from "./lead/LeadNewLead";
 import LeadsOverviewMain from "./overview/LeadsOverviewMain";
 import GlobalFilesView from "./GlobalFilesView";
+import { canDo } from "@utils/can";
 
 const TAB_KEYS = ["overview", "leads", "files", "configure"] as const;
 
@@ -22,6 +23,14 @@ const LeadsMain = () => {
   const setActiveTab = (index: number) => {
     setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
   };
+  // Configure is a write-only surface: hidden for read-only viewers, so the
+  // whole tab (not each button inside it) is the access control.
+  const canConfigure = canDo("crm.leads", "update");
+  useEffect(() => {
+    if (tabKey === "configure" && !canConfigure) {
+      setSearchParams({ tab: "overview" }, { replace: true });
+    }
+  }, [tabKey, canConfigure, setSearchParams]);
 
   const dispatch = useDispatch<AppDispatch>();
 
@@ -55,15 +64,18 @@ const LeadsMain = () => {
           ? projectsIcons.projectsIcon.active
           : projectsIcons.projectsIcon.default,
     },
-    {
-      title: "Configure",
-      component: <LeadsConfigurationMain />,
-      icon:
-        activeTab === 2
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
-    },
+    ...(canConfigure
+      ? [{
+          title: "Configure",
+          component: <LeadsConfigurationMain />,
+          icon:
+            activeTab === 2
+              ? leadsIcons.leadsConfigIcon.active
+              : leadsIcons.leadsConfigIcon.default,
+        }]
+      : []),
   ];
+  const safeActiveTab = Math.min(activeTab, tabItems.length - 1);
   const LeadBreadcrumbs = [
     {
       title: "lead",
@@ -81,13 +93,13 @@ const LeadsMain = () => {
   return (
     <div>
       <PageTitle breadcrumbs={LeadBreadcrumbs}>
-        {tabItems[activeTab].title}
+        {tabItems[safeActiveTab].title}
       </PageTitle>
 
       <MaterialHeaderTab
         tabItems={tabItems}
         onTabChange={setActiveTab}
-        activeTab={activeTab}
+        activeTab={safeActiveTab}
       />
     </div>
   );

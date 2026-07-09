@@ -8,6 +8,7 @@ import ContactProject from "./components/ContactProject";
 import ContactConfigMain from "./config/ContactConfigMain";
 import { useParams, useSearchParams } from "react-router-dom";
 import { getAllClientContacts, getClientContactById } from "@services/companies";
+import { canDo } from "@utils/can";
 import { PageTitle } from "@metronic/layout/core";
 import Loader from "@app/modules/common/utils/Loader";
 import ClientContactsMain from "./ClientContactsMain";
@@ -28,6 +29,13 @@ const ContactsNavbar = () => {
   const setActiveTab = (index: number) => {
     setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
   };
+  // Configure is a write-only surface: hidden for read-only viewers.
+  const canConfigure = canDo("crm.contacts", "update");
+  useEffect(() => {
+    if (tabKey === "configure" && !canConfigure) {
+      setSearchParams({ tab: "overview" }, { replace: true });
+    }
+  }, [tabKey, canConfigure, setSearchParams]);
   const dispatch = useDispatch<AppDispatch>();
   const [contact, setContact] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -109,15 +117,18 @@ const ContactsNavbar = () => {
           ? worldIcons.worldIcon.active
           : worldIcons.worldIcon.default,
     },
-    {
-      title: "Configure",
-      component: <ContactConfigMain />,
-      icon:
-        activeTab === 4
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
-    },
+    ...(canConfigure
+      ? [{
+          title: "Configure",
+          component: <ContactConfigMain />,
+          icon:
+            activeTab === 4
+              ? leadsIcons.leadsConfigIcon.active
+              : leadsIcons.leadsConfigIcon.default,
+        }]
+      : []),
   ];
+  const safeActiveTab = Math.min(activeTab, tabItems.length - 1);
 
 
   if (loading) {
@@ -132,7 +143,7 @@ const ContactsNavbar = () => {
       <MaterialHeaderTab
         tabItems={tabItems}
         onTabChange={setActiveTab}
-        activeTab={activeTab}
+        activeTab={safeActiveTab}
       />
     </div>
   );

@@ -106,7 +106,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
     to: '/qc/projects',
     match: ['/qc/projects', '/projects/'],
     order: 70,
-    isVisible: () => !isSectionBlocked('projects'),
+    isVisible: () => !isSectionBlocked('projects') && canViewModule('projects'),
   },
   {
     id: 'timesheet',
@@ -126,7 +126,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
     to: '/qc/companies',
     match: ['/qc/companies', '/companies/'],
     order: 90,
-    isVisible: () => !isSectionBlocked('crm.companies'),
+    isVisible: () => !isSectionBlocked('crm.companies') && canViewModule('crm.companies'),
   },
   {
     id: 'contacts',
@@ -136,7 +136,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
     to: '/qc/contacts',
     match: ['/qc/contacts', '/contacts/'],
     order: 100,
-    isVisible: () => !isSectionBlocked('crm.contacts'),
+    isVisible: () => !isSectionBlocked('crm.contacts') && canViewModule('crm.contacts'),
   },
   {
     id: 'people',

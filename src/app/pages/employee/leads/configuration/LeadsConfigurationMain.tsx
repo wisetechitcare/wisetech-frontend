@@ -558,8 +558,8 @@ const LeadsConfigurationMain = () => {
                         key={s.id}
                         name={s.name}
                         color={s.color}
-                        onEdit={() => handleEdit(s)}
-                        onDelete={() => handleDelete(s.id!)}
+                        onEdit={canManageLeads ? () => handleEdit(s) : undefined}
+                        onDelete={canManageLeads ? () => handleDelete(s.id!) : undefined}
                       />
                     ))}
                   </ChipGrid>
@@ -717,7 +717,7 @@ const LeadsConfigurationMain = () => {
             </ConfigSectionCard>
 
             {/* Project Points — dynamic master templates */}
-            <ProjectPointsConfigSection />
+            <ProjectPointsConfigSection readOnly={!canManageLeads} />
 
             {/* Project Categories & Subcategories — tree view */}
             <ConfigSectionCard

@@ -236,12 +236,6 @@ const EntityDetailPage: React.FC = () => {
                   Lead - {lead?.status?.name || 'Set status'}
                 </button>
               )}
-              <Button variant="primary" onClick={openEdit} style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}>
-                <KTIcon iconName="pencil" className="fs-2" /> Edit
-              </Button>
-              <Button variant="info" onClick={() => setShowProposalModal(true)} style={{ backgroundColor: '#7239ea', borderColor: '#7239ea', color: 'white' }}>
-                <KTIcon iconName="file-down" className="fs-2" /> Export
-              </Button>
             </div>
           </div>
 

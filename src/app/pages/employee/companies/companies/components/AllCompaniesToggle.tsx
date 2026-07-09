@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "react-bootstrap";
+import { canDo } from "@utils/can";
 import { KTIcon } from "@metronic/helpers";
 import { getClientCompanyById } from "@services/companies";
 import Overview from "./CompanyOverview";
@@ -107,6 +108,14 @@ const CompanyDetails = () => {
   const handleCloseEditCompanyModal = () => {
     setShowEditCompanyModal(false);
   };
+
+  // RBAC affordance gates (backend still enforces the mutation).
+  const canCreateCompany = canDo("crm.companies", "create");
+  const canCreateContact = canDo("crm.contacts", "create");
+  const canCreateLead = canDo("crm.leads", "create");
+  const canCreateProject = canDo("projects", "create");
+  const canEditCompany = canDo("crm.companies", "update");
+  const canAddNew = canCreateCompany || canCreateContact || canCreateLead || canCreateProject;
 
   const handleNewContactClick = () => {
     setShowNewContactModal(true);
@@ -336,6 +345,7 @@ const CompanyDetails = () => {
 
             {/* Mobile Action Buttons */}
             <div className="d-flex align-items-center gap-1">
+              {canAddNew && (
               <div className="dropdown">
                 <Button
                   variant="primary"
@@ -366,26 +376,31 @@ const CompanyDetails = () => {
                       Add Project
                     </a>
                   </li>
-                  <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={handleNewContactClick}
-                    >
-                      Add Contact
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={handleNewCompanyClick}
-                    >
-                      New Company
-                    </button>
-                  </li>
+                  {canDo("crm.contacts", "create") && (
+                    <li>
+                      <button
+                        className="dropdown-item"
+                        onClick={handleNewContactClick}
+                      >
+                        Add Contact
+                      </button>
+                    </li>
+                  )}
+                  {canDo("crm.companies", "create") && (
+                    <li>
+                      <button
+                        className="dropdown-item"
+                        onClick={handleNewCompanyClick}
+                      >
+                        New Company
+                      </button>
+                    </li>
+                  )}
                 </ul>
               </div>
+              )}
               {/* Edit Button show only for tab overview */}
-              {activeTab === "overview" && (
+              {activeTab === "overview" && canEditCompany && (
                 <Button
                   variant="primary"
                   size="sm"
@@ -452,6 +467,7 @@ const CompanyDetails = () => {
 
           {/* Desktop Action Buttons */}
           <div className="d-flex align-items-center gap-2">
+            {canAddNew && (
             <div className="dropdown">
               <Button
                 variant="primary"
@@ -466,6 +482,7 @@ const CompanyDetails = () => {
                 Add New
               </Button>
               <ul className="dropdown-menu">
+                {canCreateLead && (
                 <li>
                   <button
                     className="dropdown-item"
@@ -474,6 +491,8 @@ const CompanyDetails = () => {
                     Add Lead
                   </button>
                 </li>
+                )}
+                {canCreateProject && (
                 <li>
                   <button
                     className="dropdown-item"
@@ -482,26 +501,32 @@ const CompanyDetails = () => {
                     Add Project
                   </button>
                 </li>
-                <li>
-                  <button
-                    className="dropdown-item"
-                    onClick={handleNewContactClick}
-                  >
-                    Add Contact
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="dropdown-item"
-                    onClick={handleNewCompanyClick}
-                  >
-                    New Company
-                  </button>
-                </li>
+                )}
+                {canDo("crm.contacts", "create") && (
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      onClick={handleNewContactClick}
+                    >
+                      Add Contact
+                    </button>
+                  </li>
+                )}
+                {canDo("crm.companies", "create") && (
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      onClick={handleNewCompanyClick}
+                    >
+                      New Company
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
+            )}
             {/* Edit Button show only for tab overview */}
-            {activeTab === "overview" && (
+            {activeTab === "overview" && canEditCompany && (
               <Button
                 variant="primary"
                 onClick={handleEditClick}

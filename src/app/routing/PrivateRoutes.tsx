@@ -572,7 +572,7 @@ const PrivateRoutes = () => {
         <Route
           path='/qc/projects'
           element={
-            <SectionGuard module='projects'>
+            <SectionGuard module='projects' requireGrant>
               <SuspensedView>
                 <ProjectsMain />
               </SuspensedView>
@@ -582,7 +582,7 @@ const PrivateRoutes = () => {
         <Route
           path='/qc/contacts'
           element={
-            <SectionGuard module='crm.contacts'>
+            <SectionGuard module='crm.contacts' requireGrant>
               <SuspensedView>
                 <ContactsNavbar />
               </SuspensedView>
@@ -592,7 +592,7 @@ const PrivateRoutes = () => {
         <Route
           path='/qc/companies'
           element={
-            <SectionGuard module='crm.companies'>
+            <SectionGuard module='crm.companies' requireGrant>
               <SuspensedView>
                 <CompaniesMain />
               </SuspensedView>

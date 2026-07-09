@@ -16,6 +16,7 @@ import { PageTitle } from "@metronic/layout/core";
 import Maps from "../companies/companyOverview/components/Map";
 import { getProjectMapPoints } from "@services/projects";
 import { worldIcons } from "@metronic/assets/sidepanelicons";
+import { canDo } from "@utils/can";
 
 const TAB_KEYS = ["overview", "projects", "map", "configure"] as const;
 
@@ -26,6 +27,13 @@ const ProjectsMain = () => {
   const setActiveTab = (index: number) => {
     setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
   };
+  // Configure is a write-only surface: hidden for read-only viewers.
+  const canConfigure = canDo("projects", "update");
+  useEffect(() => {
+    if (tabKey === "configure" && !canConfigure) {
+      setSearchParams({ tab: "overview" }, { replace: true });
+    }
+  }, [tabKey, canConfigure, setSearchParams]);
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number}[]>([]);
   const [projectData, setProjectData] = useState<any>([]);
 
@@ -80,15 +88,18 @@ const ProjectsMain = () => {
           ? worldIcons.worldIcon.active
           : worldIcons.worldIcon.default,
     },
-    {
-      title: "Configure",
-      component: <ProjectConfigure />,
-      icon:
-        activeTab === 3
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
-    },
+    ...(canConfigure
+      ? [{
+          title: "Configure",
+          component: <ProjectConfigure />,
+          icon:
+            activeTab === 3
+              ? leadsIcons.leadsConfigIcon.active
+              : leadsIcons.leadsConfigIcon.default,
+        }]
+      : []),
   ];
+  const safeActiveTab = Math.min(activeTab, tabItems.length - 1);
 
   const PorjectBreadcrumbs = [
     {
@@ -107,13 +118,13 @@ const ProjectsMain = () => {
   return (
     <div>
       <PageTitle breadcrumbs={PorjectBreadcrumbs}>
-        {tabItems[activeTab].title}
+        {tabItems[safeActiveTab].title}
       </PageTitle>
 
       <MaterialHeaderTab
         tabItems={tabItems}
         onTabChange={setActiveTab}
-        activeTab={activeTab}
+        activeTab={safeActiveTab}
       />
     </div>
   );

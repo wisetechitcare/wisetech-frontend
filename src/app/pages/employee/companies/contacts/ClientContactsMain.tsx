@@ -6,6 +6,7 @@ import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import { deleteConfirmation } from "@utils/modal";
+import { canDo } from "@utils/can";
 import { deleteClientContact, getAllClientContacts } from "@services/companies";
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import ClientContactsForm from "./components/ClientContactsForm";
@@ -477,7 +478,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
           Contacts
         </div>
 
-        {!hideNewContactButton && (
+        {!hideNewContactButton && canDo("crm.contacts", "create") && (
           <button
             className="btn btn-primary"
             onClick={() => addNewContact(true)}

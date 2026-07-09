@@ -1,4 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
+import { canDo } from "@utils/can";
 import React, { useEffect, useState } from "react";
 import NewCompanyForm from "../companies/components/NewCompanyForm";
 import ClientContacts from "../companies/components/ClientContacts";
@@ -81,15 +82,19 @@ function CompanyOverview() {
               strokeLinejoin="round"
             />
           </svg>
-          <button className="btn btn-primary" onClick={() => setShow(true)}>
-            New Company
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowContact(true)}
-          >
-            New Contact
-          </button>
+          {canDo("crm.companies", "create") && (
+            <button className="btn btn-primary" onClick={() => setShow(true)}>
+              New Company
+            </button>
+          )}
+          {canDo("crm.contacts", "create") && (
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowContact(true)}
+            >
+              New Contact
+            </button>
+          )}
         </div>
       </div>
       <NewCompanyForm show={show} onClose={() => setShow(false)} />

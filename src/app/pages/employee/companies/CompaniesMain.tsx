@@ -18,6 +18,7 @@ import { PageTitle } from "@metronic/layout/core";
 import CalenderMain from "./calender/CalenderMain";
 import Maps from "./companyOverview/components/Map";
 import { getAllClientCompanies } from "@services/companies";
+import { canDo } from "@utils/can";
 
 const TAB_KEYS = ["overview", "companies", "map", "configure"] as const;
 
@@ -28,6 +29,15 @@ const CompaniesMain = () => {
   const setActiveTab = (index: number) => {
     setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
   };
+  // Configure is a write-only surface: hidden for read-only viewers. Backend
+  // still enforces the underlying mutations; this just removes the affordance.
+  const canConfigure = canDo("crm.companies", "update");
+  // Bounce a read-only user who deep-links to ?tab=configure back to overview.
+  useEffect(() => {
+    if (tabKey === "configure" && !canConfigure) {
+      setSearchParams({ tab: "overview" }, { replace: true });
+    }
+  }, [tabKey, canConfigure, setSearchParams]);
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number, id?: string}[]>([]);
   const [companyData, setCompanyData] = useState<any>([]);
 
@@ -145,15 +155,19 @@ const CompaniesMain = () => {
           ? worldIcons.worldIcon.active
           : worldIcons.worldIcon.default,
     },
-    {
-      title: "Configure",
-      component: <CompanyConfigMain />,
-      icon:
-        activeTab === 3
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
-    },
+    ...(canConfigure
+      ? [{
+          title: "Configure",
+          component: <CompanyConfigMain />,
+          icon:
+            activeTab === 3
+              ? leadsIcons.leadsConfigIcon.active
+              : leadsIcons.leadsConfigIcon.default,
+        }]
+      : []),
   ];
+  // Clamp so a stale/blocked index (e.g. configure removed) never renders undefined.
+  const safeActiveTab = Math.min(activeTab, tabItems.length - 1);
   const ProjectBreadcrumbs = [
     {
       title: "Companies",
@@ -171,12 +185,12 @@ const CompaniesMain = () => {
   return (
     <div>
       <PageTitle breadcrumbs={ProjectBreadcrumbs}>
-        {tabItems[activeTab].title}
+        {tabItems[safeActiveTab].title}
       </PageTitle>
       <MaterialHeaderTab
         tabItems={tabItems}
         onTabChange={setActiveTab}
-        activeTab={activeTab}
+        activeTab={safeActiveTab}
       />
     </div>
   );
