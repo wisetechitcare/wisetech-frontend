@@ -10,10 +10,16 @@ interface ReferredLead {
     id: string;
     title?: string;
     createdAt?: string;
+    inquiryDate?: string | null;
     status?: { name: string; color?: string | null } | null;
     commercials?: Array<{ cost?: number | string | null }> | null;
   } | null;
 }
+
+/** The date a referred lead is charted under — the business-meaningful inquiry
+ * date, falling back to createdAt for old rows that never had one entered. */
+export const referredLeadDate = (rl: { lead?: { inquiryDate?: string | null; createdAt?: string } | null }): string | undefined =>
+  rl.lead?.inquiryDate || rl.lead?.createdAt;
 
 interface Props {
   /** Already filtered to the active period by the parent. */
@@ -69,8 +75,8 @@ const buildBuckets = (
 
 const LeadReferralAnalytics: React.FC<Props> = ({ referredLeads, totalCount, mode, rangeStart, rangeEnd }) => {
   const { series, categories, bucketValues, totalValue } = useMemo(() => {
-    const rows = referredLeads.filter((r) => r.lead?.createdAt);
-    const dates = rows.map((r) => dayjs(r.lead!.createdAt));
+    const rows = referredLeads.filter((r) => referredLeadDate(r));
+    const dates = rows.map((r) => dayjs(referredLeadDate(r)));
     const buckets = buildBuckets(mode, rangeStart, rangeEnd, dates);
 
     // Distinct statuses (preserve first-seen order) + colors.
@@ -95,7 +101,7 @@ const LeadReferralAnalytics: React.FC<Props> = ({ referredLeads, totalCount, mod
     let totalValue = 0;
 
     rows.forEach((r) => {
-      const idx = bucketOf(dayjs(r.lead!.createdAt));
+      const idx = bucketOf(dayjs(referredLeadDate(r)));
       if (idx < 0) return;
       const name = r.lead?.status?.name || "No status";
       const s = series.find((x) => x.name === name);

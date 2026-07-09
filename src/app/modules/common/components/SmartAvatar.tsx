@@ -168,7 +168,10 @@ const extractBrandPalette = (url: string): Promise<BrandPalette | null> =>
   new Promise((resolve) => {
     if (colorCache.has(url)) return resolve(colorCache.get(url)!);
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    // Deliberately no `img.crossOrigin` here: setting it forces the browser to make a CORS-mode
+    // request, which fails loudly in the console for any host without an Access-Control-Allow-Origin
+    // header (e.g. the S3 avatar bucket). Without it the image still loads for display; only the
+    // canvas pixel sampling below gets tainted, which the try/catch already treats as "no palette".
     img.onload = () => {
       try {
         const S = 20;
@@ -260,7 +263,7 @@ const SmartAvatar: React.FC<Props> = ({
     };
   }, [showPreview]);
 
-  const sz = Math.max(28, size);
+  const sz = Math.max(16, size);
   const isCircle = shape === "circle";
   const outerRadius = isCircle ? "50%" : Math.round(sz * 0.18);
   const innerRadius = isCircle ? "50%" : Math.round(sz * 0.14);
@@ -338,8 +341,6 @@ const SmartAvatar: React.FC<Props> = ({
               objectPosition: "center",
               display: "block",
               borderRadius: 0,
-              // High-quality rendering: preserve crisp pixels without smoothing
-              imageRendering: "-webkit-optimize-contrast",
               backfaceVisibility: "hidden",
             } as React.CSSProperties}
           />

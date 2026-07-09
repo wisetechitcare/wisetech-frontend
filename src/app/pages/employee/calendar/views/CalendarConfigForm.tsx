@@ -1,18 +1,12 @@
 import React, { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
-import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
+import { Formik, Form as FormikForm } from "formik";
 import * as Yup from "yup";
 import { createNewConfiguration, updateConfigurationById } from "@services/company";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import { KTIcon } from "@metronic/helpers";
 import IconPickerModal, { SelectedIcon } from "@app/pages/employee/reimbursement/views/admin/IconPickerModal";
-
-declare module 'react' {
-  interface StyleHTMLAttributes<T> extends React.HTMLAttributes<T> {
-    jsx?: boolean;
-    global?: boolean;
-  }
-}
+import { C, FONT, SP, RADIUS } from "@app/modules/configuration";
 
 export interface CalendarConfigItem {
   id: string | null;
@@ -30,11 +24,11 @@ function IconPreview({ icon }: { icon: string }) {
         display: "flex",
         alignItems: "center",
         gap: "10px",
-        marginTop: "10px",
+        marginTop: SP.sm,
         padding: "10px 14px",
-        background: "#F8FAFF",
-        border: "1.5px solid #D6E9FF",
-        borderRadius: "10px",
+        background: C.primaryLight,
+        border: `1.5px solid rgba(157,65,65,0.15)`,
+        borderRadius: RADIUS.lg,
       }}
     >
       <div
@@ -42,11 +36,12 @@ function IconPreview({ icon }: { icon: string }) {
           width: 40,
           height: 40,
           borderRadius: "50%",
-          background: "#EEF6FF",
+          background: "#fff",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
+          boxShadow: `0 2px 8px ${C.primaryShadow}`,
         }}
       >
         {isKtIcon ? (
@@ -56,8 +51,8 @@ function IconPreview({ icon }: { icon: string }) {
         )}
       </div>
       <div>
-        <div style={{ fontSize: "11px", color: "#A1A5B7", marginBottom: 1 }}>Icon Preview</div>
-        <div style={{ fontSize: "12px", color: "#5E6278", fontWeight: 500 }}>
+        <div style={{ fontFamily: FONT.body, fontSize: "11px", color: C.textMuted, marginBottom: 1 }}>Icon Preview</div>
+        <div style={{ fontFamily: FONT.body, fontSize: "12px", color: C.textSecondary, fontWeight: 500 }}>
           {isKtIcon ? `System · ${icon.slice(3)}` : "Online Icon"}
         </div>
       </div>
@@ -138,9 +133,9 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
   if (!show) return null;
 
   return (
-    <Modal show={show} onHide={onClose} centered>
-      <Modal.Header closeButton style={{ borderBottom: 'none', paddingBottom: '8px' }}>
-        <Modal.Title style={{ fontWeight: '600', fontSize: '18px', color: '#1a1a1a' }}>
+    <Modal show={show} onHide={onClose} centered dialogClassName="calendar-config-modal">
+      <Modal.Header closeButton style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
+        <Modal.Title style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '16px', color: C.textPrimary }}>
           {title}
         </Modal.Title>
       </Modal.Header>
@@ -152,12 +147,12 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
       >
         {({ values, setFieldValue }) => (
           <FormikForm>
-            <Modal.Body style={{ paddingTop: '16px' }}>
+            <Modal.Body style={{ padding: SP.lg }}>
               {error && <div className="alert alert-danger mb-3">{error}</div>}
 
               {/* Enable Switch */}
-              <div className="d-flex justify-content-between align-items-center mb-5">
-                <label className="form-label" style={{ fontWeight: '500', color: '#1a1a1a', fontSize: '14px', marginBottom: '0' }}>
+              <div className="d-flex justify-content-between align-items-center" style={{ marginBottom: SP.lg }}>
+                <label className="form-label" style={{ fontFamily: FONT.body, fontWeight: 600, color: C.textPrimary, fontSize: '14px', marginBottom: 0 }}>
                   Enable Event Display
                 </label>
                 <div className="form-check form-switch">
@@ -172,14 +167,15 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
 
               {/* Color Picker */}
               {values.enabled && (
-                <div className="mb-4">
-                  <label 
-                    className="form-label" 
-                    style={{ 
-                      fontWeight: '500', 
-                      color: '#1a1a1a', 
-                      fontSize: '14px', 
-                      marginBottom: '8px' 
+                <div style={{ marginBottom: SP.lg }}>
+                  <label
+                    className="form-label"
+                    style={{
+                      fontFamily: FONT.body,
+                      fontWeight: 600,
+                      color: C.textPrimary,
+                      fontSize: '14px',
+                      marginBottom: SP.sm,
                     }}
                   >
                     Choose Category Color
@@ -188,13 +184,14 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
                     <div
                       className="d-flex align-items-center justify-content-between"
                       style={{
-                        backgroundColor: '#f8f9fa',
-                        border: '1px solid #e9ecef',
-                        borderRadius: '8px',
+                        backgroundColor: C.bgSection,
+                        border: `1px solid ${C.border}`,
+                        borderRadius: RADIUS.md,
                         padding: '12px 16px',
                         cursor: 'pointer',
+                        fontFamily: FONT.body,
                         fontSize: '14px',
-                        color: '#6c757d'
+                        color: C.textSecondary,
                       }}
                       onClick={() => document.getElementById("colorInput")?.click()}
                     >
@@ -211,9 +208,9 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
                         />
                         <span>Choose Color</span>
                       </div>
-                      <span 
-                        className="text-uppercase fw-medium" 
-                        style={{ fontSize: '12px', color: '#6c757d' }}
+                      <span
+                        className="text-uppercase fw-medium"
+                        style={{ fontSize: '12px', color: C.textSecondary }}
                       >
                         {values.color}
                       </span>
@@ -243,14 +240,15 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
 
               {/* Icon Picker */}
               {values.enabled && (
-                <div className="mb-4">
-                  <label 
-                    className="form-label" 
-                    style={{ 
-                      fontWeight: '500', 
-                      color: '#1a1a1a', 
-                      fontSize: '14px', 
-                      marginBottom: '8px' 
+                <div style={{ marginBottom: SP.lg }}>
+                  <label
+                    className="form-label"
+                    style={{
+                      fontFamily: FONT.body,
+                      fontWeight: 600,
+                      color: C.textPrimary,
+                      fontSize: '14px',
+                      marginBottom: SP.sm,
                     }}
                   >
                     Choose Icon
@@ -264,12 +262,13 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
                       gap: "8px",
                       width: "100%",
                       padding: "10px 14px",
-                      border: "1px solid #e9ecef",
-                      borderRadius: "8px",
-                      background: "#f8f9fa",
+                      border: `1px solid ${C.border}`,
+                      borderRadius: RADIUS.md,
+                      background: C.bgSection,
                       cursor: "pointer",
+                      fontFamily: FONT.body,
                       fontSize: "14px",
-                      color: values.icon ? "#181C32" : "#6c757d",
+                      color: values.icon ? C.textPrimary : C.textSecondary,
                       fontWeight: values.icon ? 500 : 400,
                       transition: "border-color 0.15s",
                     }}
@@ -306,19 +305,39 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
                 </div>
               )}
             </Modal.Body>
-            
-            <Modal.Footer style={{ borderTop: 'none', paddingTop: '0' }}>
-              <Button 
-                variant="primary" 
-                type="submit" 
+
+            <Modal.Footer style={{ borderTop: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
+              <Button
+                variant="light"
+                type="button"
+                onClick={onClose}
                 disabled={isSubmitting}
                 style={{
-                  backgroundColor: '#8B4444',
+                  backgroundColor: C.bgCard,
+                  color: C.textSecondary,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: RADIUS.md,
+                  padding: '10px 20px',
+                  fontFamily: FONT.body,
+                  fontWeight: 500,
+                  fontSize: '14px',
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={isSubmitting}
+                style={{
+                  backgroundColor: C.primary,
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: RADIUS.md,
                   padding: '10px 24px',
-                  fontWeight: '500',
-                  fontSize: '14px'
+                  fontFamily: FONT.body,
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  boxShadow: `0 4px 12px ${C.primaryShadow}`,
                 }}
               >
                 {isSubmitting ? "Saving..." : "Save"}
@@ -327,17 +346,17 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
           </FormikForm>
         )}
       </Formik>
-      
-      <style jsx>{`
-        .form-check-input:checked {
-          background-color: #8B4444;
-          border-color: #8B4444;
+
+      <style>{`
+        .calendar-config-modal .form-check-input:checked {
+          background-color: ${C.primary};
+          border-color: ${C.primary};
         }
-        
-        .modal-content {
-          border-radius: 12px !important;
+
+        .calendar-config-modal .modal-content {
+          border-radius: ${RADIUS.lg} !important;
           border: none !important;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+          box-shadow: ${C.shadowModal} !important;
         }
       `}</style>
     </Modal>

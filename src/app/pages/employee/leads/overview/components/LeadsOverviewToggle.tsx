@@ -86,6 +86,22 @@ const LeadsOverviewToggle = ({
     );
   };
 
+  // "FY 2026-27" reads clearly as a fiscal year even when start/end share a
+  // calendar year edge case; "· to 9 Jul" is appended only when the range is
+  // clamped to today (year-to-date) so it's never confused with the full close.
+  const buildFiscalYearLabel = (
+    fiscalStart: Dayjs,
+    rawEnd: Dayjs,
+    clampedEnd: Dayjs
+  ): string => {
+    const startYear = fiscalStart.format("YYYY");
+    const endYear = rawEnd.format("YYYY");
+    const base =
+      startYear === endYear ? `FY ${startYear}` : `FY ${startYear}-${rawEnd.format("YY")}`;
+    const isClamped = !clampedEnd.isSame(rawEnd, "day");
+    return isClamped ? `${base} · to ${clampedEnd.format("D MMM")}` : base;
+  };
+
   useEffect(() => {
     dispatch(fetchRolesAndPermissions() as any);
   }, []);
@@ -123,11 +139,7 @@ const LeadsOverviewToggle = ({
 
       setYearStart(fiscalStart);
       setYearEnd(fiscalEnd);
-      setFiscalYearDisplay(
-        `${fiscalStart.format("YYYY")} - ${fiscalEnd.format(
-          "YYYY"
-        )}`
-      );
+      setFiscalYearDisplay(buildFiscalYearLabel(fiscalStart, dayjs(endDate), fiscalEnd));
 
       if (alignment === "yearly" && toggleItemsActions?.yearly) {
         toggleItemsActions.yearly(fiscalStart, fiscalEnd);
@@ -194,11 +206,7 @@ const LeadsOverviewToggle = ({
 
     setYearStart(fiscalStart);
     setYearEnd(fiscalEnd);
-    setFiscalYearDisplay(
-      `${fiscalStart.format("YYYY")} - ${fiscalEnd.format(
-        "YYYY"
-      )}`
-    );
+    setFiscalYearDisplay(buildFiscalYearLabel(fiscalStart, dayjs(endDate), fiscalEnd));
     toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
   };
 
