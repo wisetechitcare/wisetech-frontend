@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { Col, Modal, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@redux/store";
@@ -21,6 +21,9 @@ import { maleIcons } from "@metronic/assets/sidepanelicons";
 import { miscellaneousIcons } from "../../../../../_metronic/assets/miscellaneousicons";
 import { getKpiBehavior, KpiBehavior, normalizeScoreSign } from "@utils/kpiBehavior";
 import Skeleton from "@components/loaders/Skeleton";
+import { ModuleChampionCard } from "./leaderboard";
+
+const PodiumHero = React.lazy(() => import("./leaderboard/PodiumHero"));
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
@@ -721,7 +724,16 @@ const FactorLeaderboardCard = React.memo(
     const valueLabel = getMetricLabel(factor);
 
     return (
-      <div style={{ ...STYLES.factorCard, background: theme.bg }}>
+      <div
+        style={{
+          ...STYLES.factorCard,
+          background: theme.bg,
+          borderLeft: `4px solid ${theme.accent}`,
+          borderRadius: "14px",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 16px rgba(0,0,0,0.05)",
+          transition: "box-shadow 220ms ease, transform 220ms ease",
+        }}
+      >
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div style={STYLES.factorTitle}>{factor.name}</div>
           <button
@@ -787,6 +799,7 @@ function LeaderBoardCore({
   resourseAndView,
   overviewData,
   isLoading = false,
+  period,
 }: any) {
   const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
 
@@ -824,6 +837,7 @@ function LeaderBoardCore({
   const startDateStr = startDate?.format("YYYY-MM-DD") ?? "";
   const endDateStr = endDate?.format("YYYY-MM-DD") ?? "";
 
+
   const getEmployeeAvatar = useCallback((avatar: string | undefined, gender: number | undefined) => {
     const url = getAvatar(avatar || "", gender as 0 | 1 | 2);
     return url && url.trim() !== "" ? url : maleIcons.maleIcon?.default;
@@ -846,8 +860,19 @@ function LeaderBoardCore({
       const maxScoreRaw = emp?.maxScore ?? null;
       const valueRaw = emp?.value ?? null;
       const maxValueRaw = emp?.maxValue ?? null;
+      const id = safeString(emp?.employee?.id ?? emp?.employeeId ?? emp?.id ?? "");
+      const designation = safeString(
+        emp?.employee?.designation?.name ??
+        emp?.employee?.designationName ??
+        emp?.employee?.designation ??
+        emp?.designation?.name ??
+        emp?.designation ??
+        ""
+      );
       return {
+        id,
         name: `${firstName} ${lastName}`.trim() || "-",
+        designation,
         avatar: getEmployeeAvatar(avatar, gender),
         score,
         maxScore: maxScoreRaw !== null ? safeNumber(maxScoreRaw) : null,
@@ -1094,6 +1119,13 @@ function LeaderBoardCore({
     [topFive, normalizeLeaderboardEmployee]
   );
 
+  // Full standings (rank 1 → last) — powers the side list in the podium hero.
+  const normalizedAllEmployees = useMemo(
+    () => (allEmployeesByScore || []).map((emp) => normalizeLeaderboardEmployee(emp)),
+    [allEmployeesByScore, normalizeLeaderboardEmployee]
+  );
+
+
   // â”€â”€ Module champion lookup map â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // WHY: the previous render path used moduleChampions.find() inside
   // overviewData.map(), producing an O(nÂ²) search on every render. Building
@@ -1128,11 +1160,7 @@ function LeaderBoardCore({
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <>
-      <div className="d-flex align-items-center justify-content-between mb-8 mt-2">
-        <div>
-          <h2 className="fw-bolder text-dark mb-1">Leaderboard Overview</h2>
-          <span className="text-muted fw-bold fs-7">Real-time performance rankings and KPI analytics</span>
-        </div>
+      <div className="d-flex align-items-center justify-content-end mb-2">
         <div className="d-flex align-items-center gap-3">
           <button
             className="btn btn-icon btn-sm btn-active-light-danger bg-transparent border-0 shadow-none"
@@ -1158,48 +1186,62 @@ function LeaderBoardCore({
           1. TOP PERFORMERS
           â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <Row className="gy-5">
-        <CommonCard>
-          <div className="d-flex justify-content-between align-items-center mb-6">
+        <CommonCard styles={{ padding: "18px 22px", marginBottom: "0.75rem" }}>
+          <div className="d-flex justify-content-between align-items-center mb-2">
             <h3 style={{ fontSize: "18px", fontWeight: "bold" }}>Top Performers</h3>
             <button
-              className="btn btn-sm btn-light-primary fw-bolder"
+              className="btn btn-sm fw-bold d-inline-flex align-items-center gap-2"
               onClick={() => setShowAllOverAllEmployeeByScore(true)}
+              style={{
+                borderRadius: "10px",
+                padding: "7px 18px",
+                color: "#9D4141",
+                background: "#fff",
+                border: "1.5px solid #E7C9C9",
+                boxShadow: "0 2px 8px rgba(157,65,65,0.12)",
+                transition: "all 0.18s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#9D4141";
+                e.currentTarget.style.color = "#fff";
+                e.currentTarget.style.borderColor = "#9D4141";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#fff";
+                e.currentTarget.style.color = "#9D4141";
+                e.currentTarget.style.borderColor = "#E7C9C9";
+              }}
             >
-              View All
+              View All <i className="fa-solid fa-arrow-right fs-8" />
             </button>
           </div>
-          <div
-            className="d-flex flex-row align-items-center justify-content-between gap-10 py-5"
-            style={{ overflowX: "auto" }}
-          >
-            {topFiveLoading || isLoading
-              ? SKELETON_IDS_5.map((i) => <SkeletonEmployeeCard key={i} size="lg" />)
-              : normalizedTopFive.map((normalized, i) => (
-                // normalizedTopFive is memoized â€” this .map() only reruns when
-                // topFive changes, not on every parent re-render.
-                <EmployeeCard
-                  key={i}
-                  emp={normalized}
-                  rank={i + 1}
-                  size="lg"
-                  scoreData={{
-                    // Top Overall preview: Score only, no Value row
-                    score: normalized.score,
-                    maxScore: normalized.maxScore,
-                    customScoreColor: "black",
-                  }}
-                />
-              ))}
-          </div>
+          {topFiveLoading || isLoading ? (
+            <div
+              className="d-flex flex-row align-items-center justify-content-between gap-10 py-5"
+              style={{ overflowX: "auto" }}
+            >
+              {SKELETON_IDS_5.map((i) => <SkeletonEmployeeCard key={i} size="lg" />)}
+            </div>
+          ) : (
+            <Suspense
+              fallback={
+                <div className="d-flex flex-row align-items-center justify-content-center gap-10 py-5">
+                  {SKELETON_IDS_5.map((i) => <SkeletonEmployeeCard key={i} size="lg" />)}
+                </div>
+              }
+            >
+              <PodiumHero entries={normalizedTopFive} allEntries={normalizedAllEmployees} />
+            </Suspense>
+          )}
         </CommonCard>
       </Row>
 
       {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           2. TOP PERFORMERS BY MODULES
           â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-      <Row className="mt-7 gy-5">
-        <CommonCard>
-          <h3 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "20px" }}>
+      <Row className="gy-5">
+        <CommonCard styles={{ padding: "18px 22px", marginBottom: "0.75rem" }}>
+          <h3 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "16px" }}>
             Top Performers By Modules
           </h3>
           {modulesLoading || isLoading ? (
@@ -1218,29 +1260,7 @@ function LeaderBoardCore({
                   moduleChampions change, not on every render. */}
               {normalizedOverviewItems.map(({ item, emp }, index) => (
                 <Col key={index} xs={12} sm={6} md={4}>
-                  <div
-                    className="d-flex align-items-center justify-content-between"
-                    style={STYLES.moduleItem}
-                  >
-                    <div className="d-flex align-items-center gap-2" style={{ padding: "6px 8px" }}>
-                      <img src={item.icon} alt={item.label} style={{ width: "20px", height: "20px" }} />
-                      <span>{item.label}</span>
-                    </div>
-                    {emp && (
-                      <EmployeeCard
-                        emp={emp}
-                        size="sm"
-                        scoreData={{
-                          value: emp.value,
-                          maxValue: emp.maxValue,
-                          score: emp.score,
-                          maxScore: emp.maxScore,
-                          isModule: true,
-                          customScoreColor: "black",
-                        }}
-                      />
-                    )}
-                  </div>
+                  <ModuleChampionCard item={item} emp={emp} />
                 </Col>
               ))}
             </Row>
@@ -1252,9 +1272,9 @@ function LeaderBoardCore({
           3. STAR EMPLOYEES
           Section order: Positive KPI â†’ Negative KPI â†’ Leaves
           â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-      <Row className="mt-7">
-        <CommonCard>
-          <h3 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "24px" }}>
+      <Row>
+        <CommonCard styles={{ padding: "18px 22px" }}>
+          <h3 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "18px" }}>
             Star Employees
           </h3>
 

@@ -128,6 +128,7 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     return (
         <>
             <LeaderBoardCore 
+                period="monthly"
                 overviewData={overviewData} 
                 startDate={effectiveStartDate} 
                 endDate={effectiveEndDate} 

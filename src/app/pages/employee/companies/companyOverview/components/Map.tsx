@@ -11,6 +11,7 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { createPortal } from "react-dom";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -107,6 +108,30 @@ function ZoomHandler({ setZoom }: { setZoom: (zoom: number) => void }) {
   return null;
 }
 
+// Reports the current visible bounds so the parent can render ONLY the markers on
+// screen (viewport culling). Every marker still sits exactly where it belongs — the
+// DOM just never holds more than the handful actually in view, which is what keeps
+// panning/zooming smooth no matter how many projects exist.
+function ViewportTracker({ onChange }: { onChange: (bounds: L.LatLngBounds) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    let raf: number | null = null;
+    const report = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => onChange(map.getBounds()));
+    };
+    report();
+    map.on("moveend", report);
+    map.on("zoomend", report);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      map.off("moveend", report);
+      map.off("zoomend", report);
+    };
+  }, [map, onChange]);
+  return null;
+}
+
 // Forces Leaflet to recalculate tile coverage after the container finishes layout
 function MapInvalidator() {
   const map = useMap();
@@ -186,18 +211,37 @@ function MapClickHandler({ onClick }: { onClick: () => void }) {
   return null;
 }
 
+// A fly target is either a point+zoom (search / city / locality) or a bounding box
+// to frame (country / state — so every project in the selection ends up on screen).
+type FlyTarget =
+  | { lat: number; lng: number; zoom: number; duration?: number }
+  | { bounds: L.LatLngBoundsExpression; duration?: number; maxZoom?: number };
+
 function MapFlyHandler({ target, onDone }: {
-  target: { lat: number; lng: number; zoom: number; duration?: number } | null;
+  target: FlyTarget | null;
   onDone: () => void;
 }) {
   const map = useMap();
   useEffect(() => {
     if (!target) return;
-    map.flyTo([target.lat, target.lng], target.zoom, { duration: target.duration ?? 1.2 });
+    if ("bounds" in target) {
+      map.flyToBounds(target.bounds, {
+        padding: [60, 60],
+        duration: target.duration ?? 1.2,
+        maxZoom: target.maxZoom,
+      });
+    } else {
+      map.flyTo([target.lat, target.lng], target.zoom, { duration: target.duration ?? 1.2 });
+    }
     onDone();
   }, [target]);
   return null;
 }
+
+// Stable per-marker key — independent of array position, so viewport culling
+// (which changes how many markers are mapped) never reshuffles identities.
+const getMarkerKey = (loc: any) =>
+  `marker-${loc.id ?? loc.projectId ?? loc.item?.id ?? "x"}-${loc.lat}-${loc.lng}`;
 
 const getInitials = (name: string) => {
   if (!name || typeof name !== "string") return "??";
@@ -247,7 +291,7 @@ const createCustomIcon = (initials: string, color: string, imageUrl?: string, en
 
     // FALLBACK LEVEL 1 & 2: Custom Avatar or Initials
     const html = `
-      <div class="${isAnimating ? 'search-marker-bounce' : ''}" style="position: relative; width: ${size}px; height: ${size}px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: scale(${isRelated ? 1.4 : 1}); z-index: ${isRelated ? 1000 : 0}; opacity: ${isDimmed ? 0.4 : 1};">
+      <div class="${isAnimating ? 'search-marker-bounce' : ''}" style="position: relative; width: ${size}px; height: ${size}px; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease; transform: scale(${isRelated ? 1.4 : 1}); z-index: ${isRelated ? 1000 : 0}; opacity: ${isDimmed ? 0.4 : 1};">
         <div style="
           width: ${size}px; 
           height: ${size}px; 
@@ -309,8 +353,9 @@ const LocationMarker = React.memo(({
   isContact,
   isCompany,
   isProject,
-  zoom,
+  zoomBucket,
   labelMode,
+  showLabel,
   handleGoToLocation,
   activeMarkerId,
   setActiveMarkerId,
@@ -323,8 +368,9 @@ const LocationMarker = React.memo(({
   isContact: boolean;
   isCompany: boolean;
   isProject: boolean;
-  zoom: number;
+  zoomBucket: number;
   labelMode: 'smart' | 'all' | 'none';
+  showLabel: boolean;
   handleGoToLocation: (item: any) => void;
   activeMarkerId: string | null;
   setActiveMarkerId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -347,14 +393,6 @@ const LocationMarker = React.memo(({
 
   // 1. Position Validation
   const position: [number, number] = [loc?.lat, loc?.lng];
-  if (
-    typeof position[0] !== "number" ||
-    typeof position[1] !== "number" ||
-    isNaN(position[0]) ||
-    isNaN(position[1])
-  ) {
-    return null;
-  }
 
   // 2. Safe Data Extraction
   const item = loc.item || loc;
@@ -400,6 +438,12 @@ const LocationMarker = React.memo(({
   const [showConnection, setShowConnection] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
 
+  // zoomBucket (0–4) is computed once in the parent from the live zoom. Because it only
+  // changes when the icon SIZE tier actually changes, this marker doesn't re-render on
+  // every zoom tick — only when crossing a tier boundary. repZoom is a representative
+  // zoom for the bucket so createCustomIcon lands in the matching size branch.
+  const repZoom = [4, 6, 9, 12, 14][zoomBucket] ?? 4;
+
   // 4. Safe Icon handling — warning marker reacts to live isError state
   const icon = useMemo(() => {
     if (isError) {
@@ -418,12 +462,12 @@ const LocationMarker = React.memo(({
       });
     }
     try {
-      const generatedIcon = createCustomIcon(initials, markerColor, imageUrl, loc.entityType, isRelated, isDimmed as boolean, isAnimating, zoom, isProject);
+      const generatedIcon = createCustomIcon(initials, markerColor, imageUrl, loc.entityType, isRelated, isDimmed as boolean, isAnimating, repZoom, isProject);
       return generatedIcon;
     } catch (error) {
       return L.divIcon({ html: '<div style="background: #3498db; width: 20px; height: 20px; border-radius: 50%;"></div>' });
     }
-  }, [initials, markerColor, imageUrl, isError, isRelated, isDimmed, isAnimating, zoom]);
+  }, [initials, markerColor, imageUrl, isError, isRelated, isDimmed, isAnimating, repZoom, isProject, loc.entityType]);
 
 
   const popupAddress = useMemo(() => {
@@ -456,6 +500,16 @@ const LocationMarker = React.memo(({
       }
     },
   }), [id, setActiveMarkerId, setActiveCompany, item, loc.entityType]);
+
+  // Position Validation (moved after hooks to satisfy rules-of-hooks)
+  if (
+    typeof position[0] !== "number" ||
+    typeof position[1] !== "number" ||
+    isNaN(position[0]) ||
+    isNaN(position[1])
+  ) {
+    return null;
+  }
 
   const handleNavigation = () => {
     if (!entityId) return;
@@ -574,8 +628,10 @@ const LocationMarker = React.memo(({
           }}
         />
       )}
-      {/* Progressive Disclosure Label Rule: Show when all mode, smart mode with zoom >= 10, or hovered/active. Hidden entirely in 'none' mode. */}
-      {labelMode !== 'none' && ((labelMode === 'all') || (labelMode === 'smart' && zoom >= 10) || isActive) && (
+      {/* Label visibility is decided by the parent's decluttering pass (grid-thinned +
+          capped) and passed down as showLabel — so we never paint hundreds of
+          overlapping permanent tooltips. The active marker always keeps its label. */}
+      {labelMode !== 'none' && (showLabel || isActive) && (
         <Tooltip
           key={`tooltip-${id}-${position[0]}-${position[1]}`}
           permanent
@@ -587,7 +643,7 @@ const LocationMarker = React.memo(({
             <span style={{ fontWeight: 700 }}>
               {itemTitle && itemTitle.length > 25 ? `${itemTitle.substring(0, 25)}...` : itemTitle}
             </span>
-            {(zoom >= 13 || isActive) && (
+            {(zoomBucket >= 4 || isActive) && (
               <span style={{ fontSize: "10px", color: isActive ? "#ffffff" : "#666", textTransform: "capitalize" }}>
                 {loc.entityType || loc.country || "Location"}
               </span>
@@ -859,6 +915,132 @@ const LocationMarker = React.memo(({
   );
 });
 
+// Premium custom filter dropdown — replaces the native <select> so the options
+// panel isn't at the mercy of the OS (which painted it red, inheriting the active
+// pill's background). The panel is portaled to <body> so it escapes both the pills'
+// horizontal overflow clipping and the filter bar's transform context.
+type PillOption = { name: string; count: number };
+
+const PillDropdown = ({
+  value,
+  options,
+  placeholder,
+  disabled = false,
+  active = false,
+  minWidth = 140,
+  ariaLabel,
+  disabledText,
+  onChange,
+}: {
+  value: string | null;
+  options: PillOption[];
+  placeholder: string;
+  disabled?: boolean;
+  active?: boolean;
+  minWidth?: number;
+  ariaLabel?: string;
+  disabledText?: string;
+  onChange: (val: string | null) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  const reposition = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const width = Math.max(r.width, 230);
+    let left = r.left;
+    if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+    if (left < 8) left = 8;
+    setPos({ top: r.bottom + 6, left, width });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    reposition();
+    const onScroll = () => reposition();
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onDown = (e: MouseEvent) => {
+      if (panelRef.current?.contains(e.target as Node)) return;
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [open, reposition]);
+
+  const selected = value ? options.find(o => o.name === value) : undefined;
+  const label = value ? `${value}${selected ? ` (${selected.count})` : ""}` : placeholder;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`pill-dd ${active ? "active" : ""}`}
+        disabled={disabled}
+        style={{ minWidth }}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        title={disabled ? disabledText : undefined}
+        onClick={() => { if (!disabled) setOpen(o => !o); }}
+      >
+        <span className="pill-dd-label">{label}</span>
+        <i className="bi bi-chevron-down pill-dd-caret" />
+      </button>
+
+      {open && pos && createPortal(
+        <div
+          ref={panelRef}
+          className="pill-dd-panel"
+          role="listbox"
+          aria-label={ariaLabel}
+          style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.width }}
+        >
+          <button
+            type="button"
+            className={`pill-dd-option ${!value ? "selected" : ""}`}
+            role="option"
+            aria-selected={!value}
+            onClick={() => { onChange(null); setOpen(false); }}
+          >
+            <span className="pill-dd-check">{!value ? "✓" : ""}</span>
+            <span className="pill-dd-name">{placeholder}</span>
+          </button>
+          {options.map(({ name, count }) => (
+            <button
+              key={name}
+              type="button"
+              className={`pill-dd-option ${value === name ? "selected" : ""}`}
+              role="option"
+              aria-selected={value === name}
+              title={name}
+              onClick={() => { onChange(name); setOpen(false); }}
+            >
+              <span className="pill-dd-check">{value === name ? "✓" : ""}</span>
+              <span className="pill-dd-name">{name}</span>
+              <span className="pill-dd-count">{count}</span>
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
+
 export default function Maps({
   points,
   projectData,
@@ -880,7 +1062,8 @@ export default function Maps({
   const [isWorldFilter, setIsWorldFilter] = useState(false);
   const [activeCompany, setActiveCompany] = useState<any | null>(null);
   const [labelMode, setLabelMode] = useState<'smart' | 'all' | 'none'>(getStoredLabelMode);
-  const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; zoom: number; duration?: number } | null>(null);
+  const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
+  const [viewBounds, setViewBounds] = useState<L.LatLngBounds | null>(null);
 
   const [isLabelPanelExpanded, setIsLabelPanelExpanded] = useState(false);
   const labelPanelRef = useRef<HTMLDivElement>(null);
@@ -1049,6 +1232,56 @@ export default function Maps({
     });
   }, [locations, isProject, selectedCountry, selectedState, selectedCity, selectedLocality, isWorldFilter]);
 
+  // Viewport culling: render only the markers inside the visible area (+ 40% buffer
+  // so markers just off-screen are ready before they scroll into view). Every marker
+  // stays exactly where it belongs — we simply never mount the ones you can't see,
+  // which keeps panning/zooming smooth however large the dataset grows.
+  const visibleLocations = useMemo(() => {
+    if (!viewBounds) return filteredLocations;
+    const padded = viewBounds.pad(0.4);
+    return filteredLocations.filter(loc =>
+      padded.contains([loc.lat, loc.lng] as L.LatLngTuple)
+    );
+  }, [filteredLocations, viewBounds]);
+
+  // Icon size tier (0–4). Passing this to markers instead of the raw zoom means they
+  // only re-render when the tier actually changes — not on every zoom tick — so zooming
+  // stays smooth even with the whole dataset on screen.
+  const zoomBucket = zoom < 5 ? 0 : zoom < 7 ? 1 : zoom < 10 ? 2 : zoom < 13 ? 3 : 4;
+
+  // ── Label decluttering (the "magic spell" for All Labels) ──────────────────────
+  // Rendering a permanent tooltip per marker is what crashes/lags "All labels" over a
+  // dense region — Leaflet repositions every tooltip on every pan frame. Enterprise maps
+  // never do that; they show a NON-OVERLAPPING, capped subset. We bucket the visible
+  // markers into a viewport grid and keep at most one label per cell (so labels never
+  // stack), hard-capped. Zoom in → each cell covers less ground → more labels resolve,
+  // until (in a city) effectively all of them show. Smart mode only labels once zoomed in.
+  const MAX_LABELS = 70;
+  const labeledIds = useMemo(() => {
+    const set = new Set<string>();
+    if (labelMode === 'none') return set;
+    if (labelMode === 'smart' && zoomBucket < 3) return set;
+    if (!viewBounds) return set;
+
+    const sw = viewBounds.getSouthWest();
+    const ne = viewBounds.getNorthEast();
+    const latSpan = (ne.lat - sw.lat) || 1;
+    const lngSpan = (ne.lng - sw.lng) || 1;
+    const COLS = 12, ROWS = 8; // ≤96 cells → labels stay sparse and non-overlapping
+    const occupied = new Set<string>();
+
+    for (const loc of visibleLocations) {
+      if (set.size >= MAX_LABELS) break;
+      const col = Math.floor(((loc.lng - sw.lng) / lngSpan) * COLS);
+      const row = Math.floor(((loc.lat - sw.lat) / latSpan) * ROWS);
+      const cell = `${col}:${row}`;
+      if (occupied.has(cell)) continue;
+      occupied.add(cell);
+      set.add(getMarkerKey(loc));
+    }
+    return set;
+  }, [labelMode, zoomBucket, viewBounds, visibleLocations]);
+
   useEffect(() => {
     if (!points || !Array.isArray(points) || points.length === 0) {
       setLocations([]);
@@ -1113,6 +1346,20 @@ export default function Maps({
     return { lat, lng };
   }, []);
 
+  // Bounding box of a set of locations — used to frame a whole country/state so all
+  // its projects fit on screen (better than centre+fixed-zoom for large regions).
+  const computeBounds = useCallback((locs: typeof locations): L.LatLngBoundsExpression | null => {
+    if (!locs.length) return null;
+    let minLat = Infinity, minLng = Infinity, maxLat = -Infinity, maxLng = -Infinity;
+    for (const l of locs) {
+      if (l.lat < minLat) minLat = l.lat;
+      if (l.lat > maxLat) maxLat = l.lat;
+      if (l.lng < minLng) minLng = l.lng;
+      if (l.lng > maxLng) maxLng = l.lng;
+    }
+    return [[minLat, minLng], [maxLat, maxLng]];
+  }, []);
+
   // After filteredLocations updates, resolve a pending marker highlight from search
   useEffect(() => {
     if (!pendingHighlightId) return;
@@ -1123,7 +1370,7 @@ export default function Maps({
     );
     if (idx >= 0) {
       const loc = filteredLocations[idx];
-      setActiveMarkerId(`marker-${idx}-${loc.lat}-${loc.lng}`);
+      setActiveMarkerId(getMarkerKey(loc));
       setPendingHighlightId(null);
     }
   }, [filteredLocations, pendingHighlightId]);
@@ -1352,6 +1599,7 @@ export default function Maps({
             left: 10px !important;
             right: 10px !important;
             transform: none !important;          /* CRITICAL: kills translateX(-50%) */
+            animation: none !important;          /* entrance keyframe uses translateX(-50%) — off on mobile */
             display: flex !important;            /* stretch to fill left→right */
             padding: 6px 10px !important;
             border-radius: 12px !important;
@@ -1530,8 +1778,8 @@ export default function Maps({
         .mf-btn-apply:hover { background: ${PROJECT_FILTER_THEME.primaryDark}; }
 
         .leaflet-tooltip-top:before { display: none !important; }
-        .custom-marker-icon { 
-          background: none !important; 
+        .custom-marker-icon {
+          background: none !important;
           border: none !important;
         }
 
@@ -1568,6 +1816,10 @@ export default function Maps({
         }
         
         /* Filter Bar — centered auto-width, two sections: scrollable pills + fixed search */
+        @keyframes filterBarIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
         .floating-filter-bar {
           position: absolute;
           top: 16px;
@@ -1576,12 +1828,20 @@ export default function Maps({
           z-index: 1000;
           display: inline-flex;
           align-items: center;
-          padding: 7px 14px;
-          background: #ffffff;
-          border-radius: 14px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06);
-          border: 1px solid #e2e8f0;
+          gap: 2px;
+          padding: 7px 12px;
+          /* Frosted-glass map overlay — sits over the tiles like a premium control */
+          background: rgba(255, 255, 255, 0.72);
+          -webkit-backdrop-filter: blur(16px) saturate(180%);
+          backdrop-filter: blur(16px) saturate(180%);
+          border-radius: 16px;
+          box-shadow:
+            0 10px 30px rgba(15, 23, 42, 0.14),
+            0 2px 8px rgba(15, 23, 42, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.65);
+          border: 1px solid rgba(255, 255, 255, 0.6);
           min-height: 48px;
+          animation: filterBarIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
           /* The map wrapper bleeds 7rem past the visible area (negative margins), and the
              layers control sits top-right — so reserve 15rem of horizontal room. Otherwise
              the bar grows wider than what's on screen, the pills don't trigger their scroll,
@@ -1622,94 +1882,165 @@ export default function Maps({
 
         .filter-divider {
           width: 1px;
-          height: 18px;
-          background: #e2e8f0;
+          height: 20px;
+          background: linear-gradient(to bottom, transparent, #dbe1ea 22%, #dbe1ea 78%, transparent);
           flex-shrink: 0;
-          margin: 0 2px;
+          margin: 0 4px;
         }
 
-        .pill-select {
-          padding: 5px 32px 5px 12px;
+        /* ── Custom filter dropdown (trigger pill) ─────────────────── */
+        .pill-dd {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 13px;
           border-radius: 999px;
-          border: 1px solid #e2e8f0;
-          background-color: #f8fafc;
-          background-image: url("data:image/svg+xml;utf8,<svg fill='%23475569' height='20' viewBox='0 0 20 20' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M5.5 7.5l4.5 5 4.5-5z'/></svg>");
-          background-repeat: no-repeat;
-          background-position: right 10px center;
-          background-size: 14px;
+          border: 1px solid rgba(226, 232, 240, 0.9);
+          background: rgba(255, 255, 255, 0.7);
           font-size: 13px;
           font-weight: 500;
           color: #1e293b;
           cursor: pointer;
-          transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-          outline: none;
-          appearance: none;
-          -webkit-appearance: none;
-          -moz-appearance: none;
           white-space: nowrap;
           flex-shrink: 0;
+          max-width: 260px;
+          outline: none;
+          transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
         }
-        .pill-select:hover {
-          background-color: #f1f5f9;
+        .pill-dd:hover:not(:disabled) {
+          background: #ffffff;
           border-color: #cbd5e1;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+          box-shadow: 0 3px 10px rgba(15, 23, 42, 0.10);
+          transform: translateY(-1px);
         }
-        .pill-select:focus {
-          border-color: #93c5fd;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        .pill-dd:focus-visible {
+          border-color: ${PROJECT_FILTER_THEME.primary};
+          box-shadow: 0 0 0 3px ${PROJECT_FILTER_THEME.shadow};
         }
-        .pill-select.active {
-          background-color: ${PROJECT_FILTER_THEME.primary};
+        .pill-dd.active {
+          background: ${PROJECT_FILTER_THEME.primary};
           border-color: ${PROJECT_FILTER_THEME.primaryDark};
           color: #ffffff;
-          background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 20 20' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M5.5 7.5l4.5 5 4.5-5z'/></svg>");
+          box-shadow: 0 4px 14px ${PROJECT_FILTER_THEME.shadow};
         }
-        .pill-select.active:hover {
-          background-color: ${PROJECT_FILTER_THEME.primaryDark};
-          border-color: ${PROJECT_FILTER_THEME.primaryDark};
+        .pill-dd.active:hover {
+          background: ${PROJECT_FILTER_THEME.primaryDark};
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px ${PROJECT_FILTER_THEME.shadow};
         }
-        .pill-select:disabled {
+        .pill-dd:disabled {
           opacity: 0.5;
           cursor: not-allowed;
-          background-color: #f8fafc;
+          background: rgba(248, 250, 252, 0.6);
           color: #94a3b8;
-          border-color: #e2e8f0;
+          border-color: #e8edf3;
         }
-        .pill-select:disabled:hover {
-          background-color: #f8fafc;
-          border-color: #e2e8f0;
-          box-shadow: none;
-        }
+        .pill-dd-label { overflow: hidden; text-overflow: ellipsis; }
+        .pill-dd-caret { font-size: 10px; opacity: 0.6; transition: transform 0.2s ease; }
+        .pill-dd[aria-expanded="true"] .pill-dd-caret { transform: rotate(180deg); }
 
-        .pill-button {
-          padding: 5px 13px;
-          border-radius: 999px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
+        /* ── Custom filter dropdown (options panel — neutral & premium) ── */
+        .pill-dd-panel {
+          z-index: 4000;
+          background: #ffffff;
+          border: 1px solid #e6eaf0;
+          border-radius: 14px;
+          box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(15, 23, 42, 0.08);
+          padding: 6px;
+          max-height: 320px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-width: thin;
+          scrollbar-color: #d7dee7 transparent;
+          transform-origin: top center;
+          animation: pillDdIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes pillDdIn {
+          from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .pill-dd-panel::-webkit-scrollbar { width: 10px; }
+        .pill-dd-panel::-webkit-scrollbar-track { background: transparent; }
+        .pill-dd-panel::-webkit-scrollbar-thumb { background: #d7dee7; border-radius: 999px; border: 3px solid #ffffff; }
+        .pill-dd-panel::-webkit-scrollbar-thumb:hover { background: #c2cbd6; }
+        .pill-dd-option {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          padding: 9px 10px;
+          border: none;
+          background: none;
+          cursor: pointer;
+          border-radius: 9px;
           font-size: 13px;
           font-weight: 500;
-          color: #1e293b;
+          color: #334155;
+          text-align: left;
+          font-family: inherit;
+          transition: background 0.12s ease, color 0.12s ease;
+        }
+        .pill-dd-option:hover { background: #f1f5f9; color: #0f172a; }
+        .pill-dd-option.selected { background: #f3f5f9; color: #0f172a; font-weight: 600; }
+        .pill-dd-option.selected:hover { background: #eaeef4; }
+        .pill-dd-check {
+          width: 14px;
+          flex-shrink: 0;
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 700;
+          display: inline-flex;
+          justify-content: center;
+        }
+        .pill-dd-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pill-dd-count {
+          flex-shrink: 0;
+          font-size: 11px;
+          font-weight: 600;
+          color: #64748b;
+          background: #eef2f7;
+          border-radius: 999px;
+          padding: 1px 8px;
+          min-width: 24px;
+          text-align: center;
+        }
+        .pill-dd-option:hover .pill-dd-count { background: #e2e8f0; }
+        .pill-dd-option.selected .pill-dd-count { background: #e2e8f0; }
+
+        .pill-button {
+          padding: 6px 14px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.7);
+          border: 1px solid rgba(226, 232, 240, 0.9);
+          font-size: 13px;
+          font-weight: 600;
+          color: #334155;
           cursor: pointer;
-          transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+          transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
           white-space: nowrap;
           line-height: 1.4;
           display: flex;
           align-items: center;
         }
         .pill-button:hover {
-          background: #f1f5f9;
+          background: #ffffff;
           border-color: #cbd5e1;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+          box-shadow: 0 3px 10px rgba(15, 23, 42, 0.10);
+          transform: translateY(-1px);
         }
         .pill-button.active {
-          background: ${PROJECT_FILTER_THEME.primary};
+          background: linear-gradient(135deg, #c6474b 0%, ${PROJECT_FILTER_THEME.primary} 55%, ${PROJECT_FILTER_THEME.primaryDark} 100%);
           border-color: ${PROJECT_FILTER_THEME.primaryDark};
           color: #ffffff;
+          box-shadow: 0 4px 14px ${PROJECT_FILTER_THEME.shadow}, inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
         .pill-button.active:hover {
-          background: ${PROJECT_FILTER_THEME.primaryDark};
+          background: linear-gradient(135deg, #cf4d51 0%, ${PROJECT_FILTER_THEME.primaryDark} 100%);
           border-color: ${PROJECT_FILTER_THEME.primaryDark};
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px ${PROJECT_FILTER_THEME.shadow}, inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
+        .pill-button:active { transform: translateY(0); }
         .total-badge {
           background: #eff6ff;
           color: #1d4ed8;
@@ -1734,15 +2065,19 @@ export default function Maps({
           display: flex;
           align-items: center;
           gap: 6px;
-          padding: 5px 10px;
+          padding: 6px 12px;
           border-radius: 999px;
-          border: 1px solid #e2e8f0;
-          background: #f8fafc;
-          transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+          border: 1px solid rgba(226, 232, 240, 0.9);
+          background: rgba(255, 255, 255, 0.7);
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+        .map-search-row:hover {
+          border-color: #cbd5e1;
+          background: #ffffff;
         }
         .map-search-row:focus-within {
-          border-color: #93c5fd;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+          border-color: ${PROJECT_FILTER_THEME.primary};
+          box-shadow: 0 0 0 3px ${PROJECT_FILTER_THEME.shadow};
           background: #ffffff;
         }
         .map-search-input {
@@ -2220,56 +2555,61 @@ export default function Maps({
             <div className="filter-divider" />
 
             {/* Country */}
-            <select
-              className={`pill-select ${selectedCountry ? 'active' : ''}`}
-              value={selectedCountry || ""}
+            <PillDropdown
+              ariaLabel="Filter by country"
+              placeholder={isWorldFilter ? "N/A" : "All Countries"}
               disabled={isWorldFilter}
-              style={{ minWidth: 150 }}
-              onChange={(e) => {
-                setSelectedCountry(e.target.value || null);
+              disabledText="Disabled in World view"
+              active={!!selectedCountry}
+              value={selectedCountry}
+              minWidth={150}
+              options={isWorldFilter ? [] : Object.entries(filterOptions.countries).sort().map(([name, count]) => ({ name, count: count as number }))}
+              onChange={(val) => {
+                setSelectedCountry(val);
                 setSelectedState(null);
                 setSelectedCity(null);
                 setSelectedLocality(null);
+                if (val) {
+                  const countryLocs = locations.filter(loc => loc.country === val);
+                  const bounds = computeBounds(countryLocs);
+                  if (bounds) setFlyTarget({ bounds, maxZoom: 6 });
+                }
               }}
-              aria-label="Filter by country"
-              title={isWorldFilter ? "Disabled in World view" : undefined}
-            >
-              <option value="">{isWorldFilter ? "N/A" : "All Countries"}</option>
-              {!isWorldFilter && Object.entries(filterOptions.countries).sort().map(([name, count]) => (
-                <option key={name} value={name}>{name} ({count})</option>
-              ))}
-            </select>
+            />
 
             {/* State */}
-            <select
-              className={`pill-select ${selectedState ? 'active' : ''}`}
-              value={selectedState || ""}
+            <PillDropdown
+              ariaLabel="Filter by state"
+              placeholder={isWorldFilter ? "N/A" : selectedCountry ? "All States" : "Select Country"}
               disabled={isWorldFilter || !selectedCountry}
-              style={{ minWidth: 140 }}
-              onChange={(e) => {
-                setSelectedState(e.target.value || null);
+              disabledText={isWorldFilter ? "Disabled in World view" : "Select a country first"}
+              active={!!selectedState}
+              value={selectedState}
+              minWidth={140}
+              options={selectedCountry && !isWorldFilter ? Object.entries(filterOptions.states).sort().map(([name, count]) => ({ name, count: count as number })) : []}
+              onChange={(val) => {
+                setSelectedState(val);
                 setSelectedCity(null);
                 setSelectedLocality(null);
+                if (val) {
+                  const stateLocs = locations.filter(loc => loc.state === val && loc.country === selectedCountry);
+                  const bounds = computeBounds(stateLocs);
+                  if (bounds) setFlyTarget({ bounds, maxZoom: 9 });
+                }
               }}
-              aria-label="Filter by state"
-              title={isWorldFilter ? "Disabled in World view" : !selectedCountry ? "Select a country first" : undefined}
-            >
-              <option value="">
-                {isWorldFilter ? "N/A" : selectedCountry ? "All States" : "Select Country"}
-              </option>
-              {selectedCountry && !isWorldFilter && Object.entries(filterOptions.states).sort().map(([name, count]) => (
-                <option key={name} value={name}>{name} ({count})</option>
-              ))}
-            </select>
+            />
 
             {/* City */}
-            <select
-              className={`pill-select ${selectedCity ? 'active' : ''}`}
-              value={selectedCity || ""}
+            <PillDropdown
+              ariaLabel="Filter by city"
+              placeholder={isWorldFilter ? "N/A" : selectedState ? "All Cities" : "Select State"}
               disabled={isWorldFilter || !selectedState}
-              style={{ minWidth: 130 }}
-              onChange={(e) => {
-                const city = e.target.value || null;
+              disabledText={isWorldFilter ? "Disabled in World view" : "Select a state first"}
+              active={!!selectedCity}
+              value={selectedCity}
+              minWidth={130}
+              options={selectedState && !isWorldFilter ? Object.entries(filterOptions.cities).sort().map(([name, count]) => ({ name, count: count as number })) : []}
+              onChange={(city) => {
                 setSelectedCity(city);
                 setSelectedLocality(null);
                 if (city) {
@@ -2278,25 +2618,19 @@ export default function Maps({
                   if (centroid) setFlyTarget({ ...centroid, zoom: 11 });
                 }
               }}
-              aria-label="Filter by city"
-              title={isWorldFilter ? "Disabled in World view" : !selectedState ? "Select a state first" : undefined}
-            >
-              <option value="">
-                {isWorldFilter ? "N/A" : selectedState ? "All Cities" : "Select State"}
-              </option>
-              {selectedState && !isWorldFilter && Object.entries(filterOptions.cities).sort().map(([name, count]) => (
-                <option key={name} value={name}>{name} ({count})</option>
-              ))}
-            </select>
+            />
 
             {/* Locality */}
-            <select
-              className={`pill-select ${selectedLocality ? 'active' : ''}`}
-              value={selectedLocality || ""}
+            <PillDropdown
+              ariaLabel="Filter by locality"
+              placeholder={isWorldFilter ? "N/A" : selectedCity ? "All Localities" : "Select City"}
               disabled={isWorldFilter || !selectedCity}
-              style={{ minWidth: 130 }}
-              onChange={(e) => {
-                const locality = e.target.value || null;
+              disabledText={isWorldFilter ? "Disabled in World view" : "Select a city first"}
+              active={!!selectedLocality}
+              value={selectedLocality}
+              minWidth={130}
+              options={selectedCity && !isWorldFilter ? Object.entries(filterOptions.localities).sort().map(([name, count]) => ({ name, count: count as number })) : []}
+              onChange={(locality) => {
                 setSelectedLocality(locality);
                 if (locality) {
                   const localityLocs = locations.filter(loc => loc.locality === locality && loc.city === selectedCity);
@@ -2304,16 +2638,7 @@ export default function Maps({
                   if (centroid) setFlyTarget({ ...centroid, zoom: 14 });
                 }
               }}
-              aria-label="Filter by locality"
-              title={isWorldFilter ? "Disabled in World view" : !selectedCity ? "Select a city first" : undefined}
-            >
-              <option value="">
-                {isWorldFilter ? "N/A" : selectedCity ? "All Localities" : "Select City"}
-              </option>
-              {selectedCity && !isWorldFilter && Object.entries(filterOptions.localities).sort().map(([name, count]) => (
-                <option key={name} value={name}>{name} ({count})</option>
-              ))}
-            </select>
+            />
 
             {/* Clear — visible when any filter is active */}
             {(selectedCountry || selectedState || selectedCity || selectedLocality || isWorldFilter) && (
@@ -2489,6 +2814,7 @@ export default function Maps({
         className={isProject ? "map-leaflet--project" : "map-leaflet--entity"}
         style={{ width: "100%", minHeight: "500px" }}
         zoomControl={false}
+        preferCanvas={true}
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
@@ -2552,8 +2878,11 @@ export default function Maps({
           </Marker>
         )}
 
-        {filteredLocations.map((loc, idx) => {
-          const uniqueId = `marker-${idx}-${loc.lat}-${loc.lng}`;
+        {/* Viewport culling keeps this fast: only the markers currently on screen
+            are mounted, but each one sits exactly where it's placed (no clustering). */}
+        <ViewportTracker onChange={setViewBounds} />
+        {visibleLocations.map((loc) => {
+          const uniqueId = getMarkerKey(loc);
           const isAnimating = animatedProjectId === String(loc.id || loc.projectId || loc.item?.id);
           return (
             <LocationMarker
@@ -2563,8 +2892,9 @@ export default function Maps({
               isContact={isContact}
               isCompany={isCompany}
               isProject={isProject}
-              zoom={zoom}
+              zoomBucket={zoomBucket}
               labelMode={labelMode}
+              showLabel={labeledIds.has(uniqueId)}
               handleGoToLocation={handleGoToLocation}
               activeMarkerId={activeMarkerId}
               setActiveMarkerId={setActiveMarkerId}

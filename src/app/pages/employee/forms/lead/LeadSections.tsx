@@ -349,9 +349,10 @@ export const TeamDetailsSection: React.FC<LeadSectionsProps> = (props) => {
 export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
   const allCompanies = props.companies || [];
+  const allCompanyTypes = props.companyTypes || [];
 
   const selectedType = values.fileLocationCompanyType;
-  const selectedCompany = allCompanies.find((c: any) => c.id === values.fileLocationCompany);
+  const selectedCompany = allCompanies.find((c: any) => String(c.id) === String(values.fileLocationCompany));
 
   // Keep Type in sync with Company even for pre-existing/legacy data saved before
   // this pairing existed (Company set, Type left blank) — backfill it on load too,
@@ -368,6 +369,30 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
     ? allCompanies.filter((c: any) => String(c.companyTypeId) === String(selectedType))
     : allCompanies;
 
+  // Build option lists that ALWAYS include the currently-saved value, so an existing
+  // lead pre-populates on edit — even when the saved Type isn't an "(All)" category
+  // (the reverse-cascade stores a company's specific type) or the saved Company falls
+  // outside the active type filter. Without this the dropdowns render empty on edit.
+  const typeOptions = (() => {
+    const opts = allCompanyTypes
+      .filter((x: any) => x.name?.includes('(All)'))
+      .map((x: any) => ({ value: x.id, label: x.name }));
+    if (selectedType && !opts.some((o: any) => String(o.value) === String(selectedType))) {
+      const saved = allCompanyTypes.find((x: any) => String(x.id) === String(selectedType));
+      if (saved) opts.unshift({ value: saved.id, label: saved.name });
+    }
+    return opts;
+  })();
+
+  const companyOptions = (() => {
+    const opts = filteredCompanies.map((x: any) => ({ value: x.id, label: x.companyName, avatar: x.logo || null }));
+    if (values.fileLocationCompany && !opts.some((o: any) => String(o.value) === String(values.fileLocationCompany))) {
+      const saved = allCompanies.find((c: any) => String(c.id) === String(values.fileLocationCompany));
+      if (saved) opts.unshift({ value: saved.id, label: saved.companyName, avatar: saved.logo || null });
+    }
+    return opts;
+  })();
+
   return (
     <div className="wt-section-card">
       <div className="wt-section-heading">
@@ -379,9 +404,7 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
             isRequired={false}
             formikField="fileLocationCompanyType"
             inputLabel="Company Type In Computer Folder"
-            options={(props.companyTypes || [])
-              .filter(x => x.name.includes('(All)'))
-              .map(x => ({ value: x.id, label: x.name }))}
+            options={typeOptions}
             onChange={(opt: any) => {
               const typeId = opt?.value || "";
               setFieldValue("fileLocationCompanyType", typeId);
@@ -402,7 +425,7 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
             isRequired={false}
             formikField="fileLocationCompany"
             inputLabel="Company Name In Computer Folder"
-            options={filteredCompanies.map((x: any) => ({ value: x.id, label: x.companyName, avatar: x.logo || null }))}
+            options={companyOptions}
             showColor
             onChange={(opt: any) => {
               const companyId = opt?.value || "";

@@ -67,6 +67,10 @@ function HiringInfo({ formikProps, rejoinRows = [], onAddRejoin, onRemoveRejoin 
                         placeHolder="Date Of Joining"
                         maxDate={true}
                     />
+                    <div className="form-text text-warning mt-1">
+                        <i className="fa-solid fa-triangle-exclamation me-1" />
+                        Please review the Date of Joining once — it drives payroll and leave calculations.
+                    </div>
                 </div>
 
                 <div className="col-lg-4 col-md-6 col-sm-12">

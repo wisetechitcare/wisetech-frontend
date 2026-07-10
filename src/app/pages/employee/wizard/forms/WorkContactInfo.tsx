@@ -7,7 +7,7 @@ function WorkContactInfo({ formikProps }: { formikProps: any }) {
       <div className="row">
         <div className="col-lg-6 col-md-6 col-sm-12 mb-3 mb-lg-0">
           <TextInput
-            isRequired={false}
+            isRequired={true}
             label="Work Email Address"
             formikField="companyEmailId"
           />
@@ -15,7 +15,7 @@ function WorkContactInfo({ formikProps }: { formikProps: any }) {
 
         <div className="col-lg-6 col-md-6 col-sm-12">
           <PhoneNumberInput
-            isRequired={false}
+            isRequired={true}
             label="Work Mobile Number"
             formikField="companyPhoneNumber"
             formikProps={formikProps}
