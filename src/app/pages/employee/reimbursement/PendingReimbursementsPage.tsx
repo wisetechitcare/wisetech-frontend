@@ -1192,24 +1192,60 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
               permissionConstToUseWithHasPermission.create
             ) && (
               <button
-                className='d-flex justify-content-between align-items-center bg-primary btn btn-lg btn-primary fs-5 w-auto'
                 onClick={handleNew}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  padding: '7px 14px',
+                  border: '1.5px solid #e2e8f0',
+                  borderRadius: '6px',
+                  background: '#f8fafc',
+                  color: '#475569',
+                  fontWeight: 500,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
               >
-                <div>Add Reimbursement Request</div>
+                <KTIcon iconName='plus' className='fs-6' />
+                <span>Add Reimbursement Request</span>
               </button>
             )}
             {drafts.length > 0 && (
               <button
-                className='btn btn-lg d-flex align-items-center gap-2'
-                style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
                 onClick={handleSendForApproval}
                 disabled={submitting}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  padding: '7px 14px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: '#16a34a',
+                  color: '#fff',
+                  fontWeight: 500,
+                  fontSize: '12px',
+                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 6px rgba(22, 163, 74, 0.2)',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  opacity: submitting ? 0.7 : 1
+                }}
+                onMouseEnter={e => { if (!submitting) { (e.currentTarget as HTMLButtonElement).style.background = '#15803d'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(22, 163, 74, 0.3)'; } }}
+                onMouseLeave={e => { if (!submitting) { (e.currentTarget as HTMLButtonElement).style.background = '#16a34a'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(22, 163, 74, 0.2)'; } }}
               >
                 {submitting
-                  ? <span className='spinner-border spinner-border-sm me-2' />
-                  : <KTIcon iconName='send' className='fs-4 text-white' />
+                  ? <span className='spinner-border spinner-border-sm' style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
+                  : <KTIcon iconName='send' className='fs-6 text-white' />
                 }
-                {submitting ? 'Submitting...' : 'Send for Approval'}
+                <span>{submitting ? 'Submitting...' : 'Send for Approval'}</span>
               </button>
             )}
           </div>

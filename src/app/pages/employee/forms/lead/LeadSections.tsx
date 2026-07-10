@@ -178,7 +178,6 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
               <div className="d-flex flex-column gap-4">
                 {(values.leadTeams || []).map((team: any, index: number) => {
                   const sortedCompanyTypes = (props.companyTypes || [])
-                    .filter(x => x.name.includes('(All)'))
                     .map(x => ({ value: x.id, label: x.name }));
                   let filteredCompanies = props.companies || [];
                   if (team.companyTypeId) {
@@ -594,7 +593,6 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                     <React.Fragment>
                       {(() => {
                         const sortedCompanyTypes = (props.companyTypes || [])
-                          .filter(x => x.name.includes('(All)'))
                           .map(x => ({ value: x.id, label: x.name }));
 
                         let filteredCompanies = props.companies || [];

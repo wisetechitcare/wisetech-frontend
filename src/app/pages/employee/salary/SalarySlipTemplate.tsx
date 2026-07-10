@@ -60,7 +60,7 @@ function numberToWords(n: number): string {
 }
 
 const fmtDate = (iso?: string) => {
-  if (!iso) return '—';
+  if (!iso) return 'N/A';
   return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 const nowStr = () => {
@@ -342,14 +342,14 @@ export default function SalarySlipTemplate({
 
   // Employee data
   const empName = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim();
-  const empId = (employee as any)?.wiseEmployeeId || (employee as any)?.employeeCode || '—';
-  const designation = (employee as any)?.designation?.name || (employee as any)?.designationName || '—';
-  const department = (employee as any)?.department?.name || (employee as any)?.departmentName || '—';
-  const doj = employee?.dateOfJoining ? fmtDate(employee.dateOfJoining as string) : '—';
+  const empId = (employee as any)?.wiseEmployeeId || (employee as any)?.employeeCode || 'N/A';
+  const designation = (employee as any)?.designations?.role || 'N/A';
+  const department = (employee as any)?.departments?.name || 'N/A';
+  const doj = employee?.dateOfJoining ? fmtDate(employee.dateOfJoining as string) : 'N/A';
   const empType = (employee as any)?.employeeType || 'Full Time';
-  const bankName = (employee as any)?.bankName || '—';
-  const acctLast4 = (employee as any)?.accountNumber ? `**** ${String((employee as any).accountNumber).slice(-4)}` : '—';
-  const uanNo = (employee as any)?.uan || (employee as any)?.pfNumber || '—';
+  const bankName = (employee as any)?.bankName || 'N/A';
+  const acctLast4 = (employee as any)?.accountNumber ? `**** ${String((employee as any).accountNumber).slice(-4)}` : 'N/A';
+  const uanNo = (employee as any)?.uan || (employee as any)?.pfNumber || 'N/A';
   const initials = empName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() || '?';
   const avatarSrc = employee?.avatar;
 
@@ -375,7 +375,7 @@ export default function SalarySlipTemplate({
 
   // Rate helpers
   const varRate = (i: number) => {
-    if (!hourlySal) return '—';
+    if (!hourlySal) return 'N/A';
     const nm = (grossPayVariable[i]?.name || '').toLowerCase().replace(/\s/g, '');
     return (nm.includes('workingtime') || nm.includes('overtime'))
       ? `₹${hourlySal.toFixed(2)}/Hour`
@@ -383,17 +383,17 @@ export default function SalarySlipTemplate({
   };
   const dedRate = (i: number) => {
     const nm = (deductions[i]?.name || '').toLowerCase();
-    return (nm.includes('late') && dailySal) ? `₹${dailySal.toFixed(2)}/Day` : '—';
+    return (nm.includes('late') && dailySal) ? `₹${dailySal.toFixed(2)}/Day` : 'N/A';
   };
   const isPercent = (v?: string) => (v || '').trim().endsWith('%');
   const dedTypeLbl = (v?: string) => isPercent(v) ? 'Percentage' : 'Fixed';
   const dedRateDsp = (v?: string) => {
-    if (!v || v === '-') return '—';
+    if (!v || v === '-') return 'N/A';
     if (isPercent(v)) return v;
     const n = parseAmt(v);
-    return n > 0 ? `₹${n.toFixed(2)}` : '—';
+    return n > 0 ? `₹${n.toFixed(2)}` : 'N/A';
   };
-  const dedBase = (v?: string) => isPercent(v) ? rupee(grossEarned) : '—';
+  const dedBase = (v?: string) => isPercent(v) ? rupee(grossEarned) : 'N/A';
 
   const varSubtotal = grossPayVariable.reduce((a, r) => a + parseAmt(r.earned), 0);
   const fixedSubtotal = grossPayFixed.reduce((a, r) => a + parseAmt(r.earned), 0);
@@ -445,7 +445,7 @@ export default function SalarySlipTemplate({
             </View>
             <View style={{ flex: 1 }}>
               <View style={S.empNameRow}>
-                <Text style={S.empName}>{empName || '—'}</Text>
+                <Text style={S.empName}>{empName || 'N/A'}</Text>
                 <View style={S.empBadge}><Text style={S.empBadgeTxt}>{empId}</Text></View>
               </View>
               <Text style={S.empDesig}>Designation : {designation}</Text>
@@ -526,7 +526,7 @@ export default function SalarySlipTemplate({
               {grossPayVariable.map((r, i) => (
                 <View key={i} style={i % 2 === 0 ? S.tRow0 : S.tRow1}>
                   <Text style={[S.tCell, { flex: 2.2 }]}>{r.name}</Text>
-                  <Text style={[S.tCellC, { flex: 1.3 }]}>{r.value || '—'}</Text>
+                  <Text style={[S.tCellC, { flex: 1.3 }]}>{r.value || 'N/A'}</Text>
                   <Text style={[S.tCellC, { flex: 1.8 }]}>{varRate(i)}</Text>
                   <Text style={[S.tCellR, { flex: 1.2 }]}>{fmt2(parseAmt(r.earned))}</Text>
                 </View>
@@ -578,7 +578,7 @@ export default function SalarySlipTemplate({
               {deductions.map((r, i) => (
                 <View key={i} style={i % 2 === 0 ? S.tRow0 : S.tRow1}>
                   <Text style={[S.tCell, { flex: 2.2 }]}>{r.name}</Text>
-                  <Text style={[S.tCellC, { flex: 1.2 }]}>{r.value ?? '—'}</Text>
+                  <Text style={[S.tCellC, { flex: 1.2 }]}>{r.value ?? 'N/A'}</Text>
                   <Text style={[S.tCellC, { flex: 1.7 }]}>{dedRate(i)}</Text>
                   <Text style={[S.tRed, { flex: 1.2 }]}>-{fmt2(parseAmt(r.earned))}</Text>
                 </View>

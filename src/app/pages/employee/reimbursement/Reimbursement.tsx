@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { KTCard, KTCardBody } from "@metronic/helpers";
+import { KTCard, KTCardBody, KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { Route, Routes, Outlet, Navigate, useLocation, useNavigate } from "react-router-dom";
 import PendingReimbursementsPage, { PendingReimbursementsPageHandle } from "./PendingReimbursementsPage";
@@ -660,17 +660,6 @@ function Reimbursement() {
 
       <div className="d-flex justify-content-between align-items-center my-6">
         <h2 className="mb-0">My Reimbursement Records</h2>
-        {pendingDraftsCount === 0 && hasPermission(
-          resourceNameMapWithCamelCase.reimbursement,
-          permissionConstToUseWithHasPermission.create
-        ) && (
-          <button
-            className='btn btn-primary d-flex align-items-center justify-content-center px-4 py-2'
-            onClick={() => pendingPageRef.current?.openAddModal()}
-          >
-            <span>Add Reimbursement Request</span>
-          </button>
-        )}
       </div>
       <MaterialToggleReimbursement
         toggleItemsActions={toggleItemsActions}
@@ -682,32 +671,74 @@ function Reimbursement() {
         viewMode="submissions"
         selectedEmployeeId={employeeId}
         actionSlot={
-          <button
-            className="btn btn-primary d-flex align-items-center justify-content-center gap-2 px-4 py-2"
-            style={{
-              cursor: downloadingBill ? 'not-allowed' : 'pointer',
-              pointerEvents: 'auto',
-            }}
-            onClick={handleDownloadBill}
-            disabled={downloadingBill}
-            title="Download Reimbursement Slip"
-          >
-            {downloadingBill ? (
-              <>
-                <span className="spinner-border spinner-border-sm" />
-                <span>Generating...</span>
-              </>
-            ) : (
-              <>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                <span>Download Reimbursement Slip</span>
-              </>
+          <div className="d-flex align-items-center gap-3">
+            {pendingDraftsCount === 0 && hasPermission(
+              resourceNameMapWithCamelCase.reimbursement,
+              permissionConstToUseWithHasPermission.create
+            ) && (
+              <button
+                onClick={() => pendingPageRef.current?.openAddModal()}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  padding: '7px 14px',
+                  border: '1.5px solid #e2e8f0',
+                  borderRadius: '6px',
+                  background: '#f8fafc',
+                  color: '#475569',
+                  fontWeight: 500,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
+              >
+                <KTIcon iconName='plus' className='fs-6' />
+                <span>Add Reimbursement Request</span>
+              </button>
             )}
-          </button>
+            <button
+              onClick={handleDownloadBill}
+              disabled={downloadingBill}
+              title="Download Reimbursement Slip"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '5px',
+                padding: '7px 14px',
+                border: 'none',
+                borderRadius: '6px',
+                background: '#d32f2f',
+                color: '#fff',
+                fontWeight: 500,
+                fontSize: '12px',
+                cursor: downloadingBill ? 'not-allowed' : 'pointer',
+                opacity: downloadingBill ? 0.6 : 1,
+                boxShadow: '0 2px 6px rgba(211,47,47,0.2)',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => { if (!downloadingBill) { (e.currentTarget as HTMLButtonElement).style.background = '#b71c1c'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(211,47,47,0.3)'; } }}
+              onMouseLeave={e => { if (!downloadingBill) { (e.currentTarget as HTMLButtonElement).style.background = '#d32f2f'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(211,47,47,0.2)'; } }}
+            >
+              {downloadingBill ? (
+                <>
+                  <span className="spinner-border spinner-border-sm" style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
+                  <span>Generating...</span>
+                </>
+              ) : (
+                <>
+                  <KTIcon iconName="file-down" className="fs-6 text-white" />
+                  <span>Download Reimbursement Slip</span>
+                </>
+              )}
+            </button>
+          </div>
         }
       />
 

@@ -81,22 +81,24 @@ const PREMIUM_CSS = `
     transform: translateY(-3px);
   }
   .prem-icon-box {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #F4F6FB;
+    background: linear-gradient(135deg, #e8effd 0%, #f4f6fb 100%);
     color: #1E3A8A;
-    font-size: 22px;
-    transition: all 0.25s ease;
+    font-size: 26px;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px rgba(30, 58, 138, 0.08), 0 4px 12px rgba(30, 58, 138, 0.06);
   }
   .prem-card:hover .prem-icon-box {
-    background: #1E3A8A;
+    background: linear-gradient(135deg, #1E3A8A 0%, #152960 100%);
     color: #ffffff;
-    transform: scale(1.05);
+    transform: scale(1.08) translateY(-2px);
+    box-shadow: 0 10px 20px rgba(30, 58, 138, 0.25);
   }
   .prem-btn {
     background: #F4F6FB;

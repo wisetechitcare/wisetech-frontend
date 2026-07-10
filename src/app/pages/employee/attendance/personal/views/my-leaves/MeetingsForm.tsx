@@ -2,7 +2,7 @@
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import Select from 'react-select';
-import { Button, Modal, Form as BootstrapForm, Row, Col, Spinner } from 'react-bootstrap';
+import { Modal, Form as BootstrapForm, Row, Col } from 'react-bootstrap';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { createMeetings, fetchAllEmployees } from '@services/employee';
 import { useSelector } from 'react-redux';
@@ -13,8 +13,47 @@ import dayjs, { Dayjs } from 'dayjs';
 import { MobileDateTimePicker, MobileDateTimePickerProps } from '@mui/x-date-pickers/MobileDateTimePicker';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { UAParser } from 'ua-parser-js';
+import { KTIcon } from '@metronic/helpers';
+import { T } from '@app/modules/common/components/ui/tokens';
 
 // if user device is iOS/iphone then use norman html date time picker
+
+/** Small icon-badge + label used above each form section — mirrors the
+ * "Create New Holiday" form so all quick-action modals share one rhythm. */
+const SectionHeading = ({ icon, label }: { icon: string; label: string }) => (
+    <div className="d-flex align-items-center gap-2 mb-4">
+        <span
+            style={{
+                width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: `${T.color.brand}14`, color: T.color.brand,
+            }}
+        >
+            <KTIcon iconName={icon} className="fs-8" />
+        </span>
+        <p className="fs-8 fw-bold text-uppercase text-gray-500 m-0" style={{ letterSpacing: '0.8px' }}>{label}</p>
+    </div>
+);
+
+const sectionBoxStyle: React.CSSProperties = {
+    background: '#f8fafc',
+    borderRadius: '12px',
+    padding: '20px',
+    marginBottom: '14px',
+    border: '1px solid #e9edf2',
+    borderTop: `3px solid ${T.color.brand}`,
+};
+
+const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
+    borderRadius: '8px',
+    border: active ? `2px solid ${T.color.brand}` : '1.5px solid #dde2ec',
+    background: active ? T.color.brand : '#ffffff',
+    color: active ? '#ffffff' : '#6b7280',
+    boxShadow: active ? '0 3px 10px rgba(30, 58, 138, 0.22)' : 'none',
+    transition: 'all 0.18s ease',
+    padding: '8px 0',
+    fontSize: '13px',
+});
 
 
 const MeetingsSchema = Yup.object().shape({
@@ -172,8 +211,8 @@ const OptimizedDateTimePicker = ({
     };
 
     return (
-        <BootstrapForm.Group className='mb-3'>
-            <BootstrapForm.Label className='fs-6'>{label}</BootstrapForm.Label>
+        <BootstrapForm.Group className='mb-0'>
+            <label className="fs-7 fw-bold text-gray-700 d-block mb-2">{label} <span className="text-danger">*</span></label>
             {isIOSMobile ? (
                 // Use native HTML datetime-local input for iOS mobile devices
                 <BootstrapForm.Control
@@ -309,34 +348,39 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
     const selectStyles = useMemo(() => ({
         control: (provided: any, state: any) => ({
             ...provided,
-            minHeight: '38px',
+            borderRadius: '8px',
+            minHeight: '42px',
             fontSize: '14px',
-            borderColor: state.isFocused ? '#86b7fe' : '#ced4da',
-            boxShadow: state.isFocused ? '0 0 0 0.25rem rgba(13, 110, 253, 0.25)' : 'none',
+            borderColor: state.isFocused ? T.color.brand : '#dde2ec',
+            boxShadow: 'none',
             '&:hover': {
-                borderColor: state.isFocused ? '#86b7fe' : '#ced4da',
+                borderColor: T.color.brand,
             },
         }),
         multiValue: (provided: any) => ({
             ...provided,
-            backgroundColor: '#e9ecef',
+            backgroundColor: T.color.brandSoft,
+            borderRadius: '6px',
             fontSize: '13px'
         }),
         multiValueLabel: (provided: any) => ({
             ...provided,
+            color: T.color.brand,
             fontSize: '13px',
             padding: '3px 6px'
         }),
         multiValueRemove: (provided: any) => ({
             ...provided,
+            color: T.color.brand,
             fontSize: '16px',
             ':hover': {
-                backgroundColor: '#dc3545',
+                backgroundColor: T.color.accent,
                 color: 'white',
             },
         }),
         menu: (provided: any) => ({
             ...provided,
+            borderRadius: '8px',
             zIndex: 9999,
             maxHeight: '200px',
             fontSize: '14px'
@@ -349,10 +393,10 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
             ...provided,
             fontSize: '14px',
             padding: '8px 12px',
-            backgroundColor: state.isSelected ? '#0d6efd' : state.isFocused ? '#f8f9fa' : 'white',
-            color: state.isSelected ? 'white' : '#212529',
+            backgroundColor: state.isSelected ? T.color.brand : state.isFocused ? '#EEF2FF' : 'white',
+            color: state.isSelected ? 'white' : '#374151',
             ':hover': {
-                backgroundColor: state.isSelected ? '#0d6efd' : '#e9ecef',
+                backgroundColor: state.isSelected ? T.color.brand : '#EEF2FF',
             },
         }),
         placeholder: (provided: any) => ({
@@ -410,31 +454,28 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                 {({ values, setFieldValue, errors, touched, isSubmitting }) => (
                     <Form>
                         <Modal.Body className='p-2'>
-                            {/* Meeting Type Selection */}
-                            <BootstrapForm.Group className='mb-1'>
-                                <BootstrapForm.Label className='fw-bold'>Meeting Type</BootstrapForm.Label>
-                                <div>
-                                    <BootstrapForm.Check
-                                        inline
-                                        type='radio'
-                                        label='Online'
-                                        name='isOnline'
-                                        checked={values.isOnline}
-                                        onChange={() => setFieldValue('isOnline', true)}
-                                    />
-                                    <BootstrapForm.Check
-                                        inline
-                                        type='radio'
-                                        label='Offline'
-                                        name='isOnline'
-                                        checked={!values.isOnline}
-                                        onChange={() => setFieldValue('isOnline', false)}
-                                    />
+                            {/* ── SECTION 1 · Meeting Details ──────────────────────────── */}
+                            <div style={sectionBoxStyle}>
+                                <SectionHeading icon="setting-2" label="Meeting Details" />
+                                <div className="mb-4">
+                                    <label className="fs-7 fw-bold text-gray-700 d-block mb-3">
+                                        Meeting Type <span className="text-danger">*</span>
+                                    </label>
+                                    <div className="d-flex gap-2" style={{ maxWidth: 280 }}>
+                                        {[{ label: 'Online', value: true }, { label: 'Offline', value: false }].map(opt => (
+                                            <button
+                                                key={String(opt.value)}
+                                                type="button"
+                                                onClick={() => setFieldValue('isOnline', opt.value)}
+                                                className="btn btn-sm fw-semibold flex-fill d-flex align-items-center justify-content-center gap-1.5"
+                                                style={toggleBtnStyle(values.isOnline === opt.value)}
+                                            >
+                                                {values.isOnline === opt.value && <i className="bi bi-check-circle-fill" style={{ fontSize: 12 }} />}
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </BootstrapForm.Group>
-
-                            {/* Title */}
-                            <BootstrapForm.Group className='mb-3'>
                                 <TextInput
                                     isRequired
                                     label='Title'
@@ -442,10 +483,11 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                     placeholder='Enter meeting title'
                                 />
                                 <BootstrapForm.Control.Feedback type='invalid'>{errors.title}</BootstrapForm.Control.Feedback>
-                            </BootstrapForm.Group>
+                            </div>
 
-                            {/* Meeting Link or Location */}
-                            <BootstrapForm.Group className="mb-3">
+                            {/* ── SECTION 2 · Meeting Link / Location ──────────────────── */}
+                            <div style={sectionBoxStyle}>
+                                <SectionHeading icon="geolocation" label={values.isOnline ? 'Meeting Link' : 'Location'} />
                                 <TextInput
                                     label={values.isOnline ? "Meeting Link" : "Location"}
                                     formikField={values.isOnline ? "meetingLink" : "location"}
@@ -455,11 +497,14 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                 <BootstrapForm.Control.Feedback type="invalid">
                                     {values.isOnline ? errors.meetingLink : errors.location}
                                 </BootstrapForm.Control.Feedback>
-                            </BootstrapForm.Group>
+                            </div>
 
-                            {/* Participants Selection */}
-                            <BootstrapForm.Group className='mb-3'>
-                                <BootstrapForm.Label className='fs-6'>Add Participant</BootstrapForm.Label>
+                            {/* ── SECTION 3 · Participants ─────────────────────────────── */}
+                            <div style={sectionBoxStyle}>
+                                <SectionHeading icon="people" label="Participants" />
+                                <label className="fs-7 fw-bold text-gray-700 d-block mb-2">
+                                    Add Participant <span className="text-danger">*</span>
+                                </label>
                                 <Select
                                     isMulti
                                     options={participants}
@@ -469,58 +514,62 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                     }
                                     styles={selectStyles}
                                     placeholder={
-                                        participantsLoading 
-                                            ? "Loading participants..." 
+                                        participantsLoading
+                                            ? "Loading participants..."
                                             : "Select meeting participants"
                                     }
                                     isLoading={participantsLoading}
                                     isDisabled={participantsLoading}
-                                    noOptionsMessage={() => 
+                                    noOptionsMessage={() =>
                                         participantsLoading ? "Loading..." : "No participants found"
                                     }
                                 />
                                 {errors.participants && touched.participants && (
-                                    <div className="text-danger">{errors.participants}</div>
+                                    <div className="text-danger fs-8 mt-1">{errors.participants as string}</div>
                                 )}
-                            </BootstrapForm.Group>
+                            </div>
 
-                            {/* Start and End Date Pickers - Mobile Optimized for All Devices */}
-                            <Row className='mt-5'>
-                                <Col md={6}>
-                                    <OptimizedDateTimePicker
-                                        label="Start Date and Time"
-                                        value={values.startDate}
-                                        onChange={(date: Dayjs | null) => {
-                                            setFieldValue('startDate', date);
-                                            // Auto-set end date to 1 hour later if not set or if end is before start
-                                            if (date && (!values.endDate || dayjs(values.endDate).isBefore(date))) {
-                                                setFieldValue('endDate', date.add(1, 'hour'));
-                                            }
-                                            // Validate that the selected date is not in the past
-                                            if (date && date.isBefore(dayjs())) {
-                                                errorConfirmation("Meeting cannot be scheduled in the past. Please select a future date and time.");
-                                                setFieldValue('startDate', dayjs().add(1, 'hour'));
-                                                setFieldValue('endDate', dayjs().add(2, 'hour'));
-                                            }
-                                        }}
-                                        error={errors.startDate}
-                                        touched={touched.startDate}
-                                    />
-                                </Col>
-                                <Col md={6}>
-                                    <OptimizedDateTimePicker
-                                        label="End Date and Time"
-                                        value={values.endDate}
-                                        onChange={(date: Dayjs | null) => setFieldValue('endDate', date)}
-                                        error={errors.endDate}
-                                        touched={touched.endDate}
-                                        minDateTime={values.startDate ? dayjs(values.startDate) : dayjs()}
-                                    />
-                                </Col>
-                            </Row>
+                            {/* ── SECTION 4 · Schedule ─────────────────────────────────── */}
+                            <div style={sectionBoxStyle}>
+                                <SectionHeading icon="calendar" label="Schedule" />
+                                <Row>
+                                    <Col md={6}>
+                                        <OptimizedDateTimePicker
+                                            label="Start Date and Time"
+                                            value={values.startDate}
+                                            onChange={(date: Dayjs | null) => {
+                                                setFieldValue('startDate', date);
+                                                // Auto-set end date to 1 hour later if not set or if end is before start
+                                                if (date && (!values.endDate || dayjs(values.endDate).isBefore(date))) {
+                                                    setFieldValue('endDate', date.add(1, 'hour'));
+                                                }
+                                                // Validate that the selected date is not in the past
+                                                if (date && date.isBefore(dayjs())) {
+                                                    errorConfirmation("Meeting cannot be scheduled in the past. Please select a future date and time.");
+                                                    setFieldValue('startDate', dayjs().add(1, 'hour'));
+                                                    setFieldValue('endDate', dayjs().add(2, 'hour'));
+                                                }
+                                            }}
+                                            error={errors.startDate}
+                                            touched={touched.startDate}
+                                        />
+                                    </Col>
+                                    <Col md={6}>
+                                        <OptimizedDateTimePicker
+                                            label="End Date and Time"
+                                            value={values.endDate}
+                                            onChange={(date: Dayjs | null) => setFieldValue('endDate', date)}
+                                            error={errors.endDate}
+                                            touched={touched.endDate}
+                                            minDateTime={values.startDate ? dayjs(values.startDate) : dayjs()}
+                                        />
+                                    </Col>
+                                </Row>
+                            </div>
 
-                            {/* Description */}
-                            <BootstrapForm.Group className='mt-3'>
+                            {/* ── SECTION 5 · Description ──────────────────────────────── */}
+                            <div style={{ ...sectionBoxStyle, marginBottom: '18px' }}>
+                                <SectionHeading icon="text" label="Description" />
                                 <TextInput
                                     isRequired
                                     label='Description'
@@ -528,22 +577,47 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                     placeholder='Enter meeting description'
                                 />
                                 <BootstrapForm.Control.Feedback type='invalid'>{errors.description}</BootstrapForm.Control.Feedback>
-                            </BootstrapForm.Group>
-                        </Modal.Body>
+                            </div>
 
-                        <Modal.Footer>
-                            <Button variant='secondary' onClick={onClose} className='text-white'>Cancel</Button>
-                            <Button type='submit' variant='primary' disabled={loading || isSubmitting}>
-                                {loading ? (
-                                    <>
-                                        Submitting...
-                                        <Spinner animation="border" size="sm" className="me-2" />
-                                    </>
-                                ) : (
-                                    "Submit"
-                                )}
-                            </Button>
-                        </Modal.Footer>
+                            {/* ── FOOTER ────────────────────────────────────────────────── */}
+                            <div className="d-flex align-items-center justify-content-end gap-3 pt-4" style={{ borderTop: '1px solid #eef1f5' }}>
+                                <button
+                                    type="button"
+                                    className="btn btn-sm fw-semibold px-6"
+                                    style={{ borderRadius: '8px', border: '1.5px solid #dde2ec', background: '#ffffff', color: '#6b7280', fontSize: '13px' }}
+                                    onClick={onClose}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-sm fw-bold px-7 text-white d-flex align-items-center gap-2"
+                                    disabled={loading || isSubmitting}
+                                    style={{
+                                        borderRadius: '8px',
+                                        background: loading || isSubmitting ? '#93A8D4' : `linear-gradient(180deg, ${T.color.brand} 0%, ${T.color.brandHover} 100%)`,
+                                        border: 'none',
+                                        fontSize: '13px',
+                                        boxShadow: '0 4px 12px rgba(30, 58, 138, 0.25)',
+                                        transition: 'all 0.2s ease',
+                                        minWidth: '120px',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    {loading ? (
+                                        <>
+                                            <span className="spinner-border spinner-border-sm"></span>
+                                            Submitting…
+                                        </>
+                                    ) : (
+                                        <>
+                                            <i className="bi bi-check2" style={{ fontSize: 14 }} />
+                                            Submit
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </Modal.Body>
                     </Form>
                 )}
             </Formik>
