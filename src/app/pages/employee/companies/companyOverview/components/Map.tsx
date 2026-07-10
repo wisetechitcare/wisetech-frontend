@@ -1310,10 +1310,14 @@ export default function Maps({
           ...point,
           lat: point.lat + offset,
           lng: point.lng + offset,
-          country: matchedItem?.country?.trim() || "Unknown",
-          state: matchedItem?.state?.trim() || null,
-          city: matchedItem?.city?.trim() || null,
-          locality: matchedItem?.locality?.trim() || null,
+          // Read location from the top-level fields OR fall back to the nested
+          // additionalDetails (projects/leads store them there). This keeps marker
+          // colours + filters working regardless of whether the backend hoisting
+          // deploy has gone out yet — the map API already returns additionalDetails.
+          country: (matchedItem?.country ?? matchedItem?.additionalDetails?.country)?.trim() || "Unknown",
+          state: (matchedItem?.state ?? matchedItem?.additionalDetails?.state)?.trim() || null,
+          city: (matchedItem?.city ?? matchedItem?.additionalDetails?.city)?.trim() || null,
+          locality: (matchedItem?.locality ?? matchedItem?.additionalDetails?.locality)?.trim() || null,
           name: matchedItem?.name || matchedItem?.companyName || matchedItem?.subCompanyName || matchedItem?.branchName || matchedItem?.title || "Unknown Location",
           entityType: point.entityType,
           item: matchedItem || point, // ✅ DO NOT MERGE: Use matchedItem or fallback to point
