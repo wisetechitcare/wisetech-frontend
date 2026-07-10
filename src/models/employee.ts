@@ -469,6 +469,8 @@ export interface IAttendanceRequests {
   reportsToId?: string | null,
   hasApprovalInstance?: boolean,
   isAdminRaised?: boolean,
+  /** Employee id of the admin who raised this request (only for admin-raised). */
+  raisedById?: string | null,
 }
 
 export interface ApprovedAttendanceRequest {

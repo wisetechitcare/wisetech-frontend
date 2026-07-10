@@ -50,6 +50,7 @@ import { UAParser } from 'ua-parser-js';
 import { Form as BootstrapForm } from "react-bootstrap";
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { fetchAppSettings } from '@redux/slices/appSettings';
+import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { validatePreviousDaysAttendance } from '@utils/attendanceValidation';
 
 // Attendance records carry `formattedDate` as "DD/MM/YYYY" (IST). Convert to ISO "YYYY-MM-DD"
@@ -1310,6 +1311,13 @@ export const StatisticsTable = ({
     const currentEmployeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const stableEmployeeId = useMemo(() => currentEmployeeId, [currentEmployeeId]);
 
+    // Resolve the raising admin's employee id → name for the "Admin Raised" badge.
+    const allEmployeesList = useSelector((state: RootState) => state.allEmployees?.list);
+    const employeeNameMap = useMemo(
+        () => new Map((allEmployeesList || []).map((e: any) => [e.employeeId, e.employeeName])),
+        [allEmployeesList],
+    );
+
     const attendanceWithRequest = attendance.map((dailyAttendance: IAttendance) => {
         const attendanceRequest = attendanceRequests.filter((request: IAttendanceRequests) =>
             request.formattedDate === dailyAttendance.formattedDate &&
@@ -1368,6 +1376,12 @@ export const StatisticsTable = ({
 
     const dispatch = useDispatch();
     const toggleChange = store.getState().attendanceStats.toggleChange;
+
+    // Ensure the employee list is loaded so the "Admin Raised" badge can resolve
+    // the raising admin's id → name. Idempotent (no-op if already loaded).
+    useEffect(() => {
+        dispatch(loadAllEmployeesIfNeeded() as any);
+    }, [dispatch]);
 
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const companyId = useSelector((state: RootState) => state.employee.currentEmployee.companyId);
@@ -1987,7 +2001,7 @@ export const StatisticsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => {
+            Cell: ({ row, renderedCellValue }: any) => {
                 if (!renderedCellValue) return null;
 
                 const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WEEKEND, WORKING_WEEKEND, RAISE_REQUEST, ADMIN_RAISE_REQUEST, ON_LEAVE, HOLIDAY, LEAVE_TYPE } = ATTENDANCE_STATUS;
@@ -2013,7 +2027,18 @@ export const StatisticsTable = ({
                 };
 
                 const color = statusColors[renderedCellValue] || "#6c757d";
-                return <AttendanceStatusBadge status={renderedCellValue} color={color} />;
+
+                // For admin-raised requests, show WHICH admin raised it inside the pill,
+                // e.g. "Present (Admin Raised: John Doe)". Colour still keys off the raw
+                // status value. Falls back to the plain label if the name isn't resolved
+                // (e.g. older requests raised before the admin id was captured).
+                let label = renderedCellValue as string;
+                if (renderedCellValue === ADMIN_RAISE_REQUEST) {
+                    const adminName = employeeNameMap.get(row?.original?.raisedById);
+                    if (adminName) label = `Present (Admin Raised: ${adminName})`;
+                }
+
+                return <AttendanceStatusBadge status={label} color={color} />;
             }
         },
 

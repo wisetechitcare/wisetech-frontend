@@ -2872,6 +2872,8 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
             checkOutLongitude: attendanceRecord?.checkOutLongitude,
             workingMethod: attendanceRecord?.workingMethod?.type || '-NA-',
             status: status,
+            // Admin who raised the request (for the "Present (Admin Raised)" badge).
+            raisedById: matchingRequest?.raisedById ?? null,
             checkInLocation: attendanceRecord?.checkInLocation || '-NA-',
             checkOutLocation: attendanceRecord?.checkOutLocation || '-NA-',
             checkoutWokringMethod: attendanceRecord?.checkoutWorkingMethod?.type || undefined,
@@ -2923,6 +2925,7 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             reportsToId: attendanceRequest?.employee?.reportsToId ?? null,
             hasApprovalInstance: attendanceRequest.hasApprovalInstance ?? false,
             isAdminRaised: attendanceRequest.isAdminRaised ?? false,
+            raisedById: attendanceRequest.raisedById ?? null,
         }
 
         result.push(request);

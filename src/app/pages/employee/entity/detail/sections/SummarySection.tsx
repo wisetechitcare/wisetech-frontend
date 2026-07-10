@@ -139,8 +139,6 @@ const SummarySection: React.FC<{
     lead?.source?.name ||
     (lead?.leadSourceType ? String(lead.leadSourceType).replace(/_/g, ' ') : '') ||
     DASH;
-  const fl = vm.fileLocation || {};
-  const hasFileLocation = !!(fl.path || fl.company || fl.companyType);
 
   // ── LEADS ─ all lead master data: health, identity, client, specs, address,
   //           notes, system metadata (everything that belongs to the lead). ─────
@@ -199,15 +197,8 @@ const SummarySection: React.FC<{
         </div>
       )}
 
-      {hasFileLocation && (
-        <div className="mt-5">
-          <DetailCard title="File Location" subtitle="Where this lead's files live" icon="bi bi-folder2-open" accentColor="amber">
-            <DetailRow label="Folder Path" value={fl.path || DASH} />
-            <DetailRow label="Company (Folder)" value={fl.company || DASH} />
-            <DetailRow label="Company Type (Folder)" value={fl.companyType || DASH} isLast />
-          </DetailCard>
-        </div>
-      )}
+      {/* File Location moved to the Documents tab (single source of truth) to avoid
+          duplicating it here. See DocumentsSection. */}
 
       {lead?.isCancelled && (
         <div className="mt-5">
