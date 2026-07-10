@@ -16,7 +16,7 @@ interface ReferredLead {
  * Dates are the leads' INQUIRY dates (business date), not createdAt.
  */
 const LeadReferenceTab: React.FC<{ referredLeads?: ReferredLead[] }> = ({ referredLeads = [] }) => {
-  const [range, setRange] = useState<PeriodRange>({ mode: "monthly", start: null, end: null, label: "" });
+  const [range, setRange] = useState<PeriodRange>({ mode: "allyear", start: null, end: null, label: "All time" });
 
   const filtered = useMemo(() => {
     if (!range.start || !range.end) return referredLeads; // "All Year" / unset → everything
@@ -33,7 +33,7 @@ const LeadReferenceTab: React.FC<{ referredLeads?: ReferredLead[] }> = ({ referr
   return (
     <div>
       <div className="mb-3">
-        <PeriodFilter onChange={setRange} initialMode="monthly" storageKey="leadReferencePeriodMode" />
+        <PeriodFilter onChange={setRange} initialMode="allyear" storageKey="leadReferencePeriodMode" />
       </div>
 
       <LeadReferralAnalytics

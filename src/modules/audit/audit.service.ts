@@ -107,22 +107,6 @@ export interface ResetResult {
   deletedVersions: number[];
 }
 
-export interface ChainBreak {
-  revisionNumber: number;
-  reason: 'ROW_HASH_MISMATCH' | 'PREV_HASH_MISMATCH';
-  detail: string;
-}
-
-export interface ChainVerifyResult {
-  entityType: AuditEntityType;
-  entityId: string;
-  totalRevisions: number;
-  verified: number;
-  unhashed: number;
-  intact: boolean;
-  breaks: ChainBreak[];
-}
-
 interface ApiEnvelope<T> {
   statusCode: number;
   message: string;
@@ -181,12 +165,6 @@ export const AuditApi = {
   reset(type: AuditEntityType, id: string, targetVersion: number): Promise<ResetResult> {
     return api
       .post<ApiEnvelope<ResetResult>>(`${BASE}/${type}/${id}/reset`, { targetVersion })
-      .then((r) => r.data);
-  },
-
-  verifyChain(type: AuditEntityType, id: string): Promise<ChainVerifyResult> {
-    return api
-      .get<ApiEnvelope<ChainVerifyResult>>(`${BASE}/${type}/${id}/verify`)
       .then((r) => r.data);
   },
 };

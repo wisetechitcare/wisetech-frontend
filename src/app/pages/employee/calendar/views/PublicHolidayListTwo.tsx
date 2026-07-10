@@ -215,11 +215,28 @@ function PublicHolidaysListTwo({
             // 2. Month Jump Filter
             if (selectedMonthIndex !== null && djs.month() !== selectedMonthIndex) return false;
 
-            // 3. Weekly offs (Sat/Sun) are a separate category from Fixed/Floating
-            // holidays — gated ONLY by the Weekends toggle, independent of the
-            // Upcoming/Past/Fixed/Floating quick filters below (which don't apply
-            // to them at all).
-            if (h.isWeekend) return filterWeekends;
+            // 3. Weekends (Sat/Sun) — decided from the ACTUAL weekday, not just the
+            // bulk-generated weekly-off flag, so a real holiday landing on a Sat/Sun
+            // is treated as a weekend too.
+            const weekday = djs.day(); // 0 = Sunday, 6 = Saturday
+            const isWeekendDay = weekday === 0 || weekday === 6;
+
+            if (filterWeekends) {
+                // Focus mode: show ONLY Saturday/Sunday entries (the whole point of
+                // the toggle). The Fixed/Floating type filters are skipped here so
+                // every weekend entry shows regardless of its stored type; the
+                // Upcoming/Past toggle is still honoured (unless a month is picked).
+                if (!isWeekendDay) return false;
+                if (selectedMonthIndex === null && (filterUpcoming || filterPast)) {
+                    if (isPast && !filterPast) return false;
+                    if (isUpcoming && !filterUpcoming) return false;
+                }
+                return true;
+            }
+
+            // Weekends toggle is OFF: never show the bulk-generated weekly-off marker
+            // rows so they don't clutter the normal holiday list.
+            if (h.isWeekend) return false;
 
             // 4. Quick Filters (Time-based) — skipped once a specific month is picked via
             // Jump to Month: that's an explicit request to see THAT month, past or not,

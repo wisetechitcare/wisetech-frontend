@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
+import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
 import AttendanceStatusBadge from './AttendanceStatusBadge';
 import AttendanceCheckCell, {
     AttendanceCoordinates,
@@ -50,6 +50,7 @@ import { UAParser } from 'ua-parser-js';
 import { Form as BootstrapForm } from "react-bootstrap";
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { fetchAppSettings } from '@redux/slices/appSettings';
+import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { validatePreviousDaysAttendance } from '@utils/attendanceValidation';
 
 // Attendance records carry `formattedDate` as "DD/MM/YYYY" (IST). Convert to ISO "YYYY-MM-DD"
@@ -1291,7 +1292,9 @@ export const StatisticsTable = ({
 
     const [disableRaiseRequest, setDisableRaiseRequest] = useState(false);
 
-    const employeeDeatils = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee) : useSelector((state: RootState) => state.employee.currentEmployee);
+    const selectedEmployeeDetails = useSelector((state: RootState) => state.employee.selectedEmployee);
+    const currentEmployeeDetails = useSelector((state: RootState) => state.employee.currentEmployee);
+    const employeeDeatils = fromAdmin ? selectedEmployeeDetails : currentEmployeeDetails;
     const reportsToId = employeeDeatils.reportsToId;
 
     // Weekend/holiday status must use the VIEWED employee's branch config (selected when admin,
@@ -1309,6 +1312,13 @@ export const StatisticsTable = ({
     const workingOnWeekendColor = useSelector((state: RootState) => state?.customColors.attendanceCalendar);
     const currentEmployeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const stableEmployeeId = useMemo(() => currentEmployeeId, [currentEmployeeId]);
+
+    // Resolve the raising admin's employee id → name for the "Admin Raised" badge.
+    const allEmployeesList = useSelector((state: RootState) => state.allEmployees?.list);
+    const employeeNameMap = useMemo(
+        () => new Map((allEmployeesList || []).map((e: any) => [e.employeeId, e.employeeName])),
+        [allEmployeesList],
+    );
 
     const attendanceWithRequest = attendance.map((dailyAttendance: IAttendance) => {
         const attendanceRequest = attendanceRequests.filter((request: IAttendanceRequests) =>
@@ -1369,6 +1379,12 @@ export const StatisticsTable = ({
     const dispatch = useDispatch();
     const toggleChange = store.getState().attendanceStats.toggleChange;
 
+    // Ensure the employee list is loaded so the "Admin Raised" badge can resolve
+    // the raising admin's id → name. Idempotent (no-op if already loaded).
+    useEffect(() => {
+        dispatch(loadAllEmployeesIfNeeded() as any);
+    }, [dispatch]);
+
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const companyId = useSelector((state: RootState) => state.employee.currentEmployee.companyId);
     // Late-threshold scope = the VIEWED employee (selected when admin, else self), so the table's
@@ -1410,18 +1426,17 @@ export const StatisticsTable = ({
     const [isValidating, setIsValidating] = useState(false);
 
     // Get dateOfJoining and branchWorkingDays for validation
-    const dateOfJoining = fromAdmin
-        ? useSelector((state: RootState) => state.employee.selectedEmployee.dateOfJoining)
-        : useSelector((state: RootState) => state.employee.currentEmployee.dateOfJoining);
-    const branchWorkingDays = fromAdmin
-        ? useSelector((state: RootState) => {
-            const workingAndOffDays = state.employee.selectedEmployee?.branches?.workingAndOffDays;
-            return parseWorkingDays(workingAndOffDays);
-        })
-        : useSelector((state: RootState) => {
-            const workingAndOffDays = state.employee.currentEmployee?.branches?.workingAndOffDays;
-            return parseWorkingDays(workingAndOffDays);
-        });
+    // Hooks must run unconditionally (rules-of-hooks): read both viewers' values,
+    // then pick by `fromAdmin`. Optional chaining so the always-run selector for the
+    // non-active viewer can't throw when that employee object is absent.
+    const selectedDateOfJoining = useSelector((state: RootState) => state.employee.selectedEmployee?.dateOfJoining);
+    const currentDateOfJoining = useSelector((state: RootState) => state.employee.currentEmployee?.dateOfJoining);
+    const dateOfJoining = fromAdmin ? selectedDateOfJoining : currentDateOfJoining;
+    const selectedBranchWorkingDays = useSelector((state: RootState) =>
+        parseWorkingDays(state.employee.selectedEmployee?.branches?.workingAndOffDays));
+    const currentBranchWorkingDays = useSelector((state: RootState) =>
+        parseWorkingDays(state.employee.currentEmployee?.branches?.workingAndOffDays));
+    const branchWorkingDays = fromAdmin ? selectedBranchWorkingDays : currentBranchWorkingDays;
 
 
     const handleClose = () => {
@@ -1987,10 +2002,10 @@ export const StatisticsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => {
+            Cell: ({ row, renderedCellValue }: any) => {
                 if (!renderedCellValue) return null;
 
-                const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WEEKEND, WORKING_WEEKEND, RAISE_REQUEST, ON_LEAVE, HOLIDAY, LEAVE_TYPE } = ATTENDANCE_STATUS;
+                const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WEEKEND, WORKING_WEEKEND, RAISE_REQUEST, ADMIN_RAISE_REQUEST, ON_LEAVE, HOLIDAY, LEAVE_TYPE } = ATTENDANCE_STATUS;
                 const { ANNUAL_LEAVE, CASUAL_LEAVE, FLOATER_LEAVE, SICK_LEAVE, UNPAID_LEAVE, MATERNAL_LEAVE } = LEAVE_TYPE;
                 // Define color mapping
                 const statusColors: Record<string, string> = {
@@ -2001,6 +2016,7 @@ export const StatisticsTable = ({
                     [WEEKEND]: colorValuesForAttendanceCalendar?.weekendColor || "", // Default Gray
                     [WORKING_WEEKEND]: colorValuesForAttendanceCalendar?.workingWeekendColor || "#6610f2", // Default Purple
                     [RAISE_REQUEST]: colorValuesForAttendanceCalendar?.markedPresentViaRequestRaisedColor || '#6610f2',
+                    [ADMIN_RAISE_REQUEST]: colorValuesForAttendanceCalendar?.adminRaisedRequestColor || '#F97316', // Default Orange — admin raised on employee's behalf
                     [HOLIDAY]: colorValues?.holidayColor || "#17a2b8", // Default Cyan
                     [ANNUAL_LEAVE]: leaveTypesColor?.annualLeaveColor || "#2ECC71",
                     [CASUAL_LEAVE]: leaveTypesColor?.casualLeaveColor || "#3498DB",
@@ -2012,7 +2028,18 @@ export const StatisticsTable = ({
                 };
 
                 const color = statusColors[renderedCellValue] || "#6c757d";
-                return <AttendanceStatusBadge status={renderedCellValue} color={color} />;
+
+                // For admin-raised requests, show WHICH admin raised it inside the pill,
+                // e.g. "Present (Admin Raised: John Doe)". Colour still keys off the raw
+                // status value. Falls back to the plain label if the name isn't resolved
+                // (e.g. older requests raised before the admin id was captured).
+                let label = renderedCellValue as string;
+                if (renderedCellValue === ADMIN_RAISE_REQUEST) {
+                    const adminName = employeeNameMap.get(row?.original?.raisedById);
+                    if (adminName) label = `Present (Admin Raised: ${adminName})`;
+                }
+
+                return <AttendanceStatusBadge status={label} color={color} />;
             }
         },
 
@@ -2129,6 +2156,7 @@ export const StatisticsTable = ({
                             [ATTENDANCE_STATUS.WORKING_WEEKEND]: colorValuesForAttendanceCalendar?.workingWeekendColor || "#6610f2",
                             [ATTENDANCE_STATUS.CHECK_OUT_MISSING]: missingColor?.missingCheckoutColor || '#ffff',
                             [ATTENDANCE_STATUS.RAISE_REQUEST]: colorValuesForAttendanceCalendar?.markedPresentViaRequestRaisedColor || '#6610f2',
+                            [ATTENDANCE_STATUS.ADMIN_RAISE_REQUEST]: colorValuesForAttendanceCalendar?.adminRaisedRequestColor || '#F97316',
                             [ATTENDANCE_STATUS.LEAVE]: colorValuesForAttendanceCalendar?.onLeaveColor || '#6610f2',
                             [ATTENDANCE_STATUS.CHECK_IN_MISSING]: missingColor?.missingCheckoutColor || '#6610f2',
                             // Singular keys (ATTENDANCE_STATUS.LEAVE_TYPE constants)
@@ -2445,7 +2473,9 @@ export const ReportsTable = ({
     };
 
     const [date, setDate] = useState('');
-    const employeeDeatils = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee) : useSelector((state: RootState) => state.employee.currentEmployee);
+    const selectedEmployeeDetails = useSelector((state: RootState) => state.employee.selectedEmployee);
+    const currentEmployeeDetails = useSelector((state: RootState) => state.employee.currentEmployee);
+    const employeeDeatils = fromAdmin ? selectedEmployeeDetails : currentEmployeeDetails;
 
     const reportsToId = employeeDeatils.reportsToId;
     useEffect(() => {

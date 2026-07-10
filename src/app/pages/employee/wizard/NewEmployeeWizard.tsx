@@ -39,6 +39,7 @@ import {
   updatePreviousExpDetails,
   updateRejoinHistoryDetails,
   deleteAllRejoinHistoryByEmployeeId,
+  fetchApprovalWorkflowConfigs,
 } from "@services/employee";
 import { fetchCompanyOverview } from "@services/company";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
@@ -281,15 +282,16 @@ const newEmployeeWizardSchema = [
       }),
     familyInfo: Yup.array().of(
       Yup.object({
-        name: optionalString().label("Family Member Name")
+        name: Yup.string().required().label("Family Member Name")
           .min(4, "Family Member name must be at least 4 characters").max(20, "Family Member name must be at most 20 characters")
           .matches(employeeOnBardingFormRegexes["familyInfo.name"], "Family Member name can only contain alphabetic characters"),
-        relationship: optionalString().label("Member Relationship")
+        relationship: Yup.string().required().label("Member Relationship")
           .min(3, "Member Relationship name must be at least 3 characters").max(20, "Member Relationship name must be at most 20 characters")
           .matches(employeeOnBardingFormRegexes["familyInfo.relationship"], "Member Relationship name can only contain alphabetic characters"),
-        mobileNumber: optionalString().label("Member Phone Number")
+        mobileNumber: Yup.string().required().label("Member Phone Number")
           .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
           .matches(employeeOnBardingFormRegexes["familyInfo.mobileNumber"], "Phone Number can only contain numeric characters"),
+        // Date of Birth stays optional per requirement.
         dateOfBirth: optionalString().label("Date of Birth"),
       }),
       // Family info is fully optional during onboarding — a partially filled
@@ -340,12 +342,13 @@ const newEmployeeWizardSchema = [
     designationId: Yup.string().required().label("Job Profile"),
     departmentId: Yup.string().required().label("Department"),
     branchId: Yup.string().required().label("Branch"),
+    teamId: Yup.string().required().label("Team"),
     employeeTypeId: optionalString().label("Employee Type (Old)"),
     employeeTypeConfigId: optionalString().label("Employee Type"),
     workingMethodId: optionalString().label("Working Method"),
-    companyEmailId: optionalString().label("Company Email Address")
+    companyEmailId: Yup.string().required().label("Company Email Address")
       .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "Invalid email address"),
-    companyPhoneNumber: optionalString().label("Company Phone Number")
+    companyPhoneNumber: Yup.string().required().label("Company Phone Number")
       .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
       .matches(employeeOnBardingFormRegexes["companyPhoneNumber"], "Phone Number can only contain numeric characters"),
     companyPhoneExtension: optionalString().label("Company Phone Extension"),
@@ -751,6 +754,13 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     };
   }, [show]);
 
+  // Trigger Formik validation when step changes or default state updates
+  useEffect(() => {
+    if (formikRef.current) {
+      formikRef.current.validateForm();
+    }
+  }, [activeStepIndex, defaultState]);
+
   const addFileToState = (documentId: string, file: File) => {
     setFiles((prev: any) => ({ ...prev, [documentId]: file }));
 
@@ -1054,11 +1064,42 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     }
   };
 
+  // Approval Settings is mandatory before an edit can be saved: every workflow
+  // (Attendance, Leave, Reimbursement) must have at least a Level-1 approver.
+  // Verified against the backend so it doesn't depend on the section being open.
+  const REQUIRED_APPROVAL_WORKFLOWS = [
+    { key: "attendance", label: "Attendance" },
+    { key: "leave", label: "Leave" },
+    { key: "reimbursement", label: "Reimbursement" },
+  ];
+  const getMissingApprovalWorkflows = async (): Promise<string[]> => {
+    if (!employeeId) return [];
+    try {
+      const res = await fetchApprovalWorkflowConfigs(employeeId);
+      const configs: any[] = res?.data || res || [];
+      return REQUIRED_APPROVAL_WORKFLOWS
+        .filter(({ key }) => !configs.some((c: any) =>
+          c?.workflowType === key && Number(c?.level) === 1 && c?.isActive && c?.approverId))
+        .map(({ label }) => label);
+    } catch (error) {
+      // Don't hard-block a save on a transient fetch failure.
+      console.error("Failed to verify approval settings:", error);
+      return [];
+    }
+  };
+
   const submitStep = async (values: any, actions: FormikValues) => {
     const currentStepIndex = stepper?.currentStepIndex || activeStepIndex;
     const totalStepsNumber = stepper?.totalStepsNumber || newEmployeeWizardSchema.length;
 
     if (currentStepIndex === totalStepsNumber && editMode) {
+      const missingApproval = await getMissingApprovalWorkflows();
+      if (missingApproval.length) {
+        errorConfirmation(
+          `Please configure Approval Settings before saving.<br><br>Missing a Level 1 approver for: <strong>${missingApproval.join(", ")}</strong>.<br>Open the App Settings step → Approval Settings and save each chain.`
+        );
+        return;
+      }
       try { setIsSubmitting(true); await updateWizardData(values); }
       catch (error) {
         // Never fail silently — surface the reason so the user knows what went wrong
@@ -1297,8 +1338,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
           >
             {(formikProps) => {
               formikRef.current = formikProps;
-
-              useEffect(() => { formikProps.validateForm(); }, [activeStepIndex, defaultState]);
 
               const completion = calculateProfileCompletion(formikProps.values);
               const isLastStep = activeStepIndex === newEmployeeWizardSchema.length;
