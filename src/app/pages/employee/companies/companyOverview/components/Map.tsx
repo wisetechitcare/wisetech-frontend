@@ -393,14 +393,6 @@ const LocationMarker = React.memo(({
 
   // 1. Position Validation
   const position: [number, number] = [loc?.lat, loc?.lng];
-  if (
-    typeof position[0] !== "number" ||
-    typeof position[1] !== "number" ||
-    isNaN(position[0]) ||
-    isNaN(position[1])
-  ) {
-    return null;
-  }
 
   // 2. Safe Data Extraction
   const item = loc.item || loc;
@@ -508,6 +500,16 @@ const LocationMarker = React.memo(({
       }
     },
   }), [id, setActiveMarkerId, setActiveCompany, item, loc.entityType]);
+
+  // Position Validation (moved after hooks to satisfy rules-of-hooks)
+  if (
+    typeof position[0] !== "number" ||
+    typeof position[1] !== "number" ||
+    isNaN(position[0]) ||
+    isNaN(position[1])
+  ) {
+    return null;
+  }
 
   const handleNavigation = () => {
     if (!entityId) return;

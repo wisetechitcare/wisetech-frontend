@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
+import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
 import AttendanceStatusBadge from './AttendanceStatusBadge';
 import AttendanceCheckCell, {
     AttendanceCoordinates,
@@ -1292,7 +1292,9 @@ export const StatisticsTable = ({
 
     const [disableRaiseRequest, setDisableRaiseRequest] = useState(false);
 
-    const employeeDeatils = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee) : useSelector((state: RootState) => state.employee.currentEmployee);
+    const selectedEmployeeDetails = useSelector((state: RootState) => state.employee.selectedEmployee);
+    const currentEmployeeDetails = useSelector((state: RootState) => state.employee.currentEmployee);
+    const employeeDeatils = fromAdmin ? selectedEmployeeDetails : currentEmployeeDetails;
     const reportsToId = employeeDeatils.reportsToId;
 
     // Weekend/holiday status must use the VIEWED employee's branch config (selected when admin,
@@ -1424,18 +1426,17 @@ export const StatisticsTable = ({
     const [isValidating, setIsValidating] = useState(false);
 
     // Get dateOfJoining and branchWorkingDays for validation
-    const dateOfJoining = fromAdmin
-        ? useSelector((state: RootState) => state.employee.selectedEmployee.dateOfJoining)
-        : useSelector((state: RootState) => state.employee.currentEmployee.dateOfJoining);
-    const branchWorkingDays = fromAdmin
-        ? useSelector((state: RootState) => {
-            const workingAndOffDays = state.employee.selectedEmployee?.branches?.workingAndOffDays;
-            return parseWorkingDays(workingAndOffDays);
-        })
-        : useSelector((state: RootState) => {
-            const workingAndOffDays = state.employee.currentEmployee?.branches?.workingAndOffDays;
-            return parseWorkingDays(workingAndOffDays);
-        });
+    // Hooks must run unconditionally (rules-of-hooks): read both viewers' values,
+    // then pick by `fromAdmin`. Optional chaining so the always-run selector for the
+    // non-active viewer can't throw when that employee object is absent.
+    const selectedDateOfJoining = useSelector((state: RootState) => state.employee.selectedEmployee?.dateOfJoining);
+    const currentDateOfJoining = useSelector((state: RootState) => state.employee.currentEmployee?.dateOfJoining);
+    const dateOfJoining = fromAdmin ? selectedDateOfJoining : currentDateOfJoining;
+    const selectedBranchWorkingDays = useSelector((state: RootState) =>
+        parseWorkingDays(state.employee.selectedEmployee?.branches?.workingAndOffDays));
+    const currentBranchWorkingDays = useSelector((state: RootState) =>
+        parseWorkingDays(state.employee.currentEmployee?.branches?.workingAndOffDays));
+    const branchWorkingDays = fromAdmin ? selectedBranchWorkingDays : currentBranchWorkingDays;
 
 
     const handleClose = () => {
@@ -2472,7 +2473,9 @@ export const ReportsTable = ({
     };
 
     const [date, setDate] = useState('');
-    const employeeDeatils = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee) : useSelector((state: RootState) => state.employee.currentEmployee);
+    const selectedEmployeeDetails = useSelector((state: RootState) => state.employee.selectedEmployee);
+    const currentEmployeeDetails = useSelector((state: RootState) => state.employee.currentEmployee);
+    const employeeDeatils = fromAdmin ? selectedEmployeeDetails : currentEmployeeDetails;
 
     const reportsToId = employeeDeatils.reportsToId;
     useEffect(() => {

@@ -754,6 +754,13 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     };
   }, [show]);
 
+  // Trigger Formik validation when step changes or default state updates
+  useEffect(() => {
+    if (formikRef.current) {
+      formikRef.current.validateForm();
+    }
+  }, [activeStepIndex, defaultState]);
+
   const addFileToState = (documentId: string, file: File) => {
     setFiles((prev: any) => ({ ...prev, [documentId]: file }));
 
@@ -1331,8 +1338,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
           >
             {(formikProps) => {
               formikRef.current = formikProps;
-
-              useEffect(() => { formikProps.validateForm(); }, [activeStepIndex, defaultState]);
 
               const completion = calculateProfileCompletion(formikProps.values);
               const isLastStep = activeStepIndex === newEmployeeWizardSchema.length;
