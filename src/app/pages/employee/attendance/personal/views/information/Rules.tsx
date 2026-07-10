@@ -157,7 +157,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
 
     async function fetchLeaveConfiguration() {
         const { data: { configuration } } = await fetchConfiguration('leave management', undefined, undefined, isScoped ? effectiveScope : undefined);
-        const jsonObject = safeJsonParse(configuration.configuration);
+        const jsonObject = safeJsonParse(configuration?.configuration);
 
         // Parse check-in and check-out times
         const checkInTime = jsonObject["Check-in time"];
@@ -192,7 +192,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
         };
 
         setConfiguration(updatedConfig);
-        setRuleId(configuration.id);
+        setRuleId(configuration?.id);
     }
 
 

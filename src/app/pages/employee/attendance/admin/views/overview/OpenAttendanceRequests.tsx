@@ -146,7 +146,7 @@ const OpenAttendanceRequests = () => {
     useEffect(() => {
         async function fetchLeaveConfig() {
             const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-            const jsonObject = safeJsonParse(configuration.configuration.configuration);
+            const jsonObject = safeJsonParse(configuration?.configuration?.configuration);
 
             setLeaveConfiguration(jsonObject);
         }

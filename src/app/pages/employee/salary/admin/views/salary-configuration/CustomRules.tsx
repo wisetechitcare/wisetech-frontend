@@ -108,9 +108,9 @@ function CustomRules() {
 
   async function fetchPayrollConfiguration() {
     const { data: { configuration } } = await fetchConfiguration(CUSTOM_SALARY);
-    const jsonObject = safeJsonParse(configuration.configuration);
+    const jsonObject = safeJsonParse(configuration?.configuration);
     setConfigurationRule(jsonObject);
-    setConfigurationId(configuration.id);
+    setConfigurationId(configuration?.id);
 
 
     const tableData = Object.keys(jsonObject).map((gpd: string) => {

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { KTIcon } from '@metronic/helpers';
 import dayjs from 'dayjs';
 import { IReimbursementPayment } from '@models/employee';
-import { fetchReimbursementPayments, fetchReimbursementBatchById } from '@services/employee';
+import { fetchReimbursementPayments, fetchReimbursementBatchById, fetchApprovalInstanceByRequest } from '@services/employee';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
 import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
@@ -100,14 +100,19 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
             ) as string[];
 
             const entries = await Promise.all(
-                uniqueBatchIds.map((id) =>
-                    fetchReimbursementBatchById(id)
-                        .then((res: any) => {
-                            const b = res?.data?.batch || res?.batch;
-                            return { id, submissionId: b?.submissionId || id, approvalInstanceId: b?.approvalInstanceId ?? null };
-                        })
-                        .catch(() => ({ id, submissionId: id, approvalInstanceId: null })),
-                ),
+                uniqueBatchIds.map(async (id) => {
+                    try {
+                        const [batchRes, instanceRes] = await Promise.all([
+                            fetchReimbursementBatchById(id),
+                            fetchApprovalInstanceByRequest('ReimbursementBatch', id).catch(() => null),
+                        ]);
+                        const b = batchRes?.data?.batch || batchRes?.batch;
+                        const instance = instanceRes?.data || instanceRes;
+                        return { id, submissionId: b?.submissionId || id, approvalInstanceId: instance?.id ?? null };
+                    } catch {
+                        return { id, submissionId: id, approvalInstanceId: null };
+                    }
+                }),
             );
             setBatchSubmissionMap(new Map(entries.map((e) => [e.id, e.submissionId])));
             setBatchApprovalMap(new Map(entries.map((e) => [e.id, e.approvalInstanceId])));

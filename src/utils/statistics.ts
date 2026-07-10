@@ -1233,7 +1233,7 @@ let leaveConfigurations: any = {
 async function fetchCompanyTimings() {
     try {
         const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-        const jsonObject = safeJsonParse(configuration.configuration.configuration);
+        const jsonObject = safeJsonParse(configuration.configuration?.configuration);
 
         leaveConfigurations = jsonObject;
         const companyCheckIn = jsonObject["Check-in time"];

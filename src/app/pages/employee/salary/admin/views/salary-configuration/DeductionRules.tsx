@@ -154,12 +154,12 @@ function DeductionRules() {
   async function fetchPayrollConfiguration() {
     try {
       const { data: { configuration } } = await fetchConfiguration(DEDUCTIONS);
-      const configurationComplete = safeJsonParse(configuration.configuration || '{}');
+      const configurationComplete = safeJsonParse(configuration?.configuration || '{}');
       console.log("configurationComplete:: ", configurationComplete);
       console.log("typeofconfigurationComplete:: ", typeof(configurationComplete));
 
       setConfig(configurationComplete);
-      setConfigurationId(configuration.id);
+      setConfigurationId(configuration?.id);
     } catch (error) {
       console.error("Error fetching configuration:", error);
       setConfig({});

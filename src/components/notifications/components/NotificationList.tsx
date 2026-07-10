@@ -11,7 +11,7 @@ import type { ListRow } from '../utils';
 import { NotificationCard } from './NotificationCard';
 
 const HEADER_HEIGHT = 28;
-const ESTIMATED_ITEM = 98;
+const ESTIMATED_ITEM = 62;
 
 interface Handlers {
   onActivate: (n: AppNotification) => void;
