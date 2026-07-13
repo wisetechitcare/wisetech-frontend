@@ -259,7 +259,7 @@ const NewCompanyForm: React.FC<Props> = ({
     [allEmployees],
   );
   const companyOptions = useMemo(
-    () => allCompanies.map((c: any) => ({ label: c.companyName, value: c.id })),
+    () => allCompanies.map((c: any) => ({ label: c.companyName, value: c.id, avatar: c.logo })),
     [allCompanies],
   );
   const companyById = useMemo(
@@ -268,12 +268,12 @@ const NewCompanyForm: React.FC<Props> = ({
   );
   // companyTypeId → company options (for the "filter companies by type" cascade).
   const companiesByTypeId = useMemo(() => {
-    const m = new Map<string, { label: string; value: string }[]>();
+    const m = new Map<string, { label: string; value: string; avatar?: string }[]>();
     allCompanies.forEach((c: any) => {
       const tid = c.companyTypeId;
       if (!tid) return;
       const arr = m.get(tid) || [];
-      arr.push({ label: c.companyName, value: c.id });
+      arr.push({ label: c.companyName, value: c.id, avatar: c.logo });
       m.set(tid, arr);
     });
     return m;
@@ -1435,9 +1435,11 @@ const NewCompanyForm: React.FC<Props> = ({
                                                     ? {
                                                         label: companyById.get(reference.externalReferenceCompanyId)?.companyName,
                                                         value: reference.externalReferenceCompanyId,
+                                                        avatar: companyById.get(reference.externalReferenceCompanyId)?.logo,
                                                       }
                                                     : null
                                                 }
+                                                showAvatar={true}
                                               />
                                             </div>
 
