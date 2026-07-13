@@ -233,6 +233,23 @@ const NewCompanyForm: React.FC<Props> = ({
     () => contacts.map((c: any) => ({ label: c.fullName, value: c.id, avatar: c.profilePhoto })),
     [contacts],
   );
+  // companyId → its contact options (for the "filter Referral Contact by Referral
+  // Company" cascade — previously this dropdown always showed every contact).
+  const contactsByCompanyId = useMemo(() => {
+    const m = new Map<string, { label: string; value: string; avatar?: string }[]>();
+    contacts.forEach((c: any) => {
+      const cid = c.companyId;
+      if (!cid) return;
+      const arr = m.get(cid) || [];
+      arr.push({ label: c.fullName, value: c.id, avatar: c.profilePhoto });
+      m.set(cid, arr);
+    });
+    return m;
+  }, [contacts]);
+  const contactById = useMemo(
+    () => new Map<string, any>(contacts.map((c: any) => [c.id, c])),
+    [contacts],
+  );
   const employeeOptions = useMemo(
     () =>
       allEmployees.map((e: any) => ({
@@ -1382,8 +1399,10 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 options={companyTypeOptions}
                                                 onChange={(option: any) => {
                                                   setFieldValue(`referenceType.${index}.externalReferenceCompanyTypeId`, option?.value || "");
-                                                  // Clear company selection when company type changes
+                                                  // Clear company (and its dependents) when company type changes
                                                   setFieldValue(`referenceType.${index}.externalReferenceCompanyId`, "");
+                                                  setFieldValue(`referenceType.${index}.externalReferenceSubCompanyId`, "");
+                                                  setFieldValue(`referenceType.${index}.externalReferenceContactId`, "");
                                                 }}
                                               />
                                             </div>
@@ -1405,8 +1424,11 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 }
                                                 onChange={(option: any) => {
                                                   setFieldValue(`referenceType.${index}.externalReferenceCompanyId`, option?.value || "");
-                                                  // Clear sub company selection when company changes
+                                                  // Clear sub company AND contact — the contact list is scoped to this
+                                                  // company, so a previously picked contact from a different company
+                                                  // is no longer valid.
                                                   setFieldValue(`referenceType.${index}.externalReferenceSubCompanyId`, "");
+                                                  setFieldValue(`referenceType.${index}.externalReferenceContactId`, "");
                                                 }}
                                                 value={
                                                   reference.externalReferenceCompanyId
@@ -1452,8 +1474,28 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 formikField={`referenceType.${index}.externalReferenceContactId`}
                                                 inputLabel="Referral Contact"
                                                 isRequired={false}
-                                                options={contactOptions}
-                                                showColor={true}
+                                                options={(() => {
+                                                  if (!reference.externalReferenceCompanyId) return contactOptions;
+                                                  const scoped = contactsByCompanyId.get(reference.externalReferenceCompanyId) || [];
+                                                  // Safety net (same pattern as the lead File Location fix): if a
+                                                  // previously-saved contact doesn't fall inside the scoped list
+                                                  // (legacy data, contact later reassigned, etc.), still surface it
+                                                  // so editing an existing reference never shows an empty dropdown.
+                                                  const savedId = reference.externalReferenceContactId;
+                                                  if (savedId && !scoped.some((o) => o.value === savedId)) {
+                                                    const saved = contactById.get(savedId);
+                                                    if (saved) {
+                                                      return [{ label: saved.fullName, value: saved.id, avatar: saved.profilePhoto }, ...scoped];
+                                                    }
+                                                  }
+                                                  return scoped;
+                                                })()}
+                                                placeholder={
+                                                  !reference.externalReferenceCompanyId
+                                                    ? "Please select company first"
+                                                    : "Select Contact"
+                                                }
+                                                showAvatar={true}
                                               />
                                             </div>
                                           </>
