@@ -943,8 +943,10 @@ const PillDropdown = ({
   onChange: (val: string | null) => void;
 }) => {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const reposition = useCallback(() => {
@@ -960,7 +962,9 @@ const PillDropdown = ({
 
   useEffect(() => {
     if (!open) return;
+    setQuery("");
     reposition();
+    const focusTimer = setTimeout(() => searchRef.current?.focus(), 30);
     const onScroll = () => reposition();
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     const onDown = (e: MouseEvent) => {
@@ -973,6 +977,7 @@ const PillDropdown = ({
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown);
     return () => {
+      clearTimeout(focusTimer);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
       document.removeEventListener("keydown", onKey);
@@ -982,6 +987,11 @@ const PillDropdown = ({
 
   const selected = value ? options.find(o => o.name === value) : undefined;
   const label = value ? `${value}${selected ? ` (${selected.count})` : ""}` : placeholder;
+
+  // Type-to-search inside the dropdown
+  const q = query.trim().toLowerCase();
+  const filteredOptions = q ? options.filter(o => o.name.toLowerCase().includes(q)) : options;
+  const searchLabel = (ariaLabel || "").replace(/^filter by\s*/i, "") || "options";
 
   return (
     <>
@@ -1009,31 +1019,62 @@ const PillDropdown = ({
           aria-label={ariaLabel}
           style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.width }}
         >
-          <button
-            type="button"
-            className={`pill-dd-option ${!value ? "selected" : ""}`}
-            role="option"
-            aria-selected={!value}
-            onClick={() => { onChange(null); setOpen(false); }}
-          >
-            <span className="pill-dd-check">{!value ? "✓" : ""}</span>
-            <span className="pill-dd-name">{placeholder}</span>
-          </button>
-          {options.map(({ name, count }) => (
-            <button
-              key={name}
-              type="button"
-              className={`pill-dd-option ${value === name ? "selected" : ""}`}
-              role="option"
-              aria-selected={value === name}
-              title={name}
-              onClick={() => { onChange(name); setOpen(false); }}
-            >
-              <span className="pill-dd-check">{value === name ? "✓" : ""}</span>
-              <span className="pill-dd-name">{name}</span>
-              <span className="pill-dd-count">{count}</span>
-            </button>
-          ))}
+          <div className="pill-dd-search-row">
+            <i className="bi bi-search pill-dd-search-icon" />
+            <input
+              ref={searchRef}
+              className="pill-dd-search"
+              type="text"
+              placeholder={`Search ${searchLabel}…`}
+              value={query}
+              autoComplete="off"
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") { e.stopPropagation(); setOpen(false); }
+                // Enter selects the only match for a fast keyboard flow
+                if (e.key === "Enter" && filteredOptions.length === 1) {
+                  onChange(filteredOptions[0].name); setOpen(false);
+                }
+              }}
+            />
+            {query && (
+              <button className="pill-dd-search-clear" onMouseDown={(e) => { e.preventDefault(); setQuery(""); searchRef.current?.focus(); }} aria-label="Clear search">×</button>
+            )}
+          </div>
+
+          <div className="pill-dd-list">
+            {!q && (
+              <button
+                type="button"
+                className={`pill-dd-option ${!value ? "selected" : ""}`}
+                role="option"
+                aria-selected={!value}
+                onClick={() => { onChange(null); setOpen(false); }}
+              >
+                <span className="pill-dd-check">{!value ? "✓" : ""}</span>
+                <span className="pill-dd-name">{placeholder}</span>
+              </button>
+            )}
+            {filteredOptions.length === 0 ? (
+              <div className="pill-dd-empty">No matches for “{query}”</div>
+            ) : (
+              filteredOptions.map(({ name, count }) => (
+                <button
+                  key={name}
+                  type="button"
+                  className={`pill-dd-option ${value === name ? "selected" : ""}`}
+                  role="option"
+                  aria-selected={value === name}
+                  title={name}
+                  onClick={() => { onChange(name); setOpen(false); }}
+                >
+                  <span className="pill-dd-check">{value === name ? "✓" : ""}</span>
+                  <span className="pill-dd-name">{name}</span>
+                  <span className="pill-dd-count">{count}</span>
+                </button>
+              ))
+            )}
+          </div>
         </div>,
         document.body
       )}
@@ -1951,11 +1992,7 @@ export default function Maps({
           border-radius: 14px;
           box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(15, 23, 42, 0.08);
           padding: 6px;
-          max-height: 320px;
-          overflow-y: auto;
-          overflow-x: hidden;
-          scrollbar-width: thin;
-          scrollbar-color: #d7dee7 transparent;
+          overflow: hidden;
           transform-origin: top center;
           animation: pillDdIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -1963,10 +2000,51 @@ export default function Maps({
           from { opacity: 0; transform: translateY(-6px) scale(0.98); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
-        .pill-dd-panel::-webkit-scrollbar { width: 10px; }
-        .pill-dd-panel::-webkit-scrollbar-track { background: transparent; }
-        .pill-dd-panel::-webkit-scrollbar-thumb { background: #d7dee7; border-radius: 999px; border: 3px solid #ffffff; }
-        .pill-dd-panel::-webkit-scrollbar-thumb:hover { background: #c2cbd6; }
+        /* Search box pinned at the top; only the list below it scrolls */
+        .pill-dd-search-row {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          padding: 7px 9px;
+          margin-bottom: 4px;
+          border-radius: 9px;
+          background: #f1f5f9;
+          border: 1px solid transparent;
+          transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+        }
+        .pill-dd-search-row:focus-within {
+          background: #ffffff;
+          border-color: ${PROJECT_FILTER_THEME.primary};
+          box-shadow: 0 0 0 3px ${PROJECT_FILTER_THEME.shadow};
+        }
+        .pill-dd-search-icon { font-size: 12px; color: #94a3b8; flex-shrink: 0; }
+        .pill-dd-search {
+          flex: 1 1 auto;
+          border: none;
+          outline: none;
+          background: transparent;
+          font-size: 13px;
+          color: #1e293b;
+          min-width: 0;
+        }
+        .pill-dd-search::placeholder { color: #94a3b8; }
+        .pill-dd-search-clear {
+          border: none; background: none; cursor: pointer;
+          color: #94a3b8; font-size: 16px; line-height: 1; padding: 0 2px; flex-shrink: 0;
+        }
+        .pill-dd-search-clear:hover { color: #475569; }
+        .pill-dd-list {
+          max-height: 260px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-width: thin;
+          scrollbar-color: #d7dee7 transparent;
+        }
+        .pill-dd-list::-webkit-scrollbar { width: 10px; }
+        .pill-dd-list::-webkit-scrollbar-track { background: transparent; }
+        .pill-dd-list::-webkit-scrollbar-thumb { background: #d7dee7; border-radius: 999px; border: 3px solid #ffffff; }
+        .pill-dd-list::-webkit-scrollbar-thumb:hover { background: #c2cbd6; }
+        .pill-dd-empty { padding: 14px 10px; text-align: center; font-size: 12px; color: #94a3b8; }
         .pill-dd-option {
           display: flex;
           align-items: center;
@@ -2584,7 +2662,7 @@ export default function Maps({
             {/* State */}
             <PillDropdown
               ariaLabel="Filter by state"
-              placeholder={isWorldFilter ? "N/A" : selectedCountry ? "All States" : "Select Country"}
+              placeholder={isWorldFilter ? "N/A" : "All States"}
               disabled={isWorldFilter || !selectedCountry}
               disabledText={isWorldFilter ? "Disabled in World view" : "Select a country first"}
               active={!!selectedState}
@@ -2606,7 +2684,7 @@ export default function Maps({
             {/* City */}
             <PillDropdown
               ariaLabel="Filter by city"
-              placeholder={isWorldFilter ? "N/A" : selectedState ? "All Cities" : "Select State"}
+              placeholder={isWorldFilter ? "N/A" : "All Cities"}
               disabled={isWorldFilter || !selectedState}
               disabledText={isWorldFilter ? "Disabled in World view" : "Select a state first"}
               active={!!selectedCity}
@@ -2627,7 +2705,7 @@ export default function Maps({
             {/* Locality */}
             <PillDropdown
               ariaLabel="Filter by locality"
-              placeholder={isWorldFilter ? "N/A" : selectedCity ? "All Localities" : "Select City"}
+              placeholder={isWorldFilter ? "N/A" : "All Localities"}
               disabled={isWorldFilter || !selectedCity}
               disabledText={isWorldFilter ? "Disabled in World view" : "Select a city first"}
               active={!!selectedLocality}
