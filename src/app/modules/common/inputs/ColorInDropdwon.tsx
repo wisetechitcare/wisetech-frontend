@@ -1,4 +1,5 @@
 import { components } from "react-select";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 
 const getAvatarUrl = (data: any) => {
   if (data.avatar) return data.avatar; // use real avatar
@@ -70,6 +71,27 @@ export const SingleValue = (props: any) => (
       }}>
         {props.data.label}
       </span>
+    </div>
+  </components.SingleValue>
+);
+
+// Avatar-based option rendering (real photo, else the SAME deterministic
+// gradient + initials fallback the actual Contacts page uses — SmartAvatar —
+// rather than a separate/simplified initials scheme just for this dropdown.
+export const AvatarOption = (props: any) => (
+  <components.Option {...props}>
+    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <SmartAvatar name={props.data.label} id={props.data.value} imageUrl={props.data.avatar} size={24} imageFit="cover" />
+      <span>{props.data.label}</span>
+    </div>
+  </components.Option>
+);
+
+export const AvatarSingleValue = (props: any) => (
+  <components.SingleValue {...props}>
+    <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", minHeight: "32px" }}>
+      <SmartAvatar name={props.data.label} id={props.data.value} imageUrl={props.data.avatar} size={22} imageFit="cover" />
+      <span>{props.data.label}</span>
     </div>
   </components.SingleValue>
 );
