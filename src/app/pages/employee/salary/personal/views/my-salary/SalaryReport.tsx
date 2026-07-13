@@ -1757,14 +1757,17 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
             // Log the processing attempt
 
-            // Prepare all promises 
+            // Prepare all promises. Pass null (not the sandwich config) so these COUNT the stored
+            // leave rows directly and do NOT re-apply the legacy sandwich scenario logic — sandwich
+            // days are now decided once on the backend (rule-driven booking, v7.0) and already
+            // persisted correctly. Re-classifying here was the D-7 payslip-vs-payroll divergence.
             const unpaidLeavesPromise = isYearly
-                ? getAllUnPaidLeavesForCurrentYear(baseDate, sandwhichConfiguration, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), sandwhichConfiguration, fromAdmin, [employee]);
+                ? getAllUnPaidLeavesForCurrentYear(baseDate, null as any, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), null as any, fromAdmin, [employee]);
 
             const paidLeavesPromise = isYearly
-                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, sandwhichConfiguration, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), sandwhichConfiguration, fromAdmin, [employee]);
+                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, null as any, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), null as any, fromAdmin, [employee]);
 
             // removed reimbursement from gross pay as per discussion but keeping the commnet just in cases needed in future again
             // const reimbursementsPromise = isYearly

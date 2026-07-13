@@ -1,5 +1,13 @@
 import React, { useRef } from 'react';
-import { Reorder } from 'framer-motion';
+import { Reorder, useDragControls } from 'framer-motion';
+
+/** Props passed to a drag handle element when `withHandle` is on. Spread onto the grip:
+ *  `<span {...handleProps}>≡</span>`. Only pointer-down on the handle starts a drag, so the rest
+ *  of the item (buttons, toggles, links) stays fully interactive. */
+export interface DragHandleProps {
+  onPointerDown: (e: React.PointerEvent) => void;
+  style: React.CSSProperties;
+}
 
 /**
  * ReorderableGroup — a reusable, smooth drag-to-reorder container.
@@ -23,7 +31,8 @@ export interface ReorderableGroupProps<T> {
   items: T[];
   getItemId: (item: T) => string;
   onReorder: (items: T[]) => void;
-  renderItem: (item: T) => React.ReactNode;
+  /** `handleProps` is provided only when `withHandle` is on — spread it onto your grip element. */
+  renderItem: (item: T, handleProps?: DragHandleProps) => React.ReactNode;
   axis?: 'x' | 'y';
   /** Applied to the group container (use this to keep the existing flex/grid layout). */
   className?: string;
@@ -32,6 +41,9 @@ export interface ReorderableGroupProps<T> {
   itemStyle?: React.CSSProperties;
   /** When true, items render statically without drag behaviour. */
   disabled?: boolean;
+  /** Handle-only mode: dragging starts ONLY from the grip element the item renders with
+   *  `handleProps`. Use for items that contain their own buttons/toggles/links. */
+  withHandle?: boolean;
 }
 
 function ReorderableGroup<T>({
@@ -44,6 +56,7 @@ function ReorderableGroup<T>({
   itemClassName,
   itemStyle,
   disabled = false,
+  withHandle = false,
 }: ReorderableGroupProps<T>) {
   const ids = items.map(getItemId);
   const byId = new Map(items.map((it) => [getItemId(it), it]));
@@ -81,9 +94,9 @@ function ReorderableGroup<T>({
             id={id}
             className={itemClassName}
             style={itemStyle}
-          >
-            {renderItem(item)}
-          </ReorderableItem>
+            withHandle={withHandle}
+            renderItem={(handleProps) => renderItem(item, handleProps)}
+          />
         );
       })}
     </Reorder.Group>
@@ -94,24 +107,33 @@ function ReorderableItem({
   id,
   className,
   style,
-  children,
+  withHandle,
+  renderItem,
 }: {
   id: string;
   className?: string;
   style?: React.CSSProperties;
-  children: React.ReactNode;
+  withHandle: boolean;
+  renderItem: (handleProps?: DragHandleProps) => React.ReactNode;
 }) {
   // Track whether the pointer interaction was a drag, so we can swallow the
   // synthetic click that fires right after a drag (prevents accidental clicks).
   const draggedRef = useRef(false);
+  // Handle-only dragging: disable the item's own pointer listener and start drags from the grip.
+  const controls = useDragControls();
+  const handleProps: DragHandleProps | undefined = withHandle
+    ? { onPointerDown: (e) => controls.start(e), style: { cursor: 'grab', touchAction: 'none' } }
+    : undefined;
 
   return (
     <Reorder.Item
       as="div"
       value={id}
       className={className}
-      style={{ ...style, cursor: 'grab' }}
-      whileDrag={{ scale: 1.03, zIndex: 20, boxShadow: '0 12px 28px rgba(0,0,0,0.18)', cursor: 'grabbing' }}
+      style={{ ...style, cursor: withHandle ? 'default' : 'grab' }}
+      dragListener={!withHandle}
+      dragControls={withHandle ? controls : undefined}
+      whileDrag={{ scale: 1.02, zIndex: 20, boxShadow: '0 12px 28px rgba(0,0,0,0.18)' }}
       transition={{ type: 'spring', stiffness: 600, damping: 40 }}
       onDragStart={() => { draggedRef.current = true; }}
       onDragEnd={() => { window.setTimeout(() => { draggedRef.current = false; }, 0); }}
@@ -122,7 +144,7 @@ function ReorderableItem({
         }
       }}
     >
-      {children}
+      {renderItem(handleProps)}
     </Reorder.Item>
   );
 }

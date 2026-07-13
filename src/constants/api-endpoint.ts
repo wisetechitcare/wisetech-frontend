@@ -596,6 +596,8 @@ export const SANDWICH_RULE = {
     CREATE: "api/sandwich-rules",
     UPDATE: "api/sandwich-rules/:id",
     DELETE: "api/sandwich-rules/:id",
+    REORDER: "api/sandwich-rules/reorder",
+    PREVIEW: "api/sandwich-rules/preview",
     AUDIT_LOG: "api/sandwich-rules/:id/audit",
 };
 

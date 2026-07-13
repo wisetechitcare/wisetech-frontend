@@ -19,7 +19,8 @@ import { createPortal } from 'react-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { useApplyLeave, type ApplyLeaveState } from './useApplyLeave';
-import { expandSandwichDates } from '@utils/leaveAllocation';
+import { fetchSandwichPreview } from '@services/sandwichRule';
+import { getSocket } from '@utils/socketClient';
 import { parseWorkingDays } from '@utils/workingDays';
 import { formatCurrencyDecimal } from '@utils/currency';
 
@@ -195,7 +196,28 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
     }, [sameDayPenalty, s.from, s.isHalfDay, today]);
     useEffect(() => { if (!isPenaltyActive) setPenaltyAck(false); }, [isPenaltyActive]);
 
-    const alloc = useMemo(() => preview({ ...s, excludeSick: sickConfirmed === false }), [s, sickConfirmed, preview]);
+    // Sandwich preview: the BACKEND rule engine is the single source of truth for which interior
+    // off-days get docked as Unpaid. Fetch on span change (debounced) and refetch live when the
+    // rules are edited anywhere (sandwichRules:updated). Empty under the default rule set, so an
+    // interior weekend simply counts (strictly rule-driven).
+    const [sandwichExcluded, setSandwichExcluded] = useState<string[]>([]);
+    useEffect(() => {
+        const from = s.from, to = s.to || s.from;
+        if (!from || !to) { setSandwichExcluded([]); return; }
+        let alive = true;
+        const load = () => {
+            fetchSandwichPreview({ dateFrom: from, dateTo: to, employeeId: employeeId || undefined, isHalfDay: s.isHalfDay })
+                .then(r => { if (alive) setSandwichExcluded(r.excludedOffDayDates); })
+                .catch(() => { if (alive) setSandwichExcluded([]); });
+        };
+        const t = setTimeout(load, 250);
+        const socket = getSocket();
+        const onRules = () => load();
+        socket.on('sandwichRules:updated', onRules);
+        return () => { alive = false; clearTimeout(t); socket.off('sandwichRules:updated', onRules); };
+    }, [s.from, s.to, s.isHalfDay, employeeId]);
+
+    const alloc = useMemo(() => preview({ ...s, excludeSick: sickConfirmed === false }, sandwichExcluded), [s, sickConfirmed, preview, sandwichExcluded]);
     const segByDate = useMemo(() => {
         const map = new Map<string, { leaveType: string; isPaid: boolean }>();
         alloc?.segments.forEach(seg => seg.dates.forEach(d => map.set(d, { leaveType: seg.leaveType, isPaid: seg.isPaid })));
@@ -228,11 +250,8 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
         !(s.isHalfDay && !s.halfDaySession) && !sickPromptShow && !(unpaidDays > 0 && !lopAck) &&
         (!isPenaltyActive || penaltyAck);
 
-    // Sandwich days: interior off-days booked as Unpaid Leave (sandwich policy).
-    const sandwichDateSet = useMemo(
-        () => new Set(expandSandwichDates(s.from ?? '', s.to ?? '', workingAndOffDays, holidaySet)),
-        [s.from, s.to, workingAndOffDays, holidaySet],
-    );
+    // Sandwich days: interior off-days the backend rule engine docks as Unpaid (rule-driven).
+    const sandwichDateSet = useMemo(() => new Set(sandwichExcluded), [sandwichExcluded]);
     const sandwichDays = sandwichDateSet.size;
 
     // Fiscal year hint (Apr–Mar)

@@ -5,6 +5,18 @@ import Swal from 'sweetalert2';
  * Focuses on clean typography, subtle indicators, and professional spacing.
  */
 
+// SweetAlert2's container defaults to z-index 1060, which sits BELOW MUI dialogs (1300). Any
+// confirmation fired from inside a MUI Dialog (e.g. the Sandwich "Save Changes" flow) would then
+// open behind the dialog: the awaited Swal never resolves because its button is unreachable, so the
+// caller hangs and the action looks broken. Lift the Swal container above MUI's modal/snackbar/
+// tooltip layers, app-wide. `!important` so it can't be overridden by per-call options.
+if (typeof document !== 'undefined' && !document.getElementById('wt-swal-zfix')) {
+    const style = document.createElement('style');
+    style.id = 'wt-swal-zfix';
+    style.textContent = '.swal2-container { z-index: 2000 !important; }';
+    document.head.appendChild(style);
+}
+
 const commonOptions = {
     buttonsStyling: false,
     customClass: {

@@ -16,7 +16,6 @@ import { RootState } from '@redux/store';
 import {
     allocateLeave,
     expandChargeableDates,
-    expandSandwichDates,
     isWithinProbation,
     type AllocationResult,
     type TypeBalance,
@@ -292,7 +291,10 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
     }, [employeeId, branchId]);
 
     const preview = useCallback(
-        (s: ApplyLeaveState): AllocationResult | null => {
+        // `sandwichDates` are the interior off-days the BACKEND rule engine docks as Unpaid — the
+        // caller fetches them from the sandwich preview endpoint (single source of truth). Empty
+        // under the default rule set, so off-days follow normal payroll (strictly rule-driven).
+        (s: ApplyLeaveState, sandwichDates: string[] = []): AllocationResult | null => {
             if (!s.from || !s.to) return null;
             const chargeableDates = expandChargeableDates(s.from, s.to, workingAndOffDays ?? {}, holidaySet);
             if (chargeableDates.length === 0) return null;
@@ -301,14 +303,14 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
             const order = s.leaveTypeName
                 ? [s.leaveTypeName]
                 : priority.filter((t) => !(s.excludeSick && /sick/i.test(t)));
-            // Sandwich dates: interior off-days booked as Unpaid. Skipped for half-day ranges.
-            const sandwichDates = unit === 0.5 ? [] : expandSandwichDates(s.from, s.to, workingAndOffDays ?? {}, holidaySet);
+            // Half-day ranges can't sandwich, so ignore any supplied dates for them.
+            const effectiveSandwich = unit === 0.5 ? [] : sandwichDates;
             // Fiscal month from dateTo — matches the BE (getFiscalMonthIndex(dateTo)) so the preview
             // applies the SAME cumulative cap the server books against (spill-to-unpaid or block).
             const fiscalMonthIndex = calculateFiscalMonth(new Date(s.to + 'T00:00:00').getMonth() + 1, 4);
             return allocateLeave({
                 chargeableDates,
-                sandwichDates,
+                sandwichDates: effectiveSandwich,
                 balances,
                 priorityOrder: order,
                 probationActive,

@@ -93,13 +93,18 @@ export const usePayrollData = (
             setIsLoading(true);
             const baseDate = dayjs(`${year}-${month}-01`);
             
+            // Pass null (not the sandwich config) so these COUNT the stored leave rows directly and
+            // do NOT re-apply the legacy sandwich scenario logic. Sandwich days are now decided
+            // once, on the backend (rule-driven booking, SANDWICH_RULES.md §13 / v7.0), and already
+            // persisted as the correct paid/unpaid LeaveTracker rows — re-classifying them here was
+            // the D-7 divergence between the payslip display and actual payroll.
             const unpaidLeavesPromise = isYearly
-                ? getAllUnPaidLeavesForCurrentYear(baseDate, sandwhichConfiguration, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), sandwhichConfiguration, fromAdmin, [employee]);
+                ? getAllUnPaidLeavesForCurrentYear(baseDate, null as any, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), null as any, fromAdmin, [employee]);
 
             const paidLeavesPromise = isYearly
-                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, sandwhichConfiguration, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), sandwhichConfiguration, fromAdmin, [employee]);
+                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, null as any, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), null as any, fromAdmin, [employee]);
 
             const [unpaid, paid] = await Promise.all([unpaidLeavesPromise, paidLeavesPromise]);
 
