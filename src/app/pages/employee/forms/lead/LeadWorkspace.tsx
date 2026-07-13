@@ -11,7 +11,6 @@ import {
   LocationOn,
   SettingsOutlined,
   EventNote,
-  DescriptionOutlined,
   TrackChanges,
 } from "@mui/icons-material";
 
@@ -293,16 +292,6 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       component: L.AddressSection,
     },
 
-    // ── STEP 7: Follow-up & Documents ───────────────────────────────────────
-    {
-      id: "remarks-docs",
-      label: "Follow-up",
-      title: "Follow-up & Description",
-      subtitle: "Set the follow-up and add a detailed description",
-      fields: ["nextFollowUpDate", "description"],
-      icon: <DescriptionOutlined />,
-      render: (p) => <L.RemarksAndDocumentsSection {...p} />,
-    },
 
     // ── STEP 9: Lead Status ─────────────────────────────────────────────────
     // Placed last so it acts as the submit gate: NOT received → this is the final
@@ -313,7 +302,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       label: "Lead Status",
       title: "Lead Status",
       subtitle: "Set the lead status — converting it to a project unlocks execution",
-      fields: ["statusId"],
+      fields: ["statusId", "poStatus", "poNumber", "poDate", "receivedDate"],
       requiredFields: ["statusId"],
       icon: <TrackChanges />,
       render: (p) => (
@@ -334,7 +323,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
   const steps = baseSteps;
 
   // ── Right panel: Live summary rows ────────────────────────────────────────
-  const getSummaryRows = (): SummaryRow[] => {
+  const getSummaryRows = (values: any, activeStep?: any): SummaryRow[] => {
     const statusObj = props.leadStatuses.find((x) => x.id === values.statusId);
     const projectStatusObj = isReceivedStatus
       ? (props.leadProjectStatuses || []).find((x: any) => x.id === values.projectStatusId)
@@ -398,7 +387,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       ? dayjs(values.leadInquiryDate).format("DD-MMM-YYYY")
       : "—";
 
-    return [
+    const allRows = [
       {
         label: "Lead Status",
         value: (
@@ -415,6 +404,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
             {statusObj?.name || "Pending"}
           </span>
         ),
+        stepId: "lead-status",
       },
       ...(isReceivedStatus ? [{
         label: "Project Status",
@@ -426,65 +416,80 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
             {projectStatusObj?.name || "—"}
           </span>
         ),
+        stepId: "lead-status",
       }] : []),
       {
         label: "Lead Name",
         value: values.projectName || "—",
         isStrong: true,
+        stepId: "overview",
       },
       {
         label: "Inquiry Date",
         value: formattedInquiryDate,
+        stepId: "overview",
       },
       {
         label: "Lead Source",
         value: leadSourceStr,
+        stepId: "referral-details",
       },
       ...(values.leadSourceType ? [
         {
           label: "Source Detail",
           value: sourceDetailStr || "—",
+          stepId: "referral-details",
         }
       ] : []),
       {
         label: "Client Companies",
         value: clientCompaniesStr || "—",
+        stepId: "company-relations",
       },
       {
         label: "Plot Area",
         value: values.plotArea ? `${values.plotArea} ${values.plotAreaUnit || "SFT"}` : "—",
+        stepId: "project-details",
       },
       {
         label: "Built-up Area",
         value: values.builtUpArea ? `${values.builtUpArea} ${values.builtUpAreaUnit || "SFT"}` : "—",
+        stepId: "project-details",
       },
       {
         label: "Services",
         value: selectedServices || "—",
+        stepId: "overview",
       },
       {
         label: "Categories",
         value: selectedCategories || "—",
+        stepId: "overview",
       },
       {
         label: "Sub Categories",
         value: selectedSubcategories || "—",
+        stepId: "overview",
       },
       {
         label: "Assigned Head",
         value: assignedEmp?.employeeName || "—",
+        stepId: "overview",
       },
       {
         label: "Proposal Template",
         value: templateName || "—",
+        stepId: "lead-status",
       },
       {
         label: "File Company",
         value: fileCompanyStr,
+        stepId: "company-relations",
       },
       {
         label: "Location Address",
         value: googleAddressStr || "—",
+        stepId: "address-docs",
       },
       {
         label: "Commercial Value",
@@ -493,8 +498,14 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
           maximumFractionDigits: 2,
         })}`,
         isStrong: totalCommercials > 0,
+        stepId: "commercials",
       },
     ];
+
+    if (activeStep?.id) {
+      return allRows.filter((row: any) => row.stepId === activeStep.id);
+    }
+    return allRows;
   };
 
   return (
@@ -504,7 +515,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       stepProps={props}
       summary={{
         title: "Lead Summary",
-        rows: getSummaryRows(),
+        rows: (values, currentStep) => getSummaryRows(values, currentStep),
         warningMessage: !props.hasDefaultStatus()
           ? "Please configure a default status in Lead configuration settings first."
           : undefined,

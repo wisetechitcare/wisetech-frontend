@@ -263,21 +263,17 @@ export const buildEntityVM = (lead: any): EntityVM => {
   };
   const fileLocation = {
     path: lead?.fileLocation || undefined,
-    company: lead?.fileLocationCompany || undefined,
-    companyType: lead?.fileLocationCompanyType || undefined,
+    company: lead?.fileLocationCompanyName || lead?.fileLocationCompany || undefined,
+    companyType: lead?.fileLocationCompanyTypeName || lead?.fileLocationCompanyType || undefined,
   };
 
   // ── SYSTEM (pure record metadata only — operational flags live in Execution,
   //    file location lives in Documents, so they are NOT duplicated here) ──
   const systemRows: KV[] = [
-    { label: 'Lead Number', value: lead?.prefix, minLevel: 'detailed' },
     { label: 'Created By', value: employeeUserName(lead?.createdBy), minLevel: 'detailed' },
     { label: 'Created', value: fmtDateTime(lead?.createdAt), minLevel: 'detailed' },
     { label: 'Last Edited By', value: employeeUserName(lead?.updatedBy), minLevel: 'detailed' },
     { label: 'Last Edited', value: fmtDateTime(lead?.updatedAt), minLevel: 'detailed' },
-    { label: 'Lead ID', value: lead?.id, minLevel: 'advanced' },
-    { label: 'Active', value: lead?.isActive ? 'Yes' : 'No', minLevel: 'advanced' },
-    { label: 'Location Flag', value: lead?.isLocationIncorrect ? 'Marked incorrect' : 'OK', minLevel: 'advanced' },
   ];
 
   // Project edits flow through the lead (Lead-as-master), so the project's own
@@ -285,12 +281,10 @@ export const buildEntityVM = (lead: any): EntityVM => {
   // read from the Lead Record. createdBy is stamped on auto-create, so it stays.
   const projectSystemRows: KV[] | undefined = isProject
     ? [
-        { label: 'Project Number', value: lead?.originalProjectPrefix ?? p?.prefix, minLevel: 'detailed' },
         { label: 'Created By', value: employeeUserName(p?.createdBy), minLevel: 'detailed' },
         { label: 'Created', value: fmtDateTime(p?.createdAt), minLevel: 'detailed' },
+        { label: 'Last Edited By', value: employeeUserName(p?.updatedBy || lead?.updatedBy), minLevel: 'detailed' },
         { label: 'Last Edited', value: fmtDateTime(p?.updatedAt), minLevel: 'detailed' },
-        { label: 'Project ID', value: lead?.projectId ?? p?.id, minLevel: 'advanced' },
-        { label: 'Location Flag', value: p?.isLocationIncorrect ? 'Marked incorrect' : 'OK', minLevel: 'advanced' },
       ]
     : undefined;
 
@@ -310,11 +304,12 @@ export const buildEntityVM = (lead: any): EntityVM => {
   };
 };
 
-// ── ONE tab set. Summary is the comprehensive "everything" page (lead → project
-//    → company/contact → scope → commercials → docs → system). The operational
-//    project modules (Tasks / Timesheet / Reimbursement) are promoted to their
-//    own top-level tabs and only appear once the lead is a project. Audit is
-//    always present. ─────────────────────────────────────────────────────────
+// ── ONE tab set. Leads / Projects / Commercial were previously bundled behind
+//    a single "Summary" tab with its own internal pill sub-nav; they're now
+//    top-level tabs in their own right (Projects only once the lead is a
+//    project). The operational project modules (Tasks / Timesheet /
+//    Reimbursement) are their own top-level tabs too and only appear once the
+//    lead is a project. Audit is always present. ─────────────────────────────
 
 export interface TabDef {
   key: string;
@@ -324,7 +319,9 @@ export interface TabDef {
 }
 
 export const ENTITY_TABS: TabDef[] = [
-  { key: 'summary', label: 'Summary', icon: 'bi bi-grid-1x2' },
+  { key: 'leads', label: 'Leads', icon: 'bi bi-person-lines-fill' },
+  { key: 'projects', label: 'Projects', icon: 'bi bi-kanban', projectOnly: true },
+  { key: 'commercial', label: 'Commercial', icon: 'bi bi-cash-stack' },
   { key: 'tasks', label: 'Tasks', icon: 'bi bi-check2-square', projectOnly: true },
   { key: 'timesheet', label: 'Timesheet', icon: 'bi bi-stopwatch', projectOnly: true },
   { key: 'reimbursement', label: 'Reimbursement', icon: 'bi bi-wallet2', projectOnly: true },

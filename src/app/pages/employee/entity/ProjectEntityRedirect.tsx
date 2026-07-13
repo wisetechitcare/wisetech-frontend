@@ -32,7 +32,10 @@ const ProjectEntityRedirect = () => {
         }
         const leadId = project?.leads?.[0]?.id;
         if (leadId) {
-          navigate(`/employee/lead/${leadId}`, { replace: true });
+          // Arriving via a project URL = project context: the detail page lands
+          // on the Projects tab with the full project tab set (same state flag
+          // the Projects table passes).
+          navigate(`/employee/lead/${leadId}`, { replace: true, state: { isProject: true } });
         } else if (!cancelled) {
           setState('orphan');
         }

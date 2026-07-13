@@ -233,6 +233,23 @@ const NewCompanyForm: React.FC<Props> = ({
     () => contacts.map((c: any) => ({ label: c.fullName, value: c.id, avatar: c.profilePhoto })),
     [contacts],
   );
+  // companyId → its contact options (for the "filter Referral Contact by Referral
+  // Company" cascade — previously this dropdown always showed every contact).
+  const contactsByCompanyId = useMemo(() => {
+    const m = new Map<string, { label: string; value: string; avatar?: string }[]>();
+    contacts.forEach((c: any) => {
+      const cid = c.companyId;
+      if (!cid) return;
+      const arr = m.get(cid) || [];
+      arr.push({ label: c.fullName, value: c.id, avatar: c.profilePhoto });
+      m.set(cid, arr);
+    });
+    return m;
+  }, [contacts]);
+  const contactById = useMemo(
+    () => new Map<string, any>(contacts.map((c: any) => [c.id, c])),
+    [contacts],
+  );
   const employeeOptions = useMemo(
     () =>
       allEmployees.map((e: any) => ({
@@ -242,7 +259,7 @@ const NewCompanyForm: React.FC<Props> = ({
     [allEmployees],
   );
   const companyOptions = useMemo(
-    () => allCompanies.map((c: any) => ({ label: c.companyName, value: c.id })),
+    () => allCompanies.map((c: any) => ({ label: c.companyName, value: c.id, avatar: c.logo })),
     [allCompanies],
   );
   const companyById = useMemo(
@@ -251,12 +268,12 @@ const NewCompanyForm: React.FC<Props> = ({
   );
   // companyTypeId → company options (for the "filter companies by type" cascade).
   const companiesByTypeId = useMemo(() => {
-    const m = new Map<string, { label: string; value: string }[]>();
+    const m = new Map<string, { label: string; value: string; avatar?: string }[]>();
     allCompanies.forEach((c: any) => {
       const tid = c.companyTypeId;
       if (!tid) return;
       const arr = m.get(tid) || [];
-      arr.push({ label: c.companyName, value: c.id });
+      arr.push({ label: c.companyName, value: c.id, avatar: c.logo });
       m.set(tid, arr);
     });
     return m;
@@ -998,21 +1015,6 @@ const NewCompanyForm: React.FC<Props> = ({
             enableReinitialize={true}
           >
             {({ setFieldValue, values, isSubmitting }) => {
-              // Auto-update Google Maps Link when latitude and longitude change
-              useEffect(() => {
-                const latitude = values.latitude;
-                const longitude = values.longitude;
-                
-                if (latitude && longitude && latitude !== '' && longitude !== '') {
-                  const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-                  
-                  // Only update if the current googleMapsLink is different
-                  // if (values.googleMapsLink !== googleMapsUrl) {
-                  //   setFieldValue('googleMapsLink', googleMapsUrl);
-                  // }
-                }
-              }, [values.latitude, values.longitude, setFieldValue, values.googleMapsLink]);
-
               return (
               <FormikForm>
                 {/* <Modal.Header>
@@ -1174,7 +1176,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 isRequired={true}
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               {/* Company Type — MAIN types only (sub-types live in the next field). */}
                               <MultiSelectWithInlineCreate
                                 formikField="companyTypes"
@@ -1190,7 +1192,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 createFieldPlaceholder="Enter company type name..."
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               {/* Services — children of the selected company type(s). */}
                               <MultiSelectWithInlineCreate
                                 formikField="subTypes"
@@ -1236,7 +1238,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 parentEmptyHint="Select a company type first to add a service under it."
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <MultiSelectWithInlineCreate
                                 formikField="services"
                                 inputLabel="Sub-services"
@@ -1356,7 +1358,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                           </div>
                                         )}
 
-                                        <div className="col-md-6">
+                                        <div className="col-lg-6">
                                           <DropDownInput
                                             formikField={`referenceType.${index}.referenceType`}
                                             inputLabel="Referral Type"
@@ -1376,7 +1378,7 @@ const NewCompanyForm: React.FC<Props> = ({
 
                                         {reference.referenceType ===
                                           "INTERNAL" && (
-                                          <div className="col-md-6">
+                                          <div className="col-lg-6">
                                             <DropDownInput
                                               formikField={`referenceType.${index}.internalReferenceEmployeeId`}
                                               inputLabel="Referral Contact"
@@ -1389,7 +1391,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                         {reference.referenceType ===
                                           "EXTERNAL" && (
                                           <>
-                                            <div className="col-md-6">
+                                            <div className="col-lg-6">
                                               <DropDownInput
                                                 formikField={`referenceType.${index}.externalReferenceCompanyTypeId`}
                                                 inputLabel="Referral Company Type"
@@ -1397,13 +1399,15 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 options={companyTypeOptions}
                                                 onChange={(option: any) => {
                                                   setFieldValue(`referenceType.${index}.externalReferenceCompanyTypeId`, option?.value || "");
-                                                  // Clear company selection when company type changes
+                                                  // Clear company (and its dependents) when company type changes
                                                   setFieldValue(`referenceType.${index}.externalReferenceCompanyId`, "");
+                                                  setFieldValue(`referenceType.${index}.externalReferenceSubCompanyId`, "");
+                                                  setFieldValue(`referenceType.${index}.externalReferenceContactId`, "");
                                                 }}
                                               />
                                             </div>
 
-                                            <div className="col-md-6">
+                                            <div className="col-lg-6">
                                               <DropDownInput
                                                 formikField={`referenceType.${index}.externalReferenceCompanyId`}
                                                 inputLabel="Referral Company"
@@ -1420,21 +1424,26 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 }
                                                 onChange={(option: any) => {
                                                   setFieldValue(`referenceType.${index}.externalReferenceCompanyId`, option?.value || "");
-                                                  // Clear sub company selection when company changes
+                                                  // Clear sub company AND contact — the contact list is scoped to this
+                                                  // company, so a previously picked contact from a different company
+                                                  // is no longer valid.
                                                   setFieldValue(`referenceType.${index}.externalReferenceSubCompanyId`, "");
+                                                  setFieldValue(`referenceType.${index}.externalReferenceContactId`, "");
                                                 }}
                                                 value={
                                                   reference.externalReferenceCompanyId
                                                     ? {
                                                         label: companyById.get(reference.externalReferenceCompanyId)?.companyName,
                                                         value: reference.externalReferenceCompanyId,
+                                                        avatar: companyById.get(reference.externalReferenceCompanyId)?.logo,
                                                       }
                                                     : null
                                                 }
+                                                showAvatar={true}
                                               />
                                             </div>
 
-                                            <div className="col-md-6">
+                                            <div className="col-lg-6">
                                               <DropDownInput
                                                 formikField={`referenceType.${index}.externalReferenceSubCompanyId`}
                                                 inputLabel="Referral Sub Company"
@@ -1462,13 +1471,33 @@ const NewCompanyForm: React.FC<Props> = ({
                                               />
                                             </div>
 
-                                            <div className="col-md-6">
+                                            <div className="col-lg-6">
                                               <DropDownInput
                                                 formikField={`referenceType.${index}.externalReferenceContactId`}
                                                 inputLabel="Referral Contact"
                                                 isRequired={false}
-                                                options={contactOptions}
-                                                showColor={true}
+                                                options={(() => {
+                                                  if (!reference.externalReferenceCompanyId) return contactOptions;
+                                                  const scoped = contactsByCompanyId.get(reference.externalReferenceCompanyId) || [];
+                                                  // Safety net (same pattern as the lead File Location fix): if a
+                                                  // previously-saved contact doesn't fall inside the scoped list
+                                                  // (legacy data, contact later reassigned, etc.), still surface it
+                                                  // so editing an existing reference never shows an empty dropdown.
+                                                  const savedId = reference.externalReferenceContactId;
+                                                  if (savedId && !scoped.some((o) => o.value === savedId)) {
+                                                    const saved = contactById.get(savedId);
+                                                    if (saved) {
+                                                      return [{ label: saved.fullName, value: saved.id, avatar: saved.profilePhoto }, ...scoped];
+                                                    }
+                                                  }
+                                                  return scoped;
+                                                })()}
+                                                placeholder={
+                                                  !reference.externalReferenceCompanyId
+                                                    ? "Please select company first"
+                                                    : "Select Contact"
+                                                }
+                                                showAvatar={true}
                                               />
                                             </div>
                                           </>
@@ -1551,7 +1580,7 @@ const NewCompanyForm: React.FC<Props> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <div className="row g-3">
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <PhoneNumberInput
                                 formikField="phone"
                                 label="Phone"
@@ -1559,7 +1588,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 placeholder="Enter phone"
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <PhoneNumberInput
                                 formikField="phone2"
                                 label="Phone 2"
@@ -1567,21 +1596,21 @@ const NewCompanyForm: React.FC<Props> = ({
                                 placeholder="Enter phone 2"
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <TextInput
                                 formikField="fax"
                                 label="FAX"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="email"
                                 label="Email"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="website"
                                 label="Website"
@@ -1630,14 +1659,14 @@ const NewCompanyForm: React.FC<Props> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <div className="row g-3">
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="addressLine1"
                                 label="Address"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DropDownInput
                                 formikField="country"
                                 inputLabel="Country"
@@ -1669,7 +1698,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 }
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DropDownInput
                                 formikField="state"
                                 inputLabel="State"
@@ -1704,7 +1733,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 disabled={!values.country}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DropDownInput
                                 formikField="city"
                                 inputLabel="City"
@@ -1730,14 +1759,14 @@ const NewCompanyForm: React.FC<Props> = ({
                                 disabled={!values.state}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="area"
                                 label="Locality"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="zipCode"
                                 label="Zip Code"
@@ -1746,21 +1775,21 @@ const NewCompanyForm: React.FC<Props> = ({
                             </div>                                     <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
                                 <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
                                 <div className="row g-3">
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="googleMapsLink"
                                       label="Google Map Link"
                                       isRequired={false}
                                     />
                                   </div>
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="gmbProfileUrl"
                                       label="Google Business Link"
                                       isRequired={false}
                                     />
                                   </div>
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="latitude"
                                       label="Latitude"
@@ -1768,7 +1797,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                       inputValidation="signed-decimal"
                                     />
                                   </div>
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="longitude"
                                       label="Longitude"
@@ -1838,14 +1867,14 @@ const NewCompanyForm: React.FC<Props> = ({
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <div className="row g-3">
                             {/* GST: number + its own compact attachment */}
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="gstNumber"
                                 label="GST Number"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DragDropFileField
                                 label="GST Document"
                                 compact
@@ -1859,14 +1888,14 @@ const NewCompanyForm: React.FC<Props> = ({
                               />
                             </div>
                             {/* PAN: number + its own compact attachment */}
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="panNumber"
                                 label="PAN Number"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DragDropFileField
                                 label="PAN Document"
                                 compact
@@ -1938,7 +1967,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 {visibleFields.map((field) => (
                                   <div
                                     key={field.id}
-                                    className={field.type === "file" ? "col-md-12" : "col-md-6"}
+                                    className={field.type === "file" ? "col-md-12" : "col-lg-6"}
                                   >
                                     {renderCustomField(field, section.id)}
                                   </div>

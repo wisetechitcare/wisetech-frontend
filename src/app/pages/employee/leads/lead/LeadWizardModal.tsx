@@ -2131,32 +2131,6 @@ const LeadWizardModal = ({
     loadLocationData();
   }, [countries, initialFormData]);
 
-  useEffect(() => {
-    const receivedStatus = leadStatuses.find(
-      (s: any) => s.name?.toLowerCase() === "received",
-    );
-
-    if (!receivedStatus || !formikRef.current) return;
-
-    const currentStatus = formikRef.current.values.statusId;
-    const currentDate = formikRef.current.values.receivedDate;
-
-    if (currentStatus === receivedStatus.id) {
-      // Status is "Received" — auto-set today's date if not already set
-      if (!currentDate) {
-        formikRef.current.setFieldValue(
-          "receivedDate",
-          new Date().toISOString().split("T")[0],
-        );
-      }
-    } else {
-      // Status changed away from "Received" — clear the receivedDate
-      if (currentDate) {
-        formikRef.current.setFieldValue("receivedDate", "");
-      }
-    }
-  }, [formikRef.current?.values?.statusId, leadStatuses]);
-
   // Note: Referral population for edit mode is now handled in buildInitialValues function
 
   // Added: Effect to populate filtered companies and sub-companies for edit mode
@@ -2461,6 +2435,23 @@ const LeadWizardModal = ({
       }
     });
 
+    // A referral row cannot be persisted without a Referral Type — referralTypeId
+    // is a required (non-nullable) FK on lead_referrals, and the backend schema
+    // 422s the ENTIRE save when a row arrives without it. If the user filled
+    // anything on a row but left the type blank, stop with a clear message
+    // instead of failing the whole submit with an opaque "Unprocessable Entity".
+    const hasTypelessReferral = (formData?.referrals || []).some(
+      (ref: any) =>
+        !ref.referralType &&
+        (ref.referringCompany || ref.referringSubCompany || ref.referringContact || ref.referredByEmployeeId),
+    );
+    if (hasTypelessReferral) {
+      errorConfirmation(
+        "One of your referral rows is missing a Referral Type. Please select a type for it (or remove the row) and save again.",
+      );
+      return;
+    }
+
     const mappedReferrals =
       formData?.referrals?.map((ref: any) => {
         // For internal referrals, don't send a fake companyId - only send referredByEmployeeId
@@ -2725,13 +2716,11 @@ const LeadWizardModal = ({
       // Also include addresses array for backend compatibility
       addresses: mappedAddresses || [],
       referrals:
-        mappedReferrals?.filter(
-          (ref: any) =>
-            ref.leadReferralTypeId ||
-            ref.companyId ||
-            ref.contactId ||
-            ref.referredByEmployeeId,
-        ) || [],
+        // Only rows WITH a Referral Type are sendable — referralTypeId is a
+        // required FK on lead_referrals and the backend schema 422s the whole
+        // save otherwise. Rows with data but no type are blocked with a message
+        // before we get here; fully blank placeholder rows just drop out.
+        mappedReferrals?.filter((ref: any) => ref.leadReferralTypeId) || [],
       // Added: Include leadTeams in the payload
       leadTeams: mappedLeadTeams || [],
     };
@@ -2867,7 +2856,6 @@ const LeadWizardModal = ({
     delete finalCleanPayload.projectHandledByEntries;
     delete finalCleanPayload.projectPrefix;
     delete finalCleanPayload.projectMeta;
-    delete finalCleanPayload.receivedDate;
 
     // Add prefix to payload for backend to use
     if (prefix && prefix.trim()) {
@@ -3088,7 +3076,10 @@ const LeadWizardModal = ({
               enableReinitialize={true}
               innerRef={formikRef}
             >
-              {(formikProps) => {
+              {/* Named (capitalized) function, not an anonymous arrow, so
+                  react-hooks/rules-of-hooks recognizes this as a component
+                  and allows the useEffect calls below it. */}
+              {function FormikBody(formikProps) {
                 const {
                   values,
                   setFieldValue,
@@ -3193,7 +3184,29 @@ const LeadWizardModal = ({
                     setFieldValue("poDate", "");
                     setFieldValue("poFile", "");
                   }
+                  // Auto-fill Received Date with today's date the moment the status
+                  // becomes Received — only if it isn't already set, so it never
+                  // overwrites a value the user has since edited. Fully editable after.
+                  if (isReceived && !values.receivedDate) {
+                    setFieldValue(
+                      "receivedDate",
+                      new Date().toISOString().split("T")[0],
+                    );
+                  }
+                  // Clear receivedDate when status is no longer Received
+                  if (!isReceived && values.receivedDate) {
+                    setFieldValue("receivedDate", "");
+                  }
                 }, [values.statusId, leadStatuses]);
+
+                // Received Date IS the project's Start Date — whenever it's set or
+                // changed (auto-filled on receipt, or edited later), mirror it into
+                // Start Date so the two never drift apart.
+                useEffect(() => {
+                  if (values.receivedDate && values.receivedDate !== values.startDate) {
+                    setFieldValue("startDate", values.receivedDate);
+                  }
+                }, [values.receivedDate]);
 
                 return (
                   <FormikForm>

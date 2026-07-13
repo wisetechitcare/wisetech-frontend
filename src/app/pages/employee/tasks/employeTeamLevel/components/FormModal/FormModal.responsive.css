@@ -1,0 +1,17 @@
+/*
+ * Responsive override for the task FormModal's employee-picker grid. Desktop
+ * (>=992px) keeps the inline 3-column layout untouched; the grid drops to 2
+ * columns on tablet and 1 on phones so the picker cards stay legible.
+ */
+
+@media (max-width: 991.98px) {
+  .fm-employee-picker-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .fm-employee-picker-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

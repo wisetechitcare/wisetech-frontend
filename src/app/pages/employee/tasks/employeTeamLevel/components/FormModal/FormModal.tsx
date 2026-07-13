@@ -6,6 +6,7 @@ import FormField from './FormField';
 import EmployeeSelect from './EmployeeSelect';
 import FormActions from './FormActions';
 import { Employee } from '../../types';
+import './FormModal.responsive.css';
 
 const FormModal: React.FC<FormModalProps> = ({
   isOpen,
@@ -158,7 +159,7 @@ const FormModal: React.FC<FormModalProps> = ({
                   fontSize: '14px'
                 }}
               />
-              <div style={{
+              <div className="fm-employee-picker-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(3, 1fr)',
                 gap: '12px',

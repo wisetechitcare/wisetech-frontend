@@ -5,7 +5,7 @@ import dayjs from "dayjs";
 
 interface LeadReferral {
   id: string;
-  lead?: { id: string; title?: string; status?: { name: string; color?: string } | null; createdAt?: string } | null;
+  lead?: { id: string; title?: string; status?: { name: string; color?: string } | null; createdAt?: string; inquiryDate?: string | null } | null;
   referralType?: { id: string; name: string } | null;
   referredByContact?: { id: string; fullName: string } | null;
   referredByEmployee?: {
@@ -74,10 +74,12 @@ const CompanyLeadReferences: React.FC<{ referredLeads?: LeadReferral[] }> = ({ r
       },
     },
     {
-      accessorKey: "lead.createdAt",
-      header: "Date",
+      // Inquiry date is the business date of the lead; createdAt is only a
+      // fallback for old rows that never had an inquiry date entered.
+      accessorKey: "lead.inquiryDate",
+      header: "Inquiry Date",
       Cell: ({ row }: any) => {
-        const date = row.original.lead?.createdAt;
+        const date = row.original.lead?.inquiryDate || row.original.lead?.createdAt;
         return <span>{date ? dayjs(date).format("DD MMM YYYY") : "—"}</span>;
       },
     },

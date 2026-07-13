@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { toast } from 'react-toastify';
 import { DetailCard } from '@/app/modules/detail-page/DetailPageComponents';
 import { C, FONT, RADIUS } from '@/app/modules/configuration/ConfigDesignSystem';
-import { AuditEntityType, AuditApi } from '@/modules/audit/audit.service';
+import { AuditEntityType } from '@/modules/audit/audit.service';
 import { AuditTimeline } from '@/modules/audit/AuditTimeline';
 import { ComparePanel } from '@/modules/audit/ComparePanel';
 import { ResetModal } from '@/modules/audit/ResetModal';
@@ -93,7 +92,6 @@ const AuditSection: React.FC<AuditSectionProps> = ({ leadId, projectId, onChange
   const [from, setFrom] = useState<number | null>(null);
   const [to, setTo] = useState<number | null>(null);
   const [resetTarget, setResetTarget] = useState<number | null>(null);
-  const [verifying, setVerifying] = useState(false);
 
   const viewer = useAuditViewer();
   const canReset = !!viewer.data?.isAdmin;
@@ -104,59 +102,8 @@ const AuditSection: React.FC<AuditSectionProps> = ({ leadId, projectId, onChange
     setMode('compare');
   };
 
-  // Admin-only tamper check: recompute the hash chain and report any break.
-  const handleVerify = async () => {
-    if (!entityId || verifying) return;
-    setVerifying(true);
-    try {
-      const res = await AuditApi.verifyChain(entityType, entityId);
-      if (res.intact) {
-        toast.success(
-          `Audit chain intact — ${res.verified} revision(s) verified` +
-            (res.unhashed ? `, ${res.unhashed} pre-chain` : ''),
-        );
-      } else {
-        const first = res.breaks[0];
-        toast.error(
-          `Tamper detected: ${res.breaks.length} break(s)` +
-            (first ? ` — first at Version ${first.revisionNumber} (${first.reason})` : ''),
-        );
-      }
-    } catch (e: any) {
-      toast.error(e?.message || 'Chain verification failed');
-    } finally {
-      setVerifying(false);
-    }
-  };
-
   const Actions = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      {canReset && (
-        <button
-          type="button"
-          onClick={handleVerify}
-          disabled={verifying}
-          title="Recompute the audit hash chain to detect any tampering"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '6px 10px',
-            border: `1px solid ${C.border}`,
-            borderRadius: RADIUS.md,
-            cursor: verifying ? 'default' : 'pointer',
-            fontFamily: FONT.body,
-            fontSize: 12.5,
-            fontWeight: 600,
-            backgroundColor: 'transparent',
-            color: C.textSecondary,
-            opacity: verifying ? 0.6 : 1,
-          }}
-        >
-          <i className={verifying ? 'bi bi-arrow-repeat ci-spin' : 'bi bi-shield-check'} aria-hidden />
-          {verifying ? 'Verifying…' : 'Verify integrity'}
-        </button>
-      )}
       <ModeToggle mode={mode} onChange={setMode} />
     </div>
   );

@@ -111,7 +111,7 @@ export interface EnterpriseWizardStep<TProps = any> extends NavigationSection {
 
 export interface WizardSummaryConfig<TValues = any> {
   title: string;
-  rows: SummaryRow[] | ((values: TValues) => SummaryRow[]);
+  rows: SummaryRow[] | ((values: TValues, currentStep?: any) => SummaryRow[]);
   warningMessage?: string;
 }
 

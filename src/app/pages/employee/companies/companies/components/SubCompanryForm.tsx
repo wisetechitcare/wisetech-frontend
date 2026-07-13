@@ -622,7 +622,10 @@ const SubCompanyForm: React.FC<Props> = ({
             validationSchema={validationSchema}
             enableReinitialize={true}
           >
-            {({ setFieldValue, values, isSubmitting }) => {
+            {/* Named (capitalized) function, not an anonymous arrow, so
+                react-hooks/rules-of-hooks recognizes this as a component and
+                allows the useEffect call below it. */}
+            {function FormikBody({ setFieldValue, values, isSubmitting }) {
               // Auto-update Google Maps Link when latitude and longitude change
               useEffect(() => {
                 const latitude = values.latitude;
@@ -770,14 +773,14 @@ const SubCompanyForm: React.FC<Props> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3">
                           <div className="row g-3">
-                          <div className="col-md-4">
+                          <div className="col-lg-4">
                               <TextInput
                                 formikField="subCompanyName"
                                 label="Company Name"
                                 isRequired={true}
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <DropDownInput
                                 formikField="subCompanyTypeId"
                                 inputLabel="Company Type"
@@ -795,7 +798,7 @@ const SubCompanyForm: React.FC<Props> = ({
                                 + New Sub-Company Type
                               </small>
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <DropDownInput
                                 formikField="mainCompanyId"
                                 inputLabel="Parent Company"
@@ -806,7 +809,7 @@ const SubCompanyForm: React.FC<Props> = ({
                                 }))}
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <MultiSelectWithInlineCreate
                                 formikField="services"
                                 inputLabel="Sub-services"
@@ -826,7 +829,7 @@ const SubCompanyForm: React.FC<Props> = ({
                             </div>
 
 
-                            {/* <div className="col-md-6">
+                            {/* <div className="col-lg-6">
                               <DropDownInput
                                 formikField="subClientTypeId"
                                 inputLabel="Client Type"
@@ -886,7 +889,7 @@ const SubCompanyForm: React.FC<Props> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3">
                           <div className="row g-3">
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <PhoneNumberInput
                                 formikField="phone"
                                 label="Phone"
@@ -894,7 +897,7 @@ const SubCompanyForm: React.FC<Props> = ({
                                 placeholder="Enter phone"
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <PhoneNumberInput
                                 formikField="phone2"
                                 label="Phone 2"
@@ -902,21 +905,21 @@ const SubCompanyForm: React.FC<Props> = ({
                                 placeholder="Enter phone 2"
                               />
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-lg-4">
                               <TextInput
                                 formikField="fax"
                                 label="FAX"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="email"
                                 label="Email"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="website"
                                 label="Website"
@@ -965,14 +968,14 @@ const SubCompanyForm: React.FC<Props> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3">
                           <div className="row g-3">
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="address"
                                 label="Address"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DropDownInput
                                 formikField="country"
                                 inputLabel="Country"
@@ -1004,7 +1007,7 @@ const SubCompanyForm: React.FC<Props> = ({
                                 }
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DropDownInput
                                 formikField="state"
                                 inputLabel="State"
@@ -1039,7 +1042,7 @@ const SubCompanyForm: React.FC<Props> = ({
                                 disabled={!values.country}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <DropDownInput
                                 formikField="city"
                                 inputLabel="City"
@@ -1065,14 +1068,14 @@ const SubCompanyForm: React.FC<Props> = ({
                                 disabled={!values.state}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="area"
                                 label="Locality"
                                 isRequired={false}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-lg-6">
                               <TextInput
                                 formikField="zipCode"
                                 label="Zip Code"
@@ -1082,21 +1085,21 @@ const SubCompanyForm: React.FC<Props> = ({
                               <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
                                 <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
                                 <div className="row g-3">
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="googleMapsLink"
                                       label="Google Map Link"
                                       isRequired={false}
                                     />
                                   </div>
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="gmbProfileUrl"
                                       label="Google Business Link"
                                       isRequired={false}
                                     />
                                   </div>
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="latitude"
                                       label="Latitude"
@@ -1104,7 +1107,7 @@ const SubCompanyForm: React.FC<Props> = ({
                                       inputValidation="signed-decimal"
                                     />
                                   </div>
-                                  <div className="col-md-3">
+                                  <div className="col-lg-3">
                                     <TextInput
                                       formikField="longitude"
                                       label="Longitude"
