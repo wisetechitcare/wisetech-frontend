@@ -8,6 +8,7 @@ import { ThemeModeProvider } from '../_metronic/partials'
 import { RootState, AppDispatch } from '@redux/store'
 import { setUserId, loadTimerStateThunk } from '@redux/slices/timer'
 import GlobalTimerModal from '../components/GlobalTimerModal';
+import { IdleLogoutGuard } from './components/IdleLogoutGuard';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { Toaster } from 'sonner';
@@ -163,6 +164,9 @@ const App = () => {
 
                 {/* Global Timer Modal - only render when authenticated */}
                 {isAuthenticated && <GlobalTimerModal />}
+
+                {/* Idle logout guard - monitors inactivity and exit dates */}
+                {isAuthenticated && <IdleLogoutGuard />}
               </MuiThemeProvider>
             </ThemeModeProvider>
           </LayoutProvider>
