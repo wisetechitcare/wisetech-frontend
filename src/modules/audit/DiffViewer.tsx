@@ -4,6 +4,7 @@ import { AuditDiffResult, AuditFieldChange } from './audit.service';
 import { ChangeTypeChip, ValueDelta, CategoryBadge, parseFieldSummary, FieldSummaryGrid } from './parts';
 import { DIFF, resolveValue, humanizeSummary, categoryMeta } from './tokens';
 import { diffWords } from './wordDiff';
+import './DiffViewerResponsive.css';
 
 export type DiffMode = 'unified' | 'sidebyside';
 
@@ -145,8 +146,8 @@ const SideCell: React.FC<{ value: unknown; formatted: string; tone: 'old' | 'new
 const DiffRow: React.FC<{ change: AuditFieldChange; mode: DiffMode }> = ({ change, mode }) => {
   const words = wordDiffable(change);
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', borderTop: `1px solid ${C.border}` }}>
-      <div style={{ width: 150, flexShrink: 0 }}>
+    <div className="diff-row" style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', borderTop: `1px solid ${C.border}` }}>
+      <div className="diff-row-label" style={{ width: 150, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{change.fieldLabel}</span>
           {change.isSensitive && (
@@ -166,7 +167,7 @@ const DiffRow: React.FC<{ change: AuditFieldChange; mode: DiffMode }> = ({ chang
             <ValueDelta change={change} stacked />
           )
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="diff-sidebyside-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <SideCell
               value={change.oldValue}
               formatted={change.oldValueFormatted}
@@ -347,8 +348,8 @@ export const DiffViewer: React.FC<Props> = ({ result, mode, onModeChange, fromMe
 
       {/* Side-by-side column headers with revision identity */}
       {mode === 'sidebyside' && filtered.length > 0 && (
-        <div style={{ display: 'flex', gap: 12, padding: '0 14px 8px 162px' }}>
-          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div className="diff-sidebyside-header" style={{ display: 'flex', gap: 12, padding: '0 14px 8px 162px' }}>
+          <div className="diff-sidebyside-grid" style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <ColHeader rev={result.from} meta={fromMeta} tone="old" />
             <ColHeader rev={result.to} meta={toMeta} tone="new" />
           </div>

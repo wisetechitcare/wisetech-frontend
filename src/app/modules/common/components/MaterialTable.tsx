@@ -146,6 +146,11 @@ function MaterialTable({
   defaultSorting,
   onVisibleColumnsChange,
 }: MaterialTableProps) {
+  // When the pager is hidden on a client-side table, we render ALL rows (no paging)
+  // and also drop the rows-per-page selector + range count, which would otherwise
+  // be misleading (e.g. "Rows per page: 10 · 1–10 of 19" while all 19 rows show).
+  const paginationDisabled = !!hidePagination && !manualPagination;
+
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
     useState<string>("all");
@@ -1157,6 +1162,7 @@ function MaterialTable({
           onExpandedChange={updateExpanded}
           manualPagination={manualPagination}
           rowCount={manualPagination ? rowCount : undefined}
+          enablePagination={paginationDisabled ? false : undefined}
           enableColumnDragging={enableColumnDragging ?? true}
           enableColumnResizing={enableColumnResizing ?? false}
           enableColumnPinning={isMobile ? false : (enableColumnPinning ?? true)}
@@ -1720,7 +1726,8 @@ function MaterialTable({
                       />
                     ) : null}
 
-                    {/* Rows per page */}
+                    {/* Rows per page — hidden when pagination is disabled (all rows shown) */}
+                    {!paginationDisabled && (
                     <Box
                       sx={{
                         display: "flex",
@@ -1837,6 +1844,7 @@ function MaterialTable({
                         </span>
                       )}
                     </Box>
+                    )}
                   </Box>
 
                   {/* Right: Custom Pagination buttons */}

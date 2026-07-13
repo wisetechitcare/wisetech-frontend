@@ -12,6 +12,10 @@ interface PeriodNavigatorProps {
     nextTitle?: string;
     minWidth?: number | string;
     sx?: SxProps<Theme>;
+    /** Color of the period label text. Defaults to the app's red brand color;
+     * pass a page-specific accent (e.g. the blue design tokens) to opt just that
+     * page's usage into a different palette without touching every other caller. */
+    labelColor?: string;
 }
 
 const buttonSx = {
@@ -40,6 +44,7 @@ const PeriodNavigator = ({
     nextTitle,
     minWidth = 'fit-content',
     sx,
+    labelColor = '#9d4141',
 }: PeriodNavigatorProps) => (
     <Box
         sx={{
@@ -74,7 +79,7 @@ const PeriodNavigator = ({
                 flex: 1,
                 minWidth: 0,
                 px: 1.25,
-                color: '#9d4141',
+                color: labelColor,
                 fontSize: 12,
                 fontWeight: 700,
                 lineHeight: '32px',

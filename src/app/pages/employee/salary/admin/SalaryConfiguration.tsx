@@ -18,6 +18,16 @@ const TABS: ConfigTab[] = [
 const SALARY_CONFIG_CSS = `
   /* ── Salary Config – Responsive Styles ──────────────────────────────── */
 
+  /* Deduction-rule panels are a fixed 4-column table (label | gross | tax |
+     enable). Rather than squash the number inputs below the app's mobile
+     breakpoint, keep the desktop proportions and let each panel scroll
+     horizontally — matching the "data tables scroll inside their container"
+     rule. Desktop (>=992px) is untouched. */
+  @media (max-width: 991.98px) {
+    .sc-section-panel { overflow-x: auto !important; }
+    .sc-section-panel > .row { min-width: 520px !important; }
+  }
+
   /* Tablet (≤ 768px) */
   @media (max-width: 767.98px) {
     .sc-modal-body    { padding: 24px !important; }

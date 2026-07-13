@@ -9,7 +9,7 @@ import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { IOrgNode } from "@models/company";
 
 function EmployeeInfo() {
-    const { values, setFieldValue } = useFormikContext<any>();
+    const { values, setFieldValue, setValues } = useFormikContext<any>();
     const [orgTree, setOrgTree] = useState<IOrgNode[]>([]);
     const [allBranches, setAllBranches] = useState<any[]>([]);
     const [designationOptions, setDesignationOptions] = useState([]);
@@ -188,14 +188,15 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orgTree, allBranches]);
 
+    // Reset the dependent fields in a SINGLE update. Firing setFieldValue three
+    // times in a row makes Formik re-validate each call against a stale snapshot,
+    // which re-adds the "Organization is a required field" error even right after
+    // an organization is picked. setValues validates once with all fields updated.
     const handleOrgChange = (opt: any) => {
-        setFieldValue('organizationId', opt?.value || '');
-        setFieldValue('subOrganizationId', '');
-        setFieldValue('branchId', '');
+        setValues({ ...values, organizationId: opt?.value || '', subOrganizationId: '', branchId: '' });
     };
     const handleSubOrgChange = (opt: any) => {
-        setFieldValue('subOrganizationId', opt?.value || '');
-        setFieldValue('branchId', '');
+        setValues({ ...values, subOrganizationId: opt?.value || '', branchId: '' });
     };
 
     return (
@@ -245,7 +246,7 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
       <DropDownInput isRequired={true} formikField="departmentId" inputLabel="Department" options={departmentOpions} />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      <DropDownInput isRequired={false} formikField="teamId" inputLabel="Team" options={teamOptions} />
+      <DropDownInput isRequired={true} formikField="teamId" inputLabel="Team" options={teamOptions} />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
       <DropDownInput isRequired={false} formikField="roomOrBlock" inputLabel="Room/Block" options={roomBlockOptions} />

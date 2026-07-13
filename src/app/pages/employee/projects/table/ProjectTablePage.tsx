@@ -38,6 +38,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 import { KTIcon } from "@metronic/helpers";
+import WrongLocationRoundedIcon from "@mui/icons-material/WrongLocationRounded";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -81,6 +82,9 @@ const ProjectTablePage = () => {
   const [searchText, setSearchText] = useState("");
   const [projectStatusFilter, setProjectStatusFilter] = useState("");
   const [projectManagerFilter, setProjectManagerFilter] = useState("");
+  // When on, the table shows ONLY projects missing address (lat/long) — in place,
+  // no modal. Toggled by the "Missing Address" count button in the toolbar.
+  const [showMissingAddress, setShowMissingAddress] = useState(false);
 
   const [day, setDay] = useState<Dayjs>(today);
   const [weekStart, setWeekStart] = useState<Dayjs>(() => {
@@ -315,6 +319,15 @@ const ProjectTablePage = () => {
             inquiryDate = new Date().toISOString();
           }
 
+          // Address completeness: a project "has address" only when a usable
+          // lat/long exists — on the lead's additionalDetails OR on any of the
+          // project's site addresses. Drives the "Missing Address" filter.
+          const projectSites: any[] = Array.isArray(project?.addresses) ? project.addresses : [];
+          const hasAddress = !!(
+            (ad.latitude && ad.longitude) ||
+            projectSites.some((a: any) => a?.latitude && a?.longitude)
+          );
+
           return {
             id: lead.id,
             prefix: lead?.prefix || "N/A",
@@ -355,6 +368,7 @@ const ProjectTablePage = () => {
             projectCountry: project?.country || "N/A",
             projectState: project?.state || "N/A",
             projectCity: project?.city || "N/A",
+            hasAddress,
             projectIsLive: exec?.isLive ?? project?.isLive ?? false,
             entityPhase: getProjectPhase(lead),
             isDelayed: isDelayedProject(lead),
@@ -689,7 +703,7 @@ const ProjectTablePage = () => {
 
   if (loading) return <Loader />;
 
-  const quickFilteredData = tableData?.filter((item: any) => {
+  const baseFilteredData = tableData?.filter((item: any) => {
     let dateMatch = true;
     const d = item.inquiryDate ? dayjs(item.inquiryDate) : null;
     if (alignment === "daily") {
@@ -740,11 +754,23 @@ const ProjectTablePage = () => {
     return dateMatch && projectStatusMatch && projectManagerMatch && searchMatch;
   });
 
+  // "Missing Address" is a GLOBAL view: the count and the list ignore the period
+  // and other filters, so clicking always reveals EVERY project without lat/long
+  // across all time — and clicking it again returns to the normal filtered view.
+  const missingAddressCount = (tableData ?? []).filter((i: any) => !i.hasAddress).length;
+  const quickFilteredData = showMissingAddress
+    ? (tableData ?? []).filter((i: any) => !i.hasAddress)
+    : baseFilteredData;
+
+  // Note: showMissingAddress is intentionally NOT part of hasAnyFilter — its own
+  // toggle button turns it off, so surfacing a separate "Clear filters" chip for it
+  // would only shift the toolbar layout when the button is clicked.
   const hasAnyFilter = projectStatusFilter || projectManagerFilter || searchText;
   const clearAllFilters = () => {
     setProjectStatusFilter("");
     setProjectManagerFilter("");
     setSearchText("");
+    setShowMissingAddress(false);
   };
 
   const totalFilteredCost = (quickFilteredData ?? []).reduce(
@@ -1043,18 +1069,22 @@ const ProjectTablePage = () => {
             )}
           </div>
 
-          {/* KPI Summary */}
+          {/* Right-side group: budget/results pill + missing-address toggle, kept together */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'stretch' : 'flex-end', width: isMobile ? '100%' : 'auto' }}>
+          {/* KPI Summary — glassmorphic pill */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '10px',
-            border: '1px solid #E2E8F0',
-            borderRadius: '6px',
-            padding: '0 12px',
-            background: '#F8FAFC',
+            border: '1px solid rgba(226,232,240,0.9)',
+            borderRadius: '10px',
+            padding: '0 14px',
+            background: 'rgba(255,255,255,0.55)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
             height: '32px',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06)',
             width: isMobile ? '100%' : 'auto'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1068,6 +1098,84 @@ const ProjectTablePage = () => {
                 {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
               </span>
             </div>
+          </div>
+
+          {/* Missing-address filter: shows the count and, on click, lists ONLY the
+              projects without lat/long in place — no modal. */}
+          <button
+            type="button"
+            onClick={() => setShowMissingAddress((v) => !v)}
+            title={showMissingAddress
+              ? 'Showing projects with no address (latitude/longitude). Click to show all.'
+              : 'Show only projects missing address (latitude/longitude)'}
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              // Constant border width + padding + height across states so the
+              // button never resizes or shifts when toggled.
+              gap: '7px',
+              border: `1px solid ${showMissingAddress ? 'rgba(255,255,255,0.35)' : 'rgba(226,232,240,0.9)'}`,
+              borderRadius: '10px',
+              padding: '0 14px',
+              height: '32px',
+              cursor: 'pointer',
+              // Glassmorphic base — the red is a separate overlay layer below.
+              background: 'rgba(255,255,255,0.55)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              boxShadow: showMissingAddress
+                ? '0 6px 18px rgba(170, 57, 61, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)'
+                : '0 2px 10px rgba(0, 0, 0, 0.06)',
+              fontFamily: 'Inter, sans-serif',
+              width: isMobile ? '100%' : 'auto',
+              transition: 'box-shadow 0.25s ease, border-color 0.25s ease',
+            }}
+          >
+            {/* Premium red gradient layer — fades in/out via opacity (a linear-gradient
+                background can't be transitioned directly, so we animate opacity). */}
+            <span
+              aria-hidden
+              style={{
+                position: 'absolute',
+                inset: 0,
+                borderRadius: 'inherit',
+                background: 'linear-gradient(135deg, rgba(198,71,75,0.92) 0%, rgba(170,57,61,0.94) 55%, rgba(126,37,41,0.96) 100%)',
+                opacity: showMissingAddress ? 1 : 0,
+                transition: 'opacity 0.3s ease',
+                zIndex: 0,
+              }}
+            />
+            <WrongLocationRoundedIcon
+              style={{ position: 'relative', zIndex: 1, fontSize: 16, color: showMissingAddress ? '#fff' : '#AA393D', transition: 'color 0.3s ease' }}
+            />
+            <span style={{ position: 'relative', zIndex: 1, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: showMissingAddress ? 'rgba(255,255,255,0.95)' : '#64748B', transition: 'color 0.3s ease' }}>
+              Missing Address
+            </span>
+            <span
+              style={{
+                position: 'relative',
+                zIndex: 1,
+                fontSize: '12px',
+                fontWeight: 800,
+                lineHeight: 1,
+                color: showMissingAddress ? '#AA393D' : '#fff',
+                background: showMissingAddress ? '#fff' : '#AA393D',
+                borderRadius: '999px',
+                minWidth: '20px',
+                height: '20px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 6px',
+                transition: 'color 0.3s ease, background 0.3s ease',
+              }}
+            >
+              {missingAddressCount}
+            </span>
+          </button>
           </div>
         </div>
       </Box>

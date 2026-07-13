@@ -177,17 +177,38 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
             {({ push, remove }) => (
               <div className="d-flex flex-column gap-4">
                 {(values.leadTeams || []).map((team: any, index: number) => {
-                  const sortedCompanyTypes = (props.companyTypes || []).map(x => ({ value: x.id, label: x.name }));
-                  const filteredCompanies = props.teamFilteredCompanies[index] || props.companies;
-                  const selectedCompany = props.companies.find((c: any) => c.id === team.companyId);
-                  const filteredSubCompanies = props.teamFilteredSubCompanies[index] || (selectedCompany?.subCompanies || []);
+                  const sortedCompanyTypes = (props.companyTypes || [])
+                    .filter(x => x.name.includes('(All)'))
+                    .map(x => ({ value: x.id, label: x.name }));
+                  let filteredCompanies = props.companies || [];
+                  if (team.companyTypeId) {
+                    filteredCompanies = filteredCompanies.filter((c: any) => String(c.companyTypeId) === String(team.companyTypeId));
+                  }
 
-                  // Reverse-lookup friendly contact list (see ClientCompaniesSection).
-                  const rowContacts = buildRowContacts(team, index, props);
+                  let filteredSubCompanies = [];
+                  if (team.companyId) {
+                    const selectedCompany = props.companies.find((c: any) => c.id === team.companyId);
+                    filteredSubCompanies = selectedCompany?.subCompanies || [];
+                  } else if (team.companyTypeId) {
+                    filteredSubCompanies = filteredCompanies.flatMap((c: any) => c.subCompanies || []);
+                  } else {
+                    filteredSubCompanies = (props.companies || []).flatMap((c: any) => c.subCompanies || []);
+                  }
+
+                  let filteredContacts = props.contacts || [];
+                  if (team.subCompanyId) {
+                    filteredContacts = filteredContacts.filter((c: any) => c.subCompanyId === team.subCompanyId || c.companyId === team.companyId);
+                  } else if (team.companyId) {
+                    filteredContacts = filteredContacts.filter((c: any) => c.companyId === team.companyId);
+                  } else if (team.companyTypeId) {
+                    const typeCompanyIds = new Set(filteredCompanies.map((c: any) => c.id));
+                    filteredContacts = filteredContacts.filter((c: any) => typeCompanyIds.has(c.companyId));
+                  }
+
                   const companyNameById = new Map(
                     (props.companies || []).map((c: any) => [c.id, c.companyName])
                   );
-                  const contactOptions = rowContacts.map((x: any) => {
+                  const contactOptions = filteredContacts.map((x: any) => {
                     const cName = companyNameById.get(x.companyId);
                     const base = x.fullName || x.name || "Unnamed Contact";
                     return { value: x.id, label: cName ? `${base} — ${cName}` : base };
@@ -312,12 +333,12 @@ export const TeamDetailsSection: React.FC<LeadSectionsProps> = (props) => {
   const employeeOptions = (props.employees || [])
     .filter(x => x.isActive !== false)
     .sort((a, b) => (a.employeeName || "").localeCompare(b.employeeName || ""))
-    .map(x => ({ value: x.employeeId, label: x.employeeName }));
+    .map(x => ({ value: x.employeeId, label: x.employeeName, avatar: x.avatar || null }));
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
       <Grid container spacing={3}>
         <Grid item xs={12} md={12}>
-          <DropDownInput formikField="leadAssignedTo" inputLabel="Assigned to " options={employeeOptions} isRequired={false} />
+          <DropDownInput formikField="leadAssignedTo" inputLabel="Assigned to " options={employeeOptions} isRequired={false} showColor />
         </Grid>
       </Grid>
     </div>
@@ -326,6 +347,52 @@ export const TeamDetailsSection: React.FC<LeadSectionsProps> = (props) => {
 
 // 4. File Location Section
 export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
+  const { values, setFieldValue } = useFormikContext<any>();
+  const allCompanies = props.companies || [];
+  const allCompanyTypes = props.companyTypes || [];
+
+  const selectedType = values.fileLocationCompanyType;
+  const selectedCompany = allCompanies.find((c: any) => String(c.id) === String(values.fileLocationCompany));
+
+  // Keep Type in sync with Company even for pre-existing/legacy data saved before
+  // this pairing existed (Company set, Type left blank) — backfill it on load too,
+  // not just when the user picks a Company through the dropdown below.
+  useEffect(() => {
+    if (selectedCompany?.companyTypeId && !selectedType) {
+      setFieldValue("fileLocationCompanyType", selectedCompany.companyTypeId);
+    }
+  }, [selectedCompany?.companyTypeId, selectedType]);
+
+  // Forward-filter: once a Company Type is picked, only that type's companies show.
+  // With nothing picked, every company is available.
+  const filteredCompanies = selectedType
+    ? allCompanies.filter((c: any) => String(c.companyTypeId) === String(selectedType))
+    : allCompanies;
+
+  // Build option lists that ALWAYS include the currently-saved value, so an existing
+  // lead pre-populates on edit — even when the saved Type isn't an "(All)" category
+  // (the reverse-cascade stores a company's specific type) or the saved Company falls
+  // outside the active type filter. Without this the dropdowns render empty on edit.
+  const typeOptions = (() => {
+    const opts = allCompanyTypes
+      .filter((x: any) => x.name?.includes('(All)'))
+      .map((x: any) => ({ value: x.id, label: x.name }));
+    if (selectedType && !opts.some((o: any) => String(o.value) === String(selectedType))) {
+      const saved = allCompanyTypes.find((x: any) => String(x.id) === String(selectedType));
+      if (saved) opts.unshift({ value: saved.id, label: saved.name });
+    }
+    return opts;
+  })();
+
+  const companyOptions = (() => {
+    const opts = filteredCompanies.map((x: any) => ({ value: x.id, label: x.companyName, avatar: x.logo || null }));
+    if (values.fileLocationCompany && !opts.some((o: any) => String(o.value) === String(values.fileLocationCompany))) {
+      const saved = allCompanies.find((c: any) => String(c.id) === String(values.fileLocationCompany));
+      if (saved) opts.unshift({ value: saved.id, label: saved.companyName, avatar: saved.logo || null });
+    }
+    return opts;
+  })();
+
   return (
     <div className="wt-section-card">
       <div className="wt-section-heading">
@@ -337,7 +404,20 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
             isRequired={false}
             formikField="fileLocationCompanyType"
             inputLabel="Company Type In Computer Folder"
-            options={(props.companyTypes || []).map(x => ({ value: x.id, label: x.name }))}
+            options={typeOptions}
+            onChange={(opt: any) => {
+              const typeId = opt?.value || "";
+              setFieldValue("fileLocationCompanyType", typeId);
+              // Clearing the Type also clears the Company — they're a linked pair.
+              if (!typeId) {
+                setFieldValue("fileLocationCompany", "");
+                return;
+              }
+              // Switching to a different Type drops a Company that no longer matches it.
+              if (selectedCompany && String(selectedCompany.companyTypeId) !== String(typeId)) {
+                setFieldValue("fileLocationCompany", "");
+              }
+            }}
           />
         </Grid>
         <Grid item xs={12} md={6}>
@@ -345,7 +425,17 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
             isRequired={false}
             formikField="fileLocationCompany"
             inputLabel="Company Name In Computer Folder"
-            options={(props.companies || []).map(x => ({ value: x.id, label: x.companyName }))}
+            options={companyOptions}
+            showColor
+            onChange={(opt: any) => {
+              const companyId = opt?.value || "";
+              setFieldValue("fileLocationCompany", companyId);
+              // Reverse cascade: picking a Company directly back-fills its Company Type.
+              const company = allCompanies.find((c: any) => c.id === companyId);
+              if (company?.companyTypeId) {
+                setFieldValue("fileLocationCompanyType", company.companyTypeId);
+              }
+            }}
           />
         </Grid>
       </Grid>
@@ -412,13 +502,30 @@ export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
   );
 };
 
+/**
+ * Build the Referring Contact option source for a single referral row.
+ * Reverse-lookup friendly like buildRowContacts above: with no company chosen
+ * yet, list every contact (tagged with its company) so the user can find a
+ * person directly; once a Referring Company is picked, forward-filter to it.
+ */
+const buildReferralContacts = (ref: any, props: LeadSectionsProps): any[] => {
+  const allContacts = props.contacts || [];
+  if (!ref.referringCompany) return allContacts;
+  return allContacts.filter((c: any) => String(c.companyId) === String(ref.referringCompany));
+};
+
 // Referral Details Section
 export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
   const employeeOptions = (props.employees || [])
     .filter(x => x.isActive !== false)
     .sort((a, b) => (a.employeeName || "").localeCompare(b.employeeName || ""))
-    .map(x => ({ value: x.employeeId, label: x.employeeName }));
+    .map(x => ({ 
+      value: x.employeeId, 
+      label: x.employeeName,
+      avatar: x.avatar || x.users?.avatar || null
+    }));
+  const companyNameById = new Map((props.companies || []).map((c: any) => [c.id, c.companyName]));
 
   // The referral-type dropdown stores the type's ID (a UUID), NOT the literal
   // string "INTERNAL". Resolve the selected type and read its isInternal flag
@@ -462,12 +569,17 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                         if (isInternalReferral(newType)) {
                           setFieldValue(`referrals.${index}.referringCompanyType`, "");
                           setFieldValue(`referrals.${index}.referringCompany`, "");
+                          setFieldValue(`referrals.${index}.referringContact`, "");
                         } else {
                           setFieldValue(`referrals.${index}.referredByEmployeeId`, "");
                         }
                       }}
                     />
                   </Grid>
+                </Grid>
+                {/* Separate row so the External branch's 3 fields (4+4+4=12) always
+                    lay out on one line, independent of the Referral Type row above. */}
+                <Grid container spacing={2} className="mt-1">
                   {isInternalReferral(ref.referralType) ? (
                     <Grid item xs={12} md={8}>
                       <DropDownInput
@@ -475,27 +587,95 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                         formikField={`referrals.${index}.referredByEmployeeId`}
                         inputLabel="Referring Employee"
                         options={employeeOptions}
+                        showColor={true}
                       />
                     </Grid>
                   ) : (
-                    <>
-                      <Grid item xs={12} md={4}>
-                        <DropDownInput
-                          isRequired={false}
-                          formikField={`referrals.${index}.referringCompanyType`}
-                          inputLabel="Referring Company Type"
-                          options={(props.companyTypes || []).map(x => ({ value: x.id, label: x.name }))}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <DropDownInput
-                          isRequired={false}
-                          formikField={`referrals.${index}.referringCompany`}
-                          inputLabel="Referring Company"
-                          options={(props.companies || []).map(x => ({ value: x.id, label: x.companyName }))}
-                        />
-                      </Grid>
-                    </>
+                    <React.Fragment>
+                      {(() => {
+                        const sortedCompanyTypes = (props.companyTypes || [])
+                          .filter(x => x.name.includes('(All)'))
+                          .map(x => ({ value: x.id, label: x.name }));
+
+                        let filteredCompanies = props.companies || [];
+                        if (ref.referringCompanyType) {
+                          filteredCompanies = filteredCompanies.filter((c: any) => String(c.companyTypeId) === String(ref.referringCompanyType));
+                        }
+
+                        let filteredContacts = props.contacts || [];
+                        if (ref.referringCompany) {
+                          filteredContacts = filteredContacts.filter((c: any) => String(c.companyId) === String(ref.referringCompany));
+                        } else if (ref.referringCompanyType) {
+                          const typeCompanyIds = new Set(filteredCompanies.map((c: any) => c.id));
+                          filteredContacts = filteredContacts.filter((c: any) => typeCompanyIds.has(c.companyId));
+                        }
+
+                        return (
+                          <>
+                            <Grid item xs={12} md={4}>
+                              <DropDownInput
+                                isRequired={false}
+                                formikField={`referrals.${index}.referringCompanyType`}
+                                inputLabel="Referring Company Type"
+                                options={sortedCompanyTypes}
+                                onChange={(opt: any) => {
+                                  setFieldValue(`referrals.${index}.referringCompanyType`, opt?.value || "");
+                                  setFieldValue(`referrals.${index}.referringCompany`, "");
+                                  setFieldValue(`referrals.${index}.referringContact`, "");
+                                }}
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                              <DropDownInput
+                                isRequired={false}
+                                formikField={`referrals.${index}.referringCompany`}
+                                inputLabel="Referring Company"
+                                options={filteredCompanies.map((x: any) => ({ value: x.id, label: x.companyName, avatar: x.logo || null }))}
+                                onChange={(opt: any) => {
+                                  const companyId = opt?.value || "";
+                                  setFieldValue(`referrals.${index}.referringCompany`, companyId);
+                                  setFieldValue(`referrals.${index}.referringContact`, "");
+                                  if (companyId) {
+                                    const selectedCompany = (props.companies || []).find((c: any) => c.id === companyId);
+                                    if (selectedCompany?.companyTypeId) {
+                                      setFieldValue(`referrals.${index}.referringCompanyType`, selectedCompany.companyTypeId);
+                                    }
+                                  }
+                                }}
+                                showColor
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                              <DropDownInput
+                                isRequired={false}
+                                formikField={`referrals.${index}.referringContact`}
+                                inputLabel="Referring Contact"
+                                options={filteredContacts.map((c: any) => {
+                                  const base = c.fullName || c.name || "Unnamed Contact";
+                                  const cName = companyNameById.get(c.companyId);
+                                  return { value: c.id, label: cName ? `${base} — ${cName}` : base, avatar: c.profilePhoto || null };
+                                })}
+                                onChange={(opt: any) => {
+                                  const contactId = opt?.value || "";
+                                  setFieldValue(`referrals.${index}.referringContact`, contactId);
+                                  if (contactId) {
+                                    const selectedContact = (props.contacts || []).find((c: any) => c.id === contactId);
+                                    if (selectedContact?.companyId) {
+                                      setFieldValue(`referrals.${index}.referringCompany`, selectedContact.companyId);
+                                      const selectedCompany = (props.companies || []).find((c: any) => c.id === selectedContact.companyId);
+                                      if (selectedCompany?.companyTypeId) {
+                                        setFieldValue(`referrals.${index}.referringCompanyType`, selectedCompany.companyTypeId);
+                                      }
+                                    }
+                                  }
+                                }}
+                                showColor
+                              />
+                            </Grid>
+                          </>
+                        );
+                      })()}
+                    </React.Fragment>
                   )}
                 </Grid>
               </div>
@@ -504,7 +684,7 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
               variant="outline-primary"
               size="sm"
               type="button"
-              onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "" })}
+              onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "", referringContact: "" })}
               className="align-self-start fw-bold mt-1"
             >
               + Add Referral Source
@@ -564,30 +744,10 @@ export const CommercialsSection: React.FC = () => {
   );
 };
 
-// 7. Remarks & Documents Section
+// 7. Description Section
 export const RemarksAndDocumentsSection: React.FC<LeadSectionsProps> = (props) => {
   return (
     <>
-      <div className="card shadow-sm border p-6 bg-white mb-6">
-        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-          Follow-up
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <DateInput
-              formikField="nextFollowUpDate"
-              inputLabel="Next Follow-up Date"
-              formikProps={props.formikProps}
-              placeHolder="Select next follow-up date"
-              isRequired={false}
-            />
-            <p className="text-muted fs-8 mt-2 mb-0">
-              The next action date for this lead. Overdue follow-ups are flagged on the leads list.
-            </p>
-          </Grid>
-        </Grid>
-      </div>
-
       <div className="card shadow-sm border p-6 bg-white mb-6">
         <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
           Detailed Description
@@ -603,8 +763,6 @@ export const RemarksAndDocumentsSection: React.FC<LeadSectionsProps> = (props) =
           </Grid>
         </Grid>
       </div>
-
-
     </>
   );
 };
@@ -847,13 +1005,13 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
           </Grid>
         )}
 
-        {/* When the status is project-triggering, we DON'T ask for a project status
-            here — instead we confirm the conversion. Project execution details
-            (incl. project status) live in the dedicated Project Execution step. */}
+        {/* When the status is project-triggering, capture the commercial/PO details
+            right here — they're set once on receipt and become read-only on the
+            Project detail page afterwards. */}
         {isReceived && (
           <Grid item xs={12}>
             <div
-              className="d-flex align-items-center gap-3 p-4 rounded"
+              className="d-flex align-items-center gap-3 p-4 rounded mb-4"
               style={{ background: "#ecfdf5", border: "1px solid #a7f3d0" }}
             >
               <CheckCircleOutline style={{ color: "#15803d", fontSize: "2rem", flexShrink: 0 }} />
@@ -862,11 +1020,83 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
                   This lead has been converted to a Project
                 </div>
                 <div style={{ color: "#15803d", fontSize: 13, marginTop: 2 }}>
-                  A linked project is now active. Manage its status, team, timeline and
-                  financials in the <strong>Project Execution</strong> step. The lead
-                  record stays fully preserved.
+                  Add the received date, contract financials and purchase order details
+                  below — the lead record stays fully preserved.
                 </div>
               </div>
+            </div>
+
+            <div className="mb-4">
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={4}>
+                  <DateInput
+                    formikField="receivedDate"
+                    inputLabel="Received Date"
+                    formikProps={props.formikProps}
+                    placeHolder="Select received date"
+                    isRequired={false}
+                  />
+                  <p className="text-muted fs-8 mt-2 mb-0">
+                    Auto-filled with today's date when the status is set to Received. Adjust if needed.
+                  </p>
+                </Grid>
+              </Grid>
+            </div>
+
+            <div className="mb-4">
+              <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+                Contract Financials
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <TextInput
+                    formikField="projectMeta.contractRate"
+                    label="Contract Rate"
+                    isRequired={false}
+                    inputValidation="decimal"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextInput
+                    formikField="projectMeta.finalCost"
+                    label="Final Cost"
+                    isRequired={false}
+                    inputValidation="decimal"
+                  />
+                </Grid>
+              </Grid>
+            </div>
+
+            <div>
+              <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+                Purchase Order
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={4}>
+                  <DropDownInput
+                    formikField="poStatus"
+                    inputLabel="PO Status"
+                    isRequired={false}
+                    options={[
+                      { value: "Pending", label: "Pending" },
+                      { value: "Approved", label: "Approved" },
+                      { value: "Rejected", label: "Rejected" },
+                    ]}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextInput formikField="poNumber" label="PO Number" isRequired={false} />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <DateInput
+                    formikField="poDate"
+                    inputLabel="PO Date"
+                    formikProps={props.formikProps}
+                    placeHolder="Select PO Date"
+                    isRequired={false}
+                  />
+                </Grid>
+              </Grid>
             </div>
           </Grid>
         )}
@@ -1145,7 +1375,11 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
               const contactOptions = rowContacts.map((x: any) => {
                 const cName = companyNameById.get(x.companyId);
                 const base = x.fullName || x.name || "Unnamed Contact";
-                return { value: x.id, label: cName ? `${base} — ${cName}` : base };
+                return {
+                  value: x.id,
+                  label: cName ? `${base} — ${cName}` : base,
+                  avatar: x.profilePhoto || null,
+                };
               });
 
               return (
@@ -1177,11 +1411,13 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                         options={(filteredCompanies || []).map((x: any) => ({
                           value: x.id,
                           label: x.companyName,
+                          avatar: x.logo || null,
                         }))}
                         onChange={(val: any) =>
                           props.handleCompanyChange(index, val?.value, setFieldValue)
                         }
                         isRequired={false}
+                        showColor
                       />
                     </Grid>
                     <Grid item xs={12} md={3}>
@@ -1212,6 +1448,7 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                           props.handleContactChange(index, val?.value, setFieldValue)
                         }
                         isRequired={false}
+                        showColor
                       />
                     </Grid>
                   </Grid>

@@ -1,0 +1,12 @@
+/*
+ * Responsive override for the Organization create form's 2-column field grid.
+ * Desktop (>=992px) keeps the inline `1fr 1fr` layout untouched; below the
+ * app's shared mobile/tablet breakpoint the two columns collapse to one so
+ * fields aren't squished on phones/tablets.
+ */
+
+@media (max-width: 991.98px) {
+  .org-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

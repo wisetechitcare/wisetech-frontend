@@ -16,6 +16,7 @@ export const ATTENDANCE_STATUS = {
     WORKING_WEEKEND: 'Working on weekend',
     MARKED_PRESENT_VIA_REQUEST_RAISED: 'Marked Present Via Request Raised',
     RAISE_REQUEST: 'Present (Raise Request)',
+    ADMIN_RAISE_REQUEST: 'Present (Admin Raised)',
     HOLIDAY: 'Holiday',
     ON_LEAVE: 'Leave'
 }

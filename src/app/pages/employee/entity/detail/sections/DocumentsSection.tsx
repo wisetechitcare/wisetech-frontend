@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { DetailCard, DetailRow } from '@app/modules/detail-page/DetailPageComponents';
 import { EmptyState } from '../widgets';
 import { DASH } from '../entityViewModel';
 import type { EntityVM } from '../facets';
+import { getAllClientCompanies, getAllCompanyTypes } from '@services/companies';
 
 const Td: React.FC<{ children?: React.ReactNode; strong?: boolean }> = ({ children, strong }) => (
   <td style={{ padding: '11px 12px', borderBottom: '1px solid #F4F6F9', fontSize: 13, color: strong ? '#1E293B' : '#475569', fontWeight: strong ? 700 : 500, whiteSpace: 'nowrap' }}>
@@ -28,13 +29,43 @@ const DocumentsSection: React.FC<{ vm: EntityVM; onExport?: () => void; children
   const docs = vm.documents;
   const fl = vm.fileLocation;
   const hasFileLocation = !!(fl.path || fl.company || fl.companyType);
+
+  // `fl.company` / `fl.companyType` come through as raw ids (the API doesn't return
+  // the display names), so resolve them to names — same lookup the leads table uses.
+  // Falls back to the raw value if the id isn't found (or if a name was already sent).
+  const [companyMap, setCompanyMap] = useState<Map<string, string>>(new Map());
+  const [typeMap, setTypeMap] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    if (!fl.company && !fl.companyType) return;
+    let active = true;
+    (async () => {
+      try {
+        const [companiesRes, typesRes]: [any, any] = await Promise.all([
+          getAllClientCompanies(true),
+          getAllCompanyTypes(),
+        ]);
+        if (!active) return;
+        const companies = companiesRes?.data?.companies || companiesRes?.companies || [];
+        const types = typesRes?.companyTypes || [];
+        setCompanyMap(new Map(companies.map((c: any) => [String(c.id), c.companyName])));
+        setTypeMap(new Map(types.map((t: any) => [String(t.id), t.name])));
+      } catch {
+        /* keep raw id as fallback */
+      }
+    })();
+    return () => { active = false; };
+  }, [fl.company, fl.companyType]);
+
+  const companyLabel = fl.company ? (companyMap.get(String(fl.company)) || fl.company) : DASH;
+  const typeLabel = fl.companyType ? (typeMap.get(String(fl.companyType)) || fl.companyType) : DASH;
+
   return (
     <div className="d-flex flex-column gap-5">
       {hasFileLocation && (
         <DetailCard title="File Location" subtitle="Where the source files live" icon="bi bi-folder2-open" accentColor="amber">
           <DetailRow label="Document Path" value={fl.path || DASH} />
-          <DetailRow label="File Company" value={fl.company || DASH} />
-          <DetailRow label="File Company Type" value={fl.companyType || DASH} isLast />
+          <DetailRow label="File Company" value={companyLabel} />
+          <DetailRow label="File Company Type" value={typeLabel} isLast />
         </DetailCard>
       )}
       <DetailCard

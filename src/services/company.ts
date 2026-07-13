@@ -16,9 +16,9 @@ export const createPublicHoliday = async (payload: IPublicHoliday) => {
     }
 }
 
-export const fetchPublicHolidays = async (year: string, observedIn: string) => {
+export const fetchPublicHolidays = async (year: string, observedIn: string, branchId?: string) => {
     try {
-        const endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_PUBLIC_HOLIDAYS}?year=${year}&observedIn=${observedIn}`;
+        const endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_PUBLIC_HOLIDAYS}?year=${year}&observedIn=${observedIn}${branchId ? `&branchId=${branchId}` : ''}`;
         const { data } = await axios.get(endpoint);
         return data;
     }

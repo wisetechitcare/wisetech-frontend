@@ -133,6 +133,7 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
     return (
         <>
             <LeaderBoardCore 
+                period="yearly"
                 overviewData={overviewData} 
                 startDate={effectiveStartDate} 
                 endDate={effectiveEndDate} 

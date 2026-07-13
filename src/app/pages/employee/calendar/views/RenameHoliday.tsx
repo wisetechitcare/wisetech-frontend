@@ -8,7 +8,6 @@ import {
   fetchHolidays,
   fetchPublicHolidays,
   updatePublicHolidayById,
-  updateHolidayOptionsById,
   deleteHolidayById,
 } from "@services/company";
 import dayjs from "dayjs";
@@ -29,6 +28,9 @@ import {
   resourceNameMapWithCamelCase,
 } from "@constants/statistics";
 import eventBus from "../../../../../utils/EventBus";
+import { ConfigSectionCard, KEYFRAMES } from "@app/modules/configuration";
+import Holiday from "@pages/company/Holiday";
+import { T } from "@app/modules/common/components/ui/tokens";
 
 // Interface for the transformed holiday data displayed in the table
 interface PublicHoliday {
@@ -52,6 +54,7 @@ interface RawHolidayData {
   isFixed: boolean;
   isActive: boolean;
   companyId: string;
+  colorCode?: string;
 }
 
 function RenameHoliday({ getNotification }: { getNotification?: any }) {
@@ -72,12 +75,11 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
   const [currentEditHolidayData, setCurrentEditHolidayData] =
     useState<RawHolidayData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [holidayNameForEditMode, setHolidayNameForEditMode] =
-    useState<string>("");
   const [currentYear, setCurrentYear] = useState<string>(
     new Date().getFullYear().toString()
   );
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [holidaysList, setHolidaysList] = useState<HolidayOption[]>([]);
 
   const country = "India";
@@ -174,7 +176,6 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
 
       if (holiday) {
         setCurrentEditHolidayData(holiday);
-        setHolidayNameForEditMode(holiday.name);
       }
     },
     [rawHolidaysData]
@@ -243,74 +244,27 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
     refreshHolidayList();
   }, [refreshHolidayList]);
 
-  // Handle save holiday name
-  const handleSaveHolidayName = useCallback(async () => {
-    if (!currentEditHolidayData || !holidayNameForEditMode.trim()) {
-      errorConfirmation("Please enter a valid holiday name!");
-      return;
+  // Shared post-save refresh for both Add and Edit: refetches the table + the
+  // holiday-name dropdown list. Edit additionally emits "holidayUpdated" so
+  // other holiday views (e.g. PublicHolidayListTwo's own listener) pick up the
+  // rename/re-type/re-color immediately instead of showing stale data.
+  const handleAddSaved = useCallback(() => {
+    refreshHolidayList();
+    setRefetch((prev) => !prev);
+  }, [refreshHolidayList]);
+
+  const handleEditSaved = useCallback(() => {
+    if (currentEditHolidayData) {
+      eventBus.emit("holidayUpdated", { id: currentEditHolidayData.id });
     }
-
-    try {
-      setLoading(true);
-
-      // Use the existing updateHolidayById endpoint with complete payload
-      const updatePayload = {
-        name: holidayNameForEditMode.trim(),
-        isFixed: currentEditHolidayData.isFixed,
-        isActive: currentEditHolidayData.isActive
-      };
-
-      const res = await updateHolidayOptionsById(
-        currentEditHolidayData.id,
-        updatePayload
-      );
-
-      if (res && !res.hasError) {
-        // Update local state
-        const updatedName = holidayNameForEditMode.trim();
-
-        setHolidays((prevHolidays) =>
-          prevHolidays.map((holiday) =>
-            holiday.id === currentEditHolidayData.id
-              ? { ...holiday, name: updatedName }
-              : holiday
-          )
-        );
-
-        setRawHolidaysData((prevRaw) =>
-          prevRaw.map((holiday) =>
-            holiday.id === currentEditHolidayData.id
-              ? { ...holiday, name: updatedName }
-              : holiday
-          )
-        );
-
-        eventBus.emit("holidayUpdated", { id: currentEditHolidayData.id });
-        successConfirmation("Holiday name updated successfully!");
-
-        // Close modal and reset state
-        setShowEditModal(false);
-        setCurrentEditHolidayData(null);
-        setHolidayNameForEditMode("");
-
-        // Trigger refetch to get latest data
-        setRefetch((prev) => !prev);
-      } else {
-        throw new Error(res?.message || "Failed to update holiday name");
-      }
-    } catch (error) {
-      console.error("Error updating holiday name:", error);
-      errorConfirmation("Failed to update holiday name!");
-    } finally {
-      setLoading(false);
-    }
-  }, [currentEditHolidayData, holidayNameForEditMode]);
+    refreshHolidayList();
+    setRefetch((prev) => !prev);
+  }, [currentEditHolidayData, refreshHolidayList]);
 
   // Handle modal close
   const handleCloseModal = useCallback(() => {
     setShowEditModal(false);
     setCurrentEditHolidayData(null);
-    setHolidayNameForEditMode("");
   }, []);
 
   // Define table columns
@@ -319,8 +273,44 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
       {
         accessorKey: "name",
         header: "Holiday Name",
-        size: 200,
-        Cell: ({ renderedCellValue }) => renderedCellValue,
+        size: 250,
+        Cell: ({ renderedCellValue }) => (
+          <span style={{ fontWeight: 600, color: '#1B2230' }}>
+            {renderedCellValue}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "date",
+        header: "Date",
+        size: 150,
+        Cell: ({ renderedCellValue }) => renderedCellValue || "-",
+      },
+      {
+        accessorKey: "day",
+        header: "Day",
+        size: 150,
+        Cell: ({ renderedCellValue }) => renderedCellValue || "-",
+      },
+      {
+        accessorKey: "type",
+        header: "Type",
+        size: 150,
+        Cell: ({ renderedCellValue }) => {
+          const isFixed = renderedCellValue === 'Fixed';
+          return (
+            <span style={{
+              backgroundColor: isFixed ? '#F0F4FF' : '#FFF3CD',
+              color: isFixed ? '#1E3A8A' : '#856404',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontWeight: 600,
+            }}>
+              {renderedCellValue}
+            </span>
+          );
+        }
       },
       ...(isAdmin
         ? [
@@ -391,81 +381,235 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
     );
   }
 
+const PREMIUM_TABLE_CSS = `
+  .prem-table-container {
+    background: #ffffff;
+    border: 1px solid #E6E9EE;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(27, 34, 48, 0.03);
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .prem-table-header {
+    padding: 24px;
+    border-bottom: 1px solid #E6E9EE;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .prem-icon-box {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #F4F6FB;
+    color: #1E3A8A;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .prem-badge {
+    background: #F4F6FB;
+    color: #1E3A8A;
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 8px;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  
+  /* Overrides for MaterialTable to look more premium */
+  .prem-table-container .MuiPaper-root {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+  .prem-table-container .MuiTableHead-root .MuiTableRow-root .MuiTableCell-head {
+    background-color: #F8FAFC !important;
+    color: #5A6573 !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+    letter-spacing: 0.05em !important;
+    border-bottom: 1px solid #E6E9EE !important;
+    text-transform: uppercase;
+  }
+  .prem-table-container .MuiTableBody-root .MuiTableRow-root:hover {
+    background-color: #F8FAFC !important;
+  }
+  .prem-table-container .MuiTableCell-body {
+    border-bottom: 1px solid #F1F3F5 !important;
+    color: #1B2230 !important;
+    font-size: 14px !important;
+  }
+  
+  /* Overrides for Add Holiday Modal */
+  .prem-holiday-modal .btn-primary, 
+  .prem-holiday-modal button[type="submit"] {
+    background: linear-gradient(180deg, #1E3A8A 0%, #152960 100%) !important;
+    border: none !important;
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.4) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+  }
+  .prem-holiday-modal .btn-primary:disabled,
+  .prem-holiday-modal button[type="submit"]:disabled {
+    opacity: 0.6 !important;
+    box-shadow: none !important;
+  }
+  
+  /* Toggle buttons in the modal */
+  .prem-holiday-modal .btn-check:checked + .btn,
+  .prem-holiday-modal .btn.active,
+  .prem-holiday-modal .bg-primary,
+  .prem-holiday-modal [class*="bg-[#"] {
+    background-color: #1E3A8A !important;
+    border-color: #1E3A8A !important;
+    color: #fff !important;
+  }
+`;
+
   return (
     <>
-      <div className="px-lg-0 px-1">
-        {loading && holidays.length === 0 ? (
-          <div className="text-center py-5">
-            {/* <div className="spinner-border" role="status">
-              <span className="visually-hidden">Loading...</span>
+      <style>{KEYFRAMES}</style>
+      <style>{PREMIUM_TABLE_CSS}</style>
+
+      <div className="prem-table-container cfg-fade-in">
+        <div className="prem-table-header">
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <div className="prem-icon-box">
+              <i className="bi bi-calendar-heart" />
             </div>
-            <p className="mt-2 text-muted">Loading holidays...</p> */}
+            <div>
+              <h2 style={{ fontWeight: 700, fontSize: '18px', color: '#1B2230', margin: '0 0 4px 0', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center' }}>
+                Public Holidays
+                <span className="prem-badge">{holidays.length}</span>
+              </h2>
+              <p style={{ fontSize: '13.5px', color: '#5A6573', margin: 0, fontWeight: 400 }}>
+                Rename holidays as they appear on the company calendar
+              </p>
+            </div>
           </div>
-        ) : (
-          <>
-            <h2>Rename Holidays</h2>
-            <MaterialTable
-              columns={columns}
-              data={[...holidays].sort((a, b) => a.name.localeCompare(b.name))}
-              tableName="Public Holidays List"
-              employeeId={employeeIdCurrent}
-            />
-          </>
-        )}
+          
+          <div>
+            {hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.create) && (
+              <button
+                type="button"
+                className="btn btn-sm text-white fw-bold d-flex align-items-center gap-2 border-0"
+                style={{
+                  background: `linear-gradient(180deg, ${T.color.brand} 0%, ${T.color.brandHover} 100%)`,
+                  borderRadius: '8px',
+                  padding: '9px 18px',
+                  fontSize: '13px',
+                  boxShadow: `0 4px 12px ${T.color.brand}40`,
+                }}
+                onClick={() => setShowAddModal(true)}
+              >
+                <i className="bi bi-plus-lg" style={{ fontSize: 14 }} />
+                Add Holiday
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div style={{ position: 'relative' }}>
+          {(loading && holidays.length === 0) && (
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.7)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="spinner-border text-primary" />
+            </div>
+          )}
+          <MaterialTable
+            columns={columns}
+            data={[...holidays].sort((a, b) => a.name.localeCompare(b.name))}
+            tableName="Public Holidays List"
+            employeeId={employeeIdCurrent}
+          />
+        </div>
       </div>
 
-      {/* Edit Holiday Name Modal */}
+      {/* Edit Holiday Modal — same name/type/status/color fields as Add Holiday
+          (both render the shared <Holiday> form), just pre-filled and pointed at
+          the update endpoint via isEditMode/editData. Previously this only exposed
+          a bare name field, so renaming a holiday couldn't touch its type/status/
+          color even though Add could set all of them from the start. */}
       <Modal
         show={showEditModal}
         onHide={handleCloseModal}
         centered
         backdrop="static"
+        fullscreen="md-down"
+        contentClassName="rounded-4 border-0 shadow-lg prem-holiday-modal"
       >
-        <Modal.Header closeButton>
-          <Modal.Title>Edit Holiday Name</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <div className="mb-3">
-            <label htmlFor="holidayName" className="form-label fw-bold">
-              Holiday Name <span className="text-danger">*</span>
-            </label>
-            <input
-              type="text"
-              className="form-control"
-              id="holidayName"
-              value={holidayNameForEditMode}
-              onChange={(e) => setHolidayNameForEditMode(e.target.value)}
-              placeholder="Enter holiday name"
-              maxLength={100}
-              autoFocus
-            />
+        <Modal.Header closeButton style={{ border: 'none', padding: '22px 24px 6px' }}>
+          <div className="d-flex align-items-center gap-3">
+            <div
+              style={{
+                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: `linear-gradient(135deg, ${T.color.brand}1F, ${T.color.brand}0D)`,
+                color: T.color.brand,
+              }}
+            >
+              <KTIcon iconName="pencil" className="fs-3" />
+            </div>
+            <div>
+              <Modal.Title style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.2px', margin: 0 }}>
+                Edit Holiday
+              </Modal.Title>
+              <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 1 }}>Update this holiday's details</div>
+            </div>
           </div>
+        </Modal.Header>
+        <Modal.Body style={{ padding: '10px 24px 24px' }}>
+          {currentEditHolidayData && (
+            <Holiday
+              isEditMode
+              editData={{
+                id: currentEditHolidayData.id,
+                name: currentEditHolidayData.name,
+                isFixed: currentEditHolidayData.isFixed,
+                isActive: currentEditHolidayData.isActive,
+                colorCode: currentEditHolidayData.colorCode ?? '',
+              }}
+              onCloseHolidayForm={handleCloseModal}
+              refreshHolidayList={handleEditSaved}
+            />
+          )}
         </Modal.Body>
-        <Modal.Footer>
-          <button
-            type="button"
-            className="btn btn-light"
-            onClick={handleCloseModal}
-            disabled={loading}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleSaveHolidayName}
-            disabled={!holidayNameForEditMode.trim() || loading}
-          >
-            {loading ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-2" />
-                Saving...
-              </>
-            ) : (
-              "Save Changes"
-            )}
-          </button>
-        </Modal.Footer>
+      </Modal>
+
+      {/* Add Holiday Modal */}
+      <Modal show={showAddModal} onHide={() => setShowAddModal(false)} centered backdrop="static" fullscreen="md-down" contentClassName="rounded-4 border-0 shadow-lg prem-holiday-modal">
+        <Modal.Header closeButton style={{ border: 'none', padding: '22px 24px 6px' }}>
+          <div className="d-flex align-items-center gap-3">
+            <div
+              style={{
+                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: `linear-gradient(135deg, ${T.color.brand}1F, ${T.color.brand}0D)`,
+                color: T.color.brand,
+              }}
+            >
+              <KTIcon iconName="plus" className="fs-3" />
+            </div>
+            <div>
+              <Modal.Title style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.2px', margin: 0 }}>
+                Add Holiday
+              </Modal.Title>
+              <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 1 }}>Add a new holiday to the master list</div>
+            </div>
+          </div>
+        </Modal.Header>
+        <Modal.Body style={{ padding: '10px 24px 24px' }}>
+          <Holiday
+            onCloseHolidayForm={() => setShowAddModal(false)}
+            refreshHolidayList={handleAddSaved}
+          />
+        </Modal.Body>
       </Modal>
     </>
   );

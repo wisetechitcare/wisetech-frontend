@@ -100,6 +100,7 @@ function AllTime({ fromAdmin = false, resourseAndView, dateSettingsEnabled = fal
     return (
         <>
             <LeaderBoardCore 
+                period="alltime"
                 overviewData={overviewData} 
                 fromAdmin={fromAdmin} 
                 resourseAndView={resourseAndView} 

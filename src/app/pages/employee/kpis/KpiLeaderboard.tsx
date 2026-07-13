@@ -57,7 +57,7 @@ function KpiLeaderboard() {
 
   return (
     <>
-      <h2 className='mb-5'>Leaderboard</h2>
+      <h2 className='mb-3'>Leaderboard</h2>
       <MaterialToggleLeaderboard
         resourseAndView={resourseAndView}
         dateSettingsEnabled={dateSettingsEnabled}

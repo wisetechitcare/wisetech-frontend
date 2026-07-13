@@ -127,6 +127,7 @@ const Custom = ({ startDate, endDate, fromAdmin = false, resourseAndView }: {
     return (
         <>
             <LeaderBoardCore 
+                period="custom"
                 overviewData={overviewData} 
                 startDate={effectiveStartDate} 
                 endDate={effectiveEndDate} 

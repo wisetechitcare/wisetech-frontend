@@ -1473,8 +1473,13 @@
 }
 
 @media (max-width: 1100px) {
+  /* The summary aside carries an inline `display:flex` (set in
+     EnterpriseFormWizard for both the expanded and collapsed-rail variants),
+     which would otherwise defeat this rule and leave the whole "Lead Summary"
+     block stacked into the mobile/tablet layout. !important restores the
+     intended hide below 1100px. Desktop (>=1200px) is unaffected. */
   .wizard-summary-panel {
-    display: none;
+    display: none !important;
   }
 }
 
@@ -1489,31 +1494,84 @@
 
 @media (max-width: 768px) {
   .enterprise-wizard {
-    overflow: visible;
+    /* Grow vertically with content, but never let a wide field push a
+       page-level horizontal scroll. */
+    overflow-x: hidden;
+    overflow-y: visible;
     height: auto;
+  }
+
+  /* Compact header: shrink the padding/avatar and let the title + status
+     pills wrap instead of forcing the row wider than the phone. */
+  .wizard-header {
+    height: auto;
+    min-height: 0;
+    padding: 0.75rem 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .wizard-header-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+  .wizard-header-avatar i {
+    font-size: 18px;
+  }
+  .wizard-title {
+    font-size: 1rem;
+    line-height: 1.25;
   }
 
   .wizard-layout {
     flex-direction: column;
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: visible;
+    max-width: 100%;
   }
 
   .wizard-nav-sidebar {
     width: 100%;
+    max-width: 100%;
     border-right: none;
     border-bottom: 1px solid var(--wt-gray-200);
-    padding: 0.75rem;
+    padding: 0.625rem 0.75rem;
     flex-direction: row;
+    flex-wrap: nowrap;
+    /* Center the row so the compact step chips align against the progress
+       card instead of stretching to its full height. */
+    align-items: center;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     gap: 0.5rem;
   }
 
+  /* Compact the progress card so it doesn't tower over the step chips.
+     The bar is redundant with the big % on this narrow strip — drop it. */
   .wt-progress-card {
-    min-width: 130px;
+    min-width: 128px;
+    flex-shrink: 0;
+    align-self: stretch;
+    padding: 0.6rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .wt-progress-percent {
+    font-size: 1.5rem;
+    margin-bottom: 0.1rem;
+  }
+  .wt-progress-sub {
+    margin-bottom: 0;
+  }
+  .wt-progress-track {
+    display: none;
   }
 
   .wt-steps-nav {
     flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
     gap: 0.375rem;
   }
 
@@ -1521,24 +1579,63 @@
     display: none;
   }
 
+  /* Uniform, compact step chips: badge on top, a 2-line label under it. */
   .wt-step-item {
+    flex: 0 0 auto;
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
     text-align: center;
-    padding: 0.5rem 0.625rem;
-    min-width: 70px;
+    gap: 0.3rem;
+    padding: 0.5rem 0.375rem;
+    width: 84px;
+    min-width: 84px;
+    max-width: 84px;
+  }
+
+  .wt-step-text {
+    flex: none;
+    width: 100%;
   }
 
   .wt-step-label {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
+    line-height: 1.15;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* The subtitle is nowrap and long ("Basic lead information and…"); on the
+     compact horizontal step strip it blew each card out to full-sentence
+     width. Hide it on mobile — the label + badge already identify the step. */
+  .wt-step-sublabel {
+    display: none;
   }
 
   .wizard-step-canvas {
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  /* Match the body's tighter padding and let the meta row wrap so the
+     "Required fields" note never clips off the right edge. */
+  .wt-step-page-header {
+    padding: 1rem 1rem 0.875rem;
+  }
+  .wt-step-page-meta {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .wt-step-page-title {
+    font-size: 1.15rem;
   }
 
   .wt-step-body {
-    padding: 1rem;
+    /* Extra bottom padding so the last field clears the fixed footer bar. */
+    padding: 1rem 1rem 5.5rem;
   }
 
   .wizard-footer-bar {
@@ -1547,6 +1644,16 @@
     left: 0;
     right: 0;
     z-index: 100;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+  }
+  /* Keep the footer's two button clusters on one line each, wrapping only
+     between them, and let the buttons share the width on small phones. */
+  .wizard-footer-left,
+  .wizard-footer-right {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .wt-review-grid {
@@ -1591,4 +1698,19 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Mobile, inside the fullscreen modal: the shell is locked to 100vh, so the
+   middle canvas must scroll INTERNALLY (the generic ≤768 rule sets it to
+   overflow-y:visible for the inline page usage, which would clip content
+   here). Also pad the bottom so the last field clears the fixed footer bar. */
+@media (max-width: 768px) {
+  .lead-wizard-modal .enterprise-wizard {
+    overflow: hidden !important;
+  }
+  .lead-wizard-modal .wizard-step-canvas {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-bottom: 5rem;
+  }
 }

@@ -26,9 +26,15 @@ export function useCompanyHierarchy(allCompanies: any[]): CompanyHierarchyState 
   const [filteredSubCompanies, setFilteredSubCompanies] = useState<Record<number, any[]>>({});
   const [filteredContacts, setFilteredContacts] = useState<Record<number, any[]>>({});
 
-  // Step 1: Company Type selected → filter companies by type
+  // Step 1: Company Type selected → filter companies by type. A Type change (or
+  // clear) always invalidates any previously cascaded Sub-Company/Contact list
+  // from a since-cleared Company — without this, clearing Type left the stale
+  // narrowed-down contact list in place and it kept winning in buildRowContacts,
+  // so "cleared everything" still only showed the one pre-picked contact.
   const handleCompanyTypeChange = useCallback(
     (index: number, typeId: string) => {
+      setFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+      setFilteredContacts((prev) => ({ ...prev, [index]: [] }));
       if (!typeId) {
         setFilteredCompanies((prev) => ({ ...prev, [index]: [] }));
         return;

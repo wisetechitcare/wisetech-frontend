@@ -5,14 +5,13 @@ import Select from 'react-select';
 import { useFormik } from 'formik';
 import Flatpickr from "react-flatpickr";
 import { PageLink, PageTitle } from '@metronic/layout/core'
-import { KTCard, KTCardBody } from '@metronic/helpers'
+import { KTIcon } from '@metronic/helpers'
 import { IPublicHoliday, IPublicHolidayUpdate } from "@models/company";
-import { createPublicHoliday, fetchCompanyOverview, updatePublicHolidayById } from "@services/company";
+import { createPublicHoliday, fetchAllBranches, fetchCompanyOverview, updatePublicHolidayById } from "@services/company";
 import { fetchAllCountries } from "@services/options";
 import { fetchHolidays } from '@services/company';
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import { dateFormatter } from "@utils/date";
-import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/PageHeadingTitle";
 import { Modal } from 'react-bootstrap';
 import Holiday from "./Holiday";
 import { useDispatch, useSelector } from "react-redux";
@@ -20,7 +19,7 @@ import { RootState } from "@redux/store";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { components } from 'react-select';
-import RadioInput from "@app/modules/common/inputs/RadioInput";
+import { T } from '@app/modules/common/components/ui/tokens';
 
 const usersBreadcrumbs: Array<PageLink> = [
     {
@@ -48,6 +47,7 @@ const initialValues: IPublicHoliday = {
     companyId: "",
     from: "",
     to: "",
+    branchId: "",
 }
 
 const publicHolidaySchema = Yup.object().shape({
@@ -59,6 +59,7 @@ const publicHolidaySchema = Yup.object().shape({
     isWeekend: Yup.boolean().required('Is weekend is required'),
     observedIn: Yup.string().required('Observed in is required'),
     companyId: Yup.string(),
+    branchId: Yup.string().nullable().optional(),
     from: Yup.string(),
     to: Yup.string().test('is-greater', 'To time must be after From time', function(value) {
         const { from } = this.parent;
@@ -71,6 +72,23 @@ const publicHolidaySchema = Yup.object().shape({
         return toTime > fromTime;
     }),
 }).strict(true);
+
+/** Small icon-badge + label used above each form section — gives the sections a
+ * consistent, scannable rhythm instead of a bare uppercase caption. */
+const SectionHeading = ({ icon, label }: { icon: string; label: string }) => (
+    <div className="d-flex align-items-center gap-2 mb-4">
+        <span
+            style={{
+                width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: `${T.color.brand}14`, color: T.color.brand,
+            }}
+        >
+            <KTIcon iconName={icon} className="fs-8" />
+        </span>
+        <p className="fs-8 fw-bold text-uppercase text-gray-500 m-0" style={{ letterSpacing: '0.8px' }}>{label}</p>
+    </div>
+);
 
 const CustomMenuList = ({ children, ...props }: any) => {
     // Only open the new holiday form, do NOT close the parent form/modal
@@ -111,7 +129,8 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
     const [loading, setLoading] = useState(false);
     const [countriesOption, setCountriesOptions] = useState([]);
     const [holidaysOption, setHolidaysOptions] = useState([]);
-    const [durationType, setDurationType] = useState<'fullDay' | 'customTime'>('fullDay');
+    const [branchOptions, setBranchOptions] = useState<{ value: string; label: string }[]>([]);
+
     
     const refreshHolidayList = async () => {
         try {
@@ -227,744 +246,320 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
         if (selectedDateTimeInfo && selectedDateTimeInfo.startStr) {
             formik.setFieldValue('date', selectedDateTimeInfo.startStr);
         }
-        
+
         // Initialize observedIn field with India if in create mode
         if (!isEditMode) {
             formik.setFieldValue('observedIn', 'India', true);
         }
         // eslint-disable-next-line
     }, []);
-    // Important todo:
-    // after merging curr branch with main, make the below form reusable, and replace it with the current page component used in the calendar->holiday section because in main branch a bug is fixed that is related to adding new holiday, right now I am importing this page component as it is
+
+    useEffect(() => {
+        fetchAllBranches()
+            .then((res: any) => {
+                const branches = res?.data?.branches ?? [];
+                setBranchOptions(branches.map((b: any) => ({ value: b.id, label: b.name })));
+            })
+            .catch(() => {});
+    }, []);
+
     return (
         <>
             <PageTitle breadcrumbs={usersBreadcrumbs}>Holidays</PageTitle>
             <div>
- 
-            {hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.create) && !showTheNewHolidayForm && <form onSubmit={formik.handleSubmit} noValidate className='form'>
-                    <KTCardBody className='p-0'>
-                         <div className='row mb-9'>
-                            {/* <div className='col-lg-6 fv-row mb-9 mb-lg-0'>
-                                <label className='required col-lg-6 col-form-label fw-bold fs-6 mb-3'>Color</label>
-                                <input
-                                    type='color'
-                                    className='form-control form-control-lg form-control-solid'
-                                    placeholder='Color'
-                                    {...formik.getFieldProps('colorCode')}
-                                />
-                                {formik.touched.colorCode && formik.errors.colorCode && (
-                                    <div className='fv-plugins-message-container'>
-                                        <div className='fv-help-block'>{formik.errors.colorCode}</div>
-                                    </div>
-                                )}
-                            </div> */}
-                            <div className='col-lg-6'>
-                                <div className='d-flex flex-column mb-7 fv-row'>
-                                    <label className='d-flex align-items-center fs-6 fw-bold form-label mb-2'>
-                                        <span className='required'>Holiday Type</span>
-                                    </label>
-                                    <div className='d-flex gap-4'>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='isFixed'
-                                                checked={formik.values.isFixed === true}
-                                                onChange={() => formik.setFieldValue('isFixed', true)}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: formik.values.isFixed === true ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: formik.values.isFixed === true ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: formik.values.isFixed === true ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {formik.values.isFixed === true && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>Fixed</span>
-                                        </label>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='isFixed'
-                                                checked={formik.values.isFixed === false}
-                                                onChange={() => formik.setFieldValue('isFixed', false)}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: formik.values.isFixed === false ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: formik.values.isFixed === false ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: formik.values.isFixed === false ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {formik.values.isFixed === false && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>Floater</span>
-                                        </label>
-                                    </div>
-                                    {formik.touched.isFixed && formik.errors.isFixed && (
-                                        <div className='fv-plugins-message-container'>
-                                            <div className='fv-help-block'>{formik.errors.isFixed}</div>
-                                        </div>
-                                    )}
+            {hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.create) && !showTheNewHolidayForm && (
+                <form onSubmit={formik.handleSubmit} noValidate>
+
+                    {/* ── SECTION 1 · Meta Info ─────────────────────────────────────────── */}
+                    <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '20px 20px 14px', marginBottom: '14px', border: '1px solid #e9edf2', borderTop: `3px solid ${T.color.brand}` }}>
+                        <SectionHeading icon="setting-2" label="Holiday Details" />
+                        <div className="row g-5">
+
+                            {/* Holiday Type */}
+                            <div className="col-lg-6">
+                                <label className="fs-7 fw-bold text-gray-700 d-block mb-3">
+                                    Holiday Type <span className="text-danger">*</span>
+                                </label>
+                                <div className="d-flex gap-2">
+                                    {[{ label: 'Fixed', value: true }, { label: 'Floating', value: false }].map(opt => (
+                                        <button
+                                            key={String(opt.value)}
+                                            type="button"
+                                            onClick={() => formik.setFieldValue('isFixed', opt.value)}
+                                            className="btn btn-sm fw-semibold flex-fill d-flex align-items-center justify-content-center gap-1.5"
+                                            style={{
+                                                borderRadius: '8px',
+                                                border: formik.values.isFixed === opt.value ? `2px solid ${T.color.brand}` : '1.5px solid #dde2ec',
+                                                background: formik.values.isFixed === opt.value ? T.color.brand : '#ffffff',
+                                                color: formik.values.isFixed === opt.value ? '#ffffff' : '#6b7280',
+                                                boxShadow: formik.values.isFixed === opt.value ? '0 3px 10px rgba(30, 58, 138, 0.22)' : 'none',
+                                                transition: 'all 0.18s ease',
+                                                padding: '8px 0',
+                                                fontSize: '13px'
+                                            }}
+                                        >
+                                            {formik.values.isFixed === opt.value && <i className="bi bi-check-circle-fill" style={{ fontSize: 12 }} />}
+                                            {opt.label}
+                                        </button>
+                                    ))}
                                 </div>
-                            </div>
-                             <div className='col-lg-6'>
-                                <div className='d-flex flex-column mb-7 fv-row'>
-                                    <label className='d-flex align-items-center fs-6 fw-bold form-label mb-2'>
-                                        <span className='required'>Status</span>
-                                    </label>
-                                    <div className='d-flex gap-4'>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='isActive'
-                                                checked={formik.values.isActive === true}
-                                                onChange={() => formik.setFieldValue('isActive', true)}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: formik.values.isActive === true ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: formik.values.isActive === true ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: formik.values.isActive === true ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {formik.values.isActive === true && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>Active</span>
-                                        </label>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='isActive'
-                                                checked={formik.values.isActive === false}
-                                                onChange={() => formik.setFieldValue('isActive', false)}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: formik.values.isActive === false ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: formik.values.isActive === false ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: formik.values.isActive === false ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {formik.values.isActive === false && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>Inactive</span>
-                                        </label>
-                                    </div>
-                                    {formik.touched.isActive && formik.errors.isActive && (
-                                        <div className='fv-plugins-message-container'>
-                                            <div className='fv-help-block'>{formik.errors.isActive}</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                           
-                            
-                        </div>
-                        <div className='row mb-9'>
-                            <div className='col-lg-12 fv-row mb-9 mb-lg-0'>
-                                <label className='required fs-6 fw-bold form-label mb-4'>Name </label> 
-                                {/* // changes here */}
-                                <Select
-                                    components={{ MenuList: CustomMenuList }}
-                                    options={holidaysOption}
-                                    defaultInputValue={isEditMode ? holidayNameForEditMode : ''}
-                                    onChange={(option: any) => formik.setFieldValue('holidayId', option.value, true)} 
-                                />
-                                {formik.touched.holidayId && formik.errors.holidayId && (
-                                    <div className='fv-plugins-message-container'>
-                                        <div className='fv-help-block'>{formik.errors.holidayId}</div>
-                                    </div>
+                                {formik.touched.isFixed && formik.errors.isFixed && (
+                                    <div className="text-danger fs-8 mt-1">{String(formik.errors.isFixed)}</div>
                                 )}
                             </div>
 
-                            {/* <div className='col-lg-6 fv-row'>
-                                <label className='required fs-6 fw-bold form-label mb-3'>Date</label>
-                                <Flatpickr
-                                    value={formik.values.date}
-                                    defaultValue={isEditMode ? editData?.date.toString()  : ''}
-                                    className='form-control form-control-lg form-control-solid'
-                                    placeholder='Holiday date'
-                                    onChange={(selectedDates: Date[]) => {
-                                        formik.setFieldValue('date', dateFormatter.format(selectedDates[0]), true);
-                                        formik.setFieldTouched('dateOfBirth', false);
-                                    }}
-                                    onOpen={() => {
-                                        formik.setFieldTouched('dateOfBirth', true);
-                                    }}
-                                    options={{
-                                        dateFormat: "Y-m-d",
-                                        altInput: true,
-                                        altFormat: "F j, Y",
-                                        enableTime: false,
-                                    }}
-                                />
-                                {formik.touched.date && formik.errors.date && (
-                                    <div className='fv-plugins-message-container'>
-                                        <div className='fv-help-block'>{formik.errors.date}</div>
-                                    </div>
+                            {/* Status */}
+                            <div className="col-lg-6">
+                                <label className="fs-7 fw-bold text-gray-700 d-block mb-3">
+                                    Status <span className="text-danger">*</span>
+                                </label>
+                                <div className="d-flex gap-2">
+                                    {[{ label: 'Active', value: true }, { label: 'Inactive', value: false }].map(opt => (
+                                        <button
+                                            key={String(opt.value)}
+                                            type="button"
+                                            onClick={() => formik.setFieldValue('isActive', opt.value)}
+                                            className="btn btn-sm fw-semibold flex-fill d-flex align-items-center justify-content-center gap-1.5"
+                                            style={{
+                                                borderRadius: '8px',
+                                                border: formik.values.isActive === opt.value ? `2px solid ${T.color.brand}` : '1.5px solid #dde2ec',
+                                                background: formik.values.isActive === opt.value ? T.color.brand : '#ffffff',
+                                                color: formik.values.isActive === opt.value ? '#ffffff' : '#6b7280',
+                                                boxShadow: formik.values.isActive === opt.value ? '0 3px 10px rgba(30, 58, 138, 0.22)' : 'none',
+                                                transition: 'all 0.18s ease',
+                                                padding: '8px 0',
+                                                fontSize: '13px'
+                                            }}
+                                        >
+                                            {formik.values.isActive === opt.value && <i className="bi bi-check-circle-fill" style={{ fontSize: 12 }} />}
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                {formik.touched.isActive && formik.errors.isActive && (
+                                    <div className="text-danger fs-8 mt-1">{String(formik.errors.isActive)}</div>
                                 )}
-                            </div> */}
-                        </div>
-
-                        <div className='row mb-9'>
-                            <div className='col-lg-12'>
-                                <div className='d-flex flex-column mb-7 fv-row'>
-                                    <label className='d-flex align-items-center fs-6 fw-bold form-label mb-2'>
-                                        <span className='required'>Duration</span>
-                                    </label>
-                                    <div className='d-flex gap-4'>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='duration'
-                                                checked={durationType === 'fullDay'}
-                                                onChange={() => setDurationType('fullDay')}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: durationType === 'fullDay' ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: durationType === 'fullDay' ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: durationType === 'fullDay' ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {durationType === 'fullDay' && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>Full Day</span>
-                                        </label>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='duration'
-                                                checked={durationType === 'customTime'}
-                                                onChange={() => setDurationType('customTime')}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: durationType === 'customTime' ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: durationType === 'customTime' ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: durationType === 'customTime' ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {durationType === 'customTime' && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>Custom time</span>
-                                        </label>
-                                    </div>
-                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        {durationType === 'fullDay' && (
-                            <div className='row mb-9'>
-                                <div className='col-lg-12 fv-row'>
-                                    <label className='required fs-6 fw-bold form-label mb-3'>Date</label>
-                                    <div style={{ position: 'relative' }}>
-                                        <Flatpickr
-                                            value={formik.values.date}
-                                            defaultValue={isEditMode ? editData?.date.toString()  : ''}
-                                            className='form-control form-control-lg form-control-solid'
-                                            placeholder='Holiday date'
-                                            onChange={(selectedDates: Date[]) => {
-                                                formik.setFieldValue('date', dateFormatter.format(selectedDates[0]), true);
-                                                formik.setFieldTouched('dateOfBirth', false);
-                                            }}
-                                            onOpen={() => {
-                                                formik.setFieldTouched('dateOfBirth', true);
-                                            }}
-                                            options={{
-                                                dateFormat: "Y-m-d",
-                                                altInput: true,
-                                                altFormat: "F j, Y",
-                                                enableTime: false,
-                                            }}
-                                        />
-                                        <i className='bi bi-calendar3 fs-3 position-absolute' style={{
-                                            right: '15px',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            color: '#9D4141',
-                                            pointerEvents: 'none'
-                                        }}></i>
-                                    </div>
-                                    {formik.touched.date && formik.errors.date && (
-                                        <div className='fv-plugins-message-container'>
-                                            <div className='fv-help-block'>{formik.errors.date}</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                    {/* ── SECTION 2 · Name ──────────────────────────────────────────────── */}
+                    <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '20px', marginBottom: '14px', border: '1px solid #e9edf2', borderTop: `3px solid ${T.color.brand}` }}>
+                        <SectionHeading icon="text" label="Holiday Name" />
+                        <label className="fs-7 fw-bold text-gray-700 d-block mb-2">
+                            Name <span className="text-danger">*</span>
+                        </label>
+                        <Select
+                            components={{ MenuList: CustomMenuList }}
+                            options={holidaysOption}
+                            defaultInputValue={isEditMode ? holidayNameForEditMode : ''}
+                            placeholder="Search & select a holiday..."
+                            onChange={(option: any) => formik.setFieldValue('holidayId', option.value, true)}
+                            styles={{
+                                control: (base) => ({
+                                    ...base,
+                                    borderRadius: '8px',
+                                    borderColor: '#dde2ec',
+                                    minHeight: '42px',
+                                    fontSize: '14px',
+                                    boxShadow: 'none',
+                                    '&:hover': { borderColor: T.color.brand }
+                                }),
+                                menu: (base) => ({ ...base, borderRadius: '8px', fontSize: '14px' }),
+                                option: (base, state) => ({
+                                    ...base,
+                                    background: state.isSelected ? T.color.brand : state.isFocused ? '#EEF2FF' : '#ffffff',
+                                    color: state.isSelected ? '#ffffff' : '#374151',
+                                })
+                            }}
+                        />
+                        {formik.touched.holidayId && formik.errors.holidayId && (
+                            <div className="text-danger fs-8 mt-1">{formik.errors.holidayId}</div>
                         )}
+                    </div>
 
-                        {durationType === 'customTime' && (
-                            <div className='row mb-9'>
-                                <div className='col-lg-6 fv-row'>
-                                    <label className='fs-6 fw-bold form-label mb-3'>Work From</label>
-                                    <div className='d-flex align-items-center gap-2'>
-                                        <Flatpickr
-                                            value={formik.values.from}
-                                            className='form-control form-control-lg form-control-solid'
-                                            placeholder='From time'
-                                            onChange={(_, dateStr: string) => {
-                                                formik.setFieldValue('from', dateStr, true);
-                                            }}
-                                            options={{
-                                                enableTime: true,
-                                                noCalendar: true,
-                                                dateFormat: "h:i K",
-                                                time_24hr: false,
-                                            }}
-                                        />
-                                        {formik.values.from && (
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm btn-light"
-                                                style={{ marginLeft: 8 }}
-                                                onClick={() => formik.setFieldValue('from', '', true)}
-                                                title="Clear time"
-                                            >
-                                                Reset
-                                            </button>
-                                        )}
-                                    </div>
-                                    {formik.touched.from && formik.errors.from && (
-                                        <div className='fv-plugins-message-container'>
-                                            <div className='fv-help-block'>{formik.errors.from}</div>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className='col-lg-6 fv-row'>
-                                    <label className='fs-6 fw-bold form-label mb-3'>Work To</label>
-                                    <div className="d-flex align-items-center gap-2">
-                                        <Flatpickr
-                                            value={formik.values.to}
-                                            className='form-control form-control-lg form-control-solid'
-                                            placeholder='To time'
-                                            onChange={(_, dateStr: string) => {
-                                                formik.setFieldValue('to', dateStr, true);
-                                            }}
-                                            options={{
-                                                enableTime: true,
-                                                noCalendar: true,
-                                                dateFormat: "h:i K",
-                                                time_24hr: false,
-                                            }}
-                                        />
-                                        {formik.values.to && (
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm btn-light"
-                                                style={{ marginLeft: 8 }}
-                                                onClick={() => formik.setFieldValue('to', '', true)}
-                                                title="Clear time"
-                                            >
-                                                Reset
-                                            </button>
-                                        )}
-                                    </div>
-                                    {formik.touched.to && formik.errors.to && (
-                                        <div className='fv-plugins-message-container'>
-                                            <div className='fv-help-block'>{formik.errors.to}</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                    {/* ── SECTION 3 · Date ──────────────────────────────────────────────── */}
+                    <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '20px', marginBottom: '14px', border: '1px solid #e9edf2', borderTop: `3px solid ${T.color.brand}` }}>
+                        <SectionHeading icon="calendar" label="Schedule" />
+                        <label className="fs-7 fw-bold text-gray-700 d-block mb-2">Date <span className="text-danger">*</span></label>
+                        <div style={{ position: 'relative' }}>
+                            <Flatpickr
+                                value={formik.values.date}
+                                defaultValue={isEditMode ? editData?.date.toString() : ''}
+                                className='form-control form-control-solid'
+                                placeholder='Pick a holiday date…'
+                                onChange={(selectedDates: Date[]) => {
+                                    formik.setFieldValue('date', dateFormatter.format(selectedDates[0]), true);
+                                    formik.setFieldTouched('date', true);
+                                }}
+                                options={{
+                                    dateFormat: "Y-m-d",
+                                    altInput: true,
+                                    altFormat: "F j, Y",
+                                    enableTime: false,
+                                }}
+                                style={{ borderRadius: '8px', border: '1.5px solid #dde2ec', minHeight: '42px', fontSize: '14px' }}
+                            />
+                            <i className='bi bi-calendar3 fs-4 position-absolute' style={{ right: '14px', top: '50%', transform: 'translateY(-50%)', color: T.color.brand, pointerEvents: 'none' }}></i>
+                        </div>
+                        {formik.touched.date && formik.errors.date && (
+                            <div className="text-danger fs-8 mt-1">{formik.errors.date}</div>
                         )}
+                    </div>
 
-                        <div className='row mb-9'>
-                            {/* <div className='col-lg-6 fv-row mb-9 mb-lg-0'>
-                                <label className='required col-lg-6 col-form-label fw-bold fs-6 mb-3'>Color</label>
-                                <input
-                                    type='color'
-                                    className='form-control form-control-lg form-control-solid'
-                                    placeholder='Color'
-                                    {...formik.getFieldProps('colorCode')}
-                                />
-                                {formik.touched.colorCode && formik.errors.colorCode && (
-                                    <div className='fv-plugins-message-container'>
-                                        <div className='fv-help-block'>{formik.errors.colorCode}</div>
-                                    </div>
-                                )}
-                            </div> */}
+                    {/* ── SECTION 4 · Location & Weekend ───────────────────────────────── */}
+                    <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '20px', marginBottom: '18px', border: '1px solid #e9edf2', borderTop: `3px solid ${T.color.brand}` }}>
+                        <SectionHeading icon="geolocation" label="Scope & Availability" />
+                        <div className="row g-4">
 
-                            <div className='col-lg-12 fv-row' onClick={getAllCountries}>
-                                <label className='required col-lg-6 col-form-label fw-bold fs-6 mb-4'>Observed In</label>
+                            {/* Observed In */}
+                            <div className="col-lg-4" onClick={getAllCountries}>
+                                <label className="fs-7 fw-bold text-gray-700 d-block mb-2">
+                                    Observed In <span className="text-danger">*</span>
+                                </label>
                                 <Select
                                     options={countriesOption}
-                                    defaultValue={isEditMode ? 
-                                        { value: editData?.observedIn, label: editData?.observedIn } : 
-                                        { value: 'India', label: 'India' }}
-                                    onChange={(option: any) => formik.setFieldValue('observedIn', option.label, true)} />
+                                    defaultValue={isEditMode
+                                        ? { value: editData?.observedIn, label: editData?.observedIn }
+                                        : { value: 'India', label: 'India' }}
+                                    placeholder="Select country…"
+                                    onChange={(option: any) => formik.setFieldValue('observedIn', option.label, true)}
+                                    styles={{
+                                        control: (base) => ({
+                                            ...base,
+                                            borderRadius: '8px',
+                                            borderColor: '#dde2ec',
+                                            minHeight: '42px',
+                                            fontSize: '14px',
+                                            boxShadow: 'none',
+                                            '&:hover': { borderColor: T.color.brand }
+                                        }),
+                                        menu: (base) => ({ ...base, borderRadius: '8px', fontSize: '14px' }),
+                                        option: (base, state) => ({
+                                            ...base,
+                                            background: state.isSelected ? T.color.brand : state.isFocused ? '#EEF2FF' : '#ffffff',
+                                            color: state.isSelected ? '#ffffff' : '#374151',
+                                        })
+                                    }}
+                                />
                                 {formik.touched.observedIn && formik.errors.observedIn && (
-                                    <div className='fv-plugins-message-container'>
-                                        <div className='fv-help-block'>{formik.errors.observedIn}</div>
-                                    </div>
+                                    <div className="text-danger fs-8 mt-1">{formik.errors.observedIn}</div>
                                 )}
                             </div>
-                            {/* <div className='col-lg-6'>
-                                <div className='d-flex flex-column mb-7 fv-row'>
-                                    <label className='d-flex align-items-center fs-6 fw-bold form-label mb-2'>
-                                        <span className='required'>Holiday Type</span>
-                                    </label>
-                                    <div className='d-flex gap-4'>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='isFixed'
-                                                checked={formik.values.isFixed === true}
-                                                onChange={() => formik.setFieldValue('isFixed', true)}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: formik.values.isFixed === true ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: formik.values.isFixed === true ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: formik.values.isFixed === true ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {formik.values.isFixed === true && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>Fixed</span>
-                                        </label>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='isFixed'
-                                                checked={formik.values.isFixed === false}
-                                                onChange={() => formik.setFieldValue('isFixed', false)}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: formik.values.isFixed === false ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: formik.values.isFixed === false ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: formik.values.isFixed === false ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {formik.values.isFixed === false && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>Floater</span>
-                                        </label>
-                                    </div>
-                                    {formik.touched.isFixed && formik.errors.isFixed && (
-                                        <div className='fv-plugins-message-container'>
-                                            <div className='fv-help-block'>{formik.errors.isFixed}</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div> */}
-                        </div>
 
-                        <div className='row mb-9'>
+                            {/* Branch — unset/"All Locations" means this holiday applies company-wide;
+                                picking a branch scopes it to that branch only (e.g. a branch-specific
+                                observance or override). */}
+                            <div className="col-lg-4">
+                                <label className="fs-7 fw-bold text-gray-700 d-block mb-2">
+                                    Branch
+                                </label>
+                                <Select
+                                    options={[{ value: '', label: 'All Locations' }, ...branchOptions]}
+                                    defaultValue={isEditMode && editData?.branchId
+                                        ? branchOptions.find(b => b.value === editData.branchId) || { value: '', label: 'All Locations' }
+                                        : { value: '', label: 'All Locations' }}
+                                    placeholder="All Locations"
+                                    onChange={(option: any) => formik.setFieldValue('branchId', option?.value || '', true)}
+                                    styles={{
+                                        control: (base) => ({
+                                            ...base,
+                                            borderRadius: '8px',
+                                            borderColor: '#dde2ec',
+                                            minHeight: '42px',
+                                            fontSize: '14px',
+                                            boxShadow: 'none',
+                                            '&:hover': { borderColor: T.color.brand }
+                                        }),
+                                        menu: (base) => ({ ...base, borderRadius: '8px', fontSize: '14px' }),
+                                        option: (base, state) => ({
+                                            ...base,
+                                            background: state.isSelected ? T.color.brand : state.isFocused ? '#EEF2FF' : '#ffffff',
+                                            color: state.isSelected ? '#ffffff' : '#374151',
+                                        })
+                                    }}
+                                />
+                            </div>
 
-                            {/* <div className='col-lg-6'>
-                                <div className='d-flex flex-column mb-7 fv-row'>
-                                    <label className='d-flex align-items-center fs-6 fw-bold form-label mb-2'>
-                                        <span className='required'>Status</span>
-                                    </label>
-                                    <div className='d-flex gap-4'>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='isActive'
-                                                checked={formik.values.isActive === true}
-                                                onChange={() => formik.setFieldValue('isActive', true)}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: formik.values.isActive === true ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: formik.values.isActive === true ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: formik.values.isActive === true ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {formik.values.isActive === true && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>Active</span>
-                                        </label>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='isActive'
-                                                checked={formik.values.isActive === false}
-                                                onChange={() => formik.setFieldValue('isActive', false)}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: formik.values.isActive === false ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: formik.values.isActive === false ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: formik.values.isActive === false ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {formik.values.isActive === false && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>Inactive</span>
-                                        </label>
-                                    </div>
-                                    {formik.touched.isActive && formik.errors.isActive && (
-                                        <div className='fv-plugins-message-container'>
-                                            <div className='fv-help-block'>{formik.errors.isActive}</div>
-                                        </div>
-                                    )}
+                            {/* Is Weekend */}
+                            <div className="col-lg-4">
+                                <label className="fs-7 fw-bold text-gray-700 d-block mb-2">
+                                    Weekend Holiday? <span className="text-danger">*</span>
+                                </label>
+                                <div className="d-flex gap-2 mt-1">
+                                    {[{ label: 'Yes', value: true }, { label: 'No', value: false }].map(opt => (
+                                        <button
+                                            key={String(opt.value)}
+                                            type="button"
+                                            onClick={() => formik.setFieldValue('isWeekend', opt.value)}
+                                            className="btn btn-sm fw-semibold flex-fill d-flex align-items-center justify-content-center gap-1.5"
+                                            style={{
+                                                borderRadius: '8px',
+                                                border: formik.values.isWeekend === opt.value ? `2px solid ${T.color.brand}` : '1.5px solid #dde2ec',
+                                                background: formik.values.isWeekend === opt.value ? T.color.brand : '#ffffff',
+                                                color: formik.values.isWeekend === opt.value ? '#ffffff' : '#6b7280',
+                                                boxShadow: formik.values.isWeekend === opt.value ? '0 3px 10px rgba(30, 58, 138, 0.22)' : 'none',
+                                                transition: 'all 0.18s ease',
+                                                padding: '8px 0',
+                                                fontSize: '13px'
+                                            }}
+                                        >
+                                            {formik.values.isWeekend === opt.value && <i className="bi bi-check-circle-fill" style={{ fontSize: 12 }} />}
+                                            {opt.label}
+                                        </button>
+                                    ))}
                                 </div>
-                            </div> */}
-                            <div className='col-lg-6'>
-                                <div className='d-flex flex-column mb-7 fv-row'>
-                                    <label className='d-flex align-items-center fs-6 fw-bold form-label mb-2'>
-                                        <span className='required'>Is Weekend</span>
-                                    </label>
-                                    <div className='d-flex gap-4'>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='isWeekend'
-                                                checked={formik.values.isWeekend === true}
-                                                onChange={() => formik.setFieldValue('isWeekend', true)}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: formik.values.isWeekend === true ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: formik.values.isWeekend === true ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: formik.values.isWeekend === true ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {formik.values.isWeekend === true && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>Yes</span>
-                                        </label>
-                                        <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input
-                                                type='radio'
-                                                name='isWeekend'
-                                                checked={formik.values.isWeekend === false}
-                                                onChange={() => formik.setFieldValue('isWeekend', false)}
-                                                style={{ position: 'absolute', opacity: 0, cursor: 'pointer' }}
-                                            />
-                                            <span style={{
-                                                height: '16px',
-                                                width: '16px',
-                                                borderRadius: '50%',
-                                                border: formik.values.isWeekend === false ? '2px solid rgba(220, 84, 84, 0.3)' : '2px solid #c4c4c4',
-                                                backgroundColor: formik.values.isWeekend === false ? 'rgba(157, 65, 65, 0.5)' : 'transparent',
-                                                boxShadow: formik.values.isWeekend === false ? '0 0 8px 3px rgba(220, 84, 84, 0.8)' : 'none',
-                                                display: 'inline-block',
-                                                position: 'relative',
-                                                transition: 'all 0.2s ease-in-out'
-                                            }}>
-                                                {formik.values.isWeekend === false && (
-                                                    <span style={{
-                                                        content: '""',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: '3px',
-                                                        width: '6px',
-                                                        height: '6px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(157, 65, 65, 1)'
-                                                    }}></span>
-                                                )}
-                                            </span>
-                                            <span className='px-2'>No</span>
-                                        </label>
-                                    </div>
-                                    {formik.touched.isWeekend && formik.errors.isWeekend && (
-                                        <div className='fv-plugins-message-container'>
-                                            <div className='fv-help-block'>{formik.errors.isWeekend}</div>
-                                        </div>
-                                    )}
-                                </div>
+                                {formik.touched.isWeekend && formik.errors.isWeekend && (
+                                    <div className="text-danger fs-8 mt-1">{String(formik.errors.isWeekend)}</div>
+                                )}
                             </div>
                         </div>
-                    </KTCardBody>
+                    </div>
 
-                <div className='card-footer d-flex justify-content-end py-6 px-9'>
-                    <button type='submit' className='btn btn-primary' disabled={loading || !formik.isValid}>
-                        {!loading && (isEditMode ? 'Update' : 'Save Changes')}
-                        {loading && (
-                            <span className='indicator-progress' style={{ display: 'block' }}>
-                                Please wait...{' '}
-                                <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-                            </span>
-                        )}
-                    </button>
-                </div>
-            </form>}
-</div>
+                    {/* ── FOOTER ────────────────────────────────────────────────────────── */}
+                    <div className="d-flex align-items-center justify-content-end gap-3 pt-4" style={{ borderTop: '1px solid #eef1f5' }}>
+                        <button
+                            type="button"
+                            className="btn btn-sm fw-semibold px-6"
+                            style={{ borderRadius: '8px', border: '1.5px solid #dde2ec', background: '#ffffff', color: '#6b7280', fontSize: '13px' }}
+                            onClick={onClose}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className="btn btn-sm fw-bold px-7 text-white d-flex align-items-center gap-2"
+                            disabled={loading || !formik.isValid}
+                            style={{
+                                borderRadius: '8px',
+                                background: loading || !formik.isValid ? '#93A8D4' : `linear-gradient(180deg, ${T.color.brand} 0%, ${T.color.brandHover} 100%)`,
+                                border: 'none',
+                                fontSize: '13px',
+                                boxShadow: '0 4px 12px rgba(30, 58, 138, 0.25)',
+                                transition: 'all 0.2s ease',
+                                minWidth: '120px',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            {loading ? (
+                                <>
+                                    <span className="spinner-border spinner-border-sm"></span>
+                                    Saving…
+                                </>
+                            ) : (
+                                <>
+                                    <i className="bi bi-check2" style={{ fontSize: 14 }} />
+                                    {isEditMode ? 'Update Holiday' : 'Save Holiday'}
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </form>
+            )}
+            </div>
+
             {/* Add New Holiday Form Modal */}
-            <Modal show={showTheNewHolidayForm} onHide={handleCloseNewHolidayForm} centered>
+            <Modal show={showTheNewHolidayForm} onHide={handleCloseNewHolidayForm} centered fullscreen="md-down">
                 <Modal.Header closeButton>
                     <Modal.Title>Add New Holiday</Modal.Title>
                 </Modal.Header>

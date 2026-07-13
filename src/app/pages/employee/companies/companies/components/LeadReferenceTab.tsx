@@ -1,29 +1,31 @@
 import React, { useMemo, useState } from "react";
 import dayjs from "dayjs";
 import PeriodFilter, { PeriodRange } from "@app/modules/common/components/PeriodFilter";
-import LeadReferralAnalytics from "./LeadReferralAnalytics";
+import LeadReferralAnalytics, { referredLeadDate } from "./LeadReferralAnalytics";
 import CompanyLeadReferences from "./CompanyLeadReferences";
 
 interface ReferredLead {
   id: string;
-  lead?: { id: string; createdAt?: string } | null;
+  lead?: { id: string; createdAt?: string; inquiryDate?: string | null } | null;
   [key: string]: any;
 }
 
 /**
  * Lead Reference tab: a period filter drives BOTH the referred-leads analytics
  * chart and the table below it, so they always reflect the same window.
+ * Dates are the leads' INQUIRY dates (business date), not createdAt.
  */
 const LeadReferenceTab: React.FC<{ referredLeads?: ReferredLead[] }> = ({ referredLeads = [] }) => {
-  const [range, setRange] = useState<PeriodRange>({ mode: "monthly", start: null, end: null, label: "" });
+  const [range, setRange] = useState<PeriodRange>({ mode: "allyear", start: null, end: null, label: "All time" });
 
   const filtered = useMemo(() => {
     if (!range.start || !range.end) return referredLeads; // "All Year" / unset → everything
     const s = range.start.valueOf();
     const e = range.end.valueOf();
     return referredLeads.filter((r) => {
-      if (!r.lead?.createdAt) return false;
-      const t = dayjs(r.lead.createdAt).valueOf();
+      const d = referredLeadDate(r);
+      if (!d) return false;
+      const t = dayjs(d).valueOf();
       return t >= s && t <= e;
     });
   }, [referredLeads, range.start, range.end]);
@@ -31,7 +33,7 @@ const LeadReferenceTab: React.FC<{ referredLeads?: ReferredLead[] }> = ({ referr
   return (
     <div>
       <div className="mb-3">
-        <PeriodFilter onChange={setRange} initialMode="monthly" storageKey="leadReferencePeriodMode" />
+        <PeriodFilter onChange={setRange} initialMode="allyear" storageKey="leadReferencePeriodMode" />
       </div>
 
       <LeadReferralAnalytics

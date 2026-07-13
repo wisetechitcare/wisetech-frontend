@@ -40,7 +40,7 @@ function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
         <div className="row g-3">
           <div className="col-lg-6 col-md-6 col-sm-12">
             <TextInput
-              isRequired={false}
+              isRequired={true}
               label="Name"
               margin="mb-0"
               formikField={`${element}.name`}
@@ -49,7 +49,7 @@ function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
 
           <div className="col-lg-6 col-md-6 col-sm-12">
             <TextInput
-              isRequired={false}
+              isRequired={true}
               label="Relation"
               margin="mb-0"
               formikField={`${element}.relationship`}
@@ -62,7 +62,7 @@ function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
           <div className="col-lg-6 col-md-6 col-sm-12">
             <PhoneNumberInput
               label="Phone"
-              isRequired={false}
+              isRequired={true}
               formikField={`${element}.mobileNumber`}
               formikProps={formikProps}
               placeholder="Phone number"

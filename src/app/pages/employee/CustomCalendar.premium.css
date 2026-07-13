@@ -15,13 +15,13 @@
   --mrd-ink-3:#8996A8;
   --mrd-ink-4:#AEB9C8;
 
-  --mrd-primary:#295D8E;
-  --mrd-primary-600:#22507C;
-  --mrd-primary-700:#1B4269;
-  --mrd-primary-tint:#EAF1F8;
-  --mrd-primary-tint-2:#DDE9F4;
-  --mrd-accent:#AA393D;
-  --mrd-accent-tint:#F8ECEC;
+  --mrd-primary:#1E3A8A;
+  --mrd-primary-600:#172554;
+  --mrd-primary-700:#14204A;
+  --mrd-primary-tint:#E9EEF8;
+  --mrd-primary-tint-2:rgba(30, 58, 138, 0.16);
+  --mrd-accent:#C0392B;
+  --mrd-accent-tint:#FBEBE9;
 
   --mrd-violet:#6B5AD1;  --mrd-violet-tint:#EEEBFB;
   --mrd-emerald:#14966B; --mrd-emerald-tint:#E5F5EE;
@@ -40,7 +40,7 @@
   --mrd-spring:cubic-bezier(.34,1.56,.64,1);
 
   color:var(--mrd-ink);
-  padding:4px clamp(6px,1.4vw,18px) 40px;
+  padding:4px clamp(6px,1.4vw,18px) 0;
   letter-spacing:-.006em;
 }
 .mrd *{ box-sizing:border-box; }
@@ -49,13 +49,25 @@
 .mrd .mrd-ico.xs{ width:13px; height:13px; }
 .mrd .tnum{ font-variant-numeric:tabular-nums; }
 
-/* ---------- toolbar ---------- */
+/* ---------- toolbar ----------
+   Title always on its own row; the view tabs + Today + date nav + New always
+   share ONE controls row beneath it — same structure at every viewport, no
+   per-breakpoint reshuffling of what goes where. Sizing (icon-only Today on
+   mobile, short month format, tightened gaps — see the 760px block below)
+   is tuned so it fits on one line on real phones without needing to shrink
+   or scroll. On anything narrower still, whatever doesn't fit wraps onto its
+   own full-width row rather than clipping or requiring a hidden scroll. */
 .mrd-toolbar{
-  display:flex; align-items:center; justify-content:space-between;
-  gap:12px; flex-wrap:wrap; margin:6px 0 16px;
+  display:flex; flex-direction:column; align-items:stretch;
+  gap:10px; margin:6px 0 16px;
 }
-.mrd-toolbar__left{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-.mrd-toolbar__right{ display:flex; align-items:center; gap:10px; }
+.mrd-toolbar__title{ margin:0; }
+.mrd-toolbar__controls{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0;
+}
+/* .mrd-spacer still grows to push Today/Nav right when there's slack on one
+   line; once wrapping kicks in each item just takes its natural width. */
+.mrd-toolbar__controls > *:not(.mrd-spacer){ flex:none; }
 .mrd-eyebrow{ font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--mrd-primary); }
 
 /* ---------- bento shell ---------- */
@@ -141,7 +153,7 @@
   display:flex; align-items:flex-start; gap:10px; margin-bottom:12px;
   transition:transform .16s var(--mrd-ease), box-shadow .18s, border-color .16s; cursor:default; }
 .mrd-tl__card:hover{ transform:translateX(2px); box-shadow:var(--mrd-sh-sm); border-color:var(--mrd-border-strong); }
-.mrd-tl__ic{ width:28px; height:28px; border-radius:8px; display:grid; place-items:center; flex:none; }
+.mrd-tl__ic{ width:36px; height:36px; border-radius:10px; display:grid; place-items:center; flex:none; }
 .mrd-tl__title{ font-size:13px; font-weight:600; letter-spacing:-.01em; }
 .mrd-tl__sub{ font-size:11.5px; color:var(--mrd-ink-3); margin-top:2px; }
 
@@ -178,8 +190,8 @@
 /* ---------- Create Event split button (accent) ---------- */
 .mrd-createbtn{ display:flex; align-items:stretch; width:100%; margin:12px 0 4px; height:44px;
   border-radius:12px; overflow:hidden; border:0; cursor:pointer; font-family:inherit;
-  background:linear-gradient(180deg,var(--mrd-accent),#8f2f33); color:#fff;
-  box-shadow:0 1px 2px rgba(143,47,51,.35), 0 10px 22px -10px rgba(170,57,61,.65), inset 0 1px 0 rgba(255,255,255,.14);
+  background:linear-gradient(180deg,var(--mrd-primary),var(--mrd-primary-600)); color:#fff;
+  box-shadow:0 1px 2px rgba(27,66,105,.35), 0 10px 22px -10px rgba(41,93,142,.65), inset 0 1px 0 rgba(255,255,255,.14);
   transition:transform .16s var(--mrd-ease), box-shadow .2s; }
 .mrd-createbtn:hover{ transform:translateY(-1px); }
 .mrd-createbtn:active{ transform:translateY(0) scale(.99); }
@@ -204,6 +216,7 @@
   background:transparent; border:0; cursor:pointer; text-align:left; font-family:inherit; transition:background .14s; }
 .mrd-up__row:hover{ background:var(--mrd-inset); }
 .mrd-up__dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+.mrd-up__col{ width:32px; height:32px; display:flex; align-items:center; justify-content:center; flex:none; }
 .mrd-up__main{ flex:1; min-width:0; display:flex; flex-direction:column; }
 .mrd-up__t{ font-size:13px; font-weight:560; letter-spacing:-.01em; color:var(--mrd-ink);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -282,11 +295,11 @@
 
 /* day cells */
 .mrd .fc-daygrid-day{ transition:background .16s var(--mrd-ease); }
-.mrd .fc-daygrid-day-frame{ padding:6px 6px 8px; min-height:112px; }
+.mrd .fc-daygrid-day-frame{ padding:6px 6px 36px; min-height:112px; }
 .mrd .fc-daygrid-day:hover{ background:var(--mrd-inset); }
 .mrd .fc-daygrid-day.fc-day-other{ background:transparent; }
 .mrd .fc-daygrid-day.fc-day-other .fc-daygrid-day-number{ color:var(--mrd-ink-4); opacity:.7; }
-.mrd .fc-daygrid-day-top{ flex-direction:row; }
+.mrd .fc-daygrid-day-top{ flex-direction:row; position:static !important; }
 .mrd .fc-daygrid-day-number{
   font-size:13px; font-weight:620; color:var(--mrd-ink-2); letter-spacing:-.01em;
   min-width:24px; height:24px; margin:2px; padding:0 6px; display:inline-flex; align-items:center; justify-content:center;
@@ -296,15 +309,17 @@
    The day number anchor is made position:static so the absolutely-positioned
    badge cluster anchors to the (position:relative) day frame instead. */
 .mrd .fc-daygrid-day-frame{ position:relative; }
-.mrd .fc-daygrid-day-number{ position:static; }
-.mrd .mrd-daybadges{ position:absolute; right:5px; bottom:5px; display:flex; align-items:center; gap:4px;
+.mrd .fc-daygrid-day-number{ position:static !important; }
+.mrd .mrd-daybadges{ position:absolute; right:5px; bottom:5px; display:flex; align-items:center; justify-content:flex-end; gap:4px;
   z-index:5; pointer-events:none; }
-.mrd .mrd-daybadge{ width:20px; height:20px; border-radius:7px; display:grid; place-items:center; flex:none;
-  background:var(--mrd-surface); box-shadow:0 1px 3px rgba(20,28,41,.18), 0 0 0 1px var(--mrd-border); }
-.mrd .mrd-daybadge__img{ object-fit:contain; padding:2px; }
-.mrd .mrd-daybadge__kt{ font-size:12px; line-height:1; color:var(--mrd-ink-2); }
-.mrd .mrd-daybadge__kt i, .mrd .mrd-daybadge__kt .ki-outline, .mrd .mrd-daybadge__kt svg{ font-size:12px; }
-.mrd .mrd-daybadge__more{ width:auto; min-width:20px; padding:0 5px; font-size:10px; font-weight:700; color:var(--mrd-ink-2); }
+.mrd .mrd-daybadge{ width:28px; height:28px; display:grid; place-items:center; flex:none;
+  background:transparent; box-shadow:none; }
+.mrd .mrd-daybadge__img{ object-fit:contain; padding:0; }
+.mrd .mrd-daybadge__kt{ font-size:16px; line-height:1; color:var(--mrd-ink-2); }
+.mrd .mrd-daybadge__kt i, .mrd .mrd-daybadge__kt .ki-outline, .mrd .mrd-daybadge__kt svg{ font-size:16px; }
+.mrd .mrd-daybadge__more{ width:auto; min-width:28px; padding:0 6px; font-size:11px; font-weight:700; color:var(--mrd-ink-2);
+  background:var(--mrd-surface); border-radius:9px;
+  box-shadow:0 2px 6px rgba(20,28,41,.15), 0 0 0 1px var(--mrd-border); }
 
 /* today emphasis + glow */
 .mrd .fc-day-today{ background:linear-gradient(180deg, var(--mrd-primary-tint), transparent 70%) !important; }
@@ -329,13 +344,29 @@
 .mrd .fc-daygrid-event .fc-event-title{ display:none; }   /* we render our own content */
 .mrd .fullcalendar__event__wrapper{
   display:flex; align-items:center; gap:6px; min-width:0; width:100%;
-  background:var(--mrd-inset) !important; color:var(--mrd-ink) !important;
+  background:var(--event-bg, var(--mrd-inset)) !important; color:var(--mrd-ink) !important;
   border-radius:7px; padding:2px 7px 2px 6px; font-size:11px; font-weight:540; line-height:1.35;
-  border:1px solid transparent; transition:transform .14s var(--mrd-ease); }
-.mrd .fc-daygrid-day:hover .fullcalendar__event__wrapper{ transform:translateX(1px); }
+  border:1px solid var(--event-border, transparent) !important; transition:transform .14s var(--mrd-ease); }
+.mrd .fc-daygrid-day:hover .fullcalendar__event__wrapper{
+  transform:translateX(1px);
+  background: var(--event-hover-bg, var(--event-bg, var(--mrd-inset))) !important; }
 .mrd .mrd-ev__dot{ width:6px; height:6px; border-radius:2px; flex:none; }
 .mrd .mrd-ev__time{ font-size:10px; font-weight:560; color:var(--mrd-ink-3); font-variant-numeric:tabular-nums; flex:none; }
 .mrd .mrd-ev__t{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* Mobile Month/Week views: a day column is only ~50-60px wide, so events render
+   as a compact wrapping row of dots (full details are one tap away via the
+   mobile day-detail sheet) instead of the full avatar+time+title pill list. */
+.mrd .mrd-compact-events .fc-daygrid-day-events{
+  display:flex; flex-wrap:wrap; align-content:flex-start; gap:3px; padding:0 3px; }
+.mrd .mrd-compact-events .fc-daygrid-event-harness{ margin:0; width:auto; }
+/* The "+N more" link still needs its own line — it's what surfaces events the
+   dot row didn't have room for, so it stays visible (just tightened to match
+   the smaller dots instead of the pill-sized default spacing). */
+.mrd .mrd-compact-events .fc-daygrid-day-bottom{ margin-top:1px; }
+.mrd .mrd-compact-events .fc-daygrid-more-link{ font-size:9.5px; padding:0 4px; margin:0; }
+.mrd .mrd-ev__dotonly{
+  display:inline-block; width:7px; height:7px; border-radius:50%; flex:none; cursor:default; }
 
 /* +N more link */
 .mrd .fc-daygrid-more-link{
@@ -357,6 +388,48 @@
 /* period-tabs (shared component) lift inside our toolbar */
 .mrd-toolbar .MuiToggleButtonGroup-root{ background:var(--mrd-surface); border-radius:11px; box-shadow:var(--mrd-sh-sm); }
 
+/* ---------- floating Create action (mobile only) ---------- */
+/* Clears the app-wide bottom nav bar (BottomNav.tsx — fixed, ~60px + safe-area)
+   using the same --bn-content-offset variable it and notifications.css already
+   coordinate through, so the FAB floats above it instead of overlapping it. */
+.mrd-fab{
+  display:none; /* shown ≤760px, see Responsive block */
+  position:fixed; right:18px; z-index:60; width:52px; height:52px; border-radius:50%; border:0;
+  cursor:pointer; align-items:center; justify-content:center;
+  background:linear-gradient(180deg,var(--mrd-primary),var(--mrd-primary-600)); color:#fff;
+  box-shadow:0 6px 18px -4px rgba(27,66,105,.45), 0 2px 6px rgba(27,66,105,.3);
+  bottom:calc(var(--bn-content-offset, 82px) + env(safe-area-inset-bottom, 0px) + 64px);
+  transition:transform .16s var(--mrd-ease);
+}
+.mrd-fab:active{ transform:scale(.94); }
+.mrd-fab .mrd-ico{ width:22px; height:22px; }
+
+/* ---------- compact mobile day-summary bar (sheet trigger) ---------- */
+.mrd-daybar{
+  display:none; /* shown ≤760px */
+  width:100%; align-items:center; gap:10px; text-align:left; font-family:inherit; cursor:pointer;
+  margin-top:12px; padding:12px 14px; border-radius:var(--mrd-r-lg);
+  background:var(--mrd-surface); border:1px solid var(--mrd-border); box-shadow:var(--mrd-sh-sm);
+  color:var(--mrd-ink);
+}
+.mrd-daybar__date{ display:flex; flex-direction:column; line-height:1.3; }
+.mrd-daybar__date strong{ font-size:14px; font-weight:700; letter-spacing:-.02em; }
+.mrd-daybar__date span{ font-size:11.5px; color:var(--mrd-ink-3); font-weight:560; }
+.mrd-daybar__count{ font-size:12px; font-weight:600; color:var(--mrd-primary); flex:none; }
+.mrd-daybar .mrd-ico{ color:var(--mrd-ink-4); flex:none; }
+
+/* ---------- mobile bottom-sheet variant of the day-detail panel ---------- */
+.mrd-panel-backdrop{
+  display:none;
+  position:fixed; inset:0; background:rgba(15,22,35,.42); z-index:70; opacity:0; pointer-events:none;
+  transition:opacity .2s var(--mrd-ease);
+}
+.mrd-panel-backdrop.is-open{ opacity:1; pointer-events:auto; }
+.mrd-panel__grabber{
+  width:36px; height:4px; border-radius:99px; background:var(--mrd-border-strong);
+  position:absolute; left:50%; top:9px; transform:translateX(-50%);
+}
+
 /* =============================================================
    Responsive
    ============================================================= */
@@ -370,9 +443,72 @@
 }
 @media (max-width:760px){
   .mrd-col-4,.mrd-col-5,.mrd-col-7,.mrd-col-8{ grid-column:span 12; }
-  .mrd .fc-daygrid-day-frame{ min-height:76px; padding:4px; }
+  .mrd .fc-daygrid-day-frame{ min-height:76px; padding:4px 4px 32px; }
   .mrd .fullcalendar__event__wrapper .mrd-ev__time{ display:none; }
   .mrd-toolbar{ gap:8px; }
+  /* Tighter gaps buy back the few px the view tabs + Today + date nav need to
+     all share one row instead of the navigator wrapping to its own line. */
+  .mrd-toolbar__controls{ gap:6px; }
+  .mrd-toolbar__controls .mrd-btn{ padding:0 10px; }
+  /* Today collapses to icon-only — its label is the one genuinely optional
+     piece of content in the row (the tabs and the navigator's icon buttons +
+     date text are not); dropping it is what actually gets everything to fit
+     without scrolling on real phones, rather than shrinking everything a
+     little and still coming up short. */
+  .mrd-btn--today{ width:36px; padding:0; justify-content:center; gap:0; }
+  .mrd-btn__lbl{ display:none; }
+
+  /* Day-name header (MON/TUE/...) was a fixed 11px + generous padding at every
+     viewport — it never actually shrank, just got proportionally larger next
+     to the shrinking day cells below it. Scale it down with the rest of the grid. */
+  .mrd .fc-col-header-cell{ padding:4px 2px 6px; }
+  .mrd .fc-col-header-cell-cushion{ font-size:10px; letter-spacing:.02em; }
+
+  /* The "New" button moves out of the controls row entirely below 760px —
+     the FAB below takes over so the row only has to fit tabs + Today + nav. */
+  .mrd-btn--new{ display:none; }
+  .mrd-fab{ display:flex; }
+  .mrd-daybar{ display:flex; }
+
+  /* Touch targets grow slightly on touch-sized viewports (WCAG ~44px). */
+  .mrd-navbtn{ width:40px; height:40px; }
+
+  /* ---- Day-detail panel → bottom sheet ----
+     Anchored above the app's fixed bottom nav (--bn-content-offset), same as
+     the FAB, so its own Create/Quick-action buttons never sit under the nav. */
+  .mrd-panel-backdrop{ display:block; }
+  .mrd-panel.mrd-panel--sheet{
+    position:fixed; left:0; right:0;
+    bottom:0;
+    padding-bottom:calc(var(--bn-content-offset, 82px) + env(safe-area-inset-bottom, 0px));
+    z-index:80;
+    max-height:calc(min(75dvh, 600px) + var(--bn-content-offset, 82px)); border-radius:20px 20px 0 0;
+    box-shadow:0 -8px 30px -8px rgba(20,28,41,.35);
+    transform:translateY(100%);
+    transition:transform .26s var(--mrd-ease);
+  }
+  .mrd-panel.mrd-panel--sheet.is-open{ transform:translateY(0); }
+  .mrd-panel--sheet .mrd-panel__head{ padding-top:22px; position:relative; }
+  .mrd-panel--sheet .mrd-panel__body{ max-height:none; }
+}
+@media (max-width:480px){
+  .mrd{ padding-left:8px; padding-right:8px; }
+  .mrd .fc-daygrid-day-frame{ min-height:58px; padding:3px 3px 26px; }
+  .mrd .fc-daygrid-day-number{ font-size:12px; min-width:20px; height:20px; margin:1px; }
+  .mrd .mrd-daybadge{ width:20px; height:20px; }
+  .mrd .fullcalendar__event__wrapper{ padding:2px 5px; font-size:10.5px; }
+  .mrd-qa{ grid-template-columns:1fr; }
+  .mrd-stats{ grid-template-columns:1fr 1fr; gap:8px; }
+
+  /* Day-name header keeps shrinking at the smallest phones. */
+  .mrd .fc-col-header-cell{ padding:3px 1px 5px; }
+  .mrd .fc-col-header-cell-cushion{ font-size:9px; letter-spacing:0; }
+}
+@media (max-width:359px){
+  /* Below ~360px even "MON"/"WED" can feel tight against 7 columns —
+     drop to a single leading letter so the header never wraps or crowds. */
+  .mrd .fc-col-header-cell-cushion{ font-size:0; }
+  .mrd .fc-col-header-cell-cushion::first-letter{ font-size:10px; }
 }
 @media (prefers-reduced-motion:reduce){
   .mrd *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }

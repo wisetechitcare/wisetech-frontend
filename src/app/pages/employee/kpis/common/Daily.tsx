@@ -143,6 +143,7 @@ const Daily = ({
 
   return (
     <LeaderBoardCore 
+      period="daily"
       overviewData={overviewData} 
       startDate={effectiveStartDate} 
       endDate={effectiveEndDate} 

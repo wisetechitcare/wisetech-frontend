@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import { KTCard, KTCardBody } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
-import { Route, Routes, Outlet, Navigate } from "react-router-dom";
+import { Route, Routes, Outlet, Navigate, useLocation, useNavigate } from "react-router-dom";
 import PendingReimbursementsPage, { PendingReimbursementsPageHandle } from "./PendingReimbursementsPage";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
@@ -110,6 +110,20 @@ function Reimbursement() {
   const [refreshFlag, setRefreshFlag] = useState(false);
   const [pendingDraftsCount, setPendingDraftsCount] = useState(0);
   const pendingPageRef = useRef<PendingReimbursementsPageHandle>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Landed here from the mobile bottom-nav "+" quick-actions sheet — open the
+  // New Reimbursement modal immediately instead of making the user find/tap the
+  // button. Clears the nav state after so a back/forward or refresh doesn't
+  // re-trigger it.
+  useEffect(() => {
+    if ((location.state as any)?.quickAction === 'newExpense') {
+      pendingPageRef.current?.openAddModal();
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [show, setShow] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [reimbursementOptions, setReimbursementOptions] = useState<any[]>([]);

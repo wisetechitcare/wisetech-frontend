@@ -294,7 +294,7 @@ function WeekendsAndWorkingDays() {
                                                     width: '18px',
                                                     height: '18px',
                                                     cursor: 'pointer',
-                                                    accentColor: C.primary,
+                                                    accentColor: '#1E3A8A',
                                                     borderRadius: '4px',
                                                 }}
                                             />
@@ -341,7 +341,7 @@ function WeekendsAndWorkingDays() {
                                     type='submit'
                                     disabled={loading || !formik.isValid}
                                     style={{
-                                        backgroundColor: loading || !formik.isValid ? `${C.primary}80` : C.primary,
+                                        backgroundColor: loading || !formik.isValid ? '#1E3A8A80' : '#1E3A8A',
                                         color: '#fff',
                                         border: 'none',
                                         borderRadius: RADIUS.md,

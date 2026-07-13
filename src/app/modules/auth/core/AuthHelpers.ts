@@ -35,11 +35,15 @@ const setAuth = (auth: any) => {
   }
 
   try {
-    // Keep the token in memory for this session; persist everything else.
-    // localStorage must never hold the JWT — any XSS could read it there.
+    // TEMPORARY REVERT (prod hotfix): persist the JWT in localStorage so it is
+    // sent as an Authorization: Bearer header and survives page reloads. The
+    // httpOnly-cookie approach cannot work while the frontend (amplifyapp.com)
+    // and API (wisetech-mep.com) are on different registrable domains — the
+    // cross-site cookie is blocked by browsers. Restore the cookie-only,
+    // token-stripped version once FE + API share a domain (e.g.
+    // app.wisetech-mep.com + api.wisetech-mep.com). See [[auth-cookie-migration]].
     inMemoryToken = auth?.token
-    const {token: _token, api_token: _apiToken, ...persistable} = auth ?? {}
-    const lsValue = JSON.stringify(persistable)
+    const lsValue = JSON.stringify(auth)
     localStorage.setItem(AUTH_LOCAL_STORAGE_KEY, lsValue)
   } catch (error) {
     console.error('AUTH LOCAL STORAGE SAVE ERROR', error)

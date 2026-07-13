@@ -401,7 +401,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                     </legend>
                     <div className="card card-body p-10">
                       <div className="row">
-                        <div className="col-md-4">
+                        <div className="col-lg-4">
                           <DropDownInput
                             formikField="companyId"
                             inputLabel="Choose Company"
@@ -419,14 +419,14 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                             }}
                           />
                         </div>
-                        <div className="col-md-4">
+                        <div className="col-lg-4">
                           <TextInput
                             formikField="name"
                             label="Branch Name"
                             isRequired
                           />
                         </div>
-                        <div className="col-md-4">
+                        <div className="col-lg-4">
                           <DropDownInput
                             formikField="type"
                             inputLabel="Type"
@@ -490,7 +490,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                     </legend>
                     <div className="card-body card responsive-card p-md-10 p-3">
                       <div className="row">
-                        <div className="col-md-4">
+                        <div className="col-lg-4">
                           <PhoneNumberInput
                             formikField="phone"
                             label="Phone"
@@ -498,7 +498,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                             placeholder="Enter phone"
                           />
                         </div>
-                        <div className="col-md-4">
+                        <div className="col-lg-4">
                           <PhoneNumberInput
                             formikField="phone2"
                             label="Phone 2"
@@ -506,7 +506,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                             placeholder="Enter phone 2"
                           />
                         </div>
-                        <div className="col-md-4">
+                        <div className="col-lg-4">
                           <TextInput
                             formikField="email"
                             label="Email"
@@ -547,14 +547,14 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                     </legend>
                     <div className="card-body card responsive-card p-md-10 p-3">
                       <div className="row mb-3">
-                        <div className="col-md-6">
+                        <div className="col-lg-6">
                           <TextInput
                             formikField="address"
                             label="Address"
                             isRequired={false}
                           />
                         </div>
-                        <div className="col-md-6">
+                        <div className="col-lg-6">
                           <DropDownInput
                             formikField="country"
                             inputLabel="Country"
@@ -586,7 +586,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                         </div>
                       </div>
                       <div className="row mb-3">
-                        <div className="col-md-6">
+                        <div className="col-lg-6">
                           <DropDownInput
                             formikField="state"
                             inputLabel="State"
@@ -615,7 +615,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                             }
                           />
                         </div>
-                        <div className="col-md-6">
+                        <div className="col-lg-6">
                           <DropDownInput
                             formikField="city"
                             inputLabel="City"
@@ -649,14 +649,14 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                         </div>
                       </div>
                       <div className="row mb-3">
-                        <div className="col-md-6">
+                        <div className="col-lg-6">
                           <TextInput
                             formikField="area"
                             label="Locality"
                             isRequired={false}
                           />
                         </div>
-                        <div className="col-md-6">
+                        <div className="col-lg-6">
                           <TextInput
                             formikField="zipCode"
                             label="ZipCode"
@@ -668,21 +668,21 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                       <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
                         <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
                         <div className="row g-3">
-                          <div className="col-md-3">
+                          <div className="col-lg-3">
                             <TextInput
                               formikField="googleMapLink"
                               label="Google Map Link"
                               isRequired={false}
                             />
                           </div>
-                          <div className="col-md-3">
+                          <div className="col-lg-3">
                             <TextInput
                               formikField="gmbLink"
                               label="Google Business Link"
                               isRequired={false}
                             />
                           </div>
-                          <div className="col-md-3">
+                          <div className="col-lg-3">
                             <TextInput
                               formikField="latitude"
                               label="Latitude"
@@ -690,7 +690,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                               inputValidation="signed-decimal"
                             />
                           </div>
-                          <div className="col-md-3">
+                          <div className="col-lg-3">
                             <TextInput
                               formikField="longitude"
                               label="Longitude"

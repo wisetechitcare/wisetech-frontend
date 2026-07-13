@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import { DetailCard, DetailRow, DetailLink, DetailMapLink, DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
 import { EmptyState } from '../widgets';
 import { DASH } from '../entityViewModel';
+import { getAllClientBranches } from '@services/lead';
 
 /**
  * Company & Contact — the rich, deeply-fetched client cards. Pulls the FULL
@@ -82,6 +83,24 @@ const CompanyCard: React.FC<{ company: any; fallback?: any }> = ({ company, fall
 
 const ContactCard: React.FC<{ contact: any; fallback?: any }> = ({ contact, fallback }) => {
   const c = contact || fallback;
+
+  // The contact carries only a branch id (UUID), so resolve it to the branch name.
+  // Same lookup pattern as ClientContacts.tsx; getAllClientBranches is cached.
+  const branchId = c?.branch || c?.branchId;
+  const [branchName, setBranchName] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (!branchId) { setBranchName(undefined); return; }
+    let active = true;
+    getAllClientBranches()
+      .then((res: any) => {
+        if (!active) return;
+        const branches = res?.data?.leadBranches || [];
+        setBranchName(branches.find((b: any) => String(b.id) === String(branchId))?.name);
+      })
+      .catch(() => { /* leave unresolved — never show the raw id */ });
+    return () => { active = false; };
+  }, [branchId]);
+
   if (!c) return null;
   const addr = joinAddr(c);
   const lat = c?.latitude;
@@ -97,7 +116,7 @@ const ContactCard: React.FC<{ contact: any; fallback?: any }> = ({ contact, fall
         badge={c?.isPrimaryContact ? <DetailStatusBadge status="Primary" color="#16a34a" /> : undefined}
       />
       <Row label="Company" value={c?.company?.companyName} />
-      <Row label="Branch" value={c?.branch} />
+      <Row label="Branch" value={branchName} />
       <Row label="Phone" value={c?.phone} />
       <Row label="Alt. Phone" value={c?.phone2} />
       <Row label="Email" value={c?.email && <DetailLink href={`mailto:${c.email}`}>{c.email}</DetailLink>} />
