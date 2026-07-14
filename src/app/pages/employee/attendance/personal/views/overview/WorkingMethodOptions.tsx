@@ -1917,7 +1917,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
         async function fetchGraceTimeOnSite() {
             try {
                 const { data: { configuration } } = await fetchConfiguration('leave management');
-                const leaveConfig = safeJsonParse(configuration.configuration || '{}');
+                const leaveConfig = safeJsonParse(configuration?.configuration || '{}');
                 const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:30';
                 setGraceTimeOnSite(graceTimeOnSiteStr.replace(' Hrs', ''));
             } catch (error) {

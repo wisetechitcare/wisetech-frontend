@@ -44,7 +44,7 @@ export const fetchAppSettings = createAsyncThunk(
                 branchId: store.getState().employee?.currentEmployee?.branchId,
             };
             const { data: { configuration } } = await fetchConfiguration('leave management', undefined, undefined, scope);
-            const jsonObject = safeJsonParse(configuration.configuration);
+            const jsonObject = safeJsonParse(configuration?.configuration);
             
             const workingTimeString = jsonObject["Working time"];
             deductionTime = jsonObject["Deduction Time"];            

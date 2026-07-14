@@ -213,7 +213,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         fetchColorAndStoreInSlice();
         async function fetchLeaveConfig() {
             const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-            const jsonObject = safeJsonParse(configuration.configuration.configuration);
+            const jsonObject = safeJsonParse(configuration?.configuration?.configuration);
 
             setLeaveConfiguration(jsonObject);
         }
@@ -677,8 +677,8 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         try {
             const res = await fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY);
             const lunchTime = await fetchConfiguration(LEAVE_MANAGEMENT);
-            const configStr = res?.data?.configuration?.configuration;
-            const lunchTimeStr = lunchTime?.data?.configuration?.configuration;
+            const configStr = res?.data?.configuration?.configuration || "{}";
+            const lunchTimeStr = lunchTime?.data?.configuration?.configuration || "{}";
             const parsedConfig = JSON.parse(configStr);
             const parsedLunchTime = JSON.parse(lunchTimeStr);
 

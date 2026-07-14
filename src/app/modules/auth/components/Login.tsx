@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useFormik } from "formik";
 import clsx from "clsx";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
 import { login } from "@services/auth";
 import { fetchCurrentUser } from "@services/users";
 import { fetchCurrentEmployeeByUserId } from "@services/employee";
@@ -41,6 +42,15 @@ function LoginForm() {
   const currEmployee = useSelector(
     (state: RootState) => state.employee.currentEmployee
   );
+
+  // Show exit-date message if available from prior session termination
+  useEffect(() => {
+    const exitMessage = sessionStorage.getItem('session_exit_date_message');
+    if (exitMessage) {
+      toast.error(exitMessage, { autoClose: 5000 });
+      sessionStorage.removeItem('session_exit_date_message');
+    }
+  }, []);
 
   const formik = useFormik({
     initialValues,

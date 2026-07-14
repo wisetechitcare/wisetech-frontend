@@ -10,6 +10,7 @@ import {
   fetchReimbursementBatchById,
   processBatchRequestAction,
   processApprovalAction,
+  downloadReimbursementBillPdf,
 } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
@@ -185,6 +186,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
   const [rejectTarget, setRejectTarget] = useState<{ id: string; type: 'individual' | 'batch-reject-all' } | null>(null);
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [downloadingBill, setDownloadingBill] = useState(false);
 
   const pendingCount = batch?.reimbursements?.filter((r: any) => r.status === 0).length || 0;
   const batchIsPending = batch?.status === 0;
@@ -472,22 +474,81 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     } finally { setRejectSubmitting(false); }
   };
 
+  const handleDownloadBill = async () => {
+    if (!batch || !batchId) return;
+    setDownloadingBill(true);
+    try {
+      const blob = await downloadReimbursementBillPdf(batchId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Reimbursement_Bill_${batch.submissionId || batchId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading bill:', error);
+      errorConfirmation('Failed to download bill');
+    } finally {
+      setDownloadingBill(false);
+    }
+  };
+
   return (
     <>
       <style>{`.reimbursement-batch-modal { max-width: 82vw !important; width: 92vw; }`}</style>
       <Modal show={!!batchId} onHide={onClose} centered size='xl' dialogClassName='reimbursement-batch-modal'>
         <Modal.Header closeButton>
-          <div>
-            <Modal.Title className='fs-4 fw-bold'>
-              Submission Details — {batch?.submissionId || ''}
-            </Modal.Title>
-            {batch && (
-              <div className='text-muted fs-7 mt-1'>
-                {batch.employee?.users?.firstName} {batch.employee?.users?.lastName} &nbsp;·&nbsp;
-                {visibleReimbursements.length} request{visibleReimbursements.length !== 1 ? 's' : ''} &nbsp;·&nbsp;
-                ₹{fmtAmount(detailTotal)} total &nbsp;·&nbsp;
-                Submitted {fmtDate(batch.submittedAt)}
-              </div>
+          <div className='d-flex align-items-center justify-content-between w-100 me-3'>
+            <div>
+              <Modal.Title className='fs-4 fw-bold'>
+                Submission Details — {batch?.submissionId || ''}
+              </Modal.Title>
+              {batch && (
+                <div className='text-muted fs-7 mt-1'>
+                  {batch.employee?.users?.firstName} {batch.employee?.users?.lastName} &nbsp;·&nbsp;
+                  {visibleReimbursements.length} request{visibleReimbursements.length !== 1 ? 's' : ''} &nbsp;·&nbsp;
+                  ₹{fmtAmount(detailTotal)} total &nbsp;·&nbsp;
+                  Submitted {fmtDate(batch.submittedAt)}
+                </div>
+              )}
+            </div>
+            {batch && visibleReimbursements.some((r: any) => {
+              const s = typeof r.status === 'number' ? r.status : r.status === 'Approved' ? 1 : 0;
+              return s === 1;
+            }) && (
+              <button
+                className='btn btn-sm d-flex align-items-center gap-2'
+                style={{
+                  background: '#aa393d',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                  cursor: downloadingBill ? 'not-allowed' : 'pointer',
+                }}
+                onClick={handleDownloadBill}
+                disabled={downloadingBill}
+                title='Download Reimbursement Bill'
+              >
+                {downloadingBill ? (
+                  <>
+                    <span className='spinner-border spinner-border-sm' />
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width='14' height='14' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'>
+                      <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'/>
+                      <polyline points='7 10 12 15 17 10' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'/>
+                      <line x1='12' y1='15' x2='12' y2='3' stroke='currentColor' strokeWidth='2' strokeLinecap='round'/>
+                    </svg>
+                    <span>Download Slip</span>
+                  </>
+                )}
+              </button>
             )}
           </div>
         </Modal.Header>

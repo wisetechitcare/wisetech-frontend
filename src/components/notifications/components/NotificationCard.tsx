@@ -61,19 +61,6 @@ function NotificationCardBase({
       <div className="wt-card__main">
         <div className="wt-card__row">
           <span className="wt-card__title">{n.title}</span>
-        </div>
-
-        {n.message && <div className="wt-card__message">{n.message}</div>}
-
-        <div className="wt-card__meta">
-          <span className="wt-card__cat">
-            <span aria-hidden="true">{module.glyph}</span>
-            {module.label}
-          </span>
-          <span className="wt-card__meta-item">
-            <KTIcon iconName="time" className="fs-8" />
-            {formatNotificationDate(n.createdAt)}
-          </span>
 
           <span className="wt-card__actions">
             {!n.isRead && (
@@ -87,7 +74,7 @@ function NotificationCardBase({
                   onMarkRead(n.id);
                 }}
               >
-                <KTIcon iconName="check" className="fs-6" />
+                <KTIcon iconName="check" className="fs-7" />
               </button>
             )}
             <button
@@ -100,8 +87,18 @@ function NotificationCardBase({
                 onDismiss(n.id);
               }}
             >
-              <KTIcon iconName="cross" className="fs-5" />
+              <KTIcon iconName="cross" className="fs-6" />
             </button>
+          </span>
+        </div>
+
+        {n.message && <div className="wt-card__message">{n.message}</div>}
+
+        <div className="wt-card__meta">
+          <span className="wt-card__cat">{module.label}</span>
+          <span className="wt-card__meta-item">
+            <KTIcon iconName="time" className="fs-8" />
+            {formatNotificationDate(n.createdAt)}
           </span>
         </div>
       </div>

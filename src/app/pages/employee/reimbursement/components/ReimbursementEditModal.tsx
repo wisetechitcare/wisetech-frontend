@@ -12,7 +12,7 @@ import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropd
 import { updateReimbursementById } from "@services/employee";
 import { uploadUserAsset } from "@services/uploader";
 import { getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
-import { getProjectsByCompanyId, getAllProjectStatuses } from "@services/projects";
+import { getAllProjects, getAllProjectStatuses } from "@services/projects";
 import { fetchAllReimbursementTypesFromDb } from "@utils/statistics";
 import { successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
@@ -52,9 +52,16 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
   const [loading, setLoading] = useState(false);
 
   const [reimbursementOptions, setReimbursementOptions] = useState<any[]>([]);
+  // companyTypeOptions is scoped to types actually used as a project's File Location;
+  // allCompanyTypeOptions is the full master list, kept only to resolve labels for
+  // legacy reimbursements whose saved type/company predates that scoping.
   const [companyTypeOptions, setCompanyTypeOptions] = useState<Option[]>([]);
+  const [allCompanyTypeOptions, setAllCompanyTypeOptions] = useState<Option[]>([]);
   const [allClientCompanies, setAllClientCompanies] = useState<any[]>([]);
   const [filteredCompanies, setFilteredCompanies] = useState<any[]>([]);
+  // Full project list (title + fileLocationCompanyType/fileLocationCompany), loaded once.
+  // Powers the Project dropdown's direct-search + Company Type/Name reverse-autofill.
+  const [allProjects, setAllProjects] = useState<any[]>([]);
   const [projectOptions, setProjectOptions] = useState<Option[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [ongoingStatusIds, setOngoingStatusIds] = useState<string[]>([]);
@@ -66,22 +73,24 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
 
   // Load static data once on mount
   useEffect(() => {
+    setProjectsLoading(true);
     Promise.all([
       fetchAllReimbursementTypesFromDb(),
       getAllCompanyTypes(),
       getAllClientCompanies(),
       getAllProjectStatuses(),
-    ]).then(([types, typesRes, companiesRes, statusesRes]) => {
+      getAllProjects(),
+    ]).then(([types, typesRes, companiesRes, statusesRes, projectsRes]) => {
       setReimbursementOptions(
         types
           .map((r: any) => ({ value: r.id, label: r.type, icon: r.icon }))
           .sort((a: any, b: any) => a.label.localeCompare(b.label)),
       );
-      setCompanyTypeOptions(
-        (typesRes.companyTypes || [])
-          .map((ct: any) => ({ value: ct.id, label: ct.name }))
-          .sort((a: Option, b: Option) => a.label.localeCompare(b.label)),
-      );
+      const allTypes = (typesRes.companyTypes || [])
+        .map((ct: any) => ({ value: ct.id, label: ct.name }))
+        .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
+      setAllCompanyTypeOptions(allTypes);
+
       const companies =
         companiesRes?.data?.companies ||
         companiesRes?.clientCompanies ||
@@ -90,25 +99,49 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
         [];
       setAllClientCompanies(companies);
 
+      const projects = projectsRes?.data?.projects || projectsRes?.projects || [];
+      setAllProjects(projects);
+
+      // Company Type/Name options are scoped to only those actually set as a
+      // project's File Location In Computer Folder — not the full client-company
+      // master list — per the "fetch from File Location" flow requirement.
+      const usedTypeIds = new Set(
+        projects.map((p: any) => p.fileLocationCompanyType).filter(Boolean)
+      );
+      setCompanyTypeOptions(allTypes.filter((t: Option) => usedTypeIds.has(t.value)));
+
       const allStatuses: any[] = statusesRes?.projectStatuses || [];
       setOngoingStatusIds(
         allStatuses
           .filter((s: any) => s.name?.trim().toLowerCase() === "on ongoing")
           .map((s: any) => s.id),
       );
-    });
+    }).finally(() => setProjectsLoading(false));
   }, []);
+
+  // Company Name options for a given Company Type — scoped to companies actually
+  // used as a project's File Location under that type.
+  const computeFilteredCompaniesForType = (typeId: string) => {
+    const usedCompanyIds = new Set(
+      allProjects
+        .filter((p: any) => p.fileLocationCompanyType === typeId)
+        .map((p: any) => p.fileLocationCompany)
+        .filter(Boolean)
+    );
+    return allClientCompanies
+      .filter((c: any) => c.companyTypeId === typeId && usedCompanyIds.has(c.id))
+      .sort((a: any, b: any) => a.companyName.localeCompare(b.companyName));
+  };
 
   // Restore dropdown selections when reimbursement or lookup arrays change
   useEffect(() => {
-    if (!reimbursement || companyTypeOptions.length === 0 || allClientCompanies.length === 0) return;
+    if (!reimbursement || allCompanyTypeOptions.length === 0 || allClientCompanies.length === 0) return;
 
     setSelectedReimbursementFor(null);
     setSelectedClientType(null);
     setSelectedClientCompany(null);
     setSelectedProject(null);
     setFilteredCompanies([]);
-    setProjectOptions([]);
 
     if (reimbursement.reimbursementTypeId && reimbursementOptions.length > 0) {
       const match = reimbursementOptions.find((o: any) => o.value === reimbursement.reimbursementTypeId);
@@ -116,35 +149,55 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
     }
 
     if (reimbursement.clientTypeId) {
-      const ctMatch = companyTypeOptions.find((c) => c.value === reimbursement.clientTypeId);
+      // Resolved against the FULL master list (not the File-Location-scoped one) so
+      // editing an older reimbursement never shows a blank Type.
+      const ctMatch = allCompanyTypeOptions.find((c) => c.value === reimbursement.clientTypeId);
       if (ctMatch) setSelectedClientType({ value: ctMatch.value, label: ctMatch.label });
-      const filtered = allClientCompanies.filter((c: any) => c.companyTypeId === reimbursement.clientTypeId);
-      setFilteredCompanies([...filtered].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName)));
+
+      let filtered = computeFilteredCompaniesForType(reimbursement.clientTypeId);
 
       if (reimbursement.clientCompanyId) {
         const ccMatch = allClientCompanies.find((c: any) => c.id === reimbursement.clientCompanyId);
-        if (ccMatch) setSelectedClientCompany({ value: ccMatch.id, label: ccMatch.companyName });
+        if (ccMatch) {
+          setSelectedClientCompany({ value: ccMatch.id, label: ccMatch.companyName });
+          // Legacy data may reference a company that isn't (yet) a File Location
+          // company for any project — still show it so editing doesn't drop it.
+          if (!filtered.some((c: any) => c.id === ccMatch.id)) {
+            filtered = [...filtered, ccMatch].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName));
+          }
+        }
       }
+      setFilteredCompanies(filtered);
     }
-  }, [reimbursement, companyTypeOptions, allClientCompanies, reimbursementOptions]);
+  }, [reimbursement, allCompanyTypeOptions, allClientCompanies, reimbursementOptions]);
 
-  // Load projects after company is resolved
+  // ── Project options — always derived locally from the bulk project list so the field
+  // can be searched directly regardless of Company Type/Name selection. Picking a Company
+  // Type/Name narrows the list; picking a Project directly reverse-autofills them instead.
   useEffect(() => {
-    if (!reimbursement?.clientCompanyId) return;
-    getProjectsByCompanyId(reimbursement.clientCompanyId, {
-      ongoingStatusIds,
-      includeProjectId: reimbursement.projectId || undefined,
-    }).then((res: any) => {
-      const projects = res?.projects || res?.data?.projects || [];
-      const opts: Option[] = projects
-        .map((p: any) => ({ value: p.id, label: p.title }))
-        .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
-      setProjectOptions(opts);
-      if (reimbursement.projectId) {
-        setSelectedProject(opts.find((o) => o.value === reimbursement.projectId) || null);
-      }
-    }).catch(() => setProjectOptions([]));
-  }, [reimbursement?.clientCompanyId, reimbursement?.projectId, ongoingStatusIds]);
+    if (allProjects.length === 0) {
+      setProjectOptions([]);
+      return;
+    }
+    let list = allProjects;
+    if (selectedClientCompany?.value) {
+      list = list.filter((p: any) => p.fileLocationCompany === selectedClientCompany.value);
+    } else if (selectedClientType?.value) {
+      list = list.filter((p: any) => p.fileLocationCompanyType === selectedClientType.value);
+    }
+    const keepId = reimbursement?.projectId;
+    list = list.filter((p: any) => (p.status?.id && ongoingStatusIds.includes(p.status.id)) || p.id === keepId);
+
+    const opts: Option[] = list
+      .map((p: any) => ({ value: p.id, label: p.title }))
+      .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
+    setProjectOptions(opts);
+
+    if (reimbursement?.projectId) {
+      const projMatch = opts.find((o) => o.value === reimbursement.projectId);
+      if (projMatch) setSelectedProject(projMatch);
+    }
+  }, [allProjects, selectedClientType, selectedClientCompany, ongoingStatusIds, reimbursement]);
 
   const handleClientTypeChange = (option: any, setFieldValue: (f: string, v: any) => void) => {
     setSelectedClientType(option);
@@ -153,33 +206,40 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
     setFieldValue("clientCompanyId", "");
     setSelectedProject(null);
     setFieldValue("projectId", "");
-    setProjectOptions([]);
-    if (option?.value) {
-      const filtered = allClientCompanies.filter((c: any) => c.companyTypeId === option.value);
-      setFilteredCompanies([...filtered].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName)));
-    } else {
-      setFilteredCompanies([]);
-    }
+    setFilteredCompanies(option?.value ? computeFilteredCompaniesForType(option.value) : []);
   };
 
-  const handleClientCompanyChange = async (option: any, setFieldValue: (f: string, v: any) => void) => {
+  const handleClientCompanyChange = (option: any, setFieldValue: (f: string, v: any) => void) => {
     setSelectedClientCompany(option);
     setFieldValue("clientCompanyId", option?.value || "");
+    // Reset project — the reactive projectOptions effect repopulates it for the new company.
     setSelectedProject(null);
     setFieldValue("projectId", "");
-    setProjectOptions([]);
-    if (option?.value) {
-      setProjectsLoading(true);
-      try {
-        const res = await getProjectsByCompanyId(option.value, { ongoingStatusIds });
-        const projects = res?.projects || res?.data?.projects || [];
-        setProjectOptions(
-          projects.map((p: any) => ({ value: p.id, label: p.title })).sort((a: Option, b: Option) => a.label.localeCompare(b.label)),
-        );
-      } catch {
-        setProjectOptions([]);
-      } finally {
-        setProjectsLoading(false);
+  };
+
+  // Reverse autofill: picking a Project directly (independent of Company Type/Name)
+  // backfills Company Type + Company Name from that project's File Location fields.
+  const handleProjectChange = (option: any, setFieldValue: (f: string, v: any) => void) => {
+    setSelectedProject(option);
+    setFieldValue("projectId", option?.value || "");
+    if (!option?.value) return;
+
+    const proj = allProjects.find((p: any) => p.id === option.value);
+    if (!proj) return;
+
+    if (proj.fileLocationCompanyType) {
+      const typeMatch = allCompanyTypeOptions.find((t) => t.value === proj.fileLocationCompanyType);
+      if (typeMatch) {
+        setSelectedClientType(typeMatch);
+        setFieldValue("clientTypeId", typeMatch.value);
+        setFilteredCompanies(computeFilteredCompaniesForType(typeMatch.value));
+      }
+    }
+    if (proj.fileLocationCompany) {
+      const companyMatch = allClientCompanies.find((c: any) => c.id === proj.fileLocationCompany);
+      if (companyMatch) {
+        setSelectedClientCompany({ value: companyMatch.id, label: companyMatch.companyName });
+        setFieldValue("clientCompanyId", companyMatch.id);
       }
     }
   };
@@ -310,20 +370,15 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                     formikField="projectId"
                     inputLabel="Choose Project Name"
                     placeholder={
-                      !formikProps.values.clientCompanyId
-                        ? "Select Company Type & Name First"
-                        : projectsLoading
+                      projectsLoading
                         ? "Loading Projects..."
                         : projectOptions.length === 0
                         ? "No Ongoing Projects Found"
-                        : "Select Project"
+                        : "Search Project"
                     }
                     options={projectOptions}
-                    disabled={!formikProps.values.clientCompanyId || projectsLoading}
-                    onChange={(option: any) => {
-                      setSelectedProject(option);
-                      formikProps.setFieldValue("projectId", option?.value || "");
-                    }}
+                    disabled={projectsLoading}
+                    onChange={(option: any) => handleProjectChange(option, formikProps.setFieldValue)}
                     value={selectedProject}
                   />
                 </div>

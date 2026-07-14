@@ -50,7 +50,7 @@ interface LeaveBlock {
 
 export async function fetchSandwhichConfiguration() {
     const sandwhichConfiguration = await fetchConfiguration(SANDWICH_LEAVE_KEY)
-    const jsonObjectSandwhich = safeJsonParse(sandwhichConfiguration.data.configuration.configuration);
+    const jsonObjectSandwhich = safeJsonParse(sandwhichConfiguration.data.configuration?.configuration);
     return jsonObjectSandwhich;
 }
 

@@ -2879,12 +2879,16 @@ const LeadWizardModal = ({
         if (employeeId) {
           finalCleanPayload.updatedById = employeeId;
         }
-        await customConfirmation();
+        const updateMode = await customConfirmation();
+        if (updateMode === 'cancelled') {
+          return;
+        }
         // revisionCount is owned by the audit system (single source of truth) and is
         // assigned server-side by the capture worker. The client must NOT send or
         // increment it — doing so previously caused the header to diverge from the
         // audit timeline. Any client-supplied revisionCount is ignored by the backend.
         delete finalCleanPayload.revisionCount;
+        finalCleanPayload.skipAudit = updateMode === 'updateOnly';
 
         const res = await updateLead(finalCleanPayload.id, finalCleanPayload);
         if (res?.hasError) {

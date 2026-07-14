@@ -157,7 +157,7 @@ const PendingRequestsTable = () => {
     async function fetchLeaveConfig() {
       try {
         const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-        const jsonObject = safeJsonParse(configuration.configuration.configuration);
+        const jsonObject = safeJsonParse(configuration.configuration?.configuration);
         setLeaveConfiguration(jsonObject);
       } catch (error) {
         console.error('Error fetching leave configuration:', error);

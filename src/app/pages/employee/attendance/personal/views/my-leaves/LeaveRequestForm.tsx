@@ -703,7 +703,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
       const fetchConfigurations = async () => {
           try {
             const configuration = await fetchConfiguration(SANDWICH_LEAVE_KEY);
-            const jsonObjectSandwhich = JSON.parse(configuration.data.configuration.configuration);
+            const jsonObjectSandwhich = JSON.parse(configuration?.data?.configuration?.configuration || '{}');
             const customRules = jsonObjectSandwhich.isSandwichLeaveSixthEnabled || jsonObjectSandwhich.isSandwichLeaveFifthEnabled || jsonObjectSandwhich.isSandwichLeaveFourthEnabled || jsonObjectSandwhich.isSandwichLeaveThirdEnabled || jsonObjectSandwhich.isSandwichLeaveSecondEnabled || jsonObjectSandwhich.isSandwichLeaveFirstEnabled;
             setSandwichLeaveEnabled(!!customRules);
             // console.log("customRules",customRules);

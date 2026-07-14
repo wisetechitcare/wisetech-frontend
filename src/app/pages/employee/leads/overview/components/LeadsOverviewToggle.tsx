@@ -46,7 +46,7 @@ const LeadsOverviewToggle = ({
   const dispatch = useDispatch();
   const today = dayjs();
 
-  const [alignment, setAlignment] = useState("monthly");
+  const [alignment, setAlignment] = useState("yearly");
 
   const [day, setDay] = useState(today);
   // week should be start from monday to sunday

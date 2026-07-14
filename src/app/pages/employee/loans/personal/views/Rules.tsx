@@ -104,13 +104,13 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
     async function fetchLoanConfiguration() {
         const { data: { configuration } } = await fetchConfiguration(LOAN_KEY);
 
-        const configData = typeof configuration.configuration === 'string'
+        const configData = typeof configuration?.configuration === 'string'
             ? safeJsonParse(configuration.configuration)
-            : configuration.configuration;
+            : configuration?.configuration;
 
-        setConfiguration(configData);
-        
-        setRuleId(configuration.id);
+        setConfiguration(configData || {});
+
+        setRuleId(configuration?.id);
     }
 
     useEffect(() => {

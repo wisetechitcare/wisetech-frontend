@@ -1215,7 +1215,6 @@ function CustomCalendar() {
                                             </>);
                                         }
                                         return (<>
-                                            <Opt icon="calendar" tint="var(--mrd-accent-tint)" color="var(--mrd-accent)" title="Create New Event" sub="Fill in the event form" onClick={() => { setShowOptionsModal(false); handleShowEventForm(); }} />
                                             {canHoliday && <Opt icon="gift" tint="var(--mrd-amber-tint)" color="var(--mrd-amber)" title="Create a Holiday" sub="Fill in the holiday form" onClick={() => { setShowOptionsModal(false); handleShowHolidayForm(); }} />}
                                             {canLeave && <Opt icon="file" tint="var(--mrd-blue-tint)" color="var(--mrd-blue)" title="Create a Leave Request" sub="Fill in the leave request form" onClick={handleShowLeaveRequestForm} />}
                                             {canMeeting && <Opt icon="users" tint="var(--mrd-violet-tint)" color="var(--mrd-violet)" title="Create Meetings" sub="Fill in the meetings form" onClick={handleshowMeetingForm} />}

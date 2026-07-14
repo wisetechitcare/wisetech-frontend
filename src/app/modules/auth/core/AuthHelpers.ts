@@ -98,6 +98,12 @@ export function setupAxios(axios: any) {
       const status = error.response?.status;
       const requestUrl: string = error.config?.url || '';
       if (status === 401 && !requestUrl.includes('/api/auth/') && getAuth()) {
+        // Check if the error is due to exit date being reached, and store the message
+        // for the login page to show after redirect
+        const meta = error.response?.data?.meta;
+        if (meta?.code === 'EXIT_DATE_REACHED') {
+          sessionStorage.setItem('session_exit_date_message', error.response?.data?.detail || 'Your employment has ended');
+        }
         removeAuth();
         window.location.href = '/auth';
         return Promise.reject(error);

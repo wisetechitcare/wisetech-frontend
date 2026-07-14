@@ -1348,7 +1348,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 const response = await fetchConfiguration(GROSS_PAY, monthStart, monthEnd);
                 console.log("Fallback API response:", response);
 
-                const jsonObject = safeJsonParse(response.data.configuration.configuration);
+                const jsonObject = safeJsonParse(response?.data?.configuration?.configuration);
                 setGrossDistributionData(jsonObject);
 
                 // Transform data for form initial values
@@ -1626,15 +1626,15 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 fetchConfiguration(LEAVE_MANAGEMENT, monthStart, monthEnd)
             ]);
 
-            const jsonObjectGrossPay = safeJsonParse(grossPayConfiguration.data.configuration.configuration);
-            const jsonObjectCustom = safeJsonParse(customConfiguration.data.configuration.configuration);
-            const jsonObjectDeductions = safeJsonParse(deductionsConfiguration.data.configuration.configuration);
+            const jsonObjectGrossPay = safeJsonParse(grossPayConfiguration?.data?.configuration?.configuration);
+            const jsonObjectCustom = safeJsonParse(customConfiguration?.data?.configuration?.configuration);
+            const jsonObjectDeductions = safeJsonParse(deductionsConfiguration?.data?.configuration?.configuration);
             console.log("jsonObjectGrossPay:: ", jsonObjectGrossPay);
             console.log("jsonObjectCustom:: ", jsonObjectCustom);
             console.log("jsonObjectDeductions:: ", jsonObjectDeductions);
 
-            const jsonObjectSandwhich = safeJsonParse(sandwhichConfiguration.data.configuration.configuration);
-            const jsonObjectLeave = safeJsonParse(leaveConfiguration.data.configuration.configuration);
+            const jsonObjectSandwhich = safeJsonParse(sandwhichConfiguration?.data?.configuration?.configuration);
+            const jsonObjectLeave = safeJsonParse(leaveConfiguration?.data?.configuration?.configuration);
 
             setAllowancesDeduct(jsonObjectGrossPay);
             setDeductionsRule(jsonObjectDeductions);
