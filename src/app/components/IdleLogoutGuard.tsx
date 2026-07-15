@@ -2,123 +2,212 @@ import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import Swal from 'sweetalert2';
 import { logoutUser } from '@redux/slices/auth';
-import { removeAuth } from '@app/modules/auth/core/AuthHelpers';
+import { getAuth, removeAuth, AUTH_LOCAL_STORAGE_KEY } from '@app/modules/auth/core/AuthHelpers';
+import { logout as logoutApi } from '@services/auth';
 
-const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
-const WARNING_TIME_MS = 14 * 60 * 1000; // Show warning at 14 minutes
-const COUNTDOWN_TIME_MS = 60 * 1000; // 60 second countdown
+// Idle window is env-configurable: VITE_APP_IDLE_TIMEOUT_MINUTES (default 15,
+// 0 disables idle logout entirely).
+const configuredMinutes = Number(import.meta.env.VITE_APP_IDLE_TIMEOUT_MINUTES);
+const IDLE_TIMEOUT_MS =
+  Number.isFinite(configuredMinutes) && configuredMinutes >= 0
+    ? configuredMinutes * 60 * 1000
+    : 15 * 60 * 1000;
+const WARNING_WINDOW_MS = 60 * 1000; // warn during the final 60s of the idle window
+const CHECK_INTERVAL_MS = 5 * 1000;
+const ACTIVITY_WRITE_THROTTLE_MS = 2 * 1000;
+
+// Last-activity timestamp is SHARED across tabs via localStorage. Every tab
+// writes its own activity here and every tab's check loop reads it, so an
+// idle background tab can never log out a user who is active in another tab
+// (each tab used to run a private timer and clear the shared session).
+const ACTIVITY_KEY = 'wt_last_activity_at';
 
 export const IdleLogoutGuard = () => {
   const dispatch = useDispatch();
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
-  const isShowingWarningRef = useRef<boolean>(false);
-
-  const resetIdleTimer = () => {
-    lastActivityRef.current = Date.now();
-    isShowingWarningRef.current = false;
-
-    // Clear existing timers
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-
-    // Set timer to show warning after WARNING_TIME_MS
-    warningTimerRef.current = setTimeout(() => {
-      if (!isShowingWarningRef.current) {
-        showIdleWarning();
-      }
-    }, WARNING_TIME_MS);
-
-    // Set timer to logout after IDLE_TIMEOUT_MS if no activity
-    idleTimerRef.current = setTimeout(() => {
-      performLogout();
-    }, IDLE_TIMEOUT_MS);
-  };
-
-  const showIdleWarning = () => {
-    isShowingWarningRef.current = true;
-    let remainingSeconds = COUNTDOWN_TIME_MS / 1000;
-
-    // Show modal with countdown
-    Swal.fire({
-      title: 'Session Expiring',
-      html: `Your session will expire in <strong>${Math.ceil(remainingSeconds)}</strong> seconds due to inactivity.<br><br>Would you like to stay signed in?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Stay signed in',
-      cancelButtonText: 'Sign out',
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      didOpen: () => {
-        // Update countdown every second
-        countdownIntervalRef.current = setInterval(() => {
-          remainingSeconds -= 1;
-          if (remainingSeconds <= 0) {
-            if (countdownIntervalRef.current) {
-              clearInterval(countdownIntervalRef.current);
-            }
-            // Auto logout when countdown reaches 0
-            Swal.close();
-            performLogout();
-          } else {
-            // Update the HTML with remaining time
-            const htmlContent = `Your session will expire in <strong>${Math.ceil(remainingSeconds)}</strong> seconds due to inactivity.<br><br>Would you like to stay signed in?`;
-            Swal.update({ html: htmlContent });
-          }
-        }, 1000);
-      },
-    }).then((result) => {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
-      if (result.isConfirmed) {
-        // User clicked "Stay signed in"
-        resetIdleTimer();
-      } else if (result.isDismissed && result.dismiss === Swal.DismissReason.cancel) {
-        // User clicked "Sign out"
-        performLogout();
-      }
-    });
-  };
-
-  const performLogout = () => {
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-    }
-    removeAuth();
-    dispatch(logoutUser());
-    window.location.href = '/auth';
-  };
-
-  const handleActivity = () => {
-    // Only reset if we're not already showing the warning modal
-    if (!isShowingWarningRef.current) {
-      resetIdleTimer();
-    }
-  };
 
   useEffect(() => {
-    // Initialize the idle timer on mount
-    resetIdleTimer();
+    if (IDLE_TIMEOUT_MS <= 0) return; // idle logout disabled via env
 
-    // Add event listeners for user activity
-    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    events.forEach((event) => {
-      window.addEventListener(event, handleActivity);
-    });
+    let localActivityAt = Date.now();
+    let lastActivityWriteAt = 0;
+    let warningShown = false;
+    let loggingOut = false;
+    let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
-    // Cleanup on unmount
-    return () => {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    // Newest activity across ALL tabs (shared key), falling back to this
+    // tab's in-memory value if storage is unavailable/corrupted.
+    const lastActivityAt = (): number => {
+      const raw = localStorage.getItem(ACTIVITY_KEY);
+      const shared = raw ? Number(raw) : 0;
+      return Math.max(localActivityAt, Number.isFinite(shared) ? shared : 0);
+    };
 
-      events.forEach((event) => {
-        window.removeEventListener(event, handleActivity);
+    const markActivity = (force = false) => {
+      const now = Date.now();
+      localActivityAt = now;
+      // Throttled: mousemove can fire hundreds of times/sec.
+      if (force || now - lastActivityWriteAt >= ACTIVITY_WRITE_THROTTLE_MS) {
+        lastActivityWriteAt = now;
+        try {
+          localStorage.setItem(ACTIVITY_KEY, String(now));
+        } catch {
+          /* storage blocked/full — in-memory value still guards this tab */
+        }
+      }
+    };
+
+    const clearCountdown = () => {
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+    };
+
+    // Leave this tab only (no server call) — used when another tab already
+    // ended the session and blacklisted the token.
+    const leaveToLogin = () => {
+      if (loggingOut) return;
+      loggingOut = true;
+      clearCountdown();
+      Swal.close();
+      dispatch(logoutUser());
+      window.location.href = '/auth';
+    };
+
+    const performLogout = async () => {
+      if (loggingOut) return;
+      loggingOut = true;
+      clearCountdown();
+      Swal.close();
+      // Best-effort server logout first, so the idle session's JWT is
+      // blacklisted on the backend — mirrors the manual Sign Out flow.
+      try {
+        const auth = getAuth();
+        if (auth) await logoutApi(auth.token, auth.id);
+      } catch {
+        /* clear local state regardless */
+      }
+      removeAuth();
+      localStorage.removeItem('selectedCompany');
+      localStorage.removeItem('selectedBranch');
+      dispatch(logoutUser());
+      window.location.href = '/auth';
+    };
+
+    const dismissWarning = () => {
+      if (warningShown) {
+        warningShown = false;
+        clearCountdown();
+        Swal.close();
+      }
+    };
+
+    const warningHtml = (deadline: number) => {
+      const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      return `Your session will expire in <strong>${seconds}</strong> seconds due to inactivity.<br><br>Would you like to stay signed in?`;
+    };
+
+    const showWarning = (deadline: number) => {
+      if (warningShown || loggingOut) return;
+      warningShown = true;
+
+      Swal.fire({
+        title: 'Session Expiring',
+        html: warningHtml(deadline),
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Stay signed in',
+        cancelButtonText: 'Sign out',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          // Countdown is derived from the deadline timestamp (not decremented
+          // per tick), so it stays correct even when the browser throttles
+          // timers in background tabs or after system sleep.
+          countdownInterval = setInterval(() => {
+            Swal.update({ html: warningHtml(deadline) });
+            // The check loop performs the actual logout; this only renders.
+          }, 1000);
+        },
+      }).then((result) => {
+        clearCountdown();
+        if (result.isConfirmed) {
+          // "Stay signed in" — counts as activity for every tab.
+          warningShown = false;
+          markActivity(true);
+        } else if (result.isDismissed && result.dismiss === Swal.DismissReason.cancel) {
+          warningShown = false;
+          performLogout();
+        }
+        // Programmatic Swal.close() (dismissWarning/logout) needs no handling.
       });
     };
+
+    // Single source of truth: compare shared last-activity to the deadline.
+    // Timestamp math survives setTimeout throttling and system sleep — a
+    // timer that fires late still evaluates the true idle duration.
+    const check = () => {
+      if (loggingOut) return;
+      if (!getAuth()) {
+        // Session already cleared (e.g. logged out elsewhere) — just leave.
+        leaveToLogin();
+        return;
+      }
+      const idleFor = Date.now() - lastActivityAt();
+      if (idleFor >= IDLE_TIMEOUT_MS) {
+        performLogout();
+      } else if (idleFor >= IDLE_TIMEOUT_MS - WARNING_WINDOW_MS) {
+        // Warn only in a visible tab — a hidden tab can't be interacted with,
+        // and its check loop will still enforce the deadline.
+        if (document.visibilityState === 'visible') {
+          showWarning(lastActivityAt() + IDLE_TIMEOUT_MS);
+        }
+      } else if (warningShown) {
+        // Activity elsewhere (another tab) pushed the deadline out — dismiss.
+        dismissWarning();
+      }
+    };
+
+    const handleActivity = () => {
+      // While the warning is up, staying signed in must be an explicit choice.
+      if (!warningShown && !loggingOut) {
+        markActivity();
+      }
+    };
+
+    // Cross-tab session sync: when another tab logs out (removes the auth
+    // key), this tab leaves immediately instead of lingering half-dead on an
+    // in-memory token that the backend has already blacklisted.
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === AUTH_LOCAL_STORAGE_KEY && e.newValue === null) {
+        leaveToLogin();
+      }
+    };
+
+    // Re-evaluate immediately when the tab becomes visible again (after
+    // sleep/tab switch) instead of waiting for the next throttled tick.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        check();
+      }
+    };
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'] as const;
+    events.forEach((event) => window.addEventListener(event, handleActivity, { passive: true }));
+    window.addEventListener('storage', handleStorage);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    markActivity(true); // mounting (login / reload) counts as activity
+    const intervalId = setInterval(check, CHECK_INTERVAL_MS);
+
+    return () => {
+      clearInterval(intervalId);
+      clearCountdown();
+      events.forEach((event) => window.removeEventListener(event, handleActivity));
+      window.removeEventListener('storage', handleStorage);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // This component doesn't render anything

@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { getAuth } from '@/app/modules/auth/core/AuthHelpers';
+import { getAuth, isSessionDeathResponse, endSessionAndRedirect } from '@/app/modules/auth/core/AuthHelpers';
 
 const BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
@@ -40,9 +40,11 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
-        if (error.response?.status === 401) {
-            localStorage.removeItem('wise_tech_login');
-            window.location.href = '/login';
+        // Same session policy as the global axios (AuthHelpers.setupAxios):
+        // only a session-level 401 from OUR api — never an auth-endpoint 401
+        // (wrong password) or a business 401 — ends the session, exactly once.
+        if (isSessionDeathResponse(error) && getAuth()) {
+            endSessionAndRedirect();
         }
         // Unwrap server error body so callers get a consistent shape
         return Promise.reject(error.response?.data ?? error);
