@@ -925,7 +925,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                         <button
                                             type='button'
                                             className='btn btn-primary text-white my-2'
-                                            style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }}
+                                            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                                             onClick={() => {
                                                 setShowRequestTypeSelection(true);
                                                 setRequestType(null);
@@ -934,7 +934,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                             <i className='bi bi-arrow-left me-2 text-white'></i>
                                             Back
                                         </button>
-                                        <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || limitMessage || !canSubmitRequest || isValidating}>
+                                        <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || limitMessage || !canSubmitRequest || isValidating}>
                                             {isValidating ? 'Validating...' : (!loading ? 'Save Changes' : 'Please wait...')}
                                             {loading && (
                                                 <span className='indicator-progress' style={{ display: 'block' }}>

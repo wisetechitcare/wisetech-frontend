@@ -12,17 +12,17 @@ export interface IncrementRecord {
   createdAt: string;
 }
 
-/** Analytics scoped to a single selected year. */
+/** Analytics scoped to a single selected fiscal year (Apr–Mar). */
 export interface YearlyAnalytics {
-  startingSalaryForYear: number;    // salary carried in from before Jan 1 of year
+  startingSalaryForYear: number;    // salary carried in from before Apr 1 of year
   currentSalaryForYear: number;     // salary at year-end (latest revision in year, or carried forward)
   yearIncrementAmount: number;      // total monetary increment in this year
   yearIncrementPercentage: number;  // % growth vs starting salary
   revisionCount: number;            // number of salary revisions in this year
   highestSingleIncrement: number;   // largest single increment amount this year
   lastRevisionMonth: string | null; // e.g. "May 2026"
-  avgMonthlySalary: number;         // average of Jan–Dec monthly salary values
-  graphData: { label: string; salary: number }[]; // 12 months Jan–Dec
+  avgMonthlySalary: number;         // average of Apr–Mar monthly salary values
+  graphData: { label: string; salary: number }[]; // 12 months Apr–Mar
 }
 
 /** Analytics covering full career history. */
@@ -39,306 +39,203 @@ export interface AllTimeAnalytics {
   graphData: { label: string; salary: number }[]; // year-labeled data points
 }
 
-/** Legacy shape kept for backward compatibility with IncrementReportToggle salary fetch. */
-export interface IncrementAnalytics {
-  currentSalary: number;
-  totalIncrementAmount: number;
-  totalIncrementPercentage: number;
-  lastIncrementDate: string;
-  yearsActive: number;
-  graphData: { label: string; salary: number }[];
+/** Fiscal-year month sequence Apr(year)–Mar(year+1). */
+function buildFiscalMonthConfigs(year: string): { label: string; month: string; yr: string }[] {
+  const next = String(Number(year) + 1);
+  return [
+    { label: 'Apr', month: '04', yr: year },
+    { label: 'May', month: '05', yr: year },
+    { label: 'Jun', month: '06', yr: year },
+    { label: 'Jul', month: '07', yr: year },
+    { label: 'Aug', month: '08', yr: year },
+    { label: 'Sep', month: '09', yr: year },
+    { label: 'Oct', month: '10', yr: year },
+    { label: 'Nov', month: '11', yr: year },
+    { label: 'Dec', month: '12', yr: year },
+    { label: 'Jan', month: '01', yr: next },
+    { label: 'Feb', month: '02', yr: next },
+    { label: 'Mar', month: '03', yr: next },
+  ];
+}
+
+/** Records within the fiscal year (Apr 1 of `year` to Mar 31 of `year`+1), ascending. */
+export function filterFiscalYearRecords(history: IncrementRecord[], year: string): IncrementRecord[] {
+  const fiscalStart = dayjs(`${year}-04-01`).startOf('day');
+  const fiscalEnd = dayjs(`${Number(year) + 1}-03-31`).endOf('day');
+  return [...history]
+    .sort((a, b) => dayjs(a.effectiveDate).valueOf() - dayjs(b.effectiveDate).valueOf())
+    .filter(r => {
+      const d = dayjs(r.effectiveDate);
+      return (d.isSame(fiscalStart) || d.isAfter(fiscalStart)) &&
+             (d.isSame(fiscalEnd) || d.isBefore(fiscalEnd));
+    });
+}
+
+/** Derive yearly analytics from preloaded history (any order). Pure. */
+export function deriveYearlyAnalytics(history: IncrementRecord[], year: string): YearlyAnalytics | null {
+  if (history.length === 0) return null;
+
+  const asc = [...history].sort((a, b) => dayjs(a.effectiveDate).valueOf() - dayjs(b.effectiveDate).valueOf());
+  const fiscalStart = dayjs(`${year}-04-01`).startOf('day');
+
+  // Salary at the start of the selected year = latest record before Apr 1
+  const priorRecords = asc.filter(r => dayjs(r.effectiveDate).isBefore(fiscalStart));
+  const startingSalaryForYear = priorRecords.length > 0
+    ? priorRecords[priorRecords.length - 1].newSalary
+    : 0;
+
+  const yearRecords = filterFiscalYearRecords(asc, year);
+
+  const currentSalaryForYear = yearRecords.length > 0
+    ? yearRecords[yearRecords.length - 1].newSalary
+    : startingSalaryForYear;
+
+  const yearIncrementAmount = currentSalaryForYear - startingSalaryForYear;
+  const yearIncrementPercentage = startingSalaryForYear > 0
+    ? Number(((yearIncrementAmount / startingSalaryForYear) * 100).toFixed(2))
+    : 0;
+
+  const highestSingleIncrement = yearRecords.length > 0
+    ? Math.max(...yearRecords.map(r => r.incrementAmount))
+    : 0;
+
+  const lastRevisionMonth = yearRecords.length > 0
+    ? dayjs(yearRecords[yearRecords.length - 1].effectiveDate).format('MMM YYYY')
+    : null;
+
+  let activeSalary = startingSalaryForYear;
+  const graphData = buildFiscalMonthConfigs(year).map((cfg) => {
+    const hit = yearRecords.filter(r => {
+      const d = dayjs(r.effectiveDate);
+      return d.format('MM') === cfg.month && d.format('YYYY') === cfg.yr;
+    });
+    if (hit.length > 0) activeSalary = hit[hit.length - 1].newSalary;
+    return { label: cfg.label, salary: activeSalary };
+  });
+
+  const avgMonthlySalary = graphData.reduce((s, d) => s + d.salary, 0) / 12;
+
+  return {
+    startingSalaryForYear,
+    currentSalaryForYear,
+    yearIncrementAmount,
+    yearIncrementPercentage,
+    revisionCount: yearRecords.length,
+    highestSingleIncrement,
+    lastRevisionMonth,
+    avgMonthlySalary,
+    graphData,
+  };
+}
+
+/** Derive all-time analytics from preloaded history (any order). Pure. */
+export function deriveAllTimeAnalytics(history: IncrementRecord[]): AllTimeAnalytics | null {
+  if (history.length === 0) return null;
+
+  const asc = [...history].sort((a, b) => dayjs(a.effectiveDate).valueOf() - dayjs(b.effectiveDate).valueOf());
+  const joiningSalary = asc[0].newSalary;
+  const currentSalary = asc[asc.length - 1].newSalary;
+
+  const totalGrowthAmount = currentSalary - joiningSalary;
+  const totalGrowthPercentage = joiningSalary > 0
+    ? Number(((totalGrowthAmount / joiningSalary) * 100).toFixed(2))
+    : 0;
+
+  const highestSingleIncrementAmount = Math.max(...asc.map(r => r.incrementAmount));
+  const highestRecord = asc.find(r => r.incrementAmount === highestSingleIncrementAmount);
+  const highestSingleIncrementPercentage = highestRecord?.incrementPercentage || 0;
+
+  const years = Array.from(new Set(asc.map(r => dayjs(r.effectiveDate).format('YYYY'))));
+  const yearsWithRevisions = years.length;
+
+  const graphData: { label: string; salary: number }[] = [];
+  if (years.length > 0) {
+    graphData.push({ label: years[0], salary: joiningSalary });
+  }
+  for (const yr of years) {
+    const recordsInYear = asc.filter(r => dayjs(r.effectiveDate).format('YYYY') === yr);
+    const endingSalary = recordsInYear[recordsInYear.length - 1].newSalary;
+    if (graphData.length > 0 && graphData[graphData.length - 1].label === yr) {
+      graphData[graphData.length - 1].salary = endingSalary;
+    } else {
+      graphData.push({ label: yr, salary: endingSalary });
+    }
+  }
+
+  // Ensure at least 2 points for the chart to render a line
+  if (graphData.length === 1) {
+    const existingYear = Number(graphData[0].label);
+    const currentYear = Number(dayjs().format('YYYY'));
+    if (currentYear > existingYear) {
+      graphData.push({ label: String(currentYear), salary: currentSalary });
+    } else {
+      graphData.unshift({ label: String(existingYear - 1), salary: joiningSalary });
+    }
+  }
+
+  return {
+    joiningSalary,
+    currentSalary,
+    totalGrowthAmount,
+    totalGrowthPercentage,
+    totalRevisions: history.length,
+    yearsWithRevisions,
+    highestSingleIncrementAmount,
+    highestSingleIncrementPercentage,
+    lastRevisionDate: asc[asc.length - 1].effectiveDate,
+    graphData,
+  };
 }
 
 export const incrementService = {
-    fetchIncrementHistory: async (employeeId: string): Promise<IncrementRecord[]> => {
-        try {
-            const response = await fetchAllEmployeeSalaryAllTimeDateRage(employeeId);
-            const history = response?.message?.employeeIncrementHistory || [];
+  /** Full salary-revision history for an employee, newest first. Throws on API failure. */
+  fetchIncrementHistory: async (employeeId: string): Promise<IncrementRecord[]> => {
+    const response = await fetchAllEmployeeSalaryAllTimeDateRage(employeeId);
+    const history = response?.message?.employeeIncrementHistory || [];
 
-            const sortedHistory = [...history].sort((a: any, b: any) =>
-                dayjs(a.effectiveFrom).valueOf() - dayjs(b.effectiveFrom).valueOf()
-            );
+    const sortedHistory = [...history].sort((a: any, b: any) =>
+      dayjs(a.effectiveFrom).valueOf() - dayjs(b.effectiveFrom).valueOf()
+    );
 
-            const records: IncrementRecord[] = [];
-            let currentSalary = 0;
+    const records: IncrementRecord[] = [];
+    let currentSalary = 0;
 
-            for (let i = 0; i < sortedHistory.length; i++) {
-                const item = sortedHistory[i];
-                const newSalary = (Number(item.ctcInLpa) || 0) / 12;
-                const incrementAmount = Math.max(0, newSalary - currentSalary);
-                const incrementPercentage = currentSalary > 0
-                    ? Number(((incrementAmount / currentSalary) * 100).toFixed(2))
-                    : 0;
+    for (const item of sortedHistory) {
+      const newSalary = (Number(item.ctcInLpa) || 0) / 12;
+      const incrementAmount = Math.max(0, newSalary - currentSalary);
+      const incrementPercentage = currentSalary > 0
+        ? Number(((incrementAmount / currentSalary) * 100).toFixed(2))
+        : 0;
 
-                records.push({
-                    id: item.id,
-                    effectiveDate: item.effectiveFrom,
-                    previousSalary: currentSalary,
-                    newSalary,
-                    incrementAmount,
-                    incrementPercentage,
-                    createdAt: item.createdAt || item.effectiveFrom,
-                });
+      records.push({
+        id: item.id,
+        effectiveDate: item.effectiveFrom,
+        previousSalary: currentSalary,
+        newSalary,
+        incrementAmount,
+        incrementPercentage,
+        createdAt: item.createdAt || item.effectiveFrom,
+      });
 
-                currentSalary = newSalary;
-            }
+      currentSalary = newSalary;
+    }
 
-            return records.reverse(); // descending: newest first
-        } catch (error) {
-            console.error('Error fetching increment history:', error);
-            return [];
-        }
-    },
+    return records.reverse(); // descending: newest first
+  },
 
-    fetchYearlyAnalytics: async (
-        employeeId: string,
-        year: string,
-        preloadedHistory?: IncrementRecord[]
-    ): Promise<YearlyAnalytics | null> => {
-        const fullHistory = preloadedHistory ?? await incrementService.fetchIncrementHistory(employeeId);
-        if (fullHistory.length === 0) return null;
+  createIncrement: async (employeeId: string, payload: Partial<IncrementRecord>): Promise<void> => {
+    await createSalaryHistory({
+      employeeId,
+      effectiveFrom: dayjs(payload.effectiveDate).format('YYYY-MM-DD'),
+      ctcInLpa: (payload.newSalary || 0) * 12,
+    });
+  },
 
-        // ascending order for processing
-        const asc = [...fullHistory].reverse();
-
-        const fiscalStart = dayjs(`${year}-04-01`).startOf('day');
-        const fiscalEnd = dayjs(`${Number(year) + 1}-03-31`).endOf('day');
-
-        // Salary at the start of the selected year = latest record before Apr 1
-        const priorRecords = asc.filter(r => dayjs(r.effectiveDate).isBefore(fiscalStart));
-        const startingSalaryForYear = priorRecords.length > 0
-            ? priorRecords[priorRecords.length - 1].newSalary
-            : 0;
-
-        const yearRecords = asc.filter(r => {
-            const d = dayjs(r.effectiveDate);
-            return (d.isSame(fiscalStart) || d.isAfter(fiscalStart)) && 
-                   (d.isSame(fiscalEnd) || d.isBefore(fiscalEnd));
-        });
-
-        const currentSalaryForYear = yearRecords.length > 0
-            ? yearRecords[yearRecords.length - 1].newSalary
-            : startingSalaryForYear;
-
-        const yearIncrementAmount = currentSalaryForYear - startingSalaryForYear;
-        const yearIncrementPercentage = startingSalaryForYear > 0
-            ? Number(((yearIncrementAmount / startingSalaryForYear) * 100).toFixed(2))
-            : 0;
-
-        const highestSingleIncrement = yearRecords.length > 0
-            ? Math.max(...yearRecords.map(r => r.incrementAmount))
-            : 0;
-
-        const lastRevisionMonth = yearRecords.length > 0
-            ? dayjs(yearRecords[yearRecords.length - 1].effectiveDate).format('MMM YYYY')
-            : null;
-
-        // Build month-by-month graph Apr–Mar
-        const monthConfigs = [
-            { label: 'Apr', month: '04', yr: year },
-            { label: 'May', month: '05', yr: year },
-            { label: 'Jun', month: '06', yr: year },
-            { label: 'Jul', month: '07', yr: year },
-            { label: 'Aug', month: '08', yr: year },
-            { label: 'Sep', month: '09', yr: year },
-            { label: 'Oct', month: '10', yr: year },
-            { label: 'Nov', month: '11', yr: year },
-            { label: 'Dec', month: '12', yr: year },
-            { label: 'Jan', month: '01', yr: String(Number(year) + 1) },
-            { label: 'Feb', month: '02', yr: String(Number(year) + 1) },
-            { label: 'Mar', month: '03', yr: String(Number(year) + 1) }
-        ];
-
-        let activeSalary = startingSalaryForYear;
-        const graphData = monthConfigs.map((cfg) => {
-            const hit = yearRecords.filter(r => {
-                const d = dayjs(r.effectiveDate);
-                return d.format('MM') === cfg.month && d.format('YYYY') === cfg.yr;
-            });
-            if (hit.length > 0) activeSalary = hit[hit.length - 1].newSalary;
-            return { label: cfg.label, salary: activeSalary };
-        });
-
-        const avgMonthlySalary = graphData.reduce((s, d) => s + d.salary, 0) / 12;
-
-        return {
-            startingSalaryForYear,
-            currentSalaryForYear,
-            yearIncrementAmount,
-            yearIncrementPercentage,
-            revisionCount: yearRecords.length,
-            highestSingleIncrement,
-            lastRevisionMonth,
-            avgMonthlySalary,
-            graphData,
-        };
-    },
-
-    fetchAllTimeAnalytics: async (employeeId: string, preloadedHistory?: IncrementRecord[]): Promise<AllTimeAnalytics | null> => {
-        const fullHistory = preloadedHistory ?? await incrementService.fetchIncrementHistory(employeeId);
-        if (fullHistory.length === 0) return null;
-
-        // fullHistory is descending; index 0 = latest
-        const currentSalary = fullHistory[0].newSalary;
-        const asc = [...fullHistory].reverse();
-        const joiningSalary = asc[0].newSalary;
-
-        const totalGrowthAmount = currentSalary - joiningSalary;
-        const totalGrowthPercentage = joiningSalary > 0
-            ? Number(((totalGrowthAmount / joiningSalary) * 100).toFixed(2))
-            : 0;
-
-        const highestSingleIncrementAmount = Math.max(...asc.map(r => r.incrementAmount));
-        const highestRecord = asc.find(r => r.incrementAmount === highestSingleIncrementAmount);
-        const highestSingleIncrementPercentage = highestRecord?.incrementPercentage || 0;
-
-        const yearsWithRevisions = new Set(asc.map(r => dayjs(r.effectiveDate).format('YYYY'))).size;
-
-        // Year-grouped graph data
-        const years = Array.from(new Set(asc.map(r => dayjs(r.effectiveDate).format('YYYY'))));
-        const graphData: { label: string; salary: number }[] = [];
-
-        // Add a baseline point one year before first revision
-        if (years.length > 0) {
-            const firstYear = Number(years[0]);
-            graphData.push({ label: String(firstYear), salary: joiningSalary });
-        }
-
-        for (const yr of years) {
-            const recordsInYear = asc.filter(r => dayjs(r.effectiveDate).format('YYYY') === yr);
-            const endingSalary = recordsInYear[recordsInYear.length - 1].newSalary;
-            // Replace the base year entry or push new one
-            if (graphData.length > 0 && graphData[graphData.length - 1].label === yr) {
-                graphData[graphData.length - 1].salary = endingSalary;
-            } else {
-                graphData.push({ label: yr, salary: endingSalary });
-            }
-        }
-
-        // Ensure at least 2 points for the chart to render a line
-        if (graphData.length === 1) {
-            const existingYear = Number(graphData[0].label);
-            const currentYear = Number(dayjs().format('YYYY'));
-            if (currentYear > existingYear) {
-                graphData.push({ label: String(currentYear), salary: currentSalary });
-            } else {
-                graphData.unshift({ label: String(existingYear - 1), salary: joiningSalary });
-            }
-        }
-
-        return {
-            joiningSalary,
-            currentSalary,
-            totalGrowthAmount,
-            totalGrowthPercentage,
-            totalRevisions: fullHistory.length,
-            yearsWithRevisions,
-            highestSingleIncrementAmount,
-            highestSingleIncrementPercentage,
-            lastRevisionDate: fullHistory[0].effectiveDate,
-            graphData,
-        };
-    },
-
-    // Legacy method — kept for backward compat with IncrementReportToggle salary fetch
-    fetchIncrementAnalytics: async (
-        employeeId: string,
-        mode: 'AllTime' | 'Yearly',
-        specificYear?: string,
-        preloadedHistory?: IncrementRecord[]
-    ): Promise<IncrementAnalytics | null> => {
-        const fullHistory = preloadedHistory ?? await incrementService.fetchIncrementHistory(employeeId);
-        if (fullHistory.length === 0) return null;
-
-        const currentSalary = fullHistory[0].newSalary;
-        const initialSalary = fullHistory[fullHistory.length - 1].newSalary;
-        const totalIncrementAmount = currentSalary - initialSalary;
-        const totalIncrementPercentage = initialSalary > 0
-            ? Number(((totalIncrementAmount / initialSalary) * 100).toFixed(2))
-            : 0;
-
-        const asc = [...fullHistory].reverse();
-        let graphData: { label: string; salary: number }[] = [];
-
-        if (mode === 'AllTime') {
-            const years = Array.from(new Set(asc.map(r => dayjs(r.effectiveDate).format('YYYY'))));
-            if (years.length > 0) {
-                graphData.push({ label: String(Number(years[0]) - 1), salary: initialSalary });
-            }
-            for (const yr of years) {
-                const recordsInYear = asc.filter(r => dayjs(r.effectiveDate).format('YYYY') === yr);
-                const endingSalary = recordsInYear[recordsInYear.length - 1].newSalary;
-                graphData.push({ label: yr, salary: endingSalary });
-            }
-        } else if (mode === 'Yearly' && specificYear) {
-            const fiscalStart = dayjs(`${specificYear}-04-01`).startOf('day');
-            const fiscalEnd = dayjs(`${Number(specificYear) + 1}-03-31`).endOf('day');
-
-            const prior = asc.filter(r => dayjs(r.effectiveDate).isBefore(fiscalStart));
-            let active = prior.length > 0 ? prior[prior.length - 1].newSalary : 0;
-            
-            const inYear = asc.filter(r => {
-                const d = dayjs(r.effectiveDate);
-                return (d.isSame(fiscalStart) || d.isAfter(fiscalStart)) && 
-                       (d.isSame(fiscalEnd) || d.isBefore(fiscalEnd));
-            });
-
-            const monthConfigs = [
-                { label: 'Apr', month: '04', yr: specificYear },
-                { label: 'May', month: '05', yr: specificYear },
-                { label: 'Jun', month: '06', yr: specificYear },
-                { label: 'Jul', month: '07', yr: specificYear },
-                { label: 'Aug', month: '08', yr: specificYear },
-                { label: 'Sep', month: '09', yr: specificYear },
-                { label: 'Oct', month: '10', yr: specificYear },
-                { label: 'Nov', month: '11', yr: specificYear },
-                { label: 'Dec', month: '12', yr: specificYear },
-                { label: 'Jan', month: '01', yr: String(Number(specificYear) + 1) },
-                { label: 'Feb', month: '02', yr: String(Number(specificYear) + 1) },
-                { label: 'Mar', month: '03', yr: String(Number(specificYear) + 1) }
-            ];
-
-            for (const cfg of monthConfigs) {
-                const hit = inYear.filter(r => {
-                    const d = dayjs(r.effectiveDate);
-                    return d.format('MM') === cfg.month && d.format('YYYY') === cfg.yr;
-                });
-                if (hit.length > 0) active = hit[hit.length - 1].newSalary;
-                graphData.push({ label: cfg.label, salary: active });
-            }
-        }
-
-        return {
-            currentSalary,
-            totalIncrementAmount,
-            totalIncrementPercentage,
-            lastIncrementDate: fullHistory[0].effectiveDate,
-            yearsActive: new Set(asc.map(r => dayjs(r.effectiveDate).format('YYYY'))).size,
-            graphData,
-        };
-    },
-
-    createIncrement: async (employeeId: string, payload: Partial<IncrementRecord>): Promise<IncrementRecord> => {
-        const createPayload = {
-            employeeId,
-            effectiveFrom: dayjs(payload.effectiveDate).format('YYYY-MM-DD'),
-            ctcInLpa: (payload.newSalary || 0) * 12,
-        };
-        const response = await createSalaryHistory(createPayload);
-        return { ...payload, id: response?.data?.id || Math.random().toString() } as IncrementRecord;
-    },
-
-    updateIncrement: async (employeeId: string, id: string, payload: Partial<IncrementRecord>): Promise<IncrementRecord> => {
-        const updatePayload = {
-            employeeId,
-            effectiveFrom: dayjs(payload.effectiveDate).format('YYYY-MM-DD'),
-            ctcInLpa: (payload.newSalary || 0) * 12,
-        };
-        await updateSalaryHistory(id, updatePayload);
-        return { ...payload, id } as IncrementRecord;
-    },
-
-    deleteIncrement: async (_employeeId: string, _id: string): Promise<void> => {
-        console.warn('Delete increment not implemented in backend API');
-    },
+  updateIncrement: async (employeeId: string, id: string, payload: Partial<IncrementRecord>): Promise<void> => {
+    await updateSalaryHistory(id, {
+      employeeId,
+      effectiveFrom: dayjs(payload.effectiveDate).format('YYYY-MM-DD'),
+      ctcInLpa: (payload.newSalary || 0) * 12,
+    });
+  },
 };

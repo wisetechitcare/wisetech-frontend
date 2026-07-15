@@ -208,7 +208,7 @@ const SettingToggleRow: React.FC<{
         fontWeight: 700,
         color: C.primary,
         backgroundColor: C.primaryLight,
-        border: `1px solid rgba(157,65,65,0.15)`,
+        border: `1px solid rgba(30, 58, 138,0.15)`,
         borderRadius: RADIUS.md,
         padding: '3px 11px',
         letterSpacing: '0.01em',
@@ -462,8 +462,8 @@ const AttendanceConfig: React.FC = () => {
                             textAlign: 'center',
                             lineHeight: 1.3,
                             fontFamily: FONT.body,
-                            border: active ? '1px solid #9d4141' : '1px solid #e4e6ef',
-                            background: active ? '#9d4141' : '#fff',
+                            border: active ? '1px solid #1E3A8A' : '1px solid #e4e6ef',
+                            background: active ? '#1E3A8A' : '#fff',
                             color: active ? '#fff' : '#5e6278',
                             transition: 'all 0.15s ease',
                           }}
@@ -473,7 +473,7 @@ const AttendanceConfig: React.FC = () => {
                       );
                     })}
                   </div>
-                  <p style={{ fontFamily: FONT.body, fontSize: '12px', color: configScope.branchId ? '#9d4141' : '#6c757d', margin: '8px 0 0 0' }}>
+                  <p style={{ fontFamily: FONT.body, fontSize: '12px', color: configScope.branchId ? '#1E3A8A' : '#6c757d', margin: '8px 0 0 0' }}>
                     {configScope.branchId
                       ? 'Showing this branch’s override — the cards and Configure below apply to this branch only.'
                       : (configScope.companyId && configScope.companyId !== rootOrgId)
@@ -736,11 +736,11 @@ const AttendanceConfig: React.FC = () => {
             return (
               <div style={{ padding: '16px 28px 0', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, margin: 0 }}>Configuring for:</label>
-                <span style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid #e4e6ef', background: '#fff', fontSize: 13, fontWeight: 600, color: '#9d4141' }}>
+                <span style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid #e4e6ef', background: '#fff', fontSize: 13, fontWeight: 600, color: '#1E3A8A' }}>
                   {scopeLabel}
                 </span>
                 {configScope.branchId
-                  ? <span style={{ fontSize: 12, color: '#9d4141' }}>Applies to this branch only.</span>
+                  ? <span style={{ fontSize: 12, color: '#1E3A8A' }}>Applies to this branch only.</span>
                   : <span style={{ fontSize: 12, color: '#6c757d' }}>Applies to every sub-org & branch (unless a branch has its own override).</span>}
                 {!canEditConfig && <span style={{ fontSize: 12, color: '#c0392b' }}>You don’t have permission to edit (view only).</span>}
               </div>

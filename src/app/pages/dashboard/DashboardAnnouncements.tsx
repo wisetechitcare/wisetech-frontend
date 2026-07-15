@@ -160,13 +160,13 @@ const DashboardAnnouncements = () => {
                 type="button"
                 className="btn btn-sm"
                 style={{
-                  borderColor: '#9d4141',
-                  color: '#9d4141',
+                  borderColor: '#1E3A8A',
+                  color: '#1E3A8A',
                   fontFamily: 'Inter',
                   fontSize: '14px',
                   fontWeight: '500',
                   borderRadius: '6px',
-                  border: '1px solid #9d4141',
+                  border: '1px solid #1E3A8A',
                   padding: '8px 18px',
                   whiteSpace: 'nowrap',
                 }}
@@ -303,7 +303,7 @@ const DashboardAnnouncements = () => {
       >
         <div
           className="pt-4 d-flex justify-content-center"
-          style={{ color: "#9D4141", fontSize: "14px", fontWeight: "500" }}
+          style={{ color: "#1E3A8A", fontSize: "14px", fontWeight: "500" }}
         >
           ANNOUNCEMENT
         </div>

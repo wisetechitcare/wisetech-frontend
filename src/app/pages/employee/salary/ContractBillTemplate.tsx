@@ -13,7 +13,7 @@ Font.register({
 
 const C = {
   navy: '#1A2D4B',
-  brand: '#AA393D',
+  brand: '#1E3A8A',
   gold: '#B8860B',
   white: '#ffffff',
   gray50: '#f8fafc',

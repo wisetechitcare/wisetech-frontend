@@ -328,5 +328,6 @@ export const ENTITY_TABS: TabDef[] = [
   { key: 'documents', label: 'Documents', icon: 'bi bi-file-earmark-text' },
   { key: 'audit', label: 'Audit', icon: 'bi bi-file-earmark-diff' },
   { key: 'teams', label: 'Teams', icon: 'bi bi-people', projectOnly: true },
+  { key: 'meetings', label: 'Meetings', icon: 'bi bi-camera-video', projectOnly: true },
   { key: 'billing', label: 'Billing', icon: 'bi bi-receipt', projectOnly: true },
 ];

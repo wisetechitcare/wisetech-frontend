@@ -577,7 +577,7 @@ function SubmissionDetailModal({
                 className="btn d-flex align-items-center gap-2 px-3 ms-auto"
                 style={{
                   height: '35px',
-                  background: '#aa393d',
+                  background: '#1E3A8A',
                   color: '#ffffff',
                   border: 'none',
                   fontSize: '13px',

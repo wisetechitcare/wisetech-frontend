@@ -1812,7 +1812,7 @@ const StatisticsTable = ({ approvedLeaves, attendance, attendanceRequests, fromA
                                             <button
                                                 type='button'
                                                 className='btn btn-primary text-white'
-                                                style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }}
+                                                style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                                                 onClick={() => {
                                                     setShowRequestTypeSelection(true);
                                                     setRequestType(null);
@@ -1823,8 +1823,8 @@ const StatisticsTable = ({ approvedLeaves, attendance, attendanceRequests, fromA
                                             </button>
 
                                             <div className='d-flex gap-2'>
-                                                {disableRaiseRequest && <button type='button' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={requestLimitResetLoading} onClick={async () => await handleSendEmailForResetAttendanceRequestLimit(employeeId, setRequestLimitResetLoading, reportsToId || undefined)}>{requestLimitResetLoading ? "Please Wait..." : "Request To Reset Attendance Raise Limit"}</button>}
-                                                <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || !formikProps.isValid || disableRaiseRequest}>
+                                                {disableRaiseRequest && <button type='button' className='btn btn-primary' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={requestLimitResetLoading} onClick={async () => await handleSendEmailForResetAttendanceRequestLimit(employeeId, setRequestLimitResetLoading, reportsToId || undefined)}>{requestLimitResetLoading ? "Please Wait..." : "Request To Reset Attendance Raise Limit"}</button>}
+                                                <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || !formikProps.isValid || disableRaiseRequest}>
                                                     {!loading && 'Save Changes'}
                                                     {loading && (
                                                         <span className='indicator-progress' style={{ display: 'block' }}>
@@ -2286,8 +2286,8 @@ const ReportsTable = ({ attendanceRequests, fromAdmin = false, resource = "", vi
                                         {REQUEST_RAISE_DISABLE_MESSAGE}
                                     </div>}
                                     <div className='d-flex justify-content-center mt-8'>
-                                        {disableRaiseRequest && <button type='button' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={requestLimitResetLoading} onClick={async () => await handleSendEmailForResetAttendanceRequestLimit(employeeId, setRequestLimitResetLoading, reportsToId || undefined)}>{requestLimitResetLoading ? "Please Wait..." : "Request To Reset Attendance Raise Limit"}</button>}
-                                        <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || !formikProps.isValid}>
+                                        {disableRaiseRequest && <button type='button' className='btn btn-primary' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={requestLimitResetLoading} onClick={async () => await handleSendEmailForResetAttendanceRequestLimit(employeeId, setRequestLimitResetLoading, reportsToId || undefined)}>{requestLimitResetLoading ? "Please Wait..." : "Request To Reset Attendance Raise Limit"}</button>}
+                                        <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || !formikProps.isValid}>
                                             {!loading && 'Save Changes'}
                                             {loading && (
                                                 <span className='indicator-progress' style={{ display: 'block' }}>

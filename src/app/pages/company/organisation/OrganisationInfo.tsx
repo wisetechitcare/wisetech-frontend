@@ -226,7 +226,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
         const isUrl = /^https?:\/\//i.test(val);
         if (f.id === 'websiteUrl' || (f.type === 'file' && isUrl)) {
             return (
-                <a href={val} target="_blank" rel="noopener noreferrer" className="text-decoration-none text-break" style={{ color: '#9d4141' }}>
+                <a href={val} target="_blank" rel="noopener noreferrer" className="text-decoration-none text-break" style={{ color: '#1E3A8A' }}>
                     {f.type === 'file' ? 'View' : val}
                 </a>
             );
@@ -303,7 +303,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                         <button
                             type="button"
                             className="btn flex-grow-1 flex-sm-grow-0"
-                            style={{ backgroundColor: '#9d4141', borderColor: '#9d4141', color: 'white', padding: '8px clamp(16px, 4vw, 32px)', fontSize: 'clamp(12px, 2.5vw, 14px)', borderRadius: '6px' }}
+                            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A', color: 'white', padding: '8px clamp(16px, 4vw, 32px)', fontSize: 'clamp(12px, 2.5vw, 14px)', borderRadius: '6px' }}
                             onClick={onEditClick}
                         >
                             Edit

@@ -255,7 +255,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
                         </ListGroup>
                     </div>
                     {fromAdmin && <div className="d-flex justify-content-start mt-3">
-                        {/* <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }}
+                        {/* <Button style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                             onClick={() => handleNew()}>Add Configuration</Button> */}
                     </div>}
                 </Card.Body>
@@ -305,7 +305,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
                                     
 
                                     <div className='d-flex justify-content-end'>
-                                        <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || !formikProps.isValid}>
+                                        <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || !formikProps.isValid}>
                                             {!loading && 'Save Changes'}
                                             {loading && (
                                                 <span className='indicator-progress' style={{ display: 'block' }}>

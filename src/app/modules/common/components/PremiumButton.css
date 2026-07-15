@@ -1,0 +1,104 @@
+/* ═══════════════════════════════════════════════════════════════════
+   PremiumButton  (.wt-premium-btn)
+   The app's premium gradient action button ("New / Create / Add").
+   Pixel-matches the calendar toolbar's primary button: brand gradient,
+   soft ambient shadow, faint top-edge highlight, quiet 1px hover lift.
+   Used via the <PremiumButton> React component (PremiumButton.tsx).
+   ═══════════════════════════════════════════════════════════════════ */
+.wt-premium-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: #ffffff !important;
+  cursor: pointer;
+  white-space: nowrap;
+  background: linear-gradient(135deg, #2c56c4 0%, #1e3a8a 55%, #15265c 100%);
+  box-shadow:
+    0 1px 2px rgba(27, 66, 105, 0.35),
+    0 8px 20px -8px rgba(41, 93, 142, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transition:
+    transform 0.16s cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+
+/* Icon inherits white regardless of framework icon defaults. */
+.wt-premium-btn i,
+.wt-premium-btn svg,
+.wt-premium-btn .ki-duotone,
+.wt-premium-btn .bi {
+  color: #ffffff !important;
+  font-size: 1.2em;
+  line-height: 1;
+  margin: 0 -1px; /* trim the built-in glyph padding so the "+" sits snug */
+}
+
+/* Hover — a single subtle 1px lift (no gradient/shadow shift). */
+.wt-premium-btn:hover {
+  transform: translateY(-1px);
+  color: #ffffff !important;
+}
+
+/* Active — gentle press. */
+.wt-premium-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Keyboard focus ring (mouse users never see it; keeps a11y intact). */
+.wt-premium-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(30, 58, 138, 0.28),
+    0 8px 20px -8px rgba(41, 93, 142, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.wt-premium-btn:disabled,
+.wt-premium-btn.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Size presets ──────────────────────────────────────────────────── */
+.wt-premium-btn--sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  border-radius: 9px;
+  gap: 6px;
+}
+/* --md is the base above (no overrides). */
+.wt-premium-btn--lg {
+  height: 42px;
+  padding: 0 20px;
+  font-size: 14px;
+  border-radius: 12px;
+}
+
+/* Full-width helper (e.g. mobile). */
+.wt-premium-btn--block {
+  width: 100%;
+}
+
+/* Dark mode — deepen the ambient shadow, keep the top highlight. */
+@media (prefers-color-scheme: dark) {
+  .wt-premium-btn {
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.5),
+      0 8px 20px -8px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  }
+}

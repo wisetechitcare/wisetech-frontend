@@ -165,13 +165,13 @@ const AllEmployeesSearchDropdown = () => {
               sx={{
                 "& .MuiOutlinedInput-root": {
                   "& fieldset": {
-                    borderColor: "#9D4141",
+                    borderColor: "#1E3A8A",
                   },
                   "&:hover fieldset": {
-                    borderColor: "#9D4141",
+                    borderColor: "#1E3A8A",
                   },
                   "&.Mui-focused fieldset": {
-                    borderColor: "#9D4141",
+                    borderColor: "#1E3A8A",
                   },
                 },
               }}
@@ -330,9 +330,9 @@ const AllEmployeesSearchDropdown = () => {
                         borderColor: "#cbd5e1",
                       },
                       "&.Mui-focused fieldset": {
-                        borderColor: "#9D4141",
+                        borderColor: "#1E3A8A",
                         borderWidth: "1.5px",
-                        boxShadow: "0 0 0 4px rgba(157, 65, 65, 0.1)"
+                        boxShadow: "0 0 0 4px rgba(30, 58, 138, 0.1)"
                       },
                     },
                   }}
@@ -371,9 +371,9 @@ const AllEmployeesSearchDropdown = () => {
                     borderColor: "#cbd5e1",
                   },
                   "&.Mui-focused fieldset": {
-                    borderColor: "#9D4141",
+                    borderColor: "#1E3A8A",
                     borderWidth: "1.5px",
-                    boxShadow: "0 0 0 4px rgba(157, 65, 65, 0.1)"
+                    boxShadow: "0 0 0 4px rgba(30, 58, 138, 0.1)"
                   },
                 },
               }}
@@ -535,9 +535,9 @@ const AllEmployeesSearchDropdown = () => {
                         borderColor: "#cbd5e1",
                       },
                       "&.Mui-focused fieldset": {
-                        borderColor: "#9D4141",
+                        borderColor: "#1E3A8A",
                         borderWidth: "1.5px",
-                        boxShadow: "0 0 0 4px rgba(157, 65, 65, 0.1)"
+                        boxShadow: "0 0 0 4px rgba(30, 58, 138, 0.1)"
                       },
                     },
                   }}

@@ -35,18 +35,12 @@ function EmployeeList() {
         {
             title: "Employees",
             component: <EmployeeListContent />,
-            icon:
-                activeTab === 0
-                    ? companyLogoIcons.employeeConfigIcon.active
-                    : companyLogoIcons.employeeConfigIcon.default,
+            icon: 'bi-people',
         },
         {
             title: "Configure",
             component: <EmployeeConfigure />,
-            icon:
-                activeTab === 1
-                    ? leadsIcons.leadsConfigIcon.active
-                    : leadsIcons.leadsConfigIcon.default,
+            icon: 'bi-gear',
         }
     ];
 

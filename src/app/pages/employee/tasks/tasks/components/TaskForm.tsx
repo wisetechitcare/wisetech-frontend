@@ -450,8 +450,8 @@ const TaskForm = ({
                             marginTop: '8px',
                             fontSize: '12px',
                             padding: '4px 12px',
-                            borderColor: '#8B4444',
-                            color: '#8B4444',
+                            borderColor: '#1E3A8A',
+                            color: '#1E3A8A',
                             cursor: 'pointer',
                           }}
                         >
@@ -473,8 +473,8 @@ const TaskForm = ({
                             marginTop: '8px',
                             fontSize: '12px',
                             padding: '4px 12px',
-                            borderColor: '#8B4444',
-                            color: '#8B4444',
+                            borderColor: '#1E3A8A',
+                            color: '#1E3A8A',
                             cursor: 'pointer',
                           }}
                         >

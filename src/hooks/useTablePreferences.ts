@@ -219,9 +219,18 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
                     }
                 });
 
+                // A saved sort on a removed column would silently no-op in the
+                // table; drop stale entries and fall back to defaultSorting.
+                const prevSorting = prevPrefs.sorting || [];
+                const sanitizedSorting = prevSorting.filter(s => codeKeySet.has(s.id));
+                const nextSorting = sanitizedSorting.length > 0
+                    ? sanitizedSorting
+                    : (defaultSorting ?? []);
+
                 return {
                     ...prevPrefs,
                     columnVisibility: nextVisibility,
+                    sorting: nextSorting,
                 };
             });
         }

@@ -482,7 +482,7 @@ const OtherSettings: React.FC = () => {
                   disabled={isSaving}
                   className="w-100 w-sm-auto"
                   style={{
-                    backgroundColor: '#9d4141',
+                    backgroundColor: '#1E3A8A',
                     border: 'none',
                     borderRadius: '6px',
                     padding: '10px 20px',

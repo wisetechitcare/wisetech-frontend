@@ -23,11 +23,11 @@ export const MRD_EASE = 'cubic-bezier(.22,.61,.36,1)';
 
 export type WtCtaTone = 'primary' | 'accent' | 'danger' | 'success';
 
-// Gradient stops per tone. 'primary' = theme navy (logo "WISE"); 'accent' = the brand maroon the
-// calendar's Create Event button ships with (logo "TECH").
+// Gradient stops per tone. 'primary' = core theme navy; 'accent' = a brighter blue
+// variant for secondary emphasis. Both stay within the unified blue theme.
 const CTA: Record<WtCtaTone, { from: string; to: string; glow: string }> = {
   primary: { from: '#1E3A8A', to: '#172554', glow: '#1E3A8A' },
-  accent:  { from: '#AA393D', to: '#8f2f33', glow: '#AA393D' },
+  accent:  { from: '#2563EB', to: '#1E3A8A', glow: '#2563EB' },
   danger:  { from: '#e11d48', to: '#9f1239', glow: '#e11d48' },
   success: { from: '#16a34a', to: '#15803d', glow: '#16a34a' },
 };
@@ -37,11 +37,11 @@ export const ctaSx = (tone: WtCtaTone = 'primary'): SxProps<Theme> => {
   const c = CTA[tone];
   return {
     textTransform: 'none', fontWeight: 650, letterSpacing: '-0.01em', borderRadius: '12px',
-    background: `linear-gradient(180deg, ${c.from}, ${c.to})`, color: '#fff',
+    background: `linear-gradient(135deg, ${c.from}, ${c.to})`, color: '#fff',
     boxShadow: `0 1px 2px ${c.glow}59, 0 10px 22px -10px ${c.glow}a6, inset 0 1px 0 rgba(255,255,255,.14)`,
     transition: `transform .16s ${MRD_EASE}, box-shadow .2s`,
     '&:hover': {
-      background: `linear-gradient(180deg, ${c.from}, ${c.to})`, transform: 'translateY(-1px)',
+      background: `linear-gradient(135deg, ${c.from}, ${c.to})`, transform: 'translateY(-1px)',
       boxShadow: `0 2px 4px ${c.glow}59, 0 14px 26px -10px ${c.glow}bf, inset 0 1px 0 rgba(255,255,255,.14)`,
     },
     '&:active': { transform: 'translateY(0) scale(.98)' },

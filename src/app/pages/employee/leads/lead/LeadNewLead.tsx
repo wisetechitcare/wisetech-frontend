@@ -959,7 +959,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              style={{ color: "#AA393D", textDecoration: "underline", whiteSpace: "nowrap" }}
+              style={{ color: "#1E3A8A", textDecoration: "underline", whiteSpace: "nowrap" }}
             >
               Open file
             </a>
@@ -1340,10 +1340,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         "& .MuiMenuItem-root": {
           fontSize: "12px",
           fontFamily: "Inter",
-          "&:hover": { backgroundColor: "rgba(170,57,61,0.06)" },
+          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
           "&.Mui-selected": {
-            backgroundColor: "rgba(170,57,61,0.1)",
-            color: "#AA393D",
+            backgroundColor: "rgba(30, 58, 138,0.1)",
+            color: "#1E3A8A",
             fontWeight: 600,
           },
         },
@@ -1358,19 +1358,19 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     fontFamily: "Inter",
     fontWeight: 500,
     height: FILTER_HEIGHT,
-    color: hasValue ? "#AA393D" : "#1E293B",
+    color: hasValue ? "#1E3A8A" : "#1E293B",
     "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasValue ? "#AA393D !important" : "#E2E8F0 !important",
+      borderColor: hasValue ? "#1E3A8A !important" : "#E2E8F0 !important",
       borderWidth: "1px !important",
       borderRadius: "6px !important",
     },
     "&:hover .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#AA393D !important",
+      borderColor: "#1E3A8A !important",
     },
     "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#AA393D !important",
+      borderColor: "#1E3A8A !important",
     },
-    "& .MuiSelect-icon": { color: hasValue ? "#AA393D" : "#94A3B8" },
+    "& .MuiSelect-icon": { color: hasValue ? "#1E3A8A" : "#94A3B8" },
   });
 
   return (
@@ -1420,7 +1420,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   onClick={() => setShowBulkImport(true)}
                   style={{
                     backgroundColor: "#fff",
-                    color: "#AA393D",
+                    color: "#1E3A8A",
                     border: "1px solid #E2E8F0",
                     boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
                     borderRadius: "6px",
@@ -1440,7 +1440,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
                   onClick={() => setFormValues({ leadTemplateId: "blank" })}
                   style={{
-                    backgroundColor: "#AA393D",
+                    backgroundColor: "#1E3A8A",
                     color: "#fff",
                     border: "none",
                     borderRadius: "6px",
@@ -1474,7 +1474,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 width: "100%"
               }}
             >
-              <h6 style={{ fontFamily: "Inter", fontWeight: 600, color: "#AA393D", fontSize: "12px", marginBottom: "2px" }}>
+              <h6 style={{ fontFamily: "Inter", fontWeight: 600, color: "#1E3A8A", fontSize: "12px", marginBottom: "2px" }}>
                 Custom Date Range
               </h6>
               <p className="mb-0" style={{ fontSize: "11px", color: "#64748B" }}>
@@ -1620,7 +1620,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                         {st?.color && (
                           <span style={{ width: 8, height: 8, minWidth: 8, borderRadius: "50%", backgroundColor: st.color, display: "inline-block" }} />
                         )}
-                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#AA393D", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                           {val}
                         </span>
                         <span
@@ -1629,7 +1629,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                             e.stopPropagation();
                             setStatusFilter("");
                           }}
-                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#AA393D", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#1E3A8A", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
                         >
                           ✕
                         </span>
@@ -1722,22 +1722,22 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                         fontFamily: "Inter",
                         fontSize: "12px",
                         fontWeight: 500,
-                        color: assignedToFilter ? "#AA393D" : "#1E293B",
+                        color: assignedToFilter ? "#1E3A8A" : "#1E293B",
                         paddingRight: "8px !important",
                         "& fieldset": {
-                          borderColor: assignedToFilter ? "#AA393D" : "#E2E8F0",
+                          borderColor: assignedToFilter ? "#1E3A8A" : "#E2E8F0",
                           borderWidth: "1px",
                           borderRadius: "6px",
                         },
-                        "&:hover fieldset": { borderColor: "#AA393D" },
-                        "&.Mui-focused fieldset": { borderColor: "#AA393D" },
+                        "&:hover fieldset": { borderColor: "#1E3A8A" },
+                        "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
                       },
                       "& .MuiOutlinedInput-input": {
                         padding: "0 4px !important",
                         fontFamily: "Inter",
                         fontSize: "12px",
                         fontWeight: 500,
-                        color: assignedToFilter ? "#AA393D" : "#1E293B",
+                        color: assignedToFilter ? "#1E3A8A" : "#1E293B",
                         "&::placeholder": {
                           color: "#94A3B8",
                           opacity: 1,
@@ -1749,7 +1749,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                       "& .MuiAutocomplete-endAdornment": {
                         right: "6px",
                         "& .MuiSvgIcon-root": {
-                          color: assignedToFilter ? "#AA393D" : "#94A3B8",
+                          color: assignedToFilter ? "#1E3A8A" : "#94A3B8",
                           fontSize: "16px",
                         },
                       },
@@ -1767,10 +1767,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                         fontFamily: "Inter",
                         "& .MuiAutocomplete-option": {
                           fontSize: "12px",
-                          "&:hover": { backgroundColor: "rgba(170,57,61,0.06)" },
+                          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
                           '&[aria-selected="true"]': {
-                            backgroundColor: "rgba(170,57,61,0.1)",
-                            color: "#AA393D",
+                            backgroundColor: "rgba(30, 58, 138,0.1)",
+                            color: "#1E3A8A",
                             fontWeight: 600,
                           },
                         },
@@ -1791,7 +1791,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     border: "none",
                     cursor: "pointer",
                     fontSize: "12px",
-                    color: "#AA393D",
+                    color: "#1E3A8A",
                     fontWeight: 600,
                     fontFamily: "Inter, sans-serif",
                     padding: "2px 8px",
@@ -1819,12 +1819,12 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
-                <span style={{ fontSize: '14px', color: '#AA393D', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
               </div>
               <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
-                <span style={{ fontSize: '14px', color: '#AA393D', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
                   {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
                 </span>
               </div>
@@ -1906,7 +1906,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   backgroundColor: "#F8FAFC !important",
                 },
                 "& .MuiTableCell-root:first-of-type": {
-                  borderLeftColor: `${row.original?.status?.color || "#AA393D"} !important`,
+                  borderLeftColor: `${row.original?.status?.color || "#1E3A8A"} !important`,
                 },
               },
             },

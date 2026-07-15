@@ -425,12 +425,12 @@ const handleSubmit = async (values: ShiftValues) => {
         cursor: pointer;
       }
       .daily-shift-onsite-toggle .form-check-input:checked {
-        background-color: #9d4141;
-        border-color: #9d4141;
+        background-color: #1E3A8A;
+        border-color: #1E3A8A;
       }
       .daily-shift-onsite-toggle .form-check-input:focus {
-        box-shadow: 0 0 0 0.2rem rgba(157, 65, 65, 0.25);
-        border-color: #9d4141;
+        box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.25);
+        border-color: #1E3A8A;
       }
     `}</style>
     <Formik
@@ -541,8 +541,8 @@ const handleSubmit = async (values: ShiftValues) => {
                                     borderRadius: '6px',
                                     fontSize: '13px',
                                     '& fieldset': { borderColor: '#d9dee6' },
-                                    '&:hover fieldset': { borderColor: '#9d4141' },
-                                    '&.Mui-focused fieldset': { borderColor: '#9d4141' },
+                                    '&:hover fieldset': { borderColor: '#1E3A8A' },
+                                    '&.Mui-focused fieldset': { borderColor: '#1E3A8A' },
                                   },
                                 },
                               },
@@ -565,8 +565,8 @@ const handleSubmit = async (values: ShiftValues) => {
                                     borderRadius: '6px',
                                     fontSize: '13px',
                                     '& fieldset': { borderColor: '#d9dee6' },
-                                    '&:hover fieldset': { borderColor: '#9d4141' },
-                                    '&.Mui-focused fieldset': { borderColor: '#9d4141' },
+                                    '&:hover fieldset': { borderColor: '#1E3A8A' },
+                                    '&.Mui-focused fieldset': { borderColor: '#1E3A8A' },
                                   },
                                 },
                               },
@@ -587,7 +587,7 @@ const handleSubmit = async (values: ShiftValues) => {
                           if (co) setFieldValue(`${d}_checkOut`, co);
                         });
                       }}
-                      style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #9d4141', background: '#fff', color: '#9d4141', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                      style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #1E3A8A', background: '#fff', color: '#1E3A8A', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                     >
                       Weekdays (Mon–Fri)
                     </button>
@@ -983,7 +983,7 @@ const handleSubmit = async (values: ShiftValues) => {
                   disabled={isSaving}
                   className="w-100 w-sm-auto"
                   style={{
-                    backgroundColor: '#9d4141',
+                    backgroundColor: '#1E3A8A',
                     border: 'none',
                     borderRadius: '6px',
                     padding: '10px 20px',

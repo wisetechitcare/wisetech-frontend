@@ -32,7 +32,7 @@ import { LeaveStatus } from '@constants/attendance';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { getAllUnPaidLeavesForCurrentYear, getAllUnPaidLeavesCurrentMonth, getAllPaidLeavesCurrentMonth, getAllPaidLeaveOfYear, getAllPaidLeaveOfYearFilteredByStartAndEndDate } from '@utils/sandwhichConfiguration'
 import DateInput from '@app/modules/common/inputs/DateInput';
-import SalaryIncrementModal from '@app/modules/employee/salary/SalaryIncrementModal';
+import AddEditIncrementDialog from '@app/modules/employee/salary/AddEditIncrementDialog';
 import { createUpdateGrossPayConfiguration, fetchGrossPayConfiguration, validateGrossPayConfigurationJson } from '@services/employee';
 import { DeductionDistributionModal } from './DeductionDistributionModal';
 
@@ -159,12 +159,12 @@ const DeductionPanel = ({
                                     borderTop: '1px solid #E5C8CA',
                                 }}
                             >
-                                <td colSpan={2} className="fw-bold py-2" style={{ color: '#AA393D' }}>
+                                <td colSpan={2} className="fw-bold py-2" style={{ color: '#1E3A8A' }}>
                                     Total Variable Deductions
                                 </td>
                                 <td
                                     className={`fw-bold py-2 ${sensitiveCls}`}
-                                    style={{ textAlign: 'right', color: '#AA393D' }}
+                                    style={{ textAlign: 'right', color: '#1E3A8A' }}
                                 >
                                     -{formatINRDecimal(totalVariable)}
                                 </td>
@@ -181,7 +181,7 @@ const DeductionPanel = ({
             >
                 <div className="d-flex justify-content-between align-items-center">
                     <div>
-                        <div className="fw-bold" style={{ color: '#AA393D' }}>
+                        <div className="fw-bold" style={{ color: '#1E3A8A' }}>
                             Total Salary After Attendance Adjustments(B)
                         </div>
                         <div className="text-muted" style={{ fontSize: 11 }}>
@@ -191,7 +191,7 @@ const DeductionPanel = ({
                     <div
                         className={`fw-bolder fs-5 px-3 py-1 rounded-2 ${sensitiveCls}`}
                         style={{
-                            color: '#AA393D',
+                            color: '#1E3A8A',
                             backgroundColor: '#FFFFFF',
                             border: '1px solid #E5C8CA',
                         }}
@@ -257,12 +257,12 @@ const DeductionPanel = ({
                                     borderTop: '1px solid #E5C8CA',
                                 }}
                             >
-                                <td colSpan={4} className="fw-bold py-2" style={{ color: '#AA393D' }}>
+                                <td colSpan={4} className="fw-bold py-2" style={{ color: '#1E3A8A' }}>
                                     Total Fixed Deductions
                                 </td>
                                 <td
                                     className={`fw-bold py-2 ${sensitiveCls}`}
-                                    style={{ textAlign: 'right', color: '#AA393D' }}
+                                    style={{ textAlign: 'right', color: '#1E3A8A' }}
                                 >
                                     -{formatINRDecimal(totalFixed)}
                                 </td>
@@ -275,7 +275,7 @@ const DeductionPanel = ({
                     >
                         <div className="d-flex justify-content-between align-items-center">
                             <div>
-                                <div className="fw-bold" style={{ color: '#AA393D' }}>
+                                <div className="fw-bold" style={{ color: '#1E3A8A' }}>
                                     Total Salary After Attendance Adjustments (B)
                                 </div>
                                 <div className="text-muted" style={{ fontSize: 11 }}>
@@ -285,7 +285,7 @@ const DeductionPanel = ({
                             <div
                                 className={`fw-bolder fs-5 px-3 py-1 rounded-2 ${sensitiveCls}`}
                                 style={{
-                                    color: '#AA393D',
+                                    color: '#1E3A8A',
                                     backgroundColor: '#FFFFFF',
                                     border: '1px solid #E5C8CA',
                                 }}
@@ -531,7 +531,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         const variableSubtotal = hasVariableData ? sumEarned(data.variable) : 0;
 
         const isDeduction = type === 'deduction';
-        const subtotalColor = isDeduction ? '#AA393D' : '#008C7C';
+        const subtotalColor = isDeduction ? '#1E3A8A' : '#008C7C';
         const subtotalPrefix = isDeduction ? '-' : '+';
         const fixedSubtotalLabel = isDeduction ? 'Total Fixed Deductions' : `Total Fixed ${title}`;
         const variableSubtotalLabel = isDeduction ? 'Total Variable Deductions' : `Total Variable ${title}`;
@@ -2075,8 +2075,8 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             <style jsx>{`
             /* ─── Theme tokens (mirrors _variables.custom.scss) ─── */
             :global(:root) {
-                --wt-primary: #AA393D;
-                --wt-primary-hover: #7a2124;
+                --wt-primary: #1E3A8A;
+                --wt-primary-hover: #172554;
                 --wt-secondary: #295D8E;
                 --wt-surface: #F6F9FC;
                 --wt-border: #E5E8ED;
@@ -2247,7 +2247,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             :global(.wt-card-gross .wt-card-title) { color: var(--wt-secondary); }
             :global(.wt-card-deduction) {
                 background: linear-gradient(135deg, #FBF0F1 0%, #F5E2E4 100%) !important;
-                border: 1px solid rgba(170,57,61,0.18) !important;
+                border: 1px solid rgba(30, 58, 138,0.18) !important;
                 border-radius: 14px !important;
             }
             :global(.wt-card-deduction .wt-card-title) { color: var(--wt-primary); }
@@ -2279,7 +2279,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                         {[
                             { label: 'Total Gross Pay', value: summaryData.totalGrossPay, icon: 'wallet', color: '#295D8E', bg: 'rgba(41,93,142,0.10)' },
                             { label: 'Total Variable Deduction', value: summaryData.totalVariableDeduction, icon: 'minus-circle', color: '#B7791F', bg: 'rgba(226,160,63,0.12)' },
-                            { label: 'Total Fixed Deduction', value: summaryData.totalFixedDeduction, icon: 'lock', color: '#AA393D', bg: 'rgba(170,57,61,0.10)' },
+                            { label: 'Total Fixed Deduction', value: summaryData.totalFixedDeduction, icon: 'lock', color: '#1E3A8A', bg: 'rgba(30, 58, 138,0.10)' },
                             { label: 'Total Deduction', value: summaryData.totalDeduction, icon: 'calculator', color: '#0E61B6', bg: 'rgba(14,97,182,0.10)' },
                             { label: 'Total Paid', value: summaryData.totalPaid, icon: 'check-circle', color: '#008C7C', bg: 'rgba(0,202,180,0.12)' },
                             { label: 'Pending Amount', value: summaryData.pendingAmount, icon: 'clock', color: '#C74E52', bg: 'rgba(199,78,82,0.10)' },
@@ -2570,7 +2570,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     ) : (
                                         <div>
                                             {/* FALLBACK: Legacy UI for when API data is not available */}
-                                            <h6 className="mt-4 fw-bold" style={{ color: '#AA393D' }}>Variable</h6>
+                                            <h6 className="mt-4 fw-bold" style={{ color: '#1E3A8A' }}>Variable</h6>
                                             <Row className="text-muted">
                                                 <Col xs={5} sm={4} className="text-start">Name</Col>
                                                 <Col xs={3} sm={3} className="text-center">Value</Col>
@@ -2666,7 +2666,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "90%" }}>
                                             <div>
                                                 {/* FALLBACK: Legacy UI for when API data is not available */}
-                                                <h6 className="mt-6 fw-bold" style={{ color: '#AA393D' }}>Variable</h6>
+                                                <h6 className="mt-6 fw-bold" style={{ color: '#1E3A8A' }}>Variable</h6>
                                                 <Row className="text-muted ">
                                                     <Col xs={5} sm={4} className="text-start">Name / Type</Col>
                                                     <Col xs={3} sm={3} className="text-center">Value</Col>
@@ -2747,7 +2747,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                             </Button>
                         </PDFDownloadLink>
 
-                        <Button style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }} onClick={ 
+                        <Button style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} onClick={ 
                             async ()=> {
                             setLoading(true);
                             if (!salarySlipProps) {
@@ -2814,7 +2814,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                         </Button>
 
                         {(fromAdmin && keyword == MONTH && !hideSummarySection) &&
-                            <Button style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }} className='ms-2' onClick={() => handleEdit()}>
+                            <Button style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} className='ms-2' onClick={() => handleEdit()}>
                                 Modify
                             </Button>
                         }
@@ -3091,12 +3091,12 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 </Modal.Body>
             </Modal>
 
-            <SalaryIncrementModal
-                show={salaryIncrementShow}
-                onHide={handleSalaryIncrementClose}
-                employee={employee}
+            <AddEditIncrementDialog
+                open={salaryIncrementShow}
+                onClose={handleSalaryIncrementClose}
+                employeeId={employee.id}
+                employeeName={`${employee.users?.firstName ?? ''} ${employee.users?.lastName ?? ''}`.trim() || 'Employee'}
                 onSuccess={handleSalaryIncrementSuccess}
-                fromAdmin={fromAdmin}
             />
 
             <DeductionDistributionModal

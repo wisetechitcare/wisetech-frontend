@@ -170,18 +170,18 @@ const LeaveTypesBalance: React.FC = () => {
             <div style={{ padding: '24px 20px', backgroundColor: '#f7f9fc' }}>
               {/* Branch Specific Divider */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                <div style={{ width: '26px', height: '1px', backgroundColor: '#9d4141' }} />
+                <div style={{ width: '26px', height: '1px', backgroundColor: '#1E3A8A' }} />
                 <span style={{
                   fontSize: '15px',
                   fontWeight: 600,
                   fontFamily: 'Inter, sans-serif',
-                  color: '#9d4141',
+                  color: '#1E3A8A',
                   textTransform: 'uppercase',
                   letterSpacing: '0.75px'
                 }}>
                   Branch Specific
                 </span>
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#9d4141' }} />
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#1E3A8A' }} />
               </div>
 
               {/* Leave Types Section */}
@@ -345,7 +345,7 @@ const LeaveTypesBalance: React.FC = () => {
                     type="submit"
                     disabled={loading}
                     style={{
-                      backgroundColor: '#9d4141',
+                      backgroundColor: '#1E3A8A',
                       border: 'none',
                       borderRadius: '6px',
                       padding: '10px 20px',

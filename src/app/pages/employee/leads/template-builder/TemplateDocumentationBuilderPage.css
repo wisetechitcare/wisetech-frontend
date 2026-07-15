@@ -1,7 +1,7 @@
 :root {
   --docs-bg: #f8fafc;
-  --docs-primary: #9d4141;
-  --docs-primary-soft: rgba(157, 65, 65, 0.08);
+  --docs-primary: #1E3A8A;
+  --docs-primary-soft: rgba(30, 58, 138, 0.08);
   --docs-secondary: #334155;
   --docs-muted: #64748b;
   --docs-border: #e2e8f0;
@@ -202,7 +202,7 @@
   padding: 0.4rem 0.75rem;
   background: var(--docs-primary-soft);
   color: var(--docs-primary);
-  border: 1px solid rgba(157, 65, 65, 0.1);
+  border: 1px solid rgba(30, 58, 138, 0.1);
   border-radius: 8px;
   font-family: monospace;
   font-size: 0.8rem;

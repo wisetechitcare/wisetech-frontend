@@ -324,16 +324,16 @@ const RemindersTable = () => {
               variant="outlined"
               onClick={handleViewAll}
               sx={{
-                borderColor: "#9d4141",
-                color: "#9d4141",
+                borderColor: "#1E3A8A",
+                color: "#1E3A8A",
                 textTransform: "none",
                 fontSize: "14px",
                 fontWeight: 500,
                 padding: "10px 14px",
                 borderRadius: "6px",
                 "&:hover": {
-                  borderColor: "#9d4141",
-                  backgroundColor: "rgba(157, 65, 65, 0.04)",
+                  borderColor: "#1E3A8A",
+                  backgroundColor: "rgba(30, 58, 138, 0.04)",
                 },
               }}
             >
@@ -343,7 +343,7 @@ const RemindersTable = () => {
               variant="contained"
               onClick={handleNewReminder}
               sx={{
-                backgroundColor: "#9d4141",
+                backgroundColor: "#1E3A8A",
                 color: "white",
                 textTransform: "none",
                 fontSize: "14px",
@@ -370,7 +370,7 @@ const RemindersTable = () => {
               borderRadius: "323px",
               border:
                 activeTab === "received"
-                  ? "2px solid #9d4141"
+                  ? "2px solid #1E3A8A"
                   : "1px solid #a0b4d2",
               backgroundColor: "white",
               fontSize: "14px",
@@ -388,7 +388,7 @@ const RemindersTable = () => {
               borderRadius: "323px",
               border:
                 activeTab === "sent"
-                  ? "2px solid #9d4141"
+                  ? "2px solid #1E3A8A"
                   : "1px solid #a0b4d2",
               backgroundColor: "white",
               fontSize: "14px",

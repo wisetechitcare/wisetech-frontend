@@ -124,8 +124,8 @@ const ProjectStatusControl: React.FC<{
               style={{
                 width: 34, height: 34, borderRadius: 10, flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'linear-gradient(135deg, #AA393D17, #AA393D0A)',
-                color: '#AA393D',
+                background: 'linear-gradient(135deg, #1E3A8A17, #1E3A8A0A)',
+                color: '#1E3A8A',
               }}
             >
               <i className="bi bi-flag-fill" style={{ fontSize: 15 }} />
@@ -228,7 +228,7 @@ const ProjectStatusControl: React.FC<{
               if (selectedId) select(selectedId);
             }}
             disabled={saving || !selectedId || (selectedId === projectStatusId && !(showEndDate && endDateDraft !== toDateInputValue(actualEndDate)))}
-            style={{ backgroundColor: '#AA393D', borderColor: '#AA393D', color: '#fff', fontWeight: 700, borderRadius: 8, padding: '7px 18px' }}
+            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A', color: '#fff', fontWeight: 700, borderRadius: 8, padding: '7px 18px' }}
           >
             {saving ? 'Saving…' : 'Confirm'}
           </button>

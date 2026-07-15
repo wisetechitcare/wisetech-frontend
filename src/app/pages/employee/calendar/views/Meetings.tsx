@@ -10,6 +10,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import dayjs from 'dayjs';
 import Swal from 'sweetalert2';
 import MeetingsForm from '../../attendance/personal/views/my-leaves/MeetingsForm';
+import PremiumButton from '@app/modules/common/components/PremiumButton';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 
 interface Meeting {
@@ -142,13 +143,12 @@ const Meetings = () => {
       <div className="d-flex justify-content-between align-items-center mb-6">
         <h2 className="mb-0">Meetings</h2>
         {canCreate && (
-          <button
-            className="btn btn-primary d-flex align-items-center gap-2"
+          <PremiumButton
+            icon="bi-plus"
             onClick={() => setShowMeetingForm(true)}
           >
-            <i className="bi bi-plus fs-2"></i>
             Create Meeting
-          </button>
+          </PremiumButton>
         )}
       </div>
 

@@ -10,7 +10,7 @@
 .wt-noti-root {
   --wt-radius: 22px;
   --wt-card-radius: 15px;
-  --wt-brand: #9d4141;
+  --wt-brand: #1E3A8A;
   --wt-brand-2: #b94a4a;
   --wt-brand-3: #8c3232;
   --wt-surface: var(--bs-app-header-base-bg-color, var(--bs-card-bg, var(--bs-body-bg)));
@@ -139,7 +139,7 @@ body:has(.MuiDialog-root:not([aria-hidden='true'])) .wt-noti-root {
   color: #fff;
   background: linear-gradient(140deg, var(--wt-brand-2) 0%, var(--wt-brand-3) 100%);
   box-shadow:
-    0 3px 8px rgba(157, 65, 65, 0.32),
+    0 3px 8px rgba(30, 58, 138, 0.32),
     inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
@@ -407,7 +407,7 @@ body:has(.MuiDialog-root:not([aria-hidden='true'])) .wt-noti-root {
 
 .wt-search__input:focus {
   border-color: var(--wt-brand);
-  box-shadow: 0 0 0 3px rgba(157, 65, 65, 0.15);
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15);
 }
 
 .wt-search__clear {
@@ -577,7 +577,7 @@ body:has(.MuiDialog-root:not([aria-hidden='true'])) .wt-noti-root {
   display: grid;
   place-items: center;
   font-size: 0.85rem;
-  background: var(--wt-card-soft, rgba(157, 65, 65, 0.1));
+  background: var(--wt-card-soft, rgba(30, 58, 138, 0.1));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wt-card-accent, var(--wt-brand)) 16%, transparent);
 }
 

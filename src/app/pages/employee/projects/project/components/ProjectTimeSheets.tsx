@@ -98,7 +98,7 @@ const ProjectTimeSheets = ({id}: {id?: string}) => {
                   }`}
                   onClick={() => setBillableFilter(null)}
                   style={{
-                    border: "1px solid #7A2124",
+                    border: "1px solid #172554",
                     color: "black",
                     borderRadius: "20px",
                     fontFamily: "Barlow",
@@ -118,7 +118,7 @@ const ProjectTimeSheets = ({id}: {id?: string}) => {
                   }`}
                   onClick={() => setBillableFilter("true")}
                   style={{
-                    border: "1px solid #7A2124",
+                    border: "1px solid #172554",
                     color: "black",
                     borderRadius: "20px",
                     fontFamily: "Barlow",
@@ -138,7 +138,7 @@ const ProjectTimeSheets = ({id}: {id?: string}) => {
                   }`}
                   onClick={() => setBillableFilter("false")}
                   style={{
-                    border: "1px solid #7A2124",
+                    border: "1px solid #172554",
                     color: "black",
                     borderRadius: "20px",
                     fontFamily: "Barlow",

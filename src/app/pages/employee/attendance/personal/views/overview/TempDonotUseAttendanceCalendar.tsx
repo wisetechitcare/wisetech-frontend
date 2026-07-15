@@ -661,7 +661,7 @@ function AttendanceCalendar({ calendarCells , activeStartDate, setActiveStartDat
                                         <button 
                                             type='button' 
                                             className='btn btn-primary text-white'
-                                            style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }}
+                                            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                                             onClick={() => {
                                                 setShowRequestTypeSelection(true);
                                                 setRequestType(null);
@@ -672,8 +672,8 @@ function AttendanceCalendar({ calendarCells , activeStartDate, setActiveStartDat
                                         </button>
                                         
                                         <div className='d-flex gap-2'>
-                                            {disableRaiseRequest && <button type='button' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={requestLimitResetLoading} onClick={async ()=> await handleSendEmailForResetAttendanceRequestLimit(employeeId, setRequestLimitResetLoading, reportsToId || undefined)}>{requestLimitResetLoading ? "Please Wait..." : "Request To Reset Attendance Raise Limit"}</button>}
-                                            <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || limitMessage}>
+                                            {disableRaiseRequest && <button type='button' className='btn btn-primary' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={requestLimitResetLoading} onClick={async ()=> await handleSendEmailForResetAttendanceRequestLimit(employeeId, setRequestLimitResetLoading, reportsToId || undefined)}>{requestLimitResetLoading ? "Please Wait..." : "Request To Reset Attendance Raise Limit"}</button>}
+                                            <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || limitMessage}>
                                                 {!loading && 'Save Changes'}
                                                 {loading && (
                                                     <span className='indicator-progress' style={{ display: 'block' }}>

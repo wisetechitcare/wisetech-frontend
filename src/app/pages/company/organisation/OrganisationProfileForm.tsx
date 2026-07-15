@@ -492,7 +492,7 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                     {/* ⚙ Schema manager trigger */}
                                     <div className="d-flex justify-content-end mb-2">
                                         <button type="button" onClick={() => setShowSchemaManager(true)}
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1.5px solid #9D4141', borderRadius: '8px', padding: '6px 16px', color: '#9D4141', fontWeight: 700, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1.5px solid #1E3A8A', borderRadius: '8px', padding: '6px 16px', color: '#1E3A8A', fontWeight: 700, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                             <i className="bi bi-gear-fill" style={{ fontSize: '15px', lineHeight: 1 }} />
                                             <span>Manage Form Fields</span>
                                         </button>
@@ -500,9 +500,9 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
 
                                     {/* LOGO & STAMP */}
                                     <div className="mb-4">
-                                        <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
-                                            <legend style={{ fontSize: "17px", fontWeight: 600, fontFamily: "Inter", marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7", width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141", padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px" }}>
-                                                <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                                        <fieldset style={{ borderTop: "1px solid #1E3A8A", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
+                                            <legend style={{ fontSize: "17px", fontWeight: 600, fontFamily: "Inter", marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7", width: "auto", lineHeight: "1", letterSpacing: 0, color: "#1E3A8A", padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px" }}>
+                                                <div className="ms-5" style={{ borderTop: "1px solid #1E3A8A", width: "30px", height: "0px" }}></div>
                                                 LOGO & STAMP
                                             </legend>
                                             <div className="card-body card responsive-card p-md-10 p-3">
@@ -523,7 +523,7 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                                                 <p style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#000', margin: 0, lineHeight: 'normal' }}>Organization Logo</p>
                                                                 <p style={{ fontFamily: 'Inter', fontSize: '13px', fontWeight: 400, color: '#7a8597', margin: 0, lineHeight: '1.56' }}>PNG or JPG Format only, and not more than 5MB</p>
                                                             </div>
-                                                            <div className="d-flex gap-3" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#9d4141' }}>
+                                                            <div className="d-flex gap-3" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#1E3A8A' }}>
                                                                 <label style={{ cursor: 'pointer', margin: 0 }}>
                                                                     Remove
                                                                     <input
@@ -575,7 +575,7 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                                                     PNG or JPG Format only, and not more than 5MB
                                                                 </p>
                                                             </div>
-                                                            <div className="d-flex gap-3" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#9d4141' }}>
+                                                            <div className="d-flex gap-3" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#1E3A8A' }}>
                                                                 <label style={{ cursor: 'pointer', margin: 0 }}>
                                                                     Remove
                                                                     <input
@@ -611,9 +611,9 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                     {/* DATA-DRIVEN SECTIONS (order, titles, fields all come from formSchema) */}
                                     {formSchema.map(section => (
                                         <div key={section.id} className="mb-4">
-                                            <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
-                                                <legend style={{ fontSize: "17px", fontWeight: 600, fontFamily: "Inter", marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7", width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141", padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px" }}>
-                                                    <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                                            <fieldset style={{ borderTop: "1px solid #1E3A8A", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
+                                                <legend style={{ fontSize: "17px", fontWeight: 600, fontFamily: "Inter", marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7", width: "auto", lineHeight: "1", letterSpacing: 0, color: "#1E3A8A", padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px" }}>
+                                                    <div className="ms-5" style={{ borderTop: "1px solid #1E3A8A", width: "30px", height: "0px" }}></div>
                                                     {section.title}
                                                 </legend>
                                                 <div className="card-body card responsive-card p-md-10 p-3">

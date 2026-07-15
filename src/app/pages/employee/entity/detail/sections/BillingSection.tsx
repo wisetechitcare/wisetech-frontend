@@ -14,7 +14,7 @@ const BillingSection: React.FC<{ lead?: any }> = () => (
     <div
       style={{
         width: 72, height: 72, borderRadius: 20, marginBottom: 22,
-        background: '#9d414114', color: '#9d4141',
+        background: '#1E3A8A14', color: '#1E3A8A',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
     >

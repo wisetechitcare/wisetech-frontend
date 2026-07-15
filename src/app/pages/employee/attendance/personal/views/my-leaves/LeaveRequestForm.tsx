@@ -1018,10 +1018,10 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         const customStyles = {
           control: (provided: any) => ({
             ...provided,
-            border: hasLeaveTypeError ? '1px dashed #AA393D' : '1px solid #e4e6ea',
+            border: hasLeaveTypeError ? '1px dashed #1E3A8A' : '1px solid #e4e6ea',
             boxShadow: 'none',
             '&:hover': {
-              border: hasLeaveTypeError ? '1px dashed #AA393D' : '1px solid #b5b5c3',
+              border: hasLeaveTypeError ? '1px dashed #1E3A8A' : '1px solid #b5b5c3',
             },
           }),
           option: (provided: any, state: any) => ({

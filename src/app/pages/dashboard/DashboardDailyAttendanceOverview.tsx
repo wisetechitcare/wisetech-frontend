@@ -88,8 +88,8 @@ const CustomModal: React.FC<CustomModalProps> = ({
                 <Dropdown.Toggle
                   size="sm"
                   style={{
-                    backgroundColor: '#9D4141',
-                    borderColor: '#9D4141',
+                    backgroundColor: '#1E3A8A',
+                    borderColor: '#1E3A8A',
                     color: 'white',
                     whiteSpace: 'nowrap',
                     height: '35px',
@@ -139,14 +139,14 @@ const CustomModal: React.FC<CustomModalProps> = ({
                   onChange={(e) => onSearchChange(e.target.value)}
                   size="sm"
                   style={{
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                     outline: 'none',
                     boxShadow: 'none',
                     paddingRight: searchQuery ? '35px' : '12px'
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#9D4141';
-                    e.target.style.boxShadow = '0 0 0 0.2rem rgba(157, 65, 65, 0.25)';
+                    e.target.style.borderColor = '#1E3A8A';
+                    e.target.style.boxShadow = '0 0 0 0.2rem rgba(30, 58, 138, 0.25)';
                   }}
                   onBlur={(e) => {
                     e.target.style.boxShadow = 'none';
@@ -164,7 +164,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                       transform: 'translateY(-50%)',
                       backgroundColor: 'transparent',
                       border: 'none',
-                      color: '#9D4141',
+                      color: '#1E3A8A',
                       padding: '2px 6px',
                       fontSize: '14px',
                       cursor: 'pointer'
@@ -173,7 +173,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                       e.currentTarget.style.color = '#7d3434';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.color = '#9D4141';
+                      e.currentTarget.style.color = '#1E3A8A';
                     }}
                   >
                     <i className="bi bi-x-lg"></i>
@@ -188,7 +188,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
         maxHeight: '80vh',
         overflowY: 'auto',
         scrollbarWidth: 'thin',
-        scrollbarColor: '#9D4141 #f1f1f1'
+        scrollbarColor: '#1E3A8A #f1f1f1'
       }}>
         <style>
           {`
@@ -871,7 +871,7 @@ const DashboardDailyAttendanceOverview = () => {
         <Row className="g-3">
           {sortedEmployees.map(emp => (
             <Col md={4} key={emp._id}>
-              <div className="d-flex align-items-center p-3 rounded" style={{ transition: 'all 0.2s', border: '1px solid #9D4141' }}>
+              <div className="d-flex align-items-center p-3 rounded" style={{ transition: 'all 0.2s', border: '1px solid #1E3A8A' }}>
                 <Image
                   src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
                   roundedCircle
@@ -1280,13 +1280,13 @@ const DashboardDailyAttendanceOverview = () => {
               type="button"
               className="btn btn-sm"
               style={{
-                borderColor: '#9d4141',
-                color: '#9d4141',
+                borderColor: '#1E3A8A',
+                color: '#1E3A8A',
                 fontFamily: 'Inter',
                 fontSize: '14px',
                 fontWeight: '500',
                 borderRadius: '6px',
-                border: '1px solid #9d4141',
+                border: '1px solid #1E3A8A',
                 padding: '8px 18px',
                 whiteSpace: 'nowrap',
               }}
@@ -1340,7 +1340,7 @@ const DashboardDailyAttendanceOverview = () => {
                   maxHeight: '160px',
                   overflowY: 'scroll',
                   scrollbarWidth: 'thin',
-                  scrollbarColor: '#9d4141 #f0f0f0'
+                  scrollbarColor: '#1E3A8A #f0f0f0'
                 }}
               >
                 <div className="d-flex flex-column gap-2">
@@ -1393,7 +1393,7 @@ const DashboardDailyAttendanceOverview = () => {
                   maxHeight: '160px',
                   overflowY: 'scroll',
                   scrollbarWidth: 'thin',
-                  scrollbarColor: '#9d4141 #f0f0f0'
+                  scrollbarColor: '#1E3A8A #f0f0f0'
                 }}
               >
                 <div className="d-flex flex-column gap-2">
@@ -1439,7 +1439,7 @@ const DashboardDailyAttendanceOverview = () => {
                   maxHeight: '160px',
                   overflowY: 'scroll',
                   scrollbarWidth: 'thin',
-                  scrollbarColor: '#9d4141 #f0f0f0'
+                  scrollbarColor: '#1E3A8A #f0f0f0'
                 }}
               >
                 <div className="d-flex flex-column gap-2">
@@ -1485,7 +1485,7 @@ const DashboardDailyAttendanceOverview = () => {
                   maxHeight: '160px',
                   overflowY: 'scroll',
                   scrollbarWidth: 'thin',
-                  scrollbarColor: '#9d4141 #f0f0f0'
+                  scrollbarColor: '#1E3A8A #f0f0f0'
                 }}
               >
                 <div className="d-flex flex-column gap-2">
@@ -1531,7 +1531,7 @@ const DashboardDailyAttendanceOverview = () => {
                   maxHeight: '160px',
                   overflowY: 'scroll',
                   scrollbarWidth: 'thin',
-                  scrollbarColor: '#9d4141 #f0f0f0'
+                  scrollbarColor: '#1E3A8A #f0f0f0'
                 }}
               >
                 <div className="d-flex flex-column gap-2">

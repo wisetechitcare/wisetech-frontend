@@ -52,12 +52,12 @@ const StatusToggle: FC<StatusToggleProps> = ({ selectedStatus, onStatusChange, c
               borderWidth: "3px",
             },
             "& .Mui-selected": {
-              borderColor: "#9D4141 !important",
-              color: "#9D4141 !important",
+              borderColor: "#1E3A8A !important",
+              color: "#1E3A8A !important",
             },
             "& .MuiToggleButton-root:hover": {
-              borderColor: "#9D4141 !important",
-              color: "#9D4141 !important",
+              borderColor: "#1E3A8A !important",
+              color: "#1E3A8A !important",
             },
           }}
         >
@@ -96,12 +96,12 @@ const StatusToggle: FC<StatusToggleProps> = ({ selectedStatus, onStatusChange, c
               fontFamily: "Inter",
             },
             "& .Mui-selected": {
-              borderColor: "#9D4141 !important",
-              color: "#9D4141 !important",
+              borderColor: "#1E3A8A !important",
+              color: "#1E3A8A !important",
             },
             "& .MuiToggleButton-root:hover": {
-              borderColor: "#9D4141 !important",
-              color: "#9D4141 !important",
+              borderColor: "#1E3A8A !important",
+              color: "#1E3A8A !important",
             },
           }}
         >

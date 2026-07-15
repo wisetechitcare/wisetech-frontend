@@ -304,13 +304,13 @@ const MyTimeSheetToggle = ({
                                         backgroundColor: "transparent !important",
                                         "&:hover": {
                                             backgroundColor: "transparent !important",
-                                            borderColor: "#9D4141 !important",
-                                            color: "#9D4141 !important",
+                                            borderColor: "#1E3A8A !important",
+                                            color: "#1E3A8A !important",
                                         },
                                     },
                                     "& .Mui-selected": {
-                                        borderColor: "#9D4141 !important",
-                                        color: "#9D4141 !important",
+                                        borderColor: "#1E3A8A !important",
+                                        color: "#1E3A8A !important",
                                         backgroundColor: "transparent !important",
                                     },
                                 }}

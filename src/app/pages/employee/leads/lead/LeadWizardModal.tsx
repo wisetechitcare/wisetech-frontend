@@ -2396,6 +2396,11 @@ const LeadWizardModal = ({
     if (!createdById) {
       return;
     }
+
+    if (!prefix || !prefix.trim()) {
+      errorConfirmation("Inquiry No. is required");
+      return;
+    }
     const additionalDetailsFields = [
       "projectArea", "addresses",
       ...((leadTemplateId === leadAndProjectTemplateTypeId.webDev) ? ["type", "numberOfPages"] : [])

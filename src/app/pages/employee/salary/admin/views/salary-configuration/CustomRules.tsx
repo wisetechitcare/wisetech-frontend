@@ -198,16 +198,16 @@ function CustomRules() {
       <div style={{
         display: 'flex', alignItems: 'center', gap: '10px',
         padding: '14px 16px',
-        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        background: 'linear-gradient(135deg, #EEF3FC 0%, #fff8f8 100%)',
         borderRadius: '12px',
-        border: '1px solid rgba(157,65,65,0.1)',
+        border: '1px solid rgba(30, 58, 138,0.1)',
         marginBottom: '20px',
       }}>
         <div style={{
           width: '34px', height: '34px', borderRadius: '9px',
-          background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+          background: 'linear-gradient(135deg, #1E3A8A 0%, #3B5BA9 100%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+          boxShadow: '0 3px 10px rgba(30, 58, 138,0.25)', flexShrink: 0,
         }}>
           <i className="bi bi-sliders" style={{ fontSize: '15px', color: '#fff' }} />
         </div>
@@ -346,7 +346,7 @@ function CustomRules() {
                     type="submit"
                     disabled={loading || !formikProps.isValid}
                     style={{
-                      backgroundColor: '#9d4141',
+                      backgroundColor: '#1E3A8A',
                       border: 'none',
                       borderRadius: '8px',
                       color: 'white',
@@ -357,7 +357,7 @@ function CustomRules() {
                       fontSize: '15px',
                       cursor: (loading || !formikProps.isValid) ? 'not-allowed' : 'pointer',
                       opacity: (loading || !formikProps.isValid) ? 0.7 : 1,
-                      boxShadow: '0 4px 12px rgba(157, 65, 65, 0.2)',
+                      boxShadow: '0 4px 12px rgba(30, 58, 138, 0.2)',
                       transition: 'all 0.2s ease',
                       display: 'flex',
                       alignItems: 'center',

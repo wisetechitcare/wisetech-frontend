@@ -16,7 +16,7 @@ Font.register({
 const C = {
   navy: '#1A2D4B',
   navyDark: '#0f1e34',
-  brand: '#AA393D',
+  brand: '#1E3A8A',
   green: '#16a34a', greenBg: '#f0fdf4', greenBd: '#bbf7d0',
   red: '#dc2626', redBg: '#fff5f5', redBd: '#fecaca',
   orange: '#ea580c', orangeBg: '#fff7ed', orangeBd: '#fed7aa',

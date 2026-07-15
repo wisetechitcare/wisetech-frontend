@@ -31,7 +31,7 @@ interface Props {
   rangeEnd: Dayjs | null;
 }
 
-const ACCENT = "#9D4141";
+const ACCENT = "#1E3A8A";
 const FALLBACK_COLORS = ["#3B5BDB", "#2F9E44", "#E8590C", "#7048E8", "#E64980", "#1098AD", "#F08C00", "#868E96"];
 
 const leadCost = (rl: ReferredLead): number =>
@@ -213,12 +213,12 @@ const LeadReferralAnalytics: React.FC<Props> = ({ referredLeads, totalCount, mod
           <div style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid #E2E8F0", borderRadius: 6, padding: "0 12px", background: "#F8FAFC", height: 36, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ fontSize: 10, color: "#64748B", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.02em" }}>Value:</span>
-              <span style={{ fontSize: 14, color: "#AA393D", fontWeight: 800, fontFamily: "Inter, sans-serif" }}>{formatCurrencyCompact(totalValue)}</span>
+              <span style={{ fontSize: 14, color: "#1E3A8A", fontWeight: 800, fontFamily: "Inter, sans-serif" }}>{formatCurrencyCompact(totalValue)}</span>
             </div>
             <div style={{ width: 1, height: 14, backgroundColor: "#E2E8F0" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ fontSize: 10, color: "#64748B", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.02em" }}>Results:</span>
-              <span style={{ fontSize: 14, color: "#AA393D", fontWeight: 800, fontFamily: "Inter, sans-serif" }}>{referredLeads.length}</span>
+              <span style={{ fontSize: 14, color: "#1E3A8A", fontWeight: 800, fontFamily: "Inter, sans-serif" }}>{referredLeads.length}</span>
             </div>
           </div>
         </div>

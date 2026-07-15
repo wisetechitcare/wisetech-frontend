@@ -141,7 +141,7 @@ function DropDownInput({
             borderWidth: selectedColor ? '1px !important' : provided.borderWidth,
             backgroundColor: selectedColor ? `color-mix(in srgb, ${selectedColor} 15%, white) !important` : provided.backgroundColor,
             boxShadow: state.isFocused
-            ? `0 0 0 1px ${selectedColor || '#9D4141'}`
+            ? `0 0 0 1px ${selectedColor || '#1E3A8A'}`
             : provided.boxShadow,
         }),
 

@@ -412,7 +412,7 @@ export default function ProjectByLocationAndStatus({
             <FormControl sx={{ minWidth: 160 }} size="small">
               <InputLabel
                 id="status-label"
-                sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}
+                sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
               >
                 Status
               </InputLabel>
@@ -422,18 +422,18 @@ export default function ProjectByLocationAndStatus({
                 label="Status"
                 onChange={handleChange("status")}
                 sx={{
-                  color: '#9D4141',
+                  color: '#1E3A8A',
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '& .MuiSelect-icon': {
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                   },
                 }}
               >
@@ -448,7 +448,7 @@ export default function ProjectByLocationAndStatus({
             <FormControl sx={{ minWidth: 160 }} size="small">
               <InputLabel
                 id="country-label"
-                sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}
+                sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
               >
                 Country
               </InputLabel>
@@ -458,18 +458,18 @@ export default function ProjectByLocationAndStatus({
                 label="Country"
                 onChange={handleChange("country")}
                 sx={{
-                  color: '#9D4141',
+                  color: '#1E3A8A',
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '& .MuiSelect-icon': {
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                   },
                 }}
               >
@@ -484,7 +484,7 @@ export default function ProjectByLocationAndStatus({
             <FormControl sx={{ minWidth: 160 }} size="small">
               <InputLabel
                 id="state-label"
-                sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}
+                sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
               >
                 State
               </InputLabel>
@@ -494,18 +494,18 @@ export default function ProjectByLocationAndStatus({
                 label="State"
                 onChange={handleChange("state")}
                 sx={{
-                  color: '#9D4141',
+                  color: '#1E3A8A',
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '& .MuiSelect-icon': {
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                   },
                 }}
               >
@@ -520,7 +520,7 @@ export default function ProjectByLocationAndStatus({
             <FormControl sx={{ minWidth: 160 }} size="small">
               <InputLabel
                 id="city-label"
-                sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}
+                sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
               >
                 City
               </InputLabel>
@@ -530,18 +530,18 @@ export default function ProjectByLocationAndStatus({
                 label="City"
                 onChange={handleChange("city")}
                 sx={{
-                  color: '#9D4141',
+                  color: '#1E3A8A',
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '& .MuiSelect-icon': {
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                   },
                 }}
               >
@@ -556,7 +556,7 @@ export default function ProjectByLocationAndStatus({
             <FormControl sx={{ minWidth: 160 }} size="small">
               <InputLabel
                 id="locality-label"
-                sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}
+                sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
               >
                 Locality
               </InputLabel>
@@ -566,18 +566,18 @@ export default function ProjectByLocationAndStatus({
                 label="Locality"
                 onChange={handleChange("locality")}
                 sx={{
-                  color: '#9D4141',
+                  color: '#1E3A8A',
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '& .MuiSelect-icon': {
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                   },
                 }}
               >
@@ -592,7 +592,7 @@ export default function ProjectByLocationAndStatus({
             <FormControl sx={{ minWidth: 160 }} size="small">
               <InputLabel
                 id="sort-label"
-                sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}
+                sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
               >
                 Sort By
               </InputLabel>
@@ -602,18 +602,18 @@ export default function ProjectByLocationAndStatus({
                 label="Sort By"
                 onChange={handleChange("sortBy")}
                 sx={{
-                  color: '#9D4141',
+                  color: '#1E3A8A',
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '& .MuiSelect-icon': {
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                   },
                 }}
               >

@@ -4,7 +4,7 @@ import { IconBuilding, IconHierarchy, IconBranch, IconUsers, IconEdit, IconTrash
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
-  brand: '#9D4141',
+  brand: '#1E3A8A',
   brandSoft: '#FBEEEE',
   brandBorder: '#EBD2D2',
   ink: '#1F2430',
@@ -202,7 +202,7 @@ export default function OrgTree({ organizations, defaultExpandedDepth = 1, force
     `
     .org-tree-root { --ot-indent: 26px; }
     .org-tree__row { position: relative; display: flex; align-items: center; margin-bottom: 8px; }
-    .org-tree__card:hover { border-color: ${C.brandBorder} !important; box-shadow: 0 6px 18px rgba(157,65,65,.10); transform: translateY(-1px); }
+    .org-tree__card:hover { border-color: ${C.brandBorder} !important; box-shadow: 0 6px 18px rgba(30, 58, 138,.10); transform: translateY(-1px); }
     .org-tree__row--branch > div:hover { border-color: #C9DBF1 !important; box-shadow: 0 4px 12px rgba(59,111,176,.10); }
     .org-tree__actions { opacity: 0; transform: translateX(4px); transition: opacity .18s ease, transform .18s ease; }
     .org-tree__card:hover .org-tree__actions { opacity: 1; transform: translateX(0); }

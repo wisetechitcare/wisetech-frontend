@@ -77,7 +77,7 @@ const ContactLeadReferences: React.FC<{ referrals?: LeadReferral[] }> = ({ refer
       muiTableProps={{
         sx: { minWidth: 500 },
         muiTableBodyRowProps: ({ row }: any) => {
-          const color = row.original?.lead?.status?.color || "#AA393D";
+          const color = row.original?.lead?.status?.color || "#1E3A8A";
           return {
             sx: {
               cursor: "pointer",

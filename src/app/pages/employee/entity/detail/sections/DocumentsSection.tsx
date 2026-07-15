@@ -12,7 +12,7 @@ const Td: React.FC<{ children?: React.ReactNode; strong?: boolean }> = ({ childr
 );
 
 const DocLink: React.FC<{ href: string; icon: string; label: string }> = ({ href, icon, label }) => (
-  <a href={href} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#9d4141', textDecoration: 'none', fontSize: 12, fontWeight: 600 }}>
+  <a href={href} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#1E3A8A', textDecoration: 'none', fontSize: 12, fontWeight: 600 }}>
     <i className={icon} /> {label}
   </a>
 );

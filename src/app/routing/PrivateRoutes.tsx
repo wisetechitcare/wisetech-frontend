@@ -80,6 +80,8 @@ const WidgetsPage = lazy(() => import('../modules/widgets/WidgetsPage'))
 const ChatPage = lazy(() => import('../modules/apps/chat/ChatPage'))
 const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage'))
 const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
+const AppSettings = lazy(() => import('@pages/admin/AppSettings').then(m => ({ default: m.AppSettings })))
+const RolesPermissions = lazy(() => import('@pages/admin/RolesPermissions').then(m => ({ default: m.RolesPermissions })))
 const PrivateRoutes = () => {
   const [isStored, setIsStored] = useState(false)
   const employeeId = useSelector(
@@ -610,6 +612,22 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <SearchResultsPage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path='/admin/app-settings'
+          element={
+            <SuspensedView>
+              <AppSettings />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path='/admin/roles-permissions'
+          element={
+            <SuspensedView>
+              <RolesPermissions />
             </SuspensedView>
           }
         />

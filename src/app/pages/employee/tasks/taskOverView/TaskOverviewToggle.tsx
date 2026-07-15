@@ -268,13 +268,13 @@ const TaskOverviewToggle = ({
                   backgroundColor: "transparent !important", // Remove default background
                   "&:hover": {
                     backgroundColor: "transparent !important", // Remove hover background
-                    borderColor: "#9D4141 !important",
-                    color: "#9D4141 !important",
+                    borderColor: "#1E3A8A !important",
+                    color: "#1E3A8A !important",
                   },
                 },
                 "& .Mui-selected": {
-                  borderColor: "#9D4141 !important",
-                  color: "#9D4141 !important",
+                  borderColor: "#1E3A8A !important",
+                  color: "#1E3A8A !important",
                   backgroundColor: "transparent !important", // Remove selected background
                 },
               }}
@@ -366,7 +366,7 @@ const TaskOverviewToggle = ({
             style={{ minHeight: "300px" }}
           >
             <div className=" text-center" role="alert">
-              {/* <i className="fas fa-calendar-alt mb-3" style={{fontSize: '2rem', color: '#9D4141'}}></i> */}
+              {/* <i className="fas fa-calendar-alt mb-3" style={{fontSize: '2rem', color: '#1E3A8A'}}></i> */}
               <h4 className="alert-heading">Custom Date Range</h4>
               <p className="mb-2">You've selected custom date range mode.</p>
               <p className="mb-0">

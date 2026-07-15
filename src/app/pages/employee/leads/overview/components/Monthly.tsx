@@ -487,8 +487,9 @@ const Monthly = ({ month, endDate }: Props) => {
         setLocationRes(locationRes?.data || []);
         setCategoryData(categoryRes?.data || []);
 
-        setServiceData(serviceRes?.data || []),
-          setChartData({
+        setServiceData(serviceRes?.data || []);
+
+        setChartData({
             statusData: convertToChartData(
               statusRes?.data || [],
               "count",

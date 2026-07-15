@@ -339,7 +339,7 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
             <button
               onClick={() => setIsEditMode(true)}
               style={{
-                backgroundColor: '#9d4141',
+                backgroundColor: '#1E3A8A',
                 border: 'none',
                 borderRadius: '8px',
                 color: '#fff',
@@ -349,17 +349,17 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
                 cursor: 'pointer',
                 height: isMobile ? '36px' : '40px',
                 transition: 'all 0.2s',
-                boxShadow: '0 2px 4px rgba(157, 65, 65, 0.1)',
+                boxShadow: '0 2px 4px rgba(30, 58, 138, 0.1)',
                 flexShrink: 0,
                 marginLeft: '8px',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = '#8a3838';
-                e.currentTarget.style.boxShadow = '0 4px 8px rgba(157, 65, 65, 0.2)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(30, 58, 138, 0.2)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#9d4141';
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(157, 65, 65, 0.1)';
+                e.currentTarget.style.backgroundColor = '#1E3A8A';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(30, 58, 138, 0.1)';
               }}
             >
               Edit
@@ -406,7 +406,7 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
                     transition: 'all 0.2s ease',
                     borderRadius: '8px',
                     // backgroundColor: isActive ? '#fff' : 'transparent',
-                    // borderLeft: isActive ? '3px solid #9d4141' : '3px solid transparent',
+                    // borderLeft: isActive ? '3px solid #1E3A8A' : '3px solid transparent',
                     // boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.08)' : 'none',
                   }}
                   // onMouseEnter={(e) => {
@@ -426,7 +426,7 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
                     style={{
                       fontSize: '15px',
                       fontWeight: isActive ? 600 : 500,
-                      color: isActive ? '#9d4141' : '#5e6278',
+                      color: isActive ? '#1E3A8A' : '#5e6278',
                       transition: 'color 0.2s',
                     }}
                   >
@@ -436,7 +436,7 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
                     <span
                       style={{
                         fontSize: '12px',
-                        color: isActive ? '#9d4141' : '#a1a5b7',
+                        color: isActive ? '#1E3A8A' : '#a1a5b7',
                         marginLeft: '8px',
                         fontWeight: 500,
                       }}

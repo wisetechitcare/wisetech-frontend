@@ -15,10 +15,10 @@ import "./main.css"
 // Apps
 import { MetronicI18nProvider } from './_metronic/i18n/Metronici18n'
 import './_metronic/assets/sass/style.react.scss'
-import './_metronic/assets/fonticon/fonticon.css'
+// KTIcon renders duotone glyphs only (runtime default). The outline/solid
+// keenicons fonts and the fonticon set were imported but never rendered any
+// icon in the app, so their folders + imports were removed to trim ~3.4MB.
 import './_metronic/assets/keenicons/duotone/style.css'
-import './_metronic/assets/keenicons/outline/style.css'
-import './_metronic/assets/keenicons/solid/style.css'
 // import PauseCircleIcon from "@mui/icons-material/PauseCircle";
 /**
  * TIP: Replace this style import with rtl styles to enable rtl mode

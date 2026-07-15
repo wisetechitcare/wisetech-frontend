@@ -11,9 +11,13 @@ export interface BottomNavItemConfig {
   id: string
   /** Human-readable label (kept short for the tab bar). */
   label: string
-  /** Default (inactive) icon — an SVG url consumed by react-inlinesvg. */
+  /**
+   * Bootstrap icon class (e.g. `bi-calendar-check`) — the SAME icon set used by
+   * the desktop sidebar (`fontIcon`), so the two navs stay visually identical.
+   * Active/inactive state is conveyed by colour, so no separate active icon.
+   */
   icon: string
-  /** Optional active-state icon. Falls back to `icon` when absent. */
+  /** @deprecated Unused for font icons; state is handled by colour. */
   activeIcon?: string
   /** The route this item navigates to. */
   to: string

@@ -97,7 +97,7 @@ const CalenderToggle = () => {
               return (
                 <span
                   style={{
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                     cursor: 'pointer'
                   }}
                   onClick={() => navigate(`/contacts/${contact.id}`)}
@@ -117,7 +117,7 @@ const CalenderToggle = () => {
             return (
               <span
                 style={{
-                  color: '#9D4141',
+                  color: '#1E3A8A',
                   cursor: 'pointer'
                 }}
                 onClick={() => navigate(`/companies/${contact.companyId}`)}
@@ -265,8 +265,8 @@ const CalenderToggle = () => {
                             onClick={() => setActiveTab(tab.id)}
                             className={`px-6 py-2 fw-semibold rounded-pill`}
                             style={{
-                                border: activeTab === tab.id ? "2px solid #9D4141" : "2px solid #A0B4D2",
-                                color: activeTab === tab.id ? "#9D4141" : "#000000",
+                                border: activeTab === tab.id ? "2px solid #1E3A8A" : "2px solid #A0B4D2",
+                                color: activeTab === tab.id ? "#1E3A8A" : "#000000",
                                 backgroundColor: "transparent",
                                 transition: "all 0.3s ease-in-out",
                                 fontFamily: "'Inter', sans-serif",

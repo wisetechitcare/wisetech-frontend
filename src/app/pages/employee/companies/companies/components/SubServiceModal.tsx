@@ -99,7 +99,7 @@ const SubServiceModal: React.FC<Props> = ({ show, onClose, services, defaultPare
         </div>
       </Modal.Body>
       <Modal.Footer style={{ borderTop: "none" }}>
-        <Button variant="primary" onClick={handleSave} disabled={saving} style={{ backgroundColor: "#8B4444", border: "none" }}>
+        <Button variant="primary" onClick={handleSave} disabled={saving} style={{ backgroundColor: "#1E3A8A", border: "none" }}>
           {saving ? "Saving..." : "Save"}
         </Button>
       </Modal.Footer>

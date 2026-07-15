@@ -121,7 +121,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
               background: '#f8fafc',
               transition: 'all 0.2s ease',
             }}
-            onFocus={e => { e.target.style.borderColor = '#9d4141'; e.target.style.background = 'white'; e.target.style.boxShadow = '0 0 0 3px rgba(157,65,65,0.1)'; }}
+            onFocus={e => { e.target.style.borderColor = '#1E3A8A'; e.target.style.background = 'white'; e.target.style.boxShadow = '0 0 0 3px rgba(30, 58, 138,0.1)'; }}
             onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.background = '#f8fafc'; e.target.style.boxShadow = 'none'; }}
           />
           {state.searchFilters.query && (
@@ -156,7 +156,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
                   borderRadius: '8px',
                   border: 'none',
                   background: isActive ? 'white' : 'transparent',
-                  color: isActive ? '#9d4141' : '#64748b',
+                  color: isActive ? '#1E3A8A' : '#64748b',
                   fontSize: '11px',
                   fontWeight: 700,
                   textTransform: 'uppercase',
@@ -192,8 +192,8 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
               style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRight: '1px solid #e2e8f0', paddingRight: '10px', marginRight: '2px' }}
             >
               <span style={{
-                fontSize: '12px', fontWeight: 700, color: '#9d4141',
-                background: 'rgba(157,65,65,0.08)', padding: '5px 12px',
+                fontSize: '12px', fontWeight: 700, color: '#1E3A8A',
+                background: 'rgba(30, 58, 138,0.08)', padding: '5px 12px',
                 borderRadius: '8px', fontFamily: 'Inter',
               }}>
                 {state.selectedFiles.length} selected
@@ -242,10 +242,10 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       width: '100%', padding: '10px 16px',
-                      background: state.sortField === opt.field ? 'rgba(157,65,65,0.06)' : 'none',
+                      background: state.sortField === opt.field ? 'rgba(30, 58, 138,0.06)' : 'none',
                       border: 'none', cursor: 'pointer',
                       fontSize: '13px',
-                      color: state.sortField === opt.field ? '#9d4141' : '#374151',
+                      color: state.sortField === opt.field ? '#1E3A8A' : '#374151',
                       fontFamily: 'Inter', fontWeight: state.sortField === opt.field ? 600 : 400,
                     }}
                   >
@@ -273,7 +273,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
                 background: state.viewMode === view.mode ? 'white' : 'none',
                 border: 'none', borderRadius: '8px',
                 padding: '5px 10px', cursor: 'pointer',
-                fontSize: '14px', color: state.viewMode === view.mode ? '#9d4141' : '#64748b',
+                fontSize: '14px', color: state.viewMode === view.mode ? '#1E3A8A' : '#64748b',
                 boxShadow: state.viewMode === view.mode ? '0 2px 5px rgba(0,0,0,0.08)' : 'none',
                 transition: 'all 0.2s ease',
               }}

@@ -14,7 +14,7 @@ function RejoinHistory({ formikProps, index, onRemove }: any) {
                             onClick={() => onRemove(index)}
                             title="Remove this entry"
                             sx={{
-                                color: '#9D4141',
+                                color: '#1E3A8A',
                                 '&:hover': {
                                     backgroundColor: 'rgba(0, 0, 0, 0.04)',
                                 },

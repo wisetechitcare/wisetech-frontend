@@ -18,6 +18,7 @@ import { getEmployeeStatus, getEmployeeStatusString } from "@utils/employeeStatu
 import { usePermission } from "@hooks/usePermission";
 import EmployeeAccessTab from "./EmployeeAccessTab";
 import EmployeeProject from "./EmployeeProject";
+import MeetingsList from "@app/modules/common/components/MeetingsList";
 
 const ShowEmployeeDetailsToggle = () => {
   const { employeeId } = useParams<{ employeeId: string }>();
@@ -216,19 +217,20 @@ const ShowEmployeeDetailsToggle = () => {
               backgroundColor: "transparent !important",
               "&:hover": {
                 backgroundColor: "transparent !important",
-                borderColor: "#9D4141 !important",
-                color: "#9D4141 !important",
+                borderColor: "#1E3A8A !important",
+                color: "#1E3A8A !important",
               },
             },
             "& .Mui-selected": {
-              borderColor: "#9D4141 !important",
-              color: "#9D4141 !important",
+              borderColor: "#1E3A8A !important",
+              color: "#1E3A8A !important",
               backgroundColor: "transparent !important",
             },
           }}
         >
           <ToggleButton value="details">Details</ToggleButton>
           <ToggleButton value="projects">Projects</ToggleButton>
+          <ToggleButton value="meetings">Meetings</ToggleButton>
           {canManageAccess && <ToggleButton value="access">Access</ToggleButton>}
           {/* <ToggleButton value="configure">Configure</ToggleButton> */}
         </ToggleButtonGroup>
@@ -244,6 +246,11 @@ const ShowEmployeeDetailsToggle = () => {
         {activeTab === "projects" && (
           <div className="tab-pane fade show active">
             <EmployeeProject employeeId={employeeId!} />
+          </div>
+        )}
+        {activeTab === "meetings" && (
+          <div className="tab-pane fade show active">
+            <MeetingsList mode="employee" targetId={employeeId!} />
           </div>
         )}
         {activeTab === "access" && canManageAccess && (

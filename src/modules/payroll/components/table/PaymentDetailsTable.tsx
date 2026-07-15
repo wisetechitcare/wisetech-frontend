@@ -60,7 +60,7 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                         <Button
                             className="btn btn-sm btn-primary d-inline-flex align-items-center px-4 py-2 rounded-2 shadow-sm"
                             onClick={onAddPayment}
-                            style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}
+                            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                         >
                             <KTIcon iconName="plus" className="fs-3 me-2" />
                             Record Payout

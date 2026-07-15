@@ -234,7 +234,7 @@ const TaskCustomChart: React.FC<TaskCustomChartProps> = ({
                 maxHeight: "200px",
                 width: "100%",
                 scrollbarWidth: "thin",
-                scrollbarColor: "#9D4141 #f0f0f0",
+                scrollbarColor: "#1E3A8A #f0f0f0",
               }}
             >
               {uniqueFilteredData.map((item, index) => (

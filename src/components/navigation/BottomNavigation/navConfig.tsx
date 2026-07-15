@@ -9,7 +9,6 @@
  *
  * To add / reorder / gate a destination, edit this array only.
  */
-import { sidePanelIcons, reimbursementsIcons } from '@metronic/assets/sidepanelicons'
 import { isSectionBlocked } from '@utils/accessAreas'
 import { hasPermission } from '@utils/authAbac'
 import { can } from '@utils/can'
@@ -35,7 +34,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'attendance',
     label: 'Attendance',
-    icon: sidePanelIcons.attendance,
+    icon: 'bi-calendar-check',
     to: '/employee/attendance-and-leaves',
     match: ['/employee/attendance-and-leaves', '/employees/attendance-and-leaves'],
     order: 10,
@@ -48,7 +47,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'reimbursements',
     label: 'Expenses',
-    icon: sidePanelIcons.finance,
+    icon: 'bi-receipt',
     to: '/finance/bills',
     match: ['/finance/bills'],
     order: 20,
@@ -59,7 +58,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'reports',
     label: 'Report',
-    icon: sidePanelIcons.reports,
+    icon: 'bi-bar-chart',
     to: '/employee/report/kpis',
     match: ['/employee/report'],
     order: 30,
@@ -69,8 +68,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'tasks',
     label: 'Task',
-    icon: sidePanelIcons.tasks.default,
-    activeIcon: sidePanelIcons.tasks.active,
+    icon: 'bi-check2-square',
     to: '/tasks',
     match: ['/tasks'],
     order: 40,
@@ -79,8 +77,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'dashboard',
     label: 'Dashboard',
-    icon: sidePanelIcons.dashboard.default,
-    activeIcon: sidePanelIcons.dashboard.active,
+    icon: 'bi-speedometer2',
     to: '/dashboard',
     match: ['/dashboard'],
     order: 50,
@@ -89,8 +86,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'leads',
     label: 'Leads',
-    icon: sidePanelIcons.leads.default,
-    activeIcon: sidePanelIcons.leads.active,
+    icon: 'bi-megaphone',
     to: '/qc/leads',
     match: ['/qc/leads', '/leads/', '/employee/lead/'],
     order: 60,
@@ -99,8 +95,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'projects',
     label: 'Projects',
-    icon: sidePanelIcons.projects.default,
-    activeIcon: sidePanelIcons.projects.active,
+    icon: 'bi-briefcase',
     to: '/qc/projects',
     match: ['/qc/projects', '/projects/'],
     order: 70,
@@ -109,8 +104,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'timesheet',
     label: 'Timesheet',
-    icon: sidePanelIcons.timeTracker.default,
-    activeIcon: sidePanelIcons.timeTracker.active,
+    icon: 'bi-clock-history',
     to: '/tasks/timesheet',
     match: ['/tasks/timesheet', '/tasks/employee-timesheet'],
     order: 80,
@@ -119,8 +113,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'companies',
     label: 'Companies',
-    icon: sidePanelIcons.companiesIcon.default,
-    activeIcon: sidePanelIcons.companiesIcon.active,
+    icon: 'bi-building',
     to: '/qc/companies',
     match: ['/qc/companies', '/companies/'],
     order: 90,
@@ -129,8 +122,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'contacts',
     label: 'Contacts',
-    icon: sidePanelIcons.contactsIcon.default,
-    activeIcon: sidePanelIcons.contactsIcon.active,
+    icon: 'bi-person-lines-fill',
     to: '/qc/contacts',
     match: ['/qc/contacts', '/contacts/'],
     order: 100,
@@ -139,7 +131,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'people',
     label: 'People',
-    icon: sidePanelIcons.people,
+    icon: 'bi-people',
     to: '/employees',
     match: ['/employees'],
     order: 110,
@@ -148,7 +140,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'my-team',
     label: 'My Team',
-    icon: sidePanelIcons.people,
+    icon: 'bi-diagram-3',
     to: '/my-team',
     match: ['/my-team', '/approvals'],
     order: 120,
@@ -161,7 +153,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'finance',
     label: 'Finance',
-    icon: sidePanelIcons.finance,
+    icon: 'bi-cash-coin',
     to: '/finance/loans',
     match: ['/finance'],
     order: 130,
@@ -170,7 +162,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'notifications',
     label: 'Notifications',
-    icon: sidePanelIcons.company,
+    icon: 'bi-bell',
     to: '/employees/notifications',
     match: ['/employees/notifications'],
     order: 140,
@@ -179,7 +171,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   {
     id: 'profile',
     label: 'Profile',
-    icon: sidePanelIcons.people,
+    icon: 'bi-person-circle',
     to: '/crafted/pages/profile/overview',
     match: ['/crafted/pages/profile', '/employee/profile'],
     order: 150,

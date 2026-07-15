@@ -9,7 +9,7 @@ import FAQs from "./FAQs";
 
 const CustomizedTabs = styled(Tabs)({
     '& .MuiTabs-indicator': {
-        backgroundColor: '#9D4141',
+        backgroundColor: '#1E3A8A',
     },
     '& .MuiTab-textColorPrimary': {
         textTransform: 'none',
@@ -17,7 +17,7 @@ const CustomizedTabs = styled(Tabs)({
         color: 'black',
         fontSize: '1rem',
         '&.Mui-selected': {
-            color: '#9D4141',
+            color: '#1E3A8A',
         }
     }
 });

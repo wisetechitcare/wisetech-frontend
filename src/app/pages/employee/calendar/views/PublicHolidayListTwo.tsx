@@ -10,6 +10,7 @@ import PublicHoliday from "@pages/company/PublicHoliday";
 import { IPublicHolidayUpdate } from "@models/company";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { useEventBus } from "@hooks/useEventBus";
 import { deletePublicHolidayById, fetchAllBranches, fetchPublicHolidays } from "@services/company";
 import { T } from "@app/modules/common/components/ui/tokens";
@@ -654,21 +655,13 @@ function PublicHolidaysListTwo({
 
                     {/* Add Holiday Button */}
                     {isAdmin && (
-                        <button
-                            type="button"
-                            className="btn btn-sm text-white fw-bold d-flex align-items-center justify-content-center gap-2 border-0 wt-touch-target w-100 w-md-auto"
-                            style={{
-                                background: `linear-gradient(180deg, ${T.color.brand} 0%, ${T.color.brandHover} 100%)`,
-                                borderRadius: '6px',
-                                padding: '8px 16px',
-                                height: '38px',
-                                boxShadow: '0 4px 12px rgba(30, 58, 138, 0.15)'
-                            }}
+                        <PremiumButton
+                            icon="bi-plus"
+                            className="wt-touch-target w-100 w-md-auto"
                             onClick={() => setShowAddModal(true)}
                         >
-                            <KTIcon iconName="plus" className="fs-5 text-white" />
                             Add Holiday
-                        </button>
+                        </PremiumButton>
                     )}
                 </div>
             </div>

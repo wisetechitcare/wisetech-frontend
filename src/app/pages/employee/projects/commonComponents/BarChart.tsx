@@ -535,7 +535,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
               <FormControl sx={{ minWidth: 160 }} size="small">
                 <InputLabel
                   id="sort-label"
-                  sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}
+                  sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
                 >
                   Sort By
                 </InputLabel>
@@ -545,18 +545,18 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                   label="Sort By"
                   onChange={handleSort}
                   sx={{
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '& .MuiSelect-icon': {
-                      color: '#9D4141',
+                      color: '#1E3A8A',
                       fontSize: '1.9rem',
                     },
                     // Leave room for the larger dropdown arrow.
@@ -607,7 +607,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
               <FormControl sx={{ minWidth: 160 }} size="small">
                 <InputLabel
                   id="sort-label-simple"
-                  sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}
+                  sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
                 >
                   Sort By
                 </InputLabel>
@@ -617,18 +617,18 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                   label="Sort By"
                   onChange={handleSort}
                   sx={{
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '& .MuiSelect-icon': {
-                      color: '#9D4141',
+                      color: '#1E3A8A',
                       fontSize: '1.9rem',
                     },
                     // Leave room for the larger dropdown arrow.

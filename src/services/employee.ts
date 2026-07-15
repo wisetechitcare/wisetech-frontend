@@ -134,6 +134,39 @@ export const getMeetings = async (employeeId: string) => {
     }
 };
 
+// Meetings linked to a project (lead) — names come pre-resolved from the backend
+export const getMeetingsByProject = async (projectId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/by-project?projectId=${projectId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Meetings an employee organized or participates in (full history)
+export const getMeetingsByEmployee = async (targetEmployeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/by-employee?targetEmployeeId=${targetEmployeeId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Meetings where a contact is an external participant
+export const getMeetingsByContact = async (contactId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/by-contact?contactId=${contactId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 export const updateMeeting = async (meetingId: string, employeeId: string, updateData: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/employee/meetings?meetingId=${meetingId}&employeeId=${employeeId}`;

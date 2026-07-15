@@ -284,7 +284,7 @@ function PublicHolidaysListNew({selectedStartDate, selectedEndDate, holidaysToSh
         style={{
           width: "12px",
           height: "12px",
-          backgroundColor: "#AA393D",
+          backgroundColor: "#1E3A8A",
         }}
       ></div>
       <h3 className="m-0">Holidays List</h3>
@@ -317,7 +317,7 @@ function PublicHolidaysListNew({selectedStartDate, selectedEndDate, holidaysToSh
                   <span
                     className="badge text-white rounded"
                     style={{
-                      backgroundColor: weekendColors || "#AA393D",
+                      backgroundColor: weekendColors || "#1E3A8A",
                       display: "inline-block",
                     }}
                   >

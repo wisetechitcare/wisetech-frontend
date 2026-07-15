@@ -224,7 +224,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                         style={{
                             display: 'inline-block',
                             background: '#fef2f2',
-                            color: '#AA393D',
+                            color: '#1E3A8A',
                             fontWeight: 700,
                             fontSize: 11,
                             padding: '3px 8px',
@@ -245,7 +245,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 Cell: ({ row, renderedCellValue }: any) => (
                     <button
                         className="btn btn-link p-0 fw-bold fs-7"
-                        style={{ textDecoration: 'none', color: '#AA393D' }}
+                        style={{ textDecoration: 'none', color: '#1E3A8A' }}
                         onClick={(e) => {
                             e.stopPropagation();
                             setSelectedApprovalInstanceId(row.original.approvalInstanceId ?? null);
@@ -294,14 +294,14 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                     <span
                         className="fw-bolder fs-6"
                         style={{
-                            color: Number(renderedCellValue) > 0.005 ? '#AA393D' : '#16a34a',
+                            color: Number(renderedCellValue) > 0.005 ? '#1E3A8A' : '#16a34a',
                         }}
                     >
                         ₹{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
-                    <span style={{ color: '#AA393D', fontWeight: 700, fontSize: '1rem' }}>
+                    <span style={{ color: '#1E3A8A', fontWeight: 700, fontSize: '1rem' }}>
                         {formatINR(grandTotalRemainingAmount)}
                     </span>
                 ),

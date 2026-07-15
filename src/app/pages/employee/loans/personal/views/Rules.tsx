@@ -154,7 +154,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                     </div>
                     {hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.readOthers) && hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.create) && (
                         <div className="d-flex justify-content-start mt-3">
-                            <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} onClick={handleNew}>
+                            <Button style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} onClick={handleNew}>
                                 Add Loan Rule
                             </Button>
                         </div>
@@ -182,7 +182,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                                     <button
                                         type='submit'
                                         className='btn btn-primary'
-                                        style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }}
+                                        style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                                         disabled={loading || !formikProps.isValid}
                                     >
                                         {!loading && 'Save Changes'}

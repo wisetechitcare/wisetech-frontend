@@ -25,7 +25,7 @@ const buttonSx = {
     color: '#94a3b8',
     p: 0,
     '&:hover': {
-        color: '#7a2626',
+        color: '#172554',
         backgroundColor: '#f8fafc',
     },
     '&.Mui-disabled': {
@@ -44,7 +44,7 @@ const PeriodNavigator = ({
     nextTitle,
     minWidth = 'fit-content',
     sx,
-    labelColor = '#9d4141',
+    labelColor = '#1E3A8A',
 }: PeriodNavigatorProps) => (
     <Box
         sx={{

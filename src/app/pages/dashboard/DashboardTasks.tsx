@@ -46,7 +46,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
       text: "You won't be able to revert this!",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#9D4141",
+      confirmButtonColor: "#1E3A8A",
       cancelButtonColor: "#6c757d",
       confirmButtonText: "Yes, delete it!",
     });
@@ -362,7 +362,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
               color="primary"
               onClick={onNewTaskClick}
               sx={{
-                backgroundColor: '#9D4141',
+                backgroundColor: '#1E3A8A',
                 '&:hover': {
                   backgroundColor: '#7e3434'
                 },
@@ -380,13 +380,13 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
                 type="button"
                 className="btn btn-sm"
                 style={{
-                  borderColor: '#9d4141',
-                  color: '#9d4141',
+                  borderColor: '#1E3A8A',
+                  color: '#1E3A8A',
                   fontFamily: 'Inter',
                   fontSize: '14px',
                   fontWeight: '500',
                   borderRadius: '6px',
-                  border: '1px solid #9d4141',
+                  border: '1px solid #1E3A8A',
                   padding: '8px 18px',
                   whiteSpace: 'nowrap',
                 }}

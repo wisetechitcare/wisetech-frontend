@@ -388,8 +388,8 @@ function Attendance() {
                                 lng: location?.longitude || 0
                             }}>
                                 <Pin
-                                    background={'#AA393D'}
-                                    glyphColor={'#7a2124'}
+                                    background={'#1E3A8A'}
+                                    glyphColor={'#172554'}
                                 />
                             </AdvancedMarker>
                         </Map>

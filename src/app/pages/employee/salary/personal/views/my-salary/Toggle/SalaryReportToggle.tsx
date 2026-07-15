@@ -123,7 +123,7 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
                         },
                         '& .Mui-selected': {
                             backgroundColor: '#ffffff !important',
-                            color: '#aa393d !important',
+                            color: '#1E3A8A !important',
                             fontWeight: 700,
                             boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
                         },
@@ -142,7 +142,7 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
                         }}>
                             <i className="bi bi-chevron-left text-muted fs-6"></i>
                         </button>
-                        <span className="fw-bolder px-4 py-1 fs-6" style={{ color: '#aa393d' }}>{month.format('MMM YYYY')}</span>
+                        <span className="fw-bolder px-4 py-1 fs-6" style={{ color: '#1E3A8A' }}>{month.format('MMM YYYY')}</span>
                         <button 
                             className="btn btn-sm btn-icon btn-active-light border-start border-gray-200 rounded-end rounded-0 w-35px h-35px d-flex justify-content-center align-items-center" 
                             onClick={(e) => {
@@ -168,7 +168,7 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
                         }}>
                             <i className="bi bi-chevron-left text-muted fs-6"></i>
                         </button>
-                        <span className="fw-bolder px-4 py-1 fs-6" style={{ color: '#aa393d' }}>{formatFiscalYearLabel(fiscalYear)}</span>
+                        <span className="fw-bolder px-4 py-1 fs-6" style={{ color: '#1E3A8A' }}>{formatFiscalYearLabel(fiscalYear)}</span>
                         <button 
                             className="btn btn-sm btn-icon btn-active-light border-start border-gray-200 rounded-end rounded-0 w-35px h-35px d-flex justify-content-center align-items-center" 
                             onClick={(e) => {

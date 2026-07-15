@@ -521,7 +521,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
               <button
                 className='btn btn-sm d-flex align-items-center gap-2'
                 style={{
-                  background: '#aa393d',
+                  background: '#1E3A8A',
                   color: '#ffffff',
                   border: 'none',
                   fontSize: '12px',
