@@ -117,7 +117,12 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
 
     return attendance.map((empAttendance: IEmployeesAttendanceResponse) => {
         const { checkIn, checkOut, workingMethod, employeeId } = empAttendance;
-        const weekDay = getWeekDay(checkIn);
+        // Business weekday/date must be derived in the business timezone (MUMBAI_TZ),
+        // not the browser's local zone — a check-in in the 00:00-05:29 IST window is
+        // a different UTC calendar day, so an admin viewing from outside IST previously
+        // saw the wrong weekday (wrong weekend/holiday classification) and wrong date.
+        const checkInBusinessTz = checkIn ? convertToTimeZone(checkIn, MUMBAI_TZ) : null;
+        const weekDay = checkInBusinessTz ? checkInBusinessTz.format('dddd') : getWeekDay(checkIn);
 
         // Check if the day is a weekend based on the weekDay
         const isWeekend = weekends && typeof weekends === 'object' && weekends[weekDay.toLowerCase()] === "0";
@@ -130,8 +135,9 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
         const checkIn24Hour = checkIn ? formatTime24Hour(convertToTimeZone(checkIn, MUMBAI_TZ)) : '-NA-';
         const checkOut24Hour = checkOut ? formatTime24Hour(convertToTimeZone(checkOut, MUMBAI_TZ)) : '-NA-';
 
-        const date = new Date(checkIn);
-        const formattedDate = date.toISOString().split("T")[0];
+        const formattedDate = checkInBusinessTz
+            ? checkInBusinessTz.format('YYYY-MM-DD')
+            : new Date(checkIn).toISOString().split("T")[0];
 
         // Use 24-hour format for accurate duration calculation
         const getTimeDifferenceInMinutes = getTimeDifference(checkIn24Hour, checkOut24Hour);
@@ -179,6 +185,64 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
 interface DailyAttendanceProps {
     date: any; // dayjs object from parent
 }
+
+// Module-level component (not defined inside DailyAttendance via useCallback) so its
+// useState/useEffect calls are valid — hooks cannot be called inside a callback.
+// Currently unused (its one call site, the "location" column below, is commented out)
+// but kept available for when that column is re-enabled.
+const LocationCell = ({ latitude, longitude, location }: { latitude?: number, longitude?: number, location?: string }) => {
+    const [address, setAddress] = useState("Fetching...");
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const fetchAddress = async () => {
+            // Check location string FIRST (handles biometric "Biometric" where lat/lng are 0)
+            if (location) {
+                if (isMounted) setAddress(location);
+                return;
+            }
+
+            if (!latitude || !longitude) {
+                if (isMounted) setAddress("-NA-");
+                return;
+            }
+
+            try {
+                const res = await fetchAddressDetails(latitude, longitude);
+                if (isMounted) {
+                    setAddress(res.data.address || "No Address Found");
+                }
+            } catch (error) {
+                if (isMounted) {
+                    setAddress("Unable to fetch address");
+                }
+            }
+        };
+
+        fetchAddress();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [latitude, longitude, location]);
+
+    const mapUrl = latitude && longitude
+        ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+        : null;
+
+    return mapUrl ? (
+        <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <OverlayTrigger placement='top' overlay={<Tooltip id={`tooltip-${latitude}-${longitude}`}>{address}</Tooltip>}>
+                <span>
+                    {address.length > 30 ? `${address.substring(0, 30)}...` : address}
+                </span>
+            </OverlayTrigger>
+        </a>
+    ) : (
+        <span>{address}</span>
+    );
+};
 
 function DailyAttendance({ date }: DailyAttendanceProps) {
     const { filterIds } = useTeamFilter();
@@ -231,60 +295,6 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
     });
 
     const approvedLeaves = filteredLeaves.filter((leave: any) => leave.status === LeaveStatus.Approved);
-
-    const LocationCell = useCallback(({ latitude, longitude, location }: { latitude?: number, longitude?: number, location?: string }) => {
-        const [address, setAddress] = useState("Fetching...");
-
-        useEffect(() => {
-            let isMounted = true;
-
-            const fetchAddress = async () => {
-                // Check location string FIRST (handles biometric "Biometric" where lat/lng are 0)
-                if (location) {
-                    if (isMounted) setAddress(location);
-                    return;
-                }
-
-                if (!latitude || !longitude) {
-                    if (isMounted) setAddress("-NA-");
-                    return;
-                }
-
-                try {
-                    const res = await fetchAddressDetails(latitude, longitude);
-                    if (isMounted) {
-                        setAddress(res.data.address || "No Address Found");
-                    }
-                } catch (error) {
-                    if (isMounted) {
-                        setAddress("Unable to fetch address");
-                    }
-                }
-            };
-
-            fetchAddress();
-
-            return () => {
-                isMounted = false;
-            };
-        }, [latitude, longitude, location]);
-
-        const mapUrl = latitude && longitude
-            ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
-            : null;
-
-        return mapUrl ? (
-            <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <OverlayTrigger placement='top' overlay={<Tooltip id={`tooltip-${latitude}-${longitude}`}>{address}</Tooltip>}>
-                    <span>
-                        {address.length > 30 ? `${address.substring(0, 30)}...` : address}
-                    </span>
-                </OverlayTrigger>
-            </a>
-        ) : (
-            <span>{address}</span>
-        );
-    }, []);
 
     const StatusBadge = useCallback(({ status }: { status: string }) => {
         const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WEEKEND, WORKING_WEEKEND, LEAVE_TYPE } = ATTENDANCE_STATUS;

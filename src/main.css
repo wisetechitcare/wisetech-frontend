@@ -1,3 +1,9 @@
+/* Tailwind v4 entry — pulls in theme + Preflight (base reset) + utilities.
+   Everything Tailwind emits is wrapped in @layer, so the Metronic/Bootstrap
+   SCSS that loads AFTER this file (see main.tsx) keeps winning specificity
+   ties on the existing admin UI. Utilities apply on new/unstyled elements. */
+@import "tailwindcss";
+
  .no-scrollbar::-webkit-scrollbar {
      display: none;
  }

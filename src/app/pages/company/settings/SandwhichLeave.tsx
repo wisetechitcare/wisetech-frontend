@@ -237,12 +237,13 @@ function SandwichPatternStrip({ pattern }: { pattern: SandwichRulePattern }) {
     push(<DayTile key="lead" role="Before" icon="minus-circle" cond="Any" status="any" />);
   }
 
-  const n = Math.max(1, pattern.runLength);
-  const shown = Math.min(n, 3);
+  const isAny = pattern.runLength === 'any';
+  const n = typeof pattern.runLength === 'number' ? Math.max(1, pattern.runLength) : 2;
+  const shown = isAny ? 2 : Math.min(n, 3);
   const { role, icon } = interiorMeta(pattern.interiorDayType);
   for (let i = 0; i < shown; i++) {
     push(<DayTile key={`int${i}`} role={role} icon={icon}
-      cond={i === shown - 1 && n > shown ? `+${n - shown} more` : undefined}
+      cond={isAny ? (i === shown - 1 ? 'any length' : undefined) : (i === shown - 1 && n > shown ? `+${n - shown} more` : undefined)}
       status={pattern.excludeInteriorDaysFromSalary ? 'excluded' : 'counts'} />);
   }
 
@@ -490,8 +491,21 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
                   <MenuItem value="holiday-bridge">Holiday-Bridge</MenuItem>
                   <MenuItem value="weekend-bridge">Weekend-Bridge</MenuItem>
                 </TextField>
-                <TextField type="number" label="Interior off-day run length" value={pattern.runLength} size="small"
-                  inputProps={{ min: 1 }} onChange={(e) => set({ runLength: Math.max(1, parseInt(e.target.value) || 1) })} />
+                {/* Exact run length, OR toggle "Any" to match a bridge of any length (catch-all). */}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <TextField type="number" label="Interior off-day run length" size="small" sx={{ flex: 1 }}
+                    value={pattern.runLength === 'any' ? '' : pattern.runLength}
+                    disabled={pattern.runLength === 'any'}
+                    placeholder={pattern.runLength === 'any' ? 'Any length' : undefined}
+                    inputProps={{ min: 1 }}
+                    onChange={(e) => set({ runLength: Math.max(1, parseInt(e.target.value) || 1) })} />
+                  <Tooltip title="Match a bridge of ANY length (e.g. long weekends, festival breaks)">
+                    <FormControlLabel sx={{ ...controlLabelSx, mr: 0, flexShrink: 0 }}
+                      control={<Switch size="small" checked={pattern.runLength === 'any'}
+                        onChange={(e) => set({ runLength: e.target.checked ? 'any' : 2 })} />}
+                      label="Any" />
+                  </Tooltip>
+                </Box>
               </Box>
               <TextField select label="Interior days must be" value={pattern.interiorDayType ?? 'any'} onChange={(e) => set({ interiorDayType: e.target.value as any })} size="small" fullWidth>
                 <MenuItem value="any">Holiday or Weekend (either)</MenuItem>

@@ -22,6 +22,7 @@ import {
 } from '@utils/leaveAllocation';
 import {
     createEmployeeLeaveRequest,
+    updateEmployeeRequestById,
     fetchEmployeeLeaveBalance,
     fetchEmployeeLeaves,
     fetchAllEmployees,
@@ -141,7 +142,7 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
     const [types, setTypes] = useState<UiLeaveType[]>([]);
     const [priority, setPriority] = useState<string[]>(DEFAULT_PRIORITY);
     const [overflow, setOverflow] = useState<'spillToUnpaid' | 'block'>('spillToUnpaid');
-    const [probation, setProbation] = useState({ enabled: false, durationDays: 90 });
+    const [probation, setProbation] = useState({ enabled: false, durationDays: 90, allowUnpaid: true });
     // Cumulative monthly-pacing pool (paid, non-Maternal, non-Unpaid) — mirrors the BE pool in
     // leaveAllocationService so the live preview applies the same cap the server will book against.
     const [cumulativePool, setCumulativePool] = useState<{ totalPaidAllocated: number; usedPlusPendingPaid: number }>(
@@ -198,9 +199,13 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
 
                 // Public holidays, fetched fresh with their configured names. Resolved via the
                 // active org id (same path the attendance overview uses). Kept local to this hook.
+                // observedIn is intentionally omitted so we receive the SAME full company set the
+                // server charges against (getPublicHolidaysByDateRange has no region filter). A
+                // region filter here would drop holidays the backend still books, diverging the
+                // preview's chargeable days from the actual booking.
                 const companyId = resolveActiveOrgId(coRes?.data?.companyOverview) ?? '';
                 if (companyId) {
-                    fetchAllPublicHolidays('India', companyId)
+                    fetchAllPublicHolidays(undefined, companyId)
                         .then((phRes: any) => {
                             if (!alive) return;
                             const list: any[] = phRes?.data?.publicHolidays ?? [];
@@ -253,6 +258,7 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                 setProbation({
                     enabled: !!cfg?.probation?.enabled,
                     durationDays: Number(cfg?.probation?.durationDays) || 90,
+                    allowUnpaid: cfg?.probation?.allowUnpaidDuringProbation !== false,
                 });
                 const sp = cfg?.sameDayPenalty ?? {};
                 setSameDayPenalty(
@@ -314,6 +320,7 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                 balances,
                 priorityOrder: order,
                 probationActive,
+                probationAllowUnpaid: probation.allowUnpaid,
                 unit,
                 cumulative: {
                     totalPaidAllocated: cumulativePool.totalPaidAllocated,
@@ -356,6 +363,40 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
         [employeeId],
     );
 
+    // Edit an existing request. `id` is a LeaveTracker segment id; the backend PUT is group-aware
+    // and re-allocates the whole request. Same payload shape as create.
+    const update = useCallback(
+        async (id: string, s: ApplyLeaveState) => {
+            setSubmitting(true);
+            try {
+                let documents: LeaveDocument[] = [];
+                if (s.files.length) documents = await uploadLeaveDocuments(s.files);
+                const autoAllocate = !s.leaveTypeId;
+                const isHalfDayValid = s.isHalfDay && !!s.halfDaySession;
+                // NOTE: the PUT handler rejects `employeeId` and `status` as restricted fields — the
+                // owner is derived from the existing leave record, and status is never changed on
+                // edit. Sending either throws BadRequestError, so the update payload omits both
+                // (unlike the create payload). Admin-on-behalf edits are scoped by the record's id.
+                const payload = {
+                    dateFrom: s.from!,
+                    dateTo: s.to!,
+                    reason: s.reason || undefined,
+                    isHalfDay: isHalfDayValid,
+                    halfDaySession: isHalfDayValid ? (s.halfDaySession ?? 'AM') : undefined,
+                    autoAllocate,
+                    ...(autoAllocate ? {} : { leaveTypeId: s.leaveTypeId }),
+                    ...(documents.length ? { documents } : {}),
+                } as any;
+                const res = await updateEmployeeRequestById(id, payload);
+                if (res?.hasError) throw new Error(res?.detail || res?.message || 'Failed to update leave');
+                return res?.data;
+            } finally {
+                setSubmitting(false);
+            }
+        },
+        [employeeId],
+    );
+
     /**
      * Live approval status for a submitted request. `requestId` is the requestGroupId
      * (auto-allocated) or the LeaveTracker id (manual). Returns null when no workflow
@@ -373,5 +414,5 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
         [],
     );
 
-    return { loading, submitting, types, balances, priority, overflow, probation, chain, myLeaves, holidayInfo, preview, submit, fetchStatus, lopPerDay, sameDayPenalty };
+    return { loading, submitting, types, balances, priority, overflow, probation, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty };
 }

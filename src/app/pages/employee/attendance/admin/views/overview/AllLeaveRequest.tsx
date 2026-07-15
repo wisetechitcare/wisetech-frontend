@@ -18,7 +18,7 @@ import { pageSize, useServerPagination } from "@hooks/useServerPagination";
 import Loader from "@app/modules/common/utils/Loader";
 import { fetchColorAndStoreInSlice, generateFiscalYearFromGivenYear } from "@utils/file";
 import { Modal } from "react-bootstrap";
-import LeaveRequestForm from "@pages/employee/attendance/personal/views/my-leaves/LeaveRequestForm";
+import ApplyLeave from "@pages/employee/attendance/personal/views/my-leaves/ApplyLeave";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import dayjs from "dayjs";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
@@ -324,23 +324,37 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
                 </Modal.Body>
             </Modal>
 
-            <Modal show={showEditModal} onHide={handleCloseEditModal} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>Edit Leave Request</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <LeaveRequestForm
+            {/* Admin edit — the shared canonical ApplyLeave modal (edit mode) on behalf of the
+                employee via `target`. Owns its own card chrome, so we provide the backdrop. */}
+            {showEditModal && selectedLeave && (
+                <div
+                    onClick={(e) => { if (e.target === e.currentTarget) handleCloseEditModal(); }}
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 1050, background: 'rgba(15,23,42,.45)', display: 'flex',
+                        alignItems: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'flex-end' : 'center',
+                        justifyContent: 'center', padding: (typeof window !== 'undefined' && window.innerWidth < 768) ? 0 : 24, overflowY: 'auto',
+                    }}
+                >
+                    <ApplyLeave
+                        mode="edit"
                         onClose={handleCloseEditModal}
-                        leave={selectedLeave}
-                        isAdmin={true}
-                        employeeIdProp={selectedLeave?.employeeId}
-                        employeeBranchIdProp={selectedLeave?.branchId}
-                        dateOfJoiningProp={selectedLeave?.dateOfJoining}
-                        startDateNew={fiscalYearStart}
-                        endDateNew={fiscalYearEnd}
+                        existing={{
+                            id: (selectedLeave as any)?.id,
+                            dateFrom: (selectedLeave as any)?.dateFrom ? dayjs((selectedLeave as any).dateFrom).format('YYYY-MM-DD') : '',
+                            dateTo: (selectedLeave as any)?.dateTo ? dayjs((selectedLeave as any).dateTo).format('YYYY-MM-DD') : '',
+                            reason: (selectedLeave as any)?.reason ?? '',
+                            isHalfDay: (selectedLeave as any)?.isHalfDay,
+                            halfDaySession: (selectedLeave as any)?.halfDaySession ?? null,
+                            status: (selectedLeave as any)?.statusNumber ?? (selectedLeave as any)?.status,
+                        }}
+                        target={{
+                            employeeId: (selectedLeave as any)?.employeeId,
+                            branchId: (selectedLeave as any)?.branchId,
+                            dateOfJoining: (selectedLeave as any)?.dateOfJoining,
+                        }}
                     />
-                </Modal.Body>
-            </Modal>
+                </div>
+            )}
         </>
     );
 }

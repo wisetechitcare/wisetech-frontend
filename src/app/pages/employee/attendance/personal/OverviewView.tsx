@@ -331,7 +331,15 @@ function OverviewView() {
             dispatch(saveToggleChange(!store.getState().attendanceStats.toggleChange));
         };
         socket.on('approval:updated', handler);
-        return () => { socket.off('approval:updated', handler); };
+        socket.on('approval:cancelled', handler);
+        // Also refresh on a leave apply/edit/delete anywhere (admin or another session) so the
+        // attendance calendar's leave-derived days stay live even without an approval decision.
+        socket.on('leaveRequests:updated', handler);
+        return () => {
+            socket.off('approval:updated', handler);
+            socket.off('approval:cancelled', handler);
+            socket.off('leaveRequests:updated', handler);
+        };
     }, []);
 
     const checkInCheckOut = useSelector((state: RootState) => state.attendance.openModal);

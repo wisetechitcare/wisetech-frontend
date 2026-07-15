@@ -69,6 +69,14 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       eventBus.emit(EVENT_KEYS.attendanceUpdated, payload || {});
     };
 
+    // leave mutations (apply/edit/delete/per-segment) + approval decisions/cancellations. The
+    // Balance board (BalanceProgress) subscribes to the eventBus leaveRequestUpdated key but NOT to
+    // sockets directly, so without this bridge the balance card stayed stale after an approver acted
+    // while the leave list beside it updated live. One bridge covers it.
+    const onLeaveChanged = () => {
+      eventBus.emit(EVENT_KEYS.leaveRequestUpdated, { leaveId: '' });
+    };
+
     socket.on('connect', onConnect);
     socket.on('lead_project_synced', onLeadProjectSynced);
     socket.on('project_linked', onProjectLinked);
@@ -76,6 +84,9 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
     socket.on('biometric_device_updated', onBiometricDeviceUpdated);
     socket.on('reimbursement_changed', onReimbursementChanged);
     socket.on('attendance_updated', onAttendanceUpdated);
+    socket.on('leaveRequests:updated', onLeaveChanged);
+    socket.on('approval:updated', onLeaveChanged);
+    socket.on('approval:cancelled', onLeaveChanged);
 
     return () => {
       socket.off('connect', onConnect);
@@ -85,6 +96,9 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       socket.off('biometric_device_updated', onBiometricDeviceUpdated);
       socket.off('reimbursement_changed', onReimbursementChanged);
       socket.off('attendance_updated', onAttendanceUpdated);
+      socket.off('leaveRequests:updated', onLeaveChanged);
+      socket.off('approval:updated', onLeaveChanged);
+      socket.off('approval:cancelled', onLeaveChanged);
     };
   }, [employeeId]);
 }

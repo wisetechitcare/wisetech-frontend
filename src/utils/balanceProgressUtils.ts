@@ -434,14 +434,18 @@ export interface CumulativeInputs {
  * @param leavesSummary - The `leavesSummary` array from fetchEmployeeLeaveBalance.
  */
 export const buildCumulativeInputs = (leavesSummary: any[] = []): CumulativeInputs => {
-    const CUMULATIVE_PAID_TYPES = [ANNUAL_LEAVES, CASUAL_LEAVES, SICK_LEAVES, FLOATER_LEAVES];
-
+    // Match the BACKEND cumulative pool exactly (leaveAllocationService.resolveLeaveContext): EVERY
+    // paid type (isPaid !== false, by name not "unpaid") that is NOT Maternal — NOT a hardcoded
+    // 4-type whitelist. The old whitelist silently dropped any other paid type (e.g. "Privilege" /
+    // "Earned Leaves"), making the FE preview cap looser than the server actually enforces.
     let totalNonMaternalPaidAllocated = 0;
     const takenIncludingPendingByType: Record<string, number> = {};
 
     (leavesSummary || []).forEach((summary: any) => {
         const leaveType = summary?.leaveType;
-        if (!CUMULATIVE_PAID_TYPES.includes(leaveType)) return;
+        const t = String(leaveType || '').toLowerCase();
+        const isPaidType = summary?.isPaid !== false && !t.includes('unpaid');
+        if (!isPaidType || t.includes('matern')) return;
 
         totalNonMaternalPaidAllocated += Number(summary.numberOfDays) || 0;
         takenIncludingPendingByType[leaveType] =

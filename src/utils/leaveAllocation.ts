@@ -104,6 +104,8 @@ export interface AllocationInput {
     balances: TypeBalance[];
     priorityOrder: string[];
     probationActive?: boolean;
+    /** During probation: true (default) → force Unpaid; false → block leave entirely. */
+    probationAllowUnpaid?: boolean;
     unit?: number;
     cumulative?: CumulativeContext;
     unpaidLabel?: string;
@@ -216,6 +218,11 @@ export function allocateLeave(input: AllocationInput): AllocationResult {
     }
 
     if (input.probationActive) {
+        if (input.probationAllowUnpaid === false) {
+            return finalize([], unit, notes, {
+                reason: 'Leave is not allowed during your probation period.',
+            });
+        }
         notes.push('Probation period: paid leave is not allowed yet — booked as Unpaid.');
         const probationSegs = [toSegment(unpaidLabel, chargeable, unit, false)];
         if (sandwichDates.length > 0) {

@@ -3,7 +3,7 @@ import { MRT_ColumnDef, MRT_Row } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { usePermission } from '@hooks/usePermission';
 import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
-import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction, fetchReimbursementBatchById } from '@services/employee';
+import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction, fetchReimbursementBatchById, decideLeaveSegment } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -14,11 +14,13 @@ import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/share
 
 // A single leave segment within a multi-segment (sandwich) group request — one LeaveTracker row.
 type LeaveSegment = {
+  id?: string;
   leaveType?: string | null;
   isPaid?: boolean;
   days?: number;
   dateFrom?: string | null;
   dateTo?: string | null;
+  status?: number; // 0=pending, 1=approved, 2=rejected — per-segment (bifurcation)
 };
 
 type RequestDetails = {
@@ -311,15 +313,53 @@ function ExpandedDetail({
   splitStatus,
   workflowType,
   details,
+  canDecide,
+  onDecide,
 }: {
   instanceId: string;
   splitStatus?: 1 | 2;
   workflowType?: string;
   details?: RequestDetails | null;
+  canDecide?: boolean;
+  onDecide?: (segmentId: string, decision: 'approved' | 'rejected') => void;
 }) {
+  const segments = details?.segments ?? [];
+  const isGroupLeave = workflowType === 'leave' && segments.length > 1;
   return (
     <div style={{ padding: '16px 20px', background: '#fafafa', borderTop: '1px solid #eff2f5' }}>
       {workflowType === 'attendance' && details ? <AttendanceDetailCard details={details} /> : null}
+
+      {/* Per-segment decisions (bifurcation): an approver may approve/reject each segment of a
+          grouped leave independently; the whole-group Approve/Reject still acts on what's left pending. */}
+      {isGroupLeave && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase', color: '#a1a5b7', marginBottom: 8 }}>Segments</div>
+          <div className='d-flex flex-column gap-2'>
+            {segments.map((s, i) => {
+              const pending = (s.status ?? 0) === 0;
+              return (
+                <div key={s.id ?? i} className='d-flex align-items-center gap-2 flex-wrap' style={{ padding: '8px 12px', border: '1px solid #eceef0', borderRadius: 9, background: '#fff' }}>
+                  <span className='fw-semibold fs-8'>{s.leaveType ?? 'Leave'}</span>
+                  <span className='fs-8 text-muted'>{typeof s.days === 'number' ? `${s.days}d` : ''}</span>
+                  <span className={`badge fs-8 ${s.isPaid ? 'badge-light-success text-success' : 'badge-light-danger text-danger'}`}>{s.isPaid ? 'Paid' : 'Unpaid'}</span>
+                  <span className='ms-auto'>
+                    {s.status === 1 && <span className='badge badge-light-success text-success fs-8'>✓ Approved</span>}
+                    {s.status === 2 && <span className='badge badge-light-danger text-danger fs-8'>✕ Rejected</span>}
+                    {pending && canDecide && s.id && onDecide && (
+                      <span className='d-inline-flex gap-2'>
+                        <button className='btn btn-sm btn-light-success py-1 px-3 fs-8' onClick={() => onDecide(s.id!, 'approved')}>Approve</button>
+                        <button className='btn btn-sm btn-light-danger py-1 px-3 fs-8' onClick={() => onDecide(s.id!, 'rejected')}>Reject</button>
+                      </span>
+                    )}
+                    {pending && !canDecide && <span className='badge badge-light-warning text-warning fs-8'>Pending</span>}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <ApprovalStatusTracker
         instanceId={instanceId}
         showAuditLog
@@ -416,12 +456,17 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
 
   useEffect(() => { load(activeTab); }, [activeTab]);
 
-  // Auto-refresh when a new approval is pending for this approver
+  // Auto-refresh when a new approval is pending for this approver, or when a request is
+  // withdrawn/cancelled by the requester (so orphaned rows disappear live).
   useEffect(() => {
     const socket = getSocket();
     const handler = () => load();
     socket.on('approval:pending', handler);
-    return () => { socket.off('approval:pending', handler); };
+    socket.on('approval:cancelled', handler);
+    return () => {
+      socket.off('approval:pending', handler);
+      socket.off('approval:cancelled', handler);
+    };
   }, [load]);
 
   const approve = async (step: ApprovalStep) => {
@@ -816,6 +861,15 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             splitStatus={(row.original as DisplayStep)._splitStatus}
             workflowType={row.original.instance.workflowType}
             details={row.original.requestDetails}
+            canDecide={canApprove && activeTab === 'pending' && !(row.original as DisplayStep)._splitStatus}
+            onDecide={async (segmentId, decision) => {
+              try {
+                await decideLeaveSegment(segmentId, decision);
+                await load();
+              } catch (err) {
+                console.error('Per-segment decision failed', err);
+              }
+            }}
           />
         )}
         muiTableProps={{

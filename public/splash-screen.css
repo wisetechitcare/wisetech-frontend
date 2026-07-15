@@ -1,7 +1,7 @@
 html {
   font-size: 13px;
   font-weight: 400;
-  font-family: Inter,Helvetica,sans-serif;
+  font-family: Inter, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -16,69 +16,174 @@ body.page-loading {
   display: none;
 }
 
+/* ============================================================
+   Premium enterprise loading screen (pre-React HTML splash).
+   Pure CSS — renders before the app bundle loads. Gradient
+   (blue→purple→pink→amber) matches the login's Antigravity caret
+   so loading → app feels like one product.
+   ============================================================ */
 .page-loading .splash-screen {
   position: absolute;
   z-index: 99999;
+  inset: 0;
   width: 100vw;
   height: 100vh;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
   font-family: Inter, Helvetica, 'sans-serif';
-  background-color: #fff;
+  background:
+    radial-gradient(130% 90% at 50% -10%, #F4F7FF 0%, rgba(244, 247, 255, 0) 55%),
+    #FFFFFF;
 }
 
-.page-loading .splash-screen .loading-text {
-  color: #99A1B7;
-  margin-left: 1.25rem;
-  font-size: 1.075rem;
+/* drifting gradient orbs for depth */
+.splash-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(64px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.splash-orb--1 {
+  width: 360px;
+  height: 360px;
+  top: -9%;
+  left: -6%;
+  background: radial-gradient(circle, rgba(66, 133, 244, 0.42), transparent 70%);
+  animation: orbDrift1 15s ease-in-out infinite;
+}
+.splash-orb--2 {
+  width: 420px;
+  height: 420px;
+  bottom: -12%;
+  right: -8%;
+  background: radial-gradient(circle, rgba(217, 101, 112, 0.36), transparent 70%);
+  animation: orbDrift2 17s ease-in-out infinite;
+}
+
+.splash-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 34px;
+  animation: splashFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* logo with a shimmer sweep */
+.splash-logo-wrap {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  animation: splashLogoIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.splash-logo {
+  height: 72px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+.splash-logo-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 36%,
+    rgba(255, 255, 255, 0.65) 50%,
+    transparent 64%
+  );
+  transform: translateX(-160%);
+  animation: splashShimmer 2.8s ease-in-out 0.9s infinite;
+}
+
+/* gradient ring spinner (matches the login gradient caret) */
+.splash-loader {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: conic-gradient(from 90deg, #4285F4, #9B72CB, #D96570, #F9AB55, #4285F4);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+  filter: drop-shadow(0 2px 8px rgba(155, 114, 203, 0.35));
+  animation: splashSpin 0.95s linear infinite;
+}
+
+.loading-text {
+  margin: 0;
+  color: #64748B;
+  font-size: 0.9rem;
   font-weight: 500;
+  letter-spacing: 0.05em;
+  animation: splashTextPulse 2s ease-in-out infinite;
 }
 
+/* ── Dark theme ─────────────────────────────────────────────── */
 html[data-bs-theme='dark'] .page-loading .splash-screen {
-  background-color: #151521;
+  background:
+    radial-gradient(130% 90% at 50% -10%, rgba(110, 155, 255, 0.10) 0%, rgba(11, 15, 26, 0) 55%),
+    #0B0F1A;
   color: #ffffff;
 }
+html[data-bs-theme='dark'] .loading-text {
+  color: #94A3B8;
+}
+html[data-bs-theme='dark'] .splash-orb {
+  opacity: 0.4;
+}
 
+/* theme-scoped logo visibility (unchanged behaviour) */
 .splash-screen .dark-logo {
   display: none;
 }
-
 .splash-screen .light-logo {
   display: block;
 }
-
 html[data-bs-theme='dark'] .splash-screen .light-logo {
   display: none;
 }
-
 html[data-bs-theme='dark'] .splash-screen .dark-logo {
   display: block;
 }
 
-.loader {
-  width: 2rem;
-  height: 2rem;
-  border: 0.185rem solid #1B84FF;
-  border-bottom-color: transparent;
-  border-radius: 50%;
-  display: inline-block;
-  box-sizing: border-box;
-  animation: rotation 0.65s linear infinite;
+/* ── Keyframes ──────────────────────────────────────────────── */
+@keyframes splashFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes splashLogoIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes splashShimmer {
+  0%        { transform: translateX(-160%); }
+  55%, 100% { transform: translateX(160%); }
+}
+@keyframes splashSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes splashTextPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+@keyframes orbDrift1 {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(40px, 30px); }
+}
+@keyframes orbDrift2 {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(-40px, -28px); }
 }
 
-@keyframes rotation {
-  0% {
-      transform: rotate(0deg);
-  }
-  100% {
-      transform: rotate(360deg);
-  }
-}
-
-.loader-wrapper {
-  display: flex;
-  align-items: center;
-  margin-top: 1.25rem;
+/* Respect reduced-motion — calm, static state */
+@media (prefers-reduced-motion: reduce) {
+  .splash-inner,
+  .splash-logo-wrap { animation: none; }
+  .splash-logo-wrap::after { display: none; }
+  .splash-orb { animation: none; }
+  .loading-text { animation: none; }
+  .splash-loader { animation-duration: 1.8s; }
 }

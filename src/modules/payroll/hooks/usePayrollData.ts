@@ -15,12 +15,12 @@ import {
     getTotalDaysInYear
 } from '@utils/statistics';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
-import { 
-    getAllUnPaidLeavesForCurrentYear, 
-    getAllUnPaidLeavesCurrentMonth, 
-    getAllPaidLeavesCurrentMonth, 
-    getAllPaidLeaveOfYearFilteredByStartAndEndDate 
-} from '@utils/sandwhichConfiguration';
+import {
+    getAllUnPaidLeavesForCurrentYear,
+    getAllUnPaidLeavesCurrentMonth,
+    getAllPaidLeavesCurrentMonth,
+    getAllPaidLeaveOfYearFilteredByStartAndEndDate
+} from '@utils/leaveCount';
 import { saveToggleChange } from '@redux/slices/attendanceStats';
 
 export const usePayrollData = (
@@ -93,18 +93,16 @@ export const usePayrollData = (
             setIsLoading(true);
             const baseDate = dayjs(`${year}-${month}-01`);
             
-            // Pass null (not the sandwich config) so these COUNT the stored leave rows directly and
-            // do NOT re-apply the legacy sandwich scenario logic. Sandwich days are now decided
-            // once, on the backend (rule-driven booking, SANDWICH_RULES.md §13 / v7.0), and already
-            // persisted as the correct paid/unpaid LeaveTracker rows — re-classifying them here was
-            // the D-7 divergence between the payslip display and actual payroll.
+            // Count the stored leave rows directly (backend rule engine already decided sandwich
+            // days, v7.0). @utils/leaveCount does NOT re-apply legacy sandwich logic — that
+            // client-side re-classification was the old D-7 payslip-vs-payroll divergence.
             const unpaidLeavesPromise = isYearly
-                ? getAllUnPaidLeavesForCurrentYear(baseDate, null as any, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), null as any, fromAdmin, [employee]);
+                ? getAllUnPaidLeavesForCurrentYear(baseDate, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), fromAdmin, [employee]);
 
             const paidLeavesPromise = isYearly
-                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, null as any, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), null as any, fromAdmin, [employee]);
+                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), fromAdmin, [employee]);
 
             const [unpaid, paid] = await Promise.all([unpaidLeavesPromise, paidLeavesPromise]);
 

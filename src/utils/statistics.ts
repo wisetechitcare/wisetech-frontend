@@ -21,7 +21,7 @@ import { fetchBranchById, fetchCompanyOverview, fetchConfiguration, fetchPublicH
 import { DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { fetchCompanySettings } from '@services/options';
 import { generateFiscalYearFromGivenYear } from "./file";
-import { getAllWeekends } from "./sandwhichConfiguration";
+import { getAllWeekends } from "./leaveCount";
 import { errorConfirmation, successConfirmation } from "./modal";
 
 import axios from "axios";
@@ -3906,17 +3906,21 @@ export function formatDisplay(input: string): string {
 
 
 export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHolidays: any[]): (any & { isWeekendOrHoliday: boolean })[] => {
-    // Prepare holiday date strings in "YYYY-MM-DD"
-    const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
+    // Prepare holiday date strings in "YYYY-MM-DD", forced to IST — matching the
+    // IST-forced attendance date below. Both sides must use the same timezone or a
+    // holiday stored near a day boundary silently fails to match (employee shown
+    // ABSENT on a public holiday). `?? []` guards a null holiday list (was `allHolidays?.filter(...).map(...)`,
+    // which threw once the optional chain ended before `.map`).
+    const allHolidaysWithoutWeeknd = (allHolidays ?? []).filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
+        allHolidaysWithoutWeeknd.map(h => dayjs(h.date).tz('Asia/Kolkata').format("YYYY-MM-DD"))
     );
 
     // const weekndsList = holidayDates?.filter()
 
     const allWeekendsJson = parseWorkingDays(allWeekends);
 
-    const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
+    const alternateWeekends = (allHolidays ?? []).filter(data => data?.isWeekend)
 
     return attendance.map(entry => {
         const dayKey = entry.day?.toLowerCase() || '';
@@ -3926,7 +3930,7 @@ export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHol
 
         const entryDate = entry?.date ? new Date(entry.date) : dayjs().toDate();
 
-        const formattedDate = dayjs(entryDate).format("YYYY-MM-DD");
+        const formattedDate = dayjs(entryDate).tz('Asia/Kolkata').format("YYYY-MM-DD");
 
         const isHoliday = holidayDates.has(formattedDate);
 
@@ -3940,17 +3944,21 @@ export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHol
 
 
 export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeekends: any, allHolidays: any[]): (any & { isWeekendOrHoliday: boolean })[] => {
-    // Prepare holiday date strings in "YYYY-MM-DD"
-    const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
+    // Prepare holiday date strings in "YYYY-MM-DD", forced to IST — matching the
+    // IST-forced attendance date below. Both sides must use the same timezone or a
+    // holiday stored near a day boundary silently fails to match (employee shown
+    // ABSENT on a public holiday). `?? []` guards a null holiday list (was `allHolidays?.filter(...).map(...)`,
+    // which threw once the optional chain ended before `.map`).
+    const allHolidaysWithoutWeeknd = (allHolidays ?? []).filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
+        allHolidaysWithoutWeeknd.map(h => dayjs(h.date).tz('Asia/Kolkata').format("YYYY-MM-DD"))
     );
 
     // const weekndsList = holidayDates?.filter()
 
     const allWeekendsJson = parseWorkingDays(allWeekends);
 
-    const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
+    const alternateWeekends = (allHolidays ?? []).filter(data => data?.isWeekend)
 
     return attendance.map(entry => {
         const dayKey = entry.day?.toLowerCase() || '';
@@ -3960,7 +3968,7 @@ export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeeken
 
         const entryDate = entry?.date ? new Date(entry.date) : dayjs().toDate();
 
-        const formattedDate = dayjs(entryDate).format("YYYY-MM-DD");
+        const formattedDate = dayjs(entryDate).tz('Asia/Kolkata').format("YYYY-MM-DD");
 
         const isHoliday = holidayDates.has(formattedDate);
         //   const entryNew = entry;

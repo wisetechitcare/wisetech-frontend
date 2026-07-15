@@ -1,6 +1,5 @@
 import { Button, Dialog, DialogContent, styled } from '@mui/material'
 import { useEffect, useState } from 'react';
-import LeaveRequestForm from './views/my-leaves/LeaveRequestForm';
 import ApplyLeave from './views/my-leaves/ApplyLeave';
 import BalanceProgress from './views/my-leaves/BalanceProgress';
 import Leaves from './views/my-leaves/Leaves';

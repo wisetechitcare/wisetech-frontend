@@ -30,7 +30,7 @@ import * as Yup from 'yup';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons/index'
 import { LeaveStatus } from '@constants/attendance';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
-import { getAllUnPaidLeavesForCurrentYear, getAllUnPaidLeavesCurrentMonth, getAllPaidLeavesCurrentMonth, getAllPaidLeaveOfYear, getAllPaidLeaveOfYearFilteredByStartAndEndDate } from '@utils/sandwhichConfiguration'
+import { getAllUnPaidLeavesForCurrentYear, getAllUnPaidLeavesCurrentMonth, getAllPaidLeavesCurrentMonth, getAllPaidLeaveOfYearFilteredByStartAndEndDate } from '@utils/leaveCount'
 import DateInput from '@app/modules/common/inputs/DateInput';
 import SalaryIncrementModal from '@app/modules/employee/salary/SalaryIncrementModal';
 import { createUpdateGrossPayConfiguration, fetchGrossPayConfiguration, validateGrossPayConfigurationJson } from '@services/employee';
@@ -1757,17 +1757,16 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
             // Log the processing attempt
 
-            // Prepare all promises. Pass null (not the sandwich config) so these COUNT the stored
-            // leave rows directly and do NOT re-apply the legacy sandwich scenario logic — sandwich
-            // days are now decided once on the backend (rule-driven booking, v7.0) and already
-            // persisted correctly. Re-classifying here was the D-7 payslip-vs-payroll divergence.
+            // Count the stored leave rows directly (backend rule engine already decided sandwich
+            // days, v7.0). @utils/leaveCount does NOT re-apply legacy sandwich logic — that
+            // client-side re-classification was the old D-7 payslip-vs-payroll divergence.
             const unpaidLeavesPromise = isYearly
-                ? getAllUnPaidLeavesForCurrentYear(baseDate, null as any, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), null as any, fromAdmin, [employee]);
+                ? getAllUnPaidLeavesForCurrentYear(baseDate, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), fromAdmin, [employee]);
 
             const paidLeavesPromise = isYearly
-                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, null as any, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), null as any, fromAdmin, [employee]);
+                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), fromAdmin, [employee]);
 
             // removed reimbursement from gross pay as per discussion but keeping the commnet just in cases needed in future again
             // const reimbursementsPromise = isYearly

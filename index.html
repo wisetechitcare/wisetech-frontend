@@ -43,14 +43,18 @@
 
   <!--begin::Loading markup-->
   <div id="splash-screen" class="splash-screen">
-    <!-- Needs to be fetched from the server in future instead of hardcoding -->
-    <img src="https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2"
-      class="dark-logo" alt="Wisetech MEP dark logo" />
-    <img src="https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2"
-      class="light-logo" alt="Wisetech MEP light logo" />
-    <div class="loader-wrapper">
-      <span class="loader"></span>
-      <span class="loading-text">Loading...</span>
+    <div class="splash-orb splash-orb--1"></div>
+    <div class="splash-orb splash-orb--2"></div>
+    <div class="splash-inner">
+      <!-- Needs to be fetched from the server in future instead of hardcoding -->
+      <div class="splash-logo-wrap">
+        <img src="https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2"
+          class="dark-logo splash-logo" alt="Wisetech MEP dark logo" />
+        <img src="https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2"
+          class="light-logo splash-logo" alt="Wisetech MEP light logo" />
+      </div>
+      <div class="splash-loader" role="progressbar" aria-label="Loading"></div>
+      <div class="loading-text">Preparing your workspace…</div>
     </div>
   </div>
   <!--end::Loading markup-->

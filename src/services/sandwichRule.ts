@@ -4,7 +4,8 @@ import { SANDWICH_RULE } from "@constants/api-endpoint";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 export interface SandwichRulePattern {
-  runLength: number;
+  /** Positive integer = match a run of exactly that length; 'any' = match a run of any length (>=1). */
+  runLength: number | 'any';
   /** 'holiday' = interior days must be genuine active holidays (not weekends); 'weekend' = must
    * be a branch off-day (a holiday marked isWeekend also counts); 'any' = either qualifies. */
   interiorDayType?: 'holiday' | 'weekend' | 'any';

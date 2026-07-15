@@ -3,7 +3,9 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { CustomLeaves, Leaves } from "@models/employee";
 import { saveLeaves } from "@redux/slices/attendanceStats";
 import { RootState, store } from "@redux/store";
-import { fetchPublicHolidays, fetchLeaveOptions } from "@services/company";
+import { fetchPublicHolidays, fetchLeaveOptions, fetchConfiguration } from "@services/company";
+import { isWithinProbation } from "@utils/leaveAllocation";
+import { LEAVE_POLICY_KEY } from "@constants/configurations-key";
 import { fetchEmployeeLeaveBalance, fetchEmployeeLeaves, getAllLeaveManagements } from "@services/employee";
 import { fetchAllAddonLeavesAllowances } from "@services/addonLeavesAllowance";
 import { hasPermission } from "@utils/authAbac";
@@ -62,6 +64,31 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
     const dateOfJoining = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.dateOfJoining : state.employee.currentEmployee?.dateOfJoining);
     const employeeBranchId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.branchId : state.employee.currentEmployee?.branchId);
+
+    // New-Joiner Probation: paid leave is blocked during the probation window. Fetch the policy
+    // so the balance card can signal it (the paid allocation is still shown — it's entitlement —
+    // but the banner makes clear it isn't usable until probation ends).
+    const [probationCfg, setProbationCfg] = useState<{ enabled: boolean; durationDays: number; allowUnpaid: boolean }>({ enabled: false, durationDays: 90, allowUnpaid: true });
+    useEffect(() => {
+        (async () => {
+            try {
+                const { data: { configuration } } = await fetchConfiguration(LEAVE_POLICY_KEY);
+                const raw = configuration?.configuration;
+                const cfg = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+                const p = cfg?.probation ?? {};
+                setProbationCfg({
+                    enabled: !!p.enabled,
+                    durationDays: Number(p.durationDays) > 0 ? Number(p.durationDays) : 90,
+                    allowUnpaid: p.allowUnpaidDuringProbation !== false,
+                });
+            } catch { /* keep defaults — no banner */ }
+        })();
+    }, []);
+    const probationActive = probationCfg.enabled && isWithinProbation(dateOfJoining as any, probationCfg.durationDays);
+    const probationEndLabel = useMemo(
+        () => (dateOfJoining ? dayjs(dateOfJoining).add(probationCfg.durationDays, 'day').format('DD MMM, YYYY') : ''),
+        [dateOfJoining, probationCfg.durationDays],
+    );
 
     const isInFiscalEndMonth = useMemo(() => {
         if (!endDateNew) return false;
@@ -502,8 +529,29 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                 </div>
             </Card>
 
+            {/* New-Joiner Probation banner — paid leave is blocked until the probation window ends */}
+            {probationActive && (
+                <div className="mt-4" style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '12px',
+                    padding: '14px 16px', borderRadius: '12px',
+                    background: '#fff8ec', border: '1px solid #f5d9a8',
+                }}>
+                    <span style={{ fontSize: '18px', lineHeight: 1, flexShrink: 0 }}>🔒</span>
+                    <div>
+                        <div style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 600, fontSize: '15px', color: '#8a5a1e' }}>
+                            You're in your probation period
+                        </div>
+                        <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '13.5px', color: '#9a6a2e', marginTop: '2px', lineHeight: 1.5 }}>
+                            {probationCfg.allowUnpaid
+                                ? <>Paid leave is not available yet — during probation you can only apply for <strong>Unpaid leave</strong>. Your paid balances below are your yearly entitlement and unlock {probationEndLabel ? <>on <strong>{probationEndLabel}</strong></> : 'after probation ends'}.</>
+                                : <>Leave is not available during probation. Your paid balances below are your yearly entitlement and unlock {probationEndLabel ? <>on <strong>{probationEndLabel}</strong></> : 'after probation ends'}.</>}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Paid & Unpaid Leave Balance Cards */}
-            <div className='d-flex flex-column flex-md-row' style={{ gap: '12px' }}>
+            <div className='d-flex flex-column flex-md-row' style={{ gap: '12px', ...(probationActive ? { opacity: 0.85 } : {}) }}>
 
                 {/* LEFT CARD - Paid Leaves Balance */}
                 <Card className="mt-4" style={{ flex: 1, padding: '20px', borderRadius: '12px' }}>
