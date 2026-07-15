@@ -121,7 +121,7 @@ const Faqs = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                             type="button"
                             onClick={() => handleEdit()}
                             style={{
-                                background: '#9d4141',
+                                background: '#1E3A8A',
                                 color: '#fff',
                                 border: 'none',
                                 borderRadius: '7px',
@@ -177,7 +177,7 @@ const Faqs = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                                     <button
                                         type="submit"
                                         className="btn"
-                                        style={{ background: '#9d4141', color: '#fff', border: 'none' }}
+                                        style={{ background: '#1E3A8A', color: '#fff', border: 'none' }}
                                         disabled={loading || !formikProps.isValid || !formikProps.dirty}
                                     >
                                         {loading ? (

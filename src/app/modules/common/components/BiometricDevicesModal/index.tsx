@@ -336,7 +336,7 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
     <>
     <Dialog open={show} onClose={onClose} maxWidth="lg" fullWidth fullScreen={isMobile} disableEnforceFocus PaperProps={{ sx: { borderRadius: isMobile ? 0 : '16px', fontFamily: T.font.family, display: 'flex', flexDirection: 'column' } }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, px: { xs: 2, sm: 2.75 }, py: { xs: 1.5, sm: 1.75 }, background: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)', borderBottom: '3px solid #C0392B', color: '#fff', flexShrink: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, px: { xs: 2, sm: 2.75 }, py: { xs: 1.5, sm: 1.75 }, background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)', borderBottom: '3px solid #3B82F6', color: '#fff', flexShrink: 0 }}>
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
           <Box sx={{ width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', flexShrink: 0 }}>
             <KTIcon iconName="fingerprint-scanning" className="fs-1" />
@@ -547,7 +547,7 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
       sx={{ zIndex: (theme) => theme.zIndex.modal + 2 }}
       PaperProps={{ sx: { width: { xs: '100%', sm: 420 } } }}
     >
-      <Box sx={{ px: 2.25, py: 1.75, background: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)', borderBottom: '3px solid #C0392B', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Box sx={{ px: 2.25, py: 1.75, background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)', borderBottom: '3px solid #3B82F6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontWeight: 750, fontSize: 15, color: '#fff' }}>Sync History</Typography>
           <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{history.device?.name}</Typography>

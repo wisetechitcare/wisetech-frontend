@@ -214,16 +214,16 @@ function MaterialTable({
   // Memoize finalData to prevent infinite re-renders
   const finalData = useMemo(() => {
     let processedData: any = [];
-    let dataExtractedWithEmployeeId = data.filter(
+    const dataExtractedWithEmployeeId = data.filter(
       (v: any) => v.employeeId != null,
     );
-    let dataExtractedWithoutEmployeeId = data.filter(
+    const dataExtractedWithoutEmployeeId = data.filter(
       (v: any) => v.employeeId == null,
     );
 
     if (resource) {
       if (viewOthers) {
-        let newData = dataExtractedWithEmployeeId.filter((val: any) => {
+        const newData = dataExtractedWithEmployeeId.filter((val: any) => {
           return hasPermission(
             resource,
             permissionConstToUseWithHasPermission.readOthers,
@@ -232,7 +232,7 @@ function MaterialTable({
         });
         processedData = [...processedData, ...newData];
       } else if (viewOwn) {
-        let newData = dataExtractedWithEmployeeId.filter((val: any) => {
+        const newData = dataExtractedWithEmployeeId.filter((val: any) => {
           return hasPermission(
             resource,
             permissionConstToUseWithHasPermission.readOwn,
@@ -242,7 +242,7 @@ function MaterialTable({
         processedData = [...processedData, ...newData];
       }
       if (checkOwnWithOthers) {
-        let newData = dataExtractedWithEmployeeId.filter((val: any) => {
+        const newData = dataExtractedWithEmployeeId.filter((val: any) => {
           return hasPermission(
             resource,
             permissionConstToUseWithHasPermission.readOwn,
@@ -331,7 +331,7 @@ function MaterialTable({
     dragOriginX.current = e.clientX;
     dragOriginScrollLeft.current = tableContainerRef.current?.scrollLeft ?? 0;
     const t = scrollThumbRef.current;
-    if (t) { t.style.backgroundColor = '#AA393D'; t.style.boxShadow = '0 0 0 4px rgba(170,57,61,0.25)'; t.style.cursor = 'grabbing'; }
+    if (t) { t.style.backgroundColor = '#1E3A8A'; t.style.boxShadow = '0 0 0 4px rgba(30, 58, 138,0.25)'; t.style.cursor = 'grabbing'; }
   }, []);
 
   const onThumbPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -650,7 +650,7 @@ function MaterialTable({
             main: "rgb(52, 52, 52)",
           },
           primary: {
-            main: "rgb(170, 57, 61)",
+            main: "rgb(30, 58, 138)",
           },
           background: {
             default: mode === "light" ? "#fff" : "#000",
@@ -701,13 +701,13 @@ function MaterialTable({
               switchBase: {
                 color: "#e2e2e2",
                 "&.Mui-checked": {
-                  color: "#AA393D",
+                  color: "#1E3A8A",
                 },
               },
               track: {
                 backgroundColor: "#E1E8F0",
                 ".Mui-checked.Mui-checked + &": {
-                  backgroundColor: "#AA393D",
+                  backgroundColor: "#1E3A8A",
                 },
               },
             },
@@ -917,7 +917,7 @@ function MaterialTable({
                     width: "100%",
                     justifyContent: "center",
                     transition: "all 0.2s ease",
-                    color: isMobileSearchVisible ? "#AA393D" : "#6B7280",
+                    color: isMobileSearchVisible ? "#1E3A8A" : "#6B7280",
                   }}
                 >
                   <KTIcon iconName="magnifier" className="fs-5" />
@@ -1106,7 +1106,7 @@ function MaterialTable({
                       }}
                     >
                       <span>Found</span>
-                      <strong style={{ color: "#AA393D", fontSize: "14px" }}>
+                      <strong style={{ color: "#1E3A8A", fontSize: "14px" }}>
                         {filteredData.length}
                       </strong>
                       <span>result{filteredData.length !== 1 ? "s" : ""} in</span>
@@ -1362,7 +1362,7 @@ function MaterialTable({
                     backgroundColor: "#f8f9fa",
                     color: "#0f172a",
                     fontWeight: 800,
-                    borderTop: "2.5px solid #AA393D",
+                    borderTop: "2.5px solid #1E3A8A",
                     fontSize: "1rem",
                     letterSpacing: "0.01em",
                     paddingTop: "14px",
@@ -1532,7 +1532,7 @@ function MaterialTable({
                       style={{
                         fontSize: "12px",
                         fontWeight: 700,
-                        color: "#AA393D",
+                        color: "#1E3A8A",
                       }}
                     >
                       {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
@@ -1807,7 +1807,7 @@ function MaterialTable({
                                 fontWeight: 600,
                                 color: '#1e293b',
                                 '&:hover': { bgcolor: '#f8fafc' },
-                                '&.Mui-selected': { bgcolor: '#fef2f2', color: '#AA393D', '&:hover': { bgcolor: '#fee2e2' } },
+                                '&.Mui-selected': { bgcolor: '#fef2f2', color: '#1E3A8A', '&:hover': { bgcolor: '#fee2e2' } },
                               },
                             },
                           },
@@ -1959,9 +1959,9 @@ function MaterialTable({
                               justifyContent: "center",
                               width: isMobile ? "30px" : "34px",
                               height: isMobile ? "30px" : "34px",
-                              border: isActive ? "1.5px solid #AA393D" : "1px solid #E5E7EB",
+                              border: isActive ? "1.5px solid #1E3A8A" : "1px solid #E5E7EB",
                               borderRadius: "8px",
-                              backgroundColor: isActive ? "#AA393D" : "#fff",
+                              backgroundColor: isActive ? "#1E3A8A" : "#fff",
                               color: isActive ? "#fff" : "#374151",
                               cursor: "pointer",
                               fontSize: isMobile ? "12px" : "13px",
@@ -1969,7 +1969,7 @@ function MaterialTable({
                               transition: "all 0.15s ease",
                               padding: 0,
                               flexShrink: 0,
-                              boxShadow: isActive ? "0 2px 6px rgba(170,57,61,0.30)" : "none",
+                              boxShadow: isActive ? "0 2px 6px rgba(30, 58, 138,0.30)" : "none",
                             }}
                           >
                             {page + 1}

@@ -42,12 +42,12 @@ const EmployeesAttendanceView = () => {
         {
             title: 'Overview',
             component: <OverviewView />,
-            icon: activeTab === 0 ? navbarIcon.overview.active : navbarIcon.overview.default, // Can be SVG or Image URL
+            icon: 'bi-grid-1x2',
         },
         {
             title: 'Individual',
             component: <IndividualView />,
-            icon: activeTab === 1 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default, // Can be SVG or Image URL
+            icon: 'bi-person',
         },
         // {
         //     title: 'Configure',
@@ -65,7 +65,7 @@ const EmployeesAttendanceView = () => {
             ? [{
                 title: 'Configure',
                 component: <AttendanceConfig/>,
-                icon: activeTab === 2 ? leadsIcons.leadsConfigIcon.active : leadsIcons.leadsConfigIcon.default, // Can be SVG or Image URL
+                icon: 'bi-gear',
             }]
             : []
         ),
@@ -74,8 +74,7 @@ const EmployeesAttendanceView = () => {
             ? [{
             title: 'FAQS',
             component: <AttendanceAdminFaqs />,
-            icon: activeTab === 3 ? faqsIcons.faqDefualtIcon?.active
-                      : faqsIcons.faqDefualtIcon?.default, // Can be SVG or Image URL
+            icon: 'bi-question-circle',
         }]: []),
 
     ];

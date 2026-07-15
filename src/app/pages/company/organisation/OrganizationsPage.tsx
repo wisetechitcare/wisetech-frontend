@@ -8,7 +8,7 @@ import OrganizationFormModal from './OrganizationFormModal';
 import BranchEmployeesModal from '@app/modules/common/components/BranchEmployeesModal';
 import { IconBuilding, IconHierarchy, IconBranch, IconUsers, IconSearch, IconPlus } from '@app/modules/common/components/icons/OrgIcons';
 
-const C = { brand: '#9D4141', brandSoft: '#FBEEEE', brandBorder: '#EBD2D2', ink: '#1F2430', inkSoft: '#5A6172', inkFaint: '#98A0B0', line: '#ECEEF3', panel: '#F7F8FA', surface: '#FFFFFF' };
+const C = { brand: '#1E3A8A', brandSoft: '#FBEEEE', brandBorder: '#EBD2D2', ink: '#1F2430', inkSoft: '#5A6172', inkFaint: '#98A0B0', line: '#ECEEF3', panel: '#F7F8FA', surface: '#FFFFFF' };
 
 interface Props {
   /** Called when an organization is opened — the shell switches to its profile. */
@@ -97,7 +97,7 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
           <div style={{ fontSize: 13, color: C.inkFaint, marginTop: 2 }}>Manage your organizations, sub-organizations and branches.</div>
         </div>
         <button type="button" onClick={() => setModal({ show: true, parent: null })}
-          style={{ background: C.brand, border: 'none', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 2px 8px rgba(157,65,65,.25)' }}>
+          style={{ background: C.brand, border: 'none', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 2px 8px rgba(30, 58, 138,.25)' }}>
           <IconPlus size={17} /> New Organization
         </button>
       </div>

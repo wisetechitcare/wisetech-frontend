@@ -59,32 +59,26 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
           overflow: 'hidden',
         }}
       >
-        {/* Full-width top accent bar */}
-        <div style={{
-          position: 'absolute',
-          top: 0, left: 0, right: 0,
-          height: '3px',
-          background: `linear-gradient(90deg, ${C.primary} 0%, #c0695a 40%, #e8a090 100%)`,
-        }} />
-
-        {/* Title + actions row */}
+        {/* Title + actions row — navy gradient band */}
         <div className="cfg-header-row" style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: `28px ${SP.xl} ${subtitle ? '6px' : tabs ? '0' : SP.xl} ${SP.xl}`,
+          padding: `26px ${SP.xl} ${subtitle ? '20px' : SP.xl} ${SP.xl}`,
           flexWrap: 'wrap',
           gap: SP.sm,
+          background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             {icon && (
               <div className="cfg-header-icon" style={{
                 width: '44px', height: '44px',
                 borderRadius: RADIUS.lg,
-                background: `linear-gradient(135deg, ${C.primary} 0%, #c0695a 100%)`,
+                background: 'rgba(255,255,255,0.16)',
+                border: '1px solid rgba(255,255,255,0.22)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
-                boxShadow: `0 4px 12px ${C.primaryShadow}`,
+                boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
               }}>
                 <i className={`bi ${icon}`} style={{ fontSize: '20px', color: '#fff' }} />
               </div>
@@ -94,7 +88,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
                 fontFamily: FONT.heading,
                 fontWeight: 700,
                 fontSize: '22px',
-                color: C.textPrimary,
+                color: '#ffffff',
                 letterSpacing: '-0.4px',
                 margin: 0,
                 lineHeight: 1.2,
@@ -105,7 +99,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
                 <p style={{
                   fontFamily: FONT.body,
                   fontSize: '13px',
-                  color: C.textMuted,
+                  color: 'rgba(255,255,255,0.82)',
                   fontWeight: 400,
                   margin: '4px 0 0 0',
                   lineHeight: 1.4,

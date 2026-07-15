@@ -104,7 +104,7 @@ function IconPreview({ icon }: { icon: string }) {
         marginTop: "10px",
         padding: "10px 14px",
         background: C.primaryLight,
-        border: "1.5px solid rgba(157,65,65,0.18)",
+        border: "1.5px solid rgba(30, 58, 138,0.18)",
         borderRadius: RADIUS.md,
       }}
     >

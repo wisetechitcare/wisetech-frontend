@@ -133,7 +133,7 @@ const RuleMainPage = () => {
         </div>
         {/* <button
           style={{
-            backgroundColor: '#9d4141',
+            backgroundColor: '#1E3A8A',
             border: 'none',
             borderRadius: '6px',
             color: '#fff',
@@ -172,7 +172,7 @@ const RuleMainPage = () => {
                 style={{
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: selectedCategory === category ? '#9d4141' : '#000',
+                  color: selectedCategory === category ? '#1E3A8A' : '#000',
                 }}
               >
                 {category}

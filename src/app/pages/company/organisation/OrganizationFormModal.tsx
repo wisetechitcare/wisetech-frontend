@@ -8,7 +8,7 @@ import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { IconBuilding, IconHierarchy, IconImage, IconClose } from '@app/modules/common/components/icons/OrgIcons';
 import './OrganizationFormModal.responsive.css';
 
-const C = { brand: '#9D4141', brandSoft: '#FBEEEE', brandBorder: '#EBD2D2', ink: '#1F2430', inkSoft: '#5A6172', line: '#E7E9EF', panel: '#F7F7F9' };
+const C = { brand: '#1E3A8A', brandSoft: '#FBEEEE', brandBorder: '#EBD2D2', ink: '#1F2430', inkSoft: '#5A6172', line: '#E7E9EF', panel: '#F7F7F9' };
 
 interface Props {
   show: boolean;

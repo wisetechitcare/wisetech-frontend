@@ -282,7 +282,7 @@ const createCustomIcon = (initials: string, color: string, imageUrl?: string, en
     const showDetails = alwaysShowInitials || size >= 20;
     let innerSize = Math.max(0, size - 6);
     let offset = 3;
-    let fontSize = Math.max(alwaysShowInitials ? 8 : 6, Math.floor(size * 0.32));
+    const fontSize = Math.max(alwaysShowInitials ? 8 : 6, Math.floor(size * 0.32));
 
     if (size < 18) {
       innerSize = Math.max(0, size - 4);

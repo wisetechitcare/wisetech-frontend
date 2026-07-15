@@ -64,7 +64,7 @@ const MyTimeSheetPage = () => {
               variant="contained"
               onClick={handleNewTimeLogClick}
               sx={{
-                backgroundColor: "#9D4141",
+                backgroundColor: "#1E3A8A",
                 "&:hover": {
                   backgroundColor: "#7e3434",
                 },

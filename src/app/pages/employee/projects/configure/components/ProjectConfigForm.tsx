@@ -88,7 +88,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
 
   const initialValues = {
     name: initialData?.name || "",
-    color: initialData?.color || "#8B4444",
+    color: initialData?.color || "#1E3A8A",
     isActive: initialData?.isActive ?? true,
     categoryId: initialData?.categoryId || "",
     ...(type === 'status' && { isDefault: (initialData as any)?.isDefault ?? false }),
@@ -139,7 +139,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
         text: 'There can be only 1 default status. If any previous status is set as default, it will be overwritten and this status will be set as default.',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#8B4444',
+        confirmButtonColor: '#1E3A8A',
         cancelButtonColor: '#6c757d',
         confirmButtonText: 'Yes, Set as Default',
         cancelButtonText: 'Cancel'
@@ -400,10 +400,10 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                           id="colorInput"
                           type="color"
                           name="color"
-                          value={values.color || '#8B4444'}
+                          value={values.color || '#1E3A8A'}
                           onChange={(e) => setFieldValue("color", e.target.value, true)}
                           onBlur={() => {
-                            if (!values.color) setFieldValue("color", "#8B4444", true);
+                            if (!values.color) setFieldValue("color", "#1E3A8A", true);
                           }}
                           style={{
                             opacity: 0,
@@ -431,7 +431,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                   type="submit" 
                   disabled={isSubmitting}
                   style={{
-                    backgroundColor: '#8B4444',
+                    backgroundColor: '#1E3A8A',
                     border: 'none',
                     borderRadius: '8px',
                     padding: '10px 24px',
@@ -451,8 +451,8 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
         .form-control:focus,
         .form-select:focus {
           background-color: #fff !important;
-          border-color: #8B4444 !important;
-          box-shadow: 0 0 0 0.2rem rgba(139, 68, 68, 0.1) !important;
+          border-color: #1E3A8A !important;
+          box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.1) !important;
           color: #495057 !important;
         }
         
@@ -472,7 +472,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
         }
         
         .btn-primary:hover {
-          background-color: #7a3a3a !important;
+          background-color: #172554 !important;
         }
         
         .btn-secondary:hover {
@@ -486,13 +486,13 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
         }
 
         .form-check-input:checked {
-          background-color: #8B4444 !important;
-          border-color: #8B4444 !important;
+          background-color: #1E3A8A !important;
+          border-color: #1E3A8A !important;
         }
 
         .form-check-input:focus {
-          border-color: #8B4444 !important;
-          box-shadow: 0 0 0 0.2rem rgba(139, 68, 68, 0.25) !important;
+          border-color: #1E3A8A !important;
+          box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.25) !important;
         }
       `}</style>
     </>

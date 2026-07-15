@@ -115,13 +115,13 @@ const TeamCard: React.FC<{ team: Team; onEditTeam: (team: Team) => void }> = ({ 
                         className="btn btn-sm"
                         onClick={() => onEditTeam(team)}
                         style={{
-                            borderColor: '#9d4141',
-                            color: '#9d4141',
+                            borderColor: '#1E3A8A',
+                            color: '#1E3A8A',
                             fontFamily: 'Inter',
                             fontSize: '14px',
                             fontWeight: '500',
                             borderRadius: '6px',
-                            border: '1px solid #9d4141',
+                            border: '1px solid #1E3A8A',
                             padding: '8px 18px',
                         }}
                     >
@@ -178,7 +178,7 @@ const TeamCard: React.FC<{ team: Team; onEditTeam: (team: Team) => void }> = ({ 
                                                     style={{
                                                         width: '32px',
                                                         height: '32px',
-                                                        backgroundColor: '#9d4141',
+                                                        backgroundColor: '#1E3A8A',
                                                         color: 'white',
                                                         fontSize: '14px',
                                                         fontWeight: '600',
@@ -615,8 +615,8 @@ const TasksMainCalenderPage = () => {
                         className="btn flex-shrink-0"
                         onClick={handleAddTeam}
                         style={{
-                            backgroundColor: "#9D4141",
-                            borderColor: "#9D4141",
+                            backgroundColor: "#1E3A8A",
+                            borderColor: "#1E3A8A",
                             fontFamily: "Inter",
                             fontSize: "14px",
                             fontWeight: 500,
@@ -663,7 +663,7 @@ const TasksMainCalenderPage = () => {
                                         className="btn btn-link"
                                         onClick={clearSearch}
                                         style={{
-                                            color: '#9d4141',
+                                            color: '#1E3A8A',
                                             textDecoration: 'none',
                                             fontFamily: 'Inter',
                                             fontSize: '14px',
@@ -736,8 +736,8 @@ const TasksMainCalenderPage = () => {
                                                         fontWeight: '500',
                                                         minWidth: '40px',
                                                         color: isActive ? 'white' : '#202020',
-                                                        backgroundColor: isActive ? '#9d4141' : 'white',
-                                                        borderColor: isActive ? '#9d4141' : '#c1c9d6'
+                                                        backgroundColor: isActive ? '#1E3A8A' : 'white',
+                                                        borderColor: isActive ? '#1E3A8A' : '#c1c9d6'
                                                     }}
                                                 >
                                                     {page}

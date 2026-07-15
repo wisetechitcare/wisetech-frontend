@@ -566,10 +566,10 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                     className="btn btn-sm"
                                     onClick={() => setShowAddMemberModal(true)}
                                     style={{
-                                        border: '1px solid #9d4141',
+                                        border: '1px solid #1E3A8A',
                                         padding: '8px 18px',
-                                        borderColor: '#9d4141',
-                                        color: '#9d4141',
+                                        borderColor: '#1E3A8A',
+                                        color: '#1E3A8A',
                                         fontFamily: 'Inter',
                                         fontSize: '14px',
                                         fontWeight: '500',
@@ -639,7 +639,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                     style={{
                                                                         width: '32px',
                                                                         height: '32px',
-                                                                        backgroundColor: member.avatar ? 'transparent' : '#9d4141',
+                                                                        backgroundColor: member.avatar ? 'transparent' : '#1E3A8A',
                                                                         color: 'white',
                                                                         fontSize: '14px',
                                                                         fontWeight: '600',
@@ -718,7 +718,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                         className="btn btn-link btn-sm p-0 d-flex align-items-center gap-1"
                                                                         onClick={() => handleMakeTeamLeader(member.id)}
                                                                         style={{
-                                                                            color: '#9d4141',
+                                                                            color: '#1E3A8A',
                                                                             textDecoration: 'none',
                                                                             fontFamily: 'Inter',
                                                                             fontSize: '14px',
@@ -742,7 +742,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                     className="btn btn-link btn-sm p-0 d-flex align-items-center gap-1"
                                                                     onClick={() => handleRemoveMember(member.id)}
                                                                     style={{
-                                                                        color: '#9d4141',
+                                                                        color: '#1E3A8A',
                                                                         textDecoration: 'none',
                                                                         fontFamily: 'Inter',
                                                                         fontSize: '14px',
@@ -915,13 +915,13 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                         appearance: 'none',
                                                                         WebkitAppearance: 'none',
                                                                         MozAppearance: 'none',
-                                                                        border: `2px solid ${filteredEmployees.length > 0 && filteredEmployees.every(emp => selectedEmployees.includes(emp.id)) ? '#9D4141' : '#d1d5db'}`,
+                                                                        border: `2px solid ${filteredEmployees.length > 0 && filteredEmployees.every(emp => selectedEmployees.includes(emp.id)) ? '#1E3A8A' : '#d1d5db'}`,
                                                                         borderRadius: '4px',
                                                                         cursor: 'pointer',
                                                                         position: 'relative',
                                                                         display: 'inline-block',
                                                                         verticalAlign: 'middle',
-                                                                        backgroundColor: filteredEmployees.length > 0 && filteredEmployees.every(emp => selectedEmployees.includes(emp.id)) ? '#9D4141' : '#ffffff',
+                                                                        backgroundColor: filteredEmployees.length > 0 && filteredEmployees.every(emp => selectedEmployees.includes(emp.id)) ? '#1E3A8A' : '#ffffff',
                                                                         transition: 'all 0.2s ease-in-out'
                                                                     }}
                                                                 />
@@ -1002,13 +1002,13 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                                 appearance: 'none',
                                                                                 WebkitAppearance: 'none',
                                                                                 MozAppearance: 'none',
-                                                                                border: `2px solid ${selectedEmployees.includes(employee.id) ? '#9D4141' : '#d1d5db'}`,
+                                                                                border: `2px solid ${selectedEmployees.includes(employee.id) ? '#1E3A8A' : '#d1d5db'}`,
                                                                                 borderRadius: '4px',
                                                                                 cursor: 'pointer',
                                                                                 position: 'relative',
                                                                                 display: 'inline-block',
                                                                                 verticalAlign: 'middle',
-                                                                                backgroundColor: selectedEmployees.includes(employee.id) ? '#9D4141' : '#ffffff',
+                                                                                backgroundColor: selectedEmployees.includes(employee.id) ? '#1E3A8A' : '#ffffff',
                                                                                 transition: 'all 0.2s ease-in-out'
                                                                             }}
                                                                         />
@@ -1049,7 +1049,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                             style={{
                                                                                 width: '32px',
                                                                                 height: '32px',
-                                                                                backgroundColor: employee.avatar ? 'transparent' : '#9d4141',
+                                                                                backgroundColor: employee.avatar ? 'transparent' : '#1E3A8A',
                                                                                 color: 'white',
                                                                                 fontSize: '14px',
                                                                                 fontWeight: '600',
@@ -1096,8 +1096,8 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                             className="btn"
                                             onClick={handleAddSelectedEmployees}
                                             style={{
-                                                backgroundColor: '#9d4141',
-                                                borderColor: '#9d4141',
+                                                backgroundColor: '#1E3A8A',
+                                                borderColor: '#1E3A8A',
                                                 color: 'white',
                                                 fontFamily: 'Inter',
                                                 fontSize: '14px',
@@ -1134,8 +1134,8 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                 className="btn"
                                 onClick={handleSave}
                                 style={{
-                                    backgroundColor: '#9d4141',
-                                    borderColor: '#9d4141',
+                                    backgroundColor: '#1E3A8A',
+                                    borderColor: '#1E3A8A',
                                     color: 'white',
                                     fontFamily: 'Inter',
                                     fontSize: '14px',
@@ -1153,13 +1153,13 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                     className="btn"
                                     onClick={handleDelete}
                                     style={{
-                                        borderColor: '#9d4141',
-                                        color: '#9d4141',
+                                        borderColor: '#1E3A8A',
+                                        color: '#1E3A8A',
                                         fontFamily: 'Inter',
                                         fontSize: '14px',
                                         fontWeight: '500',
                                         borderRadius: '6px',
-                                        border: '1px solid #9d4141',
+                                        border: '1px solid #1E3A8A',
                                         padding: '8px 18px',
                                     }}
                                 >

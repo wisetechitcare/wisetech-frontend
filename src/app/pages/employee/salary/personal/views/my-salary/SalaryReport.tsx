@@ -32,7 +32,7 @@ import { LeaveStatus } from '@constants/attendance';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { getAllUnPaidLeavesForCurrentYear, getAllUnPaidLeavesCurrentMonth, getAllPaidLeavesCurrentMonth, getAllPaidLeaveOfYear, getAllPaidLeaveOfYearFilteredByStartAndEndDate } from '@utils/sandwhichConfiguration'
 import DateInput from '@app/modules/common/inputs/DateInput';
-import SalaryIncrementModal from '@app/modules/employee/salary/SalaryIncrementModal';
+import AddEditIncrementDialog from '@app/modules/employee/salary/AddEditIncrementDialog';
 import { createUpdateGrossPayConfiguration, fetchGrossPayConfiguration, validateGrossPayConfigurationJson } from '@services/employee';
 import { DeductionDistributionModal } from './DeductionDistributionModal';
 
@@ -159,12 +159,12 @@ const DeductionPanel = ({
                                     borderTop: '1px solid #E5C8CA',
                                 }}
                             >
-                                <td colSpan={2} className="fw-bold py-2" style={{ color: '#AA393D' }}>
+                                <td colSpan={2} className="fw-bold py-2" style={{ color: '#1E3A8A' }}>
                                     Total Variable Deductions
                                 </td>
                                 <td
                                     className={`fw-bold py-2 ${sensitiveCls}`}
-                                    style={{ textAlign: 'right', color: '#AA393D' }}
+                                    style={{ textAlign: 'right', color: '#1E3A8A' }}
                                 >
                                     -{formatINRDecimal(totalVariable)}
                                 </td>
@@ -181,7 +181,7 @@ const DeductionPanel = ({
             >
                 <div className="d-flex justify-content-between align-items-center">
                     <div>
-                        <div className="fw-bold" style={{ color: '#AA393D' }}>
+                        <div className="fw-bold" style={{ color: '#1E3A8A' }}>
                             Total Salary After Attendance Adjustments(B)
                         </div>
                         <div className="text-muted" style={{ fontSize: 11 }}>
@@ -191,7 +191,7 @@ const DeductionPanel = ({
                     <div
                         className={`fw-bolder fs-5 px-3 py-1 rounded-2 ${sensitiveCls}`}
                         style={{
-                            color: '#AA393D',
+                            color: '#1E3A8A',
                             backgroundColor: '#FFFFFF',
                             border: '1px solid #E5C8CA',
                         }}
@@ -257,12 +257,12 @@ const DeductionPanel = ({
                                     borderTop: '1px solid #E5C8CA',
                                 }}
                             >
-                                <td colSpan={4} className="fw-bold py-2" style={{ color: '#AA393D' }}>
+                                <td colSpan={4} className="fw-bold py-2" style={{ color: '#1E3A8A' }}>
                                     Total Fixed Deductions
                                 </td>
                                 <td
                                     className={`fw-bold py-2 ${sensitiveCls}`}
-                                    style={{ textAlign: 'right', color: '#AA393D' }}
+                                    style={{ textAlign: 'right', color: '#1E3A8A' }}
                                 >
                                     -{formatINRDecimal(totalFixed)}
                                 </td>
@@ -275,7 +275,7 @@ const DeductionPanel = ({
                     >
                         <div className="d-flex justify-content-between align-items-center">
                             <div>
-                                <div className="fw-bold" style={{ color: '#AA393D' }}>
+                                <div className="fw-bold" style={{ color: '#1E3A8A' }}>
                                     Total Salary After Attendance Adjustments (B)
                                 </div>
                                 <div className="text-muted" style={{ fontSize: 11 }}>
@@ -285,7 +285,7 @@ const DeductionPanel = ({
                             <div
                                 className={`fw-bolder fs-5 px-3 py-1 rounded-2 ${sensitiveCls}`}
                                 style={{
-                                    color: '#AA393D',
+                                    color: '#1E3A8A',
                                     backgroundColor: '#FFFFFF',
                                     border: '1px solid #E5C8CA',
                                 }}
@@ -531,7 +531,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         const variableSubtotal = hasVariableData ? sumEarned(data.variable) : 0;
 
         const isDeduction = type === 'deduction';
-        const subtotalColor = isDeduction ? '#AA393D' : '#008C7C';
+        const subtotalColor = isDeduction ? '#1E3A8A' : '#008C7C';
         const subtotalPrefix = isDeduction ? '-' : '+';
         const fixedSubtotalLabel = isDeduction ? 'Total Fixed Deductions' : `Total Fixed ${title}`;
         const variableSubtotalLabel = isDeduction ? 'Total Variable Deductions' : `Total Variable ${title}`;
@@ -753,7 +753,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             daysCount = 0;
         }
 
-        let monthsArray: Set<number> = new Set();
+        const monthsArray: Set<number> = new Set();
         let tempStartDate = dayjs(filteredStartDate);
 
         while (tempStartDate.isSameOrBefore(filteredEndDate)) {
@@ -764,7 +764,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         setTotalListOfMonthsPresent(monthsArray);
 
         setTotalDaysOfMonthOrYear(daysCount);
-        let totalOverAllDays = dayjs(endDate).diff(dayjs(startDate), 'day') + 1;
+        const totalOverAllDays = dayjs(endDate).diff(dayjs(startDate), 'day') + 1;
         setAllDaysForMonthOrYear(totalOverAllDays);
 
         async function fetchStats() {
@@ -797,9 +797,8 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         console.log("totalGrossPayEarned:: ", totalGrossPayEarned);
         console.log("totalGrossPayFixed:: ", totalGrossPayFixed);
         totalGrossPayFixed?.map((fixed, index) => {
-            if (fixed?.name.toLowerCase() != "basic salary") {
-                (fixed?.earned).replace(/[₹,]/g, "")
-                finalAmount += Number((fixed?.earned).replace(/[₹,]/g, ""))
+            if (fixed?.name && fixed?.name.toLowerCase() !== "basic salary" && fixed?.earned) {
+                finalAmount += Number((fixed.earned).replace(/[₹,]/g, ""))
             }
         })
         setTotalGrossPayEarned2(finalAmount);
@@ -1000,7 +999,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     // NEW: Fallback grossPayFixed for legacy compatibility (PDF generation, etc.)
     const grossPayFixed = isApiDataLoaded ? [] : salaryCalculationsForDays(totalDaysOfMonthOrYear, allDaysForMonthOrYear, allowances, parseFloat(employee?.ctcInLpa || '0') / 12);
-    let totalGrossPayFixedAmount = isApiDataLoaded ? 0 : (grossPayFixed as any[]).reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[₹,]/g, "")), 0);
+    const totalGrossPayFixedAmount = isApiDataLoaded ? 0 : (grossPayFixed as any[]).reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[₹,]/g, "")), 0);
 
     // --------------------deductions (Variable)------------------
     const lateAttendance = multipleRadialBarData(stats, dayWiseShifts).get(LATE_CHECKIN);
@@ -1013,7 +1012,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     // Intermediate Salary Base for calculations
     const intermediateSalaryBase = Math.max(0, (isApiDataLoaded ? (apiTotalGrossPayAmount || 0) : totalGrossPayEarnedFinal) - multipleLateCheckinEarned);
 
-    let taxes = salaryCalculationsForDays(
+    const taxes = salaryCalculationsForDays(
         totalDaysOfMonthOrYear,
         allDaysForMonthOrYear,
         deductionsRule,
@@ -1052,7 +1051,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     const netPayable = Math.round(apiTotalGrossPayAmount - apiTotalDeductionsAmount);
 
-    let totalPayment = payments.reduce((acc: number, payment: IPayment) => {
+    const totalPayment = payments.reduce((acc: number, payment: IPayment) => {
         const amount = Number(payment.amountPaid);
         return acc + amount;
     }, 0);
@@ -1797,8 +1796,8 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             // Apply additional filtering for employee exit date if needed
             // Note: The utility functions should handle date filtering internally,
             // but if additional filtering is needed based on exit date, it can be added here
-            let filteredUnpaidLeaves = Number(unpaidLeaves) || 0;
-            let filteredPaidLeaves = Number(paidLeavesResult) || 0;
+            const filteredUnpaidLeaves = Number(unpaidLeaves) || 0;
+            const filteredPaidLeaves = Number(paidLeavesResult) || 0;
 
             if (employee?.dateOfExit) {
                 const exitDate = dayjs(employee.dateOfExit);
@@ -1980,7 +1979,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             const effectiveEndDate = getEffectiveEndDate(isYearly, year, month, fiscalEndDate, employee?.dateOfExit || "");
 
             //filter holiday for current month/year
-            let filterPublicHolidays = isYearly ? publicHolidays.filter((date: any) => {
+            const filterPublicHolidays = isYearly ? publicHolidays.filter((date: any) => {
                 return dayjs(date.date).isBetween(startDate, endDate) && !date?.isWeekend
             }) : publicHolidays.filter((date: any) => {
                 return dayjs(date.date).format('MM') === month && !date?.isWeekend
@@ -2013,33 +2012,6 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         fetchTotalCount();
     }, [year, resolvedMonth, isYearly])
 
-    // Show loading state while data is being fetched
-    if (isLoading) {
-        return (
-            <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
-                <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </div>
-            </Container>
-        );
-    }
-
-    // <SalarySlipTemplate
-    //                             grossPayVariable={grossPayVariable}
-    //                             totalGrossPayEarned={`${formatNumber(totalGrossPayEarned)}`}
-    //                             grossPayFixed={grossPayFixed}
-    //                             deductions={deductions}
-    //                             totalDeductionsEarned={`${formatNumber(totalDeductionsEarned)}`}
-    //                             taxes={taxes}
-    //                             employee={employee}
-    //                             finalAmount={formatNumber(Math.round(Math.abs(totalGrossPayEarned - totalDeductionsEarned)))}
-    //                             totalPayableDays={totalPayableDays}
-    //                             date={date}
-    //                             paidLeaves={paidLeaves}
-    //                             unpaidLeaves={0}
-    //                         />
-    // console.log("SalarySlippaidLeaves:: ",paidLeaves);
-
     // Fetch payment history
     const [paymentHistory, setPaymentHistory] = useState<any | null>(null);
     const salaryId = (apiSalaryData as any)?.salaryId;
@@ -2070,13 +2042,24 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         }
     }, [isApiDataLoaded, apiSalaryData, employee, paymentHistory, salaryId]);
 
+    // Show loading state while data is being fetched
+    if (isLoading) {
+        return (
+            <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                </div>
+            </Container>
+        );
+    }
+
     return (
         <>
             <style jsx>{`
             /* ─── Theme tokens (mirrors _variables.custom.scss) ─── */
             :global(:root) {
-                --wt-primary: #AA393D;
-                --wt-primary-hover: #7a2124;
+                --wt-primary: #1E3A8A;
+                --wt-primary-hover: #172554;
                 --wt-secondary: #295D8E;
                 --wt-surface: #F6F9FC;
                 --wt-border: #E5E8ED;
@@ -2247,7 +2230,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             :global(.wt-card-gross .wt-card-title) { color: var(--wt-secondary); }
             :global(.wt-card-deduction) {
                 background: linear-gradient(135deg, #FBF0F1 0%, #F5E2E4 100%) !important;
-                border: 1px solid rgba(170,57,61,0.18) !important;
+                border: 1px solid rgba(30, 58, 138,0.18) !important;
                 border-radius: 14px !important;
             }
             :global(.wt-card-deduction .wt-card-title) { color: var(--wt-primary); }
@@ -2279,7 +2262,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                         {[
                             { label: 'Total Gross Pay', value: summaryData.totalGrossPay, icon: 'wallet', color: '#295D8E', bg: 'rgba(41,93,142,0.10)' },
                             { label: 'Total Variable Deduction', value: summaryData.totalVariableDeduction, icon: 'minus-circle', color: '#B7791F', bg: 'rgba(226,160,63,0.12)' },
-                            { label: 'Total Fixed Deduction', value: summaryData.totalFixedDeduction, icon: 'lock', color: '#AA393D', bg: 'rgba(170,57,61,0.10)' },
+                            { label: 'Total Fixed Deduction', value: summaryData.totalFixedDeduction, icon: 'lock', color: '#1E3A8A', bg: 'rgba(30, 58, 138,0.10)' },
                             { label: 'Total Deduction', value: summaryData.totalDeduction, icon: 'calculator', color: '#0E61B6', bg: 'rgba(14,97,182,0.10)' },
                             { label: 'Total Paid', value: summaryData.totalPaid, icon: 'check-circle', color: '#008C7C', bg: 'rgba(0,202,180,0.12)' },
                             { label: 'Pending Amount', value: summaryData.pendingAmount, icon: 'clock', color: '#C74E52', bg: 'rgba(199,78,82,0.10)' },
@@ -2570,7 +2553,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     ) : (
                                         <div>
                                             {/* FALLBACK: Legacy UI for when API data is not available */}
-                                            <h6 className="mt-4 fw-bold" style={{ color: '#AA393D' }}>Variable</h6>
+                                            <h6 className="mt-4 fw-bold" style={{ color: '#1E3A8A' }}>Variable</h6>
                                             <Row className="text-muted">
                                                 <Col xs={5} sm={4} className="text-start">Name</Col>
                                                 <Col xs={3} sm={3} className="text-center">Value</Col>
@@ -2666,7 +2649,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "90%" }}>
                                             <div>
                                                 {/* FALLBACK: Legacy UI for when API data is not available */}
-                                                <h6 className="mt-6 fw-bold" style={{ color: '#AA393D' }}>Variable</h6>
+                                                <h6 className="mt-6 fw-bold" style={{ color: '#1E3A8A' }}>Variable</h6>
                                                 <Row className="text-muted ">
                                                     <Col xs={5} sm={4} className="text-start">Name / Type</Col>
                                                     <Col xs={3} sm={3} className="text-center">Value</Col>
@@ -2747,7 +2730,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                             </Button>
                         </PDFDownloadLink>
 
-                        <Button style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }} onClick={ 
+                        <Button style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} onClick={ 
                             async ()=> {
                             setLoading(true);
                             if (!salarySlipProps) {
@@ -2814,7 +2797,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                         </Button>
 
                         {(fromAdmin && keyword == MONTH && !hideSummarySection) &&
-                            <Button style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }} className='ms-2' onClick={() => handleEdit()}>
+                            <Button style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} className='ms-2' onClick={() => handleEdit()}>
                                 Modify
                             </Button>
                         }
@@ -3091,12 +3074,12 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 </Modal.Body>
             </Modal>
 
-            <SalaryIncrementModal
-                show={salaryIncrementShow}
-                onHide={handleSalaryIncrementClose}
-                employee={employee}
+            <AddEditIncrementDialog
+                open={salaryIncrementShow}
+                onClose={handleSalaryIncrementClose}
+                employeeId={employee.id}
+                employeeName={`${employee.users?.firstName ?? ''} ${employee.users?.lastName ?? ''}`.trim() || 'Employee'}
                 onSuccess={handleSalaryIncrementSuccess}
-                fromAdmin={fromAdmin}
             />
 
             <DeductionDistributionModal

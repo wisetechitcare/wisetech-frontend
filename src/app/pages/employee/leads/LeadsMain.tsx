@@ -34,34 +34,22 @@ const LeadsMain = () => {
     {
       title: "Overview",
       component: <LeadsOverviewMain />,
-      icon:
-        activeTab === 0
-          ? leadsIcons.leadsOverviewIcon.active
-          : leadsIcons.leadsOverviewIcon.default,
+      icon: 'bi-grid-1x2',
     },
     {
       title: "Leads",
       component: <LeadNewLead />,
-      icon:
-        activeTab === 1
-          ? leadsIcons.leadsIcon.active
-          : leadsIcons.leadsIcon.default,
+      icon: 'bi-megaphone',
     },
     {
       title: "Files",
       component: <GlobalFilesView />,
-      icon:
-        activeTab === 3
-          ? projectsIcons.projectsIcon.active
-          : projectsIcons.projectsIcon.default,
+      icon: 'bi-folder',
     },
     {
       title: "Configure",
       component: <LeadsConfigurationMain />,
-      icon:
-        activeTab === 2
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
+      icon: 'bi-gear',
     },
   ];
   const LeadBreadcrumbs = [

@@ -188,7 +188,7 @@ export default function GlobalTimerModal() {
             fontFamily: "Inter",
             fontWeight: 500,
             fontSize: "12px",
-            color: "#9D4141",
+            color: "#1E3A8A",
           }}
         >
           Timer Running

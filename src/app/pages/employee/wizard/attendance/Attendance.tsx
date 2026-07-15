@@ -83,7 +83,7 @@ function Attendance() {
 
     const handleCheckIn = async () => {
         let ls = localStorage.getItem("check_in_token");
-        let parsedLs = ls ? ls : null;
+        const parsedLs = ls ? ls : null;
         const payload = {
             employeeId,
             checkIn: new Date(),
@@ -108,7 +108,7 @@ function Attendance() {
 
     const handleCheckOut = async () => {
         let ls = localStorage.getItem("check_out_token");
-        let parsedLs = ls ? ls : null;
+        const parsedLs = ls ? ls : null;
         const date = dayjs().format('DD/MM/YYYY');
         const attendanceRecord = tableData.find((el: any) => el.date == date);
         if (!attendanceRecord) return;
@@ -195,8 +195,8 @@ function Attendance() {
         }
 
         async function validateToken() {
-            let lsCheckIn = localStorage.getItem("check_in_token");
-            let lsCheckOut = localStorage.getItem("check_out_token");
+            const lsCheckIn = localStorage.getItem("check_in_token");
+            const lsCheckOut = localStorage.getItem("check_out_token");
             if (!lsCheckIn || !employeeId) return;
             const { data: { isDisabled: checkInExpired } } = await validateTokenInOut({ id: employeeId, token: lsCheckIn });
             setCheckInDisabled(checkInExpired);
@@ -388,8 +388,8 @@ function Attendance() {
                                 lng: location?.longitude || 0
                             }}>
                                 <Pin
-                                    background={'#AA393D'}
-                                    glyphColor={'#7a2124'}
+                                    background={'#1E3A8A'}
+                                    glyphColor={'#172554'}
                                 />
                             </AdvancedMarker>
                         </Map>

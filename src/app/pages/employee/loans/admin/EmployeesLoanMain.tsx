@@ -18,18 +18,22 @@ const EmployeesLoanMain: React.FC = () => {
     {
       title: "Overview",
       component: <Overview />,
+      icon: 'bi-grid-1x2',
     },
     {
       title: "Installments",
       component: <Installments />,
+      icon: 'bi-calendar-week',
     },
     {
       title: "Search Employees",
       component: <SearchEmployee />,
+      icon: 'bi-search',
     },
     {
       title: "Rules And FAQs",
       component: <Information />,
+      icon: 'bi-journal-text',
     }
   ];
 

@@ -79,7 +79,7 @@ export const getStatusConfig = (status: DocumentStatus) => {
     under_review: { label: 'Under Review', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', dot: '#3b82f6' },
     revision: { label: 'Revision', color: '#265c8b', bg: 'rgba(38,92,139,0.12)', dot: '#265c8b' },
     approved: { label: 'Approved', color: '#10b981', bg: 'rgba(16,185,129,0.12)', dot: '#10b981' },
-    final: { label: 'Final', color: '#9d4141', bg: 'rgba(157,65,65,0.12)', dot: '#9d4141' },
+    final: { label: 'Final', color: '#1E3A8A', bg: 'rgba(30, 58, 138,0.12)', dot: '#1E3A8A' },
     archived: { label: 'Archived', color: '#64748b', bg: 'rgba(100,116,139,0.08)', dot: '#64748b' },
     shared_with_client: { label: 'Shared', color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)', dot: '#0ea5e9' },
   };

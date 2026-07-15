@@ -335,32 +335,32 @@ export const buildLeaveData = (
             label: ANNUAL_LEAVES,
             used: leavesTakenCount[ANNUAL_LEAVES] || 0,
             total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
-            color: '#9D4141',
+            color: '#1E3A8A',
         },
         {
             label: SICK_LEAVES,
             used: leavesTakenCount[SICK_LEAVES] || 0,
             total: leaveBalances[SICK_LEAVES] || 0,
-            color: '#9D4141',
+            color: '#1E3A8A',
         },
         {
             // label: 'Paid Leaves',  // Renamed from Floater Leaves
             label: 'Floater Leaves',  // Renamed from Floater Leaves
             used: leavesTakenCount[FLOATER_LEAVES] || 0,
             total: leaveBalances[FLOATER_LEAVES] || 0,
-            color: '#9D4141',
+            color: '#1E3A8A',
         },
         {
             label: CASUAL_LEAVES,
             used: leavesTakenCount[CASUAL_LEAVES] || 0,
             total: proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0,
-            color: '#9D4141',
+            color: '#1E3A8A',
         },
         {
             label: MATERNAL_LEAVES,
             used: leavesTakenCount[MATERNAL_LEAVES] || 0,
             total: proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0,
-            color: '#9D4141',
+            color: '#1E3A8A',
         },
     ];
 
@@ -385,7 +385,7 @@ export const buildLeaveData = (
             label: UNPAID_LEAVES,
             used: leavesTakenCount[UNPAID_LEAVES] || 0,
             total: derivedUnpaidAssigned,   // always derived: 365 − totalPaidAssigned
-            color: '#9D4141',
+            color: '#1E3A8A',
         },
     ];
 

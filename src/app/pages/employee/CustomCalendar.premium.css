@@ -20,7 +20,10 @@
   --mrd-primary-700:#14204A;
   --mrd-primary-tint:#E9EEF8;
   --mrd-primary-tint-2:rgba(30, 58, 138, 0.16);
-  --mrd-accent:#C0392B;
+  /* Visible brand CTA gradient — royal blue → navy → deep navy. */
+  --mrd-grad:linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%);
+  --mrd-grad-hover:linear-gradient(135deg, #3461D0 0%, #24459C 55%, #1A2F6E 100%);
+  --mrd-accent:#3B82F6;
   --mrd-accent-tint:#FBEBE9;
 
   --mrd-violet:#6B5AD1;  --mrd-violet-tint:#EEEBFB;
@@ -114,7 +117,7 @@
 .mrd-btn:hover{ transform:translateY(-1px); border-color:var(--mrd-border-strong); }
 .mrd-btn:active{ transform:translateY(0) scale(.98); }
 .mrd-btn--primary{
-  background:linear-gradient(180deg,var(--mrd-primary),var(--mrd-primary-600));
+  background:var(--mrd-grad);
   color:#fff; border-color:transparent;
   box-shadow:0 1px 2px rgba(27,66,105,.35), 0 8px 20px -8px rgba(41,93,142,.6), inset 0 1px 0 rgba(255,255,255,.16);
 }
@@ -190,10 +193,10 @@
 /* ---------- Create Event split button (accent) ---------- */
 .mrd-createbtn{ display:flex; align-items:stretch; width:100%; margin:12px 0 4px; height:44px;
   border-radius:12px; overflow:hidden; border:0; cursor:pointer; font-family:inherit;
-  background:linear-gradient(180deg,var(--mrd-primary),var(--mrd-primary-600)); color:#fff;
+  background:var(--mrd-grad); color:#fff;
   box-shadow:0 1px 2px rgba(27,66,105,.35), 0 10px 22px -10px rgba(41,93,142,.65), inset 0 1px 0 rgba(255,255,255,.14);
   transition:transform .16s var(--mrd-ease), box-shadow .2s; }
-.mrd-createbtn:hover{ transform:translateY(-1px); }
+.mrd-createbtn:hover{ transform:translateY(-1px); background:var(--mrd-grad-hover); }
 .mrd-createbtn:active{ transform:translateY(0) scale(.99); }
 .mrd-createbtn__main{ flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px;
   font-size:13.5px; font-weight:640; letter-spacing:-.01em; }
@@ -351,22 +354,19 @@
   transform:translateX(1px);
   background: var(--event-hover-bg, var(--event-bg, var(--mrd-inset))) !important; }
 .mrd .mrd-ev__dot{ width:6px; height:6px; border-radius:2px; flex:none; }
+.mrd .mrd-ev__ava{ display:inline-flex; flex:none; }
 .mrd .mrd-ev__time{ font-size:10px; font-weight:560; color:var(--mrd-ink-3); font-variant-numeric:tabular-nums; flex:none; }
-.mrd .mrd-ev__t{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-
-/* Mobile Month/Week views: a day column is only ~50-60px wide, so events render
-   as a compact wrapping row of dots (full details are one tap away via the
-   mobile day-detail sheet) instead of the full avatar+time+title pill list. */
-.mrd .mrd-compact-events .fc-daygrid-day-events{
-  display:flex; flex-wrap:wrap; align-content:flex-start; gap:3px; padding:0 3px; }
-.mrd .mrd-compact-events .fc-daygrid-event-harness{ margin:0; width:auto; }
-/* The "+N more" link still needs its own line — it's what surfaces events the
-   dot row didn't have room for, so it stays visible (just tightened to match
-   the smaller dots instead of the pill-sized default spacing). */
-.mrd .mrd-compact-events .fc-daygrid-day-bottom{ margin-top:1px; }
-.mrd .mrd-compact-events .fc-daygrid-more-link{ font-size:9.5px; padding:0 4px; margin:0; }
-.mrd .mrd-ev__dotonly{
-  display:inline-block; width:7px; height:7px; border-radius:50%; flex:none; cursor:default; }
+/* Titles wrap onto new lines instead of truncating with an ellipsis; the event
+   pill and day cell grow to fit (the cell has a min-height floor, and FullCalendar
+   runs with height/contentHeight:auto, so the row height adjusts on its own).
+   flex:1 1 auto + min-width:0 lets the title fill the remaining width and wrap;
+   overflow-wrap:anywhere breaks an over-long single word so it never overflows.
+   Applies at every viewport — mobile Month/Week render the same wrapping pill
+   (the old dot-only compact mode was removed). */
+.mrd .mrd-ev__t{ flex:1 1 auto; min-width:0; white-space:normal; overflow-wrap:anywhere; }
+/* Desktop shows the full title; the short mobile variant stays hidden here and
+   is swapped in by the ≤760px block below. */
+.mrd .mrd-ev__t--short{ display:none; }
 
 /* +N more link */
 .mrd .fc-daygrid-more-link{
@@ -445,6 +445,22 @@
   .mrd-col-4,.mrd-col-5,.mrd-col-7,.mrd-col-8{ grid-column:span 12; }
   .mrd .fc-daygrid-day-frame{ min-height:76px; padding:4px 4px 32px; }
   .mrd .fullcalendar__event__wrapper .mrd-ev__time{ display:none; }
+  /* Phone Month/Week pills mimic native mobile calendars (e.g. Samsung/Google):
+     small plain text on the tinted pill, no leading avatar/dot — a ~50px column
+     fits ~10 characters per line, so every pixel goes to the words and titles
+     wrap at word boundaries instead of dissolving into per-letter "soup". */
+  .mrd .fullcalendar__event__wrapper{ padding:2px 4px; gap:4px; font-size:9.5px; line-height:1.3; border-radius:5px; }
+  .mrd .fullcalendar__event__wrapper .mrd-ev__ava,
+  .mrd .fullcalendar__event__wrapper .mrd-ev__dot{ display:none; }
+  .mrd .fc-daygrid-event{ margin:0 1px 2px; }
+  /* Only what's relevant on a phone: birthdays/anniversaries show just the
+     person's name (the pill tint already says which type it is), and any title
+     is clamped to 2 lines with an ellipsis — native-calendar density. The full
+     text is one tap away in the day-detail sheet. */
+  .mrd .mrd-ev__t--short{ display:inline; }
+  .mrd .mrd-ev__t--short + .mrd-ev__t--full{ display:none; }
+  .mrd .mrd-ev__t{
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .mrd-toolbar{ gap:8px; }
   /* Tighter gaps buy back the few px the view tabs + Today + date nav need to
      all share one row instead of the navigator wrapping to its own line. */
@@ -465,8 +481,10 @@
   .mrd .fc-col-header-cell-cushion{ font-size:10px; letter-spacing:.02em; }
 
   /* The "New" button moves out of the controls row entirely below 760px —
-     the FAB below takes over so the row only has to fit tabs + Today + nav. */
-  .mrd-btn--new{ display:none; }
+     the FAB below takes over so the row only has to fit tabs + Today + nav.
+     !important so it still wins now that the button is a <PremiumButton>
+     (whose .wt-premium-btn display:inline-flex has equal specificity). */
+  .mrd-btn--new{ display:none !important; }
   .mrd-fab{ display:flex; }
   .mrd-daybar{ display:flex; }
 
@@ -496,7 +514,9 @@
   .mrd .fc-daygrid-day-frame{ min-height:58px; padding:3px 3px 26px; }
   .mrd .fc-daygrid-day-number{ font-size:12px; min-width:20px; height:20px; margin:1px; }
   .mrd .mrd-daybadge{ width:20px; height:20px; }
-  .mrd .fullcalendar__event__wrapper{ padding:2px 5px; font-size:10.5px; }
+  /* Keep shrinking with the grid — a ~45px column at 8.5px still fits ~9-10
+     characters per line, matching the native-calendar reference density. */
+  .mrd .fullcalendar__event__wrapper{ padding:1px 3px; font-size:8.5px; line-height:1.3; }
   .mrd-qa{ grid-template-columns:1fr; }
   .mrd-stats{ grid-template-columns:1fr 1fr; gap:8px; }
 
@@ -509,6 +529,7 @@
      drop to a single leading letter so the header never wraps or crowds. */
   .mrd .fc-col-header-cell-cushion{ font-size:0; }
   .mrd .fc-col-header-cell-cushion::first-letter{ font-size:10px; }
+  .mrd .fullcalendar__event__wrapper{ font-size:8px; }
 }
 @media (prefers-reduced-motion:reduce){
   .mrd *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }

@@ -117,7 +117,7 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <Typography sx={{ mb: 0.8, fontSize: "14px", fontWeight: 500, color: "black" }}>
-            Inquiry No.
+            Inquiry No. <span className="text-danger">*</span>
           </Typography>
           <Box sx={{ border: "1px solid #D0D5DD", borderRadius: "8px", px: 2, py: 1.6, height: "45px", display: "flex", alignItems: "center" }}>
             <PrefixInlineEdit value={props.prefix} label="" onChange={props.setPrefix} disabled={false} />
@@ -204,14 +204,11 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                     filteredContacts = filteredContacts.filter((c: any) => typeCompanyIds.has(c.companyId));
                   }
 
-                  const companyNameById = new Map(
-                    (props.companies || []).map((c: any) => [c.id, c.companyName])
-                  );
-                  const contactOptions = filteredContacts.map((x: any) => {
-                    const cName = companyNameById.get(x.companyId);
-                    const base = x.fullName || x.name || "Unnamed Contact";
-                    return { value: x.id, label: cName ? `${base} — ${cName}` : base };
-                  });
+                  const contactOptions = filteredContacts.map((x: any) => ({
+                    value: x.id,
+                    label: x.fullName || x.name || "Unnamed Contact",
+                    avatar: x.profilePhoto || null,
+                  }));
 
                   return (
                     <div key={index} className="p-4 border rounded bg-light position-relative">
@@ -368,20 +365,11 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
     ? allCompanies.filter((c: any) => String(c.companyTypeId) === String(selectedType))
     : allCompanies;
 
-  // Build option lists that ALWAYS include the currently-saved value, so an existing
-  // lead pre-populates on edit — even when the saved Type isn't an "(All)" category
-  // (the reverse-cascade stores a company's specific type) or the saved Company falls
-  // outside the active type filter. Without this the dropdowns render empty on edit.
-  const typeOptions = (() => {
-    const opts = allCompanyTypes
-      .filter((x: any) => x.name?.includes('(All)'))
-      .map((x: any) => ({ value: x.id, label: x.name }));
-    if (selectedType && !opts.some((o: any) => String(o.value) === String(selectedType))) {
-      const saved = allCompanyTypes.find((x: any) => String(x.id) === String(selectedType));
-      if (saved) opts.unshift({ value: saved.id, label: saved.name });
-    }
-    return opts;
-  })();
+  const typeOptions = allCompanyTypes.map((x: any) => ({ value: x.id, label: x.name }));
+
+  // The Company list must ALWAYS include the currently-saved value, so an existing
+  // lead pre-populates on edit even when the saved Company falls outside the active
+  // type filter. Without this the dropdown renders empty on edit.
 
   const companyOptions = (() => {
     const opts = filteredCompanies.map((x: any) => ({ value: x.id, label: x.companyName, avatar: x.logo || null }));
@@ -501,18 +489,6 @@ export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
   );
 };
 
-/**
- * Build the Referring Contact option source for a single referral row.
- * Reverse-lookup friendly like buildRowContacts above: with no company chosen
- * yet, list every contact (tagged with its company) so the user can find a
- * person directly; once a Referring Company is picked, forward-filter to it.
- */
-const buildReferralContacts = (ref: any, props: LeadSectionsProps): any[] => {
-  const allContacts = props.contacts || [];
-  if (!ref.referringCompany) return allContacts;
-  return allContacts.filter((c: any) => String(c.companyId) === String(ref.referringCompany));
-};
-
 // Referral Details Section
 export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
@@ -524,8 +500,6 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
       label: x.employeeName,
       avatar: x.avatar || x.users?.avatar || null
     }));
-  const companyNameById = new Map((props.companies || []).map((c: any) => [c.id, c.companyName]));
-
   // The referral-type dropdown stores the type's ID (a UUID), NOT the literal
   // string "INTERNAL". Resolve the selected type and read its isInternal flag
   // (with a name fallback) so the Internal path shows the "Referring Employee"
@@ -533,6 +507,25 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
   const isInternalReferral = (referralTypeId: string): boolean => {
     const t = (props.referralTypes || []).find((x: any) => x.id === referralTypeId);
     return t?.isInternal === true || /internal/i.test(t?.name || "");
+  };
+
+  // The dropdown always offers exactly Internal and External (the backend
+  // guarantees both rows exist). A saved legacy type on an existing lead is
+  // appended so edit still pre-populates.
+  const allTypes = props.referralTypes || [];
+  const internalType = allTypes.find((x: any) => x.isInternal === true)
+    || allTypes.find((x: any) => /^internal$/i.test((x.name || "").trim()));
+  const externalType = allTypes.find((x: any) => /^external$/i.test((x.name || "").trim()))
+    || allTypes.find((x: any) => x.isInternal !== true);
+  const baseTypeOptions = [internalType, externalType]
+    .filter(Boolean)
+    .map((x: any) => ({ value: x.id, label: x.name }));
+  const referralTypeOptions = (savedTypeId: string) => {
+    if (savedTypeId && !baseTypeOptions.some(o => String(o.value) === String(savedTypeId))) {
+      const saved = allTypes.find((x: any) => String(x.id) === String(savedTypeId));
+      if (saved) return [...baseTypeOptions, { value: saved.id, label: saved.name }];
+    }
+    return baseTypeOptions;
   };
 
   return (
@@ -559,7 +552,7 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                       isRequired={false}
                       formikField={`referrals.${index}.referralType`}
                       inputLabel="Referral Type"
-                      options={(props.referralTypes || []).map(x => ({ value: x.id, label: x.name }))}
+                      options={referralTypeOptions(ref.referralType)}
                       onChange={(opt: any) => {
                         const newType = opt?.value || "";
                         setFieldValue(`referrals.${index}.referralType`, newType);
@@ -648,11 +641,11 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                                 isRequired={false}
                                 formikField={`referrals.${index}.referringContact`}
                                 inputLabel="Referring Contact"
-                                options={filteredContacts.map((c: any) => {
-                                  const base = c.fullName || c.name || "Unnamed Contact";
-                                  const cName = companyNameById.get(c.companyId);
-                                  return { value: c.id, label: cName ? `${base} — ${cName}` : base, avatar: c.profilePhoto || null };
-                                })}
+                                options={filteredContacts.map((c: any) => ({
+                                  value: c.id,
+                                  label: c.fullName || c.name || "Unnamed Contact",
+                                  avatar: c.profilePhoto || null,
+                                }))}
                                 onChange={(opt: any) => {
                                   const contactId = opt?.value || "";
                                   setFieldValue(`referrals.${index}.referringContact`, contactId);
@@ -826,7 +819,7 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
               <Button
                 variant="outline-primary"
                 size="sm"
-                onClick={() => push({ country: "", state: "", city: "", projectAddress: "", pincode: "", googleMapLink: "", gmbLink: "", latitude: "", longitude: "" })}
+                onClick={() => push({ country: "", state: "", city: "", locality: "", projectAddress: "", pincode: "", googleMapLink: "", gmbLink: "", latitude: "", longitude: "" })}
                 className="align-self-start fw-bold mt-2"
               >
                 + Add Address details
@@ -1239,7 +1232,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
         {/* Inquiry No + Revision No (read-only) + Date */}
         <Grid item xs={12} md={4}>
           <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
-            Inquiry No.
+            Inquiry No. <span className="text-danger">*</span>
           </Typography>
           <Box
             sx={{
@@ -1367,18 +1360,11 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
               // Company Type / Company / Sub Company via handleContactChange.
               // Forward filtering still applies once a company/type is selected.
               const rowContacts = buildRowContacts(team, index, props);
-              const companyNameById = new Map(
-                (props.companies || []).map((c: any) => [c.id, c.companyName])
-              );
-              const contactOptions = rowContacts.map((x: any) => {
-                const cName = companyNameById.get(x.companyId);
-                const base = x.fullName || x.name || "Unnamed Contact";
-                return {
-                  value: x.id,
-                  label: cName ? `${base} — ${cName}` : base,
-                  avatar: x.profilePhoto || null,
-                };
-              });
+              const contactOptions = rowContacts.map((x: any) => ({
+                value: x.id,
+                label: x.fullName || x.name || "Unnamed Contact",
+                avatar: x.profilePhoto || null,
+              }));
 
               return (
                 <div key={index} className="wt-entry-card">

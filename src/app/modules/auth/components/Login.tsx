@@ -3,7 +3,7 @@ import * as Yup from "yup";
 import { useDispatch, useSelector } from "react-redux";
 import { useFormik } from "formik";
 import clsx from "clsx";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { login } from "@services/auth";
 import { fetchCurrentUser } from "@services/users";
@@ -39,6 +39,7 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
 
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const currEmployee = useSelector(
     (state: RootState) => state.employee.currentEmployee
   );
@@ -68,16 +69,23 @@ function LoginForm() {
             currUserRes.user.id
           );
           const { employee } = currEmpRes;
-          let avatar = getAvatar(employee.avatar, employee.gender);
+          const avatar = getAvatar(employee.avatar, employee.gender);
           dispatch(saveCurrentEmployee({ ...employee, avatar }));
         }
         dispatch(redirect(true));
         localStorage.setItem("redirectToDashboard", "true");
         setLoading(false);
       } catch (error: any) {
-        setStatus(error?.response?.data?.detail);
+        const data = error?.response?.data;
         setSubmitting(false);
         setLoading(false);
+        // Inactive / exited employee — the backend flags this so we can send them
+        // to the dedicated "connect with HR" page instead of an inline error.
+        if (data?.meta?.code === "ACCOUNT_INACTIVE") {
+          navigate("/auth/inactive", { state: { message: data?.detail } });
+          return;
+        }
+        setStatus(data?.detail);
       }
     },
   });

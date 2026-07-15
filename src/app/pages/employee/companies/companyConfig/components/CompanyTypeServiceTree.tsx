@@ -16,11 +16,11 @@ import React, { useMemo, useState, useCallback } from "react";
  *  - Sub-services (Service rows) with no/invalid parent live under an "Unassigned" group.
  */
 
-const ACCENT = "#9D4141";
+const ACCENT = "#1E3A8A";
 
 // Row-action palette — harmonized with the maroon theme, each action a distinct hue.
 const ACTION = {
-  service: "#9D4141",  // theme maroon — add Service (a sub-type under a company type)
+  service: "#1E3A8A",  // theme maroon — add Service (a sub-type under a company type)
   subService: "#1f7a4d", // green — add Sub-service (a service under a sub-type)
   edit: "#2f6fb3",     // blue — edit
   remove: "#c0392b",   // red — delete

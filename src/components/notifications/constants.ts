@@ -104,7 +104,7 @@ export const PATH_MODULE_RULES: Array<[RegExp, string]> = [
 
 /** Brand accent (matches the bottom-nav center button gradient). */
 export const BRAND = {
-  color:    '#9D4141',
+  color:    '#1E3A8A',
   gradient: 'linear-gradient(135deg, #b94a4a 0%, #8c3232 100%)',
 } as const;
 

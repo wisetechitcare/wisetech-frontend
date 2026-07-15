@@ -133,8 +133,10 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
                             onChange={(e) => {
                               const val = e.target.value;
                               const areaKey = isLead ? "projectArea" : "area";
-                              setFieldValue(`${arrayPath}.${index}.${areaKey}`, val);
-                              recalculateRow(index, { [areaKey]: val });
+                              if (val === "" || parseFloat(val) >= 0) {
+                                setFieldValue(`${arrayPath}.${index}.${areaKey}`, val);
+                                recalculateRow(index, { [areaKey]: val });
+                              }
                             }}
                             className="commercials-input"
                             placeholder="0"
@@ -174,8 +176,10 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
                               value={item.rate || ""}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                setFieldValue(`${arrayPath}.${index}.rate`, val);
-                                recalculateRow(index, { rate: val });
+                                if (val === "" || parseFloat(val) >= 0) {
+                                  setFieldValue(`${arrayPath}.${index}.rate`, val);
+                                  recalculateRow(index, { rate: val });
+                                }
                               }}
                               className="commercials-input"
                               placeholder="0.00"
@@ -202,7 +206,9 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
                               onChange={(e) => {
                                 const val = e.target.value;
                                 const costKey = isLead ? "cost" : "lumpsumCost";
-                                setFieldValue(`${arrayPath}.${index}.${costKey}`, val);
+                                if (val === "" || parseFloat(val) >= 0) {
+                                  setFieldValue(`${arrayPath}.${index}.${costKey}`, val);
+                                }
                               }}
                               className="commercials-input"
                               placeholder="Enter Cost"

@@ -95,7 +95,7 @@ const CompanyLeadReferences: React.FC<{ referredLeads?: LeadReferral[] }> = ({ r
         sx: { minWidth: 600 },
         // Status-tinted rows + hover lift, matching the Leads Management table.
         muiTableBodyRowProps: ({ row }: any) => {
-          const color = row.original?.lead?.status?.color || "#AA393D";
+          const color = row.original?.lead?.status?.color || "#1E3A8A";
           return {
             sx: {
               cursor: "pointer",

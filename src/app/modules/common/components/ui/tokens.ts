@@ -5,15 +5,25 @@
  */
 export const T = {
   color: {
-    // Brand — navy blue (logo "WISE") as primary, red (logo "TECH") as accent.
+    // Brand — navy blue as the single core hue. Primary buttons use `brandGradient`.
     brand: '#1E3A8A',
     brandHover: '#172554',
     brandActive: '#14204A',
     brandSoft: '#E9EEF8',
     brandRing: 'rgba(30, 58, 138, 0.16)',
-    // Accent — brand red (logo "TECH"); used for the header stripe & highlights.
-    accent: '#C0392B',
-    accentSoft: '#FBEBE9',
+    // The premium CTA gradient — a visible diagonal: royal blue → navy → deep navy.
+    brandGradient: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)',
+    // Same brand colours but left to right (90deg) — bright blue on the left
+    // flowing to deep navy on the right. Use anywhere via `T.color.brandGradientLeftToRight`.
+    brandGradientLeftToRight: 'linear-gradient(90deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)',
+    // Same brand colours but vertical (top → bottom) — reads as a uniform navy
+    // sheen on wide bars (e.g. the module header tabs) instead of a stretched
+    // left-to-right split. Use anywhere via `T.color.brandGradientVertical`.
+    brandGradientVertical: 'linear-gradient(180deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)',
+    // Accent — a brighter blue used for highlights / header stripes so they stay
+    // visible on the navy gradient. Kept blue to match the unified theme.
+    accent: '#3B82F6',
+    accentSoft: '#E7EEFE',
 
     // Surfaces & ink — cool slate neutrals
     surface: '#FFFFFF',

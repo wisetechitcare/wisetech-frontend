@@ -1039,10 +1039,10 @@ const NewCompanyForm: React.FC<Props> = ({
                             alignItems: "center",
                             gap: "8px",
                             background: "#fff",
-                            border: "1.5px solid #9D4141",
+                            border: "1.5px solid #1E3A8A",
                             borderRadius: "8px",
                             padding: "6px 16px",
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             fontWeight: 700,
                             fontSize: "13px",
                             cursor: "pointer",
@@ -1061,7 +1061,7 @@ const NewCompanyForm: React.FC<Props> = ({
                           style={{
                             fontSize: "17px",
                             fontFamily: "Inter",
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             padding: "2px 2px 8px 2px",
                             display: "flex",
                             alignItems: "center",
@@ -1072,7 +1072,7 @@ const NewCompanyForm: React.FC<Props> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}
@@ -1080,7 +1080,7 @@ const NewCompanyForm: React.FC<Props> = ({
                           Logo
                           <div
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "100%",
                               height: "0px",
                             }}
@@ -1094,13 +1094,13 @@ const NewCompanyForm: React.FC<Props> = ({
                                 width: 80,
                                 height: 80,
                                 borderRadius: "50%",
-                                border: logoPreview ? "2.5px solid #9D4141" : "2px dashed #ccc",
+                                border: logoPreview ? "2.5px solid #1E3A8A" : "2px dashed #ccc",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
                                 overflow: "hidden",
                                 background: "#f8f9fa",
-                                boxShadow: logoPreview ? "0 2px 10px rgba(157,65,65,0.15)" : "none",
+                                boxShadow: logoPreview ? "0 2px 10px rgba(30, 58, 138,0.15)" : "none",
                                 transition: "border-color .2s, box-shadow .2s",
                               }}
                             >
@@ -1134,7 +1134,7 @@ const NewCompanyForm: React.FC<Props> = ({
                       {/* Basic */}
                       <fieldset
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           padding: "clamp(14px, 2vw, 15px)",
                         }}
                         className="mt-7"
@@ -1150,7 +1150,7 @@ const NewCompanyForm: React.FC<Props> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",
@@ -1160,7 +1160,7 @@ const NewCompanyForm: React.FC<Props> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}
@@ -1291,7 +1291,7 @@ const NewCompanyForm: React.FC<Props> = ({
                       {/* References */}
                       <fieldset
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           padding: "clamp(14px, 2vw, 15px)",
                         }}
                         className="mt-7"
@@ -1307,7 +1307,7 @@ const NewCompanyForm: React.FC<Props> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",
@@ -1317,7 +1317,7 @@ const NewCompanyForm: React.FC<Props> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}
@@ -1341,7 +1341,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                               top: "-8px",
                                               right: "8px",
                                               cursor: "pointer",
-                                              color: "#9D4141",
+                                              color: "#1E3A8A",
                                               fontSize: "20px",
                                               fontWeight: "bold",
                                               width: "24px",
@@ -1521,8 +1521,8 @@ const NewCompanyForm: React.FC<Props> = ({
                                       }
                                       style={{
                                         cursor: "pointer",
-                                        color: "#9D4141",
-                                        border: "1px dotted #9D4141",
+                                        color: "#1E3A8A",
+                                        border: "1px dotted #1E3A8A",
                                         borderRadius: "5px",
                                         padding: "8px 10px",
                                         marginTop: "15px",
@@ -1545,7 +1545,7 @@ const NewCompanyForm: React.FC<Props> = ({
                       {/* Contact */}
                       <fieldset
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           padding: "clamp(14px, 2vw, 15px)",
                         }}
                         className="mt-7"
@@ -1561,7 +1561,7 @@ const NewCompanyForm: React.FC<Props> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",
@@ -1571,7 +1571,7 @@ const NewCompanyForm: React.FC<Props> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}
@@ -1624,7 +1624,7 @@ const NewCompanyForm: React.FC<Props> = ({
                       {/* Address */}
                       <fieldset
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           padding: "clamp(14px, 2vw, 14px)",
                         }}
                         className="mt-7"
@@ -1640,7 +1640,7 @@ const NewCompanyForm: React.FC<Props> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",
@@ -1650,7 +1650,7 @@ const NewCompanyForm: React.FC<Props> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}
@@ -1831,7 +1831,7 @@ const NewCompanyForm: React.FC<Props> = ({
                       {/* GST & Statutory */}
                       <fieldset
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           padding: "clamp(14px, 2vw, 15px)",
                         }}
                         className="mt-7"
@@ -1847,7 +1847,7 @@ const NewCompanyForm: React.FC<Props> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",
@@ -1857,7 +1857,7 @@ const NewCompanyForm: React.FC<Props> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}
@@ -1929,7 +1929,7 @@ const NewCompanyForm: React.FC<Props> = ({
                           <fieldset
                             key={section.id}
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               padding: "clamp(14px, 2vw, 15px)",
                             }}
                             className="mt-7"
@@ -1945,7 +1945,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                 width: "auto",
                                 lineHeight: "1",
                                 letterSpacing: 0,
-                                color: "#9D4141",
+                                color: "#1E3A8A",
                                 padding: "2px 2px 8px",
                                 display: "flex",
                                 alignItems: "center",
@@ -1955,7 +1955,7 @@ const NewCompanyForm: React.FC<Props> = ({
                               <div
                                 className="ms-5"
                                 style={{
-                                  borderTop: "1px solid #9D4141",
+                                  borderTop: "1px solid #1E3A8A",
                                   width: "30px",
                                   height: "0px",
                                 }}
@@ -1981,7 +1981,7 @@ const NewCompanyForm: React.FC<Props> = ({
                       {/* Other */}
                       <fieldset
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           padding: "clamp(14px, 2vw, 14px)",
                         }}
                         className="mt-7"
@@ -1997,7 +1997,7 @@ const NewCompanyForm: React.FC<Props> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",
@@ -2007,13 +2007,13 @@ const NewCompanyForm: React.FC<Props> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}
                           ></div>
                           <span>OTHERS</span>
-                          {/* <div style={{borderTop: "1px solid #9D4141", width: "100px", height: "0px",}}></div> */}
+                          {/* <div style={{borderTop: "1px solid #1E3A8A", width: "100px", height: "0px",}}></div> */}
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <div className="mb-3">

@@ -748,7 +748,7 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
     );
 
     const Header = () => (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 22px', background: 'linear-gradient(120deg, #16224a 0%, #1E3A8A 100%)', borderBottom: '3px solid #A64652' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 22px', background: 'linear-gradient(120deg, #16224a 0%, #1E3A8A 100%)', borderBottom: '3px solid #3B82F6' }}>
             <div>
                 <div style={{ color: '#fff', fontSize: 16.5, fontWeight: 700, fontFamily: PJK }}>Apply for Leave</div>
                 <div style={{ color: 'rgba(255,255,255,.72)', fontSize: 12, fontWeight: 500, marginTop: 1 }}>{fiscalHint}</div>

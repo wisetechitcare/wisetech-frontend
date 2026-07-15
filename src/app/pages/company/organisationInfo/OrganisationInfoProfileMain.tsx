@@ -21,19 +21,13 @@ const OrganisationInfoProfileMain = () => {
               title: "Rule",
             //   component: <OrganisationProfileForm />,
             component: <RuleMainPage />,
-            //   icon:
-            //       activeTab === 0
-            //           ? companyOverviewIcons.companyOverviewIcon.default
-            //           : companyOverviewIcons.companyOverviewIcon.default,
+            icon: 'bi-journal-text',
           },
           {
               title: "FAQS",
             //   component: <Masters />,
             component: <FaqsMainPage />,
-            //   icon:
-            //       activeTab === 1
-            //           ? leadsIcons.leadsConfigIcon.active
-            //           : leadsIcons.leadsConfigIcon.default,
+            icon: 'bi-question-circle',
           }
       ];
   

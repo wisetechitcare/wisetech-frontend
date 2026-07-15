@@ -67,17 +67,11 @@ const TasksMain = () => {
     {
       title: "Tasks",
       component: <TasksMainTable />,
-      icon:
-        activeTab === 0
-          ? leadsIcons.leadsOverviewIcon.active
-          : leadsIcons.leadsOverviewIcon.default,
+      icon: 'bi-check2-square',
     },{
       title: "Configure",
       component: <TasksConfigure />,
-      icon:
-        activeTab === 1
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
+      icon: 'bi-gear',
     },
   ];
 

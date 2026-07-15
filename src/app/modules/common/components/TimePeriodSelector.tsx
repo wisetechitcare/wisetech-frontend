@@ -31,7 +31,7 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
     weekly: "Weekly",
     monthly: "Monthly",
     yearly: "Yearly",
-    allyear: "All Year",
+    allyear: "All Time",
     custom: "Custom",
   };
 
@@ -78,7 +78,7 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
       return {
         ...baseStyles,
         background: isActive ? "#ffffff" : "transparent",
-        color: isActive ? "#AA393D" : "#64748B",
+        color: isActive ? "#1E3A8A" : "#64748B",
         boxShadow: isActive ? "0 1px 2px rgba(16, 24, 40, 0.06)" : "none",
       };
     }
@@ -86,9 +86,9 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
     if (variant === "dark") {
       return {
         ...baseStyles,
-        background: isActive ? "#AA393D" : "#F1F5F9",
+        background: isActive ? "#1E3A8A" : "#F1F5F9",
         color: isActive ? "#ffffff" : "#64748B",
-        boxShadow: isActive ? "0 2px 8px rgba(170, 57, 61, 0.15)" : "none",
+        boxShadow: isActive ? "0 2px 8px rgba(30, 58, 138, 0.15)" : "none",
       };
     }
 
@@ -96,9 +96,9 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
       return {
         ...baseStyles,
         background: "transparent",
-        color: isActive ? "#AA393D" : "#64748B",
-        border: isActive ? "1px solid #AA393D" : "1px solid #E2E8F0",
-        boxShadow: isActive ? "0 1px 2px rgba(170, 57, 61, 0.1)" : "none",
+        color: isActive ? "#1E3A8A" : "#64748B",
+        border: isActive ? "1px solid #1E3A8A" : "1px solid #E2E8F0",
+        boxShadow: isActive ? "0 1px 2px rgba(30, 58, 138, 0.1)" : "none",
       };
     }
 
@@ -106,7 +106,7 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
       return {
         ...baseStyles,
         background: isActive ? "#ffffff" : "transparent",
-        color: isActive ? "#AA393D" : "#64748B",
+        color: isActive ? "#1E3A8A" : "#64748B",
         boxShadow: isActive ? "0 1px 2px rgba(16, 24, 40, 0.06)" : "none",
       };
     }

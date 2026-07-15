@@ -144,7 +144,7 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
         {unreadCount > 0 && (
           <span
             className="position-absolute top-0 start-100 translate-middle badge rounded-pill text-white notification-badge-pulse"
-            style={{ backgroundColor: '#9D4141', fontSize: '0.65rem', minWidth: '18px' }}
+            style={{ backgroundColor: '#1E3A8A', fontSize: '0.65rem', minWidth: '18px' }}
           >
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
@@ -163,7 +163,7 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
             <KTIcon iconName="notification-on" className="text-primary fs-3" />
             Notifications
             {notifications.length > 0 && (
-              <span className="badge rounded-pill text-white ms-1" style={{ backgroundColor: '#9D4141', fontSize: '0.7rem' }}>
+              <span className="badge rounded-pill text-white ms-1" style={{ backgroundColor: '#1E3A8A', fontSize: '0.7rem' }}>
                 {notifications.length}
               </span>
             )}
@@ -263,9 +263,9 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
       <style>{`
         /* Pulse animation on badge */
         @keyframes notif-pulse {
-          0%   { box-shadow: 0 0 0 0 rgba(157,65,65,.6); }
-          70%  { box-shadow: 0 0 0 6px rgba(157,65,65,0); }
-          100% { box-shadow: 0 0 0 0 rgba(157,65,65,0); }
+          0%   { box-shadow: 0 0 0 0 rgba(30, 58, 138,.6); }
+          70%  { box-shadow: 0 0 0 6px rgba(30, 58, 138,0); }
+          100% { box-shadow: 0 0 0 0 rgba(30, 58, 138,0); }
         }
         .notification-badge-pulse { animation: notif-pulse 1.8s infinite; }
 

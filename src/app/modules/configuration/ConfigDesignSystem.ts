@@ -9,12 +9,17 @@ import type { CSSProperties } from 'react';
 // ─── Color Palette ────────────────────────────────────────────────────────────
 
 export const C = {
-  // Primary brand accent – Burgundy
-  primary: '#9d4141',
-  primaryLight: '#fdf3f4',
-  primaryMid: '#b85555',
-  primaryShadow: 'rgba(157, 65, 65, 0.15)',
-  primaryShadowMd: 'rgba(157, 65, 65, 0.22)',
+  // Primary brand accent – Navy blue (#1E3A8A). Single brand hue across the app;
+  // kept in sync with tokens.ts `T.color.brand` and premium-layout.css `--wt-accent`.
+  primary: '#1E3A8A',
+  primaryLight: '#EEF3FC',
+  primaryMid: '#3B5BA9',
+  primaryShadow: 'rgba(30, 58, 138, 0.15)',
+  primaryShadowMd: 'rgba(30, 58, 138, 0.22)',
+  // Brand CTA gradient — primary buttons use this rather than the flat `primary`.
+  // Visible diagonal sweep: royal blue → navy → deep navy.
+  gradient: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)',
+  gradientHover: 'linear-gradient(135deg, #3461D0 0%, #24459C 55%, #1A2F6E 100%)',
 
   // Semantic status
   success: '#17c964',
@@ -47,7 +52,7 @@ export const C = {
 
   // Borders
   border: '#E1E3EA',
-  borderFocus: '#9d4141',
+  borderFocus: '#1E3A8A',
   borderDark: '#d1d3e2',
 
   // Shadows
@@ -316,7 +321,7 @@ export const KEYFRAMES = `
       background: #fff !important;
       box-shadow: 0 2px 8px rgba(24,28,50,0.10), 0 1px 3px rgba(24,28,50,0.06) !important;
       border-radius: 8px !important;
-      color: #9d4141 !important;
+      color: #1E3A8A !important;
       font-weight: 600 !important;
     }
     .cfg-tab-btn[data-active="false"] {

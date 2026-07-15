@@ -133,7 +133,7 @@ const AddFAQModal: React.FC<AddFAQModalProps> = ({ show, onHide, onSave, editing
             onClick={handleSave}
             disabled={!question.trim() || !answer.trim()}
             style={{
-              backgroundColor: '#9d4141',
+              backgroundColor: '#1E3A8A',
               border: 'none',
               borderRadius: '6px',
               color: '#fff',

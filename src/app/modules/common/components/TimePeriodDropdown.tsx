@@ -24,7 +24,7 @@ const TimePeriodDropdown: React.FC<TimePeriodDropdownProps> = ({
     weekly: "Weekly",
     monthly: "Monthly",
     yearly: "Yearly",
-    allyear: "All Year",
+    allyear: "All Time",
     custom: "Custom",
   };
 
@@ -46,12 +46,12 @@ const TimePeriodDropdown: React.FC<TimePeriodDropdownProps> = ({
           borderWidth: "3px",
         },
         "& .Mui-selected": {
-          borderColor: "#9D4141 !important",
-          color: "#9D4141 !important",
+          borderColor: "#1E3A8A !important",
+          color: "#1E3A8A !important",
         },
         "& .MuiToggleButton-root:hover": {
-          borderColor: "#9D4141 !important",
-          color: "#9D4141 !important",
+          borderColor: "#1E3A8A !important",
+          color: "#1E3A8A !important",
         },
         ...props.sx,
       }}

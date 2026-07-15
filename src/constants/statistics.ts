@@ -20,7 +20,7 @@ export const allowedTypes = [
 
 export const totalShiftTimeMins: number = (shiftHours * 60) + shiftMinutes;
 // change it here
-export let totalWorkingHour: number = store.getState().appSettings.workingHours || 0;
+export const totalWorkingHour: number = store.getState().appSettings.workingHours || 0;
 
 export const checkInTime = '04:00';
 export const checkOutTime = '12:00';

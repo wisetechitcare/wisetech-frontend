@@ -49,7 +49,6 @@ import loanOverviewActiveIcon from "./loanOverViewActive.svg";
 import installmentsIcon from "./installmentsDefault.svg";
 import installmentsActiveIcon from "./insatllmentsActive.svg";
 import kpiAttendanceIcon from "./KPIAttendanceIcon.svg";
-import kpiAttendanceActiveIcon from "./KPIAttendanceActiveIcon.svg";
 import kpiLeaderboardIcon from "./kpiLeaderboard.svg";
 import kpiLeaderboardActiveIcon from "./kpiLeaderboardActive.svg";
 import myKpiIcon from "./myKpi.svg";

@@ -139,7 +139,7 @@ export const ProgessBar = ({ progessBarSeries, checkIn, checkOut, totalWorkingHo
 };
 
 export const Donut = ({ donutLabels, donutSeries, totalDays, customHeading, customStylesForCard, customStylesForCol, customColorsForDonut }: { donutLabels: string[], donutSeries: number[], totalDays?: number, customHeading?: string, customStylesForCard?: React.CSSProperties, customStylesForCol?: React.CSSProperties, customColorsForDonut?: string[] }) => {
-    let customColors = useSelector((state: any) => state?.customColors?.attendanceOverview);
+    const customColors = useSelector((state: any) => state?.customColors?.attendanceOverview);
     const checkoutMissingColor = useSelector((state: any) => state?.customColors?.workingPattern?.missingCheckoutColor);
     const weekendColor = useSelector((state: any) => state?.customColors?.attendanceCalendar?.weekendColor);
 
@@ -350,7 +350,7 @@ export const MultipleRadialBar = ({ multipleRadialBarLabels, multipleRadialBarSe
 };
 
 export const Polar = ({ polarLabels, polarSeries, totalDays }: { polarLabels: string[], polarSeries: number[], totalDays: number }) => {
-    let customColors = useSelector((state: any) => state?.customColors?.workingLocation);
+    const customColors = useSelector((state: any) => state?.customColors?.workingLocation);
 
     const resolveStyle = (label: string) => {
         const l = label.toLowerCase();
@@ -1600,7 +1600,7 @@ export const StatisticsTable = ({
             // Remove checkin for checkout requests
             // updatedValues.checkIn = undefined;
             if (updatedValues?.checkIn) {
-                let checkInDateTime = new Date(dayjs(`${formattedDate} ${updatedValues?.checkIn}`, "YYYY-MM-DD HH:mm")?.toString());
+                const checkInDateTime = new Date(dayjs(`${formattedDate} ${updatedValues?.checkIn}`, "YYYY-MM-DD HH:mm")?.toString());
                 updatedValues.checkIn = checkInDateTime?.toISOString();
             }
         }
@@ -2340,7 +2340,7 @@ export const StatisticsTable = ({
                                             <button
                                                 type='button'
                                                 className='btn btn-primary text-white my-2'
-                                                style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }}
+                                                style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                                                 onClick={() => {
                                                     setShowRequestTypeSelection(true);
                                                     setRequestType(null);
@@ -2349,7 +2349,7 @@ export const StatisticsTable = ({
                                                 <i className='bi bi-arrow-left me-2 text-white'></i>
                                                 Back
                                             </button>
-                                            <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || !formikProps.isValid || disableRaiseRequest || !canSubmitRequest || isValidating}>
+                                            <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || !formikProps.isValid || disableRaiseRequest || !canSubmitRequest || isValidating}>
                                                 {isValidating ? 'Validating...' : (!loading ? 'Save Changes' : '')}
                                                 {loading && (
                                                     <span className='indicator-progress' style={{ display: 'block' }}>
@@ -2941,7 +2941,7 @@ export const ReportsTable = ({
                                         {REQUEST_RAISE_DISABLE_MESSAGE}
                                     </div>}
                                     <div className='d-flex justify-content-center mt-8'>
-                                        <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || !formikProps.isValid}>
+                                        <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || !formikProps.isValid}>
                                             {!loading && 'Save Changes'}
                                             {loading && (
                                                 <span className='indicator-progress' style={{ display: 'block' }}>

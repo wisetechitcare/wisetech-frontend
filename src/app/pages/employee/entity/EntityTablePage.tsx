@@ -1295,10 +1295,10 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         "& .MuiMenuItem-root": {
           fontSize: "12px",
           fontFamily: "Inter",
-          "&:hover": { backgroundColor: "rgba(170,57,61,0.06)" },
+          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
           "&.Mui-selected": {
-            backgroundColor: "rgba(170,57,61,0.1)",
-            color: "#AA393D",
+            backgroundColor: "rgba(30, 58, 138,0.1)",
+            color: "#1E3A8A",
             fontWeight: 600,
           },
         },
@@ -1312,15 +1312,15 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     fontFamily: "Inter",
     fontWeight: 500,
     height: FILTER_HEIGHT,
-    color: hasValue ? "#AA393D" : "#1E293B",
+    color: hasValue ? "#1E3A8A" : "#1E293B",
     "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasValue ? "#AA393D !important" : "#E2E8F0 !important",
+      borderColor: hasValue ? "#1E3A8A !important" : "#E2E8F0 !important",
       borderWidth: "1px !important",
       borderRadius: "6px !important",
     },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#AA393D !important" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#AA393D !important" },
-    "& .MuiSelect-icon": { color: hasValue ? "#AA393D" : "#94A3B8" },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
+    "& .MuiSelect-icon": { color: hasValue ? "#1E3A8A" : "#94A3B8" },
   });
 
   // Row tint: project phase wins for project rows, lead-status color otherwise.
@@ -1364,7 +1364,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                 onClick={() => setShowBulkImport(true)}
                 style={{
                   backgroundColor: "#fff",
-                  color: "#AA393D",
+                  color: "#1E3A8A",
                   border: "1px solid #E2E8F0",
                   boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
                   borderRadius: "6px",
@@ -1384,7 +1384,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                 className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
                 onClick={() => setFormValues({ leadTemplateId: "blank" })}
                 style={{
-                  backgroundColor: "#AA393D",
+                  backgroundColor: "#1E3A8A",
                   color: "#fff",
                   border: "none",
                   borderRadius: "6px",
@@ -1422,8 +1422,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                 style={{
                   background: "transparent",
                   border: "none",
-                  borderBottom: active ? "2px solid #AA393D" : "2px solid transparent",
-                  color: active ? "#AA393D" : "#64748B",
+                  borderBottom: active ? "2px solid #1E3A8A" : "2px solid transparent",
+                  color: active ? "#1E3A8A" : "#64748B",
                   padding: "8px 14px",
                   fontSize: "13px",
                   fontWeight: active ? 700 : 500,
@@ -1438,8 +1438,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
               >
                 {label}
                 <span style={{
-                  background: active ? "rgba(170,57,61,0.1)" : "#F1F5F9",
-                  color: active ? "#AA393D" : "#64748B",
+                  background: active ? "rgba(30, 58, 138,0.1)" : "#F1F5F9",
+                  color: active ? "#1E3A8A" : "#64748B",
                   borderRadius: "999px",
                   fontSize: "11px",
                   fontWeight: 700,
@@ -1459,7 +1459,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
               className="text-center p-2"
               style={{ background: "#FEF2F2", borderRadius: "6px", border: "1px solid #FEE2E2", maxWidth: 420, width: "100%" }}
             >
-              <h6 style={{ fontFamily: "Inter", fontWeight: 600, color: "#AA393D", fontSize: "12px", marginBottom: "2px" }}>
+              <h6 style={{ fontFamily: "Inter", fontWeight: 600, color: "#1E3A8A", fontSize: "12px", marginBottom: "2px" }}>
                 Custom Date Range
               </h6>
               <p className="mb-0" style={{ fontSize: "11px", color: "#64748B" }}>
@@ -1587,9 +1587,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                     height: FILTER_HEIGHT,
                     fontFamily: "Inter",
                     fontSize: "12px",
-                    "& fieldset": { borderColor: searchText ? "#AA393D" : "#E2E8F0" },
-                    "&:hover fieldset": { borderColor: "#AA393D" },
-                    "&.Mui-focused fieldset": { borderColor: "#AA393D" },
+                    "& fieldset": { borderColor: searchText ? "#1E3A8A" : "#E2E8F0" },
+                    "&:hover fieldset": { borderColor: "#1E3A8A" },
+                    "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
                   },
                 }}
                 InputProps={{
@@ -1622,7 +1622,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                         {st?.color && (
                           <span style={{ width: 8, height: 8, minWidth: 8, borderRadius: "50%", backgroundColor: st.color, display: "inline-block" }} />
                         )}
-                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#AA393D", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                           {val}
                         </span>
                         <span
@@ -1631,7 +1631,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                             e.stopPropagation();
                             setStatusFilter("");
                           }}
-                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#AA393D", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#1E3A8A", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
                         >
                           ✕
                         </span>
@@ -1677,7 +1677,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                       }
                       const st = projectStatuses.find((s: any) => s.id === val);
                       return (
-                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#AA393D" }}>
+                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
                           {st?.name || val}
                         </span>
                       );
@@ -1717,7 +1717,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                       }
                       const emp = projectManagerOptions.find((e: any) => e.employeeId === val);
                       return (
-                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#AA393D" }}>
+                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
                           {emp?.employeeName || val}
                         </span>
                       );
@@ -1806,22 +1806,22 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                         fontFamily: "Inter",
                         fontSize: "12px",
                         fontWeight: 500,
-                        color: assignedToFilter ? "#AA393D" : "#1E293B",
+                        color: assignedToFilter ? "#1E3A8A" : "#1E293B",
                         paddingRight: "8px !important",
                         "& fieldset": {
-                          borderColor: assignedToFilter ? "#AA393D" : "#E2E8F0",
+                          borderColor: assignedToFilter ? "#1E3A8A" : "#E2E8F0",
                           borderWidth: "1px",
                           borderRadius: "6px",
                         },
-                        "&:hover fieldset": { borderColor: "#AA393D" },
-                        "&.Mui-focused fieldset": { borderColor: "#AA393D" },
+                        "&:hover fieldset": { borderColor: "#1E3A8A" },
+                        "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
                       },
                       "& .MuiOutlinedInput-input": {
                         padding: "0 4px !important",
                         fontFamily: "Inter",
                         fontSize: "12px",
                         fontWeight: 500,
-                        color: assignedToFilter ? "#AA393D" : "#1E293B",
+                        color: assignedToFilter ? "#1E3A8A" : "#1E293B",
                         "&::placeholder": {
                           color: "#94A3B8",
                           opacity: 1,
@@ -1833,7 +1833,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                       "& .MuiAutocomplete-endAdornment": {
                         right: "6px",
                         "& .MuiSvgIcon-root": {
-                          color: assignedToFilter ? "#AA393D" : "#94A3B8",
+                          color: assignedToFilter ? "#1E3A8A" : "#94A3B8",
                           fontSize: "16px",
                         },
                       },
@@ -1851,10 +1851,10 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                         fontFamily: "Inter",
                         "& .MuiAutocomplete-option": {
                           fontSize: "12px",
-                          "&:hover": { backgroundColor: "rgba(170,57,61,0.06)" },
+                          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
                           '&[aria-selected="true"]': {
-                            backgroundColor: "rgba(170,57,61,0.1)",
-                            color: "#AA393D",
+                            backgroundColor: "rgba(30, 58, 138,0.1)",
+                            color: "#1E3A8A",
                             fontWeight: 600,
                           },
                         },
@@ -1873,7 +1873,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                     border: "none",
                     cursor: "pointer",
                     fontSize: "12px",
-                    color: "#AA393D",
+                    color: "#1E3A8A",
                     fontWeight: 600,
                     fontFamily: "Inter, sans-serif",
                     padding: "2px 8px",
@@ -1901,12 +1901,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
-                <span style={{ fontSize: '14px', color: '#AA393D', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
               </div>
               <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
-                <span style={{ fontSize: '14px', color: '#AA393D', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
                   {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
                 </span>
               </div>
@@ -1968,7 +1968,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                 borderTopLeftRadius: "12px",
                 borderBottomLeftRadius: "12px",
                 borderLeft: row.original?.isProject
-                  ? `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#AA393D"} !important`
+                  ? `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`
                   : "3px solid transparent !important",
                 transition: "border-color 0.2s ease-in-out !important",
               },
@@ -1984,7 +1984,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                   backgroundColor: "#F8FAFC !important",
                 },
                 "& .MuiTableCell-root:first-of-type": {
-                  borderLeftColor: `${row.original?.status?.color || "#AA393D"} !important`,
+                  borderLeftColor: `${row.original?.status?.color || "#1E3A8A"} !important`,
                 },
               },
             },

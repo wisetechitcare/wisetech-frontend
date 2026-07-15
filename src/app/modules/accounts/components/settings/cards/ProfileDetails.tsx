@@ -32,7 +32,7 @@ const mealPreferencesRadioBtns: RadioButton[] = [
   },
 ];
 
-let initialState = {
+const initialState = {
   nickName: "",
   meal: "",
   startTime: "",

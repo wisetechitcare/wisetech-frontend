@@ -11,7 +11,7 @@ const ScoreBar: React.FC<ScoreBarProps> = ({ score, maxScore }) => {
 
   // Define color segments - Premium Mood-Aligned Palette
   const segments = [
-    "#9d4141", // Tier 1: Low Performance (Deep Muted Maroon)
+    "#1E3A8A", // Tier 1: Low Performance (Deep Muted Maroon)
     "#F99F1F", // Tier 2: Improving (Warm Amber)
     "#FFC700", // Tier 3: Good Progress (Muted Gold)
     "#50CD89", // Tier 4: High Output (Emerald Green)

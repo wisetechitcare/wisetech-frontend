@@ -124,8 +124,8 @@ const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
       padding: '16px',
       cursor: 'pointer',
       borderRadius: '8px',
-      border: isSelected ? '1px solid #9d4141' : '1px solid #E1E3EA',
-      backgroundColor: isSelected ? '#fdf3f4' : '#ffffff',
+      border: isSelected ? '1px solid #1E3A8A' : '1px solid #E1E3EA',
+      backgroundColor: isSelected ? '#EEF3FC' : '#ffffff',
       transition: 'all 0.2s ease',
       height: '100%',
       boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
@@ -166,7 +166,7 @@ const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
       height: '24px',
       borderRadius: '6px', // Slightly squared for card design
       border: checked ? 'none' : '1.5px solid #E1E3EA',
-      backgroundColor: checked ? '#9d4141' : 'transparent',
+      backgroundColor: checked ? '#1E3A8A' : 'transparent',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -174,7 +174,7 @@ const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
       transition: 'all 0.2s ease',
     }),
     saveBtn: {
-      backgroundColor: '#9d4141',
+      backgroundColor: '#1E3A8A',
       color: '#ffffff',
       border: 'none',
       borderRadius: '6px',
@@ -368,16 +368,16 @@ function GeneralSettings() {
         alignItems: 'center',
         gap: '10px',
         padding: '14px 16px',
-        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        background: 'linear-gradient(135deg, #EEF3FC 0%, #fff8f8 100%)',
         borderRadius: '12px',
-        border: '1px solid rgba(157,65,65,0.1)',
+        border: '1px solid rgba(30, 58, 138,0.1)',
         marginBottom: '2px',
       }}>
         <div style={{
           width: '34px', height: '34px', borderRadius: '9px',
-          background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+          background: 'linear-gradient(135deg, #1E3A8A 0%, #3B5BA9 100%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+          boxShadow: '0 3px 10px rgba(30, 58, 138,0.25)', flexShrink: 0,
         }}>
           <i className="bi bi-gear-fill" style={{ fontSize: '15px', color: '#fff' }} />
         </div>
@@ -405,16 +405,16 @@ function GeneralSettings() {
         }}
       >
         {/* Left accent */}
-        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '3px', background: 'linear-gradient(to bottom, #9d4141, #c06060)', borderRadius: '14px 0 0 14px' }} />
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '3px', background: 'linear-gradient(to bottom, #1E3A8A, #172554)', borderRadius: '14px 0 0 14px' }} />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', paddingLeft: '6px', minWidth: 0, flex: 1 }}>
           <div style={{
             width: '44px', height: '44px', borderRadius: '12px',
-            background: 'linear-gradient(135deg, #fdf3f4 0%, #fce8e8 100%)',
+            background: 'linear-gradient(135deg, #EEF3FC 0%, #fce8e8 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#9d4141', fontSize: '19px',
-            boxShadow: '0 2px 10px rgba(157,65,65,0.12)', flexShrink: 0,
-            border: '1px solid rgba(157,65,65,0.08)',
+            color: '#1E3A8A', fontSize: '19px',
+            boxShadow: '0 2px 10px rgba(30, 58, 138,0.12)', flexShrink: 0,
+            border: '1px solid rgba(30, 58, 138,0.08)',
           }}>
             <i className="bi bi-wallet2"></i>
           </div>
@@ -425,8 +425,8 @@ function GeneralSettings() {
               </h3>
               <span style={{
                 fontFamily: 'Inter, sans-serif', fontSize: '10px', fontWeight: 700,
-                backgroundColor: '#fdf3f4', color: '#9d4141',
-                border: '1px solid rgba(157,65,65,0.15)',
+                backgroundColor: '#EEF3FC', color: '#1E3A8A',
+                border: '1px solid rgba(30, 58, 138,0.15)',
                 borderRadius: '99px', padding: '2px 8px', letterSpacing: '0.3px',
               }}>
                 PAYROLL
@@ -457,7 +457,7 @@ function GeneralSettings() {
               appearance: 'auto' as any,
               boxShadow: '0 1px 3px rgba(24,28,50,0.04)',
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(157,65,65,0.08)'; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#1E3A8A'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(30, 58, 138,0.08)'; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(24,28,50,0.04)'; }}
           >
             <option value="Hour Based">Hour Based</option>
@@ -466,7 +466,7 @@ function GeneralSettings() {
           <button
             onClick={handleSubmitPaymentMode}
             style={{
-              backgroundColor: '#9d4141',
+              backgroundColor: '#1E3A8A',
               color: '#fff',
               border: 'none',
               borderRadius: '9px',
@@ -478,12 +478,12 @@ function GeneralSettings() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: '0 3px 10px rgba(157,65,65,0.2)',
+              boxShadow: '0 3px 10px rgba(30, 58, 138,0.2)',
               transition: 'all 0.15s ease',
               whiteSpace: 'nowrap' as const,
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(157,65,65,0.28)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(157,65,65,0.2)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(30, 58, 138,0.28)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(30, 58, 138,0.2)'; }}
           >
             <i className="bi bi-check-lg" style={{ fontSize: '14px' }}></i> Save
           </button>
@@ -541,19 +541,19 @@ function GeneralSettings() {
           {selectedEmployeeIds.length > 0 && (
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '5px',
-              backgroundColor: '#fdf3f4',
-              border: '1px solid rgba(157,65,65,0.18)',
-              color: '#9d4141',
+              backgroundColor: '#EEF3FC',
+              border: '1px solid rgba(30, 58, 138,0.18)',
+              color: '#1E3A8A',
               borderRadius: '9px',
               padding: '7px 13px',
               fontFamily: 'Inter, sans-serif',
               fontSize: '13px',
               fontWeight: 700,
               flexShrink: 0,
-              boxShadow: '0 1px 4px rgba(157,65,65,0.08)',
+              boxShadow: '0 1px 4px rgba(30, 58, 138,0.08)',
             }}>
               <span style={{ fontSize: '15px', lineHeight: 1 }}>{selectedEmployeeIds.length}</span>
-              <span style={{ fontSize: '11.5px', fontWeight: 500, color: '#b85555' }}>Selected</span>
+              <span style={{ fontSize: '11.5px', fontWeight: 500, color: '#3B5BA9' }}>Selected</span>
             </div>
           )}
           <button

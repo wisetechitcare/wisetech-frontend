@@ -1,0 +1,229 @@
+/* Professional Menu Icons & Styling */
+
+/* Menu icon sizing and spacing */
+.menu-font-icon {
+  min-width: 20px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  color: #64748B;
+  transition: all 0.25s ease;
+  flex-shrink: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Menu links ────────────────────────────────────────────────────── */
+.menu-link {
+  display: flex !important;
+  align-items: center !important;
+  padding: 9px 14px !important;
+  border-radius: 12px !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  margin: 3px 14px !important;
+  position: relative;
+}
+
+/* Hover — chip lifts toward brand */
+.menu-link:hover {
+  background-color: #F8FAFC !important;
+}
+.menu-link:hover .menu-font-icon {
+  color: var(--wt-brand) !important;
+  background: rgba(30, 58, 138, 0.08) !important;
+  border-color: rgba(30, 58, 138, 0.12) !important;
+  transform: translateY(-1px);
+}
+.menu-link:hover .menu-title {
+  color: var(--wt-ink) !important;
+}
+
+/* Active — chip fills with brand, subtle glow, left rail */
+.menu-link.active {
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.10), rgba(30, 58, 138, 0.03)) !important;
+  overflow: hidden;
+}
+.menu-link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: linear-gradient(180deg, var(--wt-brand-light), var(--wt-brand-dark));
+  border-radius: 0 4px 4px 0;
+}
+.menu-link.active .menu-font-icon {
+  color: #FFFFFF !important;
+  background: linear-gradient(135deg, var(--wt-brand-light), var(--wt-brand-dark)) !important;
+  border-color: transparent !important;
+  box-shadow: 0 6px 14px rgba(30, 58, 138, 0.30) !important;
+}
+.menu-link.active .menu-title {
+  color: var(--wt-brand) !important;
+  font-weight: 700 !important;
+}
+
+/* ── Titles ────────────────────────────────────────────────────────── */
+.menu-title {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--wt-ink) !important;
+  letter-spacing: 0.1px;
+  transition: color 0.2s ease;
+}
+
+/* ── Section headers ───────────────────────────────────────────────── */
+.menu-section {
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 1.2px !important;
+  text-transform: uppercase !important;
+  color: #A2ADBD !important;
+  padding: 20px 26px 8px 26px !important;
+  margin-top: 4px !important;
+}
+
+/* A hairline above each section header for structure (skip the first) */
+.menu-item + .menu-item .menu-section {
+  border-top: 1px solid #F1F5F9;
+  padding-top: 18px !important;
+  margin-top: 6px !important;
+}
+
+/* ── Accordion (expandable groups) ─────────────────────────────────── */
+.menu-accordion.here > .menu-link,
+.menu-accordion.show > .menu-link {
+  background-color: #F8FAFC !important;
+}
+.menu-accordion.here > .menu-link .menu-font-icon,
+.menu-accordion.show > .menu-link .menu-font-icon {
+  color: var(--wt-brand) !important;
+  background: rgba(30, 58, 138, 0.08) !important;
+}
+
+/* ── Sub-menu items ────────────────────────────────────────────────── */
+.menu-sub {
+  margin: 2px 0 6px 0 !important;
+}
+.menu-sub .menu-link {
+  padding: 8px 14px 8px 30px !important;
+  margin: 2px 18px 2px 34px !important;
+  border-radius: 9px !important;
+}
+.menu-sub .menu-title {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--wt-ink-soft) !important;
+}
+/* Bullet dots for sub-items */
+.menu-sub .menu-link .menu-bullet {
+  margin-right: 10px !important;
+  min-width: 6px !important;
+}
+.menu-sub .menu-link .bullet-dot {
+  width: 5px !important;
+  height: 5px !important;
+  background: #CBD5E1 !important;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+.menu-sub .menu-link:hover .bullet-dot {
+  background: var(--wt-brand-light) !important;
+  transform: scale(1.4);
+}
+.menu-sub .menu-link:hover {
+  background-color: #F8FAFC !important;
+}
+.menu-sub .menu-link:hover .menu-title {
+  color: var(--wt-ink) !important;
+}
+.menu-sub .menu-link.active {
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.10), rgba(30, 58, 138, 0.03)) !important;
+}
+.menu-sub .menu-link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: linear-gradient(180deg, var(--wt-brand-light), var(--wt-brand-dark));
+  border-radius: 0 4px 4px 0;
+}
+.menu-sub .menu-link.active .menu-title {
+  color: var(--wt-brand) !important;
+  font-weight: 700 !important;
+}
+.menu-sub .menu-link.active .bullet-dot {
+  background: var(--wt-brand) !important;
+  transform: scale(1.4);
+}
+
+/* ── Expand/collapse arrow ─────────────────────────────────────────── */
+.menu-link .menu-arrow {
+  width: 18px !important;
+  height: 18px !important;
+  margin-left: auto !important;
+  opacity: 0.55;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+.menu-link:hover .menu-arrow {
+  opacity: 1;
+}
+.menu-accordion.here > .menu-link .menu-arrow,
+.menu-accordion.show > .menu-link .menu-arrow {
+  transform: rotate(90deg);
+  opacity: 1;
+}
+
+/* ── Badges ────────────────────────────────────────────────────────── */
+.menu-title .badge-circle,
+.badge-circle {
+  min-width: 20px !important;
+  height: 20px !important;
+  padding: 0 6px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+  margin-left: 8px;
+}
+
+/* Hide any leftover SVG icon slots when using font icons */
+.menu-link:not(.without-sub) .menu-icon {
+  display: none;
+}
+
+/* ── Dark mode ─────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  .aside {
+    background: #0F172A !important;
+    border-right-color: #1E293B !important;
+  }
+  .menu-font-icon {
+    color: #94A3B8;
+    background: #1E293B;
+  }
+  .menu-title {
+    color: #E2E8F0 !important;
+  }
+  .menu-section {
+    color: #64748B !important;
+    border-top-color: #1E293B !important;
+  }
+  .menu-link:hover {
+    background-color: rgba(148, 163, 184, 0.08) !important;
+  }
+  .menu-link:hover .menu-font-icon {
+    color: #FF6B6B !important;
+    background: rgba(255, 107, 107, 0.12) !important;
+  }
+  .menu-link.active .menu-title {
+    color: #FF8A8D !important;
+  }
+  .menu-sub .menu-title {
+    color: #94A3B8 !important;
+  }
+}

@@ -91,7 +91,7 @@ function PublicHolidaysListNew({selectedStartDate, selectedEndDate, holidaysToSh
     useEffect(() => {
 
         if(selectedStartDate && selectedEndDate){
-            let newWeekendHolidays=[];
+            const newWeekendHolidays=[];
             let startDate = selectedStartDate;
             let endDate = selectedEndDate;
             if(selectedView === 'dayGridMonth'){
@@ -160,14 +160,14 @@ function PublicHolidaysListNew({selectedStartDate, selectedEndDate, holidaysToSh
             setDaysInYear(date.isLeapYear() ? 366 : 365);
             let {saturdayCount, sundayCount} = countSaturdaysAndSundays(year);
             if(weeklyWorkingAndOffDays?.saturday!='0'){
-              let saturdaysFromHolidays = holidaysToShow?.filter((ele:any)=>ele?.title?.toLocaleLowerCase()=="saturday")
+              const saturdaysFromHolidays = holidaysToShow?.filter((ele:any)=>ele?.title?.toLocaleLowerCase()=="saturday")
               saturdayCount = saturdaysFromHolidays?.length
             }
 
             setTotalSaturdays(saturdayCount);
 
             if(weeklyWorkingAndOffDays?.sunday!='0'){
-              let sundaysFromHolidays = holidaysToShow?.filter((ele:any)=>ele?.title?.toLocaleLowerCase()=="sunday")
+              const sundaysFromHolidays = holidaysToShow?.filter((ele:any)=>ele?.title?.toLocaleLowerCase()=="sunday")
               sundayCount = sundaysFromHolidays?.length
             }
            
@@ -284,7 +284,7 @@ function PublicHolidaysListNew({selectedStartDate, selectedEndDate, holidaysToSh
         style={{
           width: "12px",
           height: "12px",
-          backgroundColor: "#AA393D",
+          backgroundColor: "#1E3A8A",
         }}
       ></div>
       <h3 className="m-0">Holidays List</h3>
@@ -317,7 +317,7 @@ function PublicHolidaysListNew({selectedStartDate, selectedEndDate, holidaysToSh
                   <span
                     className="badge text-white rounded"
                     style={{
-                      backgroundColor: weekendColors || "#AA393D",
+                      backgroundColor: weekendColors || "#1E3A8A",
                       display: "inline-block",
                     }}
                   >

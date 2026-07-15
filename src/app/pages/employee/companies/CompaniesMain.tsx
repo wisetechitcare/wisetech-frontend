@@ -124,34 +124,22 @@ const CompaniesMain = () => {
     {
       title: "Overview",
       component: <CompanyOverview />,
-      icon:
-        activeTab === 0
-          ? leadsIcons.leadsOverviewIcon.active
-          : leadsIcons.leadsOverviewIcon.default,
+      icon: 'bi-grid-1x2',
     },
     {
       title: "Companies",
       component: <ClientCompaniesMain />,
-      icon:
-        activeTab === 1
-          ? companiesIcons.companiesIcon.active
-          : companiesIcons.companiesIcon.default,
+      icon: 'bi-building',
     },
     {
       title: "Map",
       component: <Maps points={coordinates} companyData={companyData} />,
-      icon:
-        activeTab === 2
-          ? worldIcons.worldIcon.active
-          : worldIcons.worldIcon.default,
+      icon: 'bi-geo-alt',
     },
     {
       title: "Configure",
       component: <CompanyConfigMain />,
-      icon:
-        activeTab === 3
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
+      icon: 'bi-gear',
     },
   ];
   const ProjectBreadcrumbs = [
