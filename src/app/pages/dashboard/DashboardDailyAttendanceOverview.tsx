@@ -22,7 +22,7 @@ import { hasPermission } from "@utils/authAbac";
 import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTableFilters";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
-
+import PeriodFilter from "@app/modules/common/components/PeriodFilter";
 type SortOption = 'name-asc' | 'name-desc' | 'checkin-asc' | 'checkin-desc' | 'none';
 
 /**
@@ -1298,13 +1298,15 @@ const DashboardDailyAttendanceOverview = () => {
 
             {/* Date Navigation - tabs previous and next */}
             <div>
-              <button className="btn btn-sm px-0" onClick={decrementDate}>
-                <img src={toAbsoluteUrl('media/svg/misc/back.svg')} alt="Previous day" />
-              </button>
-              <span className="mx-1 my-1">{date.format('DD MMM, YYYY')}</span>
-              <button className="btn btn-sm px-0" onClick={incrementDate}>
-                <img src={toAbsoluteUrl('media/svg/misc/next.svg')} alt="Next day" />
-              </button>
+              <PeriodFilter 
+                initialMode="daily" 
+                allowedModes={["daily"]}
+                onChange={(range) => {
+                  if (range.start) {
+                    setDate(dayjs(range.start));
+                  }
+                }} 
+              />
             </div>
           </div>
         </div>

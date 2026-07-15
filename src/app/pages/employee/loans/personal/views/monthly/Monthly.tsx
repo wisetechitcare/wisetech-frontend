@@ -377,13 +377,6 @@ function Monthly({ month, resource, viewOthers, viewOwn }: { month: Dayjs, resou
                         }}
                     >
                         {(formikProps) => {
-
-                            useEffect(() => {
-                                // if (!isEditMode) return;
-                                formikProps.setFieldValue('paidAmount', selectedInstallmentForEdit?.paidAmount)
-                                formikProps.setFieldValue('note', selectedInstallmentForEdit?.note)
-                            }, [selectedInstallmentForEdit]);
-
                             return (
                                 <Form className="form">
                                     {/* Attendance Request Limit */}

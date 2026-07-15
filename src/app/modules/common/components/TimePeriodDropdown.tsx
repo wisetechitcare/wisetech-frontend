@@ -24,7 +24,7 @@ const TimePeriodDropdown: React.FC<TimePeriodDropdownProps> = ({
     weekly: "Weekly",
     monthly: "Monthly",
     yearly: "Yearly",
-    allyear: "All Year",
+    allyear: "All Time",
     custom: "Custom",
   };
 
