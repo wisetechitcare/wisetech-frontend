@@ -1084,7 +1084,10 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       header: 'Project Name',
       size: 200,
       enableColumnActions: false,
-      Cell: ({ row }) => <span>{resolveProject(row.original.projectId)}</span>,
+      Cell: ({ row }) => {
+        const found = allProjects.find((p: any) => p.id === row.original.projectId);
+        return <span>{row.original.project?.title || found?.title || resolveProject(row.original.projectId) || 'N/A'}</span>;
+      },
     },
     {
       accessorKey: 'reimbursementType.type',
@@ -1169,7 +1172,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         </div>
       ),
     },
-  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount]);
+  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount, allProjects]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
