@@ -175,7 +175,7 @@ const AttendanceAdminFaqs = () => {
                         <button
                             className="btn"
                             style={{
-                                backgroundColor: '#9d4141',
+                                backgroundColor: '#1E3A8A',
                                 color: 'white',
                                 borderRadius: '6px',
                                 padding: '0 32px',

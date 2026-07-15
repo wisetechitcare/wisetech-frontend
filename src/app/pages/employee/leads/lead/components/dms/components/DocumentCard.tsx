@@ -205,9 +205,9 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
         borderRadius: '18px',
         background: '#ffffff',
         border: isSelected
-          ? '2px solid #9d4141'
+          ? '2px solid #1E3A8A'
           : isHovered
-          ? '1px solid rgba(157,65,65,0.25)'
+          ? '1px solid rgba(30, 58, 138,0.25)'
           : '1px solid #e2e8f0',
         boxShadow: isHovered
           ? '0 12px 32px rgba(0,0,0,0.08)'
@@ -238,10 +238,10 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
           width: '18px',
           height: '18px',
           border: isSelected
-            ? '2px solid #9d4141'
+            ? '2px solid #1E3A8A'
             : '2px solid #cbd5e1',
           borderRadius: '5px',
-          background: isSelected ? '#9d4141' : 'white',
+          background: isSelected ? '#1E3A8A' : 'white',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -349,7 +349,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
             onClick={(e) => e.stopPropagation()}
             style={{
               width: '100%',
-              border: '1px solid #9d4141',
+              border: '1px solid #1E3A8A',
               borderRadius: '6px',
               padding: '6px 8px',
               fontSize: '12px',
@@ -504,8 +504,8 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
         display: 'flex', alignItems: 'center', gap: '12px',
         padding: viewMode === 'compact' ? '8px 12px' : '12px 16px',
         borderRadius: '10px',
-        background: isSelected ? 'rgba(157,65,65,0.04)' : isHovered ? '#f8fafc' : 'white',
-        border: isSelected ? '1px solid rgba(157,65,65,0.2)' : '1px solid transparent',
+        background: isSelected ? 'rgba(30, 58, 138,0.04)' : isHovered ? '#f8fafc' : 'white',
+        border: isSelected ? '1px solid rgba(30, 58, 138,0.2)' : '1px solid transparent',
         cursor: 'pointer',
         transition: 'all 0.15s',
         position: 'relative',
@@ -521,9 +521,9 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
         onClick={e => { e.stopPropagation(); onSelect(); }}
         style={{
           width: '16px', height: '16px', flexShrink: 0,
-          border: isSelected ? '2px solid #9d4141' : '2px solid #cbd5e1',
+          border: isSelected ? '2px solid #1E3A8A' : '2px solid #cbd5e1',
           borderRadius: '4px',
-          background: isSelected ? '#9d4141' : 'white',
+          background: isSelected ? '#1E3A8A' : 'white',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: isSelected || isHovered ? 1 : 0,
           transition: 'all 0.15s',
@@ -546,7 +546,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
               onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setIsRenaming(false); }}
               onClick={e => e.stopPropagation()}
               style={{
-                width: '100%', border: '1px solid #9d4141', borderRadius: '4px',
+                width: '100%', border: '1px solid #1E3A8A', borderRadius: '4px',
                 padding: '1px 6px', fontSize: '13px', outline: 'none',
                 fontFamily: 'Inter',
               }}

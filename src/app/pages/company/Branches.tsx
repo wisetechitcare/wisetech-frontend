@@ -1,5 +1,5 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
-﻿import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Form, Formik, FormikValues, useField, useFormik } from 'formik'
 import * as Yup from 'yup'
 import { Col, Row } from 'react-bootstrap'
@@ -626,6 +626,18 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     }
     loadOrgs()
   }, [])
+
+  useEffect(() => {
+    if (companyId) {
+      initialState.companyId = companyId
+    } else {
+      const setCompanyFromOverview = async () => {
+        const { data: { companyOverview } } = await fetchCompanyOverview()
+        initialState.companyId = resolveActiveOrgId(companyOverview) ?? ''
+      }
+      setCompanyFromOverview()
+    }
+  }, [companyId])
  
   const newBranchButton = isAdmin &&
     hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.create) && (
@@ -703,7 +715,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
         {/* disableEnforceFocus/RestoreFocus: let the portaled react-select menus
             (Country/State/Town/Org) receive focus & clicks inside the dialog. */}
         <Dialog open={show} onClose={handleClose} maxWidth="md" fullWidth disableEnforceFocus disableRestoreFocus PaperProps={{ sx: { borderRadius: '16px' } }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, px: 2.75, py: 1.75, background: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)', borderBottom: '3px solid #C0392B', color: '#fff' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, px: 2.75, py: 1.75, background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)', borderBottom: '3px solid #3B82F6', color: '#fff' }}>
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Box sx={{ width: 42, height: 42, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)' }}>
                 <KTIcon iconName="bank" className="fs-1" />
@@ -722,33 +734,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
             validationSchema={branchSchema}
           >
             {(formikProps) => {
-              useEffect(() => {
-                // getLocation(formikProps);
-                // console.log("formikProps: ", formikProps.values);
-                // const { latitude, longitude } = formikProps.values;
-                // if(!latitude || !longitude){
-                //     getLocation(formikProps);
-                // }
-
-                async function fetchCompany() {
-                  // Scoped mode: attach the new branch to the given organization.
-                  if (companyId) {
-                    formikProps.setFieldValue('companyId', companyId, true)
-                    return
-                  }
-                  const {
-                    data: { companyOverview },
-                  } = await fetchCompanyOverview()
-                  formikProps.setFieldValue(
-                    'companyId',
-                    (resolveActiveOrgId(companyOverview) ?? ''),
-                    true
-                  )
-                }
-
-                fetchCompany()
-              }, [])
-
               return (
                 <Form
                   className='d-flex flex-column'

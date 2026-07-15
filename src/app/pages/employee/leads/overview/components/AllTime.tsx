@@ -254,7 +254,7 @@ const AllTime = () => {
   };
 
   const handleTopLeadsChartClick = (selectedLabel?: string) => {
-    let ids: string[] = [];
+    const ids: string[] = [];
 
     monthlyTopLeadsRes?.data?.forEach((status: any) => {
       Object.values(status.data).forEach((sections: any) => {

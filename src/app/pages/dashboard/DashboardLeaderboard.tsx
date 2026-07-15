@@ -1,11 +1,12 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { useState, useEffect } from "react";
-import { ToggleButton, ToggleButtonGroup, Container } from "@mui/material";
+import { Container } from "@mui/material";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs, { Dayjs } from "dayjs";
-import { toAbsoluteUrl } from "@metronic/helpers";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import Weekly from "@pages/employee/kpis/common/Weekly";
 import Monthly from "@pages/employee/kpis/common/Monthly";
@@ -54,9 +55,9 @@ const DashboardLeaderboard = () => {
           data: { configuration },
         } = await fetchConfiguration(DATE_SETTINGS_KEY);
         const parsed =
-          typeof configuration.configuration === "string"
+          typeof configuration?.configuration === "string"
             ? safeJsonParse(configuration.configuration)
-            : configuration.configuration;
+            : configuration?.configuration;
         setDateSettingsEnabled(parsed?.useDateSettings ?? false);
       } catch (err) {
         console.error("Error fetching date settings", err);
@@ -110,7 +111,6 @@ const DashboardLeaderboard = () => {
   }, [dateSettingsEnabled]);
 
   const handleTabChange = (
-    event: React.MouseEvent<HTMLElement>,
     newTab: LeaderboardTab
   ) => {
     if (newTab) {
@@ -161,57 +161,6 @@ const DashboardLeaderboard = () => {
     );
   };
 
-  const NavigationButtons = ({
-    onPrev,
-    onNext,
-    displayText,
-  }: {
-    onPrev: () => void;
-    onNext: () => void;
-    displayText: string;
-  }) => (
-    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-      <button
-        className="btn btn-sm p-0"
-        onClick={onPrev}
-        style={{
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-        }}
-      >
-        <img
-          src={toAbsoluteUrl("media/svg/misc/back.svg")}
-          alt="Previous"
-          style={{ width: "24px", height: "24px" }}
-        />
-      </button>
-      <span
-        style={{
-          fontSize: "14px",
-          fontFamily: "Inter",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {displayText}
-      </span>
-      <button
-        className="btn btn-sm p-0"
-        onClick={onNext}
-        style={{
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-        }}
-      >
-        <img
-          src={toAbsoluteUrl("media/svg/misc/next.svg")}
-          alt="Next"
-          style={{ width: "24px", height: "24px" }}
-        />
-      </button>
-    </div>
-  );
 
   return (
     <div
@@ -247,70 +196,39 @@ const DashboardLeaderboard = () => {
             gap: "16px",
           }}
         >
-          <ToggleButtonGroup
+          <PeriodTabs
             value={activeTab}
-            exclusive
-            onChange={handleTabChange}
-            aria-label="leaderboard period"
-            sx={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "8px",
-              "& .MuiToggleButton-root": {
-                borderRadius: "20px",
-                borderColor: "#A0B4D2 !important",
-                color: "#000000 !important",
-                paddingX: { xs: "16px", md: "24px" },
-                paddingY: "6px",
-                borderWidth: "2px",
-                fontWeight: "600",
-                fontSize: { xs: "12px", sm: "14px" },
-                height: "36px",
-                fontFamily: "Inter",
-                textTransform: "none",
-              },
-              "& .Mui-selected": {
-                borderColor: "#9D4141 !important",
-                color: "#9D4141 !important",
-              },
-              "& .MuiToggleButton-root:hover": {
-                borderColor: "#9D4141 !important",
-                color: "#9D4141 !important",
-              },
-            }}
-          >
-            <ToggleButton value="weekly">Weekly</ToggleButton>
-            <ToggleButton value="monthly">Monthly</ToggleButton>
-            <ToggleButton value="yearly">Yearly</ToggleButton>
-            <ToggleButton value="custom">Custom</ToggleButton>
-          </ToggleButtonGroup>
-
+            options={[
+              { label: 'Weekly', value: 'weekly' },
+              { label: 'Monthly', value: 'monthly' },
+              { label: 'Yearly', value: 'yearly' },
+              { label: 'Custom', value: 'custom' },
+            ]}
+            onChange={(v) => handleTabChange(v as LeaderboardTab)}
+            ariaLabel="leaderboard period"
+          />
           {/* Navigation Buttons */}
           {activeTab === "weekly" && (
-            <NavigationButtons
-              onPrev={() => navigateWeek("prev")}
+            <PeriodNavigator
+              onPrevious={() => navigateWeek("prev")}
               onNext={() => navigateWeek("next")}
-              displayText={`${weekStart.format("DD MMM, YYYY")} - ${weekEnd.format(
-                "DD MMM, YYYY"
-              )}`}
+              label={`${weekStart.format("DD MMM, YYYY")} - ${weekEnd.format("DD MMM, YYYY")}`}
             />
           )}
 
           {activeTab === "monthly" && (
-            <NavigationButtons
-              onPrev={() => navigateMonth("prev")}
+            <PeriodNavigator
+              onPrevious={() => navigateMonth("prev")}
               onNext={() => navigateMonth("next")}
-              displayText={`${monthStart.format("DD MMM, YYYY")} - ${monthEnd.format(
-                "DD MMM, YYYY"
-              )}`}
+              label={`${monthStart.format("DD MMM, YYYY")} - ${monthEnd.format("DD MMM, YYYY")}`}
             />
           )}
 
-          {activeTab === "yearly" && yearStart && yearEnd && (
-            <NavigationButtons
-              onPrev={() => navigateYear("prev")}
+          {activeTab === "yearly" && (
+            <PeriodNavigator
+              onPrevious={() => navigateYear("prev")}
               onNext={() => navigateYear("next")}
-              displayText={fiscalYearDisplay}
+              label={fiscalYearDisplay}
             />
           )}
 

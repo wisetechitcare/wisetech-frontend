@@ -26,10 +26,10 @@ function PersonalKpiMain() {
   // by default (baseAllowed) AND not explicitly blocked — and an admin can also
   // grant a normally-hidden tab to a specific employee via View/Edit.
   const allTabs: Array<{ key: string; baseAllowed: boolean; item: TabItem }> = [
-    { key: "kpi.my", baseAllowed: true, item: { title: "My KPI", component: <MyKpi />, icon: kpiIcons.myKpiIcon.default } },
-    { key: "kpi.search", baseAllowed: isAdmin, item: { title: "Search Employees", component: <SearchEmployee />, icon: kpiIcons.searchEmployeeIcon.default } },
-    { key: "kpi.leaderboard", baseAllowed: true, item: { title: "Leaderboard", component: <KpiLeaderboard />, icon: kpiIcons.kpiLeaderboardIcon.default } },
-    { key: "kpi.configure", baseAllowed: isAdmin, item: { title: "Configure", component: <KPISettings />, icon: leadsIcons.leadsConfigIcon.default } },
+    { key: "kpi.my", baseAllowed: true, item: { title: "My KPI", component: <MyKpi />, icon: 'bi-graph-up-arrow' } },
+    { key: "kpi.search", baseAllowed: isAdmin, item: { title: "Search Employees", component: <SearchEmployee />, icon: 'bi-search' } },
+    { key: "kpi.leaderboard", baseAllowed: true, item: { title: "Leaderboard", component: <KpiLeaderboard />, icon: 'bi-trophy' } },
+    { key: "kpi.configure", baseAllowed: isAdmin, item: { title: "Configure", component: <KPISettings />, icon: 'bi-gear' } },
   ];
 
   const visibleTabs: TabItem[] = allTabs

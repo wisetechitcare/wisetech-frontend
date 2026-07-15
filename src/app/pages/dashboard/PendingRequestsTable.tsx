@@ -157,7 +157,7 @@ const PendingRequestsTable = () => {
     async function fetchLeaveConfig() {
       try {
         const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-        const jsonObject = safeJsonParse(configuration.configuration.configuration);
+        const jsonObject = safeJsonParse(configuration.configuration?.configuration);
         setLeaveConfiguration(jsonObject);
       } catch (error) {
         console.error('Error fetching leave configuration:', error);
@@ -766,16 +766,16 @@ const PendingRequestsTable = () => {
               variant="outlined"
               onClick={handleViewAll}
               sx={{
-                borderColor: "#9d4141",
-                color: "#9d4141",
+                borderColor: "#1E3A8A",
+                color: "#1E3A8A",
                 textTransform: "none",
                 fontSize: { xs: "12px", sm: "14px" },
                 fontWeight: 500,
                 padding: { xs: "8px 12px", sm: "10px 14px" },
                 borderRadius: "6px",
                 "&:hover": {
-                  borderColor: "#9d4141",
-                  backgroundColor: "rgba(157, 65, 65, 0.04)",
+                  borderColor: "#1E3A8A",
+                  backgroundColor: "rgba(30, 58, 138, 0.04)",
                 },
               }}
             >
@@ -803,7 +803,7 @@ const PendingRequestsTable = () => {
               style={{
                 padding: "6px 12px",
                 borderRadius: "323px",
-                border: activeTab === "attendance" ? "1.5px solid #9d4141" : "1px solid #a0b4d2",
+                border: activeTab === "attendance" ? "1.5px solid #1E3A8A" : "1px solid #a0b4d2",
                 backgroundColor: "white",
                 fontSize: "clamp(12px, 2.5vw, 14px)",
                 cursor: "pointer",
@@ -824,7 +824,7 @@ const PendingRequestsTable = () => {
               style={{
                 padding: "6px 12px",
                 borderRadius: "323px",
-                border: activeTab === "leaves" ? "1.5px solid #9d4141" : "1px solid #a0b4d2",
+                border: activeTab === "leaves" ? "1.5px solid #1E3A8A" : "1px solid #a0b4d2",
                 backgroundColor: "white",
                 fontSize: "clamp(12px, 2.5vw, 14px)",
                 cursor: "pointer",
@@ -845,7 +845,7 @@ const PendingRequestsTable = () => {
               style={{
                 padding: "6px 12px",
                 borderRadius: "323px",
-                border: activeTab === "reimbursements" ? "1.5px solid #9d4141" : "1px solid #a0b4d2",
+                border: activeTab === "reimbursements" ? "1.5px solid #1E3A8A" : "1px solid #a0b4d2",
                 backgroundColor: "white",
                 fontSize: "clamp(12px, 2.5vw, 14px)",
                 cursor: "pointer",

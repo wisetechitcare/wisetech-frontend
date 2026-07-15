@@ -49,7 +49,7 @@ const addBtn: React.CSSProperties = {
   border: '1px dashed #cbd5e1', background: '#fff', color: '#475569', cursor: 'pointer',
 };
 const seedBtn: React.CSSProperties = {
-  ...addBtn, borderStyle: 'solid', borderColor: '#AA393D33', color: '#AA393D', marginLeft: 8,
+  ...addBtn, borderStyle: 'solid', borderColor: '#1E3A8A33', color: '#1E3A8A', marginLeft: 8,
 };
 
 const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
@@ -64,14 +64,48 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const leadTeams: any[] = lead?.leadTeams || [];
 
   const empName = (id?: string | null) => employeeNameById(allEmployees, id) || id || DASH;
+
+  const empAvatar = (id?: string | null) => {
+    if (!id || !allEmployees) return null;
+    const emp: any = allEmployees.find((e: any) => String(e.employeeId || e.id) === String(id));
+    return emp?.profilePhoto || emp?.avatar || emp?.users?.avatar || null;
+  };
+
+  // Employees explicitly marked inactive (offboarded/deactivated) in the master
+  // list. We track the *inactive* set rather than the active one so that if the
+  // employee list hasn't loaded yet we don't accidentally hide every member.
+  const inactiveEmployeeIds = useMemo(
+    () => new Set(
+      (allEmployees || [])
+        .filter((e: any) => e.isActive === false)
+        .map((e: any) => String(e.employeeId || e.id)),
+    ),
+    [allEmployees],
+  );
+  const isEmployeeActive = (id?: string | null) => !!id && !inactiveEmployeeIds.has(String(id));
+
   const employeeOptions = useMemo(
     () => (allEmployees || [])
       .map((e: any) => ({
         value: e.employeeId || e.id,
         label: e.employeeName || `${e.users?.firstName || ''} ${e.users?.lastName || ''}`.trim() || e.name || 'Unknown',
+        image: e?.profilePhoto || e?.avatar || e?.users?.avatar || null,
       }))
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })),
     [allEmployees],
+  );
+
+  const formatEmployeeOption = (option: any) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {option.image ? (
+        <img src={option.image} alt={option.label} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+      ) : (
+        <div style={{ width: 24, height: 24, borderRadius: '50%', backgroundColor: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#64748B' }}>
+          {option.label.charAt(0).toUpperCase()}
+        </div>
+      )}
+      <span>{option.label}</span>
+    </div>
   );
 
   // After a save, ask the detail page to refetch the lead (it listens on this bus)
@@ -148,8 +182,10 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const teamRoster = useMemo(
     () => teamMembers
       .map((tm: any) => ({ employeeId: tm.employeeId, startDate: '', endDate: '', isActive: true, source: 'team' }))
-      .filter((m: any) => m.employeeId),
-    [teamMembers],
+      // Skip employees who have been deactivated — they shouldn't seed onto a
+      // project roster just because they still belong to the execution team.
+      .filter((m: any) => m.employeeId && isEmployeeActive(m.employeeId)),
+    [teamMembers, inactiveEmployeeIds],
   );
   const persisted = internal.length > 0;
   const displayMembers: any[] = persisted ? internal : teamRoster;
@@ -164,7 +200,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       type: t?.companyType?.name || '',
       subCompany: t?.subCompany?.subCompanyName || '',
       contact: t?.contact?.fullName || '',
-      contactAvatar: t?.contact?.avatar || t?.contact?.users?.avatar || null,
+      contactAvatar: t?.contact?.profilePhoto || t?.contact?.avatar || t?.contact?.users?.avatar || null,
       phone: t?.contact?.phone || t?.company?.phone || '',
     })),
     [leadTeams],
@@ -210,8 +246,8 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
     }))
     .sort(byLabel);
   // Sub-companies/contacts are filtered to the chosen company when one is set,
-  // but list EVERYTHING (tagged with its company name) when it isn't — so the
-  // user can pick one first and let it back-fill the company.
+  // but list EVERYTHING when it isn't — so the user can pick one first and let
+  // it back-fill the company (sub-companies stay tagged with their company).
   const subCompanyOptionsFor = (companyId?: string) => (companyId
     ? allSubCompanies.filter((s: any) => String(s.mainCompanyId) === String(companyId))
     : allSubCompanies)
@@ -224,15 +260,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const contactOptionsFor = (companyId?: string) => (companyId
     ? allContacts.filter((c: any) => String(c.companyId) === String(companyId))
     : allContacts)
-    .map((c: any) => {
-      const base = c.fullName || c.name || 'Unnamed Contact';
-      const cn = companyNameById.get(String(c.companyId));
-      return { 
-        value: c.id, 
-        label: cn ? `${base} — ${cn}` : base,
-        avatar: c.avatar || c.users?.avatar || null 
-      };
-    })
+    .map((c: any) => ({
+      value: c.id,
+      label: c.fullName || c.name || 'Unnamed Contact',
+      avatar: c.profilePhoto || c.avatar || c.users?.avatar || null,
+    }))
     .sort(byLabel);
 
   return (
@@ -287,7 +319,8 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 const present = new Set(rows.map(r => r.employeeId).filter(Boolean));
                 const toAdd = teamMembers
                   .map((tm: any) => tm.employeeId)
-                  .filter((id: string) => id && !present.has(id))
+                  // Don't seed deactivated employees onto the roster.
+                  .filter((id: string) => id && !present.has(id) && isEmployeeActive(id))
                   .map((employeeId: string) => ({ employeeId, startDate: '', endDate: '', isActive: true, source: 'team' }));
                 if (toAdd.length) set({ internalMembers: [...rows, ...toAdd] });
               };
@@ -357,7 +390,16 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <tbody>
                           {displayMembers.map((m, i) => (
                             <tr key={m.id || m.employeeId || i}>
-                              <td style={tdName}>{empName(m.employeeId)}</td>
+                              <td style={tdName}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <img 
+                                    src={empAvatar(m.employeeId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(empName(m.employeeId) === DASH ? '?' : empName(m.employeeId))}&background=eeeeee&color=888888&size=20&rounded=true`}
+                                    alt=""
+                                    style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
+                                  />
+                                  {empName(m.employeeId)}
+                                </div>
+                              </td>
                               <td style={td}>{m.startDate ? fmtDate(m.startDate) : DASH}</td>
                               <td style={td}>{m.endDate ? fmtDate(m.endDate) : DASH}</td>
                               <td style={td}><DetailStatusBadge status={m.isActive !== false ? 'Active' : 'Inactive'} color={m.isActive !== false ? '#16a34a' : '#94A3B8'} /></td>
@@ -390,7 +432,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                     )}
                     {rows.map((m, i) => (
                       <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
-                        <div style={{ flex: 2, minWidth: 160 }}><SelectEditor value={m.employeeId} options={employeeOptions} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" /></div>
+                        <div style={{ flex: 2, minWidth: 160 }}><SearchableSelectEditor value={m.employeeId} options={employeeOptions} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" formatOptionLabel={formatEmployeeOption} /></div>
                         <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.startDate} onChange={v => update(i, { startDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.endDate} onChange={v => update(i, { endDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={m.isActive !== false} onChange={v => update(i, { isActive: v })} onLabel="Active" offLabel="Inactive" /></div>
@@ -435,7 +477,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             className="btn btn-primary btn-sm"
             onClick={confirmTeamChange}
             disabled={savingTeam || draftTeamId === (ex.teamId || '')}
-            style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}
+            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
           >
             {savingTeam ? 'Saving...' : 'Save'}
           </button>
@@ -452,7 +494,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
           <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
             Project Manager
           </div>
-          <SearchableSelectEditor value={draftPmId} options={employeeOptions} onChange={setDraftPmId} placeholder="Select project manager" />
+          <SearchableSelectEditor value={draftPmId} options={employeeOptions} onChange={setDraftPmId} placeholder="Select project manager" formatOptionLabel={formatEmployeeOption} />
           <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#94A3B8', marginTop: 10 }}>
             Execution Team and Status are unaffected.
           </div>
@@ -466,7 +508,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             className="btn btn-primary btn-sm"
             onClick={confirmPmChange}
             disabled={savingPm || draftPmId === (ex.projectManagerId || '')}
-            style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}
+            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
           >
             {savingPm ? 'Saving...' : 'Save'}
           </button>

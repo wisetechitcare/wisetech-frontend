@@ -366,7 +366,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                 <Modal.Body>
                   <fieldset
                     style={{
-                      borderTop: "1px solid #9D4141",
+                      borderTop: "1px solid #1E3A8A",
                       padding: "14px",
                     }}
                     className=""
@@ -382,7 +382,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                         width: "auto",
                         lineHeight: "1",
                         letterSpacing: 0,
-                        color: "#9D4141",
+                        color: "#1E3A8A",
                         padding: "2px 2px 8px",
                         display: "flex",
                         alignItems: "center",
@@ -392,7 +392,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                       <div
                         className="ms-5"
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           width: "30px",
                           height: "0px",
                         }}
@@ -462,7 +462,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                   </fieldset>
                   <fieldset
                     style={{
-                      borderTop: "1px solid #9D4141",
+                      borderTop: "1px solid #1E3A8A",
                       padding: "clamp(14px, 2vw, 15px)",
                     }}
                     className="mt-7"
@@ -478,14 +478,14 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                         width: "auto",
                         lineHeight: "1",
                         letterSpacing: 0,
-                        color: "#9D4141",
+                        color: "#1E3A8A",
                         padding: "2px 2px 8px",
                         display: "flex",
                         alignItems: "center",
                         gap: "8px"
                       }}
                     >
-                      <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                      <div className="ms-5" style={{borderTop: "1px solid #1E3A8A", width: "30px", height: "0px"}}></div>
                       BRANCH CONTACT DETAILS
                     </legend>
                     <div className="card-body card responsive-card p-md-10 p-3">
@@ -519,7 +519,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
 
                   <fieldset
                     style={{
-                      borderTop: "1px solid #9D4141",
+                      borderTop: "1px solid #1E3A8A",
                       padding: "clamp(14px, 2vw, 15px)",
                     }}
                     className="mt-7"
@@ -535,14 +535,14 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                         width: "auto",
                         lineHeight: "1",
                         letterSpacing: 0,
-                        color: "#9D4141",
+                        color: "#1E3A8A",
                         padding: "2px 2px 8px",
                         display: "flex",
                         alignItems: "center",
                         gap: "8px"
                       }}
                     >
-                      <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                      <div className="ms-5" style={{borderTop: "1px solid #1E3A8A", width: "30px", height: "0px"}}></div>
                       ADDRESS DETAILS
                     </legend>
                     <div className="card-body card responsive-card p-md-10 p-3">

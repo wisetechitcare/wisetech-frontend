@@ -77,16 +77,16 @@ const PersonalLeaveView = () => {
     });
 
     const ApplyLeaveButton = styled(Button)({
-        borderColor: '#9D4141',
-        backgroundColor: '#9D4141',
+        borderColor: '#1E3A8A',
+        backgroundColor: '#1E3A8A',
         color: 'white',
         textTransform: 'none',
         fontWeight: 'bold',
         '&:hover': {
-            borderColor: '#9D4141',
-            backgroundColor: '#7a2124',
+            borderColor: '#1E3A8A',
+            backgroundColor: '#172554',
         }
-        // 'rgba(157, 65, 65, 0.1)'
+        // 'rgba(30, 58, 138, 0.1)'
     });
     const res = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.create);
 

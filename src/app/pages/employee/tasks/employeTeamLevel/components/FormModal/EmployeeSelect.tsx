@@ -119,7 +119,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
                           style={{
                             width: '24px',
                             height: '24px',
-                            backgroundColor: '#9D4141',
+                            backgroundColor: '#1E3A8A',
                             color: 'white',
                             fontSize: '10px',
                             fontWeight: '600',
@@ -169,7 +169,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="9" viewBox="0 0 15 9" fill="none">
             <path
               d="M8.20808 7.78996C7.81733 8.18179 7.18266 8.18179 6.79192 7.78996L0.974179 1.95613C0.345555 1.32577 0.792025 0.25 1.68226 0.250001L13.3177 0.250002C14.208 0.250002 14.6544 1.32577 14.0258 1.95613L8.20808 7.78996Z"
-              fill="#9D4141"
+              fill="#1E3A8A"
               transform="rotate(180 7.5 4.5)"
             />
           </svg>
@@ -221,8 +221,8 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
                         style={{
                           width: '16px',
                           height: '16px',
-                          borderColor: '#9D4141 !important',
-                          backgroundColor: isSelected ? '#9D4141' : 'white'
+                          borderColor: '#1E3A8A !important',
+                          backgroundColor: isSelected ? '#1E3A8A' : 'white'
                         }}
                       >
                         {isSelected && (
@@ -266,7 +266,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
                 className="d-flex align-items-center gap-2 p-3 border-top border-2"
                 style={{
                   cursor: 'pointer',
-                  borderColor: '#9D4141 !important',
+                  borderColor: '#1E3A8A !important',
                   backgroundColor: '#f8f9fa'
                 }}
                 onClick={() => {
@@ -286,7 +286,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
                   style={{
                     width: '32px',
                     height: '32px',
-                    backgroundColor: '#9D4141'
+                    backgroundColor: '#1E3A8A'
                   }}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -299,7 +299,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
                   </svg>
                 </div>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: '14px', color: '#9D4141' }}>
+                  <div style={{ fontWeight: 600, fontSize: '14px', color: '#1E3A8A' }}>
                     Add New Employee
                   </div>
                   <div style={{ fontSize: '12px', color: '#6c757d' }}>

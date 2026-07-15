@@ -80,45 +80,45 @@ const ContactsNavbar = () => {
     {
       title: "Overview",
       component: <ContactsOverview />,
-      icon:
-        activeTab === 0
-          ? leadsIcons.leadsOverviewIcon.active
-            : leadsIcons.leadsOverviewIcon.default,
+      icon: 'bi-grid-1x2',
     },
     {
       title: "Contacts",
       component: <ClientContactsMain />,
-      icon:
-        activeTab === 1
-          ? projectsIcons.projectsIcon.active
-          : projectsIcons.projectsIcon.default,
+      icon: 'bi-person-lines-fill',
     },
     {
       title: "Calendar",
       component: <CalenderMain />,
-      icon:
-        activeTab === 2
-          ? calenderIcons.calenderIcon.active
-          : calenderIcons.calenderIcon.default,
+      icon: 'bi-calendar-event',
     },
     {
       title: "Map",
       component: <Maps points={coordinates} contactData={contactData} />,
-      icon:
-        activeTab === 3
-          ? worldIcons.worldIcon.active
-          : worldIcons.worldIcon.default,
+      icon: 'bi-geo-alt',
     },
     {
       title: "Configure",
       component: <ContactConfigMain />,
-      icon:
-        activeTab === 4
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
+      icon: 'bi-gear',
     },
   ];
 
+
+  const contactBreadcrumbs = [
+    {
+      title: "Home",
+      path: "/dashboard",
+      isSeparator: false,
+      isActive: false,
+    },
+    {
+      title: "",
+      path: "",
+      isSeparator: true,
+      isActive: false,
+    },
+  ];
 
   if (loading) {
     return <Loader />;
@@ -126,7 +126,7 @@ const ContactsNavbar = () => {
 
   return (
     <div>
-      <PageTitle breadcrumbs={[]}>
+      <PageTitle breadcrumbs={contactBreadcrumbs}>
         {contact?.fullName || 'Contact'}
       </PageTitle>
       <MaterialHeaderTab

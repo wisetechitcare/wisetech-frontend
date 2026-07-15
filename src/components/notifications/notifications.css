@@ -10,7 +10,7 @@
 .wt-noti-root {
   --wt-radius: 22px;
   --wt-card-radius: 15px;
-  --wt-brand: #9d4141;
+  --wt-brand: #1E3A8A;
   --wt-brand-2: #b94a4a;
   --wt-brand-3: #8c3232;
   --wt-surface: var(--bs-app-header-base-bg-color, var(--bs-card-bg, var(--bs-body-bg)));
@@ -48,24 +48,55 @@
   }
 }
 
+/*
+ * Yield to overlay surfaces. While a Metronic drawer is open (mobile sidebar,
+ * header menu — body gets `data-kt-drawer="on"`) or a Bootstrap modal is up
+ * (body gets `.modal-open`), the floating center hides entirely so it can never
+ * sit on top of those surfaces. It reappears as-is when the overlay closes.
+ */
+body[data-kt-drawer='on'] .wt-noti-root,
+body.modal-open .wt-noti-root {
+  display: none;
+}
+
+/*
+ * Same yielding for Ant Design and MUI overlays (they don't flag <body>).
+ * Kept as separate rules: a browser without :has() drops only these, never the
+ * drawer/modal-open rule above.
+ */
+body:has(.ant-modal-mask:not(.ant-modal-mask-hidden)) .wt-noti-root {
+  display: none;
+}
+body:has(.ant-drawer-open) .wt-noti-root {
+  display: none;
+}
+body:has(.MuiDialog-root:not([aria-hidden='true'])) .wt-noti-root {
+  display: none;
+}
+
 .wt-noti-root * {
   box-sizing: border-box;
 }
 
 /* ══ Collapsed snackbar ══════════════════════════════════════════════════════ */
 
+/*
+ * Slim collapsed bar: bell + unread count + chevron on ONE line, full width
+ * (lines up with the bottom-nav bar it floats above) but minimal height
+ * (~34px) so it claims almost no vertical screen.
+ */
 .wt-snack {
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
   max-width: 520px;   /* line up with the bottom-nav bar it floats above */
   margin: 0 auto;
-  padding: 9px 10px 9px 12px;
+  padding: 4px 8px 4px 5px;
   background: var(--wt-surface);
   border: 1px solid var(--bs-border-color);
-  border-radius: var(--wt-radius);
+  border-radius: 999px;
   /* Same elevation recipe as .bottom-nav__bar so they read as one family. */
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.04),
@@ -100,22 +131,27 @@
 .wt-snack__logo {
   position: relative;
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
   color: #fff;
   background: linear-gradient(140deg, var(--wt-brand-2) 0%, var(--wt-brand-3) 100%);
   box-shadow:
-    0 4px 12px rgba(157, 65, 65, 0.35),
+    0 3px 8px rgba(30, 58, 138, 0.32),
     inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+/* Critical unread present → the bell itself pulses; no extra badge needed. */
+.wt-snack__logo--critical {
+  animation: wt-noti-pulse 2s infinite;
 }
 
 .wt-snack__logo .ki-duotone,
 .wt-snack__logo .ki-outline,
 .wt-snack__logo .ki-solid {
-  font-size: 1.15rem;
+  font-size: 0.9rem;
   line-height: 1;
   color: #ffffff !important;
 }
@@ -126,55 +162,27 @@
   opacity: 1 !important;
 }
 
-.wt-snack__body {
+.wt-snack__count {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.wt-snack__heading {
-  font-size: 0.82rem;
+  align-items: center;
+  font-size: 0.74rem;
   font-weight: 700;
   color: var(--wt-heading);
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-}
-
-.wt-snack__count {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: var(--wt-muted);
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* Critical folded into the count line as coloured text — no separate pill. */
-.wt-snack__crit {
-  font-weight: 700;
-  color: var(--bs-danger, #dc2626);
-}
-
-.wt-snack__dot {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.5;
+  letter-spacing: -0.01em;
 }
 
 .wt-snack__chevron {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--wt-hover);
   color: var(--wt-body);
@@ -184,7 +192,7 @@
 .wt-snack__chevron .ki-duotone,
 .wt-snack__chevron .ki-outline,
 .wt-snack__chevron .ki-solid {
-  font-size: 0.95rem;
+  font-size: 0.75rem;
   line-height: 1;
 }
 
@@ -192,32 +200,6 @@
   background: var(--wt-hover);
   color: var(--wt-brand);
   transform: translateY(-1px);
-}
-
-/* ══ Count badge (shared) ════════════════════════════════════════════════════ */
-
-.wt-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.58rem;
-  font-weight: 800;
-  line-height: 1;
-  color: #fff;
-  background: var(--bs-danger, #f1416c);
-  border: 1.5px solid var(--wt-surface);
-  border-radius: 999px;
-  box-shadow: 0 2px 6px rgba(241, 65, 108, 0.4);
-}
-
-.wt-badge--pulse {
-  animation: wt-noti-pulse 2s infinite;
 }
 
 @keyframes wt-noti-pulse {
@@ -425,7 +407,7 @@
 
 .wt-search__input:focus {
   border-color: var(--wt-brand);
-  box-shadow: 0 0 0 3px rgba(157, 65, 65, 0.15);
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15);
 }
 
 .wt-search__clear {
@@ -533,9 +515,9 @@
 .wt-card {
   position: relative;
   display: flex;
-  gap: 10px;
-  margin: 4px 9px;
-  padding: 9px 10px 9px 14px;
+  gap: 8px;
+  margin: 3px 8px;
+  padding: 6px 8px 6px 11px;
   border-radius: var(--wt-card-radius);
   background: var(--wt-elevated);
   border: 1px solid var(--wt-border-soft);
@@ -589,13 +571,13 @@
 
 .wt-card__icon {
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
-  font-size: 1.05rem;
-  background: var(--wt-card-soft, rgba(157, 65, 65, 0.1));
+  font-size: 0.85rem;
+  background: var(--wt-card-soft, rgba(30, 58, 138, 0.1));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wt-card-accent, var(--wt-brand)) 16%, transparent);
 }
 
@@ -604,7 +586,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .wt-card__row {
@@ -641,7 +623,7 @@
 .wt-card__title {
   flex: 1;
   min-width: 0;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--wt-heading);
   line-height: 1.25;
@@ -650,12 +632,13 @@
   white-space: nowrap;
 }
 
+/* One-line preview — the full message is still available on the deep-linked page. */
 .wt-card__message {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--wt-body);
-  line-height: 1.4;
+  line-height: 1.35;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -664,8 +647,8 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-top: 4px;
-  font-size: 0.65rem;
+  margin-top: 1px;
+  font-size: 0.62rem;
   color: var(--wt-muted);
   flex-wrap: nowrap;
   min-width: 0;
@@ -681,11 +664,13 @@
   gap: 3px;
 }
 
+/* Actions live in the title row, top-right — clear of the message and meta. */
 .wt-card__actions {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  margin-left: auto;
+  flex-shrink: 0;
+  gap: 6px;
+  margin-left: 8px;
   opacity: 0;
   transform: translateX(4px);
   transition: opacity 0.16s ease, transform 0.16s ease;
@@ -708,8 +693,8 @@
 .wt-card__actbtn {
   display: grid;
   place-items: center;
-  width: 27px;
-  height: 27px;
+  width: 22px;
+  height: 22px;
   border: 0;
   border-radius: 8px;
   background: var(--wt-surface);
@@ -785,7 +770,7 @@
   .wt-card,
   .wt-card__actions,
   .wt-snack__chevron,
-  .wt-badge--pulse,
+  .wt-snack__logo--critical,
   .wt-skel {
     transition: none !important;
     animation: none !important;

@@ -349,8 +349,8 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                 width: "46px",
                 height: "46px",
                 borderRadius: "13px",
-                background: "rgba(157, 65, 65, 0.08)",
-                border: "1px solid rgba(157,65,65,0.12)",
+                background: "rgba(30, 58, 138, 0.08)",
+                border: "1px solid rgba(30, 58, 138,0.12)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -423,8 +423,8 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                   borderRadius: "50%",
                   background: progress?.isComplete
                     ? "rgba(34,197,94,0.08)"
-                    : "rgba(157,65,65,0.08)",
-                  border: `2px solid ${progress?.isComplete ? "rgba(34,197,94,0.2)" : "rgba(157,65,65,0.15)"}`,
+                    : "rgba(30, 58, 138,0.08)",
+                  border: `2px solid ${progress?.isComplete ? "rgba(34,197,94,0.2)" : "rgba(30, 58, 138,0.15)"}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -438,8 +438,8 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                     style={{
                       width: "24px",
                       height: "24px",
-                      border: "3px solid rgba(157,65,65,0.2)",
-                      borderTop: "3px solid #9d4141",
+                      border: "3px solid rgba(30, 58, 138,0.2)",
+                      borderTop: "3px solid #1E3A8A",
                       borderRadius: "50%",
                       animation: "spin 0.8s linear infinite",
                     }}
@@ -489,7 +489,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                     height: "100%",
                     background: progress?.isComplete
                       ? "linear-gradient(90deg,#22c55e,#16a34a)"
-                      : "linear-gradient(90deg,#9d4141,#bd4b4b)",
+                      : "linear-gradient(90deg,#1E3A8A,#172554)",
                     borderRadius: "10px",
                   }}
                 />
@@ -567,12 +567,12 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                         style={{
                           padding: "18px 20px",
                           borderRadius: "16px",
-                          border: `2px solid ${active ? "#9d4141" : "#f1f5f9"}`,
-                          background: active ? "rgba(157,65,65,0.03)" : "#fafafa",
+                          border: `2px solid ${active ? "#1E3A8A" : "#f1f5f9"}`,
+                          background: active ? "rgba(30, 58, 138,0.03)" : "#fafafa",
                           cursor: "pointer",
                           transition: "all 0.22s",
                           boxShadow: active
-                            ? "0 8px 20px -8px rgba(157,65,65,0.15)"
+                            ? "0 8px 20px -8px rgba(30, 58, 138,0.15)"
                             : "none",
                           display: "flex",
                           alignItems: "center",
@@ -584,7 +584,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                             width: "36px",
                             height: "36px",
                             borderRadius: "9px",
-                            background: active ? "#9d4141" : "#f1f5f9",
+                            background: active ? "#1E3A8A" : "#f1f5f9",
                             color: active ? "white" : "#64748b",
                             display: "flex",
                             alignItems: "center",
@@ -698,7 +698,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                     </span>
                     <div
                       style={{
-                        background: "#9d4141",
+                        background: "#1E3A8A",
                         color: "white",
                         padding: "2px 8px",
                         borderRadius: "5px",
@@ -737,7 +737,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                       transition: "border-color 0.18s",
                     }}
                     onFocus={(e) =>
-                      (e.currentTarget.style.borderColor = "#9d4141")
+                      (e.currentTarget.style.borderColor = "#1E3A8A")
                     }
                     onBlur={(e) =>
                       (e.currentTarget.style.borderColor = "#e2e8f0")
@@ -787,7 +787,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                       background: "none",
                       border: "none",
                       padding: 0,
-                      color: "#9d4141",
+                      color: "#1E3A8A",
                       fontSize: "11px",
                       fontWeight: 700,
                       cursor: "pointer",
@@ -838,7 +838,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
               Cancel
             </button>
             <motion.button
-              whileHover={format ? { y: -2, boxShadow: "0 15px 35px rgba(157, 65, 65, 0.3)" } : {}}
+              whileHover={format ? { y: -2, boxShadow: "0 15px 35px rgba(30, 58, 138, 0.3)" } : {}}
               whileTap={format ? { y: 0 } : {}}
               disabled={!format || isExporting}
               onClick={() => handleStartExport(false)}
@@ -847,7 +847,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                 padding: "16px",
                 borderRadius: "12px",
                 background: format
-                  ? "linear-gradient(135deg, #9d4141 0%, #bd4b4b 100%)"
+                  ? "linear-gradient(135deg, #1E3A8A 0%, #172554 100%)"
                   : "#e2e8f0",
                 color: format ? "white" : "#94a3b8",
                 border: "none",

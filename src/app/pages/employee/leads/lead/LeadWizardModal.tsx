@@ -2386,7 +2386,7 @@ const LeadWizardModal = ({
   const handleSubmit = async (formData: any) => {
     const values = formData;
     // Handle addresses from both form structure and direct payload
-    let allAddressDetails =
+    const allAddressDetails =
       formData?.addresses || formData?.additionalDetails?.addresses || [];
 
     // No need to clean up address fields - Google links are now valid and handled by backend
@@ -2394,6 +2394,11 @@ const LeadWizardModal = ({
     // console.log("createdById:: ", createdById);
 
     if (!createdById) {
+      return;
+    }
+
+    if (!prefix || !prefix.trim()) {
+      errorConfirmation("Inquiry No. is required");
       return;
     }
     const additionalDetailsFields = [
@@ -2879,12 +2884,16 @@ const LeadWizardModal = ({
         if (employeeId) {
           finalCleanPayload.updatedById = employeeId;
         }
-        await customConfirmation();
+        const updateMode = await customConfirmation();
+        if (updateMode === 'cancelled') {
+          return;
+        }
         // revisionCount is owned by the audit system (single source of truth) and is
         // assigned server-side by the capture worker. The client must NOT send or
         // increment it — doing so previously caused the header to diverge from the
         // audit timeline. Any client-supplied revisionCount is ignored by the backend.
         delete finalCleanPayload.revisionCount;
+        finalCleanPayload.skipAudit = updateMode === 'updateOnly';
 
         const res = await updateLead(finalCleanPayload.id, finalCleanPayload);
         if (res?.hasError) {

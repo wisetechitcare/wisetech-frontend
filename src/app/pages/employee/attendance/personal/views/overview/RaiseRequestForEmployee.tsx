@@ -427,7 +427,7 @@
 //                     type="submit"
 //                     disabled={formikProps.isSubmitting}
 //                     className="btn btn-primary"
-//                     style={{ backgroundColor: "#9D4141", borderColor: "#9D4141" }}
+//                     style={{ backgroundColor: "#1E3A8A", borderColor: "#1E3A8A" }}
 //                   >
 //                     {formikProps.isSubmitting ? "Saving..." : "Raise Request"}
 //                   </button>
@@ -876,7 +876,7 @@ const RaiseRequestForEmployee = ({
                     type="submit"
                     disabled={formikProps.isSubmitting}
                     className="btn btn-primary"
-                    style={{ backgroundColor: "#9D4141", borderColor: "#9D4141" }}
+                    style={{ backgroundColor: "#1E3A8A", borderColor: "#1E3A8A" }}
                   >
                     {formikProps.isSubmitting ? "Saving..." : "Raise Request"}
                   </button>

@@ -173,7 +173,7 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
         const fetchWorkingHours = async () => {
             try {
                 const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
-                const jsonObject = safeJsonParse(configuration.configuration.configuration);
+                const jsonObject = safeJsonParse(configuration?.configuration?.configuration);
                 
                 const totalWorkingHoursString = jsonObject["Working time"];
                 // const workingHoursNumber = parseFloat(totalWorkingHoursString.split(" ")[0]); 

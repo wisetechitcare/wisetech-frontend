@@ -9,7 +9,7 @@ export type { IFormField as SchemaField, IFormSection as SchemaSection, FormFiel
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
 const C = {
-  brand: '#9D4141',
+  brand: '#1E3A8A',
   brandSoft: '#FBEEEE',
   brandBorder: '#E8C9C9',
   ink: '#1F2430',
@@ -426,7 +426,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
                 <span style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft, letterSpacing: '.4px' }}>FIELDS</span>
                 <div style={{ flex: 1, height: 1, background: C.line }} />
                 <button type="button" onClick={addField}
-                  style={{ background: C.brand, border: 'none', borderRadius: 8, padding: '7px 16px', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 1px 3px rgba(157,65,65,.3)' }}>
+                  style={{ background: C.brand, border: 'none', borderRadius: 8, padding: '7px 16px', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 1px 3px rgba(30, 58, 138,.3)' }}>
                   + Add Field
                 </button>
               </div>
@@ -485,7 +485,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
         <span style={{ fontSize: 12, color: C.inkFaint }}>Changes apply after you click <b style={{ color: C.inkSoft }}>Update</b> on the form.</span>
         <div style={{ display: 'flex', gap: 10, flexGrow: 1, justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '9px 22px', fontWeight: 600, color: C.inkSoft, cursor: 'pointer', fontSize: 14 }}>Cancel</button>
-          <button type="button" onClick={handleSave} style={{ background: C.brand, border: 'none', borderRadius: 8, padding: '9px 28px', fontWeight: 700, color: '#fff', cursor: 'pointer', fontSize: 14, boxShadow: '0 1px 3px rgba(157,65,65,.3)' }}>Apply Changes</button>
+          <button type="button" onClick={handleSave} style={{ background: C.brand, border: 'none', borderRadius: 8, padding: '9px 28px', fontWeight: 700, color: '#fff', cursor: 'pointer', fontSize: 14, boxShadow: '0 1px 3px rgba(30, 58, 138,.3)' }}>Apply Changes</button>
         </div>
       </div>
       </Modal>

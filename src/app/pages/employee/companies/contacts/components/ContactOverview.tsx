@@ -429,7 +429,7 @@ ${contact?.company?.phone2 ? `• Phone 2: ${contact.company.phone2}` : ''}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{
-                            color: "#9d4141",
+                            color: "#1E3A8A",
                             textDecoration: "none",
                             fontWeight: "400",
                             fontFamily: "Inter",
@@ -775,7 +775,7 @@ ${contact?.company?.phone2 ? `• Phone 2: ${contact.company.phone2}` : ''}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{
-                            color: "#9d4141",
+                            color: "#1E3A8A",
                             textDecoration: "none",
                             fontWeight: "400",
                             fontFamily: "Inter",

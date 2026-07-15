@@ -37,9 +37,9 @@ const AttendanceGraphicalOverview: React.FC = () => {
             async function fetchDateSettings() {
                 try {
                     const { data: { configuration } } = await fetchConfiguration(DATE_SETTINGS_KEY);
-                    const parsed = typeof configuration.configuration === "string"
+                    const parsed = typeof configuration?.configuration === "string"
                         ? safeJsonParse(configuration.configuration)
-                        : configuration.configuration;
+                        : configuration?.configuration;
                     setDateSettingsEnabled(parsed?.useDateSettings ?? false);
                 } catch (err) {
                     console.error("Error fetching date settings", err);
@@ -111,7 +111,7 @@ const AttendanceGraphicalOverview: React.FC = () => {
                 : dayjs(endDate);
               
               // For data fetching, respect date of joining
-              let fiscalStart = originalFiscalStart;
+              const fiscalStart = originalFiscalStart;
               const joiningDate = dayjs(dateOfJoining);
               
               // If joining date is after fiscal start and before today, use joining date as start for data fetching

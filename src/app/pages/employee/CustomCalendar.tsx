@@ -28,6 +28,7 @@ import Holiday from '@pages/company/Holiday';
 import './CustomCalendar.premium.css';
 import MeetingsForm from './attendance/personal/views/my-leaves/MeetingsForm';
 import SmartAvatar from '@app/modules/common/components/SmartAvatar';
+import PremiumButton from '@app/modules/common/components/PremiumButton';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { fetchAllColors } from '@services/options';
@@ -763,7 +764,7 @@ function CustomCalendar() {
               title: event.eventName,
               start: dayjs(event.startDate).format(),
               end: dayjs(event.endDate).format(),
-              color: "#AA393D"
+              color: "#1E3A8A"
             })) || []),
             ...userBirthdays,
             ...contactBirthdays,
@@ -778,7 +779,7 @@ function CustomCalendar() {
         //   if (dateOfBirth) {
         //     specialDates.push({
         //       title: "Your Birthday",
-        //       color: "#AA393D",
+        //       color: "#1E3A8A",
         //       start: dayjs(dateOfBirth).format(),
         //       end: dayjs(dateOfBirth).format()
         //     });
@@ -786,7 +787,7 @@ function CustomCalendar() {
         //   if (anniversaryDate) {
         //     specialDates.push({
         //       title: "Your Anniversary",
-        //       color: "#AA393D",
+        //       color: "#1E3A8A",
         //       start: dayjs(anniversaryDate).format(),
         //       end: dayjs(anniversaryDate).format()
         //     });
@@ -802,7 +803,7 @@ function CustomCalendar() {
       }, [currentYear, employeeId, branchId, dateOfBirth, anniversaryDate, holidayRefresh]);
 
     function handleDayCellClassNames(arg: any) {
-        let classNamesToAdd = [];
+        const classNamesToAdd = [];
         if (arg.date.toDateString() === new Date().toDateString()) {
             classNamesToAdd.push('today-highlight');
         }
@@ -1062,9 +1063,9 @@ function CustomCalendar() {
                             {/* Hidden below 760px (mrd-btn--new) — the mrd-fab below takes over
                                 so the controls row doesn't have to fit a fourth element on a
                                 narrow phone. */}
-                            <button type="button" className="mrd-btn mrd-btn--primary mrd-btn--new" onClick={() => openCreateFor(panelDate)}>
-                                <Ico n="plus" cls="sm" /> New
-                            </button>
+                            <PremiumButton className="mrd-btn--new" icon="bi-plus" onClick={() => openCreateFor(panelDate)}>
+                                New
+                            </PremiumButton>
                         </div>
                     </div>
 
@@ -1102,16 +1103,7 @@ function CustomCalendar() {
                                 weekends={true}
                                 fixedWeekCount={false}
                                 events={visibleEvents}
-                                eventContent={(info: any) => renderEventContent(info, isMobile)}
-                                // Flags the view root so the CSS can lay dots out in a
-                                // wrapping row instead of FullCalendar's default one-per-line
-                                // stack — scoped to exactly the views/viewport that render
-                                // dots (Day view keeps its normal stacked full pills).
-                                viewClassNames={(arg: any) =>
-                                    isMobile && (arg.view.type === 'dayGridMonth' || arg.view.type === 'dayGridWeek')
-                                        ? ['mrd-compact-events']
-                                        : []
-                                }
+                                eventContent={renderEventContent}
                                 dayCellContent={renderDayCellContent}
                                 eventDisplay='block'
                                 // A day column is only ~55px wide on a phone in Month/Week
@@ -1215,7 +1207,6 @@ function CustomCalendar() {
                                             </>);
                                         }
                                         return (<>
-                                            <Opt icon="calendar" tint="var(--mrd-accent-tint)" color="var(--mrd-accent)" title="Create New Event" sub="Fill in the event form" onClick={() => { setShowOptionsModal(false); handleShowEventForm(); }} />
                                             {canHoliday && <Opt icon="gift" tint="var(--mrd-amber-tint)" color="var(--mrd-amber)" title="Create a Holiday" sub="Fill in the holiday form" onClick={() => { setShowOptionsModal(false); handleShowHolidayForm(); }} />}
                                             {canLeave && <Opt icon="file" tint="var(--mrd-blue-tint)" color="var(--mrd-blue)" title="Create a Leave Request" sub="Fill in the leave request form" onClick={handleShowLeaveRequestForm} />}
                                             {canMeeting && <Opt icon="users" tint="var(--mrd-violet-tint)" color="var(--mrd-violet)" title="Create Meetings" sub="Fill in the meetings form" onClick={handleshowMeetingForm} />}
@@ -1277,7 +1268,7 @@ function CustomCalendar() {
                                                         </span>
                                                         <span className="mrd-up__main">
                                                             <span className="mrd-up__t">{e.title}</span>
-                                                            <span className="mrd-up__s">{relLabel(evDateOf(e))} · {evTimeOf(e) || 'All day'}</span>
+                                                            <span className="mrd-up__s">{relLabel(evDateOf(e))}</span>
                                                         </span>
                                                         <Ico n="chevR" cls="xs" />
                                                     </button>
@@ -1289,47 +1280,6 @@ function CustomCalendar() {
                                     )}
                                 </div>
 
-                                {/* ---- Quick Actions ---- */}
-                                <div className="mrd-sect">
-                                    <div className="mrd-sect__head"><span className="mrd-sect__t">Quick Actions</span></div>
-                                    <div className="mrd-qa">
-                                        <button type="button" className="mrd-qa__btn mrd-qa--event" onClick={qaNewEvent}>
-                                            <span className="mrd-qa__ic"><Ico n="calendar" cls="sm" /></span> New Event
-                                        </button>
-                                        {canMeeting && (
-                                            <button type="button" className="mrd-qa__btn mrd-qa--meet" onClick={qaNewMeeting}>
-                                                <span className="mrd-qa__ic"><Ico n="users" cls="sm" /></span> New Meeting
-                                            </button>
-                                        )}
-                                        {canHoliday && (
-                                            <button type="button" className="mrd-qa__btn mrd-qa--holiday" onClick={qaNewHoliday}>
-                                                <span className="mrd-qa__ic"><Ico n="gift" cls="sm" /></span> New Holiday
-                                            </button>
-                                        )}
-                                        {canLeave && (
-                                            <button type="button" className="mrd-qa__btn mrd-qa--leave" onClick={qaLeave}>
-                                                <span className="mrd-qa__ic"><Ico n="file" cls="sm" /></span> Leave Request
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* ---- Calendar Legend (visibility toggles) ---- */}
-                                <div className="mrd-sect">
-                                    <div className="mrd-sect__head"><span className="mrd-sect__t">Calendar Legend</span></div>
-                                    <div className="mrd-lg">
-                                        {LEGEND.map((l) => {
-                                            const hidden = l.types.every((t) => hiddenCats.has(t));
-                                            return (
-                                                <button type="button" className={`mrd-lg__row${hidden ? ' is-off' : ''}`} key={l.key} onClick={() => toggleCat(l.types)} title={hidden ? 'Show on calendar' : 'Hide from calendar'}>
-                                                    <span className="mrd-lg__sw" style={{ background: l.color }} />
-                                                    <span className="mrd-lg__t">{l.label}</span>
-                                                    <span className="mrd-lg__eye"><Ico n={hidden ? 'eyeOff' : 'eye'} cls="sm" /></span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
                                 </>
                               )}
                             </div>
@@ -1616,30 +1566,16 @@ const resolveAvatarUrl = (url?: string | null) => {
     return toAbsoluteUrl(url);
 };
 
-function renderEventContent(eventInfo: any, isMobile = false) {
+function renderEventContent(eventInfo: any) {
     const ev = eventInfo.event;
     const type: string = ev.extendedProps?.type || (ev.allDay ? 'holiday' : 'event');
     const dotColor = ev.backgroundColor || eventInfo.backgroundColor || UiTokens.color.brand;
     const allDayTypes = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary', 'holiday'];
 
-    // A day column is only ~50-60px wide on a phone in Month/Week view (7 columns
-    // across the screen) — the full avatar+time+title pill becomes unreadable
-    // "letter soup" at that width. Day view is a single full-width column, so it
-    // keeps the rich pill. Full details are always one tap away via the mobile
-    // day-detail sheet, so a dot here is genuinely sufficient, not a data loss.
-    const viewType: string = eventInfo.view?.type || '';
-    const compactDot = isMobile && (viewType === 'dayGridMonth' || viewType === 'dayGridWeek');
-    if (compactDot) {
-        return (
-            <span
-                className="mrd-ev__dotonly"
-                style={{ background: dotColor }}
-                title={ev.title}
-                role="img"
-                aria-label={ev.title}
-            />
-        );
-    }
+    // Mobile Month/Week previously collapsed events to bare color dots; now every
+    // viewport renders the same pill — the title wraps (.mrd-ev__t) and the cell
+    // grows to fit (height:auto on the calendar), so the text stays readable even
+    // in a narrow phone column.
 
     let time = '';
     if (ev.start && !ev.allDay && !allDayTypes.includes(type)) {
@@ -1649,22 +1585,33 @@ function renderEventContent(eventInfo: any, isMobile = false) {
 
     const isProfileEvent = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary'].includes(type);
     let avatarNode = null;
+    // Short mobile title: on a phone the pill tint already says birthday vs
+    // anniversary, so just the person's name is what's actually relevant —
+    // "Aslam Patel" instead of "Aslam Patel's Work Anniversary". Rendered
+    // alongside the full title and toggled purely in CSS (≤760px media block).
+    let shortTitle = '';
     if (isProfileEvent) {
         const user = ev.extendedProps?.user;
         const contact = ev.extendedProps?.contact;
         const name = user?.name || contact?.name || ev.title || '';
         const imageUrl = user?.avatar || contact?.profilePhoto || null;
         const id = user?.id || contact?.id || null;
-        
+        shortTitle = name;
+
         avatarNode = (
-            <SmartAvatar
-                name={name}
-                id={id}
-                imageUrl={resolveAvatarUrl(imageUrl)}
-                size={18}
-                shape="circle"
-                imageFit="cover"
-            />
+            // .mrd-ev__ava is a CSS hook: on phones the leading avatar is hidden
+            // (the pill tint already signals the event type) so the whole ~50px
+            // column width goes to the title text — see the ≤760px media block.
+            <span className='mrd-ev__ava'>
+                <SmartAvatar
+                    name={name}
+                    id={id}
+                    imageUrl={resolveAvatarUrl(imageUrl)}
+                    size={18}
+                    shape="circle"
+                    imageFit="cover"
+                />
+            </span>
         );
     } else {
         avatarNode = <span className='mrd-ev__dot' style={{ background: dotColor }} />;
@@ -1681,7 +1628,14 @@ function renderEventContent(eventInfo: any, isMobile = false) {
         >
             {avatarNode}
             {time && <span className='mrd-ev__time'>{time}</span>}
-            <span className='mrd-ev__t'>{ev.title}</span>
+            {/* Short variant first so the CSS can hide the full one that follows
+                it (adjacent-sibling selector) — no JS viewport checks needed. */}
+            <span className='mrd-ev__t'>
+                {shortTitle && shortTitle !== ev.title && (
+                    <span className='mrd-ev__t--short'>{shortTitle}</span>
+                )}
+                <span className='mrd-ev__t--full'>{ev.title}</span>
+            </span>
         </div>
     );
 }

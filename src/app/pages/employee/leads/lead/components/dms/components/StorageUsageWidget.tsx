@@ -35,7 +35,7 @@ export const StorageUsageWidget: React.FC = () => {
             transition={{ duration: 0.8, ease: 'easeOut' }}
             style={{
               height: '100%', borderRadius: '4px',
-              background: usedPct > 80 ? '#ef4444' : usedPct > 60 ? '#f59e0b' : '#9d4141',
+              background: usedPct > 80 ? '#ef4444' : usedPct > 60 ? '#f59e0b' : '#1E3A8A',
             }}
           />
         </div>

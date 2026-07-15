@@ -59,34 +59,22 @@ const ProjectsMain = () => {
     {
       title: "Overview",
       component: <ProjectOverview />,
-      icon:
-        activeTab === 0
-          ? projectsIcons.projectsIcon.active
-          : projectsIcons.projectsIcon.default,
+      icon: 'bi-grid-1x2',
     },
     {
       title: "Projects",
       component: <ProjectTablePage />,
-      icon:
-        activeTab === 1
-          ? projectsIcons.projectsIcon.active
-          : projectsIcons.projectsIcon.default,
+      icon: 'bi-briefcase',
     },
     {
       title: "Map",
       component: <Maps points={points} projectData={projectData} />,
-      icon:
-        activeTab === 2
-          ? worldIcons.worldIcon.active
-          : worldIcons.worldIcon.default,
+      icon: 'bi-geo-alt',
     },
     {
       title: "Configure",
       component: <ProjectConfigure />,
-      icon:
-        activeTab === 3
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
+      icon: 'bi-gear',
     },
   ];
 

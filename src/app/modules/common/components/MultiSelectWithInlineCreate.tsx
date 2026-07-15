@@ -62,7 +62,7 @@ const CustomMenuList = ({ onCreate, createButtonText, ...props }: any) => {
           alignItems: 'center',
           cursor: 'pointer',
           borderBottom: '1px solid #e9ecef',
-          color: '#9D4141',
+          color: '#1E3A8A',
           fontSize: '14px',
           fontWeight: 500
         }}

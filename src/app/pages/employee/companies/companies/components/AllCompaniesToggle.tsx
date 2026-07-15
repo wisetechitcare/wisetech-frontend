@@ -309,8 +309,8 @@ const CompanyDetails = () => {
                   fontFamily: "Barlow",
                   fontWeight: "500",
                   fontSize: "14px",
-                  borderColor: "#7A2124",
-                  color: "#7A2124",
+                  borderColor: "#172554",
+                  color: "#172554",
                 }}
               >
                 {currentTabLabel}
@@ -415,7 +415,7 @@ const CompanyDetails = () => {
                   }`}
                   onClick={() => setActiveTab(tab.key as TabType)}
                   style={{
-                    border: "1px solid #7A2124",
+                    border: "1px solid #172554",
                     color: "black",
                     borderRadius: "20px",
                     fontFamily: "Inter",

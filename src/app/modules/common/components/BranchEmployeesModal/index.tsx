@@ -4,7 +4,7 @@ import { fetchEmployeesByBranch } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
 import { IconUsers, IconBranch, IconClose } from '@app/modules/common/components/icons/OrgIcons';
 
-const C = { brand: '#9D4141', brandSoft: '#FBEEEE', brandBorder: '#EBD2D2', ink: '#1F2430', inkSoft: '#5A6172', inkFaint: '#98A0B0', line: '#ECEEF3', panel: '#F7F8FA' };
+const C = { brand: '#1E3A8A', brandSoft: '#FBEEEE', brandBorder: '#EBD2D2', ink: '#1F2430', inkSoft: '#5A6172', inkFaint: '#98A0B0', line: '#ECEEF3', panel: '#F7F8FA' };
 
 interface EmpRow {
   id: string;

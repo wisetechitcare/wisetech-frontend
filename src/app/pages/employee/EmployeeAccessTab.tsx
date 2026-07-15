@@ -285,7 +285,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
                           <span className="text-muted fs-8 text-nowrap ms-2">{formatWhen(log.createdAt)}</span>
                         </div>
                         <span className="text-muted fs-8 d-block">{auditDescription(log)}</span>
-                        <span className="d-inline-flex align-items-center fs-8 mt-1" style={{ color: "#9D4141" }}>
+                        <span className="d-inline-flex align-items-center fs-8 mt-1" style={{ color: "#1E3A8A" }}>
                           {log.actorName && log.actorName !== "System" ? (
                             <img
                               src={getAvatar(log.actorAvatar, (log.actorGender ?? 0) as 0 | 1 | 2)}

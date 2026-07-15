@@ -173,7 +173,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
   // Use initialData if provided, otherwise use empty values
   const initialValues: ContactFormValues = useMemo(() => {
-    let values = key === "add-new" ? { ...emptyInitialValues, companyId: selectedCompanyId || "" } : initialData ? {
+    const values = key === "add-new" ? { ...emptyInitialValues, companyId: selectedCompanyId || "" } : initialData ? {
       companyId: selectedCompanyId || initialData.companyId || "",
       branchId: (initialData.branchId) ?? (initialData.branch || ""),
       roleInCompany: initialData.roleInCompany || "",
@@ -648,19 +648,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
               {(formikProps) => {
                 const { values, setFieldValue, errors, touched } = formikProps;
 
-                // Sync Formik companyId when companies load
-                useEffect(() => {
-                  if (selectedCompanyId && companies.length > 0) {
-                    setFieldValue("companyId", selectedCompanyId);
-                    console.log("Auto-filling companyId:", selectedCompanyId);
-                  }
-                }, [selectedCompanyId, companies]);
-
-                useEffect(() => {
-                  console.log("Current Formik companyId:", values.companyId);
-                  console.log("Is companies loaded:", companies.length > 0);
-                }, [values.companyId, companies]);
-
                 return (
                   <FormikForm>
                     {/* Profile Photo */}
@@ -714,7 +701,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                     <div className="mb-4">
                       <fieldset
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           padding: "clamp(14px, 2vw, 15px)",
                         }}
                         className="mt-7"
@@ -730,7 +717,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",
@@ -740,7 +727,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}
@@ -1037,7 +1024,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                     <div className="mb-4">
                       <fieldset
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           padding: "clamp(14px, 2vw, 15px)",
                         }}
                         className="mt-7"
@@ -1053,7 +1040,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",
@@ -1063,7 +1050,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}
@@ -1135,7 +1122,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                     <div className="mb-4">
                       <fieldset
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           padding: "clamp(14px, 2vw, 15px)",
                         }}
                         className="mt-7"
@@ -1161,7 +1148,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}
@@ -1203,7 +1190,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                     <div className="mb-4">
                       <fieldset
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           padding: "clamp(14px, 2vw, 15px)",
                         }}
                         className="mt-7"
@@ -1219,7 +1206,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",
@@ -1229,7 +1216,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}
@@ -1429,7 +1416,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                     <div className="mb-4">
                       <fieldset
                         style={{
-                          borderTop: "1px solid #9D4141",
+                          borderTop: "1px solid #1E3A8A",
                           padding: "clamp(14px, 2vw, 15px)",
                         }}
                         className="mt-7"
@@ -1445,7 +1432,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#1E3A8A",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",
@@ -1455,7 +1442,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                           <div
                             className="ms-5"
                             style={{
-                              borderTop: "1px solid #9D4141",
+                              borderTop: "1px solid #1E3A8A",
                               width: "30px",
                               height: "0px",
                             }}

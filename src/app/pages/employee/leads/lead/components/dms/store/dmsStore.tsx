@@ -30,7 +30,7 @@ const buildDefaultFolders = (leadId: string, inquiryNumber: string): DMSFolder[]
     createdAt: new Date().toISOString(),
     icon: '📁',
     isSystem: true,
-    color: '#9d4141',
+    color: '#1E3A8A',
   };
 
   return [root, ...systemFolders];

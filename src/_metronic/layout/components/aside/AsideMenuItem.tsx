@@ -1,4 +1,4 @@
-import {FC, useState, useEffect } from 'react'
+import {FC} from 'react'
 import clsx from 'clsx'
 import {Link} from 'react-router-dom'
 import {useLocation} from 'react-router'
@@ -38,12 +38,6 @@ const AsideMenuItem: FC<Props & WithChildren> = ({
   const canPin = pinnable && !!to && to !== '#'
   const pinned = isPinned(to)
 
-  // Track the current icon based on active state
-  const [currentIcon, setCurrentIcon] = useState(icon)
-  useEffect(() => {
-    setCurrentIcon(isActive ? activeIcon || icon : icon)
-  }, [isActive, icon, activeIcon]) 
-
   return (
     <div className={clsx('menu-item', {'menu-item-pinnable': canPin})}>
       <Link className={clsx('menu-link without-sub', {active: isActive})} to={to} title={title}>
@@ -52,16 +46,22 @@ const AsideMenuItem: FC<Props & WithChildren> = ({
             <span className='bullet bullet-dot'></span>
           </span>
         )}
-        {currentIcon && (
+        {icon && (
+          // Both variants are rendered once so react-inlinesvg fetches + caches them
+          // up front; switching active state is then a pure CSS toggle (see the
+          // .menu-svg-icon--default/--active rules in premium-layout.css) with no
+          // runtime re-fetch — the icon changes instantly instead of flashing/
+          // settling for a second while the active SVG loads.
           <span className='menu-icon'>
-            <SVG src={currentIcon} className='menu-svg-icon' />
+            <SVG src={icon} className='menu-svg-icon menu-svg-icon--default' />
+            <SVG src={activeIcon || icon} className='menu-svg-icon menu-svg-icon--active' />
           </span>
         )}
         {fontIcon && aside.menuIcon === 'font' && (
-          <i className={clsx('bi fs-3', fontIcon)}></i>
+          <i className={clsx('bi fs-5 menu-font-icon', fontIcon)}></i>
         )}
-        <span className='menu-title d-flex align-items-center gap-2'>
-          <span>{title}</span>
+        <span className='menu-title d-flex align-items-center'>
+          <span className='fw-500'>{title}</span>
           {typeof badgeCount === 'number' && badgeCount > 0 && (
             <span className='badge badge-circle badge-light-danger text-danger fw-bold fs-9'>
               {badgeCount > 99 ? '99+' : badgeCount}

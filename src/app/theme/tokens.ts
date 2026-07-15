@@ -285,6 +285,8 @@ export const LEGACY_UIKIT = {
     brandActive: '#14204A',
     brandSoft: '#E9EEF8',
     brandRing: 'rgba(30, 58, 138, 0.16)',
+    // Navy brand gradient (90deg, left→right) — referenced by MaterialHeaderTab.
+    brandGradientLeftToRight: 'linear-gradient(90deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)',
     accent: '#C0392B',
     accentSoft: '#FBEBE9',
 

@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Modal } from "react-bootstrap";
 import { Form, Formik } from "formik";
 import * as Yup from "yup";
@@ -154,12 +154,12 @@ function DeductionRules() {
   async function fetchPayrollConfiguration() {
     try {
       const { data: { configuration } } = await fetchConfiguration(DEDUCTIONS);
-      const configurationComplete = safeJsonParse(configuration.configuration || '{}');
+      const configurationComplete = safeJsonParse(configuration?.configuration || '{}');
       console.log("configurationComplete:: ", configurationComplete);
       console.log("typeofconfigurationComplete:: ", typeof(configurationComplete));
 
       setConfig(configurationComplete);
-      setConfigurationId(configuration.id);
+      setConfigurationId(configuration?.id);
     } catch (error) {
       console.error("Error fetching configuration:", error);
       setConfig({});
@@ -271,14 +271,14 @@ function DeductionRules() {
       width: '44px',
       height: '44px',
       borderRadius: '12px',
-      background: 'linear-gradient(135deg, #fdf3f4 0%, #fce8e8 100%)',
+      background: 'linear-gradient(135deg, #EEF3FC 0%, #fce8e8 100%)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      color: '#9d4141',
+      color: '#1E3A8A',
       fontSize: '20px',
-      boxShadow: '0 3px 10px rgba(157,65,65,0.12)',
-      border: '1px solid rgba(157,65,65,0.08)',
+      boxShadow: '0 3px 10px rgba(30, 58, 138,0.12)',
+      border: '1px solid rgba(30, 58, 138,0.08)',
       flexShrink: 0 as const,
     },
     cardIconBlue: {
@@ -408,13 +408,13 @@ function DeductionRules() {
     sectionLine: {
       width: '26px',
       height: '1px',
-      backgroundColor: '#9d4141'
+      backgroundColor: '#1E3A8A'
     },
     sectionTitle: {
       fontFamily: 'Inter, sans-serif',
       fontWeight: 600,
       fontSize: '15px',
-      color: '#9d4141',
+      color: '#1E3A8A',
       letterSpacing: '0.75px',
       textTransform: 'uppercase' as const,
     },
@@ -437,16 +437,16 @@ function DeductionRules() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap' as const, gap: '10px',
         padding: '14px 16px',
-        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        background: 'linear-gradient(135deg, #EEF3FC 0%, #fff8f8 100%)',
         borderRadius: '12px',
-        border: '1px solid rgba(157,65,65,0.1)',
+        border: '1px solid rgba(30, 58, 138,0.1)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
             width: '34px', height: '34px', borderRadius: '9px',
-            background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+            background: 'linear-gradient(135deg, #1E3A8A 0%, #3B5BA9 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+            boxShadow: '0 3px 10px rgba(30, 58, 138,0.25)', flexShrink: 0,
           }}>
             <i className="bi bi-dash-square-fill" style={{ fontSize: '15px', color: '#fff' }} />
           </div>
@@ -481,7 +481,7 @@ function DeductionRules() {
               className="sc-configure-btn"
               style={styles.configureBtn}
               onClick={() => setShowPTModal(true)}
-              onMouseOver={(e) => { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.color = '#9d4141'; e.currentTarget.style.backgroundColor = '#fdf3f4'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(157,65,65,0.12)'; }}
+              onMouseOver={(e) => { e.currentTarget.style.borderColor = '#1E3A8A'; e.currentTarget.style.color = '#1E3A8A'; e.currentTarget.style.backgroundColor = '#EEF3FC'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(30, 58, 138,0.12)'; }}
               onMouseOut={(e)  => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(24,28,50,0.06)'; }}
             >
               <i className="bi bi-pencil-square" style={{ fontSize: '13px' }}></i> Configure
@@ -781,8 +781,8 @@ function DeductionRules() {
                           checked={values.male.till.isActive}
                           onChange={(e) => setFieldValue("male.till.isActive", e.target.checked)}
                           style={{
-                            backgroundColor: values.male.till.isActive ? '#9d4141' : '#ccc',
-                            borderColor: values.male.till.isActive ? '#9d4141' : '#ccc'
+                            backgroundColor: values.male.till.isActive ? '#1E3A8A' : '#ccc',
+                            borderColor: values.male.till.isActive ? '#1E3A8A' : '#ccc'
                           }}
                         />
                       </div>
@@ -814,8 +814,8 @@ function DeductionRules() {
                           checked={values.male.range.isActive}
                           onChange={(e) => setFieldValue("male.range.isActive", e.target.checked)}
                           style={{
-                            backgroundColor: values.male.range.isActive ? '#9d4141' : '#ccc',
-                            borderColor: values.male.range.isActive ? '#9d4141' : '#ccc'
+                            backgroundColor: values.male.range.isActive ? '#1E3A8A' : '#ccc',
+                            borderColor: values.male.range.isActive ? '#1E3A8A' : '#ccc'
                           }}
                         />
                       </div>
@@ -839,8 +839,8 @@ function DeductionRules() {
                           checked={values.male.moreThan.isActive}
                           onChange={(e) => setFieldValue("male.moreThan.isActive", e.target.checked)}
                           style={{
-                            backgroundColor: values.male.moreThan.isActive ? '#9d4141' : '#ccc',
-                            borderColor: values.male.moreThan.isActive ? '#9d4141' : '#ccc'
+                            backgroundColor: values.male.moreThan.isActive ? '#1E3A8A' : '#ccc',
+                            borderColor: values.male.moreThan.isActive ? '#1E3A8A' : '#ccc'
                           }}
                         />
                       </div>
@@ -872,8 +872,8 @@ function DeductionRules() {
                           checked={values.male.lastMonth.isActive}
                           onChange={(e) => setFieldValue("male.lastMonth.isActive", e.target.checked)}
                           style={{
-                            backgroundColor: values.male.lastMonth.isActive ? '#9d4141' : '#ccc',
-                            borderColor: values.male.lastMonth.isActive ? '#9d4141' : '#ccc'
+                            backgroundColor: values.male.lastMonth.isActive ? '#1E3A8A' : '#ccc',
+                            borderColor: values.male.lastMonth.isActive ? '#1E3A8A' : '#ccc'
                           }}
                         />
                       </div>
@@ -920,8 +920,8 @@ function DeductionRules() {
                           checked={values.female.till.isActive}
                           onChange={(e) => setFieldValue("female.till.isActive", e.target.checked)}
                           style={{
-                            backgroundColor: values.female.till.isActive ? '#9d4141' : '#ccc',
-                            borderColor: values.female.till.isActive ? '#9d4141' : '#ccc'
+                            backgroundColor: values.female.till.isActive ? '#1E3A8A' : '#ccc',
+                            borderColor: values.female.till.isActive ? '#1E3A8A' : '#ccc'
                           }}
                         />
                       </div>
@@ -953,8 +953,8 @@ function DeductionRules() {
                           checked={values.female.range.isActive}
                           onChange={(e) => setFieldValue("female.range.isActive", e.target.checked)}
                           style={{
-                            backgroundColor: values.female.range.isActive ? '#9d4141' : '#ccc',
-                            borderColor: values.female.range.isActive ? '#9d4141' : '#ccc'
+                            backgroundColor: values.female.range.isActive ? '#1E3A8A' : '#ccc',
+                            borderColor: values.female.range.isActive ? '#1E3A8A' : '#ccc'
                           }}
                         />
                       </div>
@@ -978,8 +978,8 @@ function DeductionRules() {
                           checked={values.female.moreThan.isActive}
                           onChange={(e) => setFieldValue("female.moreThan.isActive", e.target.checked)}
                           style={{
-                            backgroundColor: values.female.moreThan.isActive ? '#9d4141' : '#ccc',
-                            borderColor: values.female.moreThan.isActive ? '#9d4141' : '#ccc'
+                            backgroundColor: values.female.moreThan.isActive ? '#1E3A8A' : '#ccc',
+                            borderColor: values.female.moreThan.isActive ? '#1E3A8A' : '#ccc'
                           }}
                         />
                       </div>
@@ -1011,8 +1011,8 @@ function DeductionRules() {
                           checked={values.female.lastMonth.isActive}
                           onChange={(e) => setFieldValue("female.lastMonth.isActive", e.target.checked)}
                           style={{
-                            backgroundColor: values.female.lastMonth.isActive ? '#9d4141' : '#ccc',
-                            borderColor: values.female.lastMonth.isActive ? '#9d4141' : '#ccc'
+                            backgroundColor: values.female.lastMonth.isActive ? '#1E3A8A' : '#ccc',
+                            borderColor: values.female.lastMonth.isActive ? '#1E3A8A' : '#ccc'
                           }}
                         />
                       </div>
@@ -1045,7 +1045,7 @@ function DeductionRules() {
                     type="submit"
                     disabled={loading}
                     style={{
-                      backgroundColor: '#9d4141',
+                      backgroundColor: '#1E3A8A',
                       border: 'none',
                       borderRadius: '8px',
                       color: 'white',
@@ -1056,7 +1056,7 @@ function DeductionRules() {
                       fontSize: '15px',
                       cursor: loading ? 'not-allowed' : 'pointer',
                       opacity: loading ? 0.7 : 1,
-                      boxShadow: '0 4px 12px rgba(157, 65, 65, 0.2)',
+                      boxShadow: '0 4px 12px rgba(30, 58, 138, 0.2)',
                       transition: 'all 0.2s ease',
                     }}
                     onMouseOver={(e) => { if (!loading) e.currentTarget.style.transform = 'translateY(-1px)'; }}
@@ -1127,7 +1127,7 @@ function DeductionRules() {
                   type="submit"
                   disabled={loading || !isValid}
                   style={{
-                    backgroundColor: '#9d4141',
+                    backgroundColor: '#1E3A8A',
                     border: 'none',
                     borderRadius: '6px',
                     color: 'white',

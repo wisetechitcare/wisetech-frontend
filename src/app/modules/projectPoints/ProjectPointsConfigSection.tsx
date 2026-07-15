@@ -46,7 +46,7 @@ const ProjectPointsConfigSection: React.FC = () => {
             fetchPoints();
         } catch (e) {
             console.error("Error deleting project point:", e);
-            Swal.fire({ icon: "error", title: "Delete failed", confirmButtonColor: "#9D4141" });
+            Swal.fire({ icon: "error", title: "Delete failed", confirmButtonColor: "#1E3A8A" });
         }
     };
 

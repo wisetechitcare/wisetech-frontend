@@ -134,6 +134,39 @@ export const getMeetings = async (employeeId: string) => {
     }
 };
 
+// Meetings linked to a project (lead) — names come pre-resolved from the backend
+export const getMeetingsByProject = async (projectId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/by-project?projectId=${projectId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Meetings an employee organized or participates in (full history)
+export const getMeetingsByEmployee = async (targetEmployeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/by-employee?targetEmployeeId=${targetEmployeeId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Meetings where a contact is an external participant
+export const getMeetingsByContact = async (contactId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/employee/meetings/by-contact?contactId=${contactId}`;
+        const response = await axios.get(endpoint);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 export const updateMeeting = async (meetingId: string, employeeId: string, updateData: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/employee/meetings?meetingId=${meetingId}&employeeId=${employeeId}`;
@@ -1525,6 +1558,32 @@ export const fetchApprovalInstanceByRequest = async (requestModel: string, reque
 
 export const fetchMyApprovees = async () => {
     const { data } = await axios.get(`${API_BASE_URL}/api/approvals/my-approvees`);
+    return data;
+}
+
+// Download reimbursement bill PDF for a batch (returns a Blob).
+// Uses the shared axios instance so the auth interceptor attaches the Bearer token.
+export const downloadReimbursementBillPdf = async (batchId: string): Promise<Blob> => {
+    const endpoint = `${API_BASE_URL}/api/reimbursements/${batchId}/download-bill`;
+    const { data } = await axios.get(endpoint, { responseType: 'blob' });
+    return data;
+}
+
+// Download a consolidated reimbursement bill PDF for an employee over a period.
+// from/to are ISO dates (YYYY-MM-DD); omit for an all-time bill.
+export const downloadEmployeePeriodBillPdf = async (
+    employeeId: string,
+    params?: { from?: string; to?: string; label?: string },
+): Promise<Blob> => {
+    const endpoint = `${API_BASE_URL}/api/reimbursements/employee/${employeeId}/download-bill`;
+    const { data } = await axios.get(endpoint, {
+        params: {
+            ...(params?.from ? { from: params.from } : {}),
+            ...(params?.to ? { to: params.to } : {}),
+            ...(params?.label ? { label: params.label } : {}),
+        },
+        responseType: 'blob',
+    });
     return data;
 }
 

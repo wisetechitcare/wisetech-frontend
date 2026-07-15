@@ -578,13 +578,13 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                                 className="btn"
                                 onClick={() => setShowConvertModal(true)}
                                 style={{
-                                    borderColor: '#9d4141',
-                                    color: '#9d4141',
+                                    borderColor: '#1E3A8A',
+                                    color: '#1E3A8A',
                                     fontFamily: 'Inter, sans-serif',
                                     fontSize: '14px',
                                     fontWeight: '500',
                                     borderRadius: '6px',
-                                    border: '1px solid #9d4141',
+                                    border: '1px solid #1E3A8A',
                                     padding: '10px 16px',
                                     height: '44px',
                                     whiteSpace: 'nowrap',
@@ -610,7 +610,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     <div style={{
                         marginTop: '16px',
                         paddingTop: '12px',
-                        borderTop: '2px solid #9D4141',
+                        borderTop: '2px solid #1E3A8A',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center'
@@ -667,7 +667,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                         <div style={{
                             marginTop: '16px',
                             paddingTop: '12px',
-                            borderTop: '2px solid #9D4141',
+                            borderTop: '2px solid #1E3A8A',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center'
@@ -694,7 +694,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                 padding: '16px 20px',
                 borderRadius: '12px',
                 backgroundColor: '#fff',
-                border: '2px solid #9D4141'
+                border: '2px solid #1E3A8A'
             }}>
                 <div style={{
                     display: 'flex',
@@ -706,13 +706,13 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                         fontWeight: '700',
                         fontSize: '16px',
                         letterSpacing: '0.16px',
-                        color: '#9D4141'
+                        color: '#1E3A8A'
                     }}>Total Leaves (Paid + Unpaid)</span>
                     <span style={{
                         fontFamily: 'Inter, sans-serif',
                         fontWeight: '700',
                         fontSize: '16px',
-                        color: '#9D4141'
+                        color: '#1E3A8A'
                     }}>{grandTotalUsed}/{grandTotalAssigned}</span>
                 </div>
             </Card>

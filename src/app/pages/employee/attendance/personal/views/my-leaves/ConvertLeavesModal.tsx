@@ -325,7 +325,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                         <div
                             onClick={() => setSelectedOption('encash')}
                             style={{
-                                border: selectedOption === 'encash' ? '2px solid #9d4141' : '1px solid #c8cfda',
+                                border: selectedOption === 'encash' ? '2px solid #1E3A8A' : '1px solid #c8cfda',
                                 borderRadius: '8px',
                                 padding: '12px 16px',
                                 cursor: 'pointer',
@@ -351,7 +351,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                         width: '10px',
                                         height: '10px',
                                         borderRadius: '50%',
-                                        backgroundColor: '#9d4141',
+                                        backgroundColor: '#1E3A8A',
                                     }} />
                                 )}
                             </div>
@@ -375,7 +375,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                 <div style={{
                                     fontSize: '14px',
                                     fontWeight: 500,
-                                    color: selectedOption === 'encash' ? '#9d4141' : '#1f1f1f',
+                                    color: selectedOption === 'encash' ? '#1E3A8A' : '#1f1f1f',
                                     marginBottom: '6px',
                                     fontFamily: 'Inter, sans-serif',
                                 }}>
@@ -395,7 +395,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                         <div
                             onClick={() => setSelectedOption('transfer')}
                             style={{
-                                border: selectedOption === 'transfer' ? '2px solid #9d4141' : '1px solid #c8cfda',
+                                border: selectedOption === 'transfer' ? '2px solid #1E3A8A' : '1px solid #c8cfda',
                                 borderRadius: '8px',
                                 padding: '12px 16px',
                                 cursor: 'pointer',
@@ -421,7 +421,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                         width: '10px',
                                         height: '10px',
                                         borderRadius: '50%',
-                                        backgroundColor: '#9d4141',
+                                        backgroundColor: '#1E3A8A',
                                     }} />
                                 )}
                             </div>
@@ -445,7 +445,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                 <div style={{
                                     fontSize: '14px',
                                     fontWeight: 500,
-                                    color: selectedOption === 'transfer' ? '#9d4141' : '#1f1f1f',
+                                    color: selectedOption === 'transfer' ? '#1E3A8A' : '#1f1f1f',
                                     marginBottom: '6px',
                                     fontFamily: 'Inter, sans-serif',
                                 }}>
@@ -536,7 +536,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                             padding: '12px 16px',
                             backgroundColor: '#f4e7e7',
                             borderRadius: '6px',
-                            border: '1px solid #9d4141',
+                            border: '1px solid #1E3A8A',
                         }}>
                             <span style={{
                                 fontSize: '14px',
@@ -623,7 +623,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                             padding: '12px 16px',
                             backgroundColor: '#f4e7e7',
                             borderRadius: '6px',
-                            border: '1px solid #9d4141',
+                            border: '1px solid #1E3A8A',
                         }}>
                             <span style={{
                                 fontSize: '14px',
@@ -842,7 +842,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                     onClick={handleSubmit}
                     disabled={loading || (selectedOption === 'transfer' && getTotalTransferLeaves() === 0) || (selectedOption === 'encash' && getTotalEncashLeaves() === 0)}
                     style={{
-                        backgroundColor: '#9d4141',
+                        backgroundColor: '#1E3A8A',
                         color: '#ffffff',
                         border: 'none',
                         borderRadius: '6px',

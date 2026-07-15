@@ -1,13 +1,12 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
-import { C, BTN, RADIUS, FONT } from "@app/modules/configuration";
+import { KTIcon } from "@metronic/helpers";
+import { C, BTN, RADIUS, FONT, SP, ConfigSectionCard } from "@app/modules/configuration";
 import {
-  IReimbursementType,
   IReimbursementTypeCreate,
   IReimbursementTypeFetch,
 } from "@models/employee";
 
+import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { deleteConfirmation, successConfirmation } from "@utils/modal";
 import {
@@ -17,10 +16,8 @@ import {
   updateReimbursementTypeById,
 } from "@utils/statistics";
 import { Form, Formik, FormikValues } from "formik";
-import { MRT_ColumnDef } from "material-react-table";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Modal } from "react-bootstrap";
-import { useSelector } from "react-redux";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import * as Yup from "yup";
@@ -50,33 +47,34 @@ const DEFAULT_ICON_URL =
   "https://wise-tech-asset-store.s3.ap-south-1.amazonaws.com/15658e56-ee9c-4ac3-abfa-ce8734f7978a/0aa9fbc3296053c60f12004b96021ab31ba20d3650";
 
 /**
- * Renders the icon cell in the table.
+ * Renders a round icon avatar for a category.
  * Supports:
  *   - KT system icon names stored as  "kt:car"
  *   - Full URLs (http/https) stored directly
- *   - Legacy S3 URLs
  *   - Empty / missing → default icon
  */
-function IconCell({ value }: { value: string }) {
+function IconAvatar({ value, size = 34 }: { value?: string; size?: number }) {
   const isKtIcon = value?.startsWith("kt:");
   const isUrl = value?.startsWith("http");
 
   if (isKtIcon) {
-    const iconName = value.slice(3);
+    const iconName = value!.slice(3);
     return (
       <div
         style={{
-          width: 46,
-          height: 46,
+          width: size,
+          height: size,
           borderRadius: "50%",
-          background: "#EEF6FF",
+          background: C.primaryLight,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          margin: "4px 0",
+          flexShrink: 0,
         }}
       >
-        <KTIcon iconName={iconName} className="fs-2 text-primary" />
+        <span style={{ color: C.primary, display: "flex" }}>
+          <KTIcon iconName={iconName} className="fs-4" />
+        </span>
       </div>
     );
   }
@@ -84,7 +82,7 @@ function IconCell({ value }: { value: string }) {
   const src = isUrl ? value : DEFAULT_ICON_URL;
   return (
     <img
-      style={{ width: 46, height: 46, borderRadius: "50%", margin: "4px 0", objectFit: "cover" }}
+      style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
       alt="Icon"
       src={src}
     />
@@ -105,38 +103,150 @@ function IconPreview({ icon }: { icon: string }) {
         gap: "10px",
         marginTop: "10px",
         padding: "10px 14px",
-        background: "#F8FAFF",
-        border: "1.5px solid #D6E9FF",
-        borderRadius: "10px",
+        background: C.primaryLight,
+        border: "1.5px solid rgba(30, 58, 138,0.18)",
+        borderRadius: RADIUS.md,
       }}
     >
-      <div
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: "50%",
-          background: "#EEF6FF",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        {isKtIcon ? (
-          <KTIcon iconName={icon.slice(3)} className="fs-2 text-primary" />
-        ) : (
-          <img src={icon} alt="icon" style={{ width: 26, height: 26, objectFit: "contain" }} />
-        )}
-      </div>
+      <IconAvatar value={icon} size={40} />
       <div>
-        <div style={{ fontSize: "11px", color: "#A1A5B7", marginBottom: 1 }}>Icon Preview</div>
-        <div style={{ fontSize: "12px", color: "#5E6278", fontWeight: 500 }}>
+        <div style={{ fontSize: "11px", color: C.textMuted, fontFamily: FONT.body, marginBottom: 1 }}>
+          Icon Preview
+        </div>
+        <div style={{ fontSize: "12px", color: C.textSecondary, fontFamily: FONT.body, fontWeight: 500 }}>
           {isKtIcon ? `System · ${icon.slice(3)}` : "Online Icon"}
         </div>
       </div>
     </div>
   );
 }
+
+// ─── Category chip ────────────────────────────────────────────────────────────
+
+interface CategoryChipProps {
+  category: IReimbursementTypeFetch;
+  canManage: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  const hasLimit = category.amountLimit != null;
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        backgroundColor: hov ? "#ffffff" : "#f7f8fa",
+        border: `1px solid ${hov ? "#d1d5e0" : "#eaecf0"}`,
+        borderRadius: RADIUS.lg,
+        padding: "8px 10px",
+        transition: "all 0.15s ease",
+        boxShadow: hov ? "0 4px 14px rgba(24,28,50,0.09)" : "0 1px 3px rgba(24,28,50,0.04)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Left accent */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: 0,
+          width: "3px",
+          backgroundColor: C.primary,
+          opacity: 0.7,
+        }}
+      />
+
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: 0, paddingLeft: "4px" }}>
+        <IconAvatar value={category.icon} />
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontFamily: FONT.body,
+              fontWeight: 600,
+              fontSize: "13px",
+              color: C.textPrimary,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {category.type}
+          </div>
+          <div
+            style={{
+              fontFamily: FONT.body,
+              fontWeight: 500,
+              fontSize: "11px",
+              color: hasLimit ? C.primary : C.textMuted,
+              marginTop: "1px",
+            }}
+          >
+            {hasLimit ? `Limit ₹${Number(category.amountLimit).toLocaleString("en-IN")}` : "No limit set"}
+          </div>
+        </div>
+      </div>
+
+      {canManage && (
+        <div style={{ display: "flex", gap: "4px", flexShrink: 0, opacity: hov ? 1 : 0.35, transition: "opacity 0.15s ease" }}>
+          <button
+            onClick={onEdit}
+            style={{
+              background: hov ? "#eff6ff" : "transparent",
+              border: "none",
+              borderRadius: RADIUS.sm,
+              padding: "4px 7px",
+              cursor: "pointer",
+              color: "#4f82c4",
+              display: "flex",
+              alignItems: "center",
+              transition: "background 0.15s ease",
+            }}
+          >
+            <i className="bi bi-pencil" style={{ fontSize: "11px" }} />
+          </button>
+          <button
+            onClick={onDelete}
+            style={{
+              background: hov ? "#fff5f8" : "transparent",
+              border: "none",
+              borderRadius: RADIUS.sm,
+              padding: "4px 7px",
+              cursor: "pointer",
+              color: C.danger,
+              display: "flex",
+              alignItems: "center",
+              transition: "background 0.15s ease",
+            }}
+          >
+            <i className="bi bi-trash" style={{ fontSize: "11px" }} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: SP.sm }}>
+    {children}
+  </div>
+);
+
+const EmptyState: React.FC = () => (
+  <div style={{ textAlign: "center", padding: "28px 16px", color: C.textMuted, fontFamily: FONT.body, fontSize: "13px" }}>
+    <i className="bi bi-inbox" style={{ fontSize: "28px", display: "block", marginBottom: "8px", opacity: 0.4 }} />
+    No reimbursement categories configured yet
+  </div>
+);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -147,9 +257,6 @@ function Settings() {
 
   const isAdmin = useSelector(
     (state: RootState) => state.auth.currentUser.isAdmin
-  );
-  const employeeId = useSelector(
-    (state: RootState) => state.employee.currentEmployee.id
   );
 
   const [show, setShow] = useState(false);
@@ -250,64 +357,6 @@ function Settings() {
     setPreviewIconValue(storedValue);
   };
 
-  // ── Columns ─────────────────────────────────────────────────────────────────
-
-  const columns = useMemo<MRT_ColumnDef<IReimbursementType>[]>(
-    () => [
-      {
-        accessorKey: "icon",
-        header: "Icon",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => (
-          <IconCell value={renderedCellValue} />
-        ),
-      },
-      {
-        accessorKey: "type",
-        header: "Name",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
-        accessorKey: "amountLimit",
-        header: "Amount Limit",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) =>
-          renderedCellValue != null ? `₹${Number(renderedCellValue).toLocaleString("en-IN")}` : "N/A",
-      },
-      ...(isAdmin
-        ? [
-            {
-              accessorKey: "actions",
-              header: "Actions",
-              enableSorting: false,
-              enableColumnActions: false,
-              Cell: ({ row }: any) => (
-                <div className="flex items-center justify-center space-x-4">
-                  <button
-                    className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
-                    onClick={() => handleEdit(row.original)}
-                  >
-                    <KTIcon iconName="pencil" className="inline fs-4 text-red-500" />
-                  </button>
-                  <button
-                    className="btn btn-icon btn-active-color-primary btn-sm w-4"
-                    onClick={() => handleDelete(row.original)}
-                  >
-                    <KTIcon iconName="trash" className="inline fs-4 text-red-500" />
-                  </button>
-                </div>
-              ),
-            },
-          ]
-        : []),
-    ],
-    [isAdmin]
-  );
-
   // ── Data fetch ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -320,41 +369,50 @@ function Settings() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-        <button
-          style={{ ...BTN.primary, fontSize: '13.5px', padding: '9px 18px' }}
-          onClick={handleNew}
-        >
-          <i className="bi bi-plus-lg" style={{ fontSize: '14px' }} />
-          Add New Category
-        </button>
-      </div>
+      <style>{`
+        .rc-form-control:focus {
+          border-color: ${C.primary} !important;
+          box-shadow: 0 0 0 3px ${C.primaryLight} !important;
+        }
+        .rc-modal .modal-content {
+          border-radius: ${RADIUS.xl} !important;
+          border: none !important;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.12) !important;
+        }
+      `}</style>
 
-      <MaterialTable
-        columns={columns}
-        data={reimbursementTypeData}
-        hideExportCenter={true}
-        employeeId={employeeId}
-        muiTableProps={{
-          sx: {
-            "& .MuiTableBody-root .MuiTableCell-root": {
-              borderBottom: "none",
-              paddingY: "5px",
-            },
-            "& .css-1huu0oi-MuiTableCell-root": { width: "auto" },
-          },
-        }}
-        tableName="Reimbursements"
-      />
+      <ConfigSectionCard
+        title="Reimbursement Categories"
+        description="Define the expense categories employees can submit reimbursement requests for."
+        icon="bi-tag"
+        iconColor="primary"
+        primaryAction={{ label: "Add New Category", icon: "bi-plus-lg", onClick: handleNew, variant: "primary" }}
+      >
+        {reimbursementTypeData.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <ChipGrid>
+            {reimbursementTypeData.map((category) => (
+              <CategoryChip
+                key={category.id}
+                category={category}
+                canManage={isAdmin}
+                onEdit={() => handleEdit(category)}
+                onDelete={() => handleDelete(category)}
+              />
+            ))}
+          </ChipGrid>
+        )}
+      </ConfigSectionCard>
 
       {/* ── Category Form Modal ──────────────────────────────────────── */}
-      <Modal show={show} onHide={handleClose} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
+      <Modal show={show} onHide={handleClose} centered className="rc-modal">
+        <Modal.Header closeButton style={{ borderBottom: "none", paddingBottom: "8px" }}>
+          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: "18px", color: C.textPrimary }}>
             {editMode ? "Edit Reimbursement Category" : "New Reimbursement Category"}
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body style={{ paddingTop: "8px" }}>
           <Formik
             initialValues={
               editMode && selectedReimbursement ? selectedReimbursement : initialState
@@ -372,7 +430,6 @@ function Settings() {
                   className="d-flex flex-column"
                   noValidate
                   id="employee_reimbursement_form"
-                  // placeholder={undefined}
                 >
                   <div className="row">
                     {/* Name field */}
@@ -384,15 +441,17 @@ function Settings() {
                         formikField="type"
                       />
                       {/* Amount Limit field */}
-                      <div className="d-flex flex-column fv-row mb-7">
-                        <label className="d-flex align-items-center fs-6 form-label mb-2">
+                      <div className="d-flex flex-column fv-row mb-3">
+                        <label
+                          className="d-flex align-items-center mb-2"
+                          style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: "13.5px", color: C.textPrimary }}
+                        >
                           <span>Amount Limit</span>
                         </label>
                         <input
-                          // type="number"
                           min={0}
                           name="amountLimit"
-                          placeholder=""
+                          placeholder="e.g. 5000"
                           value={formikProps.values.amountLimit ?? ""}
                           onChange={(e) =>
                             formikProps.setFieldValue(
@@ -401,12 +460,23 @@ function Settings() {
                             )
                           }
                           onBlur={formikProps.handleBlur}
-                          className={`form-control${formikProps.touched.amountLimit && formikProps.errors.amountLimit ? " is-invalid" : ""}`}
-                          style={{ height: 44 }}
+                          className="rc-form-control"
+                          style={{
+                            height: 44,
+                            border: `1px solid ${formikProps.touched.amountLimit && formikProps.errors.amountLimit ? C.danger : C.border}`,
+                            borderRadius: RADIUS.md,
+                            padding: "0 14px",
+                            fontSize: "13.5px",
+                            fontFamily: FONT.body,
+                            color: C.textPrimary,
+                            backgroundColor: C.bgSection,
+                            outline: "none",
+                            transition: "border-color 0.15s ease",
+                          }}
                         />
                         {formikProps.touched.amountLimit && formikProps.errors.amountLimit && (
-                          <div className="fv-plugins-message-container mt-1">
-                            <div className="fv-help-block">{formikProps.errors.amountLimit as string}</div>
+                          <div style={{ fontFamily: FONT.body, fontSize: "12px", color: C.danger, marginTop: "6px" }}>
+                            {formikProps.errors.amountLimit as string}
                           </div>
                         )}
                       </div>
@@ -414,7 +484,16 @@ function Settings() {
 
                     {/* Icon picker field */}
                     <div className="col-lg-6">
-                      <label className="mb-3 fw-bold">
+                      <label
+                        style={{
+                          fontFamily: FONT.body,
+                          fontWeight: 600,
+                          fontSize: "13.5px",
+                          color: C.textPrimary,
+                          display: "block",
+                          marginBottom: SP.sm,
+                        }}
+                      >
                         Choose Icon
                       </label>
 
@@ -428,42 +507,43 @@ function Settings() {
                           gap: "8px",
                           width: "100%",
                           padding: "10px 14px",
-                          border: "1.5px solid #E4E6EF",
-                          borderRadius: "8px",
-                          background: "#FAFAFA",
+                          border: `1.5px solid ${C.border}`,
+                          borderRadius: RADIUS.md,
+                          background: C.bgSection,
                           cursor: "pointer",
                           fontSize: "13px",
-                          color: formikProps.values.icon ? "#181C32" : "#A1A5B7",
+                          fontFamily: FONT.body,
+                          color: formikProps.values.icon ? C.textPrimary : C.textMuted,
                           fontWeight: formikProps.values.icon ? 600 : 400,
                           transition: "border-color 0.15s",
                         }}
                         onMouseEnter={(e) =>
-                          ((e.currentTarget as HTMLElement).style.borderColor = "#3E97FF")
+                          ((e.currentTarget as HTMLElement).style.borderColor = C.primary)
                         }
                         onMouseLeave={(e) =>
-                          ((e.currentTarget as HTMLElement).style.borderColor = "#E4E6EF")
+                          ((e.currentTarget as HTMLElement).style.borderColor = C.border)
                         }
                       >
-                        <KTIcon iconName="category" className="fs-4 text-primary" />
+                        <span style={{ color: C.primary, display: "flex" }}>
+                          <KTIcon iconName="category" className="fs-4" />
+                        </span>
                         {formikProps.values.icon
                           ? "Change Icon"
                           : "Pick an Icon…"}
-                        <KTIcon
-                          iconName="arrow-right"
-                          className="fs-5 text-muted ms-auto"
-                        />
+                        <span style={{ color: C.textMuted, display: "flex", marginLeft: "auto" }}>
+                          <KTIcon iconName="arrow-right" className="fs-5" />
+                        </span>
                       </button>
 
                       {/* Inline preview */}
-                      {/* FIX Image 1: compute as explicit string so prop is never undefined */}
                       {(() => {
                         const iconToPreview: string = previewIconValue || formikProps.values.icon || "";
                         return iconToPreview ? <IconPreview icon={iconToPreview} /> : null;
                       })()}
 
                       {formikProps.touched.icon && formikProps.errors.icon && (
-                        <div className="fv-plugins-message-container mt-1">
-                          <div className="fv-help-block">{formikProps.errors.icon}</div>
+                        <div style={{ fontFamily: FONT.body, fontSize: "12px", color: C.danger, marginTop: "6px" }}>
+                          {formikProps.errors.icon}
                         </div>
                       )}
                     </div>
@@ -472,14 +552,18 @@ function Settings() {
                   <div className="d-flex justify-content-start mt-2">
                     <button
                       type="submit"
-                      className="btn btn-primary"
                       disabled={loading || !formikProps.isValid}
+                      style={{
+                        ...BTN.primary,
+                        opacity: loading || !formikProps.isValid ? 0.6 : 1,
+                        cursor: loading || !formikProps.isValid ? "not-allowed" : "pointer",
+                      }}
                     >
                       {!loading && "Submit"}
                       {loading && (
-                        <span className="indicator-progress" style={{ display: "block" }}>
-                          Please wait…{" "}
-                          <span className="spinner-border spinner-border-sm align-middle ms-2" />
+                        <span className="indicator-progress" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          Please wait…
+                          <span className="spinner-border spinner-border-sm align-middle" />
                         </span>
                       )}
                     </button>

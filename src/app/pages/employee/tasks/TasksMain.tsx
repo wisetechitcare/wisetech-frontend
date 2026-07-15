@@ -39,9 +39,9 @@ const TasksMain = () => {
             data: { configuration },
           } = await fetchConfiguration(DATE_SETTINGS_KEY);
           const parsed =
-            typeof configuration.configuration === "string"
+            typeof configuration?.configuration === "string"
               ? safeJsonParse(configuration.configuration)
-              : configuration.configuration;
+              : configuration?.configuration;
           setDateSettingsEnabled(parsed?.useDateSettings ?? false);
         } catch (err) {
           console.error("Error fetching date settings", err);
@@ -67,17 +67,11 @@ const TasksMain = () => {
     {
       title: "Tasks",
       component: <TasksMainTable />,
-      icon:
-        activeTab === 0
-          ? leadsIcons.leadsOverviewIcon.active
-          : leadsIcons.leadsOverviewIcon.default,
+      icon: 'bi-check2-square',
     },{
       title: "Configure",
       component: <TasksConfigure />,
-      icon:
-        activeTab === 1
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
+      icon: 'bi-gear',
     },
   ];
 

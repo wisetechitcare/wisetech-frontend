@@ -245,11 +245,11 @@ function OverviewView() {
     barDailyData(employeesPresentAttendance, users).values(),
   );
 
-  let userRoles = ["HR", "Manager", "Director"];
+  const userRoles = ["HR", "Manager", "Director"];
 
-  let sickLeaves = ["HR", "Manager"];
-  let floaterLeaves = ["HR", "Manager", "Director"];
-  let annualLeaves = ["HR", "Manager", "Director"];
+  const sickLeaves = ["HR", "Manager"];
+  const floaterLeaves = ["HR", "Manager", "Director"];
+  const annualLeaves = ["HR", "Manager", "Director"];
 
   // Date navigation handlers
   const incrementDate = useCallback(() => {

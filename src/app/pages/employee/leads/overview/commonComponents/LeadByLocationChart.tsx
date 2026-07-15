@@ -150,7 +150,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
 
     filteredData.forEach((item) => {
       let key: string;
-      let color = item.color;
+      const color = item.color;
 
       switch (groupBy) {
         case "country":
@@ -185,7 +185,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
       map[key].totalCount += item.count;
     });
 
-    let result = Object.values(map);
+    const result = Object.values(map);
 
     // Apply sorting based on sortOption
     if (sortOption === "budget-asc") {
@@ -381,7 +381,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                 </Select>
               </FormControl> */}
               <FormControl sx={{ minWidth: 160 }} size="small">
-                <InputLabel id="status-label" sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}>Status</InputLabel>
+                <InputLabel id="status-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Status</InputLabel>
                 <Select
                   labelId="status-label"
                   value={filters.status}
@@ -389,16 +389,16 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                   onChange={handleChange("status")}
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '& .MuiSelect-select': {
-                      color: '#9D4141',
+                      color: '#1E3A8A',
                     }
                   }}
                 >
@@ -411,7 +411,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
               </FormControl>
 
               <FormControl sx={{ minWidth: 160 }} size="small">
-                <InputLabel id="country-label" sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}>Country</InputLabel>
+                <InputLabel id="country-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Country</InputLabel>
                 <Select
                   labelId="country-label"
                   value={filters.country}
@@ -419,16 +419,16 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                   onChange={handleChange("country")}
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '& .MuiSelect-select': {
-                      color: '#9D4141',
+                      color: '#1E3A8A',
                     }
                   }}
                 >
@@ -441,7 +441,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
               </FormControl>
 
               <FormControl sx={{ minWidth: 160 }} size="small">
-                <InputLabel id="state-label" sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}>State</InputLabel>
+                <InputLabel id="state-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>State</InputLabel>
                 <Select
                   labelId="state-label"
                   value={filters.state}
@@ -449,16 +449,16 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                   onChange={handleChange("state")}
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '& .MuiSelect-select': {
-                      color: '#9D4141',
+                      color: '#1E3A8A',
                     }
                   }}
                 >
@@ -471,7 +471,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
               </FormControl>
 
               <FormControl sx={{ minWidth: 160 }} size="small">
-                <InputLabel id="city-label" sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}>City</InputLabel>
+                <InputLabel id="city-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>City</InputLabel>
                 <Select
                   labelId="city-label"
                   value={filters.city}
@@ -479,16 +479,16 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                   onChange={handleChange("city")}
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '& .MuiSelect-select': {
-                      color: '#9D4141',
+                      color: '#1E3A8A',
                     }
                   }}
                 >
@@ -501,7 +501,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
               </FormControl>
 
               <FormControl sx={{ minWidth: 160 }} size="small">
-                <InputLabel id="locality-label" sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}>Locality</InputLabel>
+                <InputLabel id="locality-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Locality</InputLabel>
                 <Select
                   labelId="locality-label"
                   value={filters.locality}
@@ -509,16 +509,16 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                   onChange={handleChange("locality")}
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '& .MuiSelect-select': {
-                      color: '#9D4141',
+                      color: '#1E3A8A',
                     }
                   }}
                 >
@@ -531,7 +531,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
               </FormControl>
 
               <FormControl sx={{ minWidth: 160 }} size="small">
-                <InputLabel id="sort-label" sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}>Sort By</InputLabel>
+                <InputLabel id="sort-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Sort By</InputLabel>
                 <Select
                   labelId="sort-label"
                   value={sortOption}
@@ -542,16 +542,16 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                   }}
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '& .MuiSelect-select': {
-                      color: '#9D4141',
+                      color: '#1E3A8A',
                     }
                   }}
                 >

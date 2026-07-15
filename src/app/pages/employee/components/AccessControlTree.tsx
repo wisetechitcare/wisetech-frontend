@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { ACCESS_AREAS, AccessArea } from "@utils/accessAreas";
 import LiveCountdown from "./LiveCountdown";
 
-const ACCENT = "#9D4141";
+const ACCENT = "#1E3A8A";
 
 const hexToRgba = (hex: string, a: number): string => {
   const m = hex.replace("#", "");

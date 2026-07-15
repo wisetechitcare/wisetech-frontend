@@ -10,8 +10,9 @@ import ClientContactsForm from "./ClientContactsForm";
 import ContactLeadReferenceTab from "./ContactLeadReferenceTab";
 import CompanyReferences from "../../companies/components/CompanyReferences";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
+import MeetingsList from "@app/modules/common/components/MeetingsList";
 
-type TabType = "overview" | "lead-reference" | "company-references" | "projects";
+type TabType = "overview" | "lead-reference" | "company-references" | "projects" | "meetings";
 
 const ContactMainToggle = () => {
   const { contactId } = useParams<{ contactId: string }>();
@@ -54,6 +55,7 @@ const ContactMainToggle = () => {
     { key: "lead-reference", label: "Lead Reference" },
     { key: "company-references", label: "Company References" },
     { key: "projects", label: "Projects" },
+    { key: "meetings", label: "Meetings" },
   ];
 
   const renderTabContent = () => {
@@ -69,6 +71,9 @@ const ContactMainToggle = () => {
         return <CompanyReferences referredCompanies={contact?.companyReferences} />;
       case "projects":
         return <ContactProject contact={contact}/>;
+      case "meetings":
+        // Meetings where this contact is an external participant.
+        return <MeetingsList mode="contact" targetId={contactId} />;
       default:
         return <ContactOverview contact={contact} />;
     }
@@ -253,8 +258,8 @@ const ContactMainToggle = () => {
                   fontFamily: "Barlow",
                   fontWeight: "500",
                   fontSize: "14px",
-                  borderColor: "#7A2124",
-                  color: "#7A2124",
+                  borderColor: "#172554",
+                  color: "#172554",
                 }}
               >
               {currentTabLabel}
@@ -321,7 +326,7 @@ const ContactMainToggle = () => {
                 }`}
                 onClick={() => setActiveTab(tab.key as TabType)}
                 style={{
-                  border: "1px solid #7A2124",
+                  border: "1px solid #172554",
                   color: "black",
                   borderRadius: "20px",
                   fontFamily: "Barlow",

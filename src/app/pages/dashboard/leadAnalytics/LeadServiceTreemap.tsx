@@ -35,38 +35,53 @@ const LeadServiceTreemap: React.FC<LeadServiceTreemapProps> = ({
     return {
       tooltip: {
         trigger: "item",
-        confine: true,
-        borderWidth: 0,
         backgroundColor: "rgba(15,23,42,0.92)",
+        borderWidth: 0,
         textStyle: { color: "#fff", fontFamily: "Inter, sans-serif" },
         formatter: (p: any) => {
           const pct = total > 0 ? ((p.value / total) * 100).toFixed(1) : "0";
           return `<strong>${p.name}</strong><br/>${p.value} Leads<br/>${pct}% of total`;
         },
       },
+      legend: {
+        top: 'bottom',
+        type: 'scroll',
+        icon: 'circle',
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { fontFamily: "Inter, sans-serif", color: "#64748b" }
+      },
       series: [
         {
-          type: "treemap",
-          roam: false,
-          nodeClick: false, // clicks drill down instead of zooming
-          breadcrumb: { show: false },
-          width: "100%",
-          height: "100%",
-          top: 4,
-          left: 4,
-          right: 4,
-          bottom: 4,
-          label: {
-            show: true,
-            fontFamily: "Barlow, sans-serif",
-            fontWeight: 600,
-            color: "#fff",
-            formatter: (p: any) => `${p.name}\n${p.value}`,
+          name: 'Service Mix',
+          type: 'pie',
+          radius: ['45%', '75%'],
+          center: ['50%', '45%'],
+          avoidLabelOverlap: false,
+          itemStyle: {
+            borderRadius: 8,
+            borderColor: '#fff',
+            borderWidth: 2
           },
-          itemStyle: { borderColor: "#fff", borderWidth: 2, gapWidth: 2, borderRadius: 6 },
-          emphasis: { itemStyle: { shadowBlur: 16, shadowColor: "rgba(0,0,0,0.3)" } },
-          data: seriesData,
-        },
+          label: {
+            show: false,
+            position: 'center'
+          },
+          emphasis: {
+            label: {
+              show: true,
+              fontSize: '18',
+              fontWeight: 'bold',
+              fontFamily: "Inter, sans-serif",
+              color: '#334155',
+              formatter: '{b}\n{c} ({d}%)'
+            }
+          },
+          labelLine: {
+            show: false
+          },
+          data: seriesData
+        }
       ],
       animationDuration: 800,
       animationEasing: "cubicOut",

@@ -303,22 +303,6 @@ const ProjectTablePage = () => {
           const derivedRate =
             commercialsArea > 0 ? commercialsTotal / commercialsArea : 0;
 
-          // Handle inquiryDate - check multiple field names, ensure ISO string
-          let inquiryDate: string;
-          try {
-            if (lead.inquiryDate) {
-              inquiryDate = new Date(lead.inquiryDate).toISOString();
-            } else if (lead.inquiry_date) {
-              inquiryDate = new Date(lead.inquiry_date).toISOString();
-            } else if (lead.createdAt) {
-              inquiryDate = new Date(lead.createdAt).toISOString();
-            } else {
-              inquiryDate = new Date().toISOString();
-            }
-          } catch {
-            inquiryDate = new Date().toISOString();
-          }
-
           // Address completeness: a project "has address" only when a usable
           // lat/long exists — on the lead's additionalDetails OR on any of the
           // project's site addresses. Drives the "Missing Address" filter.
@@ -344,7 +328,6 @@ const ProjectTablePage = () => {
             status: lead?.status || null,
             poStatus: lead?.poStatus || null,
             assignedTo: lead?.assignedToId || "N/A",
-            inquiryDate: inquiryDate,
             contact: lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "N/A",
             createdAt: lead?.createdAt ? new Date(lead.createdAt).toISOString() : new Date().toISOString(),
             updatedAt: lead?.updatedAt ? new Date(lead.updatedAt).toISOString() : new Date().toISOString(),
@@ -522,20 +505,19 @@ const ProjectTablePage = () => {
         },
       },
       {
-        accessorKey: "inquiryDate",
-        header: "Inquiry Date",
-        size: 140,
-        Cell: ({ cell }: { cell: any }) => {
-          const v = cell.getValue();
-          return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
-        },
-      },
-      {
         accessorKey: "projectStartDate",
         header: "Start Date",
-        meta: { defaultVisible: false },
+        // Explicit defaultVisible:true — with the Inquiry Date column removed the
+        // preference reconciliation re-applies meta rules, forcing this column on
+        // even for users whose saved prefs still have it hidden.
+        meta: { defaultVisible: true },
         size: 140,
         enableSorting: true,
+        // "N/A" sorts as oldest so dated rows lead the default (desc) view.
+        sortingFn: (rowA: any, rowB: any) => {
+          const toTime = (v: any) => (v && v !== "N/A" ? new Date(v).getTime() : 0);
+          return toTime(rowA.original.projectStartDate) - toTime(rowB.original.projectStartDate);
+        },
         Cell: ({ cell }: { cell: any }) => {
           try {
             const v = cell.getValue();
@@ -683,7 +665,6 @@ const ProjectTablePage = () => {
         format: (val: any) => val?.name || String(val || ''),
       },
       { key: 'poStatus', header: 'PO Status', type: 'text' as const },
-      { key: 'inquiryDate', header: 'Inquiry Date', type: 'text' as const },
       { key: 'projectStartDate', header: 'Start Date', type: 'text' as const },
       { key: 'projectEndDate', header: 'End Date', type: 'text' as const },
       { key: 'projectCost', header: 'Budget', type: 'currency' as const, showTotal: true },
@@ -705,7 +686,10 @@ const ProjectTablePage = () => {
 
   const baseFilteredData = tableData?.filter((item: any) => {
     let dateMatch = true;
-    const d = item.inquiryDate ? dayjs(item.inquiryDate) : null;
+    // Period filter runs on the project start date — the date the table shows.
+    const d = item.projectStartDate && item.projectStartDate !== "N/A"
+      ? dayjs(item.projectStartDate)
+      : null;
     if (alignment === "daily") {
       dateMatch = d ? d.isSame(day, "day") : false;
     } else if (alignment === "weekly") {
@@ -786,15 +770,15 @@ const ProjectTablePage = () => {
     fontFamily: "Inter",
     fontWeight: 500,
     height: FILTER_HEIGHT,
-    color: hasValue ? "#AA393D" : "#1E293B",
+    color: hasValue ? "#1E3A8A" : "#1E293B",
     "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasValue ? "#AA393D !important" : "#E2E8F0 !important",
+      borderColor: hasValue ? "#1E3A8A !important" : "#E2E8F0 !important",
       borderWidth: "1px !important",
       borderRadius: "6px !important",
     },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#AA393D !important" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#AA393D !important" },
-    "& .MuiSelect-icon": { color: hasValue ? "#AA393D" : "#94A3B8" },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
+    "& .MuiSelect-icon": { color: hasValue ? "#1E3A8A" : "#94A3B8" },
   });
 
   const menuSx = {
@@ -807,10 +791,10 @@ const ProjectTablePage = () => {
         "& .MuiMenuItem-root": {
           fontSize: "12px",
           fontFamily: "Inter",
-          "&:hover": { backgroundColor: "rgba(170,57,61,0.06)" },
+          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
           "&.Mui-selected": {
-            backgroundColor: "rgba(170,57,61,0.1)",
-            color: "#AA393D",
+            backgroundColor: "rgba(30, 58, 138,0.1)",
+            color: "#1E3A8A",
             fontWeight: 600,
           },
         },
@@ -958,9 +942,9 @@ const ProjectTablePage = () => {
                   height: FILTER_HEIGHT,
                   fontFamily: "Inter",
                   fontSize: "12px",
-                  "& fieldset": { borderColor: searchText ? "#AA393D" : "#E2E8F0" },
-                  "&:hover fieldset": { borderColor: "#AA393D" },
-                  "&.Mui-focused fieldset": { borderColor: "#AA393D" },
+                  "& fieldset": { borderColor: searchText ? "#1E3A8A" : "#E2E8F0" },
+                  "&:hover fieldset": { borderColor: "#1E3A8A" },
+                  "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
                 },
               }}
               InputProps={{
@@ -990,7 +974,7 @@ const ProjectTablePage = () => {
                     }
                     const st = projectStatuses.find((s: any) => s.id === val);
                     return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#AA393D" }}>
+                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
                         {st?.name || val}
                       </span>
                     );
@@ -1030,7 +1014,7 @@ const ProjectTablePage = () => {
                     }
                     const emp = projectManagerOptions.find((e: any) => e.employeeId === val);
                     return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#AA393D" }}>
+                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
                         {emp?.employeeName || val}
                       </span>
                     );
@@ -1057,7 +1041,7 @@ const ProjectTablePage = () => {
                   border: "none",
                   cursor: "pointer",
                   fontSize: "12px",
-                  color: "#AA393D",
+                  color: "#1E3A8A",
                   fontWeight: 600,
                   fontFamily: "Inter, sans-serif",
                   padding: "2px 8px",
@@ -1089,12 +1073,12 @@ const ProjectTablePage = () => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Budget:</span>
-              <span style={{ fontSize: '14px', color: '#AA393D', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
+              <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
             </div>
             <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
-              <span style={{ fontSize: '14px', color: '#AA393D', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
+              <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
                 {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
               </span>
             </div>
@@ -1127,7 +1111,7 @@ const ProjectTablePage = () => {
               backdropFilter: 'blur(10px)',
               WebkitBackdropFilter: 'blur(10px)',
               boxShadow: showMissingAddress
-                ? '0 6px 18px rgba(170, 57, 61, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)'
+                ? '0 6px 18px rgba(30, 58, 138, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)'
                 : '0 2px 10px rgba(0, 0, 0, 0.06)',
               fontFamily: 'Inter, sans-serif',
               width: isMobile ? '100%' : 'auto',
@@ -1142,14 +1126,14 @@ const ProjectTablePage = () => {
                 position: 'absolute',
                 inset: 0,
                 borderRadius: 'inherit',
-                background: 'linear-gradient(135deg, rgba(198,71,75,0.92) 0%, rgba(170,57,61,0.94) 55%, rgba(126,37,41,0.96) 100%)',
+                background: 'linear-gradient(135deg, rgba(198,71,75,0.92) 0%, rgba(30, 58, 138,0.94) 55%, rgba(126,37,41,0.96) 100%)',
                 opacity: showMissingAddress ? 1 : 0,
                 transition: 'opacity 0.3s ease',
                 zIndex: 0,
               }}
             />
             <WrongLocationRoundedIcon
-              style={{ position: 'relative', zIndex: 1, fontSize: 16, color: showMissingAddress ? '#fff' : '#AA393D', transition: 'color 0.3s ease' }}
+              style={{ position: 'relative', zIndex: 1, fontSize: 16, color: showMissingAddress ? '#fff' : '#1E3A8A', transition: 'color 0.3s ease' }}
             />
             <span style={{ position: 'relative', zIndex: 1, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: showMissingAddress ? 'rgba(255,255,255,0.95)' : '#64748B', transition: 'color 0.3s ease' }}>
               Missing Address
@@ -1161,8 +1145,8 @@ const ProjectTablePage = () => {
                 fontSize: '12px',
                 fontWeight: 800,
                 lineHeight: 1,
-                color: showMissingAddress ? '#AA393D' : '#fff',
-                background: showMissingAddress ? '#fff' : '#AA393D',
+                color: showMissingAddress ? '#1E3A8A' : '#fff',
+                background: showMissingAddress ? '#fff' : '#1E3A8A',
                 borderRadius: '999px',
                 minWidth: '20px',
                 height: '20px',
@@ -1184,7 +1168,7 @@ const ProjectTablePage = () => {
         columns={columns}
         data={quickFilteredData}
         tableName="ProjectTableV2"
-        defaultSorting={[{ id: "inquiryDate", desc: true }]}
+        defaultSorting={[{ id: "projectStartDate", desc: true }]}
         renderExportActions={() => (
           <ExportButton
             data={quickFilteredData}
@@ -1232,7 +1216,7 @@ const ProjectTablePage = () => {
               "& .MuiTableCell-root:first-of-type": {
                 borderTopLeftRadius: "12px",
                 borderBottomLeftRadius: "12px",
-                borderLeft: `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#AA393D"} !important`,
+                borderLeft: `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`,
                 transition: "border-color 0.2s ease-in-out !important",
               },
               "& .MuiTableCell-root:last-of-type": {
@@ -1247,7 +1231,7 @@ const ProjectTablePage = () => {
                   backgroundColor: "#F8FAFC !important",
                 },
                 "& .MuiTableCell-root:first-of-type": {
-                  borderLeftColor: `${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#AA393D"} !important`,
+                  borderLeftColor: `${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`,
                 },
               },
             },

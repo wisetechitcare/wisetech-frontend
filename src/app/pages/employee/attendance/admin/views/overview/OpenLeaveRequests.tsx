@@ -127,7 +127,7 @@ function OpenLeaveRequests() {
           const fetchConfigurations = async () => {
               try {
                 const configuration = await fetchConfiguration(SANDWICH_LEAVE_KEY);
-                const jsonObjectSandwhich = safeJsonParse(configuration.data.configuration.configuration);
+                const jsonObjectSandwhich = safeJsonParse(configuration?.data?.configuration?.configuration);
                 const customRules = jsonObjectSandwhich.isSandwichLeaveSixthEnabled===true || jsonObjectSandwhich.isSandwichLeaveFifthEnabled===true
                 setsandwhichConfiguration(customRules);
               }

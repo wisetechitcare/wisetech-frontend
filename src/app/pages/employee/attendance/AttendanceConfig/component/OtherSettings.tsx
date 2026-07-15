@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Row, Col, Card, Button } from 'react-bootstrap';
 import { Formik, Form as FormikForm } from 'formik';
 import * as Yup from 'yup';
@@ -482,7 +482,7 @@ const OtherSettings: React.FC = () => {
                   disabled={isSaving}
                   className="w-100 w-sm-auto"
                   style={{
-                    backgroundColor: '#9d4141',
+                    backgroundColor: '#1E3A8A',
                     border: 'none',
                     borderRadius: '6px',
                     padding: '10px 20px',

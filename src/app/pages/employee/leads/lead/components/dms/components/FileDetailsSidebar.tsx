@@ -243,7 +243,7 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {file.activityLog.map((entry, i) => (
                 <div key={entry.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#9d4141', flexShrink: 0, marginTop: '4px' }} />
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1E3A8A', flexShrink: 0, marginTop: '4px' }} />
                   <div>
                     <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{entry.action}</div>
                     <div style={{ fontSize: '11px', color: '#94a3b8' }}>{entry.userName} · {formatDate(entry.timestamp)}</div>

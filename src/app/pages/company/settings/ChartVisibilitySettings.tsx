@@ -246,13 +246,13 @@ const ChartVisibilitySettings: React.FC<ChartVisibilitySettingsProps> = ({type})
           box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         .premium-switch input:checked + .premium-slider {
-          background-color: #9D4141;
+          background-color: #1E3A8A;
         }
         .premium-switch input:checked + .premium-slider:before {
           transform: translateX(24px);
         }
         .premium-switch input:focus + .premium-slider {
-          box-shadow: 0 0 0 3px rgba(157, 65, 65, 0.2);
+          box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.2);
         }
       `}</style>
 
@@ -286,7 +286,7 @@ const ChartVisibilitySettings: React.FC<ChartVisibilitySettingsProps> = ({type})
               <button
                 type="button"
                 className="btn text-white fw-bold px-4 py-2 shadow-sm"
-                style={{ backgroundColor: "#9D4141", border: "none", borderRadius: "6px" }}
+                style={{ backgroundColor: "#1E3A8A", border: "none", borderRadius: "6px" }}
                 onClick={() => handleSubmit()}
                 disabled={isSubmitting}
               >

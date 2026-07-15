@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import { KTIcon } from '@metronic/helpers';
+import { KTIcon } from '@metronic/helpers';
 import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
 import { useEffect, useState } from 'react';
 import * as Yup from 'yup';
@@ -45,7 +45,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
     };
 
     const handleDelete = async (rule: any) => {
-        let config: any = { ...configuration };
+        const config: any = { ...configuration };
         delete config[rule.name];
 
         const payload = {
@@ -69,7 +69,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
     };
 
     const handleSubmit = async (values: any, actions: FormikValues) => {
-        let config: any = { ...configuration };
+        const config: any = { ...configuration };
 
         if (oldValue.name !== undefined && oldValue.name !== values.name) {
             delete config[oldValue.name];
@@ -104,13 +104,13 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
     async function fetchLoanConfiguration() {
         const { data: { configuration } } = await fetchConfiguration(LOAN_KEY);
 
-        const configData = typeof configuration.configuration === 'string'
+        const configData = typeof configuration?.configuration === 'string'
             ? safeJsonParse(configuration.configuration)
-            : configuration.configuration;
+            : configuration?.configuration;
 
-        setConfiguration(configData);
-        
-        setRuleId(configuration.id);
+        setConfiguration(configData || {});
+
+        setRuleId(configuration?.id);
     }
 
     useEffect(() => {
@@ -154,7 +154,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                     </div>
                     {hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.readOthers) && hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.create) && (
                         <div className="d-flex justify-content-start mt-3">
-                            <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} onClick={handleNew}>
+                            <Button style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} onClick={handleNew}>
                                 Add Loan Rule
                             </Button>
                         </div>
@@ -182,7 +182,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                                     <button
                                         type='submit'
                                         className='btn btn-primary'
-                                        style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }}
+                                        style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                                         disabled={loading || !formikProps.isValid}
                                     >
                                         {!loading && 'Save Changes'}

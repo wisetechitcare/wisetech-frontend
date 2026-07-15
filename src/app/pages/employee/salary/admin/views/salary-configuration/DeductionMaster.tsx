@@ -668,7 +668,7 @@ function ComponentFormModal({
               <button
                 type="submit"
                 className="btn btn-sm rounded-3 text-white"
-                style={{ background: '#8B4444' }}
+                style={{ background: '#1E3A8A' }}
                 disabled={saving}
               >
                 {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Component'}
@@ -727,7 +727,7 @@ function CloneModal({
         <div className="modal-content border-0 rounded-4 shadow-lg">
           <div className="modal-header border-0 pb-0 px-5 pt-5">
             <h5 className="modal-title fw-bold fs-6 text-gray-900 d-flex align-items-center gap-2">
-              <ContentCopyIcon fontSize="small" sx={{ color: '#9d4141' }} />
+              <ContentCopyIcon fontSize="small" sx={{ color: '#1E3A8A' }} />
               Clone Component
             </h5>
             <button className="btn btn-icon btn-sm btn-light ms-auto" onClick={onClose}>
@@ -762,7 +762,7 @@ function CloneModal({
             </div>
             <div className="modal-footer border-0 px-5 pb-4 gap-2">
               <button type="button" className="btn btn-sm btn-secondary rounded-3" onClick={onClose} disabled={saving}>Cancel</button>
-              <button type="submit" className="btn btn-sm rounded-3 text-white" style={{ background: '#9d4141' }} disabled={saving}>
+              <button type="submit" className="btn btn-sm rounded-3 text-white" style={{ background: '#1E3A8A' }} disabled={saving}>
                 {saving ? 'Cloning…' : 'Clone'}
               </button>
             </div>
@@ -803,8 +803,8 @@ function HistoryDrawer({
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         {/* Header */}
         <Box sx={{
-          px: 3, py: 2.5, background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
-          borderBottom: '1px solid rgba(157,65,65,0.1)',
+          px: 3, py: 2.5, background: 'linear-gradient(135deg, #EEF3FC 0%, #fff8f8 100%)',
+          borderBottom: '1px solid rgba(30, 58, 138,0.1)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <Box>
@@ -827,10 +827,10 @@ function HistoryDrawer({
             <Box key={t} component="button" onClick={() => setTab(t)} sx={{
               border: 'none', background: 'none', cursor: 'pointer', p: 0,
               px: 2, py: 1.5,
-              borderBottom: tab === t ? '2px solid #9d4141' : '2px solid transparent',
+              borderBottom: tab === t ? '2px solid #1E3A8A' : '2px solid transparent',
               mb: '-2px',
               fontSize: 13, fontWeight: tab === t ? 700 : 500,
-              color: tab === t ? '#9d4141' : '#6b7280',
+              color: tab === t ? '#1E3A8A' : '#6b7280',
               transition: 'all 0.15s',
             }}>
               {t === 'audit' ? 'Audit Log' : 'Versions'}
@@ -907,7 +907,7 @@ function HistoryDrawer({
               <Stack gap={1.5}>
                 {versions.map((v, idx) => (
                   <Paper key={v.id} elevation={0} sx={{
-                    border: '1px solid #f0f0f0', borderLeft: idx === 0 ? '3px solid #9d4141' : '3px solid #e5e7eb',
+                    border: '1px solid #f0f0f0', borderLeft: idx === 0 ? '3px solid #1E3A8A' : '3px solid #e5e7eb',
                     borderRadius: 2, p: 2,
                   }}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between" mb={0.5}>
@@ -915,7 +915,7 @@ function HistoryDrawer({
                         <Chip label={`v${v.versionNumber}`} size="small"
                           sx={{
                             fontSize: 11, height: 20, fontWeight: 700,
-                            bgcolor: idx === 0 ? '#9d4141' : '#f1f5f9',
+                            bgcolor: idx === 0 ? '#1E3A8A' : '#f1f5f9',
                             color: idx === 0 ? '#fff' : '#475569',
                           }} />
                         {idx === 0 && (
@@ -964,7 +964,7 @@ function ComponentCard({
   onHistory: () => void;
   formulaLabel?: string | null;
 }) {
-  const accent    = KEY_ACCENT[item.key] || '#8B4444';
+  const accent    = KEY_ACCENT[item.key] || '#1E3A8A';
   const catStyle  = CATEGORY_COLORS[item.category] || CATEGORY_COLORS['Custom'];
   const dirInfo   = DIRECTION_COLORS[item.direction] || DIRECTION_COLORS['DEBIT'];
   const calcLabel = CALC_TYPE_LABELS[item.calculationType] || item.calculationType;
@@ -1090,8 +1090,8 @@ function ComponentCard({
           <Tooltip title={item.isActive ? 'Deactivate' : 'Activate'}>
             <Switch checked={item.isActive} onChange={onToggle} size="small"
               sx={{
-                '& .MuiSwitch-switchBase.Mui-checked': { color: '#8B4444' },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#8B4444' },
+                '& .MuiSwitch-switchBase.Mui-checked': { color: '#1E3A8A' },
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#1E3A8A' },
               }} />
           </Tooltip>
 
@@ -1259,7 +1259,7 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
   }, {});
 
   const showGrouped  = categoryFilter === 'All';
-  const addBtnColor  = '#9d4141';
+  const addBtnColor  = '#1E3A8A';
   const inactiveCount = items.filter(i => !i.isActive).length;
 
   return (
@@ -1457,7 +1457,7 @@ export default function DeductionMaster() {
       title: 'Re-seed All Default Components?',
       text: 'This will restore all system components (Earnings, Allowances, Deductions) to their defaults. Your custom components are unaffected.',
       icon: 'question', showCancelButton: true,
-      confirmButtonColor: '#8B4444', confirmButtonText: 'Seed Defaults',
+      confirmButtonColor: '#1E3A8A', confirmButtonText: 'Seed Defaults',
     });
     if (!isConfirmed) return;
     setSeeding(true);
@@ -1479,15 +1479,15 @@ export default function DeductionMaster() {
       <Box sx={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: '10px', padding: '14px 16px',
-        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
-        borderRadius: '12px', border: '1px solid rgba(157,65,65,0.1)', mb: 3,
+        background: 'linear-gradient(135deg, #EEF3FC 0%, #fff8f8 100%)',
+        borderRadius: '12px', border: '1px solid rgba(30, 58, 138,0.1)', mb: 3,
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Box sx={{
             width: 34, height: 34, borderRadius: '9px',
-            background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+            background: 'linear-gradient(135deg, #1E3A8A 0%, #3B5BA9 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+            boxShadow: '0 3px 10px rgba(30, 58, 138,0.25)', flexShrink: 0,
           }}>
             <i className="bi bi-grid-3x3-gap-fill" style={{ fontSize: '14px', color: '#fff' }} />
           </Box>
@@ -1510,7 +1510,7 @@ export default function DeductionMaster() {
             boxShadow: '0 1px 4px rgba(24,28,50,0.06)', transition: 'all 0.15s ease',
             opacity: seeding ? 0.7 : 1,
           }}
-          onMouseEnter={e => { if (!seeding) { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.color = '#9d4141'; e.currentTarget.style.backgroundColor = '#fdf3f4'; } }}
+          onMouseEnter={e => { if (!seeding) { e.currentTarget.style.borderColor = '#1E3A8A'; e.currentTarget.style.color = '#1E3A8A'; e.currentTarget.style.backgroundColor = '#EEF3FC'; } }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#fff'; }}
         >
           <SeedIcon style={{ fontSize: 15 }} />
@@ -1527,8 +1527,8 @@ export default function DeductionMaster() {
         padding: { xs: '4px', sm: '0' },
       }}>
         {([
-          { key: 'earnings',   label: 'Earnings & Allowances', shortLabel: 'Earnings',   count: earningsCount,   color: '#9d4141', desc: 'Work Earnings · Allowances · Benefits' },
-          { key: 'deductions', label: 'Deductions',            shortLabel: 'Deductions', count: deductionsCount, color: '#9d4141', desc: 'Attendance · Government · Custom' },
+          { key: 'earnings',   label: 'Earnings & Allowances', shortLabel: 'Earnings',   count: earningsCount,   color: '#1E3A8A', desc: 'Work Earnings · Allowances · Benefits' },
+          { key: 'deductions', label: 'Deductions',            shortLabel: 'Deductions', count: deductionsCount, color: '#1E3A8A', desc: 'Attendance · Government · Custom' },
         ] as const).map(tab => {
           const isActive = activeTab === tab.key;
           return (

@@ -313,7 +313,7 @@ const [weekEnd, setWeekEnd] = useState(() => {
                 ) : (
                     <Container className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
                         <div className="text-center" role="alert">
-                            {/* <i className="fas fa-calendar-alt mb-3" style={{ fontSize: '2rem', color: '#9D4141' }}></i> */}
+                            {/* <i className="fas fa-calendar-alt mb-3" style={{ fontSize: '2rem', color: '#1E3A8A' }}></i> */}
                             <h4 className="">Custom Date Range</h4>
                             <p className="mb-2">You've selected custom date range mode.</p>
                             <p className="mb-0">

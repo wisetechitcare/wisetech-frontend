@@ -26,9 +26,9 @@ import {
 // Common button styles
 const buttonStyles = {
   base: {
-    border: "1px solid #9D4141",
+    border: "1px solid #1E3A8A",
     fontWeight: 500,
-    color: "#9D4141",
+    color: "#1E3A8A",
     backgroundColor: "transparent",
     borderRadius: "5px",
     cursor: "pointer",
@@ -39,7 +39,7 @@ const buttonStyles = {
   },
   hover: {
     color: "white",
-    backgroundColor: "#9D4141",
+    backgroundColor: "#1E3A8A",
   },
 };
 

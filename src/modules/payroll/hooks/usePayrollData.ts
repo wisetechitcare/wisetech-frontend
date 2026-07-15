@@ -141,7 +141,7 @@ export const usePayrollData = (
     useEffect(() => {
         if (!dateOfJoining || !month || !year) return;
         const monthStartDate = `${year}-${month}-01`;
-        let start = isYearly ? dayjs(fiscalStartDate) : dayjs(monthStartDate).startOf('month');
+        const start = isYearly ? dayjs(fiscalStartDate) : dayjs(monthStartDate).startOf('month');
         
         if (dayjs(dateOfJoining).isAfter(start)) {
             setStartDateOfMonthOrYear(dayjs(dateOfJoining).format('YYYY-MM-DD'));

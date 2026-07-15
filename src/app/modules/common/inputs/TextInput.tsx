@@ -95,6 +95,14 @@ function TextInput({
 
               const parsedValue = parser ? parser(raw) : raw;
 
+              // Prevent negative values for number type inputs
+              if (type === "number" && parsedValue !== "" && !isNaN(parsedValue)) {
+                const numValue = parseFloat(parsedValue);
+                if (numValue < 0) {
+                  return;
+                }
+              }
+
               if (inputValidation) {
                 const pattern = SIMPLE_PATTERNS[inputValidation];
                 if (raw && !pattern.test(raw)) {
@@ -116,6 +124,16 @@ function TextInput({
               field.onBlur(e);
               const current = typeof field.value === "string" ? field.value : "";
               const cleaned = current.replace(/\s+/g, " ").trim();
+
+              // Reset negative values to empty for number type inputs
+              if (type === "number" && cleaned !== "" && !isNaN(cleaned)) {
+                const numValue = parseFloat(cleaned);
+                if (numValue < 0) {
+                  form.setFieldValue(field.name, "");
+                  return;
+                }
+              }
+
               if (cleaned !== current) {
                 form.setFieldValue(field.name, parser ? parser(cleaned) : cleaned);
               }

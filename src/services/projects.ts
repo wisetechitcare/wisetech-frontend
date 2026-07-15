@@ -1,6 +1,6 @@
 import axios from "axios";
 import { LEAD_PROJECT_COMPANY } from "@constants/api-endpoint";
-import { cachedRequest } from "./_requestCache";
+import { cachedRequest, invalidateRequestCache } from "./_requestCache";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 // Static reference lists change rarely — cache 5 min (also dedupes concurrent calls).
@@ -45,6 +45,7 @@ export const createProjectCategory = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.CREATE_PROJECT_CATEGORY}`;
         const { data } = await axios.post(endpoint, payload);
+        invalidateRequestCache('projectCategories');
         return data;
     } catch (err) {
         throw err;
@@ -56,6 +57,7 @@ export const updateProjectCategory = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.UPDATE_PROJECT_CATEGORY.replace(":id", id)}`;
         const { data } = await axios.put(endpoint, payload);
+        invalidateRequestCache('projectCategories');
         return data;
     } catch (err) {
         throw err;
@@ -67,6 +69,9 @@ export const deleteProjectCategory = async (id: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_PROJECT_CATEGORY.replace(":id", id)}`;
         const { data } = await axios.delete(endpoint);
+        // Deleting a category can cascade to its subcategories, so refresh both lists.
+        invalidateRequestCache('projectCategories');
+        invalidateRequestCache('projectSubcategories');
         return data;
     } catch (err) {
         throw err;
@@ -102,6 +107,7 @@ export const createProjectSubcategory = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.CREATE_PROJECT_SUBCATEGORY}`;
         const { data } = await axios.post(endpoint, payload);
+        invalidateRequestCache('projectSubcategories');
         return data;
     } catch (err) {
         throw err;
@@ -113,6 +119,7 @@ export const updateProjectSubcategory = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.UPDATE_PROJECT_SUBCATEGORY.replace(":id", id)}`;
         const { data } = await axios.put(endpoint, payload);
+        invalidateRequestCache('projectSubcategories');
         return data;
     } catch (err) {
         throw err;
@@ -124,6 +131,7 @@ export const deleteProjectSubcategory = async (id: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_PROJECT_SUBCATEGORY.replace(":id", id)}`;
         const { data } = await axios.delete(endpoint);
+        invalidateRequestCache('projectSubcategories');
         return data;
     } catch (err) {
         throw err;
@@ -159,6 +167,7 @@ export const createProjectService = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.CREATE_PROJECT_SERVICE}`;
         const { data } = await axios.post(endpoint, payload);
+        invalidateRequestCache('projectServices');
         return data;
     } catch (err) {
         throw err;
@@ -170,6 +179,7 @@ export const updateProjectService = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.UPDATE_PROJECT_SERVICE.replace(":id", id)}`;
         const { data } = await axios.put(endpoint, payload);
+        invalidateRequestCache('projectServices');
         return data;
     } catch (err) {
         throw err;
@@ -182,6 +192,7 @@ export const deleteProjectService = async (id: string, targetId?: string) => {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_PROJECT_SERVICE.replace(":id", id)}`;
         const payload = targetId ? { targetId } : {};
         const { data } = await axios.delete(endpoint, { data: payload });
+        invalidateRequestCache('projectServices');
         return data;
     } catch (err) {
         throw err;
@@ -218,6 +229,7 @@ export const createProjectStatus = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.CREATE_PROJECT_STATUS}`;
         const { data } = await axios.post(endpoint, payload);
+        invalidateRequestCache('projectStatuses');
         return data;
     } catch (err) {
         throw err;
@@ -229,6 +241,7 @@ export const updateProjectStatus = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.UPDATE_PROJECT_STATUS.replace(":id", id)}`;
         const { data } = await axios.put(endpoint, payload);
+        invalidateRequestCache('projectStatuses');
         return data;
     } catch (err) {
         throw err;
@@ -240,6 +253,7 @@ export const deleteProjectStatus = async (id: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_PROJECT_STATUS.replace(":id", id)}`;
         const { data } = await axios.delete(endpoint);
+        invalidateRequestCache('projectStatuses');
         return data;
     } catch (err) {
         throw err;

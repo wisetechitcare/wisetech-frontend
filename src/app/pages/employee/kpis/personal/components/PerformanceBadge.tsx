@@ -55,7 +55,7 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
       return {
         state: "Needs Attention",
         subtitle: "Below target",
-        color: "#9d4141",
+        color: "#1E3A8A",
         stateKey: "danger",
         icon: "fa-face-frown",
         animation: "animate-pulse-soft"
@@ -196,7 +196,7 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
                   <div className="d-flex flex-column mt-4">
                     <div className="d-flex justify-content-between align-items-center">
                       <span className="text-dark fs-5 fw-boldest">0</span>
-                      <span className="fs-5 fw-boldest" style={{ color: "#9d4141" }}>{maxTotal}</span>
+                      <span className="fs-5 fw-boldest" style={{ color: "#1E3A8A" }}>{maxTotal}</span>
                     </div>
                     <div className="text-center mt-n1">
                       <span className="text-muted fw-bold text-uppercase ls-2 fs-9">Target</span>

@@ -401,7 +401,7 @@ const LeadsConfigurationMain = () => {
           icon: 'warning',
           title: 'Cannot Delete',
           text: `This category has ${category.subCategories} subcategory(s) and cannot be deleted. Please remove all subcategories first.`,
-          confirmButtonColor: '#9D4141',
+          confirmButtonColor: '#1E3A8A',
         });
         return;
       }

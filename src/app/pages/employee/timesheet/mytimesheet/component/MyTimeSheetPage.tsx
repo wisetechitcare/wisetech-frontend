@@ -24,9 +24,9 @@ const MyTimeSheetPage = () => {
           data: { configuration },
         } = await fetchConfiguration(DATE_SETTINGS_KEY);
         const parsed =
-          typeof configuration.configuration === "string"
+          typeof configuration?.configuration === "string"
             ? safeJsonParse(configuration.configuration)
-            : configuration.configuration;
+            : configuration?.configuration;
         setDateSettingsEnabled(parsed?.useDateSettings ?? false);
       } catch (err) {
         console.error("Error fetching date settings", err);
@@ -64,7 +64,7 @@ const MyTimeSheetPage = () => {
               variant="contained"
               onClick={handleNewTimeLogClick}
               sx={{
-                backgroundColor: "#9D4141",
+                backgroundColor: "#1E3A8A",
                 "&:hover": {
                   backgroundColor: "#7e3434",
                 },

@@ -10,12 +10,12 @@ function Delegations() {
     {
       title: 'My Delegations',
       component: <DelegationsTable mode='my' />,
-      icon: activeTab === 0 ? navbarIcon.overview.active : navbarIcon.overview.default,
+      icon: 'bi-arrow-left-right',
     },
     {
       title: 'Delegated to Me',
       component: <DelegationsTable mode='toMe' />,
-      icon: activeTab === 1 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default,
+      icon: 'bi-person-check',
     },
   ];
 

@@ -40,7 +40,7 @@ export const RevisionTimeline: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ 
             width: '32px', height: '32px', borderRadius: '8px', 
-            background: 'rgba(157,65,65,0.1)', display: 'flex', 
+            background: 'rgba(30, 58, 138,0.1)', display: 'flex', 
             alignItems: 'center', justifyContent: 'center' 
           }}>
             <KTIcon iconName="time" className="fs-3 text-primary" />
@@ -61,7 +61,7 @@ export const RevisionTimeline: React.FC = () => {
         {/* Vertical line with gradient */}
         <div style={{ 
           position: 'absolute', left: '16px', top: '10px', bottom: '10px', 
-          width: '2px', background: 'linear-gradient(180deg, #9d4141 0%, #e2e8f0 100%)',
+          width: '2px', background: 'linear-gradient(180deg, #1E3A8A 0%, #e2e8f0 100%)',
           borderRadius: '1px'
         }} />
 
@@ -82,9 +82,9 @@ export const RevisionTimeline: React.FC = () => {
                 <div style={{
                   position: 'absolute', left: '-32px', top: '12px',
                   width: '18px', height: '18px', borderRadius: '50%',
-                  background: isLatest ? '#9d4141' : 'white',
+                  background: isLatest ? '#1E3A8A' : 'white',
                   border: `3px solid ${isLatest ? '#fef2f2' : '#cbd5e1'}`,
-                  boxShadow: isLatest ? '0 0 0 4px rgba(157,65,65,0.1)' : '0 2px 4px rgba(0,0,0,0.05)',
+                  boxShadow: isLatest ? '0 0 0 4px rgba(30, 58, 138,0.1)' : '0 2px 4px rgba(0,0,0,0.05)',
                   zIndex: 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
@@ -94,7 +94,7 @@ export const RevisionTimeline: React.FC = () => {
                       transition={{ duration: 2, repeat: Infinity }}
                       style={{ 
                         position: 'absolute', width: '100%', height: '100%', 
-                        borderRadius: '50%', background: '#9d4141' 
+                        borderRadius: '50%', background: '#1E3A8A' 
                       }}
                     />
                   )}
@@ -103,9 +103,9 @@ export const RevisionTimeline: React.FC = () => {
                 <div 
                   style={{
                     background: 'white',
-                    border: isLatest ? '1px solid rgba(157,65,65,0.2)' : '1px solid #e2e8f0',
+                    border: isLatest ? '1px solid rgba(30, 58, 138,0.2)' : '1px solid #e2e8f0',
                     borderRadius: '12px', padding: '14px 16px',
-                    boxShadow: isLatest ? '0 8px 20px -6px rgba(157,65,65,0.06)' : '0 2px 4px rgba(0,0,0,0.02)',
+                    boxShadow: isLatest ? '0 8px 20px -6px rgba(30, 58, 138,0.06)' : '0 2px 4px rgba(0,0,0,0.02)',
                     transition: 'all 0.2s',
                     position: 'relative',
                     overflow: 'hidden'
@@ -113,14 +113,14 @@ export const RevisionTimeline: React.FC = () => {
                 >
                   {/* Highlight bar for latest */}
                   {isLatest && (
-                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: '#9d4141' }} />
+                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: '#1E3A8A' }} />
                   )}
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                       <span style={{
                         fontSize: '10px', fontWeight: 800,
-                        color: '#9d4141', background: 'rgba(157,65,65,0.08)',
+                        color: '#1E3A8A', background: 'rgba(30, 58, 138,0.08)',
                         padding: '2px 8px', borderRadius: '4px',
                         textTransform: 'uppercase'
                       }}>
@@ -140,7 +140,7 @@ export const RevisionTimeline: React.FC = () => {
                       onClick={() => downloadDocument(file.s3Url || '', file.name)}
                       style={{
                         background: 'transparent', border: 'none', borderRadius: '6px',
-                        padding: '4px', cursor: 'pointer', color: '#9d4141', 
+                        padding: '4px', cursor: 'pointer', color: '#1E3A8A', 
                         display: 'flex', alignItems: 'center', transition: 'all 0.15s'
                       }}
                       title="Download"
