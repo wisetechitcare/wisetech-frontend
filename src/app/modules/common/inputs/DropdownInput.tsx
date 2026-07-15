@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import { FixedSizeList as List } from "react-window";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
-import { ColourOption, SingleValue, DropdownIndicator } from "./ColorInDropdwon";
+import { ColourOption, SingleValue, DropdownIndicator, AvatarOption, AvatarSingleValue } from "./ColorInDropdwon";
 
 // Plain react-select renders EVERY option to the DOM, so menus with thousands of
 // options (e.g. the full contacts list) are slow to open and scroll. For large lists
@@ -53,6 +53,10 @@ interface DropDownInputProps {
     value?: any;
     disabled?: boolean;
     showColor?: boolean;
+    /** Render each option with a SmartAvatar (real photo, else the same
+     *  deterministic gradient + initials the Contacts page uses) instead of
+     *  a plain label. Expects each option to carry an `avatar` (image URL). */
+    showAvatar?: boolean;
     defaultValue?: any;
     filterOption?: (option: any, inputValue: any) => boolean; // Added: Support for custom filtering
     enableSmartSort?: boolean; // Added: Enable smart priority-based sorting
@@ -73,6 +77,7 @@ function DropDownInput({
     value: propValue,
     disabled = false,
     showColor = false,
+    showAvatar = false,
     defaultValue,
     filterOption, // Added: Custom filter function
     enableSmartSort = false, // Added: Smart sorting flag
@@ -220,6 +225,10 @@ function DropDownInput({
                     Option: ColourOption,
                     SingleValue,
                     DropdownIndicator,
+                } : {}),
+                ...(showAvatar ? {
+                    Option: AvatarOption,
+                    SingleValue: AvatarSingleValue,
                 } : {}),
             }}
             styles={getCustomStyles(showColor ? selectedValue?.color : undefined)}
