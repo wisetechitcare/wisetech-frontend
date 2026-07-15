@@ -401,10 +401,17 @@ const ProjectTablePage = () => {
 
   useEffect(() => {
     dispatch(fetchAllEmployeesAsync());
-  }, []);
+  }, [dispatch]);
 
-  useEventBus(EVENT_KEYS.projectCreated, () => fetchAllData());
-  useEventBus(EVENT_KEYS.projectUpdated, () => fetchAllData());
+  useEffect(() => {
+    const unsubscribe1 = useEventBus(EVENT_KEYS.projectCreated, () => fetchAllData());
+    const unsubscribe2 = useEventBus(EVENT_KEYS.projectUpdated, () => fetchAllData());
+
+    return () => {
+      unsubscribe1?.();
+      unsubscribe2?.();
+    };
+  }, [fetchAllData]);
 
   const columns = useMemo(() => {
     const base: any[] = [
