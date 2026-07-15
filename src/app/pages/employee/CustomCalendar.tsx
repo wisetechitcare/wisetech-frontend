@@ -803,7 +803,7 @@ function CustomCalendar() {
       }, [currentYear, employeeId, branchId, dateOfBirth, anniversaryDate, holidayRefresh]);
 
     function handleDayCellClassNames(arg: any) {
-        let classNamesToAdd = [];
+        const classNamesToAdd = [];
         if (arg.date.toDateString() === new Date().toDateString()) {
             classNamesToAdd.push('today-highlight');
         }

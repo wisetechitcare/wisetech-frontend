@@ -171,11 +171,11 @@ const TaskDetails = () => {
             // Find if there's an active/incomplete timesheet (no endTime)
             // const activeTimesheet = timesheets?.find((ts: any) => !ts.endTime);
             
-            let logHours = timesheets?.reduce((total: any, timesheet: any) => total + Number(timesheet?.logTimeHours || 0), 0) || 0;
-            let logMinutes = timesheets?.reduce((total: any, timesheet: any) => total + Number(timesheet?.logTimeMinutes || 0), 0) || 0;
-            let logSeconds = timesheets?.reduce((total: any, timesheet: any) => total + Number(timesheet?.logTimeSeconds || 0), 0) || 0;
+            const logHours = timesheets?.reduce((total: any, timesheet: any) => total + Number(timesheet?.logTimeHours || 0), 0) || 0;
+            const logMinutes = timesheets?.reduce((total: any, timesheet: any) => total + Number(timesheet?.logTimeMinutes || 0), 0) || 0;
+            const logSeconds = timesheets?.reduce((total: any, timesheet: any) => total + Number(timesheet?.logTimeSeconds || 0), 0) || 0;
 
-            let prevTimeSheetData = timesheets?.length > 0 ? timesheets[0] : null;
+            const prevTimeSheetData = timesheets?.length > 0 ? timesheets[0] : null;
             
             const timeSheetData = {
                 // If there's an active timesheet, use its id, otherwise create new

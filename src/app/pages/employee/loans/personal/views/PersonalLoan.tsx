@@ -48,7 +48,7 @@ function PersonalLoan({ resource, viewOthers, viewOwn, isSelecteEmployee }: { re
     const [allTimeTotalInstallmentPaid, setAllTimeTotalInstallmentPaid] = useState(0)
     const [allTimeTotalInstallmentPending, setAllTimeTotalInstallmentPending] = useState(0)
     const [allTimeTotalInstallmentSkipped, setAllTimeTotalInstallmentSkipped] = useState(0)
-    let formatter = new Intl.NumberFormat('en-IN', {
+    const formatter = new Intl.NumberFormat('en-IN', {
         style: 'currency',
         currency: 'INR',
         minimumFractionDigits: 2

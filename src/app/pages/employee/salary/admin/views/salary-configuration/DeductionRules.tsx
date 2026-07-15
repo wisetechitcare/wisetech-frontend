@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Modal } from "react-bootstrap";
 import { Form, Formik } from "formik";
 import * as Yup from "yup";

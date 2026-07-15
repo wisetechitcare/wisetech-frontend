@@ -30,7 +30,7 @@ const designationSchema = Yup.object({
     isActive: Yup.boolean(),
 });
 
-let initialState: ICompanyDesignation = {
+const initialState: ICompanyDesignation = {
     role: "",
     companyId: "",
     isActive: false

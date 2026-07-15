@@ -1,5 +1,5 @@
 import { resolveActiveOrg, resolveActiveOrgId } from '@utils/activeOrg';
-﻿import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import { dateFormatter } from '@utils/date';
 import Flatpickr from "react-flatpickr";

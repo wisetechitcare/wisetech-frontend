@@ -86,7 +86,7 @@ const ProgessBar = ({ progessBarSeries, checkIn, checkOut, totalWorkingHours = "
 };
 
 const Donut = ({ donutLabels, donutSeries, totalDays, customHeading, customStylesForCard, customStylesForCol, customColorsForDonut }: { donutLabels: string[], donutSeries: number[], totalDays?: number, customHeading?: string, customStylesForCard?: React.CSSProperties, customStylesForCol?: React.CSSProperties, customColorsForDonut?: string[] }) => {
-    let customColors = useSelector((state: any) => state?.customColors?.attendanceOverview);
+    const customColors = useSelector((state: any) => state?.customColors?.attendanceOverview);
     const checkoutMissingColor = useSelector((state: any) => state?.customColors?.workingPattern?.missingCheckoutColor);
     const weekendColor = useSelector((state: any) => state?.customColors?.attendanceCalendar?.weekendColor);
 
@@ -223,7 +223,7 @@ const MultipleRadialBar = ({ multipleRadialBarLabels, multipleRadialBarSeries, t
 };
 
 const Polar = ({ polarLabels, polarSeries, totalDays }: { polarLabels: string[], polarSeries: number[], totalDays: number }) => {
-    let customColors = useSelector((state: any) => state?.customColors?.workingLocation);
+    const customColors = useSelector((state: any) => state?.customColors?.workingLocation);
 
     const polarOptions: ApexCharts.ApexOptions = {
         chart: {
@@ -558,7 +558,7 @@ const Dumbell = ({ dumbellSeriesData, height, cardHeight, totalWorkedDays, total
                 const [checkIn, checkOut] = item.y;
 
                 let barColor = statusMap.checkOut.color;
-                let checkInColor = statusMap.checkIn.color;
+                const checkInColor = statusMap.checkIn.color;
 
                 if (checkOut === -1) {
                     barColor = statusMap.missingCheckOut.color;
@@ -656,8 +656,8 @@ const Bar = ({ barOption, barSeriesData, height, cardHeight, totalWorkingTime, t
             tickAmount: 4,
             labels: {
                 formatter: function (val: number) {
-                    let hours = Math.floor(val / 60);
-                    let formattedHours = hours < 10 ? `0${hours}` : `${hours}`;
+                    const hours = Math.floor(val / 60);
+                    const formattedHours = hours < 10 ? `0${hours}` : `${hours}`;
                     return `${formattedHours}`;
                 },
             },
@@ -887,10 +887,14 @@ let initialState = {
 const StatisticsTable = ({ approvedLeaves, attendance, attendanceRequests, fromAdmin = false, location, resource = "", viewOwn = false, viewOthers = false, checkOwnWithOthers = false }: { approvedLeaves: any[], attendance: IAttendance[], attendanceRequests: IAttendanceRequests[], fromAdmin?: boolean, location?: any, resource: string, viewOwn?: boolean, viewOthers?: boolean, checkOwnWithOthers?: boolean }) => {
 
     const [disableRaiseRequest, setDisableRaiseRequest] = useState(false);
-    const maxAttendanceRequestLimit = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee.attendanceRequestRaiseLimit) : useSelector((state: RootState) => state.employee.currentEmployee.attendanceRequestRaiseLimit);
+    const selectedEmployeeLimitState = useSelector((state: RootState) => state.employee.selectedEmployee.attendanceRequestRaiseLimit);
+    const currentEmployeeLimitState = useSelector((state: RootState) => state.employee.currentEmployee.attendanceRequestRaiseLimit);
+    const maxAttendanceRequestLimit = fromAdmin ? selectedEmployeeLimitState : currentEmployeeLimitState;
 
-    const [requestLimitResetLoading, setRequestLimitResetLoading] = useState(false)
-    const employeeDeatils = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee) : useSelector((state: RootState) => state.employee.currentEmployee);
+    const [requestLimitResetLoading, setRequestLimitResetLoading] = useState(false);
+    const selectedEmployeeState = useSelector((state: RootState) => state.employee.selectedEmployee);
+    const currentEmployeeState = useSelector((state: RootState) => state.employee.currentEmployee);
+    const employeeDeatils = fromAdmin ? selectedEmployeeState : currentEmployeeState;
     const reportsToId = employeeDeatils.reportsToId;
 
     const allWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
@@ -1443,7 +1447,7 @@ const StatisticsTable = ({ approvedLeaves, attendance, attendanceRequests, fromA
 
                     // console.log(`Check-out: ${checkOut}, Threshold: ${earlyCheckOutThreshold}, IsEarly: ${isEarlyCheckOut}`);
                     // console.log("checkoutcheckout:: ", checkOut);
-                    let finalCheckOut = convertTo12HourFormat(checkOut);
+                    const finalCheckOut = convertTo12HourFormat(checkOut);
                     return (
                         <span style={{ color: isWeekendOrHolidays ? 'green' : isEarlyCheckOut ? 'red' : 'green' }}>
                             {finalCheckOut}
@@ -1892,7 +1896,9 @@ const ReportsTable = ({ attendanceRequests, fromAdmin = false, resource = "", vi
     }
 
     const [date, setDate] = useState('');
-    const employeeDeatils = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee) : useSelector((state: RootState) => state.employee.currentEmployee);
+    const selectedEmployee = useSelector((state: RootState) => state.employee.selectedEmployee);
+    const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee);
+    const employeeDeatils = fromAdmin ? selectedEmployee : currentEmployee;
 
     const reportsToId = employeeDeatils.reportsToId;
 

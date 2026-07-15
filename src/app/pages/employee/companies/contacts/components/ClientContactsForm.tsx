@@ -173,7 +173,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
   // Use initialData if provided, otherwise use empty values
   const initialValues: ContactFormValues = useMemo(() => {
-    let values = key === "add-new" ? { ...emptyInitialValues, companyId: selectedCompanyId || "" } : initialData ? {
+    const values = key === "add-new" ? { ...emptyInitialValues, companyId: selectedCompanyId || "" } : initialData ? {
       companyId: selectedCompanyId || initialData.companyId || "",
       branchId: (initialData.branchId) ?? (initialData.branch || ""),
       roleInCompany: initialData.roleInCompany || "",
@@ -647,19 +647,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
             >
               {(formikProps) => {
                 const { values, setFieldValue, errors, touched } = formikProps;
-
-                // Sync Formik companyId when companies load
-                useEffect(() => {
-                  if (selectedCompanyId && companies.length > 0) {
-                    setFieldValue("companyId", selectedCompanyId);
-                    console.log("Auto-filling companyId:", selectedCompanyId);
-                  }
-                }, [selectedCompanyId, companies]);
-
-                useEffect(() => {
-                  console.log("Current Formik companyId:", values.companyId);
-                  console.log("Is companies loaded:", companies.length > 0);
-                }, [values.companyId, companies]);
 
                 return (
                   <FormikForm>

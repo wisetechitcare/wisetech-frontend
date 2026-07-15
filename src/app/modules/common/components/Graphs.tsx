@@ -139,7 +139,7 @@ export const ProgessBar = ({ progessBarSeries, checkIn, checkOut, totalWorkingHo
 };
 
 export const Donut = ({ donutLabels, donutSeries, totalDays, customHeading, customStylesForCard, customStylesForCol, customColorsForDonut }: { donutLabels: string[], donutSeries: number[], totalDays?: number, customHeading?: string, customStylesForCard?: React.CSSProperties, customStylesForCol?: React.CSSProperties, customColorsForDonut?: string[] }) => {
-    let customColors = useSelector((state: any) => state?.customColors?.attendanceOverview);
+    const customColors = useSelector((state: any) => state?.customColors?.attendanceOverview);
     const checkoutMissingColor = useSelector((state: any) => state?.customColors?.workingPattern?.missingCheckoutColor);
     const weekendColor = useSelector((state: any) => state?.customColors?.attendanceCalendar?.weekendColor);
 
@@ -350,7 +350,7 @@ export const MultipleRadialBar = ({ multipleRadialBarLabels, multipleRadialBarSe
 };
 
 export const Polar = ({ polarLabels, polarSeries, totalDays }: { polarLabels: string[], polarSeries: number[], totalDays: number }) => {
-    let customColors = useSelector((state: any) => state?.customColors?.workingLocation);
+    const customColors = useSelector((state: any) => state?.customColors?.workingLocation);
 
     const resolveStyle = (label: string) => {
         const l = label.toLowerCase();
@@ -1600,7 +1600,7 @@ export const StatisticsTable = ({
             // Remove checkin for checkout requests
             // updatedValues.checkIn = undefined;
             if (updatedValues?.checkIn) {
-                let checkInDateTime = new Date(dayjs(`${formattedDate} ${updatedValues?.checkIn}`, "YYYY-MM-DD HH:mm")?.toString());
+                const checkInDateTime = new Date(dayjs(`${formattedDate} ${updatedValues?.checkIn}`, "YYYY-MM-DD HH:mm")?.toString());
                 updatedValues.checkIn = checkInDateTime?.toISOString();
             }
         }

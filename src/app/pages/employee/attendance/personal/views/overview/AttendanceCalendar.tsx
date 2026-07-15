@@ -1,6 +1,6 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import Calendar from "react-calendar";
 import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, isDateBeforeOrSameAsCurrDate } from "@utils/date";
@@ -80,8 +80,8 @@ const mumbaiTz = 'Asia/Kolkata';
 function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate }: AttendanceCalendarProps) {
 
     const dispatch = useDispatch();
-    let values = useSelector((state: RootState) => state?.customColors?.attendanceCalendar);
-    let holidayColorValues = useSelector((state: RootState) => state?.customColors?.attendanceOverview);
+    const values = useSelector((state: RootState) => state?.customColors?.attendanceCalendar);
+    const holidayColorValues = useSelector((state: RootState) => state?.customColors?.attendanceOverview);
 
     const getEmployeeAttendance = useSelector((state: RootState) => state.attendance?.personalAttendance);
     const dateOfjoining = useSelector((state: RootState) => state?.employee?.currentEmployee?.dateOfJoining);

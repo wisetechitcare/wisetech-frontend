@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { Button, Card, ListGroup, Modal } from "react-bootstrap";
@@ -69,7 +69,7 @@ function CustomRules() {
 
 
   const handleSubmit = async (values: any, actions: FormikValues) => {
-    let config: any = configurationRule;
+    const config: any = configurationRule;
 
     // Find the key for the old value using the old name
     const oldKey = Object.keys(config).find(key => config[key].name === oldValue.name);
@@ -165,10 +165,10 @@ function CustomRules() {
           header: "Actions",
           enableSorting: false,
           muiTableHeadCellProps: {
-            align: "right" as "right",
+            align: "right" as const,
           },
           muiTableBodyCellProps: {
-            align: "right" as "right",
+            align: "right" as const,
           },
           Cell: ({ row }: any) => {
             const resEdit = hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.editOthers);

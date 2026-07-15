@@ -116,7 +116,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
   const sortedData = React.useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    let result = [...data];
+    const result = [...data];
 
     switch (sortOption) {
       case "budget-asc":

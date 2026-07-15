@@ -63,8 +63,8 @@ const mumbaiTz = 'Asia/Kolkata';
 
 function AttendanceCalendar({ calendarCells , activeStartDate, setActiveStartDate}: AttendanceCalendarProps) {
     const dispatch = useDispatch();
-    let values = useSelector((state: RootState) => state?.customColors?.attendanceCalendar);
-    let holidayColorValues = useSelector((state: RootState) => state?.customColors?.attendanceOverview);
+    const values = useSelector((state: RootState) => state?.customColors?.attendanceCalendar);
+    const holidayColorValues = useSelector((state: RootState) => state?.customColors?.attendanceOverview);
     // console.log("values",values);
     
     const getEmployeeAttendance = useSelector((state: RootState) => state.attendance?.personalAttendance);

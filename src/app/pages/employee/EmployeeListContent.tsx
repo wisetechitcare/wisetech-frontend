@@ -261,7 +261,7 @@ const EmployeeListContent = () => {
 
         const allMappedEmployees = data.employees.map((obj: Record<string, any>) => {
           let referredBy;
-          let employeeNewStatus = getEmployeeStatusString(obj as any);
+          const employeeNewStatus = getEmployeeStatusString(obj as any);
 
           if (obj?.referredById && data.employees) {
             referredBy = data.employees.find((employee: any) => employee.id === obj.referredById)

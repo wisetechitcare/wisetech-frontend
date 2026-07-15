@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import { KTIcon } from '@metronic/helpers';
+import { KTIcon } from '@metronic/helpers';
 import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -83,7 +83,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
     }
 
     const handleDelete = async (rule: any) => {
-        let config: any = configuration;
+        const config: any = configuration;
         delete config[rule.name];
 
         const payload = {

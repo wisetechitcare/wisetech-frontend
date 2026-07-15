@@ -2386,7 +2386,7 @@ const LeadWizardModal = ({
   const handleSubmit = async (formData: any) => {
     const values = formData;
     // Handle addresses from both form structure and direct payload
-    let allAddressDetails =
+    const allAddressDetails =
       formData?.addresses || formData?.additionalDetails?.addresses || [];
 
     // No need to clean up address fields - Google links are now valid and handled by backend

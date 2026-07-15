@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon } from "@metronic/helpers";
 import { Modal } from "react-bootstrap";
@@ -78,7 +78,7 @@ const GrossPayDistribution = () => {
   const handleDelete = async (rowDetails: any) => {
     const sure = await deleteConfirmation('Gross Pay Rule deleted successfully')
     if(!sure) return;
-    let config: any = configurationRule;
+    const config: any = configurationRule;
 
     delete config[rowDetails.name];
 
@@ -204,10 +204,10 @@ const GrossPayDistribution = () => {
           header: "Actions",
           enableSorting: false,
           muiTableHeadCellProps: {
-            align: "right" as "right",
+            align: "right" as const,
           },
           muiTableBodyCellProps: {
-            align: "right" as "right",
+            align: "right" as const,
           },
           Cell: ({ row }: any) => {            
             const resEdit = hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.editOthers);

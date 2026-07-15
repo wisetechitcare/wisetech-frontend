@@ -214,16 +214,16 @@ function MaterialTable({
   // Memoize finalData to prevent infinite re-renders
   const finalData = useMemo(() => {
     let processedData: any = [];
-    let dataExtractedWithEmployeeId = data.filter(
+    const dataExtractedWithEmployeeId = data.filter(
       (v: any) => v.employeeId != null,
     );
-    let dataExtractedWithoutEmployeeId = data.filter(
+    const dataExtractedWithoutEmployeeId = data.filter(
       (v: any) => v.employeeId == null,
     );
 
     if (resource) {
       if (viewOthers) {
-        let newData = dataExtractedWithEmployeeId.filter((val: any) => {
+        const newData = dataExtractedWithEmployeeId.filter((val: any) => {
           return hasPermission(
             resource,
             permissionConstToUseWithHasPermission.readOthers,
@@ -232,7 +232,7 @@ function MaterialTable({
         });
         processedData = [...processedData, ...newData];
       } else if (viewOwn) {
-        let newData = dataExtractedWithEmployeeId.filter((val: any) => {
+        const newData = dataExtractedWithEmployeeId.filter((val: any) => {
           return hasPermission(
             resource,
             permissionConstToUseWithHasPermission.readOwn,
@@ -242,7 +242,7 @@ function MaterialTable({
         processedData = [...processedData, ...newData];
       }
       if (checkOwnWithOthers) {
-        let newData = dataExtractedWithEmployeeId.filter((val: any) => {
+        const newData = dataExtractedWithEmployeeId.filter((val: any) => {
           return hasPermission(
             resource,
             permissionConstToUseWithHasPermission.readOwn,

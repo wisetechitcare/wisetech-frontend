@@ -201,7 +201,7 @@ function Monthly({ month, resource, viewOthers, viewOwn }: { month: Dayjs, resou
             })
             setTotalPreviousDue(totalPreviousDues)
             const totalBilledDueThisMonth = finalData?.reduce((acc: number, ele: any) => acc + Number(ele?.billDueThisMonth), 0)
-            let loanIds = new Set()
+            const loanIds = new Set()
             finalData?.forEach((ele: any) => {
                 loanIds.add(ele?.loanId)
             })

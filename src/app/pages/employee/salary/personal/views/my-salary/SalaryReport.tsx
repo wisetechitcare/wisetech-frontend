@@ -753,7 +753,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             daysCount = 0;
         }
 
-        let monthsArray: Set<number> = new Set();
+        const monthsArray: Set<number> = new Set();
         let tempStartDate = dayjs(filteredStartDate);
 
         while (tempStartDate.isSameOrBefore(filteredEndDate)) {
@@ -764,7 +764,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         setTotalListOfMonthsPresent(monthsArray);
 
         setTotalDaysOfMonthOrYear(daysCount);
-        let totalOverAllDays = dayjs(endDate).diff(dayjs(startDate), 'day') + 1;
+        const totalOverAllDays = dayjs(endDate).diff(dayjs(startDate), 'day') + 1;
         setAllDaysForMonthOrYear(totalOverAllDays);
 
         async function fetchStats() {
@@ -797,9 +797,8 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         console.log("totalGrossPayEarned:: ", totalGrossPayEarned);
         console.log("totalGrossPayFixed:: ", totalGrossPayFixed);
         totalGrossPayFixed?.map((fixed, index) => {
-            if (fixed?.name.toLowerCase() != "basic salary") {
-                (fixed?.earned).replace(/[₹,]/g, "")
-                finalAmount += Number((fixed?.earned).replace(/[₹,]/g, ""))
+            if (fixed?.name && fixed?.name.toLowerCase() !== "basic salary" && fixed?.earned) {
+                finalAmount += Number((fixed.earned).replace(/[₹,]/g, ""))
             }
         })
         setTotalGrossPayEarned2(finalAmount);
@@ -1000,7 +999,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     // NEW: Fallback grossPayFixed for legacy compatibility (PDF generation, etc.)
     const grossPayFixed = isApiDataLoaded ? [] : salaryCalculationsForDays(totalDaysOfMonthOrYear, allDaysForMonthOrYear, allowances, parseFloat(employee?.ctcInLpa || '0') / 12);
-    let totalGrossPayFixedAmount = isApiDataLoaded ? 0 : (grossPayFixed as any[]).reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[₹,]/g, "")), 0);
+    const totalGrossPayFixedAmount = isApiDataLoaded ? 0 : (grossPayFixed as any[]).reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[₹,]/g, "")), 0);
 
     // --------------------deductions (Variable)------------------
     const lateAttendance = multipleRadialBarData(stats, dayWiseShifts).get(LATE_CHECKIN);
@@ -1013,7 +1012,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     // Intermediate Salary Base for calculations
     const intermediateSalaryBase = Math.max(0, (isApiDataLoaded ? (apiTotalGrossPayAmount || 0) : totalGrossPayEarnedFinal) - multipleLateCheckinEarned);
 
-    let taxes = salaryCalculationsForDays(
+    const taxes = salaryCalculationsForDays(
         totalDaysOfMonthOrYear,
         allDaysForMonthOrYear,
         deductionsRule,
@@ -1052,7 +1051,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     const netPayable = Math.round(apiTotalGrossPayAmount - apiTotalDeductionsAmount);
 
-    let totalPayment = payments.reduce((acc: number, payment: IPayment) => {
+    const totalPayment = payments.reduce((acc: number, payment: IPayment) => {
         const amount = Number(payment.amountPaid);
         return acc + amount;
     }, 0);
@@ -1797,8 +1796,8 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             // Apply additional filtering for employee exit date if needed
             // Note: The utility functions should handle date filtering internally,
             // but if additional filtering is needed based on exit date, it can be added here
-            let filteredUnpaidLeaves = Number(unpaidLeaves) || 0;
-            let filteredPaidLeaves = Number(paidLeavesResult) || 0;
+            const filteredUnpaidLeaves = Number(unpaidLeaves) || 0;
+            const filteredPaidLeaves = Number(paidLeavesResult) || 0;
 
             if (employee?.dateOfExit) {
                 const exitDate = dayjs(employee.dateOfExit);
@@ -1980,7 +1979,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             const effectiveEndDate = getEffectiveEndDate(isYearly, year, month, fiscalEndDate, employee?.dateOfExit || "");
 
             //filter holiday for current month/year
-            let filterPublicHolidays = isYearly ? publicHolidays.filter((date: any) => {
+            const filterPublicHolidays = isYearly ? publicHolidays.filter((date: any) => {
                 return dayjs(date.date).isBetween(startDate, endDate) && !date?.isWeekend
             }) : publicHolidays.filter((date: any) => {
                 return dayjs(date.date).format('MM') === month && !date?.isWeekend
@@ -2013,33 +2012,6 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         fetchTotalCount();
     }, [year, resolvedMonth, isYearly])
 
-    // Show loading state while data is being fetched
-    if (isLoading) {
-        return (
-            <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
-                <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </div>
-            </Container>
-        );
-    }
-
-    // <SalarySlipTemplate
-    //                             grossPayVariable={grossPayVariable}
-    //                             totalGrossPayEarned={`${formatNumber(totalGrossPayEarned)}`}
-    //                             grossPayFixed={grossPayFixed}
-    //                             deductions={deductions}
-    //                             totalDeductionsEarned={`${formatNumber(totalDeductionsEarned)}`}
-    //                             taxes={taxes}
-    //                             employee={employee}
-    //                             finalAmount={formatNumber(Math.round(Math.abs(totalGrossPayEarned - totalDeductionsEarned)))}
-    //                             totalPayableDays={totalPayableDays}
-    //                             date={date}
-    //                             paidLeaves={paidLeaves}
-    //                             unpaidLeaves={0}
-    //                         />
-    // console.log("SalarySlippaidLeaves:: ",paidLeaves);
-
     // Fetch payment history
     const [paymentHistory, setPaymentHistory] = useState<any | null>(null);
     const salaryId = (apiSalaryData as any)?.salaryId;
@@ -2069,6 +2041,17 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             return null;
         }
     }, [isApiDataLoaded, apiSalaryData, employee, paymentHistory, salaryId]);
+
+    // Show loading state while data is being fetched
+    if (isLoading) {
+        return (
+            <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                </div>
+            </Container>
+        );
+    }
 
     return (
         <>

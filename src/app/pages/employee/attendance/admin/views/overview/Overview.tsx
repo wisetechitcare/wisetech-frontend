@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import { EARLY_CHECKOUT, EXTRA_DAYS, LATE_CHECKIN, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
+import { EARLY_CHECKOUT, EXTRA_DAYS, LATE_CHECKIN, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { toAbsoluteUrl } from "@metronic/helpers";
 import { Attendance } from "@models/employee";
@@ -608,7 +608,7 @@ function Overview({ date }: OverviewProps) {
         if (!showModal) return null;
 
         let employees: EmployeeWithAttendance[] = [];
-        let additionalInfo: Record<string, string> = {};
+        const additionalInfo: Record<string, string> = {};
 
         try {
             switch (showModal) {

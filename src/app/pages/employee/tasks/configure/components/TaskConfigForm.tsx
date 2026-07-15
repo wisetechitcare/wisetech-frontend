@@ -127,7 +127,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
       const apiFunction = getApiFunction(type, isEditing);
       // console.log("types ===========:", type, "isEditing ===========:", isEditing, "apiFunction ===========:", apiFunction);
       // Prepare the payload based on the type
-      let payload: any = {
+      const payload: any = {
         name: values.name,
         isActive: values.isActive,
         // ...(type === 'subcategory' && values.categoryId ? { categoryId: values.categoryId } : {})

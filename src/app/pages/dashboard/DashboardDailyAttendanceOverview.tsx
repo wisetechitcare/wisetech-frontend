@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import { useCallback, useEffect, useState, useMemo, memo } from "react";
+import { useCallback, useEffect, useState, useMemo, memo } from "react";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import { RootState } from "@redux/store";
 import { parseWorkingDays } from "@utils/workingDays";
@@ -688,7 +688,7 @@ const DashboardDailyAttendanceOverview = () => {
     if (!showModal) return null;
 
     let employees: EmployeeWithAttendance[] = [];
-    let additionalInfo: Record<string, string> = {};
+    const additionalInfo: Record<string, string> = {};
 
     try {
       switch (showModal) {

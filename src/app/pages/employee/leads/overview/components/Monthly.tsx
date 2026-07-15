@@ -255,7 +255,7 @@ const Monthly = ({ month, endDate }: Props) => {
   };
 
   const handleTopLeadsChartClick = (selectedLabel?: string) => {
-    let ids: string[] = [];
+    const ids: string[] = [];
 
     monthlyTopLeadsRes?.data?.forEach((status: any) => {
       Object.values(status.data).forEach((sections: any) => {
@@ -340,8 +340,8 @@ const Monthly = ({ month, endDate }: Props) => {
       (status: any) => status.name
     );
 
-    let referralTypeOptions: string[] = [];
-    let directSourceOptions: string[] = [];
+    const referralTypeOptions: string[] = [];
+    const directSourceOptions: string[] = [];
 
     monthlyTopLeadsRes.data.forEach((status: any) => {
       if (status.data) {

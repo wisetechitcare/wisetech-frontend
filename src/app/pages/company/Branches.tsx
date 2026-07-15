@@ -1,5 +1,5 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
-﻿import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Form, Formik, FormikValues, useField, useFormik } from 'formik'
 import * as Yup from 'yup'
 import { Col, Row } from 'react-bootstrap'
@@ -626,6 +626,18 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     }
     loadOrgs()
   }, [])
+
+  useEffect(() => {
+    if (companyId) {
+      initialState.companyId = companyId
+    } else {
+      const setCompanyFromOverview = async () => {
+        const { data: { companyOverview } } = await fetchCompanyOverview()
+        initialState.companyId = resolveActiveOrgId(companyOverview) ?? ''
+      }
+      setCompanyFromOverview()
+    }
+  }, [companyId])
  
   const newBranchButton = isAdmin &&
     hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.create) && (
@@ -722,33 +734,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
             validationSchema={branchSchema}
           >
             {(formikProps) => {
-              useEffect(() => {
-                // getLocation(formikProps);
-                // console.log("formikProps: ", formikProps.values);
-                // const { latitude, longitude } = formikProps.values;
-                // if(!latitude || !longitude){
-                //     getLocation(formikProps);
-                // }
-
-                async function fetchCompany() {
-                  // Scoped mode: attach the new branch to the given organization.
-                  if (companyId) {
-                    formikProps.setFieldValue('companyId', companyId, true)
-                    return
-                  }
-                  const {
-                    data: { companyOverview },
-                  } = await fetchCompanyOverview()
-                  formikProps.setFieldValue(
-                    'companyId',
-                    (resolveActiveOrgId(companyOverview) ?? ''),
-                    true
-                  )
-                }
-
-                fetchCompany()
-              }, [])
-
               return (
                 <Form
                   className='d-flex flex-column'

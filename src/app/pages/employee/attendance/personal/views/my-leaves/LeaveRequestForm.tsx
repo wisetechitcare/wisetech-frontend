@@ -51,7 +51,7 @@ const extractApiErrorMessage = (err: any): string | null => {
   if (typeof err?.message === 'string' && err.message.trim()) return err.message;
   return null;
 };
-let initialValues: ILeaveRequest = {
+const initialValues: ILeaveRequest = {
   employeeId: "",
   leaveTypeId: "",
   dateFrom: "",

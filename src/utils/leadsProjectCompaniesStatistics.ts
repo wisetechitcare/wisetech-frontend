@@ -903,7 +903,7 @@ export function transformTopLeadsDataAdvanced(rawData: any, filters: {
             const lead = leadItem.lead;
             if (!lead) return;
 
-            let groupKey = getGroupKey(lead, referralType, null, statusName, filters.groupBy);
+            const groupKey = getGroupKey(lead, referralType, null, statusName, filters.groupBy);
 
             if (!groupedData[groupKey]) {
               groupedData[groupKey] = [];
@@ -934,7 +934,7 @@ export function transformTopLeadsDataAdvanced(rawData: any, filters: {
             const lead = leadItem.lead;
             if (!lead) return;
 
-            let groupKey = getGroupKey(lead, null, directSource, statusName, filters.groupBy);
+            const groupKey = getGroupKey(lead, null, directSource, statusName, filters.groupBy);
 
             if (!groupedData[groupKey]) {
               groupedData[groupKey] = [];

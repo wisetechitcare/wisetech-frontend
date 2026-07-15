@@ -79,6 +79,6 @@ export const getEmployeeStatus = (employee: Employee): number => {
  * @returns "Active" or "Inactive"
  */
 export const getEmployeeStatusString = (employee: Employee): string => {
-  let res = getEmployeeStatus(employee) === 0 && employee?.isActive==false
+  const res = getEmployeeStatus(employee) === 0 && employee?.isActive==false
   return res==true ? "Inactive" : "Active";
 };

@@ -84,7 +84,7 @@ const LeaveTypesBalance: React.FC = () => {
     setLoading(true);
     try {
       // Update leaves limit — include rows where value=0 (allows resetting a leave type to 0)
-      let leaveData = Object.entries(values).filter(
+      const leaveData = Object.entries(values).filter(
         ([key, value]) => key && value !== undefined && value !== null && value !== ''
       );
       const allCalls: Promise<any>[] = [];
@@ -156,15 +156,6 @@ const LeaveTypesBalance: React.FC = () => {
       onSubmit={handleSubmit}
     >
       {({ setFieldValue, values }) => {
-        useEffect(() => {
-          if (leaveOptionInitialValues?.length > 0) {
-            leaveOptionInitialValues.forEach((leaveOption: any) => {
-              const key = Object.keys(leaveOption)[0];
-              setFieldValue(key, Number(leaveOption[key]));
-            });
-          }
-        }, [leaveOptionInitialValues]);
-
         return (
           <FormikForm>
             <div style={{ padding: '24px 20px', backgroundColor: '#f7f9fc' }}>

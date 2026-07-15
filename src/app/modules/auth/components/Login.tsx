@@ -69,7 +69,7 @@ function LoginForm() {
             currUserRes.user.id
           );
           const { employee } = currEmpRes;
-          let avatar = getAvatar(employee.avatar, employee.gender);
+          const avatar = getAvatar(employee.avatar, employee.gender);
           dispatch(saveCurrentEmployee({ ...employee, avatar }));
         }
         dispatch(redirect(true));

@@ -150,7 +150,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
 
     filteredData.forEach((item) => {
       let key: string;
-      let color = item.color;
+      const color = item.color;
 
       switch (groupBy) {
         case "country":
@@ -185,7 +185,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
       map[key].totalCount += item.count;
     });
 
-    let result = Object.values(map);
+    const result = Object.values(map);
 
     // Apply sorting based on sortOption
     if (sortOption === "budget-asc") {

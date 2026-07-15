@@ -258,7 +258,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   const currentEmployeeId = useSelector(
     (state: RootState) => state.employee?.currentEmployee?.id,
   );
-  let rawLeadsData = rawLeadsDatas;
+  const rawLeadsData = rawLeadsDatas;
 
   // Derive assigned-to employees directly from lead data so new assignees appear automatically.
   const NA_OPTION = { employeeId: "__NA__", employeeName: "N/A", avatar: "" };

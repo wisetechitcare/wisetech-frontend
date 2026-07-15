@@ -97,8 +97,8 @@ export async function generateFiscalYearFromGivenYear(year: dayjs.Dayjs, fromAdm
     // --- Parse the fiscal year details from DB ---
     // Expected format: "2020-04-01 to 2021-03-31"
     const [fromDateDetails, toDateDetails] = fiscalYearDetails.split('to').map((val: string) => val.trim());
-    let [dbFromYear, dbFromMonth, dbFromDay] = fromDateDetails.split('-').map(Number);
-    let [dbToYear, dbToMonth, dbToDay] = toDateDetails.split('-').map(Number);
+    const [dbFromYear, dbFromMonth, dbFromDay] = fromDateDetails.split('-').map(Number);
+    const [dbToYear, dbToMonth, dbToDay] = toDateDetails.split('-').map(Number);
 
     let finalFromDate: dayjs.Dayjs, finalToDate: dayjs.Dayjs;
     const today = dayjs();
@@ -130,7 +130,7 @@ export async function generateFiscalYearFromGivenYear(year: dayjs.Dayjs, fromAdm
         // First, decide the candidate fiscal year for today based on month/day comparison.
         const todayMD = dayjs(`${today.month() + 1}-${today.date()}`, "M-D");
         const fiscalStartMD = dayjs(`${dbFromMonth}-${dbFromDay}`, "M-D");
-        let candidateYearForToday = todayMD.isBefore(fiscalStartMD) ? today.year() - 1 : today.year();
+        const candidateYearForToday = todayMD.isBefore(fiscalStartMD) ? today.year() - 1 : today.year();
         
         const offset = providedYear - today.year();
         const finalCandidateYear = candidateYearForToday + offset;
@@ -191,7 +191,7 @@ export async function fetchColorAndStoreInSlice(){
     if(checkIfAnyValueIsUndefined(colorsData)){
         const res = await fetchAllColors();
         
-        let { data: { colors } } = res;
+        const { data: { colors } } = res;
 
         const currColorValues: ICustomColorCode = {
             id: colors[0]?.id,

@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import { KTIcon } from '@metronic/helpers';
+import { KTIcon } from '@metronic/helpers';
 import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
 import { useEffect, useState } from 'react';
 import * as Yup from 'yup';
@@ -45,7 +45,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
     };
 
     const handleDelete = async (rule: any) => {
-        let config: any = { ...configuration };
+        const config: any = { ...configuration };
         delete config[rule.name];
 
         const payload = {
@@ -69,7 +69,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
     };
 
     const handleSubmit = async (values: any, actions: FormikValues) => {
-        let config: any = { ...configuration };
+        const config: any = { ...configuration };
 
         if (oldValue.name !== undefined && oldValue.name !== values.name) {
             delete config[oldValue.name];
