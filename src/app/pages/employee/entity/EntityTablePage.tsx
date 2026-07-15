@@ -229,6 +229,11 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   const lastFieldsKeyRef = useRef<string | null>(null);
   const firstVisibilityEmissionRef = useRef(true);
   const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // True once the first fetch settles. Background refetches (event bus, column
+  // visibility changes) must NOT swap the table for the full-page loader:
+  // unmounting MaterialTable resets its preference state, and the remount
+  // re-emits visible columns → another refetch → an endless refresh loop.
+  const hasLoadedOnceRef = useRef(false);
 
   // Clean up refetch timer on unmount
   useEffect(() => {
@@ -602,6 +607,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
+      hasLoadedOnceRef.current = true;
       setLoading(false);
     }
   }, []);
@@ -1066,7 +1072,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     return [...base, ...projectPart, ...tail];
   }, [projectColumnsActive]);
 
-  if (loading) return <Loader />;
+  // Full-page loader only for the very first load; background refetches keep
+  // the table mounted (see hasLoadedOnceRef above).
+  if (loading && !hasLoadedOnceRef.current) return <Loader />;
 
   // ── Prop-driven (drill-down) filters ─────────────────────────────────────────
   const startDates = startDate ? dayjs(startDate) : null;
