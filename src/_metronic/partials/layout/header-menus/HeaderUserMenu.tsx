@@ -1,6 +1,6 @@
 
 import {FC} from 'react'
-import {Link, useNavigate} from 'react-router-dom'
+import {useNavigate} from 'react-router-dom'
 import {removeAuth} from '../../../../app/modules/auth'
 import {useDispatch, useSelector} from 'react-redux'
 import {logoutUser} from '@redux/slices/auth'
@@ -71,17 +71,29 @@ const HeaderUserMenu: FC = () => {
 
       <div className='py-1'>
         <div className='menu-item px-2'>
-          <Link to={'/employee/profile/overview'} className='menu-link d-flex align-items-center gap-2'>
+          {/* Navigate via useNavigate onClick instead of <Link>. Metronic's menu
+              handlers swallow the anchor's default navigation inside a
+              data-kt-menu dropdown, so the href never fired — JS navigation
+              (same pattern as Sign Out below) is reliable here. */}
+          <a
+            onClick={() => navigate('/employee/profile/overview')}
+            className='menu-link d-flex align-items-center gap-2'
+            style={{ cursor: 'pointer' }}
+          >
             <KTIcon iconName='profile-circle' className='fs-5 text-muted' />
             My Profile
-          </Link>
+          </a>
         </div>
         {showAppSettings && (
           <div className='menu-item px-2'>
-            <Link to={'/company/settings'} className='menu-link d-flex align-items-center gap-2'>
+            <a
+              onClick={() => navigate('/company/settings')}
+              className='menu-link d-flex align-items-center gap-2'
+              style={{ cursor: 'pointer' }}
+            >
               <KTIcon iconName='setting-2' className='fs-5 text-muted' />
               Settings
-            </Link>
+            </a>
           </div>
         )}
         <div className='separator my-1'></div>

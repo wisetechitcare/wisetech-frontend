@@ -12,7 +12,7 @@ import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropd
 import { updateReimbursementById } from "@services/employee";
 import { uploadUserAsset } from "@services/uploader";
 import { getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
-import { getAllProjects, getAllProjectStatuses } from "@services/projects";
+import { getReimbursementProjectOptions, getAllProjectStatuses } from "@services/projects";
 import { fetchAllReimbursementTypesFromDb } from "@utils/statistics";
 import { successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
@@ -71,16 +71,24 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
   const [selectedClientCompany, setSelectedClientCompany] = useState<Option | null>(null);
   const [selectedProject, setSelectedProject] = useState<Option | null>(null);
 
-  // Load static data once on mount
+  // Load static data once on mount. Uses allSettled so one failing lookup can't
+  // blank the entire form — every dropdown that CAN load still loads.
   useEffect(() => {
     setProjectsLoading(true);
-    Promise.all([
+    Promise.allSettled([
       fetchAllReimbursementTypesFromDb(),
       getAllCompanyTypes(),
       getAllClientCompanies(),
       getAllProjectStatuses(),
-      getAllProjects(),
-    ]).then(([types, typesRes, companiesRes, statusesRes, projectsRes]) => {
+      getReimbursementProjectOptions(),
+    ]).then((results) => {
+      const val = (r: PromiseSettledResult<any>) => (r.status === "fulfilled" ? r.value : undefined);
+      const [typesR, typesResR, companiesResR, statusesResR, projectsResR] = results;
+      const types = val(typesR) || [];
+      const typesRes = val(typesResR) || {};
+      const companiesRes = val(companiesResR) || {};
+      const statusesRes = val(statusesResR) || {};
+      const projectsRes = val(projectsResR) || {};
       setReimbursementOptions(
         types
           .map((r: any) => ({ value: r.id, label: r.type, icon: r.icon }))

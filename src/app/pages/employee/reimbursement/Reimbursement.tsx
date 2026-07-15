@@ -45,7 +45,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { Select } from "@mui/material";
 import { getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
-import { getAllProjects, getAllProjectStatuses } from "@services/projects";
+import { getReimbursementProjectOptions, getAllProjectStatuses } from "@services/projects";
 
 const getReimbursementSchema = (currentReimbursement: IReimbursementsCreate) => {
   return Yup.object({
@@ -60,15 +60,15 @@ const getReimbursementSchema = (currentReimbursement: IReimbursementsCreate) => 
       : Yup.string().required().label("Reimbursement For"),
     amount: currentReimbursement
       ? Yup.number()
-          .required()
-          .label("Amount")
-          .min(1, "Amount must be greater than 0")
-          .max(1000000, "Amount must be less than 10,00,000")
+        .required()
+        .label("Amount")
+        .min(1, "Amount must be greater than 0")
+        .max(1000000, "Amount must be less than 10,00,000")
       : Yup.number()
-          .required()
-          .label("Amount")
-          .min(1, "Amount must be greater than 0")
-          .max(1000000, "Amount must be less than 10,00,000"),
+        .required()
+        .label("Amount")
+        .min(1, "Amount must be greater than 0")
+        .max(1000000, "Amount must be less than 10,00,000"),
     description: Yup.string().label("Note"),
     document: currentReimbursement
       ? Yup.string().label("Reference Document")
@@ -211,13 +211,13 @@ function Reimbursement() {
     const { alignment, date } = currentPeriod;
     const fetchPromise =
       alignment === 'monthly' ? fetchEmpMonthlyReimbursements(date) :
-      alignment === 'yearly'  ? fetchEmpYearlyReimbursements(date)  :
-      fetchEmpAlltimeReimbursements();
+        alignment === 'yearly' ? fetchEmpYearlyReimbursements(date) :
+          fetchEmpAlltimeReimbursements();
     fetchPromise.then((data) => {
       applyStats(data);
       setReimbursementData(data);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeriod, statsRefreshKey, employeeId]);
 
   // Refresh stats whenever a reimbursement changes on any connected client (WebSocket)
@@ -244,12 +244,20 @@ function Reimbursement() {
   const loadClientTypeAndCompanyData = async () => {
     setProjectsLoading(true);
     try {
-      const [typesRes, companiesRes, statusesRes, projectsRes] = await Promise.all([
+      // allSettled so one failing lookup can't blank the whole form — each
+      // dropdown that CAN load still loads.
+      const results = await Promise.allSettled([
         getAllCompanyTypes(),
         getAllClientCompanies(),
         getAllProjectStatuses(),
-        getAllProjects(),
+        getReimbursementProjectOptions(),
       ]);
+      const val = (r: PromiseSettledResult<any>) => (r.status === "fulfilled" ? r.value : undefined);
+      const [typesResR, companiesResR, statusesResR, projectsResR] = results;
+      const typesRes = val(typesResR) || {};
+      const companiesRes = val(companiesResR) || {};
+      const statusesRes = val(statusesResR) || {};
+      const projectsRes = val(projectsResR) || {};
       const types = (typesRes.companyTypes || []).map((ct: any) => ({
         value: ct.id,
         label: ct.name,
@@ -676,31 +684,31 @@ function Reimbursement() {
               resourceNameMapWithCamelCase.reimbursement,
               permissionConstToUseWithHasPermission.create
             ) && (
-              <button
-                onClick={() => pendingPageRef.current?.openAddModal()}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '5px',
-                  padding: '7px 14px',
-                  border: '1.5px solid #e2e8f0',
-                  borderRadius: '6px',
-                  background: '#f8fafc',
-                  color: '#475569',
-                  fontWeight: 500,
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
-              >
-                <KTIcon iconName='plus' className='fs-6' />
-                <span>Add Reimbursement Request</span>
-              </button>
-            )}
+                <button
+                  onClick={() => pendingPageRef.current?.openAddModal()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    padding: '7px 14px',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: '6px',
+                    background: '#f8fafc',
+                    color: '#475569',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
+                >
+                  <KTIcon iconName='plus' className='fs-6' />
+                  <span>Add Reimbursement Request</span>
+                </button>
+              )}
             <button
               onClick={handleDownloadBill}
               disabled={downloadingBill}
@@ -763,14 +771,14 @@ function Reimbursement() {
               ...initialState,
               ...(editMode &&
                 currentReimbursement && {
-                  ...currentReimbursement,
-                  expenseDate: currentReimbursement.expenseDate
-                    ? dayjs(currentReimbursement.expenseDate).format("YYYY-MM-DD")
-                    : dayjs().format("YYYY-MM-DD"),
-                  clientTypeId: currentReimbursement?.clientTypeId || "",
-                  clientCompanyId: currentReimbursement?.clientCompanyId || "",
-                  projectId: currentReimbursement?.projectId || "",
-                }),
+                ...currentReimbursement,
+                expenseDate: currentReimbursement.expenseDate
+                  ? dayjs(currentReimbursement.expenseDate).format("YYYY-MM-DD")
+                  : dayjs().format("YYYY-MM-DD"),
+                clientTypeId: currentReimbursement?.clientTypeId || "",
+                clientCompanyId: currentReimbursement?.clientCompanyId || "",
+                projectId: currentReimbursement?.projectId || "",
+              }),
             }}
             onSubmit={handleSubmit}
             validationSchema={getReimbursementSchema(currentReimbursement)}
@@ -781,7 +789,7 @@ function Reimbursement() {
                   className="d-flex flex-column"
                   noValidate
                   id="employee_reimbursement_form"
-                  // placeholder={undefined}
+                // placeholder={undefined}
                 >
                   {/* Row 1: Date */}
                   <div className="row">
@@ -822,8 +830,8 @@ function Reimbursement() {
                           !formikProps.values.clientTypeId
                             ? "Select Company Type First"
                             : filteredCompanies.length === 0
-                            ? "No clients for this type"
-                            : "Select Company Name"
+                              ? "No clients for this type"
+                              : "Select Company Name"
                         }
                         options={[...filteredCompanies].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName)).map((c: any) => ({
                           value: c.id,
@@ -849,8 +857,8 @@ function Reimbursement() {
                           projectsLoading
                             ? "Loading Projects..."
                             : projectOptions.length === 0
-                            ? "No Ongoing Projects Found"
-                            : "Search Project"
+                              ? "No Ongoing Projects Found"
+                              : "Search Project"
                         }
                         options={projectOptions}
                         disabled={projectsLoading}
@@ -889,7 +897,7 @@ function Reimbursement() {
                         margin="mb-7"
                         formikField="amount"
                         inputValidation="decimal"
-                        // type="number"
+                      // type="number"
                       />
                     </div>
                   </div>

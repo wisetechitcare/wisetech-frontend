@@ -388,6 +388,21 @@ export const getAllProjects = async (fields?: string[]) => {
     }
 }
 
+// Slim project picker list for the reimbursement form. Unlike getAllProjects
+// (RBAC-gated by projects.view.team, so regular employees get 403), this is
+// readable by ANY authenticated employee and returns only the fields the
+// reimbursement modal needs. Same response shape as getAllProjects
+// ({ data: { projects: [...] } }) so existing parsing keeps working.
+export const getReimbursementProjectOptions = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_REIMBURSEMENT_PROJECT_OPTIONS}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 // Every project that has coordinates (no pagination) — used by the map only.
 export const getProjectMapPoints = async () => {
     try {

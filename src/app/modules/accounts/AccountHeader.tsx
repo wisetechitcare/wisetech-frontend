@@ -25,27 +25,22 @@ const AccountHeader: React.FC = () => {
       const { data: { employeeProfile } } = await fetchEmployeeProfileData(employeeId)
       setProfileData(employeeProfile);
 
-      const addressDetails = employeeProfile?.EmployeeAddressDetails?.[0];
+      const countryName = await fetchCountryName(employeeProfile.EmployeeAddressDetails[0].permanentCountry);
+      setCountryName(countryName.name);
 
-      if (addressDetails?.permanentCountry) {
-        const countryResponse = await fetchCountryName(addressDetails.permanentCountry);
-        setCountryName(countryResponse?.name || '');
+      const stateName = await fetchStateName(employeeProfile.EmployeeAddressDetails[0].permanentCountry, employeeProfile.EmployeeAddressDetails[0].permanentState);
+      setStateName(stateName.name);
 
-        if (addressDetails?.permanentState) {
-          const stateResponse = await fetchStateName(addressDetails.permanentCountry, addressDetails.permanentState);
-          setStateName(stateResponse?.name || '');
-        }
-      }
+      setCityName(employeeProfile?.EmployeeAddressDetails[0].presentAddressLine1 || employeeProfile?.EmployeeAddressDetails[0].presentAddressLine2)
 
-      setCityName(addressDetails?.presentAddressLine1 || addressDetails?.presentAddressLine2 || '')
     }
 
     fetchProfileData();
   }, [employeeId])
 
   if (!profileData) return;
-  
-  
+
+
   return (
     <>
       <div className='card mb-5 mb-xl-10'>

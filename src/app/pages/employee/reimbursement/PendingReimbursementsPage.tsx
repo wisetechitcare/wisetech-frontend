@@ -19,7 +19,7 @@ import {
 import { uploadUserAsset } from '@services/uploader';
 import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
-import { getAllProjects, getAllProjectStatuses } from '@services/projects';
+import { getReimbursementProjectOptions, getAllProjectStatuses } from '@services/projects';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import DropDownInput from '@app/modules/common/inputs/DropdownInput';
 import DateInput from '@app/modules/common/inputs/DateInput';
@@ -159,82 +159,82 @@ function fmtAmountRounded(n: number) {
 
 const KpiIconRequests = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="8" y1="17" x2="12" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <line x1="8" y1="17" x2="12" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
 const KpiIconAmount = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <circle cx="12" cy="15" r="1.5" fill="currentColor"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <circle cx="12" cy="15" r="1.5" fill="currentColor" />
   </svg>
 );
 
 const KpiIconApproved = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const KpiIconApprovedAmount = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <path d="M9 15l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <path d="M9 15l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const KpiIconPending = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-    <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+    <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const KpiIconPendingAmount = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <polyline points="14 14 14 12 12 12 12 16 14 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <polyline points="14 14 14 12 12 12 12 16 14 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const KpiIconRejected = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
 const KpiIconRejectedAmount = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <line x1="10" y1="13.5" x2="14" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="14" y1="13.5" x2="10" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <line x1="10" y1="13.5" x2="14" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <line x1="14" y1="13.5" x2="10" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
 const KpiIconPaymentPaid = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <path d="M7 15l2.5 2.5L17 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <path d="M7 15l2.5 2.5L17 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const KpiIconPaymentRemaining = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <circle cx="12" cy="15" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
-    <path d="M12 13.5V15h1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <circle cx="12" cy="15" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M12 13.5V15h1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 );
 
@@ -511,19 +511,19 @@ export function EmployeeDetailsSection({
   // instead of one mixed 10-card grid, so each row reads as one unit (plain counts
   // vs. currency) rather than a count tile awkwardly sharing a row with amount tiles.
   const countCards: ReimbKpiCardProps[] = [
-    { label: 'Total Requests',           value: totalRequests,    accent: '#7c3aed', iconBg: '#f5f3ff', iconBorder: '#ede9fe', icon: <KpiIconRequests />, loading: overviewLoading },
-    { label: 'Total Approved Requests',  value: approvedRequests, accent: '#16a34a', iconBg: '#f0fdf4', iconBorder: '#dcfce7', icon: <KpiIconApproved />, loading: overviewLoading },
-    { label: 'Total Pending Requests',   value: pendingRequests,  accent: '#d97706', iconBg: '#fffbeb', iconBorder: '#fef3c7', icon: <KpiIconPending />,  loading: overviewLoading },
-    { label: 'Total Rejected Requests',  value: rejectedRequests, accent: '#dc2626', iconBg: '#fef2f2', iconBorder: '#fecaca', icon: <KpiIconRejected />, loading: overviewLoading },
+    { label: 'Total Requests', value: totalRequests, accent: '#7c3aed', iconBg: '#f5f3ff', iconBorder: '#ede9fe', icon: <KpiIconRequests />, loading: overviewLoading },
+    { label: 'Total Approved Requests', value: approvedRequests, accent: '#16a34a', iconBg: '#f0fdf4', iconBorder: '#dcfce7', icon: <KpiIconApproved />, loading: overviewLoading },
+    { label: 'Total Pending Requests', value: pendingRequests, accent: '#d97706', iconBg: '#fffbeb', iconBorder: '#fef3c7', icon: <KpiIconPending />, loading: overviewLoading },
+    { label: 'Total Rejected Requests', value: rejectedRequests, accent: '#dc2626', iconBg: '#fef2f2', iconBorder: '#fecaca', icon: <KpiIconRejected />, loading: overviewLoading },
   ];
 
   const amountCards: ReimbKpiCardProps[] = [
-    { label: 'Total Requested Amount', value: `₹${fmtAmountRounded(totalRequestedAmount)}`, accent: '#2563eb', iconBg: '#eff6ff', iconBorder: '#dbeafe', icon: <KpiIconAmount />,           loading: overviewLoading },
-    { label: 'Total Approved Amount',  value: `₹${fmtAmountRounded(approvedAmount)}`,       accent: '#0891b2', iconBg: '#ecfeff', iconBorder: '#cffafe', icon: <KpiIconApprovedAmount />,   loading: overviewLoading },
-    { label: 'Total Pending Amount',   value: `₹${fmtAmountRounded(pendingAmount)}`,        accent: '#ea580c', iconBg: '#fff7ed', iconBorder: '#ffedd5', icon: <KpiIconPendingAmount />,    loading: overviewLoading },
-    { label: 'Total Rejected Amount',  value: `₹${fmtAmountRounded(rejectedAmount)}`,       accent: '#e11d48', iconBg: '#fff1f2', iconBorder: '#ffe4e6', icon: <KpiIconRejectedAmount />,   loading: overviewLoading },
-    { label: 'Total Paid Amount',      value: `₹${fmtAmountRounded(paidAmount)}`,           accent: '#059669', iconBg: '#ecfdf5', iconBorder: '#a7f3d0', icon: <KpiIconPaymentPaid />,      loading: overviewLoading },
-    { label: 'Total Remaining Amount', value: `₹${fmtAmountRounded(remainingAmount)}`,      accent: '#b45309', iconBg: '#fefce8', iconBorder: '#fef08a', icon: <KpiIconPaymentRemaining />, loading: overviewLoading },
+    { label: 'Total Requested Amount', value: `₹${fmtAmountRounded(totalRequestedAmount)}`, accent: '#2563eb', iconBg: '#eff6ff', iconBorder: '#dbeafe', icon: <KpiIconAmount />, loading: overviewLoading },
+    { label: 'Total Approved Amount', value: `₹${fmtAmountRounded(approvedAmount)}`, accent: '#0891b2', iconBg: '#ecfeff', iconBorder: '#cffafe', icon: <KpiIconApprovedAmount />, loading: overviewLoading },
+    { label: 'Total Pending Amount', value: `₹${fmtAmountRounded(pendingAmount)}`, accent: '#ea580c', iconBg: '#fff7ed', iconBorder: '#ffedd5', icon: <KpiIconPendingAmount />, loading: overviewLoading },
+    { label: 'Total Rejected Amount', value: `₹${fmtAmountRounded(rejectedAmount)}`, accent: '#e11d48', iconBg: '#fff1f2', iconBorder: '#ffe4e6', icon: <KpiIconRejectedAmount />, loading: overviewLoading },
+    { label: 'Total Paid Amount', value: `₹${fmtAmountRounded(paidAmount)}`, accent: '#059669', iconBg: '#ecfdf5', iconBorder: '#a7f3d0', icon: <KpiIconPaymentPaid />, loading: overviewLoading },
+    { label: 'Total Remaining Amount', value: `₹${fmtAmountRounded(remainingAmount)}`, accent: '#b45309', iconBg: '#fefce8', iconBorder: '#fef08a', icon: <KpiIconPaymentRemaining />, loading: overviewLoading },
   ];
 
   return (
@@ -662,7 +662,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   useEffect(() => { onDraftsChange?.(drafts.length); }, [drafts.length, onDraftsChange]);
 
-  const handleNewRef = useRef<() => void>(() => {});
+  const handleNewRef = useRef<() => void>(() => { });
   useImperativeHandle(ref, () => ({ openAddModal: () => handleNewRef.current() }));
 
   // ── Load dropdown data — separated exactly like Reimbursement.tsx ──────────
@@ -682,12 +682,20 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   const loadClientTypeAndCompanyData = async () => {
     setProjectsLoading(true);
     try {
-      const [typesRes, companiesRes, statusesRes, projectsRes] = await Promise.all([
+      // allSettled so one failing lookup can't blank the whole form — each
+      // dropdown that CAN load still loads.
+      const results = await Promise.allSettled([
         getAllCompanyTypes(),
         getAllClientCompanies(),
         getAllProjectStatuses(),
-        getAllProjects(),
+        getReimbursementProjectOptions(),
       ]);
+      const val = (r: PromiseSettledResult<any>) => (r.status === "fulfilled" ? r.value : undefined);
+      const [typesResR, companiesResR, statusesResR, projectsResR] = results;
+      const typesRes = val(typesResR) || {};
+      const companiesRes = val(companiesResR) || {};
+      const statusesRes = val(statusesResR) || {};
+      const projectsRes = val(projectsResR) || {};
       const types = (typesRes.companyTypes || []).map((ct: any) => ({
         value: ct.id,
         label: ct.name,
@@ -1191,31 +1199,31 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
               resourceNameMapWithCamelCase.reimbursement,
               permissionConstToUseWithHasPermission.create
             ) && (
-              <button
-                onClick={handleNew}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '5px',
-                  padding: '7px 14px',
-                  border: '1.5px solid #e2e8f0',
-                  borderRadius: '6px',
-                  background: '#f8fafc',
-                  color: '#475569',
-                  fontWeight: 500,
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
-              >
-                <KTIcon iconName='plus' className='fs-6' />
-                <span>Add Reimbursement Request</span>
-              </button>
-            )}
+                <button
+                  onClick={handleNew}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    padding: '7px 14px',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: '6px',
+                    background: '#f8fafc',
+                    color: '#475569',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
+                >
+                  <KTIcon iconName='plus' className='fs-6' />
+                  <span>Add Reimbursement Request</span>
+                </button>
+              )}
             {drafts.length > 0 && (
               <button
                 onClick={handleSendForApproval}
@@ -1301,18 +1309,18 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
               ...initialState,
               ...(editMode &&
                 currentReimbursement && {
-                  ...currentReimbursement,
-                  expenseDate: currentReimbursement.expenseDate
-                    ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
-                    : dayjs().format('YYYY-MM-DD'),
-                  clientTypeId: currentReimbursement?.clientTypeId ?? '',
-                  clientCompanyId: currentReimbursement?.clientCompanyId ?? '',
-                  projectId: currentReimbursement?.projectId ?? '',
-                  fromLocation: currentReimbursement?.fromLocation ?? '',
-                  toLocation: currentReimbursement?.toLocation ?? '',
-                  description: currentReimbursement?.description ?? '',
-                  document: currentReimbursement?.document ?? '',
-                }),
+                ...currentReimbursement,
+                expenseDate: currentReimbursement.expenseDate
+                  ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
+                  : dayjs().format('YYYY-MM-DD'),
+                clientTypeId: currentReimbursement?.clientTypeId ?? '',
+                clientCompanyId: currentReimbursement?.clientCompanyId ?? '',
+                projectId: currentReimbursement?.projectId ?? '',
+                fromLocation: currentReimbursement?.fromLocation ?? '',
+                toLocation: currentReimbursement?.toLocation ?? '',
+                description: currentReimbursement?.description ?? '',
+                document: currentReimbursement?.document ?? '',
+              }),
             }}
             onSubmit={handleSubmit}
             validationSchema={getReimbursementSchema(currentReimbursement)}
@@ -1356,8 +1364,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                         !formikProps.values.clientTypeId
                           ? 'Select Company Type First'
                           : filteredCompanies.length === 0
-                          ? 'No clients for this type'
-                          : 'Select Company Name'
+                            ? 'No clients for this type'
+                            : 'Select Company Name'
                       }
                       options={[...filteredCompanies]
                         .sort((a: any, b: any) => a.companyName.localeCompare(b.companyName))
@@ -1380,8 +1388,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                         projectsLoading
                           ? 'Loading Projects...'
                           : projectOptions.length === 0
-                          ? 'No Ongoing Projects Found'
-                          : 'Search Project'
+                            ? 'No Ongoing Projects Found'
+                            : 'Search Project'
                       }
                       options={projectOptions}
                       disabled={projectsLoading}
@@ -1503,10 +1511,10 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                         <div className='d-flex align-items-center gap-2 px-3 overflow-hidden flex-grow-1'>
                           {formikProps.values.document ? (
                             <>
-                            <KTIcon iconName='document' className='fs-5 text-danger flex-shrink-0' />
-                            <span className='text-truncate fs-7' style={{ color: '#5e6278' }}>
-                              {String(formikProps.values.document).split('/').pop() ?? 'document'}
-                            </span>
+                              <KTIcon iconName='document' className='fs-5 text-danger flex-shrink-0' />
+                              <span className='text-truncate fs-7' style={{ color: '#5e6278' }}>
+                                {String(formikProps.values.document).split('/').pop() ?? 'document'}
+                              </span>
                             </>
                           ) : (
                             <span className='fs-7' style={{ color: '#a1a5b7' }}>No file chosen</span>
