@@ -45,6 +45,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatCompactCurrency, getProjectPhase, isDelayedProject, PHASE_THEMES } from "../../entity/entityUtils";
 import PeriodNavigationButtons from "@pages/employee/leads/table/PeriodNavigationButtons";
+import "./ProjectTablePage.css";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -61,6 +62,11 @@ const ProjectTablePage = () => {
   const [tableData, setTableData] = useState<any[]>([]);
   const [projectStatuses, setProjectStatuses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  // True once the first fetch settles. Background refetches (event bus, column
+  // visibility changes) must NOT swap the table for the full-page loader:
+  // unmounting MaterialTable resets its preference state, and the remount
+  // re-emits visible columns → another refetch → an endless refresh loop.
+  const hasLoadedOnceRef = useRef(false);
   const [projectServices, setProjectServices] = useState<any[]>([]);
   const [projectCategories, setProjectCategories] = useState<any[]>([]);
   const [projectSubcategories, setProjectSubcategories] = useState<any[]>([]);
@@ -366,6 +372,7 @@ const ProjectTablePage = () => {
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
+      hasLoadedOnceRef.current = true;
       setLoading(false);
     }
   }, []);
@@ -687,7 +694,9 @@ const ProjectTablePage = () => {
     [allemployees],
   );
 
-  if (loading) return <Loader />;
+  // Full-page loader only for the very first load; background refetches keep
+  // the table mounted (see hasLoadedOnceRef above).
+  if (loading && !hasLoadedOnceRef.current) return <Loader />;
 
   const baseFilteredData = tableData?.filter((item: any) => {
     let dateMatch = true;
@@ -1060,111 +1069,51 @@ const ProjectTablePage = () => {
 
           {/* Right-side group: budget/results pill + missing-address toggle, kept together */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'stretch' : 'flex-end', width: isMobile ? '100%' : 'auto' }}>
-          {/* KPI Summary — glassmorphic pill */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            border: '1px solid rgba(226,232,240,0.9)',
-            borderRadius: '10px',
-            padding: '0 14px',
-            background: 'rgba(255,255,255,0.55)',
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            height: '32px',
-            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06)',
-            width: isMobile ? '100%' : 'auto'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Budget:</span>
-              <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
-            </div>
-            <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
-              <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
-                {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
-              </span>
-            </div>
-          </div>
-
-          {/* Missing-address filter: shows the count and, on click, lists ONLY the
-              projects without lat/long in place — no modal. */}
-          <button
-            type="button"
-            onClick={() => setShowMissingAddress((v) => !v)}
-            title={showMissingAddress
-              ? 'Showing projects with no address (latitude/longitude). Click to show all.'
-              : 'Show only projects missing address (latitude/longitude)'}
-            style={{
-              position: 'relative',
-              overflow: 'hidden',
+            {/* KPI Summary — glassmorphic pill */}
+            <div style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              // Constant border width + padding + height across states so the
-              // button never resizes or shifts when toggled.
-              gap: '7px',
-              border: `1px solid ${showMissingAddress ? 'rgba(255,255,255,0.35)' : 'rgba(226,232,240,0.9)'}`,
+              gap: '10px',
+              border: '1px solid rgba(226,232,240,0.9)',
               borderRadius: '10px',
               padding: '0 14px',
-              height: '32px',
-              cursor: 'pointer',
-              // Glassmorphic base — the red is a separate overlay layer below.
               background: 'rgba(255,255,255,0.55)',
               backdropFilter: 'blur(10px)',
               WebkitBackdropFilter: 'blur(10px)',
-              boxShadow: showMissingAddress
-                ? '0 6px 18px rgba(30, 58, 138, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)'
-                : '0 2px 10px rgba(0, 0, 0, 0.06)',
-              fontFamily: 'Inter, sans-serif',
-              width: isMobile ? '100%' : 'auto',
-              transition: 'box-shadow 0.25s ease, border-color 0.25s ease',
-            }}
-          >
-            {/* Premium red gradient layer — fades in/out via opacity (a linear-gradient
-                background can't be transitioned directly, so we animate opacity). */}
-            <span
-              aria-hidden
-              style={{
-                position: 'absolute',
-                inset: 0,
-                borderRadius: 'inherit',
-                background: 'linear-gradient(135deg, rgba(198,71,75,0.92) 0%, rgba(30, 58, 138,0.94) 55%, rgba(126,37,41,0.96) 100%)',
-                opacity: showMissingAddress ? 1 : 0,
-                transition: 'opacity 0.3s ease',
-                zIndex: 0,
-              }}
-            />
-            <WrongLocationRoundedIcon
-              style={{ position: 'relative', zIndex: 1, fontSize: 16, color: showMissingAddress ? '#fff' : '#1E3A8A', transition: 'color 0.3s ease' }}
-            />
-            <span style={{ position: 'relative', zIndex: 1, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: showMissingAddress ? 'rgba(255,255,255,0.95)' : '#64748B', transition: 'color 0.3s ease' }}>
-              Missing Address
-            </span>
-            <span
-              style={{
-                position: 'relative',
-                zIndex: 1,
-                fontSize: '12px',
-                fontWeight: 800,
-                lineHeight: 1,
-                color: showMissingAddress ? '#1E3A8A' : '#fff',
-                background: showMissingAddress ? '#fff' : '#1E3A8A',
-                borderRadius: '999px',
-                minWidth: '20px',
-                height: '20px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0 6px',
-                transition: 'color 0.3s ease, background 0.3s ease',
-              }}
+              height: '32px',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06)',
+              width: isMobile ? '100%' : 'auto'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Budget:</span>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
+              </div>
+              <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
+                  {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
+                </span>
+              </div>
+            </div>
+
+            {/* Missing-address filter: shows the count and, on click, lists ONLY the
+              projects without lat/long in place — no modal. */}
+            <button
+              type="button"
+              onClick={() => setShowMissingAddress((v) => !v)}
+              title={showMissingAddress
+                ? 'Showing projects with no address (latitude/longitude). Click to show all.'
+                : 'Show only projects missing address (latitude/longitude)'}
+              className={`missing-address-btn${showMissingAddress ? ' is-selected' : ''}`}
+              style={{ width: isMobile ? '100%' : 'auto' }}
             >
-              {missingAddressCount}
-            </span>
-          </button>
+              <span aria-hidden className="missing-address-btn__gradient" />
+              <WrongLocationRoundedIcon className="missing-address-btn__icon" style={{ fontSize: 16 }} />
+              <span className="missing-address-btn__label">Missing Address</span>
+              <span className="missing-address-btn__count">{missingAddressCount}</span>
+            </button>
           </div>
         </div>
       </Box>

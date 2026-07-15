@@ -29,6 +29,61 @@ interface TablePreferences {
     exportType: string | null;
 }
 
+// Reconcile saved preferences against the CURRENT code-defined column set.
+// Returns null when the column set is unchanged, otherwise the next preferences:
+//  - brand-new columns get their meta.defaultVisible default
+//  - stale (removed-column) visibility keys are dropped
+//  - meta.defaultVisible is re-applied to existing columns (new meta rules win)
+//  - sorting entries on removed columns are dropped (fall back to defaultSorting)
+function reconcilePrefsWithColumns(
+    columns: any[],
+    prevPrefs: TablePreferences,
+    defaultSorting?: Array<{ id: string; desc: boolean }>,
+): TablePreferences | null {
+    const codeKeys: string[] = columns.map(col => col.accessorKey).filter(Boolean);
+    const codeKeySet = new Set(codeKeys);
+    const prevVis = prevPrefs.columnVisibility || {};
+    const knownKeys = Object.keys(prevVis);
+
+    const hasNewColumn = codeKeys.some(k => !(k in prevVis));
+    const hasStaleColumn = knownKeys.some(k => !codeKeySet.has(k));
+
+    // Same set of columns (only reordered / same identity) → keep the user's
+    // persisted visibility, order, sizing, etc. untouched.
+    if (!hasNewColumn && !hasStaleColumn) return null;
+
+    const nextVisibility: Record<string, boolean> = {};
+    columns.forEach((col: any) => {
+        const k = col.accessorKey;
+        if (!k) return;
+        const hasMeta = col.meta?.defaultVisible !== undefined;
+        const isNewColumn = !(k in prevVis);
+        // If column has explicit meta.defaultVisible and is NOT brand-new,
+        // apply the new meta rule (override any saved preference).
+        if (hasMeta && !isNewColumn) {
+            nextVisibility[k] = col.meta?.defaultVisible !== false;
+        } else {
+            nextVisibility[k] = k in prevVis
+                ? prevVis[k]
+                : col.meta?.defaultVisible !== false;
+        }
+    });
+
+    // A saved sort on a removed column would silently no-op in the table;
+    // drop stale entries and fall back to defaultSorting.
+    const prevSorting = prevPrefs.sorting || [];
+    const sanitizedSorting = prevSorting.filter(s => codeKeySet.has(s.id));
+    const nextSorting = sanitizedSorting.length > 0
+        ? sanitizedSorting
+        : (defaultSorting ?? []);
+
+    return {
+        ...prevPrefs,
+        columnVisibility: nextVisibility,
+        sorting: nextSorting,
+    };
+}
+
 function useTablePreferences(tableName: string, columns: any[], employeeId?: string, defaultSorting?: Array<{ id: string; desc: boolean }>) {
     // Use refs to prevent recreating functions and causing loops
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -147,8 +202,27 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
                 }
                 
                 if (!isCancelled && isMountedRef.current) {
-                    const finalPreferences = loadedPreferences || defaultPreferences;
-                    
+                    let finalPreferences = loadedPreferences || defaultPreferences;
+
+                    // Reconcile against the CURRENT column set BEFORE flipping
+                    // isInitialized, and persist the result. Saved prefs can hold
+                    // stale keys from since-removed columns; if we only reconciled
+                    // in the post-init effect (and never saved), every mount would
+                    // emit two different visible-column sets (pre/post reconcile).
+                    // Pages that refetch on onVisibleColumnsChange and swap the
+                    // table for a loader then remount → reload stale prefs → emit
+                    // again — an endless ~1s refresh loop.
+                    const reconciled = reconcilePrefsWithColumns(columns, finalPreferences, defaultSorting);
+                    if (reconciled) {
+                        finalPreferences = reconciled;
+                        if (employeeId && loadedPreferences) {
+                            // Immediate, not debounced — a debounced save is
+                            // cleared on unmount, leaving the DB stale forever.
+                            upsertUserTablePreferences(employeeId, tableName, reconciled)
+                                .catch((error) => console.error('Error persisting reconciled table preferences:', error));
+                        }
+                    }
+
                     // Set all state in one batch to prevent multiple renders
                     setPreferences(finalPreferences);
                     setIsLoading(false);
@@ -185,53 +259,13 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
     useEffect(() => {
         if (isInitialized && columns.length > 0) {
             setPreferences(prevPrefs => {
-                const codeKeys: string[] = columns.map(col => col.accessorKey).filter(Boolean);
-                const codeKeySet = new Set(codeKeys);
-                const knownKeys = Object.keys(prevPrefs.columnVisibility || {});
-
-                const hasNewColumn = codeKeys.some(k => !(k in (prevPrefs.columnVisibility || {})));
-                const hasStaleColumn = knownKeys.some(k => !codeKeySet.has(k));
-
-                // Same set of columns (only reordered / same identity) → keep the
-                // user's persisted visibility, order, sizing, etc. untouched.
-                if (!hasNewColumn && !hasStaleColumn) {
-                    return prevPrefs;
-                }
-
-                // Columns were genuinely added/removed: preserve every existing
-                // choice, add defaults only for brand-new columns, drop stale ones.
-                // ALSO: respect new meta.defaultVisible settings to apply new defaults
-                // when a column's visibility rule changes (e.g., meta.defaultVisible added).
-                const nextVisibility: Record<string, boolean> = {};
-                columns.forEach((col: any) => {
-                    const k = col.accessorKey;
-                    if (!k) return;
-                    const hasMeta = col.meta?.defaultVisible !== undefined;
-                    const isNewColumn = !(k in (prevPrefs.columnVisibility || {}));
-                    // If column has explicit meta.defaultVisible and is NOT brand-new,
-                    // apply the new meta rule (override any saved preference).
-                    if (hasMeta && !isNewColumn) {
-                        nextVisibility[k] = col.meta?.defaultVisible !== false;
-                    } else {
-                        nextVisibility[k] = k in (prevPrefs.columnVisibility || {})
-                            ? prevPrefs.columnVisibility[k]
-                            : col.meta?.defaultVisible !== false;
-                    }
-                });
-
-                // A saved sort on a removed column would silently no-op in the
-                // table; drop stale entries and fall back to defaultSorting.
-                const prevSorting = prevPrefs.sorting || [];
-                const sanitizedSorting = prevSorting.filter(s => codeKeySet.has(s.id));
-                const nextSorting = sanitizedSorting.length > 0
-                    ? sanitizedSorting
-                    : (defaultSorting ?? []);
-
-                return {
-                    ...prevPrefs,
-                    columnVisibility: nextVisibility,
-                    sorting: nextSorting,
-                };
+                const next = reconcilePrefsWithColumns(columns, prevPrefs, defaultSorting);
+                if (!next) return prevPrefs;
+                // Persist the reconciled prefs — otherwise the stale keys stay in
+                // the DB and the reconcile (plus its visible-column re-emission)
+                // repeats on every mount.
+                debouncedSave(next);
+                return next;
             });
         }
     }, [columns, isInitialized]); // Don't include defaultPreferences
