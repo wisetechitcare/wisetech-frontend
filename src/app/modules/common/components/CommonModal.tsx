@@ -1,5 +1,5 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
-﻿import { fetchCompanyOverview } from '@services/company';
+import { fetchCompanyOverview } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { Form, Formik } from 'formik';
 import React, { useEffect, useState } from 'react'

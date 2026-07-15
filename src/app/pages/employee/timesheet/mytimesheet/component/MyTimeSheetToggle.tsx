@@ -1,5 +1,6 @@
 import { toAbsoluteUrl } from "@metronic/helpers";
-import { ToggleButton, ToggleButtonGroup } from "@mui/material";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import dayjs, { Dayjs } from "dayjs";
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -193,26 +194,6 @@ const MyTimeSheetToggle = ({
         }
     }, [alignment]);
 
-    // Navigation button component
-    const NavigationButtons = useMemo(() => ({
-        onPrev,
-        onNext,
-        displayText,
-    }: {
-        onPrev: () => void;
-        onNext: () => void;
-        displayText: string;
-    }) => (
-        <div className="d-flex align-items-center">
-            <button className="btn btn-sm p-0" onClick={onPrev} type="button">
-                <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-            </button>
-            <span className="mx-2 mt-0 fw-bold lh-base font-barlow">{displayText}</span>
-            <button className="btn btn-sm p-0" onClick={onNext} type="button">
-                <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-            </button>
-        </div>
-    ), []);
 
     // Display text calculations
     const displayText = useMemo(() => {
@@ -270,88 +251,49 @@ const MyTimeSheetToggle = ({
                                 showCustom={false}
                             />
                         ) : (
-                            <ToggleButtonGroup
+                            <PeriodTabs
                                 value={alignment}
-                                exclusive
-                                onChange={handleAlignmentChange}
-                                aria-label="view selection"
-                                sx={{
-                                    display: "flex",
-                                    flexWrap: "wrap",
-                                    gap: "8px",
-                                    justifyContent: "center",
-                                    width: "100%",
-                                    "& .MuiToggleButton-root": {
-                                        borderRadius: "20px",
-                                        borderColor: "#A0B4D2 !important",
-                                        color: "#000000 !important",
-                                        paddingX: {
-                                            xs: "32px",
-                                            md: "45px",
-                                        },
-                                        borderWidth: "2px",
-                                        fontWeight: "600",
-                                        width: {
-                                            xs: "65px",
-                                            sm: "75px",
-                                        },
-                                        fontSize: {
-                                            xs: "10px",
-                                            sm: "12px",
-                                        },
-                                        height: { xs: "30px", sm: "36px" },
-                                        fontFamily: "Inter",
-                                        backgroundColor: "transparent !important",
-                                        "&:hover": {
-                                            backgroundColor: "transparent !important",
-                                            borderColor: "#1E3A8A !important",
-                                            color: "#1E3A8A !important",
-                                        },
-                                    },
-                                    "& .Mui-selected": {
-                                        borderColor: "#1E3A8A !important",
-                                        color: "#1E3A8A !important",
-                                        backgroundColor: "transparent !important",
-                                    },
-                                }}
-                            >
-                                <ToggleButton value="daily">Daily</ToggleButton>
-                                <ToggleButton value="weekly">Weekly</ToggleButton>
-                                <ToggleButton value="monthly">Monthly</ToggleButton>
-                                <ToggleButton value="yearly">Yearly</ToggleButton>
-                            </ToggleButtonGroup>
+                                options={[
+                                    { label: 'Daily', value: 'daily' },
+                                    { label: 'Weekly', value: 'weekly' },
+                                    { label: 'Monthly', value: 'monthly' },
+                                    { label: 'Yearly', value: 'yearly' },
+                                ]}
+                                onChange={(v) => handleAlignmentChange(null as any, v)}
+                                ariaLabel="view selection"
+                            />
                         )}
                     </div>
                     <div>
                         {alignment === "daily" && (
-                            <NavigationButtons
-                                onPrev={() => navigateDaily("prev")}
+                            <PeriodNavigator
+                                onPrevious={() => navigateDaily("prev")}
                                 onNext={() => navigateDaily("next")}
-                                displayText={displayText}
+                                label={displayText}
                             />
                         )}
 
                         {alignment === "weekly" && (
-                            <NavigationButtons
-                                onPrev={() => navigateWeekly("prev")}
+                            <PeriodNavigator
+                                onPrevious={() => navigateWeekly("prev")}
                                 onNext={() => navigateWeekly("next")}
-                                displayText={displayText}
+                                label={displayText}
                             />
                         )}
 
                         {alignment === "monthly" && (
-                            <NavigationButtons
-                                onPrev={() => navigateMonthly("prev")}
+                            <PeriodNavigator
+                                onPrevious={() => navigateMonthly("prev")}
                                 onNext={() => navigateMonthly("next")}
-                                displayText={displayText}
+                                label={displayText}
                             />
                         )}
 
                         {alignment === "yearly" && (
-                            <NavigationButtons
-                                onPrev={() => navigateYearly("prev")}
+                            <PeriodNavigator
+                                onPrevious={() => navigateYearly("prev")}
                                 onNext={() => navigateYearly("next")}
-                                displayText={displayText}
+                                label={displayText}
                             />
                         )}
                     </div>

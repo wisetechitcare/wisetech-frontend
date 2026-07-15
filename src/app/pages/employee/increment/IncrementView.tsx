@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Button, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import dayjs, { Dayjs } from 'dayjs';
@@ -7,7 +7,8 @@ import { useSelector } from 'react-redux';
 import { useSearchParams } from 'react-router-dom';
 import { RootState } from '@redux/store';
 import EmployeeDetailsCard from '@pages/employee/salary/personal/views/my-salary/EmployeeDetailsCard';
-import DateSelector from '@components/DateSelector';
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { T } from '@app/modules/common/components/ui/tokens';
 import AddEditIncrementDialog from '@app/modules/employee/salary/AddEditIncrementDialog';
@@ -101,56 +102,24 @@ function IncrementView({ fromAdmin = false }: { fromAdmin?: boolean }) {
                 </Box>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                    <ToggleButtonGroup
+                    <PeriodTabs
                         value={mode}
-                        exclusive
-                        onChange={handleModeChange}
-                        aria-label="view selection"
-                        sx={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            height: 32,
-                            p: '3px',
-                            borderRadius: `${T.radius.sm}px`,
-                            backgroundColor: T.color.panel,
-                            border: `1px solid ${T.color.line}`,
-                            '& .MuiToggleButtonGroup-grouped': {
-                                border: 0,
-                                borderRadius: '6px !important',
-                                minWidth: 0,
-                                minHeight: 26,
-                                px: 1.75,
-                                py: 0,
-                                color: T.color.inkSoft,
-                                fontSize: '0.78rem',
-                                fontWeight: 600,
-                                lineHeight: '26px',
-                                textTransform: 'none',
-                                whiteSpace: 'nowrap',
-                            },
-                            '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                                marginLeft: 0,
-                                borderLeft: 0,
-                            },
-                            '& .MuiToggleButton-root:hover': { backgroundColor: T.color.panelAlt },
-                            '& .Mui-selected': {
-                                backgroundColor: `${T.color.surface} !important`,
-                                color: `${T.color.accent} !important`,
-                                fontWeight: 700,
-                                boxShadow: T.shadow.xs,
-                            },
-                        }}
-                    >
-                        <ToggleButton value="yearly">Yearly</ToggleButton>
-                        <ToggleButton value="alltime">All Time</ToggleButton>
-                    </ToggleButtonGroup>
+                        options={[
+                            { label: 'Yearly', value: 'yearly' },
+                            { label: 'All Time', value: 'alltime' },
+                        ]}
+                        onChange={(v) => handleModeChange(null as any, v)}
+                        ariaLabel="view selection"
+                    />
 
                     {mode === 'yearly' && (
-                        <DateSelector
+                        <PeriodNavigator
                             onPrevious={() => setYear(year.subtract(1, 'year'))}
-                            onNext={() => setYear(year.add(1, 'year'))}
-                            displayValue={formatFiscalYearLabel(`${yearStr}-${year.add(1, 'year').format('YYYY')}`)}
-                            disableNext={isNextYearDisabled}
+                            onNext={() => {
+                                if (isNextYearDisabled) return;
+                                setYear(year.add(1, 'year'))
+                            }}
+                            label={formatFiscalYearLabel(`${yearStr}-${year.add(1, 'year').format('YYYY')}`)}
                         />
                     )}
 

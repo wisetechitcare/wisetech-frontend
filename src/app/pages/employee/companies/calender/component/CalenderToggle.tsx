@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { toAbsoluteUrl } from "@metronic/helpers";
+import { toAbsoluteUrl } from '@metronic/helpers';
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import dayjs, { Dayjs } from 'dayjs';
 import { getUpcomingContactsBirthdays } from '@services/companies';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
@@ -233,57 +235,29 @@ const CalenderToggle = () => {
     }, [monthStart]);
 
 
-    // Navigation buttons component
-    const NavigationButtons = useMemo(() => ({
-        onPrev,
-        onNext,
-        displayText,
-    }: {
-        onPrev: () => void;
-        onNext: () => void;
-        displayText: string;
-    }) => (
-        <div className="d-flex align-items-center">
-            <button className="btn btn-sm p-0" onClick={onPrev} type="button">
-                <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-            </button>
-            <span className="mx-2 mt-0 fw-bold lh-base font-barlow">{displayText}</span>
-            <button className="btn btn-sm p-0" onClick={onNext} type="button">
-                <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-            </button>
-        </div>
-    ), []);
 
     
     return (
         <div>
             <div className="d-flex flex-row justify-content-between align-items-center mb-4">
                 <div className="d-flex flex-row justify-content-start align-items-center gap-3">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`px-6 py-2 fw-semibold rounded-pill`}
-                            style={{
-                                border: activeTab === tab.id ? "2px solid #1E3A8A" : "2px solid #A0B4D2",
-                                color: activeTab === tab.id ? "#1E3A8A" : "#000000",
-                                backgroundColor: "transparent",
-                                transition: "all 0.3s ease-in-out",
-                                fontFamily: "'Inter', sans-serif",
-                                fontWeight: 400,
-                                fontSize: "14px",
-                            }}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
+                    <PeriodTabs
+                        value={activeTab}
+                        options={[
+                            { label: 'All', value: 'all' },
+                            { label: 'Birthdays', value: 'birthdays' },
+                            { label: 'Anniversaries', value: 'anniversaries' },
+                        ]}
+                        onChange={(v) => setActiveTab(v as string)}
+                        ariaLabel="calendar filter"
+                    />
                 </div>
                 
                 <div className="d-flex flex-row align-items-center gap-4">
-                    <NavigationButtons
-                        onPrev={() => navigateMonth("prev")}
+                    <PeriodNavigator
+                        onPrevious={() => navigateMonth("prev")}
                         onNext={() => navigateMonth("next")}
-                        displayText={monthStart.format("MMM YYYY")}
+                        label={monthStart.format("MMM YYYY")}
                     />
                 </div>
             </div>

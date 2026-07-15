@@ -1,14 +1,18 @@
 import { toAbsoluteUrl } from "@metronic/helpers";
-import { Container, ToggleButton, ToggleButtonGroup } from "@mui/material";
+import { Container } from "@mui/material";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { fetchColorAndStoreInSlice, generateFiscalYearFromGivenYear } from "@utils/file";
 import dayjs, { Dayjs } from "dayjs";
 import React, { useEffect, useState, useCallback, useMemo, Suspense, lazy } from "react";
+import Select, { SelectChangeEvent } from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
 import { useDispatch } from "react-redux";
 import { resourseAndView } from "@models/company";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/components/TimePeriodDropdown";
@@ -258,25 +262,6 @@ const [weekEnd, setWeekEnd] = useState(() => {
     toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
   }, [yearStart, today, dateSettingsEnabled, toggleItemsActions, isCurrentFiscalYear]);
 
-  const NavigationButtons = useMemo(() => React.memo(({
-    onPrev,
-    onNext,
-    displayText,
-  }: {
-    onPrev: () => void;
-    onNext: () => void;
-    displayText: string;
-  }) => (
-    <div>
-      <button className="btn btn-sm p-0" onClick={onPrev}>
-        <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-      </button>
-      <span className="mx-2 my-5">{displayText}</span>
-      <button className="btn btn-sm p-0" onClick={onNext}>
-        <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-      </button>
-    </div>
-  )), []);
 
   return (
     <>
@@ -291,93 +276,52 @@ const [weekEnd, setWeekEnd] = useState(() => {
               fullWidth
             />
           ) : (
-            <ToggleButtonGroup
+            <PeriodTabs
               value={alignment}
-              exclusive
-              onChange={handleChange}
-              aria-label="view selection"
-              sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '8px',
-                justifyContent: 'center',
-                width: '100%',
-                '& .MuiToggleButton-root': {
-                  borderRadius: '20px',
-                  borderColor: '#A0B4D2 !important',
-                  color: '#000000 !important',
-                  // paddingY: {xs:'1px',sm:'5px'},
-                  paddingX: {
-                    xs: "32px",
-                    md: "45px"
-                  },
-                  borderWidth: '2px',
-                  fontWeight: '600',
-                  width: {
-                    xs: '65px',
-                    sm: '75px'
-                  },
-                  fontSize: {
-                    xs: '10px',
-                    sm: '12px'
-                  },
-                  height: { xs: "30px", sm: '36px' },
-                  fontFamily: 'Inter',
-                },
-                '& .Mui-selected': {
-                  borderColor: '#1E3A8A !important',
-                  color: '#1E3A8A !important',
-                },
-                '& .MuiToggleButton-root:hover': {
-                  borderColor: '#1E3A8A !important',
-                  color: '#1E3A8A !important',
-                },
-              }}
-            >
-              <ToggleButton value="daily">Daily</ToggleButton>
-              <ToggleButton value="weekly">Weekly</ToggleButton>
-              <ToggleButton value="monthly">Monthly</ToggleButton>
-              <ToggleButton value="yearly">Yearly</ToggleButton>
-              <ToggleButton value="custom">Custom</ToggleButton>
-            </ToggleButtonGroup>
+              options={[
+                { label: 'Daily', value: 'daily' },
+                { label: 'Weekly', value: 'weekly' },
+                { label: 'Monthly', value: 'monthly' },
+                { label: 'Yearly', value: 'yearly' },
+                { label: 'Custom', value: 'custom' },
+              ]}
+              onChange={(v) => handleChange(null as any, v)}
+              ariaLabel="view selection"
+            />
           )}
 
 
         </div>
 
         {alignment === "daily" && (
-          <NavigationButtons
-            onPrev={() => navigateDay("prev")}
+          <PeriodNavigator
+            onPrevious={() => navigateDay("prev")}
             onNext={() => navigateDay("next")}
-            displayText={day.format("DD MMM, YYYY")}
+            label={day.format("DD MMM, YYYY")}
           />
         )}
 
         {alignment === "weekly" && (
-          <NavigationButtons
-            onPrev={() => navigateWeek("prev")}
+          <PeriodNavigator
+            onPrevious={() => navigateWeek("prev")}
             onNext={() => navigateWeek("next")}
-            displayText={`${weekStart.format(
-              "DD MMM "
-            )} - ${weekEnd.format("DD MMM")}`}
+            label={`${weekStart.format("DD MMM ")} - ${weekEnd.format("DD MMM")}`}
           />
         )}
 
         {alignment === "monthly" && (
-          <NavigationButtons
-            onPrev={() => navigateMonth("prev")}
+          <PeriodNavigator
+            onPrevious={() => navigateMonth("prev")}
             onNext={() => navigateMonth("next")}
-            displayText={`${monthStart.format(
-              "DD MMM"
-            )} - ${monthEnd.format("DD MMM")}`}
+            label={`${monthStart.format("DD MMM")} - ${monthEnd.format("DD MMM")}`}
           />
         )}
 
         {alignment === "yearly" && yearStart && yearEnd && (
-          <NavigationButtons
-            onPrev={() => navigateYear("prev")}
+          <PeriodNavigator
+            onPrevious={() => navigateYear("prev")}
             onNext={() => navigateYear("next")}
-            displayText={fiscalYearDisplay}
+            label={fiscalYearDisplay}
           />
         )}
 
