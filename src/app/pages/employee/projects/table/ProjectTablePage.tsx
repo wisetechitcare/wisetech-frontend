@@ -403,15 +403,13 @@ const ProjectTablePage = () => {
     dispatch(fetchAllEmployeesAsync());
   }, [dispatch]);
 
-  useEffect(() => {
-    const unsubscribe1 = useEventBus(EVENT_KEYS.projectCreated, () => fetchAllData());
-    const unsubscribe2 = useEventBus(EVENT_KEYS.projectUpdated, () => fetchAllData());
-
-    return () => {
-      unsubscribe1?.();
-      unsubscribe2?.();
-    };
-  }, [fetchAllData]);
+  // Refresh the table when a project is created/updated elsewhere. useEventBus is a
+  // hook that self-manages subscribe/cleanup via a ref-backed stable handler, so it
+  // must be called at the top level (not inside a useEffect) and registers the
+  // listener exactly once for the component's lifetime — always invoking the latest
+  // fetchAllData, so no duplicate listeners, missed events, or stale-closure refresh.
+  useEventBus(EVENT_KEYS.projectCreated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.projectUpdated, () => fetchAllData());
 
   const columns = useMemo(() => {
     const base: any[] = [
