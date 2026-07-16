@@ -19,7 +19,7 @@ import { IEmployeesAttendance } from "@models/employee";
 import { saveEmployeesAttendance } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
 import { fetchAllEmployeesAttendance, fetchEmployeeLeaves, fetchEmployeesOnLeaveToday } from "@services/employee";
-import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, convertTo12HourFormat } from "@utils/date";
+import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, convertTo12HourFormat, MUMBAI_TZ } from "@utils/date";
 import dayjs, { Dayjs } from "dayjs";
 import { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -38,9 +38,6 @@ import { saveFilteredLeaves, saveLeaves, savePublicHolidays } from "@redux/slice
 import { setFeatureConfiguration } from "@redux/slices/featureConfiguration";
 import { fetchColorAndStoreInSlice } from "@utils/file";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
-// TODO: Pull timezone and date format settings from db
-
-const MUMBAI_TZ = 'Asia/Kolkata';
 
 interface IEmployeesAttendanceResponse {
     id: string;
@@ -60,6 +57,11 @@ interface IEmployeesAttendanceResponse {
         employeeCode: string;
         userId: string;
         name: string;
+        // The employee's own branch timezone — business day/weekday classification
+        // for this row must use THIS, not a hardcoded constant, so admins viewing
+        // from a different timezone (or a company with branches across timezones)
+        // see the correct calendar day/status.
+        branches?: { timezone: string | null } | null;
     }
     checkoutWorkingMethod?: ModelWorkingMethod;
 }
@@ -117,23 +119,25 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
 
     return attendance.map((empAttendance: IEmployeesAttendanceResponse) => {
         const { checkIn, checkOut, workingMethod, employeeId } = empAttendance;
-        // Business weekday/date must be derived in the business timezone (MUMBAI_TZ),
-        // not the browser's local zone — a check-in in the 00:00-05:29 IST window is
-        // a different UTC calendar day, so an admin viewing from outside IST previously
-        // saw the wrong weekday (wrong weekend/holiday classification) and wrong date.
-        const checkInBusinessTz = checkIn ? convertToTimeZone(checkIn, MUMBAI_TZ) : null;
-        const weekDay = checkInBusinessTz ? checkInBusinessTz.format('dddd') : getWeekDay(checkIn);
+        // Business weekday/date must be derived in THIS employee's own branch
+        // timezone, not a hardcoded constant or the browser's local zone — a
+        // check-in near local midnight is a different UTC calendar day, so an
+        // admin viewing from another timezone (or a company with branches across
+        // timezones) previously saw the wrong weekday/status and wrong date.
+        const employeeTimezone = empAttendance.employee?.branches?.timezone || MUMBAI_TZ;
+        const checkInBusinessTz = checkIn ? convertToTimeZone(checkIn, employeeTimezone) : null;
+        const weekDay = checkInBusinessTz ? checkInBusinessTz.format('dddd') : getWeekDay(checkIn, employeeTimezone);
 
         // Check if the day is a weekend based on the weekDay
         const isWeekend = weekends && typeof weekends === 'object' && weekends[weekDay.toLowerCase()] === "0";
 
         // Format times for display (respects 12/24 hour setting)
-        const formattedCheckIn = checkIn ? formatTime(convertToTimeZone(checkIn, MUMBAI_TZ)) : '-NA-';
-        const formattedCheckOut = checkOut ? formatTime(convertToTimeZone(checkOut, MUMBAI_TZ)) : '-NA-';
+        const formattedCheckIn = checkIn ? formatTime(convertToTimeZone(checkIn, employeeTimezone)) : '-NA-';
+        const formattedCheckOut = checkOut ? formatTime(convertToTimeZone(checkOut, employeeTimezone)) : '-NA-';
 
         // Get 24-hour format times for duration calculation
-        const checkIn24Hour = checkIn ? formatTime24Hour(convertToTimeZone(checkIn, MUMBAI_TZ)) : '-NA-';
-        const checkOut24Hour = checkOut ? formatTime24Hour(convertToTimeZone(checkOut, MUMBAI_TZ)) : '-NA-';
+        const checkIn24Hour = checkIn ? formatTime24Hour(convertToTimeZone(checkIn, employeeTimezone)) : '-NA-';
+        const checkOut24Hour = checkOut ? formatTime24Hour(convertToTimeZone(checkOut, employeeTimezone)) : '-NA-';
 
         const formattedDate = checkInBusinessTz
             ? checkInBusinessTz.format('YYYY-MM-DD')

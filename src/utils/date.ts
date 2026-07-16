@@ -8,6 +8,15 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(duration);
 
+/**
+ * Default business timezone — the fallback used when a record's own branch
+ * timezone isn't available (e.g. legacy data with no branch relation loaded).
+ * NOT the source of truth for any specific record: always prefer that
+ * record's own `branches.timezone` (or the viewed employee's) when present.
+ * Consolidated here so the same constant isn't redeclared per-file.
+ */
+export const MUMBAI_TZ = 'Asia/Kolkata';
+
 export const dateFormatter = new Intl.DateTimeFormat('en-IN', {
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
@@ -183,8 +192,18 @@ export const isDateAfterOrSameAsEmployeeOnboardingDate = (date: string) => {
     return true;
 }
 
-export const getWeekDay = (transformedDate: string) => {
-    return dayjs(transformedDate).format('dddd');
+/**
+ * Weekday name for a date/instant. Pass `timezone` (a record's own branch
+ * timezone) whenever `transformedDate` is a raw UTC instant (e.g. a check-in
+ * timestamp) — without it, this resolves in the BROWSER's local timezone,
+ * which is wrong for a viewer outside that record's business timezone.
+ * Omit `timezone` only for values that are already timezone-neutral pure
+ * calendar dates (e.g. a 'YYYY-MM-DD' string).
+ */
+export const getWeekDay = (transformedDate: string, timezone?: string) => {
+    return timezone
+        ? dayjs(transformedDate).tz(timezone).format('dddd')
+        : dayjs(transformedDate).format('dddd');
 }
 export const formatNotificationDate = (dateString: string) => {
     const date = dayjs(dateString).tz("Asia/Kolkata");

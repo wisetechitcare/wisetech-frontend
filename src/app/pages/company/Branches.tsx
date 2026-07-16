@@ -81,7 +81,56 @@ const branchSchema = Yup.object({
   companyId: Yup.string(),
   isActive: Yup.boolean(),
   showDateIn12HourFormat: Yup.string().optional(),
+  timezone: Yup.string().optional().label('Timezone'),
 })
+
+// Curated set of major IANA timezones — one representative per business hub /
+// UTC offset, not the full ~400-zone IANA database (unnecessary for a branch
+// picker). Left blank on the form ⇒ the backend prefills a sensible default
+// from the branch's country on create (see countryTimezones.ts); explicitly
+// selecting here always wins.
+const TIMEZONE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'Pacific/Midway', label: '(UTC-11:00) Midway Island' },
+  { value: 'Pacific/Honolulu', label: '(UTC-10:00) Hawaii' },
+  { value: 'America/Anchorage', label: '(UTC-09:00) Alaska' },
+  { value: 'America/Los_Angeles', label: '(UTC-08:00) Pacific Time (US & Canada)' },
+  { value: 'America/Denver', label: '(UTC-07:00) Mountain Time (US & Canada)' },
+  { value: 'America/Chicago', label: '(UTC-06:00) Central Time (US & Canada)' },
+  { value: 'America/Mexico_City', label: '(UTC-06:00) Mexico City' },
+  { value: 'America/New_York', label: '(UTC-05:00) Eastern Time (US & Canada)' },
+  { value: 'America/Bogota', label: '(UTC-05:00) Bogota, Lima' },
+  { value: 'America/Caracas', label: '(UTC-04:00) Caracas' },
+  { value: 'America/Santiago', label: '(UTC-04:00) Santiago' },
+  { value: 'America/Sao_Paulo', label: '(UTC-03:00) Sao Paulo' },
+  { value: 'America/Argentina/Buenos_Aires', label: '(UTC-03:00) Buenos Aires' },
+  { value: 'Atlantic/Azores', label: '(UTC-01:00) Azores' },
+  { value: 'Etc/UTC', label: '(UTC+00:00) UTC' },
+  { value: 'Europe/London', label: '(UTC+00:00) London, Dublin' },
+  { value: 'Africa/Casablanca', label: '(UTC+00:00) Casablanca' },
+  { value: 'Europe/Paris', label: '(UTC+01:00) Paris, Berlin, Madrid' },
+  { value: 'Europe/Rome', label: '(UTC+01:00) Rome, Amsterdam' },
+  { value: 'Africa/Lagos', label: '(UTC+01:00) Lagos' },
+  { value: 'Europe/Athens', label: '(UTC+02:00) Athens, Cairo' },
+  { value: 'Africa/Johannesburg', label: '(UTC+02:00) Johannesburg' },
+  { value: 'Europe/Moscow', label: '(UTC+03:00) Moscow' },
+  { value: 'Asia/Riyadh', label: '(UTC+03:00) Riyadh' },
+  { value: 'Africa/Nairobi', label: '(UTC+03:00) Nairobi' },
+  { value: 'Asia/Dubai', label: '(UTC+04:00) Dubai' },
+  { value: 'Asia/Karachi', label: '(UTC+05:00) Karachi' },
+  { value: 'Asia/Kolkata', label: '(UTC+05:30) India (Mumbai, Delhi)' },
+  { value: 'Asia/Kathmandu', label: '(UTC+05:45) Kathmandu' },
+  { value: 'Asia/Dhaka', label: '(UTC+06:00) Dhaka' },
+  { value: 'Asia/Bangkok', label: '(UTC+07:00) Bangkok, Jakarta' },
+  { value: 'Asia/Shanghai', label: '(UTC+08:00) Beijing, Shanghai' },
+  { value: 'Asia/Singapore', label: '(UTC+08:00) Singapore' },
+  { value: 'Asia/Hong_Kong', label: '(UTC+08:00) Hong Kong' },
+  { value: 'Asia/Kuala_Lumpur', label: '(UTC+08:00) Kuala Lumpur' },
+  { value: 'Asia/Manila', label: '(UTC+08:00) Manila' },
+  { value: 'Asia/Tokyo', label: '(UTC+09:00) Tokyo' },
+  { value: 'Asia/Seoul', label: '(UTC+09:00) Seoul' },
+  { value: 'Australia/Sydney', label: '(UTC+10:00) Sydney, Melbourne' },
+  { value: 'Pacific/Auckland', label: '(UTC+12:00) Auckland' },
+]
 
 let initialState = {
   name: '',
@@ -98,6 +147,7 @@ let initialState = {
   companyId: '',
   isActive: false,
   showDateIn12HourFormat: '0',
+  timezone: '',
 }
 
 /** Titled card section for the branch form (MUI). Reused for each field group. */
@@ -289,6 +339,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       companyId: '',
       isActive: false,
       showDateIn12HourFormat: '0',
+      timezone: '',
     }
 
     setShow(true)
@@ -320,6 +371,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       isActive,
       companyId,
       town,
+      timezone,
     } = branch
 
     // Resolve display labels defensively — the geo lookups can fail/return null
@@ -349,6 +401,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       longitude,
       postalCode,
       showDateIn12HourFormat: branch.showDateIn12HourFormat ? '1' : '0',
+      timezone: timezone || '',
     }
 
     setShow(true)
@@ -926,6 +979,16 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                   </FormSection>
 
                   <FormSection title="Preferences" icon={<KTIcon iconName="setting-2" className="fs-5" />}>
+                    <div className='row'>
+                      <div className='col-lg-12 mb-7'>
+                        <DropDownInput
+                          isRequired={false}
+                          formikField='timezone'
+                          inputLabel='Timezone'
+                          options={TIMEZONE_OPTIONS}
+                        />
+                      </div>
+                    </div>
                     <RadioInput
                       isRequired={false}
                       inputLabel='Show Time In 12 Hour Format'
