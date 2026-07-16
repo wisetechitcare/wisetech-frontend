@@ -56,6 +56,12 @@ const resourceToRbacModule: Record<string, string | { team: string; self: string
   announcement: 'settings',
   attendanceconfig: 'settings',
   organisationprofile: 'settings',
+  // Dashboard widgets preview the employee's own data in a real module — route
+  // "others"-scoped checks (e.g. DashboardTasks.tsx's edit/delete icons) at
+  // that same module rather than a "dashboardX" resource no role/override
+  // ever grants.
+  dashboardtasks: 'tasks',
+  dashboardpendingrequests: 'approvals',
 };
 
 // Maps uiControlResourceNameMapWithCamelCase values to their full RBAC permission key.

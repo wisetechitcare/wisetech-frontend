@@ -12,6 +12,7 @@ import { useLocation } from "react-router-dom";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import SalaryEmployeeData from "./admin/SalaryEmployeeData";
+import { canDo } from "@utils/can";
 
 function Salary() {
   const location = useLocation();
@@ -24,18 +25,22 @@ function Salary() {
     }
   }, [location.state]);
 
+  // Employee Payrolls / Search Employee / Configure are write-only surfaces:
+  // a read-only viewer gets My Salary only, same convention as KPI/Tasks/Leads.
+  const canWrite = canDo("finance.salary", "update");
+
   const tabItems: TabItem[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOwn) ? [{
-      title: "My Salary", 
+      title: "My Salary",
       component: <MySalary />,
       icon: activeTab === 0 ? financeSalaryAllIcoon.salaryIcon.active : financeSalaryAllIcoon.salaryIcon.default,
     }]:[]),
-    ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers) ? [{
+    ...(canWrite ? [{
       title: "Employee Payrolls",
       component: <SalaryEmployeeData/>,
       icon:activeTab === 2 ? financeSalaryAllIcoon.empSalaey.active : financeSalaryAllIcoon.empSalaey.default,
     }]:[]),
-    ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers) ? [{
+    ...(canWrite ? [{
       title: "Search Employee",
       component: <SearchEmployee />,
       icon:activeTab === 1 ? financeSalaryAllIcoon.serchEmployeeIcon.active : financeSalaryAllIcoon.serchEmployeeIcon.default,
@@ -45,7 +50,7 @@ function Salary() {
     //   component: <AllEmployeeData/>,
     //   icon:activeTab === 2 ? financeSalaryAllIcoon.empSalaey.active : financeSalaryAllIcoon.empSalaey.default,
     // }]:[]),
-    ...((hasPermission(resourceNameMapWithCamelCase.salaryConfig, permissionConstToUseWithHasPermission.readOthers)) ? [{
+    ...(canWrite ? [{
       title: "Configure",
       component: <SalaryConfiguration />,
       icon:activeTab === 3 ? leadsIcons.leadsConfigIcon.active

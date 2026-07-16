@@ -7,6 +7,7 @@ import EmployeeConfigure from './components/EmployeeConfigure';
 import { useDispatch } from 'react-redux';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch } from '@redux/store';
+import { canDo } from '@utils/can';
 
 const employeesBreadCrumb: Array<PageLink> = [
     {
@@ -26,7 +27,11 @@ const employeesBreadCrumb: Array<PageLink> = [
 function EmployeeList() {
     const [activeTab, setActiveTab] = useState(0);
 
-     const dispatch = useDispatch<AppDispatch>();  
+    // Configure is a write-only surface: hidden for read-only viewers, so the
+    // whole tab (not each button inside it) is the access control.
+    const canConfigure = canDo("users", "update");
+
+     const dispatch = useDispatch<AppDispatch>();
       useEffect(() => {
         dispatch(loadAllEmployeesIfNeeded());
       }, [dispatch]);
@@ -40,20 +45,23 @@ function EmployeeList() {
                     ? companyLogoIcons.employeeConfigIcon.active
                     : companyLogoIcons.employeeConfigIcon.default,
         },
-        {
-            title: "Configure",
-            component: <EmployeeConfigure />,
-            icon:
-                activeTab === 1
-                    ? leadsIcons.leadsConfigIcon.active
-                    : leadsIcons.leadsConfigIcon.default,
-        }
+        ...(canConfigure
+            ? [{
+                title: "Configure",
+                component: <EmployeeConfigure />,
+                icon:
+                    activeTab === 1
+                        ? leadsIcons.leadsConfigIcon.active
+                        : leadsIcons.leadsConfigIcon.default,
+            }]
+            : []),
     ];
+    const safeActiveTab = Math.min(activeTab, tabItems.length - 1);
 
     return (
         <>
             <PageTitle breadcrumbs={employeesBreadCrumb}>Employees Management</PageTitle>
-            <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} />
+            <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} activeTab={safeActiveTab} />
         </>
     )
 }

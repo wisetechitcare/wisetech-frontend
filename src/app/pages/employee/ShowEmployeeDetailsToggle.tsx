@@ -248,7 +248,7 @@ const ShowEmployeeDetailsToggle = () => {
         )}
         {activeTab === "access" && canManageAccess && (
           <div className="tab-pane fade show active">
-            <EmployeeAccessTab employeeId={employeeId!} />
+            <EmployeeAccessTab key={employeeId} employeeId={employeeId!} />
           </div>
         )}
         {activeTab === "configure" && (

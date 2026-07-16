@@ -1,1027 +1,47 @@
-import { permissionConstToUseWithHasPermission, ResourceMapWithName, resourceNameMapWithCamelCase, uiControlResourceNameMapWithCamelCase } from '@constants/statistics';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import { KTIcon } from '@metronic/helpers';
-import { createRole, fetchRoles, getRoleById, createPermissionForRoleById, updatePermissionForRoleById, updateRoleById, deleteRoleById, deletePermissionForRoleById, addEmployeeToRole, removeEmployeeFromRole } from '@services/roles';
+import { createRole, fetchRoles, updateRoleById, deleteRoleById, addEmployeeToRole, removeEmployeeFromRole } from '@services/roles';
 import { fetchAllEmployees } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
-import { errorConfirmation, successConfirmation } from '@utils/modal';
-import { useFormik } from 'formik';
+import { errorConfirmation, successConfirmation, genericConfirmation } from '@utils/modal';
 import { useEffect, useState } from 'react'
-import { Button, Modal, Spinner, Accordion } from 'react-bootstrap';
+import { Modal } from 'react-bootstrap';
 import RoleAccessEditor from './RoleAccessEditor';
 
-const PermissionConts = {
-  readOthers: "View (Others)",
-  readOwn: "View (Own)",
-  create: "Create",
-  editOthers: "Edit (Others)",
-  editOwn: "Edit (Own)",
-  deleteOthers: "Delete (Others)",
-  deleteOwn: "Delete (Own)"
-}
-
-interface RoleData {
-  id: string;
-  name: string;
-  isActive: boolean;
-  isSystem?: boolean;
-  createdAt: string;
-  permissions: {
-    id: string;
-    roleId: string;
-    resource: string;
-    action: string;
-    allow: boolean;
-    condition?: string | null;
-    isActive: boolean;
-    createdAt: string;
-  }[];
-}
-
-interface PermissionsListProps {
-  rolesData: RoleData;
-  setRefetch?: (show: boolean) => void;
-}
-
-function PermissionsList({ rolesData, setRefetch }: PermissionsListProps) {
-  const [loading, setLoading] = useState(false);
-
-  const role = rolesData;
-  // Live copy of the role's permissions so the form reflects saves without a
-  // full page reload (and so create/update detection stays accurate).
-  const [permissions, setPermissions] = useState<RoleData['permissions']>(rolesData.permissions || []);
-
-  // Sort resources alphabetically by displayName
-  const sortResourcesAlphabetically = <T extends { displayName: string }>(resources: T[]): T[] => {
-    return [...resources].sort((a, b) => a.displayName.localeCompare(b.displayName));
-  };
-
-  // Group resources by category
-  const groupResourcesByCategory = <T extends { displayName: string }>(resources: T[]): Record<string, T[]> => {
-    const groups: Record<string, T[]> = {};
-
-    resources.forEach(resource => {
-      let groupName: string;
-
-      // Handle Dashboard items
-      if (resource.displayName.startsWith('Dashboard - ')) {
-        groupName = 'Dashboard';
-      }
-      // Handle items with common prefixes (e.g., "Attendance Config", "Attendance Request")
-      else {
-        const words = resource.displayName.split(' ');
-        // Use the first word as the group name
-        groupName = words[0];
-      }
-
-      if (!groups[groupName]) {
-        groups[groupName] = [];
-      }
-      groups[groupName].push(resource);
-    });
-
-    return groups;
-  };
-
-  // Manually define configuration for each resource.
-  // For each resource we set:
-  // - resourceKey: the key used to store permissions and to compare with existing permissions.
-  // - displayName: the label for the resource.
-  // - actions: an array of actions for that resource. For each action we specify:
-  //      • action: the permission string.
-  //      • label: the human-friendly header/label.
-  //      • disabled: whether this permission is  applicable for the resource.
-  // Sample Data
-  // { action: 'readOthers', label: 'View (Others)', disabled: false },
-  // { action: 'readOwn', label: 'View (Own)', disabled: false },
-  // { action: 'create', label: 'Create', disabled: true },
-  // { action: 'updateOthers', label: 'Edit (Others)', disabled: true },
-  // { action: 'updateOwn', label: 'Edit (Own)', disabled: true },
-  // { action: 'deleteOthers', label: 'Delete (Others)', disabled: true },
-  // { action: 'deleteOwn', label: 'Delete (Own)', disabled: true },
-
-  const resourcesConfig = [
-    {
-      resourceKey: resourceNameMapWithCamelCase.attendanceConfig,
-      displayName: 'Attendance Config',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.attendanceRequest,
-      displayName: 'Attendance Request',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: false },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.attendanceReport,
-      displayName: 'Attendance Report',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.leave,
-      displayName: 'Leaves',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: false },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.leaveCashTransfer,
-      displayName: 'Leave Cash/Transfer',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: false },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.reimbursement,
-      displayName: 'Reimbursement',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: false },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.department,
-      displayName: 'Department',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.designation,
-      displayName: 'Designation',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.announcement,
-      displayName: 'Announcement',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.branch,
-      displayName: 'Branch',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.onboardingDocument,
-      displayName: 'Onboarding Document',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.organisationProfile,
-      displayName: 'Organization Profile',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.employee,
-      displayName: 'Employee',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.holiday,
-      displayName: 'Holiday',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.meeting,
-      displayName: 'Meeting',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.event,
-      displayName: 'Event',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.birthdays,
-      displayName: 'Birthdays',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.loan,
-      displayName: 'Loan',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: false },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.loanInstallment,
-      displayName: 'Loan Installment',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.kpi,
-      displayName: 'KPI',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.salary,
-      displayName: 'Salary',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.salaryConfig,
-      displayName: 'Salary Config',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    // Dashboard Sections
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardAnnouncements,
-      displayName: 'Dashboard - Announcements Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardAttendance,
-      displayName: 'Dashboard - Attendance Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardDailyAttendanceOverview,
-      displayName: 'Dashboard - Daily Attendance Overview Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardTasks,
-      displayName: 'Dashboard - Tasks Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardUpcomingEvents,
-      displayName: 'Dashboard - Upcoming Events Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardTodoCard,
-      displayName: 'Dashboard - Todo Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardPendingRequests,
-      displayName: 'Dashboard - Pending Requests Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardLeaderboard,
-      displayName: 'Dashboard - Leaderboard Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardAnalyticsGraphs,
-      displayName: 'Dashboard - Analytics Graphs Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardAllLoans,
-      displayName: 'Dashboard - All Loans Overview Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardOngoingLoans,
-      displayName: 'Dashboard - Ongoing Loans Overview Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.dashboardKpiSection,
-      displayName: 'Dashboard - KPI Section Card',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    },
-    {
-      resourceKey: resourceNameMapWithCamelCase.approvals,
-      displayName: 'Approvals',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
-      ]
-    }
-  ];
-
-  const uiControlConfig = [
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.calendar,
-      displayName: 'Calendar',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves,
-      displayName: 'Attendance & Leaves -> Personal',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves,
-      displayName: 'Attendance & Leaves -> Employees',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.employeesUnderPeople,
-      displayName: 'People -> Employees',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.documentsUnderPeople,
-      displayName: 'People -> Documents',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany,
-      displayName: 'Company -> Organization Profile',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.announcementsUnderCompany,
-      displayName: 'Company -> Announcements',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.branchesUnderCompany,
-      displayName: 'Company -> Branches',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.departmentsUnderCompany,
-      displayName: 'Company -> Departments',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.designationUnderCompany,
-      displayName: 'Company -> Designation',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.mediaUnderCompany,
-      displayName: 'Company -> Media',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany,
-      displayName: 'Company -> Onboarding Docs',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.kpiUnderReports,
-      displayName: 'Reports -> Kpis',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.holidaysUnderReports,
-      displayName: 'Finance -> Holidays',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance,
-      displayName: 'Finance -> Reimbursements',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.salaryUnderFinance,
-      displayName: 'Finance -> Salary',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.loanUnderFinance,
-      displayName: 'Finance -> Loans',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    },
-    {
-      resourceKey: uiControlResourceNameMapWithCamelCase.leadProjectCompaniesContact,
-      displayName: 'PM -> Leads, Projects, Companies, Contacts',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-      ]
-    }
-  ]
-
-  // Sort configurations alphabetically by displayName
-  const sortedResourcesConfig = sortResourcesAlphabetically(resourcesConfig);
-  const sortedUiControlConfig = sortResourcesAlphabetically(uiControlConfig);
-
-  // Group resources by category
-  const groupedResourcesConfig = groupResourcesByCategory(sortedResourcesConfig);
-  const groupedUiControlConfig = groupResourcesByCategory(sortedUiControlConfig);
-
-  // Get sorted group names
-  const sortedGroupNames = Object.keys(groupedResourcesConfig).sort((a, b) => a.localeCompare(b));
-  const sortedUiControlGroupNames = Object.keys(groupedUiControlConfig).sort((a, b) => a.localeCompare(b));
-
-  // Build the formik checkbox map from a permissions list. Only active (allow &&
-  // isActive) rows count as "checked".
-  const buildValues = (perms: RoleData['permissions']) => {
-    const fromConfig = (cfg: typeof sortedResourcesConfig) =>
-      cfg.reduce((acc, resource) => {
-        acc[resource.resourceKey] = resource.actions.reduce((actionAcc, actionObj) => {
-          const existingPerm = perms.find(
-            (perm) => perm.resource === resource.resourceKey && perm.action === actionObj.action && perm.isActive !== false
-          );
-          actionAcc[actionObj.action] = actionObj.disabled ? false : (existingPerm ? existingPerm.allow : false);
-          return actionAcc;
-        }, {} as Record<string, boolean>);
-        return acc;
-      }, {} as Record<string, Record<string, boolean>>);
-    return { ...fromConfig(sortedResourcesConfig), ...fromConfig(sortedUiControlConfig) };
-  };
-
-  const initialFormikValues = buildValues(permissions);
-
-  const formik = useFormik({
-    initialValues: initialFormikValues,
-    onSubmit: async (values) => {
-      await handleSave(values);
-    },
-  });
-
-  const allEnabledFields = [...sortedResourcesConfig, ...sortedUiControlConfig].flatMap(r =>
-    r.actions.filter(a => !a.disabled).map(a => ({ resourceKey: r.resourceKey, action: a.action }))
-  );
-  const isAllSelected = allEnabledFields.length > 0 && allEnabledFields.every(
-    f => !!(formik.values as any)[f.resourceKey]?.[f.action]
-  );
-  const handleSelectAll = () => {
-    const newValue = !isAllSelected;
-    allEnabledFields.forEach(f => {
-      formik.setFieldValue(`${f.resourceKey}.${f.action}`, newValue);
-    });
-  };
-
-  /**
-   * handleSave - For each resource and its actions:
-   *  - If the action is disabled, skip saving.
-   *  - If the permission exists, update it.
-   *  - If it does not exist, create it only if allowed.
-   */
-  const handleSave = async (values: typeof initialFormikValues) => {
-    try {
-      setLoading(true);
-      const promises: Promise<any>[] = [];
-      const finalDetails = [...sortedResourcesConfig, ...sortedUiControlConfig]
-      finalDetails.forEach(resource => {
-        resource.actions.forEach(actionObj => {
-          // Skip saving if the action is not applicable.
-          if (actionObj.disabled) {
-            promises.push(Promise.resolve());
-            return;
-          }
-          const allowValue = values[resource.resourceKey][actionObj.action];
-          const existingPerm = permissions.find(
-            (perm) => perm.resource === resource.resourceKey && perm.action === actionObj.action && perm.isActive !== false
-          );
-
-          if (existingPerm) {
-            if (allowValue) {
-              promises.push(
-                updatePermissionForRoleById(role.id, existingPerm.id, {
-                  resource: resource.resourceKey,
-                  action: actionObj.action,
-                  allow: true,
-                })
-              );
-            } else {
-              // True delete path for permissions when unchecked.
-              promises.push(deletePermissionForRoleById(role.id, existingPerm.id));
-            }
-          } else {
-            if (allowValue) {
-              promises.push(
-                createPermissionForRoleById(role.id, {
-                  resource: resource.resourceKey,
-                  action: actionObj.action,
-                  allow: true,
-                })
-              );
-            } else {
-              promises.push(Promise.resolve());
-            }
-          }
-        });
-      });
-
-      await Promise.all(promises);
-
-      // Re-pull the role so the form reflects exactly what's persisted (fixes the
-      // "save doesn't stick" symptom) and refresh the list behind the modal.
-      try {
-        const fresh = await getRoleById(role.id);
-        const freshPerms = fresh?.data?.permissions ?? [];
-        setPermissions(freshPerms);
-        formik.resetForm({ values: buildValues(freshPerms) });
-      } catch {
-        /* non-fatal: the writes already succeeded */
-      }
-      setRefetch?.(true);
-      successConfirmation('Permissions updated successfully!');
-
-    } catch (error) {
-      console.error('Error updating permissions:', error);
-      errorConfirmation('Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (role?.isSystem) {
-    return (
-      <div className='text-center py-10'>
-        <KTIcon iconName='shield-tick' className='fs-3x text-primary mb-4' />
-        <div className='fw-bold fs-5'>System Role — Permissions are managed by the system</div>
-        <div className='text-muted fs-7 mt-2'>
-          Assign this role to employees from their profile settings.
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="d-flex flex-column ml-3 my-3 p-10"
-      style={{ backgroundColor: '#FFFFFF', borderRadius: '10px', fontFamily: 'Inter' }}
-    >
-      <h2>Permissions</h2>
-      <hr style={{ backgroundColor: '#E1E7EF', color: '#E1E7EF', height: '3px' }} />
-
-      <form onSubmit={formik.handleSubmit} className='d-lg-block d-md-flex' style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-        {/* Select All / Deselect All */}
-        <div className="d-flex justify-content-end mb-2 mt-4">
-          <button
-            type="button"
-            className={`btn btn-sm ${isAllSelected ? 'btn-light-danger' : 'btn-light-success'}`}
-            onClick={handleSelectAll}
-          >
-            {isAllSelected ? 'Deselect All' : 'Select All'}
-          </button>
-        </div>
-
-        {/* Accordion for grouped permissions */}
-        <Accordion defaultActiveKey="0" className="mt-5">
-          {sortedGroupNames.map((groupName, groupIndex) => (
-            <Accordion.Item eventKey={groupIndex.toString()} key={groupName}>
-              <Accordion.Header>
-                <strong>{groupName}</strong>
-              </Accordion.Header>
-              <Accordion.Body>
-                {/* Header Row for this group */}
-                <div
-                  className="d-none d-lg-flex flex-row align-items-center justify-content-start m-1"
-                  style={{ backgroundColor: '#FFFFFF', borderRadius: '10px', color: '#7A8597', fontSize: '11px' }}
-                >
-                  <div className="col-3">Features</div>
-                  {[
-                    { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers },
-                    { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn },
-                    { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create },
-                    { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers },
-                    { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn },
-                    { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers },
-                    { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn },
-                  ].map(header => (
-                    <div key={header.action} className="col d-none d-md-block text-center">
-                      {header.label}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Rows for each resource in this group */}
-                {groupedResourcesConfig[groupName].map(resource => (
-          <>
-            <div
-              key={resource.resourceKey}
-              className="d-none d-md-flex flex-row align-items-center justify-content-start m-1 my-2"
-              style={{ backgroundColor: '#FFFFFF', borderRadius: '10px', color: '#000', fontSize: '13px' }}
-            >
-              <div className="col-3">{resource.displayName}</div>
-              {['readOthers', 'readOwn', 'create', 'updateOthers', 'updateOwn', 'deleteOthers', 'deleteOwn'].map(action => {
-                // Check if this action is defined in our config.
-                const actionConfig = resource.actions.find(a => a.action === action);
-                return (
-                  <div key={action} className="col text-center">
-                    <input
-                      type="checkbox" 
-                      id={`${resource.resourceKey}-${action}`}
-                      name={`${resource.resourceKey}.${action}`}
-                      className={`form-check-input rounded-circle`}
-                      checked={formik.values[resource.resourceKey][action] as any}
-                      onChange={formik.handleChange}
-                      disabled={actionConfig ? actionConfig.disabled : true}
-                      style={{ backgroundColor: actionConfig && actionConfig.disabled ? '#E1E7EF' : undefined }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-            <div
-              key={resource.resourceKey + resource.actions[0].action}
-              className="d-flex flex-row d-md-none align-items-center justify-content-center m-1 my-6 col-5"
-              style={{ backgroundColor: '#FFFFFF', borderRadius: '10px', color: '#000', fontSize: '13px' }}
-            >
-              <div className='col-12'>
-                <div className="col-12 my-2">{resource.displayName}</div>
-                {['readOthers', 'readOwn', 'create', 'updateOthers', 'updateOwn', 'deleteOthers', 'deleteOwn'].map(action => {
-                  const actionConfig = resource.actions.find(a => a.action === action);
-                  return (
-                    <div key={action} className="col-12 text-center my-2" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <label htmlFor={`${resource.resourceKey}-${action}`} style={{ fontSize: '11px', marginRight: "auto" }} >{actionConfig?.label}</label>
-                      <input
-                        type="checkbox"
-                        id={`${resource.resourceKey}-${action}`}
-                        name={`${resource.resourceKey}.${action}`}
-                        className="form-check-input rounded-circle"
-                        checked={formik.values[resource.resourceKey][action]}
-                        onChange={formik.handleChange}
-                        disabled={actionConfig ? actionConfig.disabled : true}
-                        style={{ backgroundColor: actionConfig && actionConfig.disabled ? '#E1E7EF' : undefined }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-                ))}
-              </Accordion.Body>
-            </Accordion.Item>
-          ))}
-        </Accordion>
-
-        {/* Section Control Accordions */}
-        <div
-          className="d-flex flex-column align-items-start justify-center-start m-1 my-5"
-          style={{ width: '100%' }}
-        >
-          <h4 className="mb-3">Section Control (View)</h4>
-
-          <Accordion defaultActiveKey="0" className="w-100">
-            {sortedUiControlGroupNames.map((groupName, groupIndex) => (
-              <Accordion.Item eventKey={groupIndex.toString()} key={groupName}>
-                <Accordion.Header>
-                  <strong>{groupName}</strong>
-                </Accordion.Header>
-                <Accordion.Body>
-                  {groupedUiControlConfig[groupName].map(resource => (
-                    <div
-                      key={resource.resourceKey}
-                      className="d-flex flex-row align-items-center justify-content-start m-1 w-100"
-                      style={{ backgroundColor: '#FFFFFF', borderRadius: '10px', color: '#000', fontSize: '13px' }}
-                    >
-                      <div className="col-10 col-md-6">{resource.displayName}</div>
-                      {['readOthers'].map(action => {
-                        const actionConfig = resource.actions.find(a => a.action === action);
-
-                        return (
-                          <div key={action} className="col-2 text-center">
-                            <input
-                              type="checkbox"
-                              id={`${resource.resourceKey}-${action}`}
-                              name={`${resource.resourceKey}.${action}`}
-                              className={`form-check-input rounded-circle`}
-                              checked={formik.values[resource.resourceKey][action] as any}
-                              onChange={formik.handleChange}
-                              disabled={actionConfig ? actionConfig.disabled : true}
-                              style={{ backgroundColor: actionConfig && actionConfig.disabled ? '#E1E7EF' : undefined }}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </Accordion.Body>
-              </Accordion.Item>
-            ))}
-          </Accordion>
-
-        </div>
-        <button className="btn btn-primary mt-10" type="submit" disabled={loading}>
-          {loading ? <span>Please wait..  <Spinner animation="border" size="sm" /></span> : 'Save'}
-        </button>
-      </form>
-    </div>
-  );
-}
-
 function EditRole({ handleCloseEditModal, roleDetails, setRefetch }: { handleCloseEditModal: () => void, roleDetails: any, setRefetch: (show: boolean) => void }) {
-  console.log("roleDetails in EditRole::======================> ", roleDetails);
+  // A system role's NAME/existence never changes here regardless of who's
+  // looking — that's the "stays intact" guarantee for Super Admin/Admin/Employee.
+  // Its ACCESS (permission grants), though, depends on who's viewing: a Super
+  // Admin can configure Admin's or Employee's permissions, an Admin can
+  // configure Employee's — canEditAccess (from the roles list, hierarchy-aware
+  // and computed server-side) answers that per-viewer question; isSystem alone
+  // can't, since it doesn't know who's asking. Staff assignment stays editable
+  // either way (who currently holds the role is an operational HR concern,
+  // distinct from what the role itself grants).
+  const nameReadOnly = !!roleDetails?.isSystem;
+  const accessReadOnly = !roleDetails?.canEditAccess;
 
   return (
     <div className='px-3'>
       <div className='d-flex flex-row align-items-center justify-content-start gap-2'>
         <img src={miscellaneousIcons.leftArrow} alt="" style={{ width: "36px", height: "36px", cursor: 'pointer' }} onClick={handleCloseEditModal} />
-        <h2 className='my-auto'>Edit Role "{roleDetails?.name}"</h2>
+        <h2 className='my-auto'>{accessReadOnly ? 'View' : 'Edit'} Role "{roleDetails?.name}"</h2>
       </div>
       <div className='row my-3 d-none d-lg-flex'>
         <div className='col-8'>
-          <RoleAccessEditor roleId={roleDetails?.id} roleName={roleDetails?.name} setRefetch={setRefetch} />
+          <RoleAccessEditor roleId={roleDetails?.id} roleName={roleDetails?.name} setRefetch={setRefetch} readOnly={accessReadOnly} />
         </div>
         <div className='col-4' >
-          <EditRoleName handleCloseEditModal={handleCloseEditModal} setRefetch={setRefetch} roleDetails={roleDetails} />
+          <EditRoleName handleCloseEditModal={handleCloseEditModal} setRefetch={setRefetch} roleDetails={roleDetails} readOnly={nameReadOnly} />
           <StaffMemberForGivenRole handleCloseEditModal={handleCloseEditModal} setRefetch={setRefetch} roleDetails={roleDetails} />
-        </div>
-        <div className='col-12'>
-          <PermissionsList rolesData={roleDetails} setRefetch={setRefetch} />
         </div>
       </div>
       <div className='row my-3 d-flex d-lg-none'>
         <div className='col-12' >
-          <EditRoleName handleCloseEditModal={handleCloseEditModal} setRefetch={setRefetch} roleDetails={roleDetails} />
+          <EditRoleName handleCloseEditModal={handleCloseEditModal} setRefetch={setRefetch} roleDetails={roleDetails} readOnly={nameReadOnly} />
         </div>
         <div className='col-12' >
           <StaffMemberForGivenRole handleCloseEditModal={handleCloseEditModal} setRefetch={setRefetch} roleDetails={roleDetails} />
-        </div>
-        <div className='col-12'>
-          <PermissionsList rolesData={roleDetails} setRefetch={setRefetch} />
         </div>
       </div>
     </div>
@@ -1057,12 +77,18 @@ function StaffMemberForGivenRole({ handleCloseEditModal, setRefetch, roleDetails
     if (!selectedId) return;
     setAdding(true);
     try {
-      await addEmployeeToRole(roleDetails.id, selectedId);
+      const res = await addEmployeeToRole(roleDetails.id, selectedId);
       const emp = allEmployees.find((e) => e.id === selectedId);
       if (emp) setMembers((prev) => [...prev, emp]);
       setSelectedId('');
       setSearch('');
       setRefetch(true);
+      // An employee holds exactly one role at a time — assigning them here
+      // replaces whatever role they had before, so make that visible.
+      const replacedRoles: string[] = res?.data?.replacedRoles ?? [];
+      if (replacedRoles.length && emp) {
+        successConfirmation(`${emp.users?.firstName ?? 'Employee'} moved from ${replacedRoles.join(', ')} to ${roleDetails.name}.`);
+      }
     } catch {
       errorConfirmation('Failed to assign employee to role.');
     } finally {
@@ -1161,7 +187,7 @@ function StaffMemberForGivenRole({ handleCloseEditModal, setRefetch, roleDetails
   );
 }
 
-function EditRoleName({ handleCloseEditModal, setRefetch, roleDetails }: { handleCloseEditModal: (show: boolean) => void, setRefetch: (show: boolean) => void, roleDetails: any }) {
+function EditRoleName({ handleCloseEditModal, setRefetch, roleDetails, readOnly = false }: { handleCloseEditModal: (show: boolean) => void, setRefetch: (show: boolean) => void, roleDetails: any, readOnly?: boolean }) {
   const [roleName, setRoleName] = useState(roleDetails?.name || '');
 
   const handleFormSubmit = async () => {
@@ -1182,6 +208,18 @@ function EditRoleName({ handleCloseEditModal, setRefetch, roleDetails }: { handl
     finally {
       handleCloseEditModal(true);
     }
+  }
+
+  if (readOnly) {
+    return (
+      <div
+        className='d-flex flex-column my-3 p-5 p-md-10 bg-white'
+        style={{ borderRadius: '10px', fontFamily: 'Inter' }}
+      >
+        <label className='text-muted fs-8 mb-1'>Role Name</label>
+        <div style={{ fontSize: '16px', fontWeight: 600 }}>{roleDetails?.name}</div>
+      </div>
+    );
   }
 
   return (
@@ -1245,7 +283,14 @@ function RolesAndPermissions() {
   const [showAddNewRole, setShowAddNewRole] = useState(false);
   const [showEditModal, setshowEditModal] = useState(false)
   const [roleToEdit, setRoleToEdit] = useState(null);
-  const [refetch, setRefetch] = useState(false);
+  // A plain boolean here would only ever transition false->true once; every
+  // later action calling setRefetch(true) while it's already true is a no-op
+  // (React skips re-render for an unchanged value), silently breaking the list
+  // refresh after the first create/edit/delete. A tick counter guarantees a
+  // real state change on every call while keeping the same setRefetch(true)
+  // call signature every child component already uses.
+  const [refetchTick, setRefetchTick] = useState(0);
+  const setRefetch = (show: boolean) => { if (show) setRefetchTick((t) => t + 1); };
   useEffect(() => {
     const fetchAllRoles = async () => {
       const response = await fetchRoles();
@@ -1254,15 +299,22 @@ function RolesAndPermissions() {
       setallRoles(rolesData);
     };
     fetchAllRoles();
-  }, [refetch])
+  }, [refetchTick])
 
   const handleCloseEditModal = () => {
     setshowEditModal(false);
   }
 
-  const handleDeleteRole = async (roleId: string) => {
+  const handleDeleteRole = async (role: any) => {
+    const userCount = role?.employees?.length ?? 0;
+    const text = userCount > 0
+      ? `This role has ${userCount} user${userCount === 1 ? '' : 's'} currently assigned. Deleting it will remove their access granted through this role. This action cannot be undone.`
+      : "Are you sure you want to delete this role? This action cannot be undone.";
+    const confirmed = await genericConfirmation("Delete Role", text, "Delete");
+    if (!confirmed) return;
+
     try {
-      const res = await deleteRoleById(roleId);
+      const res = await deleteRoleById(role.id);
       // console.log("res::: ", res);
       if (!res?.hasError) {
         successConfirmation("Role deleted successfully");
@@ -1298,10 +350,11 @@ function RolesAndPermissions() {
             </div>
             <div className='col-4 col-md-3'>{role?.employees?.length}</div>
             <div className='col-4 col-md-3'>
-              {!role?.isSystem && (
+              {role?.canEditAccess && (
                 <div
                   className="btn p-0 btn-active-color-primary btn-sm"
                   onClick={() => { setRoleToEdit(role); setshowEditModal(true) }}
+                  title="Edit permissions"
                 >
                   <KTIcon
                     iconName="pencil"
@@ -1309,7 +362,7 @@ function RolesAndPermissions() {
                   />
                 </div>
               )}
-              {role?.isSystem && (
+              {!role?.canEditAccess && (
                 <div
                   className="btn p-0 btn-active-color-info btn-sm"
                   onClick={() => { setRoleToEdit(role); setshowEditModal(true) }}
@@ -1323,7 +376,7 @@ function RolesAndPermissions() {
               )}
               {(!role?.isSystem) && <div
                 className="btn p-0 btn-active-color-primary btn-sm"
-                onClick={() => handleDeleteRole(String(role.id))}
+                onClick={() => handleDeleteRole(role)}
               >
                 <KTIcon
                   iconName="trash"

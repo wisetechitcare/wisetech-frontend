@@ -6,7 +6,7 @@ interface RequirePermissionProps {
   /** One or more capability keys; access is granted if ANY is held. */
   perm: string | string[];
   children: React.ReactNode;
-  /** Where to send users who lack the permission. Defaults to /error/404. */
+  /** Where to send users who lack the permission. Defaults to /error/403. */
   redirectTo?: string;
   /** Render nothing instead of redirecting (useful for inline sections). */
   hideOnly?: boolean;
@@ -24,7 +24,7 @@ interface RequirePermissionProps {
 export const RequirePermission: React.FC<RequirePermissionProps> = ({
   perm,
   children,
-  redirectTo = '/error/404',
+  redirectTo = '/error/403',
   hideOnly = false,
   fallback = null,
 }) => {

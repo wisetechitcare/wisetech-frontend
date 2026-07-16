@@ -1,11 +1,13 @@
 
 import clsx from 'clsx'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useLayout } from '../../core'
 import { useSidebarCollapse } from '../../core/SidebarCollapseContext'
 import { HeaderToolbar } from './HeaderToolbar'
 import { KTIcon } from '@metronic/helpers'
 import { useIsMobile } from '@components/navigation/BottomNavigation/useIsMobile'
+import { MenuComponent } from '../../../assets/ts/components'
 
 // Compact WiseTech mark (favicon) shown when the sidebar is collapsed.
 const WtSquareLogo = () => (
@@ -24,6 +26,14 @@ export function HeaderWrapper() {
   const { classes, attributes } = useLayout()
   const { collapsed, toggle } = useSidebarCollapse()
   const isMobile = useIsMobile()
+
+  // Crossing the mobile/desktop breakpoint remounts HeaderToolbar (and the
+  // profile dropdown trigger) into a new DOM location without a route change,
+  // so the vanilla MenuComponent instance bound to the old node is stale and
+  // the new trigger has none. Re-bind after every such swap.
+  useEffect(() => {
+    MenuComponent.reinitialization()
+  }, [isMobile])
 
   return (
     <div

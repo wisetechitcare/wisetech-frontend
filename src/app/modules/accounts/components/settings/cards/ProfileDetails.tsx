@@ -14,7 +14,8 @@ import dayjs from 'dayjs';
 import { uploadUserAsset } from '@services/uploader';
 import { successConfirmation } from '@utils/modal';
 import { getAvatar } from '@utils/avatar';
-import { MAX_FILE_SIZE } from '@constants/statistics';
+import { getImageDimensions } from '@utils/file';
+import { MAX_FILE_SIZE, MIN_AVATAR_DIMENSION } from '@constants/statistics';
 import Swal from 'sweetalert2';
 
 const mealPreferencesRadioBtns: RadioButton[] = [
@@ -99,7 +100,22 @@ const ProfileDetails: React.FC = () => {
           title: 'File size exceeds the limit',
           text: `File "${fileData.name}" exceeds the ${MAX_FILE_SIZE / 1024 / 1024} MB size limit.`,
         });
-        return null; 
+        return null;
+      }
+
+      // Avatars are stored and displayed at their original resolution (no
+      // server-side resizing) — a low-res source photo stays blurry
+      // everywhere it's shown, so reject it here instead of on-screen later.
+      if (docId === 'userProfilePicture') {
+        const { width, height } = await getImageDimensions(fileData);
+        if (width < MIN_AVATAR_DIMENSION || height < MIN_AVATAR_DIMENSION) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Image resolution too low',
+            text: `"${fileData.name}" is ${width}x${height}px. Please upload a photo at least ${MIN_AVATAR_DIMENSION}x${MIN_AVATAR_DIMENSION}px so it stays sharp.`,
+          });
+          return null;
+        }
       }
 
       setLoading(true);
@@ -128,8 +144,8 @@ const ProfileDetails: React.FC = () => {
     delete values.startTime;
     delete values.endTime;
 
-    const avatar = docUploaded?.filter((file: any) => (file.documentId == "userProfilePicture"));
-    const digitalSignaturePath = docUploaded?.filter((file: any) => (file.documentId == "digitalSignature"));
+    const avatar = docUploaded?.filter((file: any) => file && file.documentId == "userProfilePicture");
+    const digitalSignaturePath = docUploaded?.filter((file: any) => file && file.documentId == "digitalSignature");
 
     const payload = {
       ...(values.nickName && { nickName: values.nickName }),

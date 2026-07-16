@@ -21,7 +21,7 @@ import { isProjectEntity, getProjectPhase, PHASE_THEMES } from './entityUtils';
 import { DensityProvider } from './detail/density';
 import { buildEntityVM, ENTITY_TABS } from './detail/facets';
 
-import SummarySection from './detail/sections/SummarySection';
+import SummarySection, { SummaryView } from './detail/sections/SummarySection';
 import { TasksTab, TimesheetTab, ReimbursementTab } from './detail/sections/ProjectModuleTabs';
 import DocumentsTab from './detail/sections/DocumentsTab';
 import AuditSection from './detail/sections/AuditSection';
@@ -70,14 +70,27 @@ const EntityDetailPage: React.FC = () => {
   const projectId = lead?.projectId || lead?.project?.id || null;
   const phase = getProjectPhase(lead);
   const phaseTheme = PHASE_THEMES[phase] ?? PHASE_THEMES.none;
+  // Write-gated: Commercial and (once it's a project) Leads both expose
+  // client/financial master data (rates, costs, budget) that a project team
+  // member added via project-team membership rather than a real crm.leads
+  // grant must not see. Configurable per employee through the existing Leads
+  // Read/Write row in the Access editor — no separate toggle needed.
+  const canViewCommercials = canDo('crm.leads', 'update');
 
   // Project-only tabs (Tasks/Timesheet/Reimbursement) show for ANY project-trigger
   // lead — they fetch operational data by lead id, so a linked project row is no
   // longer required (lead-as-master). Entering from the Leads table suppresses
-  // them entirely (lead-focused view), regardless of project status.
+  // them entirely (lead-focused view), regardless of project status. Commercial
+  // is hidden outright for read-only users rather than just falling back once
+  // selected; Leads is hidden the same way, but only once the record IS a
+  // project — a raw lead still needs its Leads tab for the sales/CRM workflow.
   const tabs = useMemo(
-    () => ENTITY_TABS.filter(t => !t.projectOnly || (isProject && !fromLeads)),
-    [isProject, fromLeads],
+    () => ENTITY_TABS.filter(t =>
+      (!t.projectOnly || (isProject && !fromLeads)) &&
+      (t.key !== 'commercial' || canViewCommercials) &&
+      (t.key !== 'leads' || !isProject || canViewCommercials)
+    ),
+    [isProject, fromLeads, canViewCommercials],
   );
   const vm = useMemo(() => (lead ? buildEntityVM(lead) : null), [lead]);
 
@@ -96,8 +109,11 @@ const EntityDetailPage: React.FC = () => {
   useEffect(() => {
     // Wait for the lead to load — until then isProject is false and this would
     // clobber the Projects landing tab requested by the Projects-table entry.
+    // Falls back to the first still-visible tab rather than a hardcoded 'leads'
+    // — for a project team member without commercial access, Leads itself may
+    // be one of the hidden tabs.
     if (!lead) return;
-    if (!tabs.some(t => t.key === activeTab)) setActiveTab('leads');
+    if (!tabs.some(t => t.key === activeTab)) setActiveTab(tabs[0]?.key || 'leads');
   }, [lead, tabs, activeTab]);
 
   const fetchLeadDetails = useCallback(async () => {
@@ -159,7 +175,8 @@ const EntityDetailPage: React.FC = () => {
             company={company}
             contact={contact}
             onJump={openEdit}
-            canViewCommercials={canDo('crm.leads', 'update')}
+            view={activeTab as SummaryView}
+            canViewCommercials={canViewCommercials}
           />
         );
       case 'tasks':
@@ -279,28 +296,6 @@ const EntityDetailPage: React.FC = () => {
                   />
                   Lead - {lead?.status?.name || 'Set status'}
                 </div>
-              )}
-              
-              {activeTab === 'leads' && (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={openEdit}
-                    style={{ backgroundColor: '#AA393D', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
-                  >
-                    <i className="bi bi-pencil-fill" style={{ fontSize: '12px' }} /> Edit
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={() => setShowProposalModal(true)}
-                    style={{ backgroundColor: '#7239ea', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
-                  >
-                    <i className="bi bi-file-earmark-arrow-down-fill" style={{ fontSize: '13px' }} /> Export
-                  </button>
-                </>
               )}
             </div>
           </div>

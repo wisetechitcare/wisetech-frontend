@@ -6,6 +6,7 @@ import {
   getEmployeeAccessSummary,
   updateEmployeeRoles,
   setSectionAccessLevel,
+  resetAllEmployeeOverrides,
   getRbacAuditLogs,
   EmployeeAccessSummary,
   AccessLevel,
@@ -62,6 +63,9 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
   const [levels, setLevels] = useState<Record<string, EffLevel>>({});
   const [expiries, setExpiries] = useState<Record<string, string | null>>({});
   const [showConfirm, setShowConfirm] = useState(false);
+  const [resetOverridesOnRoleChange, setResetOverridesOnRoleChange] = useState(true);
+  const [showResetAllConfirm, setShowResetAllConfirm] = useState(false);
+  const [resettingAll, setResettingAll] = useState(false);
 
   // Server-truth baselines, to detect "dirty".
   const [origRoleIds, setOrigRoleIds] = useState<string[]>([]);
@@ -72,7 +76,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
 
   // Role-only level (ignoring per-employee overrides), used to decide whether a
   // staged change can simply inherit ("default") instead of writing an override.
-  const roleLevelOf = (module: string): EffLevel => levelFromKeys(summary?.inherited || [], module);
+  const roleLevelOf = (module: string): EffLevel => levelFromKeys(summary?.roleBaseline || [], module);
 
   const applySummary = (s: EmployeeAccessSummary) => {
     setSummary(s);
@@ -137,8 +141,10 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
   const dirty = changedModules.length > 0 || rolesChanged;
   const dirtyModules = useMemo(() => new Set(changedModules), [changedModules]);
 
+  // An employee holds exactly one role at a time — selecting a role replaces
+  // whatever was picked before; clicking the active one clears it.
   const toggleRole = (roleId: string) =>
-    setSelectedRoleIds((prev) => (prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]));
+    setSelectedRoleIds((prev) => (prev.includes(roleId) ? [] : [roleId]));
 
   const onSetLevel = (module: string, level: EffLevel) => {
     setLevels((prev) => ({ ...prev, [module]: level }));
@@ -148,6 +154,20 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
   const onResetToRole = (module: string) => {
     setLevels((prev) => ({ ...prev, [module]: roleLevelOf(module) }));
     setExpiries((prev) => ({ ...prev, [module]: null }));
+  };
+
+  // A row's live countdown reached zero — its timed override just expired on
+  // the server. Re-pull the employee's access from the server so the row
+  // reflects whatever it now reverts to (role default or blocked), instead of
+  // sitting frozen on the last-known "granted" state. Skipped when there are
+  // unsaved edits elsewhere, since a full reload would silently discard them.
+  const onExpired = (module: string) => {
+    if (!dirty) {
+      load();
+      return;
+    }
+    const label = allLeaves.find((l) => l.module === module)?.label || module;
+    toast.info(`"${label}" access just expired. Save or refresh to see the update.`);
   };
 
   const activeModuleCount = useMemo(
@@ -170,6 +190,12 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
       setSaving(true);
       setShowConfirm(false);
       if (rolesChanged) await updateEmployeeRoles(employeeId, selectedRoleIds);
+      // Role changes never reconcile old per-module overrides on their own —
+      // clear them first (if the admin opted in) so the new role's defaults
+      // apply, then layer on anything explicitly edited in this same save.
+      if (rolesChanged && customModules.size > 0 && resetOverridesOnRoleChange) {
+        await resetAllEmployeeOverrides(employeeId);
+      }
       for (const m of changedModules) {
         const send = sendLevelFor(m);
         const exp = send === "view" || send === "edit" ? expiries[m] ?? null : null;
@@ -189,6 +215,20 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
     if (dirty) setShowConfirm(true);
   };
 
+  const resetAllOverrides = async () => {
+    try {
+      setResettingAll(true);
+      await resetAllEmployeeOverrides(employeeId);
+      toast.success("All overrides reset to role defaults");
+      await load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Couldn't reset overrides");
+    } finally {
+      setResettingAll(false);
+      setShowResetAllConfirm(false);
+    }
+  };
+
   // ── Audit rendering ────────────────────────────────────────────────────────
   const formatWhen = (d?: string | null) => {
     if (!d) return "";
@@ -202,7 +242,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
   const auditTitle = (log: any) => {
     const a: string = log.action || "";
     if (a.includes("ROLE")) return "Roles Updated";
-    if (a === "OVERRIDE_DELETED") return "Access Reset";
+    if (a === "OVERRIDE_DELETED" || a === "OVERRIDES_BULK_RESET") return "Access Reset";
     return "Access Changed";
   };
   const auditDescription = (log: any) => {
@@ -212,13 +252,14 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
       if (Array.isArray(roles)) return roles.length ? roles.map((r: any) => r.name).filter(Boolean).join(", ") : "All roles removed";
       return "Role assignment updated";
     }
+    if (a === "OVERRIDES_BULK_RESET") return "All custom overrides reset to role defaults";
     const v = parseAudit(log.newValue) || parseAudit(log.oldValue);
     const section = v?.section || log.permissionKey || "";
     const lvl = v?.level;
     const pretty = lvl === "blocked" ? "Blocked" : lvl === "edit" ? "Can edit" : lvl === "view" ? "View only" : "reset to role";
     return `${section} ${lvl === "default" || !lvl ? "reset to role" : `set to ${pretty}`}`;
   };
-  const auditDot = (a: string) => (a.includes("ROLE") ? "#2F9E44" : a.includes("DELETED") ? "#ADB5BD" : "#3B5BDB");
+  const auditDot = (a: string) => (a.includes("ROLE") ? "#2F9E44" : a.includes("DELETED") || a === "OVERRIDES_BULK_RESET" ? "#ADB5BD" : "#3B5BDB");
 
   if (loading) return <Loader />;
   if (!summary) return <div className="text-muted p-5">No access data.</div>;
@@ -227,8 +268,8 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
     <div style={{ maxWidth: 1240, margin: "0 auto" }} className="pb-20">
       {/* Assigned job roles */}
       <div className="d-flex align-items-center justify-content-between mb-3 mt-2">
-        <span className="text-muted fw-bold fs-7" style={{ letterSpacing: 1 }}>ASSIGNED JOB ROLES</span>
-        <span className="text-muted fs-8">Multi-select enabled</span>
+        <span className="text-muted fw-bold fs-7" style={{ letterSpacing: 1 }}>ASSIGNED JOB ROLE</span>
+        <span className="text-muted fs-8">One role per employee</span>
       </div>
       <div className="d-flex flex-wrap gap-3 mb-8">
         {allRoles.map((role) => {
@@ -251,7 +292,18 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
       <div className="row g-6">
         {/* LEFT: Module specific access tree */}
         <div className="col-12 col-xl-8">
-          <div className="text-muted fw-bold fs-7 mb-3" style={{ letterSpacing: 1 }}>MODULE SPECIFIC ACCESS</div>
+          <div className="d-flex align-items-center justify-content-between mb-3">
+            <div className="text-muted fw-bold fs-7" style={{ letterSpacing: 1 }}>MODULE SPECIFIC ACCESS</div>
+            <button
+              type="button"
+              className="btn btn-sm btn-light-danger"
+              disabled={customModules.size === 0}
+              onClick={() => setShowResetAllConfirm(true)}
+            >
+              <i className="bi bi-arrow-counterclockwise me-1" />
+              Reset All to Role Defaults{customModules.size > 0 ? ` (${customModules.size})` : ""}
+            </button>
+          </div>
           <div className="card border shadow-sm mb-8" style={{ borderRadius: 14 }}>
             <div className="card-body">
               <AccessControlTree
@@ -262,6 +314,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
                 onSetLevel={onSetLevel}
                 onSetExpiry={onSetExpiry}
                 onResetToRole={onResetToRole}
+                onExpired={onExpired}
               />
             </div>
           </div>
@@ -330,7 +383,32 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
         </Modal.Header>
         <Modal.Body>
           {rolesChanged && (
-            <div className="alert alert-light-primary py-2 px-3 fs-7 mb-3">Job roles will be updated.</div>
+            <div className="alert alert-light-primary py-2 px-3 fs-7 mb-3">Job role will be updated.</div>
+          )}
+          {rolesChanged && customModules.size > 0 && (
+            <div className="alert alert-light-warning py-2 px-3 fs-7 mb-3">
+              <p className="mb-2">
+                This employee has <strong>{customModules.size}</strong> custom permission override{customModules.size > 1 ? "s" : ""} that may not
+                match the new role:
+              </p>
+              <ul className="mb-2">
+                {[...customModules].map((m) => (
+                  <li key={m}>{allLeaves.find((l) => l.module === m)?.label || m}</li>
+                ))}
+              </ul>
+              <div className="form-check">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="resetOverridesOnRoleChange"
+                  checked={resetOverridesOnRoleChange}
+                  onChange={(e) => setResetOverridesOnRoleChange(e.target.checked)}
+                />
+                <label className="form-check-label" htmlFor="resetOverridesOnRoleChange">
+                  Also reset these overrides to the new role's defaults
+                </label>
+              </div>
+            </div>
           )}
           {changedModules.length > 0 ? (
             <>
@@ -359,6 +437,32 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
         <Modal.Footer>
           <button className="btn btn-light" onClick={() => setShowConfirm(false)}>Cancel</button>
           <button className="btn btn-primary" onClick={saveAll}>Yes, save</button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Reset-all-overrides confirmation */}
+      <Modal show={showResetAllConfirm} onHide={() => setShowResetAllConfirm(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="fs-5">Reset all overrides to role defaults?</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="mb-2">
+            This clears <strong>{customModules.size}</strong> custom permission override{customModules.size > 1 ? "s" : ""} for this employee:
+          </p>
+          <ul className="mb-3">
+            {[...customModules].map((m) => (
+              <li key={m} className="fs-7">{allLeaves.find((l) => l.module === m)?.label || m}</li>
+            ))}
+          </ul>
+          <div className="alert alert-warning py-2 px-3 fs-7 mb-0">
+            Every module will fall back to exactly what this employee's current role(s) grant. This can't be undone from here.
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <button className="btn btn-light" onClick={() => setShowResetAllConfirm(false)} disabled={resettingAll}>Cancel</button>
+          <button className="btn btn-danger" onClick={resetAllOverrides} disabled={resettingAll}>
+            {resettingAll ? "Resetting…" : "Reset all"}
+          </button>
         </Modal.Footer>
       </Modal>
     </div>

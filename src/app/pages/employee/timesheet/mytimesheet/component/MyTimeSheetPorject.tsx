@@ -21,6 +21,7 @@ import { getAllEmployeeWithMonthDailyHourlySalary } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
+import { canDo } from "@utils/can";
 
 const MyTimeSheetProject = ({
   startDate,
@@ -196,6 +197,10 @@ const MyTimeSheetProject = ({
   const startDates = startDate?.format("YYYY-MM-DD");
   const endDates = endDate?.format("YYYY-MM-DD");
 
+  // Write-gated: read-only viewers get the timesheet but not the edit/delete affordances.
+  const canUpdate = canDo("timesheets.my", "update");
+  const canDelete = canDo("timesheets.my", "delete");
+
   // Memoized columns definition
   const columns = useMemo(
     () => [
@@ -313,36 +318,42 @@ const MyTimeSheetProject = ({
           return employeeName ? employeeName : "-";
         },
       },
-      {
-        accessorKey: "action",
-        header: "Actions",
-        Cell: ({ row }: any) => {
-          return (
-            <div className="d-flex gap-2">
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditTimeSheet(row?.original);
-                }}
-              >
-                <KTIcon iconName="pencil" className="fs-2" />
-              </button>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteTimeSheet(row?.original);
-                }}
-              >
-                <KTIcon iconName="trash" className="fs-2" />
-              </button>
-            </div>
-          );
-        },
-      },
+      ...(canUpdate || canDelete
+        ? [{
+            accessorKey: "action",
+            header: "Actions",
+            Cell: ({ row }: any) => {
+              return (
+                <div className="d-flex gap-2">
+                  {canUpdate && (
+                    <button
+                      className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditTimeSheet(row?.original);
+                      }}
+                    >
+                      <KTIcon iconName="pencil" className="fs-2" />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteTimeSheet(row?.original);
+                      }}
+                    >
+                      <KTIcon iconName="trash" className="fs-2" />
+                    </button>
+                  )}
+                </div>
+              );
+            },
+          }]
+        : []),
     ],
-    [handleEditTimeSheet, handleDeleteTimeSheet, navigate, findEmployeeName]
+    [handleEditTimeSheet, handleDeleteTimeSheet, navigate, findEmployeeName, canUpdate, canDelete]
   );
 
   // Memoized ProjectContainer component

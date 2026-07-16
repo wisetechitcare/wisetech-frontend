@@ -17,6 +17,15 @@ interface SectionGuardProps {
    * don't pass this keep their current default-allow behavior unchanged.
    */
   requireGrant?: boolean;
+  /**
+   * Escape hatch alongside `requireGrant`: if true, access is allowed even
+   * without a module-level grant. For sections where a narrower, record-level
+   * reason can substitute for the general grant (e.g. Projects — an employee
+   * staffed on a specific project should reach the section even without
+   * crm.leads/projects access; the list itself narrows server-side to just
+   * their own projects). Ignored when `requireGrant` is false.
+   */
+  allowIf?: boolean;
 }
 
 /**
@@ -28,7 +37,7 @@ interface SectionGuardProps {
  * Subscribes to the authz slice so a live block change redirects immediately,
  * which is what stops a just-blocked page from sitting on an endless spinner.
  */
-export const SectionGuard: React.FC<SectionGuardProps> = ({ module, children, redirectTo = "/dashboard", requireGrant = false }) => {
+export const SectionGuard: React.FC<SectionGuardProps> = ({ module, children, redirectTo = "/error/403", requireGrant = false, allowIf = false }) => {
   const blocked: string[] = useSelector((s: RootState) => (s as any).authz?.blockedSections || []);
   // Subscribe to capabilities too so a live grant/revoke redirects immediately,
   // same reasoning as the blockedSections subscription above.
@@ -36,7 +45,7 @@ export const SectionGuard: React.FC<SectionGuardProps> = ({ module, children, re
 
   const parts = module.split(".");
   const isBlocked = parts.some((_, i) => blocked.includes(parts.slice(0, parts.length - i).join(".")));
-  const missingGrant = requireGrant && !canViewModule(module);
+  const missingGrant = requireGrant && !canViewModule(module) && !allowIf;
 
   if (isBlocked || missingGrant) return <Navigate to={redirectTo} replace />;
   return <>{children}</>;

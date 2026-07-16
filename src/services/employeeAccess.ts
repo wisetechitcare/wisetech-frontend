@@ -17,6 +17,13 @@ export type AccessLevel = "default" | "view" | "edit" | "blocked";
 export interface EmployeeAccessSummary {
     roles: Array<{ id: string; name: string; code?: string | null; isSystem: boolean }>;
     inherited: string[];
+    /** What this employee would see on any module with no per-employee override
+     * at all — role grants plus the universal self-scoped defaults (dashboard,
+     * tasks, calendar, etc). Use this (not `inherited`) to decide whether a
+     * staged value differs from "no override needed" — `inherited` alone omits
+     * the universal defaults and reads as "none" for a module only a default
+     * grants, which would misclassify removing that access as "already default". */
+    roleBaseline: string[];
     overridesAllow: AccessOverride[];
     overridesDeny: AccessOverride[];
     sectionLevels: Record<string, "view" | "edit" | "blocked">;
@@ -46,6 +53,17 @@ export const setSectionAccessLevel = async (
 ): Promise<EmployeeAccessSummary> => {
     const endpoint = `${API_BASE_URL}/${EMPLOYEE.SET_SECTION_ACCESS.replace(":id", employeeId)}`;
     const { data } = await axios.put(endpoint, { module, level, ...(expiresAt ? { expiresAt } : {}) });
+    return data?.data;
+};
+
+/**
+ * Clear ALL per-module overrides for an employee in one step, so their
+ * effective access falls back to exactly what their current role(s) grant.
+ * @api "api/employee/:id/access/reset-all"
+ */
+export const resetAllEmployeeOverrides = async (employeeId: string): Promise<EmployeeAccessSummary> => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.RESET_ALL_SECTION_ACCESS.replace(":id", employeeId)}`;
+    const { data } = await axios.put(endpoint);
     return data?.data;
 };
 

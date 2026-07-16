@@ -4,6 +4,11 @@ import { fetchCapabilities } from '@services/auth';
 interface AuthzState {
   capabilities: string[];
   blockedSections: string[];
+  // True if the employee is staffed on at least one project (PM, execution-team
+  // member, or internal roster entry) — lets the Projects section reveal itself
+  // even without a general crm.leads/projects grant, since the list narrows to
+  // just the projects they're actually on.
+  hasProjectMemberships: boolean;
   isLoading: boolean;
   error: string | null;
 }
@@ -11,6 +16,7 @@ interface AuthzState {
 const initialState: AuthzState = {
   capabilities: [],
   blockedSections: [],
+  hasProjectMemberships: false,
   isLoading: false,
   error: null,
 };
@@ -20,6 +26,7 @@ export const fetchAuthzCapabilities = createAsyncThunk('authz/fetchCapabilities'
   return {
     capabilities: response?.data?.capabilities || [],
     blockedSections: response?.data?.blockedSections || [],
+    hasProjectMemberships: response?.data?.hasProjectMemberships || false,
   };
 });
 
@@ -33,6 +40,7 @@ export const authzSlice = createSlice({
     clearCapabilities: (state) => {
       state.capabilities = [];
       state.blockedSections = [];
+      state.hasProjectMemberships = false;
       state.error = null;
       state.isLoading = false;
     },
@@ -46,6 +54,7 @@ export const authzSlice = createSlice({
       state.isLoading = false;
       state.capabilities = action.payload.capabilities;
       state.blockedSections = action.payload.blockedSections;
+      state.hasProjectMemberships = action.payload.hasProjectMemberships;
     });
     builder.addCase(fetchAuthzCapabilities.rejected, (state, action) => {
       state.isLoading = false;

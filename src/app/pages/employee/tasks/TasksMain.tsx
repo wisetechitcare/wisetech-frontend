@@ -14,12 +14,17 @@ import TasksConfigure from "./configure/TasksConfigure";
 // import TaskOverviewToggle from "./taskOverView/TaskOverviewToggle";
 import { fetchConfiguration } from "@services/company";
 import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
+import { canDo } from "@utils/can";
 
- 
+
 const TasksMain = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [dateSettingsEnabled, setDateSettingsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Configure is a write-only surface: hidden for read-only viewers, so the
+  // whole tab (not each button inside it) is the access control.
+  const canConfigure = canDo("tasks", "update");
 
   const dispatch = useDispatch<AppDispatch>();
 
@@ -71,15 +76,19 @@ const TasksMain = () => {
         activeTab === 0
           ? leadsIcons.leadsOverviewIcon.active
           : leadsIcons.leadsOverviewIcon.default,
-    },{
-      title: "Configure",
-      component: <TasksConfigure />,
-      icon:
-        activeTab === 1
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
     },
+    ...(canConfigure
+      ? [{
+          title: "Configure",
+          component: <TasksConfigure />,
+          icon:
+            activeTab === 1
+              ? leadsIcons.leadsConfigIcon.active
+              : leadsIcons.leadsConfigIcon.default,
+        }]
+      : []),
   ];
+  const safeActiveTab = Math.min(activeTab, tabItems.length - 1);
 
   const PorjectBreadcrumbs = [
     {
@@ -98,13 +107,13 @@ const TasksMain = () => {
   return (
     <div>
       <PageTitle breadcrumbs={PorjectBreadcrumbs}>
-        {tabItems[activeTab].title}
+        {tabItems[safeActiveTab].title}
       </PageTitle>
 
       <MaterialHeaderTab
         tabItems={tabItems}
         onTabChange={setActiveTab}
-        activeTab={activeTab}
+        activeTab={safeActiveTab}
       />
     </div>
   );

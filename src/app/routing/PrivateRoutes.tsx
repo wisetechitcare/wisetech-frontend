@@ -136,7 +136,14 @@ const PrivateRoutes = () => {
         {/* Redirect to Dashboard after success login/registartion */}
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
         {/* Pages */}
-        <Route path='dashboard' element={<DashboardWrapper />} />
+        <Route
+          path='dashboard'
+          element={
+            <SectionGuard module='dashboard'>
+              <DashboardWrapper />
+            </SectionGuard>
+          }
+        />
         {NEW_MY_TEAM_IA && <Route path='my-team' element={<MyTeamLayout />}>
           <Route index element={<Navigate to='/my-team/overview' replace />} />
           <Route path='overview' element={<MyTeamOverview />} />
@@ -198,33 +205,51 @@ const PrivateRoutes = () => {
           }
         />
 
-        {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
+        {/* Finance's children are universal-default-eligible (like dashboard/
+            calendar): every employee gets baseline access unless an admin
+            explicitly blocks it via the Access tab, so these are block-only
+            (no requireGrant) rather than deny-unless-granted. Was previously
+            legacy hasPermission()-gated (or, for /finance/loans, completely
+            unguarded) - neither consulted an explicit per-employee block. */}
+        <Route
           path='/finance/bills'
           element={
-            <SuspensedView>
-              <AdminAndEmployeeReimbursementViewer />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
+            <SectionGuard module='finance.reimbursements'>
+              <SuspensedView>
+                <AdminAndEmployeeReimbursementViewer />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
           path='/finance/salary'
           element={
-            <SuspensedView>
-              <Salary />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
+            <SectionGuard module='finance.salary'>
+              <SuspensedView>
+                <Salary />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
           path='/finance/increment'
           element={
-            <SuspensedView>
-              <Increment />
-            </SuspensedView>}
-        />}
+            <SectionGuard module='finance.increment'>
+              <SuspensedView>
+                <Increment />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
         <Route
           path='/finance/loans'
           element={
-            <SuspensedView>
-              <PersonalLoanMain />
-            </SuspensedView>}
+            <SectionGuard module='finance.loans'>
+              <SuspensedView>
+                <PersonalLoanMain />
+              </SuspensedView>
+            </SectionGuard>
+          }
         />
         <Route
           path='employee/profile/*'
@@ -250,13 +275,16 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.holidaysUnderReports, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='/company/public-holiday'
           element={
-            <SuspensedView>
-              <PublicHoliday onClose={() => console.log('Hey')} setShowNewHolidayForm={undefined} />
-            </SuspensedView>}
-        />}
+            <SectionGuard module='reports' requireGrant>
+              <SuspensedView>
+                <PublicHoliday onClose={() => console.log('Hey')} setShowNewHolidayForm={undefined} />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
         <Route
           path='/company/overview'
           element={
@@ -264,20 +292,39 @@ const PrivateRoutes = () => {
               <Overview />
             </SuspensedView>}
         />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+        {/* These "company->X" legacy resources all canonicalize to the same
+            bare `settings.manage.all` key (no distinct ACCESS_AREAS leaf, and
+            a `manage` action rather than `view`), so canViewModule('settings')
+            would never see them - allowIf preserves the existing legacy-role
+            path while requireGrant+isBlocked lets an explicit block win. */}
+        <Route
           path='/company/branches'
           element={
-            <SuspensedView>
-              <Branches />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            <SectionGuard
+              module='settings'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers)}
+            >
+              <SuspensedView>
+                <Branches />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
           path='/company/departments'
           element={
-            <SuspensedView>
-              <Departments />
-            </SuspensedView>}
-        />}
+            <SectionGuard
+              module='settings'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers)}
+            >
+              <SuspensedView>
+                <Departments />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
         {/* <Route
           path='/company/employee-types'
           element={
@@ -295,12 +342,14 @@ const PrivateRoutes = () => {
         <Route
           path='employees'
           element={
-            <SuspensedView>
-              <EmployeesList />
-            </SuspensedView>
+            <SectionGuard module='users' requireGrant>
+              <SuspensedView>
+                <EmployeesList />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='employees/calendar'
           element={
             <SectionGuard module='calendar'>
@@ -309,7 +358,7 @@ const PrivateRoutes = () => {
               </SuspensedView>
             </SectionGuard>
           }
-        />}
+        />
         <Route
           path='employees/notifications'
           element={
@@ -318,76 +367,123 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='employee/attendance-and-leaves'
           element={
-            <SuspensedView>
-              <PersonalAttendanceView />
-            </SuspensedView>
+            <SectionGuard module='attendance.personal'>
+              <SuspensedView>
+                <PersonalAttendanceView />
+              </SuspensedView>
+            </SectionGuard>
           }
-        />}
+        />
 
-        {(hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) || can('attendance.employees.view.all')) && <Route
+        <Route
           path='employees/attendance-and-leaves'
           element={
-            <SectionGuard module='attendance.employees'>
+            // attendance.employees isn't a universal default, so this needs
+            // requireGrant - but its legacy resource canonicalizes to the
+            // bare `attendance.view.all` key (not `attendance.employees.view.*`),
+            // which canViewModule('attendance.employees') would never see. allowIf
+            // preserves that legacy-role access; an explicit block still wins
+            // regardless (isBlocked is checked independently of allowIf).
+            <SectionGuard
+              module='attendance.employees'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) || can('attendance.employees.view.all')}
+            >
               <SuspensedView>
                 <EmployeesAttendanceView />
               </SuspensedView>
             </SectionGuard>
           }
-        />}
+        />
         <Route
           path='employees/create-new'
           element={
-            <SuspensedView>
-              <NewEmployeeWizard editMode={false} openModal={true} />
-            </SuspensedView>
+            <SectionGuard module='users' requireGrant>
+              <SuspensedView>
+                <NewEmployeeWizard editMode={false} openModal={true} />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route
           path='employees/edit/:employeeId'
           element={
-            <SuspensedView>
-              <NewEmployeeWizard editMode={true} openModal={true} />
-            </SuspensedView>
+            <SectionGuard module='users' requireGrant>
+              <SuspensedView>
+                <NewEmployeeWizard editMode={true} openModal={true} />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='/employee/documents'
           element={
-            <SuspensedView>
-              <Document />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            <SectionGuard module='users' requireGrant>
+              <SuspensedView>
+                <Document />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
           path='/company/organisation-profile'
           element={
-            <SuspensedView>
-              <OrganisationProfileMain />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            <SectionGuard
+              module='settings.profile'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)}
+            >
+              <SuspensedView>
+                <OrganisationProfileMain />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
           path='/company/organisation-profile/:orgId'
           element={
-            <SuspensedView>
-              <OrganizationProfilePage />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            <SectionGuard
+              module='settings.profile'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)}
+            >
+              <SuspensedView>
+                <OrganizationProfilePage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
           path='/company/organisation-info'
           element={
-            <SuspensedView>
-              <OrganisationInfoProfileMain />
-            </SuspensedView>}
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.announcementsUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+            <SectionGuard
+              module='settings.profile'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)}
+            >
+              <SuspensedView>
+                <OrganisationInfoProfileMain />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
           path='/company/announcements'
           element={
-            <SuspensedView>
-              <Announcements />
-            </SuspensedView>}
-        />}
+            <SectionGuard
+              module='settings.announcements'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.announcementsUnderCompany, permissionConstToUseWithHasPermission.readOthers)}
+            >
+              <SuspensedView>
+                <Announcements />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
         <Route
           path='/company/branding'
           element={
@@ -396,66 +492,104 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
-        {hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+        <Route
           path='/company/designations'
           element={
-            <SuspensedView>
-              <Designations />
-            </SuspensedView>
+            <SectionGuard
+              module='settings'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers)}
+            >
+              <SuspensedView>
+                <Designations />
+              </SuspensedView>
+            </SectionGuard>
           }
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+        />
+        <Route
           path='/company/media'
           element={
-            <SuspensedView>
-              <Media />
-            </SuspensedView>
+            <SectionGuard
+              module='settings.media'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)}
+            >
+              <SuspensedView>
+                <Media />
+              </SuspensedView>
+            </SectionGuard>
           }
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+        />
+        <Route
           path='/company/media/:adminId'
           element={
-            <SuspensedView>
-              <Media />
-            </SuspensedView>
+            <SectionGuard
+              module='settings.media'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)}
+            >
+              <SuspensedView>
+                <Media />
+              </SuspensedView>
+            </SectionGuard>
           }
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+        />
+        <Route
           path='/company/media/:adminId/:employeeId'
           element={
-            <SuspensedView>
-              <Media />
-            </SuspensedView>
+            <SectionGuard
+              module='settings.media'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)}
+            >
+              <SuspensedView>
+                <Media />
+              </SuspensedView>
+            </SectionGuard>
           }
-        />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+        />
+        <Route
           path='/company/onboardingdocs'
           element={
-            <SuspensedView>
-              <OnBoardingDocs />
-            </SuspensedView>
+            <SectionGuard
+              module='settings.onboarding'
+              requireGrant
+              allowIf={hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)}
+            >
+              <SuspensedView>
+                <OnBoardingDocs />
+              </SuspensedView>
+            </SectionGuard>
           }
-        />}
+        />
         <Route
           path='/company/documents/:employeeId'
           element={
-            <SuspensedView>
-              <EmployeeDocumentTable />
-            </SuspensedView>
+            <SectionGuard module='users' requireGrant>
+              <SuspensedView>
+                <EmployeeDocumentTable />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route
           path='/finance/loans/:loanId'
           element={
-            <SuspensedView>
-              <LoanDetails />
-            </SuspensedView>
+            <SectionGuard module='finance.loans'>
+              <SuspensedView>
+                <LoanDetails />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route
           path='employee/report/kpis'
           element={
-            <SectionGuard module='reports.kpi'>
+            // Not a universal default - a missing grant should deny, not just
+            // an explicit block. This was previously block-only, which is why
+            // an ungranted employee fell through to the page's own inline
+            // "Not Allowed To View" fallback instead of a redirect.
+            <SectionGuard module='kpi' requireGrant>
               <SuspensedView>
                 <PersonalKpiMain />
               </SuspensedView>
@@ -562,6 +696,9 @@ const PrivateRoutes = () => {
         <Route
           path='/employee/lead/:leadId'
           element={
+            // Strict: no crm.leads grant means this page is fully invisible,
+            // even to an employee staffed on the specific project — an
+            // explicit permission grant is required no matter what.
             <SectionGuard module='crm.leads' requireGrant>
               <SuspensedView>
                 <EntityDetailPage />
@@ -618,9 +755,11 @@ const PrivateRoutes = () => {
         <Route
           path='/employees/:employeeId'
           element={
-            <SuspensedView>
-              <ShowEmployeeDetailsToggle />
-            </SuspensedView>
+            <SectionGuard module='users' requireGrant>
+              <SuspensedView>
+                <ShowEmployeeDetailsToggle />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route

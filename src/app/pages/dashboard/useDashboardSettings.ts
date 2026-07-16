@@ -4,8 +4,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { hasPermission } from "@utils/authAbac";
-import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
+import { canViewModule } from "@utils/can";
 import { useState, useEffect, useCallback } from "react";
 
 export type DashboardSection = {
@@ -31,20 +30,27 @@ const DEFAULT_SECTIONS: DashboardSection[] = [
 
 const TABLE_NAME = "dashboardSettings";
 
-// Map dashboard section keys to ABAC resource names
-const SECTION_TO_RESOURCE_MAP: Record<string, string> = {
-  announcements: resourceNameMapWithCamelCase.dashboardAnnouncements,
-  attendance: resourceNameMapWithCamelCase.dashboardAttendance,
-  dailyAttendanceOverview: resourceNameMapWithCamelCase.dashboardDailyAttendanceOverview,
-  tasks: resourceNameMapWithCamelCase.dashboardTasks,
-  upcomingEvents: resourceNameMapWithCamelCase.dashboardUpcomingEvents,
-  todoCard: resourceNameMapWithCamelCase.dashboardTodoCard,
-  pendingRequests: resourceNameMapWithCamelCase.dashboardPendingRequests,
-  leaderboard: resourceNameMapWithCamelCase.dashboardLeaderboard,
-  analyticsGraphs: resourceNameMapWithCamelCase.dashboardAnalyticsGraphs,
-  allLoans: resourceNameMapWithCamelCase.dashboardAllLoans,
-  ongoingLoans: resourceNameMapWithCamelCase.dashboardOngoingLoans,
-  kpiSection: resourceNameMapWithCamelCase.dashboardKpiSection,
+// Map dashboard section keys to the real canonical RBAC module (see
+// ACCESS_AREAS in accessAreas.ts) that section previews data from. Each card
+// is a preview of the employee's own access to that module, so visibility
+// should follow whatever view access they actually hold on it — not a
+// separate "dashboardX" resource that no role/override has ever been able to
+// grant (that was the bug: every card silently resolved to a permission key
+// nothing could ever satisfy, so the whole dashboard rendered empty for any
+// non-admin).
+const SECTION_TO_MODULE_MAP: Record<string, string> = {
+  announcements: "dashboard",
+  attendance: "attendance",
+  dailyAttendanceOverview: "attendance.employees",
+  tasks: "tasks",
+  upcomingEvents: "calendar",
+  todoCard: "tasks",
+  pendingRequests: "approvals",
+  leaderboard: "kpi",
+  analyticsGraphs: "kpi",
+  allLoans: "finance.loans",
+  ongoingLoans: "finance.loans",
+  kpiSection: "kpi",
 };
 
 export const useDashboardSettings = () => {
@@ -120,18 +126,15 @@ export const useDashboardSettings = () => {
       return false;
     }
 
-    // Then check ABAC permissions
-    const resourceName = SECTION_TO_RESOURCE_MAP[key];
-    if (resourceName) {
-      // Check if user has permission to view this dashboard section
-      const hasViewPermission = hasPermission(
-        resourceName,
-        permissionConstToUseWithHasPermission.readOwn
-      );
-      return hasViewPermission;
-    }
+    // Then check RBAC view access on the module this card previews. Checked
+    // at any scope tier (self/team/department/all/global) since some cards
+    // are inherently team-scoped (e.g. dailyAttendanceOverview) rather than
+    // "own record" — a fixed self-scope check would wrongly hide those for
+    // anyone whose grant is team+ scoped instead of self.
+    const module = SECTION_TO_MODULE_MAP[key];
+    if (module) return canViewModule(module);
 
-    // If no resource mapping exists, fall back to user preference
+    // If no module mapping exists, fall back to user preference
     return isEnabledByUser;
   };
 

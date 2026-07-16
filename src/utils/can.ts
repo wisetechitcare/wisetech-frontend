@@ -48,3 +48,10 @@ export const canViewModule = (module: string): boolean =>
 // affordance. e.g. canDo('crm.leads', 'update'), canDo('crm.leads', 'delete').
 export const canDo = (module: string, action: string): boolean =>
   SCOPE_TIERS.some((scope) => can(`${module}.${action}.${scope}`));
+
+// True if the employee is staffed on at least one project (PM, execution-team
+// member, or internal roster entry) - lets the Projects section reveal itself
+// for someone with no general crm.leads/projects grant, since the list itself
+// narrows to just the projects they're actually on (see getLeadOwnerWhere).
+export const hasProjectMembership = (): boolean =>
+  (store.getState() as any).authz?.hasProjectMemberships === true;

@@ -213,6 +213,7 @@ export const EMPLOYEE = {
     UPDATE_EMPLOYEE_ROLES: "api/employee/:id/roles",
     GET_EMPLOYEE_ACCESS: "api/employee/:id/access",
     SET_SECTION_ACCESS: "api/employee/:id/access/section",
+    RESET_ALL_SECTION_ACCESS: "api/employee/:id/access/reset-all",
     GET_EMPLOYEE_PERMISSIONS: "api/employee/:id/permissions",
     CREATE_EMPLOYEE_PERMISSION: "api/employee/:id/permissions",
     UPDATE_EMPLOYEE_PERMISSION: "api/employee/:id/permissions/:permissionId",
@@ -344,14 +345,9 @@ export const AUDIT = {
 
 export const ROLES = {
     GET_ALL_ROLES: "api/roles",
-    GET_ROLE: "api/roles/:id",
     CREATE_ROLE: "api/roles",
     UPDATE_ROLE: "api/roles/:id",
     DELETE_ROLE: "api/roles/:id",
-    GET_PERMISSIONS_FOR_ROLE: "api/roles/:id/permissions",
-    CREATE_PERMISSION_FOR_ROLE: "api/roles/:id/permissions",
-    UPDATE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
-    DELETE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
     ADD_EMPLOYEE_TO_ROLE: "api/roles/:id/employees",
     REMOVE_EMPLOYEE_FROM_ROLE: "api/roles/:id/employees/:employeeId",
     GET_ROLE_ACCESS: "api/roles/:id/access",

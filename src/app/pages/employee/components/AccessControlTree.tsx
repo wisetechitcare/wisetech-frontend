@@ -56,6 +56,12 @@ interface Props {
   customModules?: Set<string>;
   onSetExpiry?: (module: string, iso: string | null) => void;
   onResetToRole?: (module: string) => void;
+  /** View-only mode: checkboxes are shown but disabled, no editing possible. */
+  readOnly?: boolean;
+  /** Fired once when a row's live countdown reaches zero, so the caller can
+   * refresh from the server and reflect the now-expired override reverting to
+   * the role's default. Only used in "employee" variant. */
+  onExpired?: (module: string) => void;
 }
 
 interface TNode {
@@ -86,12 +92,36 @@ const toLocalInput = (ms: number): string => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-const Checkbox: React.FC<{ checked: boolean; label: string; onChange: () => void; disabled?: boolean }> = ({ checked, label, onChange, disabled }) => (
-  <label className="d-flex align-items-center" style={{ gap: 6, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontWeight: 600, fontSize: 12.5, color: checked ? ACCENT : "#46505d", userSelect: "none" }}>
-    <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} style={{ width: 16, height: 16, accentColor: ACCENT, cursor: disabled ? "not-allowed" : "pointer" }} />
-    {label}
-  </label>
-);
+const Checkbox: React.FC<{ checked: boolean; label: string; onChange: () => void; disabled?: boolean }> = ({ checked, label, onChange, disabled }) => {
+  if (disabled) {
+    // A native `disabled` checkbox renders at low contrast in most browsers no
+    // matter what CSS we throw at it — that's what made granted permissions
+    // hard to read in read-only mode. Render our own visual instead: full
+    // color when granted, muted but still legible when not, with no pointer
+    // cursor/hover since it's informational only.
+    return (
+      <span className="d-flex align-items-center" style={{ gap: 6, fontWeight: 600, fontSize: 12.5, color: checked ? ACCENT : "#aeb6c1", userSelect: "none" }}>
+        <span
+          style={{
+            width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            background: checked ? ACCENT : "#fff",
+            border: `1.5px solid ${checked ? ACCENT : "#c9d0d9"}`,
+          }}
+        >
+          {checked && <i className="bi bi-check-lg" style={{ fontSize: 11, color: "#fff", lineHeight: 1 }} />}
+        </span>
+        {label}
+      </span>
+    );
+  }
+  return (
+    <label className="d-flex align-items-center" style={{ gap: 6, cursor: "pointer", fontWeight: 600, fontSize: 12.5, color: checked ? ACCENT : "#46505d", userSelect: "none" }}>
+      <input type="checkbox" checked={checked} onChange={onChange} style={{ width: 16, height: 16, accentColor: ACCENT, cursor: "pointer" }} />
+      {label}
+    </label>
+  );
+};
 
 // One controllable leaf row: Read/Write checkboxes + optional expiry/timer.
 const LeafControls: React.FC<{
@@ -103,13 +133,17 @@ const LeafControls: React.FC<{
   onSetLevel: Props["onSetLevel"];
   onSetExpiry?: Props["onSetExpiry"];
   onResetToRole?: Props["onResetToRole"];
-}> = ({ module, level, expiry, isCustom, variant, onSetLevel, onSetExpiry, onResetToRole }) => {
+  readOnly?: boolean;
+  /** Row has unsaved staged changes (level and/or expiry) — see AccessControlTree's `dirty`. */
+  dirty?: boolean;
+  onExpired?: Props["onExpired"];
+}> = ({ module, level, expiry, isCustom, variant, onSetLevel, onSetExpiry, onResetToRole, readOnly, dirty, onExpired }) => {
   const [timerOpen, setTimerOpen] = useState(false);
   const read = level === "view" || level === "edit";
   const write = level === "edit";
 
-  const toggleRead = () => onSetLevel(module, read ? "none" : "view");
-  const toggleWrite = () => onSetLevel(module, write ? "view" : "edit");
+  const toggleRead = () => { if (!readOnly) onSetLevel(module, read ? "none" : "view"); };
+  const toggleWrite = () => { if (!readOnly) onSetLevel(module, write ? "view" : "edit"); };
 
   const applyPreset = (ms: number) => { onSetExpiry?.(module, new Date(Date.now() + ms).toISOString()); setTimerOpen(false); };
   const applyCustom = (val: string) => {
@@ -122,8 +156,8 @@ const LeafControls: React.FC<{
 
   return (
     <div className="d-flex align-items-center flex-wrap" style={{ gap: 14 }}>
-      <Checkbox checked={read} label="Read" onChange={toggleRead} />
-      <Checkbox checked={write} label="Write" onChange={toggleWrite} />
+      <Checkbox checked={read} label="Read" onChange={toggleRead} disabled={readOnly} />
+      <Checkbox checked={write} label="Write" onChange={toggleWrite} disabled={readOnly} />
 
       {variant === "role" ? (
         level === "none" ? (
@@ -135,7 +169,17 @@ const LeafControls: React.FC<{
         <div className="d-flex align-items-center" style={{ gap: 8 }}>
           {expiry ? (
             <>
-              <LiveCountdown expiresAt={expiry} />
+              {dirty ? (
+                // Not persisted yet — a ticking countdown here would read as
+                // "already active" when nothing has been saved. Show a static,
+                // neutral preview instead until Save Changes is clicked.
+                <span className="d-inline-flex align-items-center" style={{ gap: 5, fontSize: 12, fontWeight: 600, color: "#70829A" }}>
+                  <i className="bi bi-clock" style={{ fontSize: 12 }} />
+                  Expires {new Date(expiry).toLocaleString()} — unsaved, click Save Changes to apply
+                </span>
+              ) : (
+                <LiveCountdown expiresAt={expiry} onExpire={() => onExpired?.(module)} />
+              )}
               <button
                 type="button"
                 title="Change timer"
@@ -214,7 +258,7 @@ const LeafControls: React.FC<{
   );
 };
 
-const AccessControlTree: React.FC<Props> = ({ levels, expiries, customModules, dirtyModules, onSetLevel, onSetExpiry, onResetToRole, variant = "employee" }) => {
+const AccessControlTree: React.FC<Props> = ({ levels, expiries, customModules, dirtyModules, onSetLevel, onSetExpiry, onResetToRole, variant = "employee", readOnly = false, onExpired }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -326,6 +370,9 @@ const AccessControlTree: React.FC<Props> = ({ levels, expiries, customModules, d
                     onSetLevel={onSetLevel}
                     onSetExpiry={onSetExpiry}
                     onResetToRole={onResetToRole}
+                    readOnly={readOnly}
+                    dirty={dirty}
+                    onExpired={onExpired}
                   />
                 )}
               </div>

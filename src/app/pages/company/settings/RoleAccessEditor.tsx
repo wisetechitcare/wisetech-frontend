@@ -9,6 +9,8 @@ interface Props {
   roleId: string;
   roleName?: string;
   setRefetch?: (show: boolean) => void;
+  /** View-only mode for system roles: no Save button, checkboxes disabled. */
+  readOnly?: boolean;
 }
 
 const getLeaves = (area: AccessArea): string[] => {
@@ -25,7 +27,7 @@ const getLeaves = (area: AccessArea): string[] => {
  * — i.e. every employee who has this role. Read = view, Write = edit, none = not
  * granted. (Per-person exceptions are still set from People → employee Access.)
  */
-const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => {
+const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch, readOnly = false }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -74,10 +76,18 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
   const saveAll = async () => {
     try {
       setSaving(true);
+      let clearedTotal = 0;
       for (const m of changedModules) {
-        await setRoleSectionAccess(roleId, m, (levels[m] || "none") as "none" | "view" | "edit");
+        const result = await setRoleSectionAccess(roleId, m, (levels[m] || "none") as "none" | "view" | "edit");
+        clearedTotal += result?.clearedOverridesCount ?? 0;
       }
       toast.success("Role access updated");
+      // Editing a role's section clears any member's personal override on
+      // that same section, so they stop diverging from the role's new
+      // setting — surface that it happened instead of leaving it silent.
+      if (clearedTotal > 0) {
+        toast.info(`Cleared ${clearedTotal} personal override${clearedTotal > 1 ? "s" : ""} that no longer matched the updated role.`);
+      }
       await load();
       setRefetch?.(true);
     } catch (err: any) {
@@ -120,10 +130,31 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
     <div>
       <div className="d-flex align-items-center justify-content-between mb-2">
         <div>
-          <h2 className="mb-1">Access</h2>
+          <div className="d-flex align-items-center gap-2 mb-1">
+            <h2 className="mb-0">Access</h2>
+            {readOnly && (
+              <span
+                className="d-inline-flex align-items-center"
+                style={{
+                  gap: 5, fontSize: 11, fontWeight: 700, letterSpacing: 0.3, textTransform: "uppercase",
+                  color: "#8893a0", background: "#eef0f3", border: "1px solid #dde2e8",
+                  borderRadius: 999, padding: "3px 10px",
+                }}
+              >
+                <i className="bi bi-lock-fill" style={{ fontSize: 10 }} />
+                View only
+              </span>
+            )}
+          </div>
           <div className="text-muted fs-7">
-            Controls what <strong>everyone with the {roleName ? `"${roleName}"` : "this"} role</strong> can see and do.
-            Per-person exceptions are set in People → employee → Access.
+            {readOnly ? (
+              <>This is a <strong>system role</strong> — its permissions are managed by the system and can't be changed here.</>
+            ) : (
+              <>
+                Controls what <strong>everyone with the {roleName ? `"${roleName}"` : "this"} role</strong> can see and do.
+                Per-person exceptions are set in People → employee → Access.
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -134,12 +165,15 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
         levels={levels}
         dirtyModules={dirtyModules}
         onSetLevel={onSetLevel}
+        readOnly={readOnly}
       />
 
-      <button className="btn btn-primary mt-8" type="button" disabled={!dirty || saving} onClick={saveAll}>
-        <i className="bi bi-save me-2" />
-        {saving ? "Saving…" : "Save Access"}
-      </button>
+      {!readOnly && (
+        <button className="btn btn-primary mt-8" type="button" disabled={!dirty || saving} onClick={saveAll}>
+          <i className="bi bi-save me-2" />
+          {saving ? "Saving…" : "Save Access"}
+        </button>
+      )}
     </div>
   );
 };

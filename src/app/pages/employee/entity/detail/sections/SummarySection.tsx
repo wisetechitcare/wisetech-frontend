@@ -99,10 +99,11 @@ const SummarySection: React.FC<{
   company?: any;
   contact?: any;
   onJump: (step: number) => void;
-  // Write-gated: the Scope & Commercials sub-tab exposes project financials
-  // (rates/costs) that read-only users must not see.
+  view: SummaryView;
+  // Write-gated: the Commercial tab exposes project financials (rates/costs)
+  // that read-only users must not see.
   canViewCommercials?: boolean;
-}> = ({ lead, vm, company, contact, onJump, canViewCommercials = true }) => {
+}> = ({ lead, vm, company, contact, onJump, view, canViewCommercials = true }) => {
   const allEmployees = useSelector((s: RootState) => s.allEmployees?.list) || [];
   const isProject = !!lead?.status?.isProjectTrigger || !!lead?.project;
   const p = lead?.project || {};
@@ -110,11 +111,16 @@ const SummarySection: React.FC<{
   // extension. Fall back to the (transitional) project row when present.
   const exec = lead?.execution || {};
 
-  const subPages = useMemo(
-    () => SUB_PAGES.filter(s => (!s.projectOnly || isProject) && (s.key !== 'commercial' || canViewCommercials)),
-    [isProject, canViewCommercials],
-  );
-  const active = subPages.some(s => s.key === sub) ? sub : 'leads';
+  // Projects is project-only; Commercial and (once it's a project) Leads are
+  // write-gated. Fall back if the tab is somehow active without the underlying
+  // access (e.g. right after a status change removes Projects, or a permission
+  // change) — to Leads normally, but to Projects when Leads itself is the one
+  // that's hidden (a blocked project team member has no crm.leads access).
+  const leadsBlocked = isProject && !canViewCommercials;
+  const active =
+    view === 'leads' && leadsBlocked ? 'projects'
+    : (view === 'projects' && !isProject) || (view === 'commercial' && !canViewCommercials) ? (leadsBlocked ? 'projects' : 'leads')
+    : view;
 
   const owner = employeeUserName(lead?.assignedTo) || employeeNameById(allEmployees, lead?.assignedToId) || DASH;
   const missing = computeMissingInfo(lead);

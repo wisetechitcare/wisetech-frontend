@@ -1,9 +1,9 @@
 import { store } from "@redux/store";
-import { can } from "@utils/can";
+import { can, canViewModule } from "@utils/can";
 
 // The sidebar "sections" an admin can grant/block per employee, as a tree.
 // `module` is the backend permission resource key; sub-sections use a dotted key
-// under their parent (e.g. finance.salary, kpi.leaderboard). `label` is what the
+// under their parent (e.g. finance.salary, timesheets.my). `label` is what the
 // admin reads. Keep in sync with SECTION_MODULES in
 // backend/src/constants/permissions.ts.
 export interface AccessArea {
@@ -41,16 +41,7 @@ export const ACCESS_AREAS: AccessArea[] = [
     module: "reports",
     label: "Reports",
     children: [
-      {
-        module: "reports.kpi",
-        label: "KPI",
-        children: [
-          { module: "kpi.my", label: "My KPI" },
-          { module: "kpi.search", label: "Search Employees" },
-          { module: "kpi.leaderboard", label: "Leaderboard" },
-          { module: "kpi.configure", label: "Configure" },
-        ],
-      },
+      { module: "kpi", label: "KPI" },
     ],
   },
   {
@@ -109,7 +100,7 @@ export const isSectionBlocked = (module: string): boolean => {
  */
 export const isSubsectionVisible = (module: string, baseAllowed: boolean): boolean => {
   if (isSectionBlocked(module)) return false;
-  return baseAllowed || can(`${module}.view.all`);
+  return baseAllowed || canViewModule(module);
 };
 
 const findNode = (areas: AccessArea[], module: string): AccessArea | undefined => {

@@ -7,6 +7,12 @@ const shiftMinutes: number = 30;
 
 export const MAX_FILE_SIZE = 3 * 1024 * 1024;
 
+// Avatars are stored and served at their original upload resolution (no
+// server-side resizing), so a low-res source photo stays blurry everywhere
+// it's displayed. 300px covers a 40px header symbol at ~7x — comfortably
+// crisp on high-DPI screens and on larger avatar displays elsewhere in the app.
+export const MIN_AVATAR_DIMENSION = 300;
+
 export const allowedTypes = [
     "image/jpeg",
     "image/png",

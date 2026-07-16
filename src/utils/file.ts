@@ -8,6 +8,22 @@ import dayjs, { Dayjs } from "dayjs";
 import isBetween from 'dayjs/plugin/isBetween';
 dayjs.extend(isBetween);
 
+export function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error(`Could not read image dimensions for "${file.name}".`));
+        };
+        img.src = url;
+    });
+}
+
 export function dataURLtoFile(dataurl: any, filename: string) {
     const arr = dataurl.split(','),
         mime = arr[0].match(/:(.*?);/)[1],

@@ -135,7 +135,10 @@ const App = () => {
   }, [isAuthenticated, currentUser?.id, dispatch]);
 
   // Global real-time sync: backend socket events → eventBus → component refetches
-  useRealtimeSync(isAuthenticated ? currentUser?.id : null);
+  // Joins the socket room keyed by Employees.id (not Users.id) — that's what
+  // the backend targets when pushing a permission change via
+  // notifyPermissionsChanged/SocketGateway.emit(event, employeeId, ...).
+  useRealtimeSync(isAuthenticated ? employeeId : null);
 
   // Browser push notifications: register SW + subscribe when employee is loaded
   usePushSubscription(isAuthenticated ? employeeId : null);

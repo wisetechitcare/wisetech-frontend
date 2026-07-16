@@ -10,10 +10,13 @@ import {
 } from "@constants/configurations-key";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
 import { memo } from "react";
+import { canDo } from "@utils/can";
 
 const MemoizedTimeSheetToggle = memo(MyTimeSheetToggle);
 
 const MyTimeSheetPage = () => {
+  // Write-gated: read-only viewers get the timesheet but not the log-time affordance.
+  const canCreate = canDo("timesheets.my", "create");
   const [dateSettingsEnabled, setDateSettingsEnabled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -60,24 +63,26 @@ const MyTimeSheetPage = () => {
             My Timesheet
           </div>
           <div className="d-flex align-items-center gap-3">
-            <Button
-              variant="contained"
-              onClick={handleNewTimeLogClick}
-              sx={{
-                backgroundColor: "#9D4141",
-                "&:hover": {
-                  backgroundColor: "#7e3434",
-                },
-                textTransform: "none",
-                px: 3,
-                py: 1,
-                borderRadius: "8px",
-                fontSize: "14px",
-                fontWeight: 500,
-              }}
-            >
-              New Time Log
-            </Button>
+            {canCreate && (
+              <Button
+                variant="contained"
+                onClick={handleNewTimeLogClick}
+                sx={{
+                  backgroundColor: "#9D4141",
+                  "&:hover": {
+                    backgroundColor: "#7e3434",
+                  },
+                  textTransform: "none",
+                  px: 3,
+                  py: 1,
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                }}
+              >
+                New Time Log
+              </Button>
+            )}
           </div>
         </div>
         <MemoizedTimeSheetToggle
