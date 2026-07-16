@@ -1,4 +1,8 @@
 import { getAllLeadStatus, deleteLeadStatus, getAllLeadReferralType, deleteLeadReferralType, getAllLeadDirectSource, deleteLeadDirectSource, getAllLeadCancellationReasons, deleteLeadCancellationReason } from "@services/lead";
+import { getAllPaymentPlans, deletePaymentPlan } from "@services/paymentPlan";
+import { getAllMeetingSchedules, deleteMeetingSchedule } from "@services/meetingSchedule";
+import PaymentPlanModal from "./components/PaymentPlanModal";
+import MeetingScheduleModal from "./components/MeetingScheduleModal";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
 import { fetchAllPrefixSettings, createPrefixSetting, updatePrefixSetting } from "@services/options";
 
@@ -11,7 +15,7 @@ import Swal from "sweetalert2";
 import { Link } from "react-router-dom";
 import LeadsConfigForm from "./components/LeadsConfigForm";
 import CategoryTreeExplorer from "./components/CategoryTreeExplorer";
-import { LeadDirectSource, LeadReferralType, LeadStatus, LeadCancellationReason } from "@models/leads";
+import { LeadDirectSource, LeadReferralType, LeadStatus, LeadCancellationReason, PaymentPlan, MeetingScheduleType } from "@models/leads";
 import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "../../../../../hooks/useDeleteConfirmation";
 import { DropdownOption } from "../../../../../types/deleteConfirmation";
@@ -186,6 +190,162 @@ const EmptyState: React.FC<{ label: string }> = ({ label }) => (
   </div>
 );
 
+// ─── PaymentPlanChip ────────────────────────────────────────────────────────────
+
+const PaymentPlanChip: React.FC<{
+  plan: PaymentPlan;
+  onEdit: () => void;
+  onDelete: () => void;
+}> = ({ plan, onEdit, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  const stageCount = plan.stages?.length || 0;
+  const total = (plan.stages || []).reduce(
+    (sum, s) => sum + (parseFloat(String(s.percentage)) || 0),
+    0,
+  );
+  const roundedTotal = Math.round(total * 1000) / 1000;
+  const balanced = roundedTotal === 100;
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        backgroundColor: hov ? '#ffffff' : '#f7f8fa',
+        border: `1px solid ${hov ? '#d1d5e0' : '#eaecf0'}`,
+        borderRadius: RADIUS.lg,
+        padding: '12px 14px',
+        transition: 'all 0.15s ease',
+        boxShadow: hov ? '0 4px 14px rgba(24,28,50,0.09)' : '0 1px 3px rgba(24,28,50,0.04)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              fontFamily: FONT.body, fontWeight: 600, fontSize: '13px', color: C.textPrimary,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {plan.name}
+            </span>
+            {plan.isDefault && (
+              <span style={{
+                fontFamily: FONT.body, fontSize: '9px', fontWeight: 700, color: '#0A5C2A',
+                background: '#EDFDF3', border: '1px solid #17C96433', borderRadius: '999px',
+                padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0,
+                textTransform: 'uppercase', letterSpacing: '0.4px',
+              }}>
+                Default
+              </span>
+            )}
+          </div>
+          <div style={{ marginTop: 4, fontFamily: FONT.body, fontSize: '11.5px', color: C.textMuted }}>
+            {stageCount} stage{stageCount === 1 ? '' : 's'}
+            {' · '}
+            <span style={{ color: balanced ? '#0A5C2A' : C.danger, fontWeight: 600 }}>
+              {roundedTotal}%
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
+          <button
+            onClick={onEdit}
+            style={{
+              background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
+              padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center',
+            }}
+          >
+            <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+          </button>
+          <button
+            onClick={onDelete}
+            style={{
+              background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
+              padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center',
+            }}
+          >
+            <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── MeetingScheduleChip ────────────────────────────────────────────────────────
+
+const MeetingScheduleChip: React.FC<{
+  schedule: MeetingScheduleType;
+  onEdit: () => void;
+  onDelete: () => void;
+}> = ({ schedule, onEdit, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  const bracketCount = schedule.brackets?.length || 0;
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        backgroundColor: hov ? '#ffffff' : '#f7f8fa',
+        border: `1px solid ${hov ? '#d1d5e0' : '#eaecf0'}`,
+        borderRadius: RADIUS.lg,
+        padding: '12px 14px',
+        transition: 'all 0.15s ease',
+        boxShadow: hov ? '0 4px 14px rgba(24,28,50,0.09)' : '0 1px 3px rgba(24,28,50,0.04)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              fontFamily: FONT.body, fontWeight: 600, fontSize: '13px', color: C.textPrimary,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {schedule.name}
+            </span>
+            {schedule.isDefault && (
+              <span style={{
+                fontFamily: FONT.body, fontSize: '9px', fontWeight: 700, color: '#0A5C2A',
+                background: '#EDFDF3', border: '1px solid #17C96433', borderRadius: '999px',
+                padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0,
+                textTransform: 'uppercase', letterSpacing: '0.4px',
+              }}>
+                Default
+              </span>
+            )}
+          </div>
+          <div style={{ marginTop: 4, fontFamily: FONT.body, fontSize: '11.5px', color: C.textMuted }}>
+            {bracketCount} area bracket{bracketCount === 1 ? '' : 's'}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
+          <button
+            onClick={onEdit}
+            style={{
+              background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
+              padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center',
+            }}
+          >
+            <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+          </button>
+          <button
+            onClick={onDelete}
+            style={{
+              background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
+              padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center',
+            }}
+          >
+            <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 const sortItemsAlphabetically = <T extends { name: string }>(items: T[]): T[] =>
@@ -225,6 +385,14 @@ const LeadsConfigurationMain = () => {
   const [showCancellationReasonModal, setShowCancellationReasonModal] = useState(false);
   const [editingCancellationReason, setEditingCancellationReason] = useState<LeadCancellationReason | null>(null);
 
+  const [paymentPlans, setPaymentPlans] = useState<PaymentPlan[]>([]);
+  const [showPaymentPlanModal, setShowPaymentPlanModal] = useState(false);
+  const [editingPaymentPlan, setEditingPaymentPlan] = useState<PaymentPlan | null>(null);
+
+  const [meetingSchedules, setMeetingSchedules] = useState<MeetingScheduleType[]>([]);
+  const [showMeetingScheduleModal, setShowMeetingScheduleModal] = useState(false);
+  const [editingMeetingSchedule, setEditingMeetingSchedule] = useState<MeetingScheduleType | null>(null);
+
   // Project states
   const [projectServices, setProjectServices] = useState<ProjectItem[]>([]);
   const [showServiceModal, setShowServiceModal] = useState(false);
@@ -255,6 +423,14 @@ const LeadsConfigurationMain = () => {
   const handleCancellationReasonModalOpen = () => setShowCancellationReasonModal(true);
   const handleCancellationReasonModalClose = () => { setShowCancellationReasonModal(false); setEditingCancellationReason(null); };
   const handleCancellationReasonEdit = (r: LeadCancellationReason) => { setEditingCancellationReason(r); setShowCancellationReasonModal(true); };
+
+  const handlePaymentPlanModalOpen = () => { setEditingPaymentPlan(null); setShowPaymentPlanModal(true); };
+  const handlePaymentPlanModalClose = () => { setShowPaymentPlanModal(false); setEditingPaymentPlan(null); };
+  const handlePaymentPlanEdit = (p: PaymentPlan) => { setEditingPaymentPlan(p); setShowPaymentPlanModal(true); };
+
+  const handleMeetingScheduleModalOpen = () => { setEditingMeetingSchedule(null); setShowMeetingScheduleModal(true); };
+  const handleMeetingScheduleModalClose = () => { setShowMeetingScheduleModal(false); setEditingMeetingSchedule(null); };
+  const handleMeetingScheduleEdit = (m: MeetingScheduleType) => { setEditingMeetingSchedule(m); setShowMeetingScheduleModal(true); };
 
   const handleServiceModalOpen = () => setShowServiceModal(true);
   const handleServiceModalClose = () => { setShowServiceModal(false); setEditingService(null); };
@@ -326,6 +502,30 @@ const LeadsConfigurationMain = () => {
     }
   };
 
+  const fetchPaymentPlans = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllPaymentPlans();
+      if (response?.paymentPlans) setPaymentPlans(response.paymentPlans);
+    } catch (error) {
+      console.error('Error fetching payment plans:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMeetingSchedules = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllMeetingSchedules();
+      if (response?.meetingSchedules) setMeetingSchedules(response.meetingSchedules);
+    } catch (error) {
+      console.error('Error fetching meeting schedules:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchProjectServices = async () => {
     try {
       setLoading(true);
@@ -390,6 +590,28 @@ const LeadsConfigurationMain = () => {
       fetchLeadCancellationReasons();
     } catch (error) {
       console.error('Error deleting cancellation reason:', error);
+    }
+  };
+
+  const handlePaymentPlanDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation('Payment plan deleted successfully');
+      if (!confirmed) return;
+      await deletePaymentPlan(id);
+      fetchPaymentPlans();
+    } catch (error) {
+      console.error('Error deleting payment plan:', error);
+    }
+  };
+
+  const handleMeetingScheduleDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation('Meeting schedule deleted successfully');
+      if (!confirmed) return;
+      await deleteMeetingSchedule(id);
+      fetchMeetingSchedules();
+    } catch (error) {
+      console.error('Error deleting meeting schedule:', error);
     }
   };
 
@@ -495,6 +717,8 @@ const LeadsConfigurationMain = () => {
   useEffect(() => { fetchLeadReferralTypes(); }, []);
   useEffect(() => { fetchLeadDirectSources(); }, []);
   useEffect(() => { fetchLeadCancellationReasons(); }, []);
+  useEffect(() => { fetchPaymentPlans(); }, []);
+  useEffect(() => { fetchMeetingSchedules(); }, []);
   useEffect(() => { fetchProjectServices(); }, []);
   useEffect(() => { fetchProjectCategories(); fetchProjectSubcategories(); }, []);
 
@@ -503,6 +727,12 @@ const LeadsConfigurationMain = () => {
   useEventBus(EVENT_KEYS.leadDirectSourceCreated, fetchLeadDirectSources);
   useEventBus(EVENT_KEYS.leadCancellationReasonCreated, fetchLeadCancellationReasons);
   useEventBus(EVENT_KEYS.leadCancellationReasonUpdated, fetchLeadCancellationReasons);
+  useEventBus(EVENT_KEYS.paymentPlanCreated, fetchPaymentPlans);
+  useEventBus(EVENT_KEYS.paymentPlanUpdated, fetchPaymentPlans);
+  useEventBus(EVENT_KEYS.paymentPlanDeleted, fetchPaymentPlans);
+  useEventBus(EVENT_KEYS.meetingScheduleCreated, fetchMeetingSchedules);
+  useEventBus(EVENT_KEYS.meetingScheduleUpdated, fetchMeetingSchedules);
+  useEventBus(EVENT_KEYS.meetingScheduleDeleted, fetchMeetingSchedules);
   useEventBus(EVENT_KEYS.projectServiceCreated, fetchProjectServices);
   useEventBus(EVENT_KEYS.projectServiceUpdated, fetchProjectServices);
   useEventBus(EVENT_KEYS.projectCategoryCreated, fetchProjectCategories);
@@ -647,6 +877,68 @@ const LeadsConfigurationMain = () => {
                         color={r.color}
                         onEdit={() => handleReferralTypeEdit(r)}
                         onDelete={() => handleReferralTypeDelete(r.id!)}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
+
+            {/* Payment Plans (stage-wise fee break-up) */}
+            <ConfigSectionCard
+              title="Payment Plans"
+              description="Define stage-wise fee break-up plans. On a lead, selecting a plan auto-splits the total commercial cost across its stages by percentage."
+              icon="bi-cash-stack"
+              iconColor="green"
+              primaryAction={{
+                label: 'New Plan',
+                icon: 'bi-plus-lg',
+                onClick: handlePaymentPlanModalOpen,
+                variant: 'primary',
+              }}
+              loading={loading}
+            >
+              {paymentPlans.length === 0
+                ? <EmptyState label="payment plans" />
+                : (
+                  <ChipGrid>
+                    {paymentPlans.map((plan) => (
+                      <PaymentPlanChip
+                        key={plan.id}
+                        plan={plan}
+                        onEdit={() => handlePaymentPlanEdit(plan)}
+                        onDelete={() => handlePaymentPlanDelete(plan.id!)}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
+
+            {/* Meeting Schedules (project type → area brackets → meetings) */}
+            <ConfigSectionCard
+              title="Meeting Schedules"
+              description="Define meeting schedules per project type with area brackets. On a lead, the total commercial area picks the bracket, and the completion year is derived from the inquiry date."
+              icon="bi-calendar2-week"
+              iconColor="teal"
+              primaryAction={{
+                label: 'New Schedule',
+                icon: 'bi-plus-lg',
+                onClick: handleMeetingScheduleModalOpen,
+                variant: 'primary',
+              }}
+              loading={loading}
+            >
+              {meetingSchedules.length === 0
+                ? <EmptyState label="meeting schedules" />
+                : (
+                  <ChipGrid>
+                    {meetingSchedules.map((m) => (
+                      <MeetingScheduleChip
+                        key={m.id}
+                        schedule={m}
+                        onEdit={() => handleMeetingScheduleEdit(m)}
+                        onDelete={() => handleMeetingScheduleDelete(m.id!)}
                       />
                     ))}
                   </ChipGrid>
@@ -910,6 +1202,22 @@ const LeadsConfigurationMain = () => {
         title="Subcategory"
         isEditing={!!editingSubcategory}
         initialData={editingSubcategory}
+      />
+
+      <PaymentPlanModal
+        show={showPaymentPlanModal}
+        onClose={handlePaymentPlanModalClose}
+        onSuccess={fetchPaymentPlans}
+        initialData={editingPaymentPlan}
+        isEditing={!!editingPaymentPlan}
+      />
+
+      <MeetingScheduleModal
+        show={showMeetingScheduleModal}
+        onClose={handleMeetingScheduleModalClose}
+        onSuccess={fetchMeetingSchedules}
+        initialData={editingMeetingSchedule}
+        isEditing={!!editingMeetingSchedule}
       />
 
       {directSourceDeleteConfirmation.DeleteModal}

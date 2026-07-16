@@ -82,3 +82,51 @@ export const getEmployeeStatusString = (employee: Employee): string => {
   const res = getEmployeeStatus(employee) === 0 && employee?.isActive==false
   return res==true ? "Inactive" : "Active";
 };
+
+/**
+ * Calculate an employee's total experience from date of joining, summing all
+ * active employment periods (original + every rejoin) and excluding gaps
+ * between an exit and a later rejoin. Mirrors the "Total Experience" tile on
+ * the My Salary page.
+ * @param employee - Employee object with dateOfJoining, dateOfExit, and rejoin history
+ * @returns Human-readable duration, e.g. "3 Months", "2 Years 4 Months", or "-"
+ */
+export const calculateTotalExperience = (employee: Employee): string => {
+  if (!employee?.dateOfJoining) return '-';
+
+  const today = dayjs();
+
+  type Period = { start: ReturnType<typeof dayjs>; end: ReturnType<typeof dayjs> };
+  const periods: Period[] = [];
+
+  const joinDate = dayjs(employee.dateOfJoining);
+  const exitDate = employee.dateOfExit ? dayjs(employee.dateOfExit) : today;
+  const firstEnd = exitDate.isAfter(today) ? today : exitDate;
+  if (!joinDate.isAfter(firstEnd)) {
+    periods.push({ start: joinDate, end: firstEnd });
+  }
+
+  for (const r of employee.EmployeeRejoinHistory ?? []) {
+    if (!r.dateOfReJoining) continue;
+    const reJoin = dayjs(r.dateOfReJoining);
+    if (reJoin.isAfter(today)) continue; // Not yet rejoined
+    const reExit = r.dateOfReExit ? dayjs(r.dateOfReExit) : today;
+    const periodEnd = reExit.isAfter(today) ? today : reExit;
+    if (!reJoin.isAfter(periodEnd)) {
+      periods.push({ start: reJoin, end: periodEnd });
+    }
+  }
+
+  let totalMonths = 0;
+  for (const p of periods) {
+    totalMonths += p.end.diff(p.start, 'month');
+  }
+
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
+
+  if (years === 0 && months === 0) return 'Less than 1 Month';
+  if (years === 0) return `${months} Month${months !== 1 ? 's' : ''}`;
+  if (months === 0) return `${years} Year${years !== 1 ? 's' : ''}`;
+  return `${years} Year${years !== 1 ? 's' : ''} ${months} Month${months !== 1 ? 's' : ''}`;
+};

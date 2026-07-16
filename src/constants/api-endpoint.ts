@@ -530,6 +530,26 @@ export const LEAD_PROJECT_COMPANY = {
     GET_PROJECT_COUNT_BY_COMPANY_TYPE_YEARLY: "api/lead-project-companies/projects/overview/company-type-yearly-count",
 }
 
+// Payment Plans (stage-wise fee break-up) — configured under Lead Configuration and
+// selected on a lead's commercial step.
+export const PAYMENT_PLAN = {
+    GET_ALL_PAYMENT_PLANS: "api/payment-plans",
+    GET_PAYMENT_PLAN_BY_ID: "api/payment-plans/:id",
+    CREATE_PAYMENT_PLAN: "api/payment-plans",
+    UPDATE_PAYMENT_PLAN: "api/payment-plans/:id",
+    DELETE_PAYMENT_PLAN: "api/payment-plans/:id",
+}
+
+// Meeting Schedules (project-type → area brackets → meetings) — configured under Lead
+// Configuration and selected on a lead's meeting-schedule step.
+export const MEETING_SCHEDULE = {
+    GET_ALL_MEETING_SCHEDULES: "api/meeting-schedules",
+    GET_MEETING_SCHEDULE_BY_ID: "api/meeting-schedules/:id",
+    CREATE_MEETING_SCHEDULE: "api/meeting-schedules",
+    UPDATE_MEETING_SCHEDULE: "api/meeting-schedules/:id",
+    DELETE_MEETING_SCHEDULE: "api/meeting-schedules/:id",
+}
+
 export const CLIENT_COMPANIES = {
     GET_ALL_COMPANY_RATINGS: "api/lead-project-companies/client-companies/company-ratings",
     GET_COMPANY_RATING_BY_ID: "api/lead-project-companies/client-companies/company-ratings/:id",

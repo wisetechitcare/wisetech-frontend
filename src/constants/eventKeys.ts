@@ -18,6 +18,14 @@ export type AppEventMap = {
     leadCancellationReasonCreated: { id: string };
     leadCancellationReasonUpdated: { id: string };
 
+    paymentPlanCreated: { id: string };
+    paymentPlanUpdated: { id: string };
+    paymentPlanDeleted: { id: string };
+
+    meetingScheduleCreated: { id: string };
+    meetingScheduleUpdated: { id: string };
+    meetingScheduleDeleted: { id: string };
+
     projectCategoryCreated: { id: string };
     projectCategoryUpdated: { id: string };
     projectCategoryDeleted: { id: string };
@@ -121,6 +129,14 @@ export type AppEventMap = {
     leadDirectSourceDeleted: 'leadDirectSourceDeleted',
     leadCancellationReasonCreated: 'leadCancellationReasonCreated',
     leadCancellationReasonUpdated: 'leadCancellationReasonUpdated',
+
+    paymentPlanCreated: 'paymentPlanCreated',
+    paymentPlanUpdated: 'paymentPlanUpdated',
+    paymentPlanDeleted: 'paymentPlanDeleted',
+
+    meetingScheduleCreated: 'meetingScheduleCreated',
+    meetingScheduleUpdated: 'meetingScheduleUpdated',
+    meetingScheduleDeleted: 'meetingScheduleDeleted',
 
     projectCategoryCreated: 'projectCategoryCreated',
     projectCategoryUpdated: 'projectCategoryUpdated',

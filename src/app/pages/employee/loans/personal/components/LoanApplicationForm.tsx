@@ -9,7 +9,7 @@ import { RootState } from '@redux/store';
 import { createEmployeeLoan, updateEmployeeLoanById } from '@services/employee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import dayjs from 'dayjs';
-import { Form, Formik } from 'formik';
+import { Form, Formik, useFormikContext } from 'formik';
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import * as Yup from 'yup';
@@ -25,6 +25,27 @@ const validationSchema = Yup.object().shape({
 interface IOptions {
     label: string;
     value: string;
+}
+
+// Seeds the form from the employee id + any loan being edited. A real component
+// (not code inside Formik's render prop) so the hook obeys the Rules of Hooks.
+function LoanFormSeed({ employeeId, defaultData }: { employeeId?: string, defaultData?: any }) {
+    const { setFieldValue } = useFormikContext<any>();
+    useEffect(() => {
+        if (employeeId) {
+            setFieldValue('employeeId', employeeId);
+        }
+        if (defaultData) {
+            if (defaultData?.loanAmount) setFieldValue('loanAmount', defaultData?.loanAmount)
+            if (defaultData?.loanType) setFieldValue('loanType', defaultData?.loanType === LoanType.EMI ? 'EMI' : 'ONE_TIME')
+            if (defaultData?.deductionMonth) {
+                setFieldValue('deductionMonth', dayjs(defaultData?.deductionMonth).format('YYYY-MM-DD'))
+            }
+            if (defaultData?.numberOfMonths) setFieldValue('numberOfMonths', defaultData?.numberOfMonths)
+            if (defaultData?.reason) setFieldValue('loanReason', defaultData?.reason)
+        }
+    }, [employeeId, defaultData]);
+    return null;
 }
 
 function LoanApplicationForm({ setShowModalFunc, defaultData, isUpdate = false, onLoanSubmited }: { setShowModalFunc: (show: boolean) => void, defaultData?: any, isUpdate?: boolean, onLoanSubmited?: (updatedLoan: any) => Promise<void> }) {
@@ -117,23 +138,9 @@ function LoanApplicationForm({ setShowModalFunc, defaultData, isUpdate = false, 
       }}
     >
       {(formikProps) => {
-        useEffect(() => {
-          if (employeeId) {
-                        formikProps.setFieldValue('employeeId', employeeId);
-          }
-          if (defaultData) {
-                        if (defaultData?.loanAmount) formikProps.setFieldValue('loanAmount', defaultData?.loanAmount)
-                        if (defaultData?.loanType) formikProps.setFieldValue('loanType', defaultData?.loanType === LoanType.EMI ? 'EMI' : 'ONE_TIME')
-            if (defaultData?.deductionMonth) {
-                            formikProps.setFieldValue('deductionMonth', dayjs(defaultData?.deductionMonth).format('YYYY-MM-DD'))
-            }
-                        if (defaultData?.numberOfMonths) formikProps.setFieldValue('numberOfMonths', defaultData?.numberOfMonths)
-                        if (defaultData?.reason) formikProps.setFieldValue('loanReason', defaultData?.reason)
-          }
-                }, [employeeId, defaultData]);
-
         return (
                     <Form className="form">
+                        <LoanFormSeed employeeId={employeeId} defaultData={defaultData} />
                         <div className="row px-3 my-3">
                             <div className="col-lg-12 fv-row">
                 <TextInput

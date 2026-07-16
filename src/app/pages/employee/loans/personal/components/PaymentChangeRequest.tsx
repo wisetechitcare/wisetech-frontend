@@ -8,12 +8,26 @@ import { hasPermission } from '@utils/authAbac';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { formatNumber, getCompletionAmountOfLoanByLoanIdAndEndDate } from '@utils/statistics';
 import dayjs from 'dayjs';
-import { Form, Formik } from 'formik';
+import { Form, Formik, useFormikContext } from 'formik';
 import { MRT_ColumnDef } from 'material-react-table';
 import React, { useEffect, useMemo, useState } from 'react'
 import { Modal } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+
+// Syncs the selected installment into the skip/custom-payment form. A real
+// component (not code inside Formik's render prop) so the hook obeys the
+// Rules of Hooks.
+function InstallmentFormSync({ selectedInstallmentForEdit }: { selectedInstallmentForEdit: any }) {
+    const { setFieldValue } = useFormikContext<any>();
+    useEffect(() => {
+        // if (!isEditMode) return;
+
+        setFieldValue('paidAmount', selectedInstallmentForEdit?.paidAmount)
+        setFieldValue('note', selectedInstallmentForEdit?.note)
+    }, [selectedInstallmentForEdit]);
+    return null;
+}
 
 function PaymentChangeRequest({ completeLoanData }: { completeLoanData: any[] }) {
     const [loanData, setLoanData] = useState<any[]>([])
@@ -36,7 +50,7 @@ function PaymentChangeRequest({ completeLoanData }: { completeLoanData: any[] })
             filteredPendingLoans?.forEach((ele: any) => {
                 completeInstallmentDataWithendingRequest = [
                     ...completeInstallmentDataWithendingRequest,
-                    ...ele?.loanInstallments
+                    ...(ele?.loanInstallments || [])
                 ]
             })
 
@@ -249,16 +263,9 @@ function PaymentChangeRequest({ completeLoanData }: { completeLoanData: any[] })
                         }}
                     >
                         {(formikProps) => {
-
-                            useEffect(() => {
-                                // if (!isEditMode) return;
-                                
-                                formikProps.setFieldValue('paidAmount', selectedInstallmentForEdit?.paidAmount)
-                                formikProps.setFieldValue('note', selectedInstallmentForEdit?.note)
-                            }, [selectedInstallmentForEdit]);
-
                             return (
                                 <Form className="form">
+                                    <InstallmentFormSync selectedInstallmentForEdit={selectedInstallmentForEdit} />
                                     {/* Attendance Request Limit */}
                                     {!showSkipForm && <div className="row px-3 my-3">
                                         <div className="col-lg-12 fv-row">

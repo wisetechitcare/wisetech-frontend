@@ -13,7 +13,8 @@ import {
   SHOW_MARRIAGE_ANNIVERSARY_EXTERNAL,
   SHOW_SATURDAY_ON_CALENDAR,
   SHOW_SUNDAY_ON_CALENDAR,
-  SHOW_MEETINGS_ON_CALENDAR
+  SHOW_MEETINGS_ON_CALENDAR,
+  SHOW_HOLIDAYS_ON_CALENDAR
 } from '@constants/configurations-key'
 import { fetchConfiguration } from '@services/company'
 import { safeJsonParse } from '@utils/safeJson'
@@ -223,6 +224,8 @@ function CalendarConfigure() {
   const [saturday, setSaturday] = useState<CalendarSetting>({ id: null, enabled: false, color: '#FFB300', icon: "" });
   const [sunday, setSunday] = useState<CalendarSetting>({ id: null, enabled: false, color: '#F44336', icon: "" });
   const [meetings, setMeetings] = useState<CalendarSetting>({ id: null, enabled: false, color: '#2196F3', icon: "" });
+  // Public holidays default ON (they always showed on the calendar historically).
+  const [holidaysCfg, setHolidaysCfg] = useState<CalendarSetting>({ id: null, enabled: true, color: '#1E3A8A', icon: "" });
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -240,7 +243,7 @@ function CalendarConfigure() {
       // the saved ones load correctly.
       const safeFetch = (module: string) => fetchConfiguration(module).catch(() => null);
 
-      const [resBdayInt, resBdayIntInact, resBdayExt, resAnnyInt, resAnnyIntInact, resAnnyExt, resMarriageAnnyInt, resMarriageAnnyIntInact, resMarriageAnnyExt, resSaturday, resSunday, resMeetings] = await Promise.all([
+      const [resBdayInt, resBdayIntInact, resBdayExt, resAnnyInt, resAnnyIntInact, resAnnyExt, resMarriageAnnyInt, resMarriageAnnyIntInact, resMarriageAnnyExt, resSaturday, resSunday, resMeetings, resHolidays] = await Promise.all([
         safeFetch(SHOW_BIRTHDAYS_INTERNAL),
         safeFetch(SHOW_BIRTHDAYS_INTERNAL_INACTIVE),
         safeFetch(SHOW_BIRTHDAYS_EXTERNAL),
@@ -252,14 +255,17 @@ function CalendarConfigure() {
         safeFetch(SHOW_MARRIAGE_ANNIVERSARY_EXTERNAL),
         safeFetch(SHOW_SATURDAY_ON_CALENDAR),
         safeFetch(SHOW_SUNDAY_ON_CALENDAR),
-        safeFetch(SHOW_MEETINGS_ON_CALENDAR)
+        safeFetch(SHOW_MEETINGS_ON_CALENDAR),
+        safeFetch(SHOW_HOLIDAYS_ON_CALENDAR)
       ]);
 
-      const parseConfig = (res: any, defaultColor: string) => {
+      // defaultEnabled: most categories start hidden until an admin enables them,
+      // but public holidays always showed historically, so they default ON.
+      const parseConfig = (res: any, defaultColor: string, defaultEnabled = false) => {
         const config = safeJsonParse(res?.data?.configuration?.configuration || '{}');
         return {
           id: res?.data?.configuration?.id || null,
-          enabled: config.enabled ?? false,
+          enabled: config.enabled ?? defaultEnabled,
           color: config.color || defaultColor,
           icon: config.icon || ""
         };
@@ -277,6 +283,7 @@ function CalendarConfigure() {
       setSaturday(parseConfig(resSaturday, '#FFB300'));
       setSunday(parseConfig(resSunday, '#F44336'));
       setMeetings(parseConfig(resMeetings, '#2196F3'));
+      setHolidaysCfg(parseConfig(resHolidays, '#1E3A8A', true));
     } catch (error) {
       console.error("Error loading configurations:", error);
     } finally {
@@ -308,6 +315,7 @@ function CalendarConfigure() {
     else if (editingModuleKey === SHOW_SATURDAY_ON_CALENDAR) setSaturday(updatedSetting);
     else if (editingModuleKey === SHOW_SUNDAY_ON_CALENDAR) setSunday(updatedSetting);
     else if (editingModuleKey === SHOW_MEETINGS_ON_CALENDAR) setMeetings(updatedSetting);
+    else if (editingModuleKey === SHOW_HOLIDAYS_ON_CALENDAR) setHolidaysCfg(updatedSetting);
     setShowModal(false);
   };
 
@@ -453,7 +461,7 @@ function CalendarConfigure() {
               </div>
 
               <SectionHeading title="Meetings" description="Control whether scheduled meetings appear on the calendar" />
-              <div className="row g-4">
+              <div className="row g-4" style={{ marginBottom: SP.xl }}>
                 <div className="col-12 col-md-6">
                   <PremiumSettingCard
                     label="Team Meetings"
@@ -461,6 +469,19 @@ function CalendarConfigure() {
                     icon="bi-camera-video"
                     setting={meetings}
                     onAction={() => openEditModal(SHOW_MEETINGS_ON_CALENDAR, 'Configure Meetings', meetings)}
+                  />
+                </div>
+              </div>
+
+              <SectionHeading title="Public Holidays" description="Set the colour and icon used for public-holiday events on the workspace calendar" />
+              <div className="row g-4">
+                <div className="col-12 col-md-6">
+                  <PremiumSettingCard
+                    label="Public Holidays"
+                    description="Appearance of public holidays on the calendar — colour, icon and visibility"
+                    icon="bi-calendar-heart"
+                    setting={holidaysCfg}
+                    onAction={() => openEditModal(SHOW_HOLIDAYS_ON_CALENDAR, 'Configure Public Holidays', holidaysCfg)}
                   />
                 </div>
               </div>
