@@ -1,15 +1,23 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import ExportButton from "@app/modules/common/components/ExportButton";
-import { MaterialReactTable } from "material-react-table";
+import {
+  MaterialReactTable,
+  MRT_ShowHideColumnsButton,
+  MRT_ToggleFiltersButton,
+  MRT_ToggleFullScreenButton,
+  MRT_ToggleGlobalFilterButton,
+} from "material-react-table";
 import {
   Button,
   ButtonGroup,
   Container,
   createTheme,
   Icon,
+  IconButton,
   Menu,
   MenuItem,
   ThemeProvider,
+  Tooltip,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
@@ -623,17 +631,21 @@ function MaterialTable({
     [],
   );
 
-  // Auto-build ExportButton columns from the table's column definitions
-  const autoExportCols = useMemo(() =>
-    columns
+  // Auto-build ExportButton columns from the table's column definitions.
+  // Only columns currently visible in the table are exported — a column the
+  // user has toggled off (visibility flag explicitly false, same rule as the
+  // visible-keys effect above) is excluded, so the file matches the screen.
+  const autoExportCols = useMemo(() => {
+    const vis = preferences.columnVisibility || {};
+    return columns
       .filter((col: any) => col.accessorKey && col.accessorKey !== 'actions')
+      .filter((col: any) => vis[col.accessorKey] !== false)
       .map((col: any) => ({
         key: col.accessorKey as string,
         header: col.header as string,
         type: 'text' as const,
-      })),
-    [columns],
-  );
+      }));
+  }, [columns, preferences.columnVisibility]);
 
   // Human-readable title from tableName (e.g. "MonthlySalary" → "Monthly Salary")
   const autoExportTitle = useMemo(
@@ -1180,6 +1192,25 @@ function MaterialTable({
           enableColumnActions={enableColumnActions ?? true}
           enableHiding={enableHiding ?? true}
           enableFullScreenToggle={enableFullScreenToggle ?? true}
+          // Rebuild the built-in icon strip so a "Reset layout" button can sit
+          // beside the column show/hide toggle. Mirrors the default buttons and
+          // their enable-flags (density toggle is globally off for this table).
+          renderToolbarInternalActions={({ table }) => (
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              {!enableColumnSpecificSearch && <MRT_ToggleGlobalFilterButton table={table} />}
+              {(enableFilters ?? true) && <MRT_ToggleFiltersButton table={table} />}
+              {(enableHiding ?? true) && <MRT_ShowHideColumnsButton table={table} />}
+              <Tooltip title="Reset columns to default layout">
+                <IconButton
+                  aria-label="Reset columns to default layout"
+                  onClick={() => resetPreferences()}
+                >
+                  <KTIcon iconName="arrows-circle" className="fs-2" />
+                </IconButton>
+              </Tooltip>
+              {(enableFullScreenToggle ?? true) && <MRT_ToggleFullScreenButton table={table} />}
+            </Box>
+          )}
           muiTableHeadCellProps={{
             sx: {
               backgroundColor: "#FAFBFC",

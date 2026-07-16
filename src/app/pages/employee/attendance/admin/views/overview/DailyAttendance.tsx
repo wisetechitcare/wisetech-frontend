@@ -180,6 +180,63 @@ interface DailyAttendanceProps {
     date: any; // dayjs object from parent
 }
 
+// Module-scope component (was a useCallback inside DailyAttendance): hooks may
+// not be called inside a plain callback, and hoisting keeps its identity stable
+// so rows don't remount on every parent render.
+const LocationCell = ({ latitude, longitude, location }: { latitude?: number, longitude?: number, location?: string }) => {
+    const [address, setAddress] = useState("Fetching...");
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const fetchAddress = async () => {
+            // Check location string FIRST (handles biometric "Biometric" where lat/lng are 0)
+            if (location) {
+                if (isMounted) setAddress(location);
+                return;
+            }
+
+            if (!latitude || !longitude) {
+                if (isMounted) setAddress("-NA-");
+                return;
+            }
+
+            try {
+                const res = await fetchAddressDetails(latitude, longitude);
+                if (isMounted) {
+                    setAddress(res.data.address || "No Address Found");
+                }
+            } catch (error) {
+                if (isMounted) {
+                    setAddress("Unable to fetch address");
+                }
+            }
+        };
+
+        fetchAddress();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [latitude, longitude, location]);
+
+    const mapUrl = latitude && longitude
+        ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+        : null;
+
+    return mapUrl ? (
+        <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <OverlayTrigger placement='top' overlay={<Tooltip id={`tooltip-${latitude}-${longitude}`}>{address}</Tooltip>}>
+                <span>
+                    {address.length > 30 ? `${address.substring(0, 30)}...` : address}
+                </span>
+            </OverlayTrigger>
+        </a>
+    ) : (
+        <span>{address}</span>
+    );
+};
+
 function DailyAttendance({ date }: DailyAttendanceProps) {
     const { filterIds } = useTeamFilter();
     const dispatch = useDispatch();
@@ -231,60 +288,6 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
     });
 
     const approvedLeaves = filteredLeaves.filter((leave: any) => leave.status === LeaveStatus.Approved);
-
-    const LocationCell = useCallback(({ latitude, longitude, location }: { latitude?: number, longitude?: number, location?: string }) => {
-        const [address, setAddress] = useState("Fetching...");
-
-        useEffect(() => {
-            let isMounted = true;
-
-            const fetchAddress = async () => {
-                // Check location string FIRST (handles biometric "Biometric" where lat/lng are 0)
-                if (location) {
-                    if (isMounted) setAddress(location);
-                    return;
-                }
-
-                if (!latitude || !longitude) {
-                    if (isMounted) setAddress("-NA-");
-                    return;
-                }
-
-                try {
-                    const res = await fetchAddressDetails(latitude, longitude);
-                    if (isMounted) {
-                        setAddress(res.data.address || "No Address Found");
-                    }
-                } catch (error) {
-                    if (isMounted) {
-                        setAddress("Unable to fetch address");
-                    }
-                }
-            };
-
-            fetchAddress();
-
-            return () => {
-                isMounted = false;
-            };
-        }, [latitude, longitude, location]);
-
-        const mapUrl = latitude && longitude
-            ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
-            : null;
-
-        return mapUrl ? (
-            <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <OverlayTrigger placement='top' overlay={<Tooltip id={`tooltip-${latitude}-${longitude}`}>{address}</Tooltip>}>
-                    <span>
-                        {address.length > 30 ? `${address.substring(0, 30)}...` : address}
-                    </span>
-                </OverlayTrigger>
-            </a>
-        ) : (
-            <span>{address}</span>
-        );
-    }, []);
 
     const StatusBadge = useCallback(({ status }: { status: string }) => {
         const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WEEKEND, WORKING_WEEKEND, LEAVE_TYPE } = ATTENDANCE_STATUS;

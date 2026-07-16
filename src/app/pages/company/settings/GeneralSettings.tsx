@@ -1,11 +1,28 @@
 ﻿import TextInput from '@app/modules/common/inputs/TextInput';
 import React, { useEffect, useState } from 'react'
-import { useFormik, Field, FormikProvider, Formik, Form, ErrorMessage } from "formik";
+import { useFormik, Field, FormikProvider, Formik, Form, ErrorMessage, useFormikContext } from "formik";
 import { Container, Row } from 'react-bootstrap';
 import { KTCard, KTCardBody } from '@metronic/helpers';
 import { fetchCompanySettings, updateCompanySettings } from '@services/options';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { fetchLeaveOptions, updateLeaveOptionsById } from '@services/company';
+
+// Syncs the fetched settings into Formik once they arrive. A real component
+// (not code inside Formik's render prop) so the hook obeys the Rules of Hooks.
+function SettingsFormSync({ allowedDistanceFromOffice, leaveOptionInitialValues }: { allowedDistanceFromOffice: number; leaveOptionInitialValues: any[] }) {
+    const { setFieldValue } = useFormikContext<any>();
+    useEffect(() => {
+        // setFieldValue('attendanceRequestLimit', attendanceRequestLimitCount);
+        setFieldValue('allowedDistanceFromOffice', allowedDistanceFromOffice);
+        if(leaveOptionInitialValues?.length>0){
+            leaveOptionInitialValues.forEach((leaveOption: any) => {
+                setFieldValue(leaveOption?.id, Number(leaveOption?.numberOfDays));
+            })
+        }
+    }, [allowedDistanceFromOffice]);
+    // }, [attendanceRequestLimitCount, allowedDistanceFromOffice]);
+    return null;
+}
 
 function GeneralSettings() {
     const [loading, setLoading] = useState(false);
@@ -157,19 +174,12 @@ function GeneralSettings() {
             }}
         >
             {({ setFieldValue, initialValues }) => {
-               
-                useEffect(() => {
-                    // setFieldValue('attendanceRequestLimit', attendanceRequestLimitCount);
-                    setFieldValue('allowedDistanceFromOffice', allowedDistanceFromOffice);
-                    if(leaveOptionInitialValues?.length>0){
-                        leaveOptionInitialValues.forEach((leaveOption: any) => {
-                            setFieldValue(leaveOption?.id, Number(leaveOption?.numberOfDays));
-                        })
-                    }
-                }, [allowedDistanceFromOffice]);
-                // }, [attendanceRequestLimitCount, allowedDistanceFromOffice]);
                 return (
                     <Form className="form">
+                        <SettingsFormSync
+                            allowedDistanceFromOffice={allowedDistanceFromOffice}
+                            leaveOptionInitialValues={leaveOptionInitialValues}
+                        />
                         {/* Attendance Request Limit */}
                         {/* <div className="row  px-3">
                             <div className="col-lg-12 fv-row">

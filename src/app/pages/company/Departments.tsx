@@ -1,7 +1,7 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
-import { Form, Formik, FormikValues } from "formik";
+import { Form, Formik, FormikValues, useFormikContext } from "formik";
 import { Modal } from "react-bootstrap";
 import { MRT_ColumnDef } from "material-react-table";
 import { ICompanyDepartment } from "@models/company";
@@ -38,6 +38,20 @@ let initialState = {
     companyId: "",
     color: "",
     isActive: false,
+}
+
+// Fills companyId once when the create/edit form mounts. A real component
+// (not code inside Formik's render prop) so the hook obeys the Rules of Hooks.
+function CompanyIdInitializer() {
+    const { setFieldValue } = useFormikContext<FormikValues>();
+    useEffect(() => {
+        async function fetchCompany() {
+            const { data: { companyOverview } } = await fetchCompanyOverview();
+            setFieldValue("companyId", (resolveActiveOrgId(companyOverview) ?? ''), true);
+        }
+        fetchCompany();
+    }, []);
+    return null;
 }
 
 function Departments() {
@@ -258,16 +272,9 @@ function Departments() {
                 <Modal.Body style={{ padding: SP.lg }}>
                     <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={departmentSchema}>
                         {(formikProps) => {
-                            useEffect(() => {
-                                async function fetchCompany() {
-                                    const { data: { companyOverview } } = await fetchCompanyOverview();
-                                    formikProps.setFieldValue("companyId", (resolveActiveOrgId(companyOverview) ?? ''), true);
-                                }
-                                fetchCompany();
-                            }, []);
-
                             return (
                                 <Form>
+                                    <CompanyIdInitializer />
                                     <div style={{ marginBottom: SP.lg }}>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SP.md, marginBottom: SP.md }}>
                                             <TextInput

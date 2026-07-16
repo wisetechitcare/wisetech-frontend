@@ -17,6 +17,8 @@ import MultiSelectWithInlineCreate from "@app/modules/common/components/MultiSel
 import FormikDropdownInput from "@app/modules/common/inputs/FormikDropdownInput";
 import PrefixInlineEdit from "@app/modules/common/components/PrefixInlineEdit";
 import { CommercialsGrid } from "../shared/CommercialsGrid";
+import { PaymentStageSelector } from "./PaymentStageSelector";
+import { MeetingScheduleSelector } from "./MeetingScheduleSelector";
 import { SectionWrapper } from "./SectionWrapper";
 
 interface LeadSectionsProps {
@@ -713,11 +715,7 @@ export const CommercialsSection: React.FC = () => {
         <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
           Payment Stage
         </Typography>
-        <div className="text-center">
-          <p className="text-gray-500 fs-6">
-            This module is planned for future scope and is currently not in use.
-          </p>
-        </div>
+        <PaymentStageSelector />
       </div>
 
       {/* Meeting Schedule subsection */}
@@ -725,11 +723,7 @@ export const CommercialsSection: React.FC = () => {
         <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
           Meeting Schedule
         </Typography>
-        <div className="text-center py-4">
-          <p className="text-gray-500 fs-6">
-            This module is planned for future scope and is currently not in use.
-          </p>
-        </div>
+        <MeetingScheduleSelector />
       </div>
     </>
   );
