@@ -63,18 +63,18 @@ const filterDataHandler = (e: SelectChangeEvent<string>) => {
                   height: '31px',
                   boxSizing: 'border-box',
                 },
-                color: '#9D4141',
+                color: '#1E3A8A',
                 '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#9D4141',
+                  borderColor: '#1E3A8A',
                 },
                 '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#9D4141',
+                  borderColor: '#1E3A8A',
                 },
                 '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#9D4141',
+                  borderColor: '#1E3A8A',
                 },
                 '& .MuiSelect-icon': {
-                  color: '#9D4141',
+                  color: '#1E3A8A',
                 },
               }}
             >

@@ -18,8 +18,10 @@ import { RootState } from "@redux/store";
 const initialValues: IPublicHoliday = {
     date: "",
     holidayId: "",
-    isFixed: false,
-    isActive: false,
+    // Default Fixed/Active to YES — holidays saved with the old `false`
+    // defaults were created inactive and never reached the calendar.
+    isFixed: true,
+    isActive: true,
     colorCode: "",
     observedIn: "",
     companyId: "",

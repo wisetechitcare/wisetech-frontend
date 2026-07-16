@@ -39,7 +39,7 @@ const holidaySchema = Yup.object().shape({
     companyId: Yup.string(),
 }).strict(true);
 
-export const PRESET_COLORS = ['#AA393D', '#1E3A8A', '#14966B', '#B4771A', '#C13F6B', '#6B5AD1', '#2F7CC2', '#5E6B7E'];
+export const PRESET_COLORS = ['#1E3A8A', '#1E3A8A', '#14966B', '#B4771A', '#C13F6B', '#6B5AD1', '#2F7CC2', '#5E6B7E'];
 
 export interface HolidayEditData extends IHoliday {
     id: string;
@@ -228,7 +228,7 @@ function Holiday({
                                     +
                                     <input
                                         type="color"
-                                        value={formik.values.colorCode || '#AA393D'}
+                                        value={formik.values.colorCode || '#1E3A8A'}
                                         onChange={(e) => formik.setFieldValue('colorCode', e.target.value, true)}
                                         style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', border: 'none', padding: 0 }}
                                     />

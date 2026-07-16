@@ -24,11 +24,15 @@ interface Meetings {
   employeeId: string;
   participants: string[] | string;
   participantNames?: string[];
+  externalParticipants?: string[] | string;
+  externalParticipantNames?: string[];
   organizerName: string;
   organizerId: string;
   description?: string;
   meetingLink?: string;
   location?: string;
+  projectId?: string;
+  projectTitle?: string;
 }
 
 interface EditMeetingModalProps {
@@ -237,9 +241,12 @@ const EditMeetingModal = ({ isEditModalOpen, setIsEditModalOpen, editingMeeting,
             isOnline: editingMeeting.isOnline,
             meetingLink: editingMeeting.meetingLink || "",
             location: editingMeeting.location || "",
-            participants: typeof editingMeeting.participants === 'string'
+            internalParticipants: typeof editingMeeting.participants === 'string'
               ? JSON.parse(editingMeeting.participants)
               : editingMeeting.participants,
+            externalParticipants: typeof editingMeeting.externalParticipants === 'string'
+              ? JSON.parse(editingMeeting.externalParticipants || '[]')
+              : editingMeeting.externalParticipants || [],
           }}
           validationSchema={MeetingsSchema}
           onSubmit={async (values, { setSubmitting }) => {
@@ -255,6 +262,8 @@ const EditMeetingModal = ({ isEditModalOpen, setIsEditModalOpen, editingMeeting,
                 employeeId,
                 {
                   ...values,
+                  participants: values.internalParticipants,
+                  externalParticipants: values.externalParticipants,
                   employeeId,
                 }
               );
@@ -307,27 +316,32 @@ const EditMeetingModal = ({ isEditModalOpen, setIsEditModalOpen, editingMeeting,
               </BootstrapForm.Group>
 
               <BootstrapForm.Group className="mb-2">
-                <BootstrapForm.Label>Add Participant</BootstrapForm.Label>
+                <BootstrapForm.Label>Internal Participants (Employees)</BootstrapForm.Label>
                 <Select
                   isMulti
                   options={participants}
                   value={participants.filter((p) =>
-                    values.participants.includes(p.value)
+                    values.internalParticipants.includes(p.value)
                   )}
                   onChange={(selected: any) =>
                     setFieldValue(
-                      "participants",
+                      "internalParticipants",
                       selected.map((s: { value: string }) => s.value)
                     )
                   }
                 />
-                {errors.participants && touched.participants && (
+                {errors.internalParticipants && touched.internalParticipants && (
                   <div className="text-danger">
-                    {typeof errors.participants === 'string'
-                      ? errors.participants
+                    {typeof errors.internalParticipants === 'string'
+                      ? errors.internalParticipants
                       : 'At least one participant is required'}
                   </div>
                 )}
+              </BootstrapForm.Group>
+
+              <BootstrapForm.Group className="mb-2">
+                <BootstrapForm.Label>External Participants (Contacts - Optional)</BootstrapForm.Label>
+                <p className="small text-muted mb-2">Select contacts to invite to the meeting (optional)</p>
               </BootstrapForm.Group>
 
               <LocalizationProvider dateAdapter={AdapterDayjs}>

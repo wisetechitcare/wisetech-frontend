@@ -2,7 +2,6 @@ import { memo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
-import SVG from 'react-inlinesvg'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { BottomNavBadge } from './BottomNavBadge'
 import type { BottomNavItemConfig } from './types'
@@ -98,10 +97,7 @@ function BottomNavMoreBase({ open, onClose, items, activeId, badges }: Props) {
                     data-analytics-id={`bottomnav_more_${item.id}`}
                   >
                     <span className="bottom-nav-more__icon-wrap">
-                      <SVG
-                        src={active ? item.activeIcon ?? item.icon : item.icon}
-                        className="bottom-nav-more__svg"
-                      />
+                      <i className={clsx('bi', item.icon, 'bottom-nav-more__bi')} />
                       <BottomNavBadge count={count} />
                     </span>
                     <span className="bottom-nav-more__label">{item.label}</span>

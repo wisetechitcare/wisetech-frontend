@@ -103,7 +103,7 @@ const FaqModal = ({ show, editMode, initialValues, loading, onClose, onSubmit }:
                                     type='submit'
                                     className='btn'
                                     style={{
-                                        backgroundColor: '#9d4141',
+                                        backgroundColor: '#1E3A8A',
                                         color: 'white',
                                         borderRadius: '6px',
                                         padding: '0 20px',
@@ -128,13 +128,13 @@ const FaqModal = ({ show, editMode, initialValues, loading, onClose, onSubmit }:
                                     onClick={onClose}
                                     style={{
                                         backgroundColor: 'white',
-                                        color: '#9d4141',
+                                        color: '#1E3A8A',
                                         borderRadius: '6px',
                                         padding: '0 20px',
                                         height: '40px',
                                         fontSize: '14px',
                                         fontWeight: 500,
-                                        border: '1px solid #9d4141'
+                                        border: '1px solid #1E3A8A'
                                     }}
                                     disabled={loading}
                                 >

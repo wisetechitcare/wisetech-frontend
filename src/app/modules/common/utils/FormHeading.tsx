@@ -13,13 +13,13 @@ function FormHeading({ headingText, padding, variant = 'default' }: FormHeadingP
                 <div className="form-heading-line" style={{
                     width: '26px',
                     height: '0px',
-                    borderTop: '1px solid #9D4141',
+                    borderTop: '1px solid #1E3A8A',
                     flexShrink: 0
                 }}></div>
                 <p className="form-heading-decorated" style={{
                     fontFamily: 'Inter',
                     fontWeight: 600,
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                     textTransform: 'uppercase',
                     margin: 0,
                     flexShrink: 1,
@@ -31,7 +31,7 @@ function FormHeading({ headingText, padding, variant = 'default' }: FormHeadingP
                 <div className="form-heading-line" style={{
                     flexGrow: 1,
                     height: '0px',
-                    borderTop: '1px solid #9D4141',
+                    borderTop: '1px solid #1E3A8A',
                     minWidth: '40px'
                 }}></div>
             </div>

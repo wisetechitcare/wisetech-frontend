@@ -232,7 +232,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                     <Button
                                                         size="small"
                                                         onClick={() => {/* Add new service logic */ }}
-                                                        sx={{ whiteSpace: 'nowrap', color: "#9D4141" }}
+                                                        sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Service
                                                     </Button>
@@ -256,7 +256,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                     <Button
                                                         size="small"
                                                         onClick={() => {/* Add new category logic */ }}
-                                                        sx={{ whiteSpace: 'nowrap', color: "#9D4141" }}
+                                                        sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Category
                                                     </Button>
@@ -280,7 +280,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                     <Button
                                                         size="small"
                                                         onClick={() => {/* Add new subcategory logic */ }}
-                                                        sx={{ whiteSpace: 'nowrap', color: "#9D4141" }}
+                                                        sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Subcategory
                                                     </Button>
@@ -389,7 +389,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                         // variant=""
                                                         size="small"
                                                         onClick={() => {/* Add new service logic */ }}
-                                                        sx={{ whiteSpace: 'nowrap', color: "#9D4141" }}
+                                                        sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Company
                                                     </Button>
@@ -413,7 +413,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                         // variant=""
                                                         size="small"
                                                         onClick={() => {/* Add new service logic */ }}
-                                                        sx={{ whiteSpace: 'nowrap', color: "#9D4141" }}
+                                                        sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Branch
                                                     </Button>
@@ -436,7 +436,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                         // variant=""
                                                         size="small"
                                                         onClick={() => {/* Add new service logic */ }}
-                                                        sx={{ whiteSpace: 'nowrap', color: "#9D4141" }}
+                                                        sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Contact
                                                     </Button>
@@ -503,7 +503,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                             <Button
                                                                 size="small"
                                                                 onClick={() => { /* Add new company logic */ }}
-                                                                sx={{ whiteSpace: 'nowrap', color: "#9D4141" }}
+                                                                sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                             >
                                                                 + New Company
                                                             </Button>
@@ -523,7 +523,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                             <Button
                                                                 size="small"
                                                                 onClick={() => { /* Add new branch logic */ }}
-                                                                sx={{ whiteSpace: 'nowrap', color: "#9D4141" }}
+                                                                sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                             >
                                                                 + New Branch
                                                             </Button>
@@ -543,7 +543,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                             <Button
                                                                 size="small"
                                                                 onClick={() => { /* Add new contact logic */ }}
-                                                                sx={{ whiteSpace: 'nowrap', color: "#9D4141" }}
+                                                                sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                             >
                                                                 + New Contact
                                                             </Button>
@@ -566,10 +566,10 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                     borderStyle: 'dotted',
                                                     borderColor: '#DBB3B3',
                                                     borderWidth: '1px',
-                                                    color: '#9D4141',
+                                                    color: '#1E3A8A',
                                                     '&:hover': {
-                                                        borderColor: '#9D4141',
-                                                        backgroundColor: 'rgba(157, 65, 65, 0.04)'
+                                                        borderColor: '#1E3A8A',
+                                                        backgroundColor: 'rgba(30, 58, 138, 0.04)'
                                                     }
                                                 }}
                                             >
@@ -855,7 +855,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                         sx={{
                                             minWidth: '120px',
                                             padding: '12px 16px',
-                                            backgroundColor: '#9D4141',
+                                            backgroundColor: '#1E3A8A',
                                             '&:hover': { backgroundColor: '#7e3434' },
                                         }}
                                     >

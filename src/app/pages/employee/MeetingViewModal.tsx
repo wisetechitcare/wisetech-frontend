@@ -18,11 +18,15 @@ interface Meetings {
   employeeId: string;
   participants: string[];
   participantNames?: string[];
+  externalParticipants?: string[];
+  externalParticipantNames?: string[];
   organizerName: string;
   organizerId: string;
   description?: string;
   meetingLink?: string;
   location?: string;
+  projectId?: string;
+  projectTitle?: string;
 }
 
 interface EmployeeUser {
@@ -85,11 +89,17 @@ const MeetingViewModal = ({ show, onClose, meetingId }: MeetingViewModalProps) =
         ? JSON.parse(meeting.participants)
         : meeting.participants || [];
 
+    const externalParticipantIds: string[] =
+      typeof meeting.externalParticipants === "string"
+        ? JSON.parse(meeting.externalParticipants)
+        : meeting.externalParticipants || [];
+
     return {
       ...meeting,
       participantNames: participantIds.map((id: string) =>
         getEmployeeFullName(employees[id])
       ),
+      externalParticipants: externalParticipantIds,
       organizerName: getEmployeeFullName(employees[meeting.employeeId]),
     };
   };
@@ -159,10 +169,28 @@ const MeetingViewModal = ({ show, onClose, meetingId }: MeetingViewModalProps) =
             <p className="text-muted mb-0">Organizer</p>
             <div className="mb-2">{viewModelMeeting.organizerName}</div>
 
-            <p className="text-muted mb-0">Participants</p>
+            <p className="text-muted mb-0">Internal Participants (Team)</p>
             <div className="mb-2">
-              {viewModelMeeting.participantNames?.join(", ") || "N/A"}
+              {viewModelMeeting.participantNames?.join(", ") || "None"}
             </div>
+
+            {viewModelMeeting.externalParticipants && viewModelMeeting.externalParticipants.length > 0 && (
+              <>
+                <p className="text-muted mb-0 mt-3">External Participants (Contacts)</p>
+                <div className="mb-2">
+                  {viewModelMeeting.externalParticipants.join(", ") || "None"}
+                </div>
+              </>
+            )}
+
+            {viewModelMeeting.projectId && (
+              <>
+                <p className="text-muted mb-0 mt-3">Project</p>
+                <div className="mb-2">
+                  {viewModelMeeting.projectTitle || viewModelMeeting.projectId}
+                </div>
+              </>
+            )}
 
             <div className="d-flex mb-3">
               <div className="me-4">

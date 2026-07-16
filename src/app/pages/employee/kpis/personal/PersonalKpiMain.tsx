@@ -7,8 +7,8 @@ import MyKpi from "./views/MyKpiView"
 import KPISettings from '@pages/employee/loans/admin/views/KPISettings';
 import SearchEmployee from './views/SearchEmployee';
 import KpiLeaderboard from '../KpiLeaderboard';
-import { kpiIcons, leadsIcons } from '@metronic/assets/sidepanelicons';
 import { canDo } from '@utils/can';
+import { isSubsectionVisible } from '@utils/accessAreas';
 
 
 function PersonalKpiMain() {
@@ -19,22 +19,22 @@ function PersonalKpiMain() {
   useSelector((state: RootState) => (state as any).authz?.capabilities);
   useSelector((state: RootState) => (state as any).authz?.blockedSections);
 
-  // KPI is a single module (Access editor grants Read/Write for "KPI" as a
-  // whole, not per-tab). My KPI and Leaderboard are the read-level content;
-  // Search Employees and Configure are write-only, same convention as Tasks/
-  // Leads Configure and Organization's write-only sub-items.
+  // Each tab is gated by its own sub-section key. A tab shows when it's allowed
+  // by default (baseAllowed) AND not explicitly blocked — and an admin can also
+  // grant a normally-hidden tab to a specific employee via View/Edit. Search
+  // Employees and Configure default-allow on write access to the KPI module
+  // (same RBAC check used everywhere else, not the retired isAdmin flag).
   const canWrite = canDo("kpi", "update");
-
-  const visibleTabs: TabItem[] = [
-    { title: "My KPI", component: <MyKpi />, icon: kpiIcons.myKpiIcon.default },
-    { title: "Leaderboard", component: <KpiLeaderboard />, icon: kpiIcons.kpiLeaderboardIcon.default },
-    ...(canWrite
-      ? [
-          { title: "Search Employees", component: <SearchEmployee />, icon: kpiIcons.searchEmployeeIcon.default },
-          { title: "Configure", component: <KPISettings />, icon: leadsIcons.leadsConfigIcon.default },
-        ]
-      : []),
+  const allTabs: Array<{ key: string; baseAllowed: boolean; item: TabItem }> = [
+    { key: "kpi.my", baseAllowed: true, item: { title: "My KPI", component: <MyKpi />, icon: 'bi-graph-up-arrow' } },
+    { key: "kpi.search", baseAllowed: canWrite, item: { title: "Search Employees", component: <SearchEmployee />, icon: 'bi-search' } },
+    { key: "kpi.leaderboard", baseAllowed: true, item: { title: "Leaderboard", component: <KpiLeaderboard />, icon: 'bi-trophy' } },
+    { key: "kpi.configure", baseAllowed: canWrite, item: { title: "Configure", component: <KPISettings />, icon: 'bi-gear' } },
   ];
+
+  const visibleTabs: TabItem[] = allTabs
+    .filter((t) => isSubsectionVisible(t.key, t.baseAllowed))
+    .map((t) => t.item);
 
 
   const LoanBreadcrumb: Array<PageLink> = [

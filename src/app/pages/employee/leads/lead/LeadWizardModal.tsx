@@ -865,6 +865,12 @@ const LeadWizardModal = ({
             cost: "",
           },
         ],
+        // Payment plan (stage-wise fee break-up) selection for the commercial step.
+        paymentPlanId: "",
+        paymentPlan: null,
+        // Meeting schedule type selection for the meeting-schedule step.
+        meetingScheduleTypeId: "",
+        meetingScheduleType: null,
         useCalculatedAmount: true,
 
         // status: 'new',
@@ -1252,6 +1258,14 @@ const LeadWizardModal = ({
               cost: "",
             },
           ],
+      // Payment plan selection — prefill from the saved lead so the commercial step
+      // re-renders the computed stage break-up on edit.
+      paymentPlanId: leadData.paymentPlanId || leadData.paymentPlan?.id || "",
+      paymentPlan: leadData.paymentPlan || null,
+      // Meeting schedule type selection — prefill so the meeting-schedule step
+      // re-resolves the matching bracket + completion year on edit.
+      meetingScheduleTypeId: leadData.meetingScheduleTypeId || leadData.meetingScheduleType?.id || "",
+      meetingScheduleType: leadData.meetingScheduleType || null,
       poNumber: additionalDetailsArray[0]?.poNumber || "",
       poDate: additionalDetailsArray[0]?.poDate
         ? new Date(additionalDetailsArray[0].poDate)
@@ -2386,7 +2400,7 @@ const LeadWizardModal = ({
   const handleSubmit = async (formData: any) => {
     const values = formData;
     // Handle addresses from both form structure and direct payload
-    let allAddressDetails =
+    const allAddressDetails =
       formData?.addresses || formData?.additionalDetails?.addresses || [];
 
     // No need to clean up address fields - Google links are now valid and handled by backend
@@ -2394,6 +2408,11 @@ const LeadWizardModal = ({
     // console.log("createdById:: ", createdById);
 
     if (!createdById) {
+      return;
+    }
+
+    if (!prefix || !prefix.trim()) {
+      errorConfirmation("Inquiry No. is required");
       return;
     }
     const additionalDetailsFields = [
@@ -2753,6 +2772,11 @@ const LeadWizardModal = ({
     delete finalData?.companyId;
     delete finalData.googleMapLink;
     delete finalData.googleMyBusinessLink;
+    // paymentPlan is a client-only convenience object (full plan + stages for live
+    // rendering). Only the scalar paymentPlanId is persisted; drop the object.
+    delete finalData.paymentPlan;
+    // Likewise, meetingScheduleType is a client-only object; only the id is persisted.
+    delete finalData.meetingScheduleType;
     // delete finalData.cancellationReasonId; //new
     // delete finalData.handledBy; // This will be handled before the delete //new
     // delete finalData.fileLocationCompanyType;//new
@@ -2816,7 +2840,8 @@ const LeadWizardModal = ({
         || key === "reasonForCancellation" || key === "isCancelled"
         || key === "fileLocationCompanyType" || key === "fileLocationCompany"
         || key === "handledByEntries" || key === "poStatus" || key === "poFile"
-        || key === "leadAssignedTo" || key === "leadDirectSourceId") {
+        || key === "leadAssignedTo" || key === "leadDirectSourceId"
+        || key === "paymentPlanId" || key === "meetingScheduleTypeId") {
         acc[key] = value !== undefined ? value : (key === "handledByEntries" ? [] : ""); // Ensure it's included
       } else if (value !== "" && value !== null && value !== undefined) {
         acc[key] = value;
@@ -2879,12 +2904,16 @@ const LeadWizardModal = ({
         if (employeeId) {
           finalCleanPayload.updatedById = employeeId;
         }
-        await customConfirmation();
+        const updateMode = await customConfirmation();
+        if (updateMode === 'cancelled') {
+          return;
+        }
         // revisionCount is owned by the audit system (single source of truth) and is
         // assigned server-side by the capture worker. The client must NOT send or
         // increment it — doing so previously caused the header to diverge from the
         // audit timeline. Any client-supplied revisionCount is ignored by the backend.
         delete finalCleanPayload.revisionCount;
+        finalCleanPayload.skipAudit = updateMode === 'updateOnly';
 
         const res = await updateLead(finalCleanPayload.id, finalCleanPayload);
         if (res?.hasError) {

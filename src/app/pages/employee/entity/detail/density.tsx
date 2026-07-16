@@ -82,7 +82,7 @@ export const DensityToggle: React.FC<{ mode: DensityMode; onChange: (m: DensityM
             border: 'none',
             cursor: 'pointer',
             background: active ? '#fff' : 'transparent',
-            color: active ? '#9d4141' : '#64748B',
+            color: active ? '#1E3A8A' : '#64748B',
             boxShadow: active ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
             borderRadius: '999px',
             padding: '6px 14px',

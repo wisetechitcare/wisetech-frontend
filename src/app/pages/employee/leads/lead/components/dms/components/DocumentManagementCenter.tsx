@@ -95,7 +95,7 @@ export const DocumentManagementCenter: React.FC = () => {
               style={{
                 background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px',
                 width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: '#9d4141', fontSize: '16px'
+                cursor: 'pointer', color: '#1E3A8A', fontSize: '16px'
               }}
               title="Expand Details"
             >
@@ -120,14 +120,14 @@ export const DocumentManagementCenter: React.FC = () => {
               onClick={() => setActiveRightTab(tab as any)}
               style={{
                 background: 'none', border: 'none', padding: '8px 0',
-                fontSize: '12px', fontWeight: 700, color: activeRightTab === tab ? '#9d4141' : '#64748b',
+                fontSize: '12px', fontWeight: 700, color: activeRightTab === tab ? '#1E3A8A' : '#64748b',
                 textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer',
                 position: 'relative'
               }}
             >
               {tab}
               {activeRightTab === tab && (
-                <motion.div layoutId="tab-underline" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px', background: '#9d4141' }} />
+                <motion.div layoutId="tab-underline" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px', background: '#1E3A8A' }} />
               )}
             </button>
           ))}

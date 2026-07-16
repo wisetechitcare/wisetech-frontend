@@ -229,9 +229,9 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
         const fetchDateSettings = async () => {
             try {
                 const { data: { configuration } } = await fetchConfiguration(DATE_SETTINGS_KEY);
-                const parsed = typeof configuration.configuration === "string"
+                const parsed = typeof configuration?.configuration === "string"
                     ? safeJsonParse(configuration.configuration)
-                    : configuration.configuration;
+                    : configuration?.configuration;
                 setDateSettings(parsed?.useDateSettings);
             } catch (error) {
                 console.warn("Error fetching date settings", error);

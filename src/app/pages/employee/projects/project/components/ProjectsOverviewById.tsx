@@ -120,7 +120,7 @@ const ProjectOverviewById = ({
             border-radius: 4px;
           }
           .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #9D4141;
+            background: #1E3A8A;
             border-radius: 4px;
           }
           .custom-scrollbar::-webkit-scrollbar-thumb:hover {
@@ -495,7 +495,7 @@ const ProjectOverviewById = ({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{
-                                  color: "#9d4141",
+                                  color: "#1E3A8A",
                                   textDecoration: "none",
                                   fontWeight: "400"
                                 }}
@@ -781,7 +781,7 @@ const ProjectOverviewById = ({
                     position: "absolute",
                     width: "4px",
                     height: "147px",
-                    backgroundColor: "#9d4141",
+                    backgroundColor: "#1E3A8A",
                     top: `${50 + (scrollRef.current ? (scrollTop / (scrollRef.current.scrollHeight - scrollRef.current.clientHeight)) * 100 : 0)}px`,
                     left: "0.24px",
                     transition: "top 0.1s ease-out"
@@ -829,7 +829,7 @@ const ProjectOverviewById = ({
                 overflowY: "auto",
                 minHeight: 0,
                 scrollbarWidth: "thin",
-                scrollbarColor: "#9D4141 #f1f1f1"
+                scrollbarColor: "#1E3A8A #f1f1f1"
               }}
                 className="custom-scrollbar">
                 <div

@@ -9,7 +9,7 @@ import { InstallmentTypeEnum, LoanType, LoanTypeVal, permissionConstToUseWithHas
 import dayjs from 'dayjs';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
-import { Form, Formik } from 'formik';
+import { Form, Formik, useFormikContext } from 'formik';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
@@ -19,6 +19,25 @@ import { hasPermission } from '@utils/authAbac';
 import { RootState } from '@redux/store';
 import { useSelector } from 'react-redux';
 
+
+// Syncs the installment being edited into the skip/custom-payment form. A real
+// component (not code inside Formik's render prop) so the hook obeys the
+// Rules of Hooks.
+function EditInstallmentFormSync({ isEditMode, selectedInstallmentForEdit }: { isEditMode: boolean, selectedInstallmentForEdit: any }) {
+  const { setFieldValue } = useFormikContext<any>();
+  useEffect(() => {
+    if (!isEditMode) return;
+    setFieldValue(
+      "paidAmount",
+      selectedInstallmentForEdit?.dueThisMonth
+    );
+    setFieldValue(
+      "note",
+      selectedInstallmentForEdit?.note
+    );
+  }, [isEditMode, selectedInstallmentForEdit]);
+  return null;
+}
 
 function LoanDetails() {
     const { loanId } = useParams();
@@ -573,20 +592,9 @@ function LoanDetails() {
               }}
             >
               {(formikProps) => {
-                useEffect(() => {
-                  if (!isEditMode) return;
-                  formikProps.setFieldValue(
-                    "paidAmount",
-                    selectedInstallmentForEdit?.dueThisMonth
-                  );
-                  formikProps.setFieldValue(
-                    "note",
-                    selectedInstallmentForEdit?.note
-                  );
-                }, [isEditMode, selectedInstallmentForEdit]);
-
                 return (
                   <Form className="form">
+                    <EditInstallmentFormSync isEditMode={isEditMode} selectedInstallmentForEdit={selectedInstallmentForEdit} />
                     {/* Attendance Request Limit */}
                     {!showSkipForm && (
                       <div className="row px-3 my-3">

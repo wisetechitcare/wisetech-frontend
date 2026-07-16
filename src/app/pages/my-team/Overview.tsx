@@ -73,12 +73,12 @@ function MyTeam() {
     {
       title: 'Overview',
       component: <OverviewView />,
-      icon: activeTab === 0 ? navbarIcon.overview.active : navbarIcon.overview.default,
+      icon: 'bi-grid-1x2',
     },
     {
       title: 'Individual',
       component: <IndividualView />,
-      icon: activeTab === 1 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default,
+      icon: 'bi-person',
     },
   ];
 

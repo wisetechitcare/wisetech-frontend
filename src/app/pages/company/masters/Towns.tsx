@@ -30,7 +30,7 @@ interface ITown {
 }
 
 
-let initialState: ITown = {
+const initialState: ITown = {
     id: "",
     name: "",
 }

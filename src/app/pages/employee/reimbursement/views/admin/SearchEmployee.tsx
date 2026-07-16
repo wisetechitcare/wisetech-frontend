@@ -18,6 +18,9 @@ import { EmployeeDetailsSection } from "../../PendingReimbursementsPage";
 import AllEmployeesSearchDropdown from "@app/modules/common/components/AllEmployeesSearchDropdown";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
 import ReimbursementPaymentHistoryTable from "../../components/ReimbursementPaymentHistoryTable";
+import { downloadEmployeePeriodBillPdf } from "@services/employee";
+import { generateFiscalYearFromGivenYear } from "@utils/file";
+import { errorConfirmation } from "@utils/modal";
 
 function SearchEmployee() {
   const [totalRequestedAmount, setTotalRequestedAmount] = useState(0);
@@ -37,6 +40,8 @@ function SearchEmployee() {
     alignment: 'monthly',
     date: dayjs(),
   });
+  const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
+  const [downloadingBill, setDownloadingBill] = useState(false);
 
   const selectedEmployee = useSelector(
     (state: RootState) => state.employee.selectedEmployee
@@ -99,7 +104,10 @@ function SearchEmployee() {
       alignment === 'monthly' ? fetchEmpMonthlyReimbursements(date, selectedEmployeeId) :
         alignment === 'yearly' ? fetchEmpYearlyReimbursements(date, selectedEmployeeId) :
           fetchEmpAlltimeReimbursements(selectedEmployeeId);
-    fetchPromise.then(applyStats);
+    fetchPromise.then((data) => {
+      applyStats(data);
+      setReimbursementData(data);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeriod, selectedEmployeeId, statsRefreshKey]);
 
@@ -110,6 +118,59 @@ function SearchEmployee() {
     setOverviewLoading(true);
     setCurrentPeriod({ alignment, date });
   }, []);
+
+  const handleDownloadBill = async () => {
+    if (!selectedEmployeeId) {
+      errorConfirmation('Please select an employee first.');
+      return;
+    }
+
+    const hasApproved = reimbursementData.some((r) => r.status === 'Approved');
+    if (!hasApproved) {
+      errorConfirmation('No approved reimbursements found for the selected period.');
+      return;
+    }
+
+    setDownloadingBill(true);
+    try {
+      const { alignment, date } = currentPeriod;
+
+      let from: string | undefined;
+      let to: string | undefined;
+      let label = 'All Time';
+
+      if (alignment === 'monthly') {
+        from = date.startOf('month').format('YYYY-MM-DD');
+        to = date.endOf('month').format('YYYY-MM-DD');
+        label = date.format('MMM YYYY');
+      } else if (alignment === 'yearly') {
+        try {
+          const fy = await generateFiscalYearFromGivenYear(date);
+          from = fy.startDate ? dayjs(fy.startDate).format('YYYY-MM-DD') : date.startOf('year').format('YYYY-MM-DD');
+          to = fy.endDate ? dayjs(fy.endDate).format('YYYY-MM-DD') : date.endOf('year').format('YYYY-MM-DD');
+        } catch {
+          from = date.startOf('year').format('YYYY-MM-DD');
+          to = date.endOf('year').format('YYYY-MM-DD');
+        }
+        label = `FY ${date.format('YYYY')}`;
+      }
+
+      const blob = await downloadEmployeePeriodBillPdf(selectedEmployeeId, { from, to, label });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Reimbursement_Bill_${employeeCode || selectedEmployeeId}_${label.replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('❌ PDF Download Error:', error);
+      errorConfirmation('Failed to download reimbursement bill. Please try again.');
+    } finally {
+      setDownloadingBill(false);
+    }
+  };
 
   return (
     <>
@@ -145,6 +206,40 @@ function SearchEmployee() {
         viewOwn={true}
         checkOwnWithOthers={true}
         viewMode="submissions"
+        actionSlot={
+          <button
+            className="btn d-flex align-items-center gap-2 px-3"
+            style={{
+              height: '35px',
+              background: '#1E3A8A',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: downloadingBill ? 'not-allowed' : 'pointer',
+              pointerEvents: 'auto',
+            }}
+            onClick={handleDownloadBill}
+            disabled={downloadingBill}
+            title="Download Reimbursement Slip"
+          >
+            {downloadingBill ? (
+              <>
+                <span className="spinner-border spinner-border-sm" />
+                <span>Generating...</span>
+              </>
+            ) : (
+              <>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span>Download Reimbursement Slip</span>
+              </>
+            )}
+          </button>
+        }
       />
 
       {selectedEmployeeId && (

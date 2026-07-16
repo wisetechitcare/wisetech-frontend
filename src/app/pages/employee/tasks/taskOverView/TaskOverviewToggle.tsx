@@ -1,6 +1,8 @@
 import { toAbsoluteUrl } from "@metronic/helpers";
-import { Container, ToggleButton, ToggleButtonGroup } from "@mui/material";
+import { Container } from "@mui/material";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import dayjs, { Dayjs } from "dayjs";
 import React, { useEffect, useState } from "react";
@@ -188,25 +190,6 @@ const TaskOverviewToggle = ({
     toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
   };
 
-  const NavigationButtons = ({
-    onPrev,
-    onNext,
-    displayText,
-  }: {
-    onPrev: () => void;
-    onNext: () => void;
-    displayText: string;
-  }) => (
-    <div className="d-flex align-items-center">
-      <button className="btn btn-sm p-0 " onClick={onPrev}>
-        <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-      </button>
-      <span className="mx-2 mt-0 fw-bold lh-base font-barlow">{displayText}</span>
-      <button className="btn btn-sm p-0" onClick={onNext}>
-        <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-      </button>
-    </div>
-  );
 
   return (
     <>
@@ -234,84 +217,41 @@ const TaskOverviewToggle = ({
               modes={["weekly", "monthly", "yearly"]}
             />
           ) : (
-            <ToggleButtonGroup
+            <PeriodTabs
               value={alignment}
-              exclusive
-              onChange={handleChange}
-              aria-label="view selection"
-              sx={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "8px",
-                justifyContent: "center",
-                width: "100%",
-                "& .MuiToggleButton-root": {
-                  borderRadius: "20px",
-                  borderColor: "#A0B4D2 !important",
-                  color: "#000000 !important",
-                  paddingX: {
-                    xs: "32px",
-                    md: "45px",
-                  },
-                  borderWidth: "2px",
-                  fontWeight: "600",
-                  width: {
-                    xs: "65px",
-                    sm: "75px",
-                  },
-                  fontSize: {
-                    xs: "10px",
-                    sm: "12px",
-                  },
-                  height: { xs: "30px", sm: "36px" },
-                  fontFamily: "Inter",
-                  backgroundColor: "transparent !important", // Remove default background
-                  "&:hover": {
-                    backgroundColor: "transparent !important", // Remove hover background
-                    borderColor: "#9D4141 !important",
-                    color: "#9D4141 !important",
-                  },
-                },
-                "& .Mui-selected": {
-                  borderColor: "#9D4141 !important",
-                  color: "#9D4141 !important",
-                  backgroundColor: "transparent !important", // Remove selected background
-                },
-              }}
-            >
-              <ToggleButton value="weekly">Weekly</ToggleButton>
-              <ToggleButton value="monthly">Monthly</ToggleButton>
-              <ToggleButton value="yearly">Yearly</ToggleButton>
-              <ToggleButton value="custom">Custom</ToggleButton>
-            </ToggleButtonGroup>
+              options={[
+                { label: 'Weekly', value: 'weekly' },
+                { label: 'Monthly', value: 'monthly' },
+                { label: 'Yearly', value: 'yearly' },
+                { label: 'Custom', value: 'custom' },
+              ]}
+              onChange={(v) => handleChange(null as any, v)}
+              ariaLabel="view selection"
+            />
           )}
         </div>
         <div>
           {alignment === "weekly" && (
-            <NavigationButtons
-              onPrev={() => navigateWeek("prev")}
+            <PeriodNavigator
+              onPrevious={() => navigateWeek("prev")}
               onNext={() => navigateWeek("next")}
-              displayText={`${weekStart.format("DD MMM")} - ${weekEnd.format(
-                "DD MMM"
-              )}`}
+              label={`${weekStart.format("DD MMM")} - ${weekEnd.format("DD MMM")}`}
             />
           )}
 
           {alignment === "monthly" && (
-            <NavigationButtons
-              onPrev={() => navigateMonth("prev")}
+            <PeriodNavigator
+              onPrevious={() => navigateMonth("prev")}
               onNext={() => navigateMonth("next")}
-              displayText={`${monthStart.format("DD MMM")} - ${monthEnd.format(
-                "DD MMM"
-              )}`}
+              label={`${monthStart.format("DD MMM")} - ${monthEnd.format("DD MMM")}`}
             />
           )}
 
           {alignment === "yearly" && yearStart && yearEnd && (
-            <NavigationButtons
-              onPrev={() => navigateYear("prev")}
+            <PeriodNavigator
+              onPrevious={() => navigateYear("prev")}
               onNext={() => navigateYear("next")}
-              displayText={fiscalYearDisplay}
+              label={fiscalYearDisplay}
             />
           )}
 
@@ -366,7 +306,7 @@ const TaskOverviewToggle = ({
             style={{ minHeight: "300px" }}
           >
             <div className=" text-center" role="alert">
-              {/* <i className="fas fa-calendar-alt mb-3" style={{fontSize: '2rem', color: '#9D4141'}}></i> */}
+              {/* <i className="fas fa-calendar-alt mb-3" style={{fontSize: '2rem', color: '#1E3A8A'}}></i> */}
               <h4 className="alert-heading">Custom Date Range</h4>
               <p className="mb-2">You've selected custom date range mode.</p>
               <p className="mb-0">

@@ -60,7 +60,7 @@ const ProjectPointsSection: React.FC<ProjectPointsSectionProps> = ({
                     style={{
                         display: "inline-flex", alignItems: "center", gap: 6,
                         background: "#fff", border: "1px solid #d1d5e0", borderRadius: 8,
-                        padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: "#9D4141",
+                        padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: "#1E3A8A",
                         cursor: disabled ? "not-allowed" : "pointer",
                     }}
                 >

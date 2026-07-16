@@ -154,7 +154,7 @@ const PreviousLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewO
   const commonButtonStyle = {
     fontSize: "14px",
     fontWeight: "400",
-    color: "#9D4141",
+    color: "#1E3A8A",
     cursor: "pointer",
   };
 

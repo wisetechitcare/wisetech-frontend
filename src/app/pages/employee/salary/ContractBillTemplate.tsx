@@ -13,7 +13,7 @@ Font.register({
 
 const C = {
   navy: '#1A2D4B',
-  brand: '#AA393D',
+  brand: '#1E3A8A',
   gold: '#B8860B',
   white: '#ffffff',
   gray50: '#f8fafc',
@@ -61,7 +61,7 @@ function numberToWords(n: number): string {
 }
 
 const fmtDate = (iso?: string) => {
-  if (!iso) return '—';
+  if (!iso) return 'N/A';
   return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
@@ -391,11 +391,11 @@ export default function ContractBillTemplate({
   totalAmount,
   tdsAmount,
   paidAmount,
-  bankName = '—',
-  accountNumber = '—',
-  ifscCode = '—',
-  panNumber = '—',
-  mobileNumber = '—',
+  bankName = 'N/A',
+  accountNumber = 'N/A',
+  ifscCode = 'N/A',
+  panNumber = 'N/A',
+  mobileNumber = 'N/A',
 }: ContractBillTemplateProps) {
   const [branchAddress, setBranchAddress] = useState('');
   const [companyName, setCompanyName] = useState('');

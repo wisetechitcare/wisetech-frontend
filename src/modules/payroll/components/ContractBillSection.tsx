@@ -199,10 +199,10 @@ const ContractBillSection: React.FC<ContractBillSectionProps> = ({
               justifyContent: 'center',
               gap: '8px',
               padding: '10px 22px',
-              border: '1.5px solid #AA393D',
+              border: '1.5px solid #1E3A8A',
               borderRadius: '8px',
               background: 'transparent',
-              color: '#AA393D',
+              color: '#1E3A8A',
               fontWeight: 600,
               fontSize: '14px',
               cursor: loading ? 'not-allowed' : 'pointer',
@@ -212,13 +212,13 @@ const ContractBillSection: React.FC<ContractBillSectionProps> = ({
             } as React.CSSProperties}
             onMouseEnter={(e) => {
               if (!loading) {
-                (e.currentTarget as HTMLButtonElement).style.background = '#AA393D';
+                (e.currentTarget as HTMLButtonElement).style.background = '#1E3A8A';
                 (e.currentTarget as HTMLButtonElement).style.color = '#fff';
               }
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-              (e.currentTarget as HTMLButtonElement).style.color = '#AA393D';
+              (e.currentTarget as HTMLButtonElement).style.color = '#1E3A8A';
             }}
           >
             <KTIcon iconName="file-invoice" className="fs-5" />
@@ -270,7 +270,7 @@ const ContractBillSection: React.FC<ContractBillSectionProps> = ({
                   (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
                 }}
               >
-                <span style={{ color: '#AA393D', display: 'flex', alignItems: 'center' }}>
+                <span style={{ color: '#1E3A8A', display: 'flex', alignItems: 'center' }}>
                   <KTIcon iconName="file-down" className="fs-5" />
                 </span>
                 <span>{isDownloading ? 'Downloading...' : 'Download Bill'}</span>
@@ -303,7 +303,7 @@ const ContractBillSection: React.FC<ContractBillSectionProps> = ({
                   (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
                 }}
               >
-                <span style={{ color: '#AA393D', display: 'flex', alignItems: 'center' }}>
+                <span style={{ color: '#1E3A8A', display: 'flex', alignItems: 'center' }}>
                   <KTIcon iconName="sms" className="fs-5" />
                 </span>
                 <span>{isSending ? 'Sending...' : 'Email Bill'}</span>

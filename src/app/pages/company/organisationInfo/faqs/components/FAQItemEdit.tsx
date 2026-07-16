@@ -45,7 +45,7 @@ const FAQItemEdit: React.FC<FAQItemEditProps> = ({ faq, onEdit, onDelete }) => {
             onClick={() => onEdit(faq.id)}
             style={{
               fontSize: '16px',
-              color: '#9d4141',
+              color: '#1E3A8A',
               cursor: 'pointer',
             }}
           />
@@ -54,7 +54,7 @@ const FAQItemEdit: React.FC<FAQItemEditProps> = ({ faq, onEdit, onDelete }) => {
             onClick={() => onDelete(faq.id)}
             style={{
               fontSize: '16px',
-              color: '#9d4141',
+              color: '#1E3A8A',
               cursor: 'pointer',
             }}
           />

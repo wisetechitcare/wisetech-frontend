@@ -57,7 +57,8 @@ export const getGraceBasedThresholds = async (
           companyId: store.getState().employee?.currentEmployee?.companyId,
           branchId: store.getState().employee?.currentEmployee?.branchId,
         };
-    const { data: { configuration: { configuration } } } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, thresholdScope);
+    const { data: { configuration: configurationRecord } } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, thresholdScope);
+    const configuration = configurationRecord?.configuration;
     const settings = safeJsonParse(configuration);
 
     const checkInTime = settings["Check-in time"]; // "9:30 AM"

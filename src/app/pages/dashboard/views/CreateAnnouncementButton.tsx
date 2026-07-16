@@ -120,7 +120,7 @@ function CreateAnnouncementButton({
   return (
     <>
       <div className="d-flex justify-content-end px-4">
-         {hasPermission(resourceNameMapWithCamelCase.announcement, permissionConstToUseWithHasPermission.create) && <button className={`${style}`} onClick={handleNew} style={{backgroundColor:'#AA393D', color:'White', padding:'10px 20px', borderRadius:'5px'}}>
+         {hasPermission(resourceNameMapWithCamelCase.announcement, permissionConstToUseWithHasPermission.create) && <button className={`${style}`} onClick={handleNew} style={{backgroundColor:'#1E3A8A', color:'White', padding:'10px 20px', borderRadius:'5px'}}>
         {/* {showPlusIcon && <KTIcon iconName='plus' className='fs-3' />} */}
         New Announcement
       </button>}

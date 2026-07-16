@@ -296,7 +296,7 @@ const processedData = useMemo(() => {
             {(['country', 'state', 'city', 'locality', 'status'] as (keyof LocationFilterType)[]).map((filterName) => (
               <FormControl key={filterName} size="small">
                 <InputLabel
-                  sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}
+                  sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
                 >
                   {filterName[0].toUpperCase() + filterName.slice(1)}
                 </InputLabel>
@@ -305,18 +305,18 @@ const processedData = useMemo(() => {
                   label={filterName[0].toUpperCase() + filterName.slice(1)}
                   onChange={(e) => handleFilterChange(e, filterName)}
                   sx={{
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#9D4141',
+                      borderColor: '#1E3A8A',
                     },
                     '& .MuiSelect-icon': {
-                      color: '#9D4141',
+                      color: '#1E3A8A',
                     },
                   }}
                 >
@@ -329,7 +329,7 @@ const processedData = useMemo(() => {
 
             <FormControl size="small">
               <InputLabel
-                sx={{ color: '#9D4141', '&.Mui-focused': { color: '#9D4141' } }}
+                sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}
               >
                 Sort By
               </InputLabel>
@@ -338,18 +338,18 @@ const processedData = useMemo(() => {
                 label="Sort By"
                 onChange={(e) => handleFilterChange(e, 'sortBy')}
                 sx={{
-                  color: '#9D4141',
+                  color: '#1E3A8A',
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#9D4141',
+                    borderColor: '#1E3A8A',
                   },
                   '& .MuiSelect-icon': {
-                    color: '#9D4141',
+                    color: '#1E3A8A',
                   },
                 }}
               >

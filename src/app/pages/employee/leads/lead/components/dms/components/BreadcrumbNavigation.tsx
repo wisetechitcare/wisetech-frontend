@@ -24,7 +24,7 @@ export const BreadcrumbNavigation: React.FC = () => {
     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 16px', flexWrap: 'wrap' }}>
       <motion.span
         onClick={() => handleClick(-1)}
-        whileHover={{ color: '#9d4141' }}
+        whileHover={{ color: '#1E3A8A' }}
         style={{ 
           fontSize: '13px', 
           color: state.breadcrumbs.length === 0 ? '#1e293b' : '#64748b', 
@@ -41,7 +41,7 @@ export const BreadcrumbNavigation: React.FC = () => {
           <span style={{ color: '#cbd5e1', fontSize: '12px', margin: '0 2px' }}>/</span>
           <motion.span
             onClick={() => handleClick(i)}
-            whileHover={{ color: '#9d4141' }}
+            whileHover={{ color: '#1E3A8A' }}
             style={{
               fontSize: '13px',
               color: i === state.breadcrumbs.length - 1 ? '#1e293b' : '#64748b',

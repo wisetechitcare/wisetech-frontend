@@ -19,14 +19,14 @@ interface PeriodNavigatorProps {
 }
 
 const buttonSx = {
-    width: 32,
-    height: 32,
-    borderRadius: 0,
-    color: '#94a3b8',
+    width: 24,
+    height: 24,
+    borderRadius: '4px',
+    color: '#475569',
     p: 0,
     '&:hover': {
-        color: '#7a2626',
-        backgroundColor: '#f8fafc',
+        color: '#172554',
+        backgroundColor: '#e8eef6',
     },
     '&.Mui-disabled': {
         color: '#cbd5e1',
@@ -44,21 +44,21 @@ const PeriodNavigator = ({
     nextTitle,
     minWidth = 'fit-content',
     sx,
-    labelColor = '#9d4141',
+    labelColor = '#1E3A8A',
 }: PeriodNavigatorProps) => (
     <Box
         sx={{
-            height: 32,
+            height: 30,
             width: 'fit-content',
             minWidth,
             maxWidth: '100%',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderRadius: '4px',
-            backgroundColor: '#ffffff',
+            borderRadius: '5px',
+            backgroundColor: '#f1f5f9',
             border: '1px solid #eef2f7',
-            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.06)',
+            p: '2px',
             overflow: 'hidden',
             ...sx,
         }}
@@ -79,16 +79,18 @@ const PeriodNavigator = ({
                 flex: 1,
                 minWidth: 0,
                 px: 1.25,
+                mx: '2px',
+                backgroundColor: '#ffffff',
                 color: labelColor,
                 fontSize: 12,
                 fontWeight: 700,
-                lineHeight: '32px',
+                lineHeight: '24px',
                 textAlign: 'center',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                borderLeft: '1px solid #eef2f7',
-                borderRight: '1px solid #eef2f7',
+                borderRadius: '4px',
+                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
             }}
         >
             {label}

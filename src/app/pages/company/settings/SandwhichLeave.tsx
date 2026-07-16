@@ -343,7 +343,7 @@ function DialogHeader({ title, subtitle, icon, onClose, action }: {
     <Box sx={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
       px: { xs: 2, sm: 2.75 }, py: { xs: 1.5, sm: 1.75 },
-      background: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)',
+      background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)',
       borderBottom: `3px solid ${T.color.accent}`, color: '#fff', flexShrink: 0,
     }}>
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>

@@ -227,7 +227,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
               <button
                 type="button"
                 className="btn btn-sm btn-primary"
-                style={{ backgroundColor: '#8B4444', border: 'none' }}
+                style={{ backgroundColor: '#1E3A8A', border: 'none' }}
                 onClick={() => handleSave(key)}
                 disabled={isSaving[key]}
               >

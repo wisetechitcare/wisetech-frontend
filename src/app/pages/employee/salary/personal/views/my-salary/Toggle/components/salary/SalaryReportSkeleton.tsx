@@ -19,7 +19,7 @@ export const SalaryReportPageSkeleton = () => (
         <Row className="g-4">
             {[
                 { border: 'rgba(41,93,142,0.18)', bg: 'linear-gradient(135deg, #F0F7FF 0%, #E6F0FB 100%)' },
-                { border: 'rgba(170,57,61,0.18)', bg: 'linear-gradient(135deg, #FBF0F1 0%, #F5E2E4 100%)' },
+                { border: 'rgba(30, 58, 138,0.18)', bg: 'linear-gradient(135deg, #FBF0F1 0%, #F5E2E4 100%)' },
             ].map((style, i) => (
                 <Col key={i} md={6}>
                     <div style={{ background: style.bg, border: `1px solid ${style.border}`, borderRadius: 14, padding: '16px 20px', minHeight: 200 }}>

@@ -1,6 +1,6 @@
 
 import {FC} from 'react'
-import {Link, useNavigate} from 'react-router-dom'
+import {useNavigate} from 'react-router-dom'
 import {removeAuth} from '../../../../app/modules/auth'
 import {useDispatch, useSelector} from 'react-redux'
 import {logoutUser} from '@redux/slices/auth'
@@ -71,17 +71,31 @@ const HeaderUserMenu: FC = () => {
 
       <div className='py-1'>
         <div className='menu-item px-2'>
-          <Link to={'/employee/profile/overview'} className='menu-link d-flex align-items-center gap-2'>
+          {/* Plain href, NOT SPA navigation: Metronic's native menu handlers call
+              stopPropagation() on every .menu-link click, which can race/swallow
+              React's delegated onClick (navigate() silently never ran for some
+              users). They never call preventDefault() on non-trigger items, so
+              default browser navigation always goes through — same "hard
+              navigation" reliability class as Sign Out's location.reload(). */}
+          <button
+            type='button'
+            className='menu-link d-flex align-items-center gap-2 w-100 border-0 bg-transparent p-0'
+            style={{ cursor: 'pointer', textAlign: 'left' }}
+            onMouseDown={() => { window.location.href = '/employee/profile/overview'; }}
+          >
             <KTIcon iconName='profile-circle' className='fs-5 text-muted' />
             My Profile
-          </Link>
+          </button>
         </div>
         {showAppSettings && (
           <div className='menu-item px-2'>
-            <Link to={'/company/settings'} className='menu-link d-flex align-items-center gap-2'>
+            <a
+              href='/company/settings'
+              className='menu-link d-flex align-items-center gap-2'
+            >
               <KTIcon iconName='setting-2' className='fs-5 text-muted' />
               Settings
-            </Link>
+            </a>
           </div>
         )}
         <div className='separator my-1'></div>

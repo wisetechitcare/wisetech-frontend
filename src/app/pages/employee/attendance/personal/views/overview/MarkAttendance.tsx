@@ -266,7 +266,7 @@ useEffect(() => {
                 // Check if this date is a public holiday with isWeekend=true
                 const holidayObj = publicHolidaysMap.get(date);
                 const isHolidayMarkedAsWeekend = holidayObj && holidayObj.isWeekend === true;
-                let res = isWeekend || isOffDay || isHoliday || isLeave || isHolidayMarkedAsWeekend;
+                const res = isWeekend || isOffDay || isHoliday || isLeave || isHolidayMarkedAsWeekend;
                 // debugger;
                 return res;
             };
@@ -289,7 +289,7 @@ useEffect(() => {
                 const hasCompleteRequest = attendanceRequests.some((req: any) => 
                     Number(req?.status) == Status.Approved && (req.checkIn !== null && req.checkOut !== null)
                 );
-                let tempObj = {
+                const tempObj = {
                     hasAttendanceRecord: empAttendanceStatistics.length > 0,
                     hasCheckIn: empAttendanceStatistics.length > 0 && empAttendanceStatistics[0].checkIn !== null,
                     hasCheckOut: empAttendanceStatistics.length > 0 && empAttendanceStatistics[0].checkOut !== null,

@@ -202,7 +202,7 @@ function LeavesAndBalance() {
         className="mt-2 mb-3" 
         role="button" 
         onClick={handleAdd} 
-        style={{ color: '#7A2124' }}
+        style={{ color: '#172554' }}
       >
         + Add Another
       </div> */}

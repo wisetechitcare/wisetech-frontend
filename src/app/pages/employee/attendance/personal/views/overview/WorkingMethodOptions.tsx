@@ -1121,7 +1121,7 @@ const attendanceSchema = Yup.object({
     workingMethodId: Yup.string(),
 });
 
-let initialState = {
+const initialState = {
     workingMethod: '',
 }
 
@@ -1145,10 +1145,10 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
 
     // App settings - Keep original implementation for non-KPI usage
     const appSettings = useSelector((state: RootState) => state.appSettings);
-    let totalWorkingHour: number = appSettings.workingHours || 0;
-    let checkinTimeFromStore: string = appSettings.checkinTime || '';
-    let checkoutTimeFromStore: string = appSettings.checkoutTime || '';
-    let graceTimeFromStore = appSettings.graceTime;
+    const totalWorkingHour: number = appSettings.workingHours || 0;
+    const checkinTimeFromStore: string = appSettings.checkinTime || '';
+    const checkoutTimeFromStore: string = appSettings.checkoutTime || '';
+    const graceTimeFromStore = appSettings.graceTime;
     const appsettings = appSettings;
 
     const [allTheFactorDetails, setAllTheFactorDetails] = useState<any>([])
@@ -1271,7 +1271,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
         if (!employeeId) return;
         const fetchAttendanceRequests = async () => {
             
-            let yesterDay = new Date()
+            const yesterDay = new Date()
             yesterDay.setDate(yesterDay.getDate() - 1);
             const { data: { attendanceRequests } } = await getAttendanceRequest(employeeId, dayjs(yesterDay).format('YYYY-MM-DD'), dayjs(yesterDay).format('YYYY-MM-DD'));
             if(Array.isArray(attendanceRequests) && attendanceRequests.length>0){
@@ -1367,7 +1367,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
             const todayHolidays = publicHolidays.filter((el: any) =>
                 dayjs(el.date).format('DD/MM/YYYY') === todayFormatted
             );
-            let weekendDaysToday = Object.keys(employeeWorkingAndOffDays)
+            const weekendDaysToday = Object.keys(employeeWorkingAndOffDays)
                 .filter((day: any) => employeeWorkingAndOffDays[day] === '0')
                 .map((day: any) => day.toLowerCase());
             const isTodayHolidayOrWeekend = todayHolidays.length > 0 || weekendDaysToday.includes(todayDayName);
@@ -1917,7 +1917,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
         async function fetchGraceTimeOnSite() {
             try {
                 const { data: { configuration } } = await fetchConfiguration('leave management');
-                const leaveConfig = safeJsonParse(configuration.configuration || '{}');
+                const leaveConfig = safeJsonParse(configuration?.configuration || '{}');
                 const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:30';
                 setGraceTimeOnSite(graceTimeOnSiteStr.replace(' Hrs', ''));
             } catch (error) {
@@ -1962,7 +1962,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
         }
 
         async function validateToken() {
-            let lsCheckIn = getKey("check_in_token");
+            const lsCheckIn = getKey("check_in_token");
             if (!lsCheckIn || !employeeId) return;
             const { data: { isDisabled } } = await validateTokenInOut({ id: employeeId, token: lsCheckIn });
             if (isDisabled) {

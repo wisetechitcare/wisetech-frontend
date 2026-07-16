@@ -12,7 +12,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 function EmployeeDocumentTable({message1='No Documents Uploaded By User', message2='Documents Uploaded By User'}:{message1?: string, message2?: string}) {
     const { employeeId } = useParams();
-    const currentEmployeeId = employeeId || useSelector((state: RootState) => state.employee.currentEmployee?.id);
+    const reduxEmployeeId = useSelector((state: RootState) => state.employee.currentEmployee?.id);
+    const currentEmployeeId = employeeId || reduxEmployeeId;
     const [userId, setUserId] = useState();
     const digitalSignature = useSelector((state: RootState) => state.employee.currentEmployee?.digitalSignaturePath);
     const status = useSelector((state: RootState) => state.employee.currentEmployee?.dateOfExit) ? 'Terminated' : 'Active';

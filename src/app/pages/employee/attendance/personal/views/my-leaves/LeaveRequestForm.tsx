@@ -51,7 +51,7 @@ const extractApiErrorMessage = (err: any): string | null => {
   if (typeof err?.message === 'string' && err.message.trim()) return err.message;
   return null;
 };
-let initialValues: ILeaveRequest = {
+const initialValues: ILeaveRequest = {
   employeeId: "",
   leaveTypeId: "",
   dateFrom: "",
@@ -703,7 +703,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
       const fetchConfigurations = async () => {
           try {
             const configuration = await fetchConfiguration(SANDWICH_LEAVE_KEY);
-            const jsonObjectSandwhich = JSON.parse(configuration.data.configuration.configuration);
+            const jsonObjectSandwhich = JSON.parse(configuration?.data?.configuration?.configuration || '{}');
             const customRules = jsonObjectSandwhich.isSandwichLeaveSixthEnabled || jsonObjectSandwhich.isSandwichLeaveFifthEnabled || jsonObjectSandwhich.isSandwichLeaveFourthEnabled || jsonObjectSandwhich.isSandwichLeaveThirdEnabled || jsonObjectSandwhich.isSandwichLeaveSecondEnabled || jsonObjectSandwhich.isSandwichLeaveFirstEnabled;
             setSandwichLeaveEnabled(!!customRules);
             // console.log("customRules",customRules);
@@ -1018,10 +1018,10 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         const customStyles = {
           control: (provided: any) => ({
             ...provided,
-            border: hasLeaveTypeError ? '1px dashed #AA393D' : '1px solid #e4e6ea',
+            border: hasLeaveTypeError ? '1px dashed #1E3A8A' : '1px solid #e4e6ea',
             boxShadow: 'none',
             '&:hover': {
-              border: hasLeaveTypeError ? '1px dashed #AA393D' : '1px solid #b5b5c3',
+              border: hasLeaveTypeError ? '1px dashed #1E3A8A' : '1px solid #b5b5c3',
             },
           }),
           option: (provided: any, state: any) => ({

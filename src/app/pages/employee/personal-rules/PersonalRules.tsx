@@ -71,7 +71,7 @@ const PersonalRules: React.FC = () => {
           fontFamily: 'Inter, sans-serif',
           fontWeight: 500,
           fontSize: '14px',
-          color: isActive ? '#9d4141' : '#000',
+          color: isActive ? '#1E3A8A' : '#000',
           margin: 0,
           whiteSpace: 'pre'
         }}>

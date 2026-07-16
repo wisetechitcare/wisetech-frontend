@@ -70,9 +70,9 @@ const FAQSectionCard: React.FC<FAQSectionCardProps> = ({
             onClick={onAddNew}
             style={{
               backgroundColor: 'transparent',
-              border: '1px solid #9d4141',
+              border: '1px solid #1E3A8A',
               borderRadius: '6px',
-              color: '#9d4141',
+              color: '#1E3A8A',
               fontSize: '14px',
               fontWeight: 500,
               padding: '8px 20px',
@@ -81,12 +81,12 @@ const FAQSectionCard: React.FC<FAQSectionCardProps> = ({
               marginLeft: '16px',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#9d4141';
+              e.currentTarget.style.backgroundColor = '#1E3A8A';
               e.currentTarget.style.color = '#fff';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = '#9d4141';
+              e.currentTarget.style.color = '#1E3A8A';
             }}
           >
             Add New

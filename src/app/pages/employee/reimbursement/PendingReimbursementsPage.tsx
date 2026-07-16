@@ -19,7 +19,7 @@ import {
 import { uploadUserAsset } from '@services/uploader';
 import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
-import { getProjectsByCompanyId, getAllProjectStatuses } from '@services/projects';
+import { getReimbursementProjectOptions, getAllProjectStatuses } from '@services/projects';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import DropDownInput from '@app/modules/common/inputs/DropdownInput';
 import DateInput from '@app/modules/common/inputs/DateInput';
@@ -159,82 +159,82 @@ function fmtAmountRounded(n: number) {
 
 const KpiIconRequests = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="8" y1="17" x2="12" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <line x1="8" y1="17" x2="12" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
 const KpiIconAmount = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <circle cx="12" cy="15" r="1.5" fill="currentColor"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <circle cx="12" cy="15" r="1.5" fill="currentColor" />
   </svg>
 );
 
 const KpiIconApproved = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const KpiIconApprovedAmount = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <path d="M9 15l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <path d="M9 15l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const KpiIconPending = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-    <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+    <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const KpiIconPendingAmount = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <polyline points="14 14 14 12 12 12 12 16 14 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <polyline points="14 14 14 12 12 12 12 16 14 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const KpiIconRejected = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
 const KpiIconRejectedAmount = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <line x1="10" y1="13.5" x2="14" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="14" y1="13.5" x2="10" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <line x1="10" y1="13.5" x2="14" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <line x1="14" y1="13.5" x2="10" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
 const KpiIconPaymentPaid = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <path d="M7 15l2.5 2.5L17 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <path d="M7 15l2.5 2.5L17 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const KpiIconPaymentRemaining = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
-    <circle cx="12" cy="15" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
-    <path d="M12 13.5V15h1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    <circle cx="12" cy="15" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M12 13.5V15h1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 );
 
@@ -507,17 +507,23 @@ export function EmployeeDetailsSection({
   const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee);
   const employee = employeeProp !== undefined ? employeeProp : currentEmployee;
 
-  const kpiCards: ReimbKpiCardProps[] = [
-    { label: 'Total Requests',          value: totalRequests,                                accent: '#7c3aed', iconBg: '#f5f3ff', iconBorder: '#ede9fe', icon: <KpiIconRequests />,           loading: overviewLoading },
-    { label: 'Total Approved Requests',  value: approvedRequests,                             accent: '#16a34a', iconBg: '#f0fdf4', iconBorder: '#dcfce7', icon: <KpiIconApproved />,           loading: overviewLoading },
-    { label: 'Total Pending Requests',   value: pendingRequests,                              accent: '#d97706', iconBg: '#fffbeb', iconBorder: '#fef3c7', icon: <KpiIconPending />,            loading: overviewLoading },
-    { label: 'Total Rejected Requests',  value: rejectedRequests,                             accent: '#dc2626', iconBg: '#fef2f2', iconBorder: '#fecaca', icon: <KpiIconRejected />,           loading: overviewLoading },
-    { label: 'Total Paid Amount',            value: `₹${fmtAmountRounded(paidAmount)}`,           accent: '#059669', iconBg: '#ecfdf5', iconBorder: '#a7f3d0', icon: <KpiIconPaymentPaid />,        loading: overviewLoading },
-    { label: 'Total Requested Amount',  value: `₹${fmtAmountRounded(totalRequestedAmount)}`, accent: '#2563eb', iconBg: '#eff6ff', iconBorder: '#dbeafe', icon: <KpiIconAmount />,             loading: overviewLoading },
-    { label: 'Total Approved Amount',   value: `₹${fmtAmountRounded(approvedAmount)}`,       accent: '#0891b2', iconBg: '#ecfeff', iconBorder: '#cffafe', icon: <KpiIconApprovedAmount />,     loading: overviewLoading },
-    { label: 'Total Pending Amount',    value: `₹${fmtAmountRounded(pendingAmount)}`,        accent: '#ea580c', iconBg: '#fff7ed', iconBorder: '#ffedd5', icon: <KpiIconPendingAmount />,      loading: overviewLoading },
-    { label: 'Total Rejected Amount',   value: `₹${fmtAmountRounded(rejectedAmount)}`,       accent: '#e11d48', iconBg: '#fff1f2', iconBorder: '#ffe4e6', icon: <KpiIconRejectedAmount />,     loading: overviewLoading },
-    { label: 'Total Remaining Amount',       value: `₹${fmtAmountRounded(remainingAmount)}`,      accent: '#b45309', iconBg: '#fefce8', iconBorder: '#fef08a', icon: <KpiIconPaymentRemaining />,   loading: overviewLoading },
+  // Kept as two semantically distinct groups — request counts vs. money amounts —
+  // instead of one mixed 10-card grid, so each row reads as one unit (plain counts
+  // vs. currency) rather than a count tile awkwardly sharing a row with amount tiles.
+  const countCards: ReimbKpiCardProps[] = [
+    { label: 'Total Requests', value: totalRequests, accent: '#7c3aed', iconBg: '#f5f3ff', iconBorder: '#ede9fe', icon: <KpiIconRequests />, loading: overviewLoading },
+    { label: 'Total Approved Requests', value: approvedRequests, accent: '#16a34a', iconBg: '#f0fdf4', iconBorder: '#dcfce7', icon: <KpiIconApproved />, loading: overviewLoading },
+    { label: 'Total Pending Requests', value: pendingRequests, accent: '#d97706', iconBg: '#fffbeb', iconBorder: '#fef3c7', icon: <KpiIconPending />, loading: overviewLoading },
+    { label: 'Total Rejected Requests', value: rejectedRequests, accent: '#dc2626', iconBg: '#fef2f2', iconBorder: '#fecaca', icon: <KpiIconRejected />, loading: overviewLoading },
+  ];
+
+  const amountCards: ReimbKpiCardProps[] = [
+    { label: 'Total Requested Amount', value: `₹${fmtAmountRounded(totalRequestedAmount)}`, accent: '#2563eb', iconBg: '#eff6ff', iconBorder: '#dbeafe', icon: <KpiIconAmount />, loading: overviewLoading },
+    { label: 'Total Approved Amount', value: `₹${fmtAmountRounded(approvedAmount)}`, accent: '#0891b2', iconBg: '#ecfeff', iconBorder: '#cffafe', icon: <KpiIconApprovedAmount />, loading: overviewLoading },
+    { label: 'Total Pending Amount', value: `₹${fmtAmountRounded(pendingAmount)}`, accent: '#ea580c', iconBg: '#fff7ed', iconBorder: '#ffedd5', icon: <KpiIconPendingAmount />, loading: overviewLoading },
+    { label: 'Total Rejected Amount', value: `₹${fmtAmountRounded(rejectedAmount)}`, accent: '#e11d48', iconBg: '#fff1f2', iconBorder: '#ffe4e6', icon: <KpiIconRejectedAmount />, loading: overviewLoading },
+    { label: 'Total Paid Amount', value: `₹${fmtAmountRounded(paidAmount)}`, accent: '#059669', iconBg: '#ecfdf5', iconBorder: '#a7f3d0', icon: <KpiIconPaymentPaid />, loading: overviewLoading },
+    { label: 'Total Remaining Amount', value: `₹${fmtAmountRounded(remainingAmount)}`, accent: '#b45309', iconBg: '#fefce8', iconBorder: '#fef08a', icon: <KpiIconPaymentRemaining />, loading: overviewLoading },
   ];
 
   return (
@@ -549,19 +555,19 @@ export function EmployeeDetailsSection({
             }}
           >
             <ReimbEmployeeProfileCard employee={employee} />
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(5, minmax(0, 1fr))' },
-                gap: 1.25,
-                gridAutoRows: { xs: '76px', md: '80px' },
-                alignContent: 'start',
-                alignItems: 'stretch',
-              }}
-            >
-              {kpiCards.map((card) => (
-                <ReimbKpiCard key={card.label} {...card} />
-              ))}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0 }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))', xl: 'repeat(5, minmax(0, 1fr))' },
+                  gap: 1.25,
+                  gridAutoRows: { xs: '76px', md: '80px' },
+                }}
+              >
+                {[...countCards, ...amountCards].map((card) => (
+                  <ReimbKpiCard key={card.label} {...card} />
+                ))}
+              </Box>
             </Box>
           </Box>
         </Paper>
@@ -613,9 +619,16 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   // Dropdown option lists — same names as Reimbursement.tsx
   const [reimbursementOptions, setReimbursementOptions] = useState<any[]>([]);
+  // companyTypeOptions is scoped to types actually used as a project's File Location;
+  // allCompanyTypeOptions is the full master list, kept only to resolve labels for
+  // legacy reimbursements whose saved type/company predates that scoping.
   const [companyTypeOptions, setCompanyTypeOptions] = useState<Option[]>([]);
+  const [allCompanyTypeOptions, setAllCompanyTypeOptions] = useState<Option[]>([]);
   const [allClientCompanies, setAllClientCompanies] = useState<any[]>([]);
   const [filteredCompanies, setFilteredCompanies] = useState<any[]>([]);
+  // Full project list (title + fileLocationCompanyType/fileLocationCompany), loaded once.
+  // Powers the Project dropdown's direct-search + Company Type/Name reverse-autofill.
+  const [allProjects, setAllProjects] = useState<any[]>([]);
   const [projectOptions, setProjectOptions] = useState<Option[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [selectedReimbursementFor, setSelectedReimbursementFor] = useState<Option | null>(null);
@@ -649,7 +662,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   useEffect(() => { onDraftsChange?.(drafts.length); }, [drafts.length, onDraftsChange]);
 
-  const handleNewRef = useRef<() => void>(() => {});
+  const handleNewRef = useRef<() => void>(() => { });
   useImperativeHandle(ref, () => ({ openAddModal: () => handleNewRef.current() }));
 
   // ── Load dropdown data — separated exactly like Reimbursement.tsx ──────────
@@ -667,17 +680,27 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   };
 
   const loadClientTypeAndCompanyData = async () => {
+    setProjectsLoading(true);
     try {
-      const [typesRes, companiesRes, statusesRes] = await Promise.all([
+      // allSettled so one failing lookup can't blank the whole form — each
+      // dropdown that CAN load still loads.
+      const results = await Promise.allSettled([
         getAllCompanyTypes(),
         getAllClientCompanies(),
         getAllProjectStatuses(),
+        getReimbursementProjectOptions(),
       ]);
+      const val = (r: PromiseSettledResult<any>) => (r.status === "fulfilled" ? r.value : undefined);
+      const [typesResR, companiesResR, statusesResR, projectsResR] = results;
+      const typesRes = val(typesResR) || {};
+      const companiesRes = val(companiesResR) || {};
+      const statusesRes = val(statusesResR) || {};
+      const projectsRes = val(projectsResR) || {};
       const types = (typesRes.companyTypes || []).map((ct: any) => ({
         value: ct.id,
         label: ct.name,
       })).sort((a: Option, b: Option) => a.label.localeCompare(b.label));
-      setCompanyTypeOptions(types);
+      setAllCompanyTypeOptions(types);
 
       const companies =
         companiesRes?.data?.companies ||
@@ -687,6 +710,17 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         [];
       setAllClientCompanies(companies);
 
+      const projects = projectsRes?.data?.projects || projectsRes?.projects || [];
+      setAllProjects(projects);
+
+      // Company Type/Name options are scoped to only those actually set as a
+      // project's File Location In Computer Folder — not the full client-company
+      // master list — per the "fetch from File Location" flow requirement.
+      const usedTypeIds = new Set(
+        projects.map((p: any) => p.fileLocationCompanyType).filter(Boolean)
+      );
+      setCompanyTypeOptions(types.filter((t: Option) => usedTypeIds.has(t.value)));
+
       const allStatuses: any[] = statusesRes?.projectStatuses || [];
       const ids = allStatuses
         .filter((s: any) => s.name?.trim().toLowerCase() === 'on ongoing')
@@ -694,7 +728,23 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       setOngoingStatusIds(ids);
     } catch (err) {
       console.error('Failed to load client data', err);
+    } finally {
+      setProjectsLoading(false);
     }
+  };
+
+  // Company Name options for a given Company Type — scoped to companies actually
+  // used as a project's File Location under that type.
+  const computeFilteredCompaniesForType = (typeId: string) => {
+    const usedCompanyIds = new Set(
+      allProjects
+        .filter((p: any) => p.fileLocationCompanyType === typeId)
+        .map((p: any) => p.fileLocationCompany)
+        .filter(Boolean)
+    );
+    return allClientCompanies
+      .filter((c: any) => c.companyTypeId === typeId && usedCompanyIds.has(c.id))
+      .sort((a: any, b: any) => a.companyName.localeCompare(b.companyName));
   };
 
   useEffect(() => {
@@ -707,7 +757,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   useEffect(() => {
     if (!editMode || !currentReimbursement) return;
-    if (companyTypeOptions.length === 0 || allClientCompanies.length === 0) return;
+    if (allCompanyTypeOptions.length === 0 || allClientCompanies.length === 0) return;
 
     const rec = currentReimbursement;
 
@@ -719,44 +769,56 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       }
     }
 
-    // 2. Company Type
+    // 2. Company Type — resolved against the FULL master list (not the File-Location-scoped
+    // one) so editing an older reimbursement never shows a blank Type.
     if (rec.clientTypeId) {
-      const ctMatch = companyTypeOptions.find((c) => c.value === rec.clientTypeId);
+      const ctMatch = allCompanyTypeOptions.find((c) => c.value === rec.clientTypeId);
       if (ctMatch) setSelectedClientType({ value: ctMatch.value, label: ctMatch.label });
 
-      const filtered = allClientCompanies.filter((c: any) => c.companyTypeId === rec.clientTypeId);
-      setFilteredCompanies([...filtered].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName)));
+      let filtered = computeFilteredCompaniesForType(rec.clientTypeId);
 
-      // 3. Company Name
+      // 3. Company Name — legacy data may reference a company that isn't (yet) a File
+      // Location company for any project; still show it so editing doesn't drop it.
       if (rec.clientCompanyId) {
         const ccMatch = allClientCompanies.find((c: any) => c.id === rec.clientCompanyId);
-        if (ccMatch) setSelectedClientCompany({ value: ccMatch.id, label: ccMatch.companyName });
-      }
-    }
-  }, [editMode, currentReimbursement, companyTypeOptions, allClientCompanies, reimbursementOptions]);
-
-  // ── Reactive project restoration ───────────────────────────────────────────
-
-  useEffect(() => {
-    if (!editMode || !currentReimbursement?.clientCompanyId) return;
-
-    getProjectsByCompanyId(
-      currentReimbursement.clientCompanyId,
-      { ongoingStatusIds, includeProjectId: currentReimbursement.projectId || undefined }
-    )
-      .then((res: any) => {
-        const projects = res?.projects || res?.data?.projects || [];
-        const opts: Option[] = projects
-          .map((p: any) => ({ value: p.id, label: p.title }))
-          .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
-        setProjectOptions(opts);
-        if (currentReimbursement.projectId) {
-          const projMatch = opts.find((o) => o.value === currentReimbursement.projectId);
-          setSelectedProject(projMatch || null);
+        if (ccMatch) {
+          setSelectedClientCompany({ value: ccMatch.id, label: ccMatch.companyName });
+          if (!filtered.some((c: any) => c.id === ccMatch.id)) {
+            filtered = [...filtered, ccMatch].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName));
+          }
         }
-      })
-      .catch(() => setProjectOptions([]));
-  }, [editMode, currentReimbursement?.clientCompanyId, currentReimbursement?.projectId, ongoingStatusIds]);
+      }
+      setFilteredCompanies(filtered);
+    }
+  }, [editMode, currentReimbursement, allCompanyTypeOptions, allClientCompanies, reimbursementOptions]);
+
+  // ── Project options — always derived locally from the bulk project list so the field
+  // can be searched directly regardless of Company Type/Name selection. Picking a Company
+  // Type/Name narrows the list; picking a Project directly reverse-autofills them instead.
+  useEffect(() => {
+    if (allProjects.length === 0) {
+      setProjectOptions([]);
+      return;
+    }
+    let list = allProjects;
+    if (selectedClientCompany?.value) {
+      list = list.filter((p: any) => p.fileLocationCompany === selectedClientCompany.value);
+    } else if (selectedClientType?.value) {
+      list = list.filter((p: any) => p.fileLocationCompanyType === selectedClientType.value);
+    }
+    const keepId = editMode ? currentReimbursement?.projectId : undefined;
+    list = list.filter((p: any) => (p.status?.id && ongoingStatusIds.includes(p.status.id)) || p.id === keepId);
+
+    const opts: Option[] = list
+      .map((p: any) => ({ value: p.id, label: p.title }))
+      .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
+    setProjectOptions(opts);
+
+    if (editMode && currentReimbursement?.projectId) {
+      const projMatch = opts.find((o) => o.value === currentReimbursement.projectId);
+      if (projMatch) setSelectedProject(projMatch);
+    }
+  }, [allProjects, selectedClientType, selectedClientCompany, ongoingStatusIds, editMode, currentReimbursement]);
 
   // ── Handlers — identical flow to Reimbursement.tsx ────────────────────────
 
@@ -766,7 +828,11 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     setSelectedClientCompany(null);
     setSelectedProject(null);
     setFilteredCompanies([]);
-    setProjectOptions([]);
+    // projectOptions is NOT reset here — it's owned by the reactive effect above,
+    // which recomputes it from allProjects/selectedClientType/selectedClientCompany.
+    // Clearing it imperatively here left it stuck empty on a fresh "Add" open,
+    // since selectedClientType/selectedClientCompany are already null at rest and
+    // setState with an unchanged value doesn't re-trigger that effect.
 
     initialState = {
       expenseDate: dayjs().format('YYYY-MM-DD'),
@@ -793,7 +859,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     setSelectedClientCompany(null);
     setSelectedProject(null);
     setFilteredCompanies([]);
-    setProjectOptions([]);
+    // projectOptions is left alone here too — see handleNew for why.
 
     setCurrentReimbursement(draft);
     setEditMode(true);
@@ -879,34 +945,40 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     setFieldValue('clientCompanyId', '');
     setSelectedProject(null);
     setFieldValue('projectId', '');
-    setProjectOptions([]);
-    if (option?.value) {
-      const filtered = allClientCompanies.filter((c: any) => c.companyTypeId === option.value);
-      setFilteredCompanies([...filtered].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName)));
-    } else {
-      setFilteredCompanies([]);
-    }
+    setFilteredCompanies(option?.value ? computeFilteredCompaniesForType(option.value) : []);
   };
 
-  const handleClientCompanyChange = async (option: any, setFieldValue: (f: string, v: any) => void) => {
+  const handleClientCompanyChange = (option: any, setFieldValue: (f: string, v: any) => void) => {
     setSelectedClientCompany(option);
     setFieldValue('clientCompanyId', option?.value || '');
+    // Reset project — the reactive projectOptions effect repopulates it for the new company.
     setSelectedProject(null);
     setFieldValue('projectId', '');
-    setProjectOptions([]);
-    if (option?.value) {
-      setProjectsLoading(true);
-      try {
-        const res = await getProjectsByCompanyId(option.value, { ongoingStatusIds });
-        const projects = res?.projects || res?.data?.projects || [];
-        setProjectOptions(
-          projects.map((p: any) => ({ value: p.id, label: p.title }))
-            .sort((a: Option, b: Option) => a.label.localeCompare(b.label))
-        );
-      } catch {
-        setProjectOptions([]);
-      } finally {
-        setProjectsLoading(false);
+  };
+
+  // Reverse autofill: picking a Project directly (independent of Company Type/Name)
+  // backfills Company Type + Company Name from that project's File Location fields.
+  const handleProjectChange = (option: any, setFieldValue: (f: string, v: any) => void) => {
+    setSelectedProject(option);
+    setFieldValue('projectId', option?.value || '');
+    if (!option?.value) return;
+
+    const proj = allProjects.find((p: any) => p.id === option.value);
+    if (!proj) return;
+
+    if (proj.fileLocationCompanyType) {
+      const typeMatch = allCompanyTypeOptions.find((t) => t.value === proj.fileLocationCompanyType);
+      if (typeMatch) {
+        setSelectedClientType(typeMatch);
+        setFieldValue('clientTypeId', typeMatch.value);
+        setFilteredCompanies(computeFilteredCompaniesForType(typeMatch.value));
+      }
+    }
+    if (proj.fileLocationCompany) {
+      const companyMatch = allClientCompanies.find((c: any) => c.id === proj.fileLocationCompany);
+      if (companyMatch) {
+        setSelectedClientCompany({ value: companyMatch.id, label: companyMatch.companyName });
+        setFieldValue('clientCompanyId', companyMatch.id);
       }
     }
   };
@@ -983,17 +1055,15 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     {
       accessorKey: 'expenseDate',
       header: 'Date',
-      size: 120,
+      size: 150,
       enableColumnActions: false,
-      Cell: ({ row }) => <span>{dayjs(row.original.expenseDate).format('DD MMM YYYY')}</span>,
+      Cell: ({ row }) => (
+        <span>
+          {dayjs(row.original.expenseDate).format('DD MMM YYYY')}{' '}
+          <span style={{ color: '#94a3b8' }}>({dayjs(row.original.expenseDate).format('ddd')})</span>
+        </span>
+      ),
       Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
-    },
-    {
-      accessorKey: 'day',
-      header: 'Day',
-      size: 110,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{dayjs(row.original.expenseDate).format('dddd')}</span>,
     },
     {
       accessorKey: 'clientTypeId',
@@ -1014,7 +1084,10 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       header: 'Project Name',
       size: 200,
       enableColumnActions: false,
-      Cell: ({ row }) => <span>{resolveProject(row.original.projectId)}</span>,
+      Cell: ({ row }) => {
+        const found = allProjects.find((p: any) => p.id === row.original.projectId);
+        return <span>{row.original.project?.title || found?.title || resolveProject(row.original.projectId) || 'N/A'}</span>;
+      },
     },
     {
       accessorKey: 'reimbursementType.type',
@@ -1037,18 +1110,15 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       Footer: () => <span className='text-dark fw-bold fs-7'>{fmtAmount(totalAmount)}</span>,
     },
     {
-      accessorKey: 'fromLocation',
-      header: 'From Location',
-      size: 130,
+      id: 'route',
+      accessorFn: (row: any) => [row.fromLocation, row.toLocation].filter(Boolean).join(' → '),
+      header: 'Route',
+      size: 170,
       enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.fromLocation || 'N/A'}</span>,
-    },
-    {
-      accessorKey: 'toLocation',
-      header: 'To Location',
-      size: 130,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.toLocation || 'N/A'}</span>,
+      Cell: ({ row }) =>
+        row.original.fromLocation || row.original.toLocation
+          ? <span>{row.original.fromLocation || '?'} → {row.original.toLocation || '?'}</span>
+          : <span>N/A</span>,
     },
     {
       accessorKey: 'description',
@@ -1102,7 +1172,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         </div>
       ),
     },
-  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount]);
+  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount, allProjects]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -1132,25 +1202,61 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
               resourceNameMapWithCamelCase.reimbursement,
               permissionConstToUseWithHasPermission.create
             ) && (
-              <button
-                className='d-flex justify-content-between align-items-center bg-primary btn btn-lg btn-primary fs-5 w-auto'
-                onClick={handleNew}
-              >
-                <div>Add Reimbursement Request</div>
-              </button>
-            )}
+                <button
+                  onClick={handleNew}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    padding: '7px 14px',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: '6px',
+                    background: '#f8fafc',
+                    color: '#475569',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
+                >
+                  <KTIcon iconName='plus' className='fs-6' />
+                  <span>Add Reimbursement Request</span>
+                </button>
+              )}
             {drafts.length > 0 && (
               <button
-                className='btn btn-lg d-flex align-items-center gap-2'
-                style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
                 onClick={handleSendForApproval}
                 disabled={submitting}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  padding: '7px 14px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: '#16a34a',
+                  color: '#fff',
+                  fontWeight: 500,
+                  fontSize: '12px',
+                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 6px rgba(22, 163, 74, 0.2)',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  opacity: submitting ? 0.7 : 1
+                }}
+                onMouseEnter={e => { if (!submitting) { (e.currentTarget as HTMLButtonElement).style.background = '#15803d'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(22, 163, 74, 0.3)'; } }}
+                onMouseLeave={e => { if (!submitting) { (e.currentTarget as HTMLButtonElement).style.background = '#16a34a'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(22, 163, 74, 0.2)'; } }}
               >
                 {submitting
-                  ? <span className='spinner-border spinner-border-sm me-2' />
-                  : <KTIcon iconName='send' className='fs-4 text-white' />
+                  ? <span className='spinner-border spinner-border-sm' style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
+                  : <KTIcon iconName='send' className='fs-6 text-white' />
                 }
-                {submitting ? 'Submitting...' : 'Send for Approval'}
+                <span>{submitting ? 'Submitting...' : 'Send for Approval'}</span>
               </button>
             )}
           </div>
@@ -1206,18 +1312,18 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
               ...initialState,
               ...(editMode &&
                 currentReimbursement && {
-                  ...currentReimbursement,
-                  expenseDate: currentReimbursement.expenseDate
-                    ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
-                    : dayjs().format('YYYY-MM-DD'),
-                  clientTypeId: currentReimbursement?.clientTypeId ?? '',
-                  clientCompanyId: currentReimbursement?.clientCompanyId ?? '',
-                  projectId: currentReimbursement?.projectId ?? '',
-                  fromLocation: currentReimbursement?.fromLocation ?? '',
-                  toLocation: currentReimbursement?.toLocation ?? '',
-                  description: currentReimbursement?.description ?? '',
-                  document: currentReimbursement?.document ?? '',
-                }),
+                ...currentReimbursement,
+                expenseDate: currentReimbursement.expenseDate
+                  ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
+                  : dayjs().format('YYYY-MM-DD'),
+                clientTypeId: currentReimbursement?.clientTypeId ?? '',
+                clientCompanyId: currentReimbursement?.clientCompanyId ?? '',
+                projectId: currentReimbursement?.projectId ?? '',
+                fromLocation: currentReimbursement?.fromLocation ?? '',
+                toLocation: currentReimbursement?.toLocation ?? '',
+                description: currentReimbursement?.description ?? '',
+                document: currentReimbursement?.document ?? '',
+              }),
             }}
             onSubmit={handleSubmit}
             validationSchema={getReimbursementSchema(currentReimbursement)}
@@ -1261,8 +1367,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                         !formikProps.values.clientTypeId
                           ? 'Select Company Type First'
                           : filteredCompanies.length === 0
-                          ? 'No clients for this type'
-                          : 'Select Company Name'
+                            ? 'No clients for this type'
+                            : 'Select Company Name'
                       }
                       options={[...filteredCompanies]
                         .sort((a: any, b: any) => a.companyName.localeCompare(b.companyName))
@@ -1282,20 +1388,15 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       formikField='projectId'
                       inputLabel='Choose Project Name'
                       placeholder={
-                        !formikProps.values.clientCompanyId
-                          ? 'Select Company Type & Name First'
-                          : projectsLoading
+                        projectsLoading
                           ? 'Loading Projects...'
                           : projectOptions.length === 0
-                          ? 'No Ongoing Projects Found'
-                          : 'Select Project'
+                            ? 'No Ongoing Projects Found'
+                            : 'Search Project'
                       }
                       options={projectOptions}
-                      disabled={!formikProps.values.clientCompanyId || projectsLoading}
-                      onChange={(option: any) => {
-                        setSelectedProject(option);
-                        formikProps.setFieldValue('projectId', option?.value || '');
-                      }}
+                      disabled={projectsLoading}
+                      onChange={(option: any) => handleProjectChange(option, formikProps.setFieldValue)}
                       value={selectedProject}
                     />
                   </div>
@@ -1413,10 +1514,10 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                         <div className='d-flex align-items-center gap-2 px-3 overflow-hidden flex-grow-1'>
                           {formikProps.values.document ? (
                             <>
-                            <KTIcon iconName='document' className='fs-5 text-danger flex-shrink-0' />
-                            <span className='text-truncate fs-7' style={{ color: '#5e6278' }}>
-                              {String(formikProps.values.document).split('/').pop() ?? 'document'}
-                            </span>
+                              <KTIcon iconName='document' className='fs-5 text-danger flex-shrink-0' />
+                              <span className='text-truncate fs-7' style={{ color: '#5e6278' }}>
+                                {String(formikProps.values.document).split('/').pop() ?? 'document'}
+                              </span>
                             </>
                           ) : (
                             <span className='fs-7' style={{ color: '#a1a5b7' }}>No file chosen</span>

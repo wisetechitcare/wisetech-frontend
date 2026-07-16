@@ -17,21 +17,55 @@ export function Overview() {
   const profile = profileData as any;
 
   const [countryName, setCountryName] = useState('');
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
+    // Redux hydrates the employee slice after mount — wait for the id; the
+    // effect re-runs when it arrives.
+    if (!employeeId) return;
 
+    let cancelled = false;
     async function fetchProfileData() {
-      const { data: { employeeProfile } } = await fetchEmployeeProfileData(employeeId)
-      setProfileData(employeeProfile);
+      setLoadError(false);
+      try {
+        const { data: { employeeProfile } } = await fetchEmployeeProfileData(employeeId)
+        if (cancelled) return;
+        setProfileData(employeeProfile);
 
-      const countryName = await fetchCountryName(employeeProfile.EmployeeAddressDetails[0].permanentCountry);
-      setCountryName(countryName.name);
+        // Address details are optional — new/incomplete employee records have
+        // none, and reading [0] blindly crashed the whole page for them.
+        const permanentCountry = employeeProfile?.EmployeeAddressDetails?.[0]?.permanentCountry;
+        if (permanentCountry) {
+          const country = await fetchCountryName(permanentCountry);
+          if (!cancelled) setCountryName(country?.name || '');
+        }
+      } catch (err) {
+        console.error('Failed to load profile data', err);
+        if (!cancelled) setLoadError(true);
+      }
     }
 
     fetchProfileData();
+    return () => { cancelled = true; };
   }, [employeeId]);
 
-  if (!profile) return;
+  // Never render a silent blank page — show progress or a clear error.
+  if (!profile) {
+    return (
+      <div className='card mb-5 mb-xl-10'>
+        <div className='card-body p-9 text-center'>
+          {loadError ? (
+            <span className='text-muted'>Unable to load profile details. Please refresh the page or try again later.</span>
+          ) : (
+            <>
+              <span className='spinner-border spinner-border-sm align-middle me-2' />
+              <span className='text-muted'>Loading profile...</span>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
 
   const { users } = profile;

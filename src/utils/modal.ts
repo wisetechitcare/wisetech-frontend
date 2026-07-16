@@ -141,7 +141,9 @@ export const rejectConfirmation = async (confirmButtonText: string = 'Reject'): 
     return result.isConfirmed;
 };
 
-export const customConfirmation = async (confirmButtonText: string = 'Save Revision', cancelButtonText: string = 'Update Only'): Promise<boolean> => {
+export type LeadUpdateMode = 'revision' | 'updateOnly' | 'cancelled';
+
+export const customConfirmation = async (confirmButtonText: string = 'Save Revision', cancelButtonText: string = 'Update Only'): Promise<LeadUpdateMode> => {
     const result = await Swal.fire({
         ...commonOptions,
         title: 'Update Lead Information',
@@ -165,7 +167,11 @@ export const customConfirmation = async (confirmButtonText: string = 'Save Revis
         width: '450px'
     });
 
-    return result.isConfirmed;
+    if (result.isConfirmed) return 'revision';
+    // Only the explicit "Update Only" button sets DismissReason.cancel — a backdrop
+    // click or Escape key is a real abort, not a silent "update only" choice.
+    if (result.dismiss === Swal.DismissReason.cancel) return 'updateOnly';
+    return 'cancelled';
 };
 
 export const warningNotification = (message: string, title: string = "Notification") => {

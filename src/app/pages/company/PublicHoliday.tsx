@@ -39,8 +39,11 @@ const usersBreadcrumbs: Array<PageLink> = [
 const initialValues: IPublicHoliday = {
     date: "",
     holidayId: "",
-    isFixed: false,
-    isActive: false,
+    // Default Fixed/Active to YES — with the old `false` defaults a holiday
+    // saved without touching the toggles was created inactive and never
+    // reached the workspace calendar, even though the schedule listed it.
+    isFixed: true,
+    isActive: true,
     isWeekend: false,
     colorCode: "",
     observedIn: "",

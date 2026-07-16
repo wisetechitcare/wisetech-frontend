@@ -28,6 +28,7 @@ import Holiday from '@pages/company/Holiday';
 import './CustomCalendar.premium.css';
 import MeetingsForm from './attendance/personal/views/my-leaves/MeetingsForm';
 import SmartAvatar from '@app/modules/common/components/SmartAvatar';
+import PremiumButton from '@app/modules/common/components/PremiumButton';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { fetchAllColors } from '@services/options';
@@ -45,7 +46,8 @@ import {
   SHOW_MARRIAGE_ANNIVERSARY_EXTERNAL,
   SHOW_SATURDAY_ON_CALENDAR,
   SHOW_SUNDAY_ON_CALENDAR,
-  SHOW_MEETINGS_ON_CALENDAR
+  SHOW_MEETINGS_ON_CALENDAR,
+  SHOW_HOLIDAYS_ON_CALENDAR
 } from '@constants/configurations-key';
 import { getUpcomingContactsBirthdays } from '@services/companies';
 import { fetchColorAndStoreInSlice } from '@utils/file';
@@ -88,17 +90,18 @@ const CAT: Record<string, { color: string; tint: string; icon: string; label: st
     'marriage-anniversary': { color: 'var(--mrd-amber)', tint: 'var(--mrd-amber-tint)', icon: 'heart', label: 'Marriage anniversary' },
     'contact-marriage-anniversary': { color: 'var(--mrd-amber)', tint: 'var(--mrd-amber-tint)', icon: 'heart', label: 'Marriage anniversary · contact' },
     event: { color: 'var(--mrd-primary)', tint: 'var(--mrd-primary-tint)', icon: 'calendar', label: 'Event' },
+    weekend: { color: 'var(--mrd-amber)', tint: 'var(--mrd-amber-tint)', icon: 'sun', label: 'Weekly off' },
 };
 
 // Calendar legend groups → drive the visibility toggles in the right panel.
 // Each row maps a friendly label to one or more underlying event `type`s.
 const LEGEND: { key: string; label: string; color: string; types: string[] }[] = [
-    { key: 'event', label: 'My Calendar', color: 'var(--mrd-primary)', types: ['event'] },
     { key: 'meeting', label: 'Meetings', color: 'var(--mrd-violet)', types: ['meeting'] },
     { key: 'birthday', label: 'Birthdays', color: 'var(--mrd-rose)', types: ['birthday', 'contact-birthday'] },
     { key: 'anniversary', label: 'Anniversaries', color: 'var(--mrd-blue)', types: ['anniversary', 'contact-anniversary'] },
     { key: 'marriage-anniversary', label: 'Marriage Anniversaries', color: 'var(--mrd-amber)', types: ['marriage-anniversary', 'contact-marriage-anniversary'] },
     { key: 'holiday', label: 'Holidays', color: 'var(--mrd-primary)', types: ['holiday'] },
+    { key: 'weekend', label: 'Weekly Offs', color: 'var(--mrd-amber)', types: ['weekend'] },
 ];
 
 // View options shown in the shared PeriodTabs (same control used app-wide).
@@ -165,7 +168,14 @@ function CustomCalendar() {
     const [colorExternalAnny, setColorExternalAnny] = useState('#f57c00');
     const [colorSaturday, setColorSaturday] = useState('#FFB300');
     const [colorSunday, setColorSunday] = useState('#F44336');
-    const [hiddenCats, setHiddenCats] = useState<Set<string>>(new Set());
+    // Legend categories currently hidden from the calendar. Persisted so the
+    // user's on/off choices survive reloads.
+    const [hiddenCats, setHiddenCats] = useState<Set<string>>(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem('wt_calendar_hidden_cats') || '[]');
+            return new Set(Array.isArray(saved) ? saved : []);
+        } catch { return new Set(); }
+    });
     const [showOptionsModal, setShowOptionsModal] = useState(false);
     const [showEventForm, setShowEventForm] = useState(false);
     const [showHolidayForm, setShowHolidayForm] = useState(false);
@@ -345,6 +355,7 @@ function CustomCalendar() {
             showSaturdayRes,
             showSundayRes,
             showMeetingsRes,
+            showHolidaysRes,
             allEmployeeDateOfjoining,
             meetingsRes
           ] = await Promise.all([
@@ -366,6 +377,7 @@ function CustomCalendar() {
             fetchConfiguration(SHOW_SATURDAY_ON_CALENDAR).catch(() => null),
             fetchConfiguration(SHOW_SUNDAY_ON_CALENDAR).catch(() => null),
             fetchConfiguration(SHOW_MEETINGS_ON_CALENDAR).catch(() => null),
+            fetchConfiguration(SHOW_HOLIDAYS_ON_CALENDAR).catch(() => null),
             fetchAllEmployees(true),
             getMeetings(employeeId)
           ]);
@@ -382,6 +394,7 @@ function CustomCalendar() {
           const parsedSaturday = safeJsonParse(showSaturdayRes?.data?.configuration?.configuration || '{}');
           const parsedSunday = safeJsonParse(showSundayRes?.data?.configuration?.configuration || '{}');
           const parsedMeetings = safeJsonParse(showMeetingsRes?.data?.configuration?.configuration || '{}');
+          const parsedHolidaysCfg = safeJsonParse(showHolidaysRes?.data?.configuration?.configuration || '{}');
 
           const showBirthdaysInternalEnabled = parsedBdayInt.enabled ?? parsedBdayInt.showBirthdaysInternal ?? false;
           const showBirthdaysInternalInactiveEnabled = parsedBdayIntInactive.enabled ?? false;
@@ -395,6 +408,8 @@ function CustomCalendar() {
           const showSaturdayEnabled = parsedSaturday.enabled ?? false;
           const showSundayEnabled = parsedSunday.enabled ?? false;
           const showMeetingsEnabled = parsedMeetings.enabled ?? false;
+          // Holidays default ON when never configured — they always showed historically.
+          const showHolidaysEnabled = parsedHolidaysCfg.enabled ?? true;
 
           const parsedColorBdayInt = parsedBdayInt.color || birthdaysColor || '#E91E63';
           const parsedColorBdayIntInactive = parsedBdayIntInactive.color || '#E91E63';
@@ -430,12 +445,14 @@ function CustomCalendar() {
             }
           }
       
-          const holidaysFromAPI = publicHolidays
-          .filter((holiday: any) => {
-            const isActive = holiday?.isActive ?? holiday?.holiday?.isActive;
-            const isFixed = holiday?.isFixed ?? holiday?.holiday?.isFixed;
-            return isActive === true && isFixed === true;
-          })
+          // Parity with the Holiday Schedule list: every non-deleted holiday of the
+          // year shows — fixed AND floating. The old `isActive && isFixed` ROW filter
+          // silently hid holidays the schedule listed (the add form defaulted
+          // Active=No, and Prisma booleans are never nullish so the row's `false`
+          // always beat the master record's value). Appearance comes from the
+          // "Public Holidays" card in Configure ({enabled, color, icon}); the
+          // per-holiday colorCode is the fallback when no config colour is set.
+          const holidaysFromAPI = !showHolidaysEnabled ? [] : publicHolidays
           .map((holiday: any) => {
             const holidayName = holiday?.holiday?.name || "Unnamed Holiday";
             const timeFrom = holiday?.from;
@@ -450,10 +467,20 @@ function CustomCalendar() {
               title = `${holidayName} (until ${timeTo})`;
             }
 
+            // Holiday schedules often contain rows literally named "Saturday"/
+            // "Sunday" (weekend days saved as holidays). Bucket those under the
+            // "Weekly Offs" toggle — same as the branch-generated weekend rows —
+            // so switching Holidays on/off only affects real holidays.
+            const isWeekendRow = ['saturday', 'sunday'].includes(holidayName.trim().toLowerCase());
+
             return {
               title,
-              color: holiday?.colorCode,
-              date: holiday?.date
+              color: parsedHolidaysCfg.color || holiday?.colorCode || '#1E3A8A',
+              date: holiday?.date,
+              extendedProps: {
+                type: isWeekendRow ? 'weekend' : 'holiday',
+                icon: parsedHolidaysCfg.icon
+              }
             };
           });
         //   debugger;
@@ -724,6 +751,7 @@ function CustomCalendar() {
                 date: d.format('YYYY-MM-DD'),
                 fixed: true,
                 extendedProps: {
+                  type: 'weekend',
                   icon: parsedSaturday.icon
                 }
               });
@@ -734,6 +762,7 @@ function CustomCalendar() {
                 date: d.format('YYYY-MM-DD'),
                 fixed: true,
                 extendedProps: {
+                  type: 'weekend',
                   icon: parsedSunday.icon
                 }
               });
@@ -763,7 +792,7 @@ function CustomCalendar() {
               title: event.eventName,
               start: dayjs(event.startDate).format(),
               end: dayjs(event.endDate).format(),
-              color: "#AA393D"
+              color: "#1E3A8A"
             })) || []),
             ...userBirthdays,
             ...contactBirthdays,
@@ -778,7 +807,7 @@ function CustomCalendar() {
         //   if (dateOfBirth) {
         //     specialDates.push({
         //       title: "Your Birthday",
-        //       color: "#AA393D",
+        //       color: "#1E3A8A",
         //       start: dayjs(dateOfBirth).format(),
         //       end: dayjs(dateOfBirth).format()
         //     });
@@ -786,7 +815,7 @@ function CustomCalendar() {
         //   if (anniversaryDate) {
         //     specialDates.push({
         //       title: "Your Anniversary",
-        //       color: "#AA393D",
+        //       color: "#1E3A8A",
         //       start: dayjs(anniversaryDate).format(),
         //       end: dayjs(anniversaryDate).format()
         //     });
@@ -802,7 +831,7 @@ function CustomCalendar() {
       }, [currentYear, employeeId, branchId, dateOfBirth, anniversaryDate, holidayRefresh]);
 
     function handleDayCellClassNames(arg: any) {
-        let classNamesToAdd = [];
+        const classNamesToAdd = [];
         if (arg.date.toDateString() === new Date().toDateString()) {
             classNamesToAdd.push('today-highlight');
         }
@@ -894,7 +923,7 @@ function CustomCalendar() {
             </span>
         );
     };
-    const allDayTypes = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary', 'holiday'];
+    const allDayTypes = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary', 'holiday', 'weekend'];
     const evTimeOf = (e: any) => {
         const s = e.start;
         if (!s || allDayTypes.includes(evType(e))) return '';
@@ -908,8 +937,13 @@ function CustomCalendar() {
         const next = new Set(prev);
         const allHidden = types.every((t) => next.has(t));
         types.forEach((t) => (allHidden ? next.delete(t) : next.add(t)));
+        localStorage.setItem('wt_calendar_hidden_cats', JSON.stringify(Array.from(next)));
         return next;
     });
+    const showAllCats = () => {
+        localStorage.setItem('wt_calendar_hidden_cats', '[]');
+        setHiddenCats(new Set());
+    };
 
     const eventsOn = (d: Date) => visibleEvents
         .filter((e) => dkey(evDateOf(e)) === dkey(d))
@@ -1062,9 +1096,9 @@ function CustomCalendar() {
                             {/* Hidden below 760px (mrd-btn--new) — the mrd-fab below takes over
                                 so the controls row doesn't have to fit a fourth element on a
                                 narrow phone. */}
-                            <button type="button" className="mrd-btn mrd-btn--primary mrd-btn--new" onClick={() => openCreateFor(panelDate)}>
-                                <Ico n="plus" cls="sm" /> New
-                            </button>
+                            <PremiumButton className="mrd-btn--new" icon="bi-plus" onClick={() => openCreateFor(panelDate)}>
+                                New
+                            </PremiumButton>
                         </div>
                     </div>
 
@@ -1102,16 +1136,7 @@ function CustomCalendar() {
                                 weekends={true}
                                 fixedWeekCount={false}
                                 events={visibleEvents}
-                                eventContent={(info: any) => renderEventContent(info, isMobile)}
-                                // Flags the view root so the CSS can lay dots out in a
-                                // wrapping row instead of FullCalendar's default one-per-line
-                                // stack — scoped to exactly the views/viewport that render
-                                // dots (Day view keeps its normal stacked full pills).
-                                viewClassNames={(arg: any) =>
-                                    isMobile && (arg.view.type === 'dayGridMonth' || arg.view.type === 'dayGridWeek')
-                                        ? ['mrd-compact-events']
-                                        : []
-                                }
+                                eventContent={renderEventContent}
                                 dayCellContent={renderDayCellContent}
                                 eventDisplay='block'
                                 // A day column is only ~55px wide on a phone in Month/Week
@@ -1215,7 +1240,6 @@ function CustomCalendar() {
                                             </>);
                                         }
                                         return (<>
-                                            <Opt icon="calendar" tint="var(--mrd-accent-tint)" color="var(--mrd-accent)" title="Create New Event" sub="Fill in the event form" onClick={() => { setShowOptionsModal(false); handleShowEventForm(); }} />
                                             {canHoliday && <Opt icon="gift" tint="var(--mrd-amber-tint)" color="var(--mrd-amber)" title="Create a Holiday" sub="Fill in the holiday form" onClick={() => { setShowOptionsModal(false); handleShowHolidayForm(); }} />}
                                             {canLeave && <Opt icon="file" tint="var(--mrd-blue-tint)" color="var(--mrd-blue)" title="Create a Leave Request" sub="Fill in the leave request form" onClick={handleShowLeaveRequestForm} />}
                                             {canMeeting && <Opt icon="users" tint="var(--mrd-violet-tint)" color="var(--mrd-violet)" title="Create Meetings" sub="Fill in the meetings form" onClick={handleshowMeetingForm} />}
@@ -1277,7 +1301,7 @@ function CustomCalendar() {
                                                         </span>
                                                         <span className="mrd-up__main">
                                                             <span className="mrd-up__t">{e.title}</span>
-                                                            <span className="mrd-up__s">{relLabel(evDateOf(e))} · {evTimeOf(e) || 'All day'}</span>
+                                                            <span className="mrd-up__s">{relLabel(evDateOf(e))}</span>
                                                         </span>
                                                         <Ico n="chevR" cls="xs" />
                                                     </button>
@@ -1289,47 +1313,37 @@ function CustomCalendar() {
                                     )}
                                 </div>
 
-                                {/* ---- Quick Actions ---- */}
+                                {/* ---- Calendar filters (per-category visibility toggles).
+                                    Drives `hiddenCats`, which every rendered list — the
+                                    FullCalendar grid, the day timeline and Upcoming Events —
+                                    already filters through via `visibleEvents`. ---- */}
                                 <div className="mrd-sect">
-                                    <div className="mrd-sect__head"><span className="mrd-sect__t">Quick Actions</span></div>
-                                    <div className="mrd-qa">
-                                        <button type="button" className="mrd-qa__btn mrd-qa--event" onClick={qaNewEvent}>
-                                            <span className="mrd-qa__ic"><Ico n="calendar" cls="sm" /></span> New Event
-                                        </button>
-                                        {canMeeting && (
-                                            <button type="button" className="mrd-qa__btn mrd-qa--meet" onClick={qaNewMeeting}>
-                                                <span className="mrd-qa__ic"><Ico n="users" cls="sm" /></span> New Meeting
-                                            </button>
-                                        )}
-                                        {canHoliday && (
-                                            <button type="button" className="mrd-qa__btn mrd-qa--holiday" onClick={qaNewHoliday}>
-                                                <span className="mrd-qa__ic"><Ico n="gift" cls="sm" /></span> New Holiday
-                                            </button>
-                                        )}
-                                        {canLeave && (
-                                            <button type="button" className="mrd-qa__btn mrd-qa--leave" onClick={qaLeave}>
-                                                <span className="mrd-qa__ic"><Ico n="file" cls="sm" /></span> Leave Request
-                                            </button>
+                                    <div className="mrd-sect__head">
+                                        <span className="mrd-sect__t">Show on Calendar</span>
+                                        {hiddenCats.size > 0 && (
+                                            <button type="button" className="mrd-sect__act" onClick={showAllCats}>Show all</button>
                                         )}
                                     </div>
-                                </div>
-
-                                {/* ---- Calendar Legend (visibility toggles) ---- */}
-                                <div className="mrd-sect">
-                                    <div className="mrd-sect__head"><span className="mrd-sect__t">Calendar Legend</span></div>
-                                    <div className="mrd-lg">
-                                        {LEGEND.map((l) => {
-                                            const hidden = l.types.every((t) => hiddenCats.has(t));
+                                    <div className="mrd-leg">
+                                        {LEGEND.map((g) => {
+                                            const off = g.types.every((t) => hiddenCats.has(t));
                                             return (
-                                                <button type="button" className={`mrd-lg__row${hidden ? ' is-off' : ''}`} key={l.key} onClick={() => toggleCat(l.types)} title={hidden ? 'Show on calendar' : 'Hide from calendar'}>
-                                                    <span className="mrd-lg__sw" style={{ background: l.color }} />
-                                                    <span className="mrd-lg__t">{l.label}</span>
-                                                    <span className="mrd-lg__eye"><Ico n={hidden ? 'eyeOff' : 'eye'} cls="sm" /></span>
+                                                <button
+                                                    type="button"
+                                                    className={`mrd-leg__row${off ? ' is-off' : ''}`}
+                                                    key={g.key}
+                                                    onClick={() => toggleCat(g.types)}
+                                                    aria-pressed={!off}
+                                                >
+                                                    <span className="mrd-leg__dot" style={{ background: g.color }} />
+                                                    <span className="mrd-leg__t">{g.label}</span>
+                                                    <span className="mrd-leg__sw" />
                                                 </button>
                                             );
                                         })}
                                     </div>
                                 </div>
+
                                 </>
                               )}
                             </div>
@@ -1611,30 +1625,16 @@ const resolveAvatarUrl = (url?: string | null) => {
     return toAbsoluteUrl(url);
 };
 
-function renderEventContent(eventInfo: any, isMobile = false) {
+function renderEventContent(eventInfo: any) {
     const ev = eventInfo.event;
     const type: string = ev.extendedProps?.type || (ev.allDay ? 'holiday' : 'event');
     const dotColor = ev.backgroundColor || eventInfo.backgroundColor || UiTokens.color.brand;
-    const allDayTypes = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary', 'holiday'];
+    const allDayTypes = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary', 'holiday', 'weekend'];
 
-    // A day column is only ~50-60px wide on a phone in Month/Week view (7 columns
-    // across the screen) — the full avatar+time+title pill becomes unreadable
-    // "letter soup" at that width. Day view is a single full-width column, so it
-    // keeps the rich pill. Full details are always one tap away via the mobile
-    // day-detail sheet, so a dot here is genuinely sufficient, not a data loss.
-    const viewType: string = eventInfo.view?.type || '';
-    const compactDot = isMobile && (viewType === 'dayGridMonth' || viewType === 'dayGridWeek');
-    if (compactDot) {
-        return (
-            <span
-                className="mrd-ev__dotonly"
-                style={{ background: dotColor }}
-                title={ev.title}
-                role="img"
-                aria-label={ev.title}
-            />
-        );
-    }
+    // Mobile Month/Week previously collapsed events to bare color dots; now every
+    // viewport renders the same pill — the title wraps (.mrd-ev__t) and the cell
+    // grows to fit (height:auto on the calendar), so the text stays readable even
+    // in a narrow phone column.
 
     let time = '';
     if (ev.start && !ev.allDay && !allDayTypes.includes(type)) {
@@ -1644,22 +1644,33 @@ function renderEventContent(eventInfo: any, isMobile = false) {
 
     const isProfileEvent = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'marriage-anniversary', 'contact-marriage-anniversary'].includes(type);
     let avatarNode = null;
+    // Short mobile title: on a phone the pill tint already says birthday vs
+    // anniversary, so just the person's name is what's actually relevant —
+    // "Aslam Patel" instead of "Aslam Patel's Work Anniversary". Rendered
+    // alongside the full title and toggled purely in CSS (≤760px media block).
+    let shortTitle = '';
     if (isProfileEvent) {
         const user = ev.extendedProps?.user;
         const contact = ev.extendedProps?.contact;
         const name = user?.name || contact?.name || ev.title || '';
         const imageUrl = user?.avatar || contact?.profilePhoto || null;
         const id = user?.id || contact?.id || null;
-        
+        shortTitle = name;
+
         avatarNode = (
-            <SmartAvatar
-                name={name}
-                id={id}
-                imageUrl={resolveAvatarUrl(imageUrl)}
-                size={18}
-                shape="circle"
-                imageFit="cover"
-            />
+            // .mrd-ev__ava is a CSS hook: on phones the leading avatar is hidden
+            // (the pill tint already signals the event type) so the whole ~50px
+            // column width goes to the title text — see the ≤760px media block.
+            <span className='mrd-ev__ava'>
+                <SmartAvatar
+                    name={name}
+                    id={id}
+                    imageUrl={resolveAvatarUrl(imageUrl)}
+                    size={18}
+                    shape="circle"
+                    imageFit="cover"
+                />
+            </span>
         );
     } else {
         avatarNode = <span className='mrd-ev__dot' style={{ background: dotColor }} />;
@@ -1676,7 +1687,14 @@ function renderEventContent(eventInfo: any, isMobile = false) {
         >
             {avatarNode}
             {time && <span className='mrd-ev__time'>{time}</span>}
-            <span className='mrd-ev__t'>{ev.title}</span>
+            {/* Short variant first so the CSS can hide the full one that follows
+                it (adjacent-sibling selector) — no JS viewport checks needed. */}
+            <span className='mrd-ev__t'>
+                {shortTitle && shortTitle !== ev.title && (
+                    <span className='mrd-ev__t--short'>{shortTitle}</span>
+                )}
+                <span className='mrd-ev__t--full'>{ev.title}</span>
+            </span>
         </div>
     );
 }

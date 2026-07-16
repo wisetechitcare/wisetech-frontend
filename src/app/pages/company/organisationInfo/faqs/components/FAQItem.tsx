@@ -36,7 +36,7 @@ const FAQItem: React.FC<FAQItemProps> = ({ faq, onToggle }) => {
           className={`bi ${faq.isExpanded ? 'bi-chevron-up' : 'bi-chevron-down'}`}
           style={{
             fontSize: '20px',
-            color: '#9d4141',
+            color: '#1E3A8A',
             transition: 'transform 0.3s ease',
           }}
         />

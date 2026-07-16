@@ -304,71 +304,6 @@ const TaskForm = ({
             {(formikProps) => {
               const { values, setFieldValue, errors, touched, handleSubmit, isSubmitting, validateForm } = formikProps;
 
-              useEffect(() => {
-                setFormData(formikProps.values);
-              }, [formikProps.values]);
-
-
-              // Auto-calculate log time when start time and due time change
-              useEffect(() => {
-                const calculateLogTime = () => {
-                  const { startTime, dueTime, logTime } = values;
-
-                  // Skip if either time is missing
-                  if (!startTime || !dueTime) return;
-
-                  // Convert time value to string format
-                  const convertToTimeString = (timeValue: string | Date): string => {
-                    if (typeof timeValue === 'string') {
-                      return timeValue;
-                    } else if (timeValue instanceof Date) {
-                      return timeValue.toTimeString().substring(0, 5);
-                    }
-                    return '';
-                  };
-
-                  // Parse time strings (assuming HH:mm format)
-                  const parseTime = (timeStr: string) => {
-                    const [hours, minutes] = timeStr.split(':').map(Number);
-                    return { hours: hours || 0, minutes: minutes || 0 };
-                  };
-
-                  const startTimeStr = convertToTimeString(startTime);
-                  const endTimeStr = convertToTimeString(dueTime);
-
-                  if (!startTimeStr || !endTimeStr) return;
-
-                  const start = parseTime(startTimeStr);
-                  const end = parseTime(endTimeStr);
-
-                  // Convert to minutes for calculation
-                  const startMinutes = start.hours * 60 + start.minutes;
-                  const endMinutes = end.hours * 60 + end.minutes;
-
-                  // Handle case where end time is next day (past midnight)
-                  let diffMinutes = endMinutes - startMinutes;
-                  if (diffMinutes < 0) {
-                    diffMinutes += 24 * 60; // Add 24 hours in minutes
-                  }
-
-                  // Convert back to hours and minutes
-                  const logHours = Math.floor(diffMinutes / 60);
-                  const logMinutes = diffMinutes % 60;
-
-                  // Format as HH:mm
-                  const formattedLogTime = `${logHours.toString().padStart(2, '0')}:${logMinutes.toString().padStart(2, '0')}`;
-
-                  // Only update if the calculated time is different from current value
-                  // and prevent updating if user manually changed logTime
-                  if (logTime !== formattedLogTime) {
-                    setFieldValue('logTime', formattedLogTime, false);
-                  }
-                };
-
-                // Use timeout to prevent rapid updates
-                const timeoutId = setTimeout(calculateLogTime, 100);
-                return () => clearTimeout(timeoutId);
-              }, [values.startTime, values.dueTime]);
               return (
                 <FormikForm>
                   {/* Project Details Section */}
@@ -450,8 +385,8 @@ const TaskForm = ({
                             marginTop: '8px',
                             fontSize: '12px',
                             padding: '4px 12px',
-                            borderColor: '#8B4444',
-                            color: '#8B4444',
+                            borderColor: '#1E3A8A',
+                            color: '#1E3A8A',
                             cursor: 'pointer',
                           }}
                         >
@@ -473,8 +408,8 @@ const TaskForm = ({
                             marginTop: '8px',
                             fontSize: '12px',
                             padding: '4px 12px',
-                            borderColor: '#8B4444',
-                            color: '#8B4444',
+                            borderColor: '#1E3A8A',
+                            color: '#1E3A8A',
                             cursor: 'pointer',
                           }}
                         >

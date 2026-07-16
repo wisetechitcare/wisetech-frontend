@@ -1195,20 +1195,20 @@ function LeaderBoardCore({
               style={{
                 borderRadius: "10px",
                 padding: "7px 18px",
-                color: "#9D4141",
+                color: "#1E3A8A",
                 background: "#fff",
                 border: "1.5px solid #E7C9C9",
-                boxShadow: "0 2px 8px rgba(157,65,65,0.12)",
+                boxShadow: "0 2px 8px rgba(30, 58, 138,0.12)",
                 transition: "all 0.18s ease",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#9D4141";
+                e.currentTarget.style.background = "#1E3A8A";
                 e.currentTarget.style.color = "#fff";
-                e.currentTarget.style.borderColor = "#9D4141";
+                e.currentTarget.style.borderColor = "#1E3A8A";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "#fff";
-                e.currentTarget.style.color = "#9D4141";
+                e.currentTarget.style.color = "#1E3A8A";
                 e.currentTarget.style.borderColor = "#E7C9C9";
               }}
             >

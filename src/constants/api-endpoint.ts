@@ -395,6 +395,9 @@ export const LEAD_PROJECT_COMPANY = {
     CREATE_MULTIPLE_TEAMS_MEMBERS: 'api/lead-project-companies/many',
 
     GET_ALL_PROJECTS: 'api/lead-project-companies/projects',
+    // Slim project picker for the reimbursement form — accessible to every
+    // authenticated employee (the full GET_ALL_PROJECTS list is RBAC-gated).
+    GET_REIMBURSEMENT_PROJECT_OPTIONS: 'api/lead-project-companies/projects/reimbursement-options',
     GET_PROJECT_MAP_POINTS: 'api/lead-project-companies/projects/map-points',
     GET_PROJECT_COUNT_FOR_PREFIX: "api/lead-project-companies/projects/count-for-prefix",
     GET_PROJECT_BY_ID: 'api/lead-project-companies/projects/:id',
@@ -521,6 +524,26 @@ export const LEAD_PROJECT_COMPANY = {
     GET_PROJECTS_BY_CONTACT_ID: "api/lead-project-companies/projects/contact/:id",
     GET_PROJECT_COUNT_BY_COMPANY_TYPE: "api/lead-project-companies/projects/overview/company-type-count",
     GET_PROJECT_COUNT_BY_COMPANY_TYPE_YEARLY: "api/lead-project-companies/projects/overview/company-type-yearly-count",
+}
+
+// Payment Plans (stage-wise fee break-up) — configured under Lead Configuration and
+// selected on a lead's commercial step.
+export const PAYMENT_PLAN = {
+    GET_ALL_PAYMENT_PLANS: "api/payment-plans",
+    GET_PAYMENT_PLAN_BY_ID: "api/payment-plans/:id",
+    CREATE_PAYMENT_PLAN: "api/payment-plans",
+    UPDATE_PAYMENT_PLAN: "api/payment-plans/:id",
+    DELETE_PAYMENT_PLAN: "api/payment-plans/:id",
+}
+
+// Meeting Schedules (project-type → area brackets → meetings) — configured under Lead
+// Configuration and selected on a lead's meeting-schedule step.
+export const MEETING_SCHEDULE = {
+    GET_ALL_MEETING_SCHEDULES: "api/meeting-schedules",
+    GET_MEETING_SCHEDULE_BY_ID: "api/meeting-schedules/:id",
+    CREATE_MEETING_SCHEDULE: "api/meeting-schedules",
+    UPDATE_MEETING_SCHEDULE: "api/meeting-schedules/:id",
+    DELETE_MEETING_SCHEDULE: "api/meeting-schedules/:id",
 }
 
 export const CLIENT_COMPANIES = {

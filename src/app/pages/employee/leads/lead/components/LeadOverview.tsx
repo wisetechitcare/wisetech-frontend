@@ -597,7 +597,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
             <Link
               to={url}
               style={{
-                color: '#9d4141',
+                color: '#1E3A8A',
                 textDecoration: 'none',
                 fontWeight: "400"
               }}
@@ -609,13 +609,13 @@ const LeadOverview = ({ lead }: { lead: any }) => {
           value
         ) : label.toLowerCase() === 'branch location' && lead?.branchMappings?.[0]?.branch?.latitude && lead?.branchMappings?.[0]?.branch?.longitude ? (
           <div className="d-flex align-items-center" style={{ gap: "4px" }}>
-            <i className="bi bi-geo-alt" style={{ width: "20px", height: "20px", color: "#9d4141" }}></i>
+            <i className="bi bi-geo-alt" style={{ width: "20px", height: "20px", color: "#1E3A8A" }}></i>
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${lead.branchMappings[0].branch.latitude},${lead.branchMappings[0].branch.longitude}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                color: "#9d4141",
+                color: "#1E3A8A",
                 textDecoration: "none",
                 fontWeight: "400"
               }}
@@ -1030,7 +1030,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
                     position: "absolute",
                     width: "4px",
                     height: "147px",
-                    backgroundColor: "#9d4141",
+                    backgroundColor: "#1E3A8A",
                     top: `${50 + (commercialScrollRef.current ? (commercialScrollTop / (commercialScrollRef.current.scrollHeight - commercialScrollRef.current.clientHeight)) * 100 : 0)}px`,
                     left: "0.24px",
                     transition: "top 0.1s ease-out"
@@ -1061,13 +1061,13 @@ const LeadOverview = ({ lead }: { lead: any }) => {
               >
                 <div style={{ fontWeight: "500" }}>Location</div>
                 <div className="d-flex align-items-center" style={{ gap: "4px" }}>
-                  <i className="bi bi-geo-alt" style={{ width: "20px", height: "20px", color: "#9d4141" }}></i>
+                  <i className="bi bi-geo-alt" style={{ width: "20px", height: "20px", color: "#1E3A8A" }}></i>
                   <a
                     href={`https://www.google.com/maps/dir/?api=1&destination=${lead.additionalDetails.latitude},${lead.additionalDetails.longitude}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      color: "#9d4141",
+                      color: "#1E3A8A",
                       textDecoration: "none",
                       fontWeight: "400"
                     }}

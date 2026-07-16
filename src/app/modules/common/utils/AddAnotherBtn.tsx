@@ -22,7 +22,7 @@ function AddAnotherBtn({ onClick }: AddAnotherBtnProps) {
                 fontFamily: 'Inter',
                 fontWeight: 500,
                 fontSize: '14px',
-                color: '#9D4141',
+                color: '#1E3A8A',
                 padding: '7px 0',
             }}
         >

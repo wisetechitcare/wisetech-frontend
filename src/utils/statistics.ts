@@ -250,7 +250,7 @@ export function filterLeavesPublicHolidays(
     const allLeaves = store.getState().attendanceStats.leaves;
     // debugger;
     // Filter leaves with single, consistent logic
-    let leaves: CustomLeaves[] = allLeaves.filter((leave: CustomLeaves) => {
+    const leaves: CustomLeaves[] = allLeaves.filter((leave: CustomLeaves) => {
         if (leave.status !== LeaveStatus.Approved && (!countUnapprovedLeaves || leave.status == LeaveStatus.Rejected)) {
             return false;
         }
@@ -268,7 +268,7 @@ export function filterLeavesPublicHolidays(
     const allPublicHolidays = store.getState().attendanceStats.publicHolidays;
 
     // Filter public holidays with single, consistent logic
-    let publicHolidays: IPublicHoliday[] = allPublicHolidays.filter((publicHoliday: IPublicHoliday) => {
+    const publicHolidays: IPublicHoliday[] = allPublicHolidays.filter((publicHoliday: IPublicHoliday) => {
         const holidayDate = dayjs(publicHoliday.date).format('YYYY-MM-DD');
         const isInRange = dayjs(holidayDate).isSameOrBefore(actualEndDate, 'day') &&
             dayjs(holidayDate).isSameOrAfter(startDate, 'day');
@@ -300,9 +300,9 @@ export function parseFlexibleTime(timeStr: string): number | null {
     const match = timeRegex.exec(timeStr);
     if (!match) return null;
 
-    let [_, hStr, mStr, meridian] = match;
+    const [_, hStr, mStr, meridian] = match;
     let hours = parseInt(hStr, 10);
-    let minutes = mStr ? parseInt(mStr, 10) : 0;
+    const minutes = mStr ? parseInt(mStr, 10) : 0;
 
     if (meridian) {
         if (meridian === "PM" && hours !== 12) hours += 12;
@@ -486,7 +486,7 @@ export function getTimeDifference(checkIn: string, checkOut: string) {
     const [inH, inM] = checkIn.split(":").map(Number);
     const [outH, outM] = checkOut.split(":").map(Number);
 
-    let startMin = inH * 60 + inM;
+    const startMin = inH * 60 + inM;
     let endMin = outH * 60 + outM;
 
     if (endMin < startMin) endMin += 24 * 60;
@@ -497,7 +497,7 @@ export function getTimeDifference(checkIn: string, checkOut: string) {
 
 // sum for an attendance in 4:50 format.
 export function totalMinutes(stats: IAttendance[]): number {
-    let totalTime = stats.reduce((accumulator: any, value: IAttendance) => {
+    const totalTime = stats.reduce((accumulator: any, value: IAttendance) => {
         if (value.checkIn != '-' && value.checkIn != '-N/A-' && value.checkOut != '-' && value.checkOut != '-N/A-') {
             const [hours, minutes] = value.duration.split(':').map(time => time.replace(/\D/g, ''));
             const timeInMinutes = (parseInt(hours, 10) * 60) + parseInt(minutes, 10);
@@ -545,7 +545,7 @@ export function checkInCheckOutDifference(stat: Attendance): number {
 // sum for an attendance in 204-03-01 4:50 format
 export function totalCheckInCheckOutMinutes(stats: Attendance[], deductionTime?: number, appSettingWorkingHours?: number, checkDeductionLogic?: boolean): number {
 
-    let totalTime = stats.reduce((accumulator: any, value: Attendance) => {
+    const totalTime = stats.reduce((accumulator: any, value: Attendance) => {
         let differenceInMinutes = 0;
 
         if (value?.checkIn != null && value?.checkOut != null) {
@@ -637,7 +637,7 @@ export function convertToTime(isoDate: string): string {
 
     const time = new Date(date.getTime());
 
-    let hours: any = time.getUTCHours();
+    const hours: any = time.getUTCHours();
     let minutes: any = time.getUTCMinutes();
 
     minutes = minutes < 10 ? '0' + minutes : minutes;
@@ -991,7 +991,7 @@ export function pieAreaData(stats: Attendance[]): number[] {
             statMap.set(stat.workingMethod.type, 0);
         }
 
-        let value: number | undefined = statMap.get(stat.workingMethod.type);
+        const value: number | undefined = statMap.get(stat.workingMethod.type);
         statMap.set(stat.workingMethod.type, value! + 1);
     });
 
@@ -1012,8 +1012,8 @@ export function todayProgressPercent(stats: Attendance[]): number {
 
 export function totalProgressPercent(stats: any[], totalWorkingDay: number): number {
 
-    let holidays = donutaDataLabel(stats).get(HOLIDAYS);
-    let presents = donutaDataLabel(stats).get(PRESENT);
+    const holidays = donutaDataLabel(stats).get(HOLIDAYS);
+    const presents = donutaDataLabel(stats).get(PRESENT);
 
     if (presents == undefined) {
         return 0;
@@ -1233,7 +1233,7 @@ let leaveConfigurations: any = {
 async function fetchCompanyTimings() {
     try {
         const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-        const jsonObject = safeJsonParse(configuration.configuration.configuration);
+        const jsonObject = safeJsonParse(configuration.configuration?.configuration);
 
         leaveConfigurations = jsonObject;
         const companyCheckIn = jsonObject["Check-in time"];
@@ -1425,8 +1425,8 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
     fetchCompanyTimings();
     // public holidays and weekends..
     const publicHolidays = store.getState().attendanceStats.publicHolidays;
-    let allWeekendsInString = store.getState().employee?.currentEmployee?.branches?.workingAndOffDays || JSON.stringify({})
-    let allWeekends = parseWorkingDays(allWeekendsInString)
+    const allWeekendsInString = store.getState().employee?.currentEmployee?.branches?.workingAndOffDays || JSON.stringify({})
+    const allWeekends = parseWorkingDays(allWeekendsInString)
 
     const graceTimeAllowance = leaveConfigurations[onSiteAndHolidayWeekendSettingsOnOffName];
     const onSiteSettingsOn = Number(graceTimeAllowance) > 0 ? true : false;
@@ -1444,7 +1444,7 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
     statMap.set(MISSING_CHECKOUT, 0);
 
     // Use day-wise shifts from parameter if provided, otherwise use null
-    let schedule = dayWiseShifts && dayWiseShifts.length > 0
+    const schedule = dayWiseShifts && dayWiseShifts.length > 0
         ? dayWiseShifts.map(shift => ({
             day: shift.day.toLowerCase(),
             check_in: shift.checkIn,
@@ -1456,14 +1456,14 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
 
     stats.map((stat: Attendance) => {
 
-        let checkIn = convertToTime(stat.checkIn);
-        let checkOut = stat.checkOut != null ? convertToTime(stat.checkOut) : null;
+        const checkIn = convertToTime(stat.checkIn);
+        const checkOut = stat.checkOut != null ? convertToTime(stat.checkOut) : null;
         let isWorkMethodOnSite = false;
         const workingMethod = stat?.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLocaleLowerCase();
         let isHolidayOrWeekend = false;
 
-        let dayNum = new Date(stat?.checkIn).getDay();
-        let dayName = dayMapping[dayNum]?.toLowerCase();
+        const dayNum = new Date(stat?.checkIn).getDay();
+        const dayName = dayMapping[dayNum]?.toLowerCase();
 
         if ((publicHolidays?.length > 0 && publicHolidays?.some((ele: any) => dayjs(ele?.date).isSame(dayjs(stat?.checkIn), 'day') && !ele?.isDeleted)) || allWeekends?.hasOwnProperty(dayName) && allWeekends[dayName] == "0") {
             isHolidayOrWeekend = true;
@@ -1479,7 +1479,7 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
             holiday?.from && holiday?.from !== '' &&
             holiday?.to && holiday?.to !== ''
         );
-        let isDaywiseConfig: TimeEntry | false = isDayWiseCheckInCheckOut(stat?.checkIn, schedule || []);
+        const isDaywiseConfig: TimeEntry | false = isDayWiseCheckInCheckOut(stat?.checkIn, schedule || []);
         // Use holiday's from time as checkInTime if holiday exists with time range
         let actualCheckInTime = checkInTime; // Default to checkInTime format
         let actualCheckOutTime = checkInTime; // Default to checkInTime format
@@ -1681,9 +1681,9 @@ export function allStreaksIndicator(stats: Attendance[], isCurrentDate: boolean 
         });
     }
 
-    let lastAttendance = newStats[newStats.length - 1];
+    const lastAttendance = newStats[newStats.length - 1];
 
-    let streaks: any[] = [];
+    const streaks: any[] = [];
     let streakArray: any[] = [dayjs(lastAttendance?.checkIn).format('YYYY-MM-DD')];
 
     for (let index = newStats.length - 1; index > 0; index--) {
@@ -1865,11 +1865,11 @@ export function barYearlyData(stats: Attendance[]) {
 
     yearlyGeneratedData.map((stat: IAttendance) => {
         if (stat.checkOut != "-NA-") {
-            let month = stat.date.split(' ')[1];
+            const month = stat.date.split(' ')[1];
             const index = months.findIndex(day => month === day);
 
             if (stat.checkIn != '-' && stat.checkIn != '-N/A-' && stat.checkOut != '-' && stat.checkOut != '-N/A-') {
-                let attendance = yearMap.get(month);
+                const attendance = yearMap.get(month);
                 attendance!.data.push(stat);
                 yearData[index] = Math.floor(totalMinutes(attendance!.data) / 60);
             }
@@ -1970,7 +1970,7 @@ const generatingHeatMapSeries = (
 
     yearMap.forEach((value, key) => {
 
-        let startDate = dayjs(`${year}-${key}-01`).format('YYYY-MM-DD');
+        const startDate = dayjs(`${year}-${key}-01`).format('YYYY-MM-DD');
         let endDate = dayjs(`${year}-${key}-${dayjs(`${year}-${key}-01`).daysInMonth()}`).format('YYYY-MM-DD');
 
         if (dateSettingsEnabled &&
@@ -2292,7 +2292,7 @@ export const yearHeatMap = (stats: any[], year: string, dateSettingsEnabled?: bo
     months.forEach(month => yearMap.set(month, []));
 
     const fiscalYearStart = dayjs(`${year}-04-01`);
-    let fiscalYearEnd = dayjs(`${parseInt(year) + 1}-03-31`);
+    const fiscalYearEnd = dayjs(`${parseInt(year) + 1}-03-31`);
 
     const today = dayjs();
     const isCurrentFiscalYear = today.isAfter(fiscalYearStart) && today.isBefore(fiscalYearEnd);
@@ -2347,7 +2347,7 @@ export const generatingHeatMapSeriesForFiscalYear = (
         const isNextCalendarYear = ['Jan', 'Feb', 'Mar'].includes(month);
         const calendarYear = isNextCalendarYear ? (parseInt(year) + 1).toString() : year;
 
-        let startDate = dayjs(`${calendarYear}-${getNumericMonth(month)}-01`).format('YYYY-MM-DD');
+        const startDate = dayjs(`${calendarYear}-${getNumericMonth(month)}-01`).format('YYYY-MM-DD');
         let endDate = dayjs(`${calendarYear}-${getNumericMonth(month)}-${dayjs(`${calendarYear}-${getNumericMonth(month)}-01`).daysInMonth()}`).format('YYYY-MM-DD');
 
         if (dateSettingsEnabled) {
@@ -2748,7 +2748,7 @@ export function leavesBalance(leaves: CustomLeaves[]): Map<string, number> {
             balanceLeavesMap.set(leave.leaveOptions.leaveType, 0);
         }
 
-        let value: number | undefined = balanceLeavesMap.get(leave.leaveOptions.leaveType);
+        const value: number | undefined = balanceLeavesMap.get(leave.leaveOptions.leaveType);
         balanceLeavesMap.set(leave.leaveOptions.leaveType, value! + 1);
     });
 
@@ -2899,7 +2899,7 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
         const date = dateSource ? dayjs(dateSource).format("DD MMM YYYY") : "-NA-";
         const formattedDate = dateSource ? dayjs(date).format("DD/MM/YYYY") : "-NA-";
 
-        let request: IAttendanceRequests = {
+        const request: IAttendanceRequests = {
             id: attendanceRequest.id,
             date,
             day,
@@ -2943,7 +2943,7 @@ export async function customLeaves(leaves: Leaves[]): Promise<CustomLeaves[]> {
             const newCustomLeaves: CustomLeaves[] = [];
 
             dates.map((date) => {
-                let customLeaves: CustomLeaves = {
+                const customLeaves: CustomLeaves = {
                     id: leave.id,
                     date: date,
                     employeeId: leave.employeeId,
@@ -2959,7 +2959,7 @@ export async function customLeaves(leaves: Leaves[]): Promise<CustomLeaves[]> {
             return newCustomLeaves;
         }
 
-        let customLeaves: CustomLeaves = {
+        const customLeaves: CustomLeaves = {
             id: leave.id,
             date: leave.dateFrom,
             employeeId: leave.employeeId,
@@ -2975,7 +2975,7 @@ export async function customLeaves(leaves: Leaves[]): Promise<CustomLeaves[]> {
     });
 
     const weekendDays = await getAllWeekends();
-    let weekendFilteredLeaves = customLeaves.flat().filter((leave) => {
+    const weekendFilteredLeaves = customLeaves.flat().filter((leave) => {
         return !weekendDays.includes(dayjs(leave.date).day());
     });
 
@@ -3252,7 +3252,7 @@ export function salaryCalculationsForDays(totalDaysOfMonthOrYearForEmployee: num
     const grossPayFixed: SalaryCalculations[] = [];
     if (isForTaxes) {
         Object.entries(allowances).map(([name, value]) => {
-            let earn = value.type == 'percentage' ? ((value.value / 100) * salary).toFixed(2) : value.type == 'number' ? value.value * (monthsCount || 0) : value.value;
+            const earn = value.type == 'percentage' ? ((value.value / 100) * salary).toFixed(2) : value.type == 'number' ? value.value * (monthsCount || 0) : value.value;
             // earn = ((earn/totalOverallDaysToConsider)*(monthsCount || 0)).toFixed(2);
 
             const obj: SalaryCalculations = {

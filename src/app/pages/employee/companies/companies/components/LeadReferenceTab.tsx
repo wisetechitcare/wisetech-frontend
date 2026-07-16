@@ -19,7 +19,7 @@ const LeadReferenceTab: React.FC<{ referredLeads?: ReferredLead[] }> = ({ referr
   const [range, setRange] = useState<PeriodRange>({ mode: "allyear", start: null, end: null, label: "All time" });
 
   const filtered = useMemo(() => {
-    if (!range.start || !range.end) return referredLeads; // "All Year" / unset → everything
+    if (!range.start || !range.end) return referredLeads; // "All Time" / unset → everything
     const s = range.start.valueOf();
     const e = range.end.valueOf();
     return referredLeads.filter((r) => {

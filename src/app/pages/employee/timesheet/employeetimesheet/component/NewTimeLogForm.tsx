@@ -9,7 +9,7 @@ import { getAllProjects } from "@services/projects";
 import { createTimeSheet, getAllTasks } from "@services/tasks";
 import { successConfirmation } from "@utils/modal";
 import { Form, Row, Col, Button, Modal } from "react-bootstrap";
-import { Formik, Form as FormikForm, Field, FieldArray } from "formik";
+import { Formik, Form as FormikForm, Field, FieldArray, useFormikContext } from "formik";
 import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import * as Yup from "yup";
@@ -34,6 +34,81 @@ interface NewTimeLogForm {
   logTimeHours?: number;
   logTimeMinutes?: number;
   logTimeSeconds?: number;
+}
+
+// Recomputes logTime whenever start/end change. A real component (not code
+// inside Formik's render prop) so the hook obeys the Rules of Hooks.
+function LogTimeAutoCalc({ editTimeSheetData }: { editTimeSheetData: any }) {
+  const { values, setFieldValue } = useFormikContext<any>();
+  useEffect(() => {
+    if (values.startTime && values.endTime) {
+      let start, end;
+      let isEndTimeDefault = false;
+
+      if (!editTimeSheetData?.endTime) {
+        const now = new Date();
+        if (typeof values.endTime === "string") {
+          const endTimeHours = parseInt(
+            values.endTime.split(":")[0],
+            10
+          );
+          const endTimeMinutes = parseInt(
+            values.endTime.split(":")[1],
+            10
+          );
+          isEndTimeDefault =
+            endTimeHours === now.getHours() &&
+            Math.abs(endTimeMinutes - now.getMinutes()) <= 1;
+        } else if (values.endTime instanceof Date) {
+          isEndTimeDefault =
+            values.endTime.getHours() === now.getHours() &&
+            Math.abs(
+              values.endTime.getMinutes() - now.getMinutes()
+            ) <= 1;
+        }
+      }
+
+      if (isEndTimeDefault) {
+        return;
+      }
+
+      if (typeof values.startTime === "string") {
+        start =
+          dayjs().format("YYYY-MM-DD") + " " + values.startTime;
+        start = dayjs(start);
+      } else {
+        start = dayjs(values.startTime);
+      }
+
+      if (typeof values.endTime === "string") {
+        end = dayjs().format("YYYY-MM-DD") + " " + values.endTime;
+        end = dayjs(end);
+      } else {
+        end = dayjs(values.endTime);
+      }
+
+      if (start.isValid() && end.isValid()) {
+        if (end.isBefore(start)) {
+          end = end.add(1, "day");
+        }
+
+        if (end.isAfter(start)) {
+          const diff = dayjs.duration(end.diff(start));
+          const hh = String(diff.hours()).padStart(2, "0");
+          const mm = String(diff.minutes()).padStart(2, "0");
+          const ss = String(diff.seconds()).padStart(2, "0");
+
+          setFieldValue("logTime", `${hh}:${mm}:${ss}`, false);
+        }
+      }
+    }
+  }, [
+    values.startTime,
+    values.endTime,
+    setFieldValue,
+    editTimeSheetData?.endTime,
+  ]);
+  return null;
 }
 
 const validationSchema = Yup.object().shape({
@@ -281,77 +356,9 @@ const NewTimeLogForm = ({
             validateOnBlur={true}
           >
             {({ values, setFieldValue, isSubmitting, errors }) => {
-              useEffect(() => {
-                if (values.startTime && values.endTime) {
-                  let start, end;
-                  let isEndTimeDefault = false;
-
-                  if (!editTimeSheetData?.endTime) {
-                    const now = new Date();
-                    if (typeof values.endTime === "string") {
-                      const endTimeHours = parseInt(
-                        values.endTime.split(":")[0],
-                        10
-                      );
-                      const endTimeMinutes = parseInt(
-                        values.endTime.split(":")[1],
-                        10
-                      );
-                      isEndTimeDefault =
-                        endTimeHours === now.getHours() &&
-                        Math.abs(endTimeMinutes - now.getMinutes()) <= 1;
-                    } else if (values.endTime instanceof Date) {
-                      isEndTimeDefault =
-                        values.endTime.getHours() === now.getHours() &&
-                        Math.abs(
-                          values.endTime.getMinutes() - now.getMinutes()
-                        ) <= 1;
-                    }
-                  }
-
-                  if (isEndTimeDefault) {
-                    return;
-                  }
-
-                  if (typeof values.startTime === "string") {
-                    start =
-                      dayjs().format("YYYY-MM-DD") + " " + values.startTime;
-                    start = dayjs(start);
-                  } else {
-                    start = dayjs(values.startTime);
-                  }
-
-                  if (typeof values.endTime === "string") {
-                    end = dayjs().format("YYYY-MM-DD") + " " + values.endTime;
-                    end = dayjs(end);
-                  } else {
-                    end = dayjs(values.endTime);
-                  }
-
-                  if (start.isValid() && end.isValid()) {
-                    if (end.isBefore(start)) {
-                      end = end.add(1, "day");
-                    }
-
-                    if (end.isAfter(start)) {
-                      const diff = dayjs.duration(end.diff(start));
-                      const hh = String(diff.hours()).padStart(2, "0");
-                      const mm = String(diff.minutes()).padStart(2, "0");
-                      const ss = String(diff.seconds()).padStart(2, "0");
-
-                      setFieldValue("logTime", `${hh}:${mm}:${ss}`, false);
-                    }
-                  }
-                }
-              }, [
-                values.startTime,
-                values.endTime,
-                setFieldValue,
-                editTimeSheetData?.endTime,
-              ]);
-
               return (
                 <FormikForm>
+                  <LogTimeAutoCalc editTimeSheetData={editTimeSheetData} />
                   <Box sx={{ mb: 2 }}>
                     <DropDownInput
                       options={projects?.map((project: any) => ({

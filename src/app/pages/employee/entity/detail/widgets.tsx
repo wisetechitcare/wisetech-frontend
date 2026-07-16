@@ -163,7 +163,7 @@ export const MissingInfoChip: React.FC<{ items: MissingItem[]; onJump: (step: nu
                 <i className="bi bi-dash-circle me-2" style={{ color: '#F5A623' }} />
                 {it.label}
               </span>
-              <i className="bi bi-pencil-square" style={{ color: '#9d4141', fontSize: 12 }} />
+              <i className="bi bi-pencil-square" style={{ color: '#1E3A8A', fontSize: 12 }} />
             </button>
           ))}
         </div>
@@ -229,7 +229,7 @@ export const EmptyState: React.FC<{
 );
 
 /** Chips list for multi-value relations (services / categories). */
-export const ChipList: React.FC<{ items: string[]; accent?: string }> = ({ items, accent = '#9d4141' }) => {
+export const ChipList: React.FC<{ items: string[]; accent?: string }> = ({ items, accent = '#1E3A8A' }) => {
   if (!items.length) return <span style={{ color: '#94A3B8' }}>—</span>;
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>

@@ -44,27 +44,27 @@ function AdminAndEmployeeReimbursementViewer() {
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Reimbursements",
       component: <Reimbursement />,
-      icon: activeTab === 0 ? reimbursementsIcons.reimbursementsIcon.active : reimbursementsIcons.reimbursementsIcon.default,
+      icon: 'bi-receipt',
     }]:[]),
     ...(canWrite ? [{
       title: "Employees Reimbursements",
       component: <AllEmployee />,
-      icon: activeTab === 1 ? reimbursementsIcons.employeesReimbursements.active : reimbursementsIcons.employeesReimbursements.default,
+      icon: 'bi-receipt-cutoff',
     }]:[]),
     ...(canWrite ? [{
       title: "Search Employee",
       component: <SearchEmployee />,
-      icon: activeTab === 2 ? reimbursementsIcons.serchEmployee.active : reimbursementsIcons.serchEmployee.default,
+      icon: 'bi-search',
     }]:[]),
     ...(canWrite ? [{
       title: "Payment",
       component: <PaymentTab />,
-      icon: activeTab === 3 ? loanIcons.installmentsIcon.active : loanIcons.installmentsIcon.default,
+      icon: 'bi-credit-card',
     }]:[]),
     ...(canWrite ? [{
       title: "Configure",
       component: <ReimbursementConfiguration />,
-      icon: activeTab === 4 ? leadsIcons.leadsConfigIcon.active : leadsIcons.leadsConfigIcon.default,
+      icon: 'bi-gear',
     }]:[]),
   ];
 

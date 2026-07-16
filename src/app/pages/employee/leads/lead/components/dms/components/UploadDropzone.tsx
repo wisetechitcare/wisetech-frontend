@@ -86,10 +86,10 @@ export const UploadDropzone: React.FC<UploadDropzoneProps> = ({ folderId, onClos
         <div
           {...getRootProps()}
           style={{
-            border: `2px dashed ${isDragActive ? '#9d4141' : '#e2e8f0'}`,
+            border: `2px dashed ${isDragActive ? '#1E3A8A' : '#e2e8f0'}`,
             borderRadius: '16px', padding: '40px 20px',
             textAlign: 'center', cursor: 'pointer',
-            background: isDragActive ? 'rgba(157,65,65,0.04)' : '#f8fafc',
+            background: isDragActive ? 'rgba(30, 58, 138,0.04)' : '#f8fafc',
             transition: 'all 0.2s ease',
             marginBottom: '16px',
           }}

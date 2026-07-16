@@ -178,9 +178,9 @@ const FormModal: React.FC<FormModalProps> = ({
                         padding: '8px',
                         borderRadius: '8px',
                         backgroundColor: isSelected ? '#fff5f5' : 'transparent',
-                        border: `1.5px solid ${isSelected ? '#9D4141' : '#e5e7eb'}`,
+                        border: `1.5px solid ${isSelected ? '#1E3A8A' : '#e5e7eb'}`,
                         transition: 'all 0.2s ease-in-out',
-                        boxShadow: isSelected ? '0 2px 8px rgba(157, 65, 65, 0.1)' : 'none'
+                        boxShadow: isSelected ? '0 2px 8px rgba(30, 58, 138, 0.1)' : 'none'
                       }}
                       className="d-flex align-items-center gap-2"
                       onMouseEnter={(e) => {
@@ -202,8 +202,8 @@ const FormModal: React.FC<FormModalProps> = ({
                             width: '20px',
                             height: '20px',
                             borderRadius: '4px',
-                            backgroundColor: isSelected ? '#9D4141' : '#ffffff',
-                            border: `2px solid ${isSelected ? '#9D4141' : '#d1d5db'}`,
+                            backgroundColor: isSelected ? '#1E3A8A' : '#ffffff',
+                            border: `2px solid ${isSelected ? '#1E3A8A' : '#d1d5db'}`,
                             position: 'relative',
                             display: 'flex',
                             alignItems: 'center',
@@ -257,7 +257,7 @@ const FormModal: React.FC<FormModalProps> = ({
                           fontFamily: 'Inter',
                           fontWeight: 500,
                           fontSize: '13px',
-                          color: isSelected ? '#9D4141' : '#2f2f2f',
+                          color: isSelected ? '#1E3A8A' : '#2f2f2f',
                           margin: 0,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -317,9 +317,9 @@ const FormModal: React.FC<FormModalProps> = ({
                         padding: '8px',
                         borderRadius: '8px',
                         backgroundColor: isSelected ? '#fff5f5' : 'transparent',
-                        border: `1.5px solid ${isSelected ? '#9d4141' : '#e5e7eb'}`,
+                        border: `1.5px solid ${isSelected ? '#1E3A8A' : '#e5e7eb'}`,
                         transition: 'all 0.2s ease-in-out',
-                        boxShadow: isSelected ? '0 2px 8px rgba(157, 65, 65, 0.1)' : 'none'
+                        boxShadow: isSelected ? '0 2px 8px rgba(30, 58, 138, 0.1)' : 'none'
                       }}
                       className="d-flex align-items-center gap-2"
                       onMouseEnter={(e) => {
@@ -341,8 +341,8 @@ const FormModal: React.FC<FormModalProps> = ({
                             width: '20px',
                             height: '20px',
                             borderRadius: '4px',
-                            backgroundColor: isSelected ? '#9D4141' : '#ffffff',
-                            border: `2px solid ${isSelected ? '#9D4141' : '#d1d5db'}`,
+                            backgroundColor: isSelected ? '#1E3A8A' : '#ffffff',
+                            border: `2px solid ${isSelected ? '#1E3A8A' : '#d1d5db'}`,
                             position: 'relative',
                             display: 'flex',
                             alignItems: 'center',
@@ -396,7 +396,7 @@ const FormModal: React.FC<FormModalProps> = ({
                           fontFamily: 'Inter',
                           fontWeight: 500,
                           fontSize: '13px',
-                          color: isSelected ? '#9d4141' : '#2f2f2f',
+                          color: isSelected ? '#1E3A8A' : '#2f2f2f',
                           margin: 0,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',

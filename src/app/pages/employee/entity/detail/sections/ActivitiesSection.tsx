@@ -11,7 +11,7 @@ const TYPE_META: Record<string, { icon: string; color: string }> = {
   email: { icon: 'bi bi-envelope-fill', color: '#0d9488' },
   whatsapp: { icon: 'bi bi-whatsapp', color: '#16a34a' },
   note: { icon: 'bi bi-journal-text', color: '#f5a623' },
-  visit: { icon: 'bi bi-geo-alt-fill', color: '#9d4141' },
+  visit: { icon: 'bi bi-geo-alt-fill', color: '#1E3A8A' },
 };
 const metaFor = (type?: string) => TYPE_META[(type || '').toLowerCase()] || { icon: 'bi bi-dot', color: '#64748B' };
 

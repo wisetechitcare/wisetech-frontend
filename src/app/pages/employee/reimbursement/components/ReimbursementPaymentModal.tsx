@@ -399,7 +399,7 @@ const ReimbursementPaymentModal: React.FC<ReimbursementPaymentModalProps> = ({
                                             variant="primary"
                                             disabled={loading || !formikProps.isValid || (!isEditMode && isNoneSelected)}
                                             className="wt-btn-primary fw-bold px-12 py-3 shadow-sm"
-                                            style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}
+                                            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                                         >
                                             {loading ? (
                                                 <span className="indicator-label">

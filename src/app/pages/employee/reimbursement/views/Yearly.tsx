@@ -256,7 +256,7 @@ function Yearly({ year, showEditDeleteOption=false, showIdCol=false, showName=fa
         accessorKey: "projectId",
         header: "Project Name",
         enableColumnActions: false,
-        Cell: ({ row }: any) => resolveProject(row.original.projectId),
+        Cell: ({ row }: any) => <span>{row.original.project?.title || resolveProject(row.original.projectId) || 'N/A'}</span>,
       },
       {
         accessorKey: "fromLocation",

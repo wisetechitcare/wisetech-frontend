@@ -33,17 +33,17 @@ function Salary() {
     ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Salary",
       component: <MySalary />,
-      icon: activeTab === 0 ? financeSalaryAllIcoon.salaryIcon.active : financeSalaryAllIcoon.salaryIcon.default,
+      icon: 'bi-wallet2',
     }]:[]),
     ...(canWrite ? [{
       title: "Employee Payrolls",
       component: <SalaryEmployeeData/>,
-      icon:activeTab === 2 ? financeSalaryAllIcoon.empSalaey.active : financeSalaryAllIcoon.empSalaey.default,
+      icon: 'bi-cash-stack',
     }]:[]),
     ...(canWrite ? [{
       title: "Search Employee",
       component: <SearchEmployee />,
-      icon:activeTab === 1 ? financeSalaryAllIcoon.serchEmployeeIcon.active : financeSalaryAllIcoon.serchEmployeeIcon.default,
+      icon: 'bi-search',
     }]:[]),
     // ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers) ? [{
     //   title: "All Employees",
@@ -53,8 +53,7 @@ function Salary() {
     ...(canWrite ? [{
       title: "Configure",
       component: <SalaryConfiguration />,
-      icon:activeTab === 3 ? leadsIcons.leadsConfigIcon.active
-                            : leadsIcons.leadsConfigIcon.default,
+      icon: 'bi-gear',
     }]:[]),
   ];
 

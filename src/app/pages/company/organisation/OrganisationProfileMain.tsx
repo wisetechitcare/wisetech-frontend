@@ -24,18 +24,12 @@ function OrganisationProfileMain() {
         {
             title: "Organizations",
             component: <OrganizationsPage onOpenOrg={handleOpenOrg} />,
-            icon:
-                activeTab === 0
-                    ? companiesIcons.companiesIcon?.active ?? companyOverviewIcons.companyOverviewIcon.default
-                    : companiesIcons.companiesIcon?.default ?? companyOverviewIcons.companyOverviewIcon.default,
+            icon: 'bi-building',
         },
         {
             title: "Configure",
             component: <Masters />,
-            icon:
-                activeTab === 1
-                    ? leadsIcons.leadsConfigIcon.active
-                    : leadsIcons.leadsConfigIcon.default,
+            icon: 'bi-gear',
         }
     ];
 

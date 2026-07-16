@@ -89,7 +89,7 @@ const EventItem = React.memo(({ item, onClick }: { item: any; onClick?: () => vo
             style={{
               fontSize: "14px",
               fontWeight: "500",
-              color: onClick && isHovered ? "#7A2124" : "#000"
+              color: onClick && isHovered ? "#172554" : "#000"
             }}
           >
             {item.type === "Birthdays"
@@ -204,7 +204,7 @@ const UpcomingEventsCard: React.FC = () => {
         title: events.eventName,
         start: dayjs(events.startDate).format(),
         end: dayjs(events.endDate).format(),
-        color: "#AA393D",
+        color: "#1E3A8A",
       }));
       setCalendarEvents(transformedRes);
     } catch (error) {

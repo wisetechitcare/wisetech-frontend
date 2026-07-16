@@ -86,7 +86,7 @@ export function EditableDetailCard<T extends Record<string, any>>({
       </button>
       <button
         type="button"
-        style={{ ...iconBtn, border: '1px solid #AA393D', background: '#AA393D', color: '#fff', opacity: saving ? 0.7 : 1 }}
+        style={{ ...iconBtn, border: '1px solid #1E3A8A', background: '#1E3A8A', color: '#fff', opacity: saving ? 0.7 : 1 }}
         onClick={save}
         disabled={saving}
       >
@@ -249,7 +249,8 @@ export const SearchableSelectEditor: React.FC<{
   options: any[];
   placeholder?: string;
   showColor?: boolean;
-}> = ({ value, onChange, options, placeholder = 'Select…', showColor }) => (
+  formatOptionLabel?: (option: any, context: any) => React.ReactNode;
+}> = ({ value, onChange, options, placeholder = 'Select…', showColor, formatOptionLabel }) => (
   <Select
     options={options}
     value={options.find(o => String(o.value) === String(value ?? '')) ?? null}
@@ -266,6 +267,7 @@ export const SearchableSelectEditor: React.FC<{
       SingleValue,
       DropdownIndicator,
     } : {}}
+    formatOptionLabel={formatOptionLabel}
   />
 );
 

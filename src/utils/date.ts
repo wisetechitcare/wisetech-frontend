@@ -64,7 +64,7 @@ export const findTimeDifference = (checkIn: string, checkOut: string) => {
     if (!checkIn || !checkOut) return '-NA-';
     const checkInMinutes = timeToMinutes(checkIn);
     const checkOutMinutes = timeToMinutes(checkOut);
-    let differenceInMinutes = checkOutMinutes - checkInMinutes;
+    const differenceInMinutes = checkOutMinutes - checkInMinutes;
 
     if (differenceInMinutes >= 60) {
         const diffHours = (differenceInMinutes / 60).toFixed(2);

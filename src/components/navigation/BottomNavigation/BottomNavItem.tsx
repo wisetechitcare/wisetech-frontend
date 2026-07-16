@@ -1,7 +1,6 @@
 import { memo } from 'react'
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
-import SVG from 'react-inlinesvg'
 import { motion, useReducedMotion } from 'framer-motion'
 import { BottomNavBadge } from './BottomNavBadge'
 import type { BottomNavItemConfig } from './types'
@@ -21,7 +20,6 @@ interface Props {
  */
 function BottomNavItemBase({ item, active, badgeCount, indicatorLayoutId }: Props) {
   const reduce = useReducedMotion()
-  const iconSrc = active ? item.activeIcon ?? item.icon : item.icon
 
   return (
     <NavLink
@@ -31,15 +29,6 @@ function BottomNavItemBase({ item, active, badgeCount, indicatorLayoutId }: Prop
       aria-current={active ? 'page' : undefined}
       data-analytics-id={`bottomnav_${item.id}`}
     >
-      {active && (
-        <motion.span
-          layoutId={reduce ? undefined : indicatorLayoutId}
-          className="bottom-nav__pill"
-          transition={{ type: 'spring', stiffness: 480, damping: 34 }}
-          aria-hidden="true"
-        />
-      )}
-
       <span className="bottom-nav__icon-wrap">
         <motion.span
           className="bottom-nav__icon"
@@ -47,7 +36,7 @@ function BottomNavItemBase({ item, active, badgeCount, indicatorLayoutId }: Prop
           transition={{ type: 'spring', stiffness: 420, damping: 26 }}
           aria-hidden="true"
         >
-          <SVG src={iconSrc} className="bottom-nav__svg" />
+          <i className={clsx('bi', item.icon, 'bottom-nav__bi')} />
         </motion.span>
         <BottomNavBadge count={badgeCount} />
       </span>

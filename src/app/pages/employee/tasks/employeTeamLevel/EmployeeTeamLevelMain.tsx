@@ -169,8 +169,8 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                             borderRadius: '6px',
                             padding: '8px 20px',
                             height: '40px',
-                            backgroundColor: '#9d4141',
-                            borderColor: '#9d4141',
+                            backgroundColor: '#1E3A8A',
+                            borderColor: '#1E3A8A',
                             opacity: loading ? 0.6 : 1,
                             cursor: loading ? 'not-allowed' : 'pointer',
                             color:"white"
@@ -294,8 +294,8 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                                                                     fontWeight: '500',
                                                                     minWidth: '40px',
                                                                     color: isActive ? 'white' : '#202020',
-                                                                    backgroundColor: isActive ? '#9d4141' : 'white',
-                                                                    borderColor: isActive ? '#9d4141' : '#c1c9d6'
+                                                                    backgroundColor: isActive ? '#1E3A8A' : 'white',
+                                                                    borderColor: isActive ? '#1E3A8A' : '#c1c9d6'
                                                                 }}
                                                             >
                                                                 {page}

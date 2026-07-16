@@ -67,9 +67,9 @@ const FolderNode: React.FC<{
           cursor: 'pointer',
           transition: 'all 0.15s ease',
           background: isActive
-            ? 'linear-gradient(135deg, rgba(157,65,65,0.12), rgba(157,65,65,0.06))'
+            ? 'linear-gradient(135deg, rgba(30, 58, 138,0.12), rgba(30, 58, 138,0.06))'
             : 'transparent',
-          border: isActive ? '1px solid rgba(157,65,65,0.2)' : '1px solid transparent',
+          border: isActive ? '1px solid rgba(30, 58, 138,0.2)' : '1px solid transparent',
           marginBottom: '2px',
           position: 'relative',
         }}
@@ -111,7 +111,7 @@ const FolderNode: React.FC<{
             onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setIsRenaming(false); }}
             onClick={e => e.stopPropagation()}
             style={{
-              flex: 1, border: '1px solid #9d4141', borderRadius: '4px',
+              flex: 1, border: '1px solid #1E3A8A', borderRadius: '4px',
               padding: '1px 4px', fontSize: '13px', outline: 'none',
               fontFamily: 'Inter, sans-serif',
             }}
@@ -119,7 +119,7 @@ const FolderNode: React.FC<{
         ) : (
           <span style={{
             flex: 1, fontSize: '13px', fontWeight: isActive ? 600 : 500,
-            color: isActive ? '#9d4141' : '#1e293b',
+            color: isActive ? '#1E3A8A' : '#1e293b',
             fontFamily: 'Inter, sans-serif',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
@@ -131,8 +131,8 @@ const FolderNode: React.FC<{
         {fileCount > 0 && (
           <span style={{
             fontSize: '10px', fontWeight: 700,
-            color: isActive ? '#9d4141' : '#64748b',
-            background: isActive ? 'rgba(157,65,65,0.12)' : 'rgba(0,0,0,0.06)',
+            color: isActive ? '#1E3A8A' : '#64748b',
+            background: isActive ? 'rgba(30, 58, 138,0.12)' : 'rgba(0,0,0,0.06)',
             borderRadius: '10px', padding: '1px 6px',
             flexShrink: 0, marginLeft: '4px',
           }}>
@@ -270,12 +270,12 @@ export const FolderTree: React.FC<FolderTreeProps> = ({ onFolderSelect }) => {
                 onKeyDown={e => { if (e.key === 'Enter') handleCreateFolder(); if (e.key === 'Escape') setShowCreateInput(false); }}
                 placeholder="Folder name..."
                 style={{
-                  flex: 1, border: '1px solid #9d4141', borderRadius: '6px',
+                  flex: 1, border: '1px solid #1E3A8A', borderRadius: '6px',
                   padding: '4px 8px', fontSize: '12px', outline: 'none',
                   fontFamily: 'Inter, sans-serif',
                 }}
               />
-              <button onClick={handleCreateFolder} style={{ background: '#9d4141', border: 'none', borderRadius: '6px', padding: '4px 8px', color: 'white', cursor: 'pointer', fontSize: '12px' }}>
+              <button onClick={handleCreateFolder} style={{ background: '#1E3A8A', border: 'none', borderRadius: '6px', padding: '4px 8px', color: 'white', cursor: 'pointer', fontSize: '12px' }}>
                 ✓
               </button>
             </div>
@@ -289,14 +289,14 @@ export const FolderTree: React.FC<FolderTreeProps> = ({ onFolderSelect }) => {
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',
           padding: '8px', borderRadius: '8px', cursor: 'pointer',
-          background: !state.currentFolderId ? 'linear-gradient(135deg, rgba(157,65,65,0.12), rgba(157,65,65,0.06))' : 'transparent',
-          border: !state.currentFolderId ? '1px solid rgba(157,65,65,0.2)' : '1px solid transparent',
+          background: !state.currentFolderId ? 'linear-gradient(135deg, rgba(30, 58, 138,0.12), rgba(30, 58, 138,0.06))' : 'transparent',
+          border: !state.currentFolderId ? '1px solid rgba(30, 58, 138,0.2)' : '1px solid transparent',
           marginBottom: '4px',
         }}
         whileHover={{ backgroundColor: 'rgba(0,0,0,0.04)' }}
       >
         <KTIcon iconName={isGlobalMode ? 'abstract-26' : 'note-2'} className="fs-2 text-primary" />
-        <span style={{ fontSize: '13px', fontWeight: !state.currentFolderId ? 700 : 500, color: !state.currentFolderId ? '#9d4141' : '#1e293b', fontFamily: 'Inter' }}>
+        <span style={{ fontSize: '13px', fontWeight: !state.currentFolderId ? 700 : 500, color: !state.currentFolderId ? '#1E3A8A' : '#1e293b', fontFamily: 'Inter' }}>
           {isGlobalMode ? 'All Files' : (rootFolder?.name || 'Lead Documents')}
         </span>
         <span style={{

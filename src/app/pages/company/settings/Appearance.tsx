@@ -8,7 +8,7 @@ import { setCustomColors } from '@redux/slices/customColors';
 import { updateColorsById } from '@services/options';
 import { fetchColorAndStoreInSlice } from '@utils/file';
 
-let initialValues = {
+const initialValues = {
   id: "",
   attendanceCalendar: {
     todayColor: "#3498DB",

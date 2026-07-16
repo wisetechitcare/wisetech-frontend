@@ -1,5 +1,5 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
-﻿import { fetchCompanyOverview } from '@services/company';
+import { fetchCompanyOverview } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { Form, Formik } from 'formik';
 import React, { useEffect, useState } from 'react'
@@ -21,7 +21,7 @@ function CommonModal({ show, setShow, functionToCallOnModalSubmit, fieldName, fu
     const [loading, setLoading] = useState(false);
     const [companyId, setCompanyId] = useState('');
     const handleClose = () => setShow(false);
-    let initialState = {
+    const initialState = {
         name: "",
     };
     const handleSubmit = (values: any) => {
@@ -30,7 +30,7 @@ function CommonModal({ show, setShow, functionToCallOnModalSubmit, fieldName, fu
             if (!functionToCallOnModalSubmit || !fieldName) {
                 return;
             }
-            let finalData: any = { companyId: companyId };
+            const finalData: any = { companyId: companyId };
             finalData[fieldName] = [values?.name];
             functionToCallOnModalSubmit(finalData).then((res: any) => {
                 successConfirmation("Successfully created the option!");

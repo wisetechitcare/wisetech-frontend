@@ -29,7 +29,7 @@ const employeeTypeSchema = Yup.object({
     companyId: Yup.string(),
 });
 
-let initialState: IEmployeeType = {
+const initialState: IEmployeeType = {
     id: "",
     employeeType: "",
     companyId: "",

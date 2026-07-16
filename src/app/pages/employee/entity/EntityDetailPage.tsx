@@ -27,6 +27,7 @@ import DocumentsTab from './detail/sections/DocumentsTab';
 import AuditSection from './detail/sections/AuditSection';
 import TeamsSection from './detail/sections/TeamsSection';
 import BillingSection from './detail/sections/BillingSection';
+import MeetingsList from '@app/modules/common/components/MeetingsList';
 import ProjectStatusControl from './detail/ProjectStatusControl';
 
 /**
@@ -191,6 +192,9 @@ const EntityDetailPage: React.FC = () => {
         return <AuditSection leadId={leadId} isProject={isProject} projectId={projectId} onChanged={fetchLeadDetails} />;
       case 'teams':
         return <TeamsSection lead={lead} />;
+      case 'meetings':
+        // Meetings are linked by projectId = the lead id (lead-as-master).
+        return <MeetingsList mode="project" targetId={lead.id} />;
       case 'billing':
         return <BillingSection lead={lead} />;
       default:
@@ -297,6 +301,27 @@ const EntityDetailPage: React.FC = () => {
                   Lead - {lead?.status?.name || 'Set status'}
                 </div>
               )}
+              {activeTab === 'leads' && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={openEdit}
+                    style={{ backgroundColor: '#1E3A8A', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
+                  >
+                    <i className="bi bi-pencil-fill" style={{ fontSize: '12px' }} /> Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => setShowProposalModal(true)}
+                    style={{ backgroundColor: '#7239ea', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
+                  >
+                    <i className="bi bi-file-earmark-arrow-down-fill" style={{ fontSize: '13px' }} /> Export
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -327,9 +352,9 @@ const EntityDetailPage: React.FC = () => {
                           paddingTop: '8px',
                           paddingBottom: '10px',
                           marginBottom: '-1px',
-                          color: isActive ? '#AA393D' : '#64748B',
+                          color: isActive ? '#1E3A8A' : '#64748B',
                           background: 'transparent',
-                          borderBottom: `2px solid ${isActive ? '#AA393D' : 'transparent'}`,
+                          borderBottom: `2px solid ${isActive ? '#1E3A8A' : 'transparent'}`,
                           transition: 'color 0.15s ease, border-color 0.15s ease',
                         }}
                       >
@@ -342,7 +367,7 @@ const EntityDetailPage: React.FC = () => {
                               fontSize: '11px',
                               fontWeight: 700,
                               color: isActive ? '#fff' : '#64748B',
-                              background: isActive ? '#9d4141' : '#E2E8F0',
+                              background: isActive ? '#1E3A8A' : '#E2E8F0',
                               borderRadius: '999px',
                               minWidth: '18px',
                               height: '18px',

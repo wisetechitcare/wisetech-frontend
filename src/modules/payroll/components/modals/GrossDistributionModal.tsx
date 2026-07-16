@@ -195,7 +195,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                 <Button
                                     type="submit"
                                     disabled={loading || !formikProps.isValid}
-                                    style={{ backgroundColor: '#AA393D', borderColor: '#AA393D', color: '#fff' }}
+                                    style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A', color: '#fff' }}
                                 >
                                     {loading ? 'Saving...' : 'Save Changes'}
                                 </Button>

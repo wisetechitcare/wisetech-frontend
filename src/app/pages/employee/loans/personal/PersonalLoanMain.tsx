@@ -27,18 +27,17 @@ function PersonalLoanMain() {
       {
         title: "Loans",
         component: <PersonalLoan resource={resourceNameMapWithCamelCase.loan} viewOthers={true} viewOwn={true} />,
-        icon: activeTab === 0 ? loanIcons.loanOverviewIcon.active : loanIcons.loanOverviewIcon.default,
+        icon: 'bi-cash-coin',
       },
       {
         title: "Installments",
         component: <Installments />,
-        icon: activeTab === 1 ? loanIcons.installmentsIcon.active : loanIcons.installmentsIcon.default,
+        icon: 'bi-calendar-week',
       },
       {
         title: "Configure",
         component: <EmployeeLoanInformation />,
-        icon: activeTab === 2 ? leadsIcons.leadsConfigIcon.active
-                              : leadsIcons.leadsConfigIcon.default,
+        icon: 'bi-gear',
       }
     ];
 
@@ -46,33 +45,32 @@ function PersonalLoanMain() {
       ...(viewOwnPermissionLoan ? [{
         title: "Personal Loans",
         component: <PersonalLoan resource={resourceNameMapWithCamelCase.loan} viewOthers={true} viewOwn={true} />,
-        icon: activeTab === 0 ? reimbursementsIcons.reimbursementsIcon.active : reimbursementsIcons.reimbursementsIcon.default,
+        icon: 'bi-cash-coin',
       }] : []),
       ...(viewOwnPermissionLoanInstallment ? [{
         title: "Personal Installments",
         component: <Installments />,
-        icon: activeTab === 1 ? reimbursementsIcons.employeesReimbursements.active : reimbursementsIcons.employeesReimbursements.default,
+        icon: 'bi-calendar-week',
       }]:[]),
       ...(viewOthersPermissionLoan ? [{
         title: "Overview",
         component: <Overview />,
-        icon: activeTab === 2 ? loanIcons.loanOverviewIcon.active : loanIcons.loanOverviewIcon.default,
+        icon: 'bi-grid-1x2',
       }]:[]),
       ...(viewOthersPermissionLoanInstallment ? [{
         title: "Installments",
         component: <InstallmentsAdmin />,
-        icon: activeTab === 3 ? loanIcons.installmentsIcon.active : loanIcons.installmentsIcon.default,
+        icon: 'bi-calendar-week',
       }]:[]),
       ...(viewOthersPermissionLoan ? [{
         title: "Search Employees",
         component: <SearchEmployee />,
-        icon: activeTab === 4 ? reimbursementsIcons.serchEmployee.active : reimbursementsIcons.serchEmployee.default,
+        icon: 'bi-search',
       }]:[]),
       ...((viewOthersPermissionLoan|| viewOwnPermissionLoan) ? [{
         title: "Configure",
         component: <Information />,
-        icon: activeTab === 5 ? leadsIcons.leadsConfigIcon.active
-                              : leadsIcons.leadsConfigIcon.default,
+        icon: 'bi-gear',
       }]:[]),
     ];
   

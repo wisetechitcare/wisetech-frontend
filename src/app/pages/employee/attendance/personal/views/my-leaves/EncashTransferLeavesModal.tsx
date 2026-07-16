@@ -162,7 +162,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                         <div
                             onClick={() => setSelectedOption('encash')}
                             style={{
-                                border: selectedOption === 'encash' ? '2px solid #9d4141' : '1px solid #c8cfda',
+                                border: selectedOption === 'encash' ? '2px solid #1E3A8A' : '1px solid #c8cfda',
                                 borderRadius: '8px',
                                 padding: '12px 16px',
                                 cursor: 'pointer',
@@ -188,7 +188,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                         width: '10px',
                                         height: '10px',
                                         borderRadius: '50%',
-                                        backgroundColor: '#9d4141',
+                                        backgroundColor: '#1E3A8A',
                                     }} />
                                 )}
                             </div>
@@ -205,7 +205,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                 flexShrink: 0,
                             }}>
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13.41 18.09V19.5C13.41 20.05 12.96 20.5 12.41 20.5H11.59C11.04 20.5 10.59 20.05 10.59 19.5V18.07C9.27 17.79 8.13 17.04 7.59 15.9C7.39 15.51 7.66 15.03 8.1 15.03H9.15C9.42 15.03 9.66 15.2 9.79 15.45C10.08 15.97 10.67 16.28 11.59 16.28H12.57C13.56 16.28 14.16 15.77 14.16 15.08C14.16 14.5 13.89 14.07 12.71 13.78L10.21 13.18C8.37 12.73 7.59 11.71 7.59 10.14C7.59 8.65 8.74 7.49 10.59 7.15V5.5C10.59 4.95 11.04 4.5 11.59 4.5H12.41C12.96 4.5 13.41 4.95 13.41 5.5V7.13C14.52 7.38 15.44 7.99 15.93 9.01C16.14 9.41 15.87 9.91 15.42 9.91H14.48C14.22 9.91 13.99 9.76 13.85 9.53C13.6 9.12 13.12 8.84 12.41 8.84H11.59C10.67 8.84 10.09 9.28 10.09 9.95C10.09 10.58 10.42 10.93 11.49 11.19L13.99 11.79C15.92 12.26 16.66 13.22 16.66 14.83C16.66 16.38 15.52 17.75 13.41 18.09Z" fill={selectedOption === 'encash' ? '#9d4141' : '#6d7a8b'}/>
+                                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13.41 18.09V19.5C13.41 20.05 12.96 20.5 12.41 20.5H11.59C11.04 20.5 10.59 20.05 10.59 19.5V18.07C9.27 17.79 8.13 17.04 7.59 15.9C7.39 15.51 7.66 15.03 8.1 15.03H9.15C9.42 15.03 9.66 15.2 9.79 15.45C10.08 15.97 10.67 16.28 11.59 16.28H12.57C13.56 16.28 14.16 15.77 14.16 15.08C14.16 14.5 13.89 14.07 12.71 13.78L10.21 13.18C8.37 12.73 7.59 11.71 7.59 10.14C7.59 8.65 8.74 7.49 10.59 7.15V5.5C10.59 4.95 11.04 4.5 11.59 4.5H12.41C12.96 4.5 13.41 4.95 13.41 5.5V7.13C14.52 7.38 15.44 7.99 15.93 9.01C16.14 9.41 15.87 9.91 15.42 9.91H14.48C14.22 9.91 13.99 9.76 13.85 9.53C13.6 9.12 13.12 8.84 12.41 8.84H11.59C10.67 8.84 10.09 9.28 10.09 9.95C10.09 10.58 10.42 10.93 11.49 11.19L13.99 11.79C15.92 12.26 16.66 13.22 16.66 14.83C16.66 16.38 15.52 17.75 13.41 18.09Z" fill={selectedOption === 'encash' ? '#1E3A8A' : '#6d7a8b'}/>
                                 </svg>
                             </div>
 
@@ -214,7 +214,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                 <div style={{
                                     fontSize: '14px',
                                     fontWeight: 500,
-                                    color: selectedOption === 'encash' ? '#9d4141' : '#1f1f1f',
+                                    color: selectedOption === 'encash' ? '#1E3A8A' : '#1f1f1f',
                                     marginBottom: '6px',
                                     fontFamily: 'Inter, sans-serif',
                                 }}>
@@ -234,7 +234,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                         <div
                             onClick={() => setSelectedOption('transfer')}
                             style={{
-                                border: selectedOption === 'transfer' ? '2px solid #9d4141' : '1px solid #c8cfda',
+                                border: selectedOption === 'transfer' ? '2px solid #1E3A8A' : '1px solid #c8cfda',
                                 borderRadius: '8px',
                                 padding: '12px 16px',
                                 cursor: 'pointer',
@@ -260,7 +260,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                         width: '10px',
                                         height: '10px',
                                         borderRadius: '50%',
-                                        backgroundColor: '#9d4141',
+                                        backgroundColor: '#1E3A8A',
                                     }} />
                                 )}
                             </div>
@@ -277,7 +277,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                 flexShrink: 0,
                             }}>
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M16 17.01V10H14V17.01H11L15 21L19 17.01H16ZM9 3L5 6.99H8V14H10V6.99H13L9 3Z" fill={selectedOption === 'transfer' ? '#9d4141' : '#6d7a8b'}/>
+                                    <path d="M16 17.01V10H14V17.01H11L15 21L19 17.01H16ZM9 3L5 6.99H8V14H10V6.99H13L9 3Z" fill={selectedOption === 'transfer' ? '#1E3A8A' : '#6d7a8b'}/>
                                 </svg>
                             </div>
 
@@ -286,7 +286,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                                 <div style={{
                                     fontSize: '14px',
                                     fontWeight: 500,
-                                    color: selectedOption === 'transfer' ? '#9d4141' : '#1f1f1f',
+                                    color: selectedOption === 'transfer' ? '#1E3A8A' : '#1f1f1f',
                                     marginBottom: '6px',
                                     fontFamily: 'Inter, sans-serif',
                                 }}>
@@ -476,7 +476,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                     onClick={handleSubmit}
                     disabled={loading}
                     style={{
-                        backgroundColor: '#9d4141',
+                        backgroundColor: '#1E3A8A',
                         color: '#ffffff',
                         border: 'none',
                         borderRadius: '6px',

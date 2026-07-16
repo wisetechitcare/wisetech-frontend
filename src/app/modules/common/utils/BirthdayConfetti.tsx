@@ -65,7 +65,7 @@ const BirthdayCelebration = () => {
             className="text-center d-flex justify-content-center align-items-center"
             style={{
               fontSize: "1rem",
-              color: "#AA393D",
+              color: "#1E3A8A",
               fontWeight: "500",
               position: "relative",
             }}

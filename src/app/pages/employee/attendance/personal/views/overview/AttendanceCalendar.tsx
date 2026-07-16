@@ -1,6 +1,6 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import Calendar from "react-calendar";
 import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, isDateBeforeOrSameAsCurrDate } from "@utils/date";
@@ -80,8 +80,8 @@ const mumbaiTz = 'Asia/Kolkata';
 function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate }: AttendanceCalendarProps) {
 
     const dispatch = useDispatch();
-    let values = useSelector((state: RootState) => state?.customColors?.attendanceCalendar);
-    let holidayColorValues = useSelector((state: RootState) => state?.customColors?.attendanceOverview);
+    const values = useSelector((state: RootState) => state?.customColors?.attendanceCalendar);
+    const holidayColorValues = useSelector((state: RootState) => state?.customColors?.attendanceOverview);
 
     const getEmployeeAttendance = useSelector((state: RootState) => state.attendance?.personalAttendance);
     const dateOfjoining = useSelector((state: RootState) => state?.employee?.currentEmployee?.dateOfJoining);
@@ -925,7 +925,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                         <button
                                             type='button'
                                             className='btn btn-primary text-white my-2'
-                                            style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }}
+                                            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                                             onClick={() => {
                                                 setShowRequestTypeSelection(true);
                                                 setRequestType(null);
@@ -934,7 +934,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                             <i className='bi bi-arrow-left me-2 text-white'></i>
                                             Back
                                         </button>
-                                        <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || limitMessage || !canSubmitRequest || isValidating}>
+                                        <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || limitMessage || !canSubmitRequest || isValidating}>
                                             {isValidating ? 'Validating...' : (!loading ? 'Save Changes' : 'Please wait...')}
                                             {loading && (
                                                 <span className='indicator-progress' style={{ display: 'block' }}>

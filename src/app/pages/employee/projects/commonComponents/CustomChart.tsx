@@ -379,8 +379,8 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
               <button
                 style={{
                   fontSize: "11px",
-                  border: "1px solid #9D4141",
-                  color: "#9D4141",
+                  border: "1px solid #1E3A8A",
+                  color: "#1E3A8A",
                   backgroundColor: "transparent",
                   borderRadius: "3px",
                   alignItems: "center",
@@ -393,12 +393,12 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                   whiteSpace: "nowrap"
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#9D4141";
+                  e.currentTarget.style.backgroundColor = "#1E3A8A";
                   e.currentTarget.style.color = "#fff";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = "#9D4141";
+                  e.currentTarget.style.color = "#1E3A8A";
                 }}
                 onClick={handleStatusModalOpen}
               >
@@ -411,8 +411,8 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 <button
                   style={{
                     fontSize: "11px",
-                    border: "1px solid #9D4141",
-                    color: "#9D4141",
+                    border: "1px solid #1E3A8A",
+                    color: "#1E3A8A",
                     backgroundColor: "transparent",
                     borderRadius: "3px",
                     alignItems: "center",
@@ -425,12 +425,12 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                     whiteSpace: "nowrap"
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#9D4141";
+                    e.currentTarget.style.backgroundColor = "#1E3A8A";
                     e.currentTarget.style.color = "#fff";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "#9D4141";
+                    e.currentTarget.style.color = "#1E3A8A";
                   }}
                   onClick={handleCategoryModalOpen}
                 >
@@ -444,8 +444,8 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 <button
                   style={{
                     fontSize: "11px",
-                    border: "1px solid #9D4141",
-                    color: "#9D4141",
+                    border: "1px solid #1E3A8A",
+                    color: "#1E3A8A",
                     backgroundColor: "transparent",
                     borderRadius: "3px",
                     alignItems: "center",
@@ -458,12 +458,12 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                     whiteSpace: "nowrap"
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#9D4141";
+                    e.currentTarget.style.backgroundColor = "#1E3A8A";
                     e.currentTarget.style.color = "#fff";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "#9D4141";
+                    e.currentTarget.style.color = "#1E3A8A";
                   }}
                   onClick={handleServiceModalOpen}
                 >
@@ -555,7 +555,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                   maxHeight: "200px",
                   width: "100%",
                   scrollbarWidth: "thin",
-                  scrollbarColor: "#9D4141 #f0f0f0",
+                  scrollbarColor: "#1E3A8A #f0f0f0",
                 }}
               >
 

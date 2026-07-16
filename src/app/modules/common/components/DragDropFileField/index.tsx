@@ -111,7 +111,7 @@ export default function DragDropFileField({
           </div>
           {currentFileUrl && (
             <a href={currentFileUrl} target="_blank" rel="noreferrer"
-              style={{ fontSize: '12px', color: '#9D4141', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              style={{ fontSize: '12px', color: '#1E3A8A', fontWeight: 600, whiteSpace: 'nowrap' }}>
               View
             </a>
           )}
@@ -128,7 +128,7 @@ export default function DragDropFileField({
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           style={{
-            border: `1.5px dashed ${dragging ? '#9D4141' : '#c0c0c0'}`,
+            border: `1.5px dashed ${dragging ? '#1E3A8A' : '#c0c0c0'}`,
             borderRadius: '8px',
             padding: '0 12px',
             minHeight: 44,
@@ -140,9 +140,9 @@ export default function DragDropFileField({
             gap: '10px',
           }}
         >
-          <IconUpload size={18} color="#9D4141" />
+          <IconUpload size={18} color="#1E3A8A" />
           <span style={{ fontSize: '13px', color: '#666', flex: 1 }}>Drag &amp; drop or click to attach</span>
-          <span style={{ background: '#9D4141', color: '#fff', borderRadius: '6px', padding: '4px 12px', fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          <span style={{ background: '#1E3A8A', color: '#fff', borderRadius: '6px', padding: '4px 12px', fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap' }}>
             Browse
           </span>
         </div>
@@ -153,7 +153,7 @@ export default function DragDropFileField({
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           style={{
-            border: `2px dashed ${dragging ? '#9D4141' : '#c0c0c0'}`,
+            border: `2px dashed ${dragging ? '#1E3A8A' : '#c0c0c0'}`,
             borderRadius: '8px',
             padding: '28px 20px',
             textAlign: 'center',
@@ -163,7 +163,7 @@ export default function DragDropFileField({
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
-            <IconUpload size={30} color="#9D4141" />
+            <IconUpload size={30} color="#1E3A8A" />
           </div>
           <div style={{ fontWeight: 600, fontSize: '14px', color: '#444', marginBottom: '4px' }}>
             Drag & drop file here
@@ -171,7 +171,7 @@ export default function DragDropFileField({
           <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>
             or click to browse
           </div>
-          <div style={{ display: 'inline-block', background: '#9D4141', color: '#fff', borderRadius: '6px', padding: '5px 16px', fontSize: '13px', fontWeight: 600 }}>
+          <div style={{ display: 'inline-block', background: '#1E3A8A', color: '#fff', borderRadius: '6px', padding: '5px 16px', fontSize: '13px', fontWeight: 600 }}>
             Browse Files
           </div>
           <div style={{ fontSize: '11px', color: '#aaa', marginTop: '10px' }}>
@@ -183,7 +183,7 @@ export default function DragDropFileField({
       {/* Progress bar */}
       {uploading && progress > 0 && (
         <div style={{ marginTop: '6px', height: '4px', background: '#f0f0f0', borderRadius: '2px', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${progress}%`, background: '#9D4141', transition: 'width 0.3s ease' }} />
+          <div style={{ height: '100%', width: `${progress}%`, background: '#1E3A8A', transition: 'width 0.3s ease' }} />
         </div>
       )}
       {uploading && <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>Uploading…</div>}

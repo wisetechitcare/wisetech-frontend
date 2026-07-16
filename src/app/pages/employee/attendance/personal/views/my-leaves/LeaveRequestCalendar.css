@@ -1,4 +1,4 @@
-/* WiseTech Leave Request Calendar v2 — Navy #1E3A8A · Red #C0392B · Greyscale */
+/* WiseTech Leave Request Calendar v2 — Navy #1E3A8A · Red #3B82F6 · Greyscale */
 
 /* ── Modal chrome ── */
 .lrc-leave-modal__content {
@@ -10,7 +10,7 @@
 
 .lrc-leave-modal__header {
   background: linear-gradient(135deg, #172f6a 0%, #1e3a8a 100%);
-  border-bottom: 3px solid #c0392b;
+  border-bottom: 3px solid #3B82F6;
   padding: 14px 20px;
 }
 
@@ -329,7 +329,7 @@
 }
 
 .lrc-month__weekday--sun {
-  color: #c0392b;
+  color: #3B82F6;
 }
 
 .lrc-month__grid {
@@ -392,7 +392,7 @@
 }
 
 .lrc-day--sunday:not(.lrc-day--endpoint):not(.lrc-day--in-range) {
-  color: #c0392b;
+  color: #3B82F6;
 }
 
 .lrc-day--in-range {
@@ -478,7 +478,7 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #c0392b;
+  background: #3B82F6;
 }
 
 .lrc-day__badges {
@@ -500,7 +500,7 @@
 }
 
 .lrc-day__badge--holiday {
-  color: #c0392b;
+  color: #3B82F6;
   background: rgba(192, 57, 43, 0.12);
 }
 
@@ -684,7 +684,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #c0392b;
+  background: #3B82F6;
 }
 
 .lrc-legend__swatch--weekend {
@@ -702,7 +702,7 @@
 .lrc-suggestions {
   margin-top: 16px;
   border: 1px solid #dde3f0;
-  border-top: 3px solid #c0392b;
+  border-top: 3px solid #3B82F6;
   border-radius: 0 0 12px 12px;
   overflow: visible;
   background: #fff;

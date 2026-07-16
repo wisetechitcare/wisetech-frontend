@@ -311,7 +311,50 @@ export interface StatusDistributionRow extends ChartDatum {
 export const buildStatusDistribution = (
   data: ChartDatum[]
 ): StatusDistributionRow[] => {
-  const ordered = orderStatusForFunnel(data);
+  const safe = Array.isArray(data) ? data : [];
+
+  // Ensure all expected statuses are present in the data
+  const statusMap = new Map<string, ChartDatum>();
+
+  // Add provided data to map
+  safe.forEach((d) => {
+    const key = normalizeStatusKey(d.label);
+    statusMap.set(key, d);
+  });
+
+  // Ensure all expected statuses exist (with 0 value if missing) — a defensive
+  // fallback in case the backend ever omits a status; the primary fix is the
+  // backend using inquiryDate consistently (see LeadRepository.getLeadsByStatusAnalytics).
+  STATUS_ORDER.forEach((key) => {
+    if (!statusMap.has(key)) {
+      const statusLabels: Record<string, string> = {
+        pending: "Pending",
+        hold: "Hold",
+        received: "Received",
+        notreceived: "Not Received",
+      };
+      statusMap.set(key, {
+        label: statusLabels[key] || key,
+        value: 0,
+      });
+    }
+  });
+
+  // Convert map back to array in correct order
+  const allStatuses: ChartDatum[] = [];
+  STATUS_ORDER.forEach((key) => {
+    const datum = statusMap.get(key);
+    if (datum) allStatuses.push(datum);
+  });
+
+  // Add any unknown statuses that weren't in STATUS_ORDER
+  statusMap.forEach((datum, key) => {
+    if (!STATUS_ORDER.includes(key as any)) {
+      allStatuses.push(datum);
+    }
+  });
+
+  const ordered = orderStatusForFunnel(allStatuses);
   const total = ordered.reduce((s, d) => s + (Number(d.value) || 0), 0);
 
   return ordered.map((d) => {

@@ -18,9 +18,9 @@ function KpiLeaderboard() {
           data: { configuration },
         } = await fetchConfiguration(DATE_SETTINGS_KEY);
         const parsed =
-          typeof configuration.configuration === "string"
+          typeof configuration?.configuration === "string"
             ? safeJsonParse(configuration.configuration)
-            : configuration.configuration;
+            : configuration?.configuration;
         setDateSettingsEnabled(parsed?.useDateSettings ?? false);
       } catch (err) {
         console.error("Error fetching date settings", err);

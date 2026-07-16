@@ -27,7 +27,7 @@ const buildDefaultFolders = (leadId?: string, inquiryNumber?: string): DMSFolder
       createdAt: new Date().toISOString(),
       icon: '📁',
       isSystem: true,
-      color: '#9d4141',
+      color: '#1E3A8A',
     }];
   }
 
@@ -48,7 +48,7 @@ const buildDefaultFolders = (leadId?: string, inquiryNumber?: string): DMSFolder
     createdAt: new Date().toISOString(),
     icon: '📁',
     isSystem: true,
-    color: '#9d4141',
+    color: '#1E3A8A',
   };
 
   return [root, ...systemFolders];
@@ -223,7 +223,7 @@ export const DMSProvider: React.FC<DMSProviderProps> = ({ children, leadId, inqu
             // Global Mode: Dynamically build folders from files
             const rootId = 'root-global';
             const folders: DMSFolder[] = [{
-              id: rootId, name: 'All Projects', parentId: null, children: [], fileCount: 0, totalSize: 0, isPinned: true, isExpanded: true, createdAt: new Date().toISOString(), icon: '📁', isSystem: true, color: '#9d4141'
+              id: rootId, name: 'All Projects', parentId: null, children: [], fileCount: 0, totalSize: 0, isPinned: true, isExpanded: true, createdAt: new Date().toISOString(), icon: '📁', isSystem: true, color: '#1E3A8A'
             }];
 
             const projectMap = new Map<string, any>();

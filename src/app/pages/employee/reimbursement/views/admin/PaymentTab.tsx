@@ -211,7 +211,7 @@ function PendingPaymentTable({
         Cell: ({ row, renderedCellValue }: any) => (
           <button
             className="btn btn-link p-0 fw-bold fs-7"
-            style={{ textDecoration: 'none', color: '#AA393D' }}
+            style={{ textDecoration: 'none', color: '#1E3A8A' }}
             onClick={(e) => {
               e.stopPropagation();
               onRowClick(row.original._batch.id);
@@ -257,13 +257,13 @@ function PendingPaymentTable({
         size: 145,
         Cell: ({ renderedCellValue }: any) => {
           return (
-            <span className="fw-bolder fs-6" style={{ color: '#AA393D' }}>
+            <span className="fw-bolder fs-6" style={{ color: '#1E3A8A' }}>
               {formatINR(Number(renderedCellValue))}
             </span>
           );
         },
         Footer: () => (
-          <span className="fw-bolder fs-6" style={{ color: '#AA393D' }}>
+          <span className="fw-bolder fs-6" style={{ color: '#1E3A8A' }}>
             {formatINR(totalRemaining)}
           </span>
         ),
@@ -321,7 +321,7 @@ function PendingPaymentTable({
                 transition: 'all 0.15s ease',
                 whiteSpace: 'nowrap',
               }}
-              onMouseEnter={(e) => { if (!isPending) { e.currentTarget.style.borderColor = '#AA393D'; e.currentTarget.style.color = '#AA393D'; } }}
+              onMouseEnter={(e) => { if (!isPending) { e.currentTarget.style.borderColor = '#1E3A8A'; e.currentTarget.style.color = '#1E3A8A'; } }}
               onMouseLeave={(e) => { if (!isPending) { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.color = '#374151'; } }}
             >
               {isPending ? (
@@ -344,8 +344,16 @@ function PendingPaymentTable({
   );
 
   return (
-    <div className="card shadow-sm">
-      <div className="card-body p-6">
+    <div
+      style={{
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        border: '1px solid #eef0f4',
+        boxShadow: '0 4px 20px rgba(15,23,42,0.05)',
+        overflow: 'hidden',
+      }}
+    >
+      <div className="p-6">
         <PeriodFilterBar
           filter={filter}
           date={currentDate}
@@ -517,7 +525,7 @@ function PaymentDoneTable({
       Cell: ({ renderedCellValue }: any) => (
         <span style={{
           display: 'inline-block',
-          background: '#fef2f2', color: '#AA393D',
+          background: '#fef2f2', color: '#1E3A8A',
           fontWeight: 700, fontSize: 11,
           padding: '3px 8px', borderRadius: 6,
           fontFamily: 'monospace', letterSpacing: '0.03em',
@@ -540,7 +548,7 @@ function PaymentDoneTable({
       header: 'Total Requests',
       size: 130,
       Cell: ({ renderedCellValue }: any) => (
-        <span className="fw-bold fs-7" style={{ color: '#AA393D' }}>
+        <span className="fw-bold fs-7" style={{ color: '#1E3A8A' }}>
           {renderedCellValue}
         </span>
       ),
@@ -591,7 +599,7 @@ function PaymentDoneTable({
       size: 210,
       Cell: ({ row, renderedCellValue }: any) => (
         <span className="fw-bolder fs-6" style={{
-          color: Number(row.original.totalRemainingAmount) > 0.005 ? '#AA393D' : '#16a34a',
+          color: Number(row.original.totalRemainingAmount) > 0.005 ? '#1E3A8A' : '#16a34a',
         }}>
           ₹{fmtAmount(Number(renderedCellValue))}
         </span>
@@ -601,7 +609,7 @@ function PaymentDoneTable({
           (s: number, r: any) => s + Number(r.original.totalRemainingAmount || 0), 0,
         );
         return (
-          <span style={{ color: '#AA393D', fontWeight: 700, fontSize: '1rem' }}>
+          <span style={{ color: '#1E3A8A', fontWeight: 700, fontSize: '1rem' }}>
             {formatINR(total)}
           </span>
         );
@@ -612,8 +620,16 @@ function PaymentDoneTable({
   const loading = batchesLoading || paymentsLoading;
 
   return (
-    <div className="card shadow-sm">
-      <div className="card-body p-6">
+    <div
+      style={{
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        border: '1px solid #eef0f4',
+        boxShadow: '0 4px 20px rgba(15,23,42,0.05)',
+        overflow: 'hidden',
+      }}
+    >
+      <div className="p-6">
         <PeriodFilterBar
           filter={filter}
           date={currentDate}
@@ -753,6 +769,173 @@ function PaymentDoneTable({
   );
 }
 
+// ── KPI Cards ───────────────────────────────────────────────────────────────────
+
+function KpiCard({
+  icon,
+  iconColor,
+  iconBg,
+  label,
+  value,
+  loading,
+}: {
+  icon: string;
+  iconColor: string;
+  iconBg: string;
+  label: string;
+  value: string;
+  loading?: boolean;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        backgroundColor: '#ffffff',
+        border: '1px solid rgba(226, 232, 240, 0.8)',
+        borderRadius: '20px',
+        padding: '24px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: hov ? '0 20px 40px rgba(0,0,0,0.06)' : '0 4px 15px rgba(0,0,0,0.02)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: hov ? 'translateY(-4px)' : 'translateY(0)',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          top: '-20px',
+          right: '-20px',
+          width: '120px',
+          height: '120px',
+          borderRadius: '50%',
+          background: `radial-gradient(circle, ${iconColor}15 0%, rgba(255,255,255,0) 70%)`,
+          opacity: hov ? 1 : 0.5,
+          transition: 'opacity 0.3s ease',
+          zIndex: 0,
+        }}
+      />
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 1 }}>
+        <div
+          style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '14px',
+            backgroundColor: iconBg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: `0 4px 12px ${iconBg}`,
+          }}
+        >
+          <span style={{ color: iconColor, display: 'flex' }}>
+            <KTIcon iconName={icon} className="fs-2" />
+          </span>
+        </div>
+      </div>
+
+      <div style={{ position: 'relative', zIndex: 1, marginTop: '8px' }}>
+        <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+          {loading ? '—' : value}
+        </div>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PaymentKpiCards({ batches, loading }: { batches: any[]; loading: boolean }) {
+  const pending = batches.filter((b) => b.paymentStatus === 'UNPAID' || b.paymentStatus === 'PARTIAL');
+  const pendingAmount = pending.reduce((s, b) => s + Number(b.remainingAmount ?? 0), 0);
+  const paidAmount = batches.reduce((s, b) => s + Number(b.paidAmount ?? 0), 0);
+  const employeesAwaiting = new Set(
+    pending.map((b) => b.employee?.id || b.employeeId).filter(Boolean),
+  ).size;
+
+  const cards = [
+    { icon: 'wallet', iconColor: '#1E3A8A', iconBg: '#fef2f2', label: 'Pending Amount', value: formatINR(pendingAmount) },
+    { icon: 'check-circle', iconColor: '#16a34a', iconBg: '#f0fdf4', label: 'Total Paid', value: formatINR(paidAmount) },
+    { icon: 'document', iconColor: '#d97706', iconBg: '#fffbeb', label: 'Pending Requests', value: String(pending.length) },
+    { icon: 'user', iconColor: '#2563eb', iconBg: '#eff6ff', label: 'Employees Awaiting', value: String(employeesAwaiting) },
+  ];
+
+  return (
+    <div className="row g-4 mb-8">
+      {cards.map((c) => (
+        <div key={c.label} className="col-12 col-sm-6 col-lg-3">
+          <KpiCard {...c} loading={loading} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Section Header ────────────────────────────────────────────────────────────
+
+function SectionHeader({
+  icon,
+  iconColor,
+  iconBg,
+  title,
+  subtitle,
+  count,
+  countColor,
+  countBg,
+}: {
+  icon: string;
+  iconColor: string;
+  iconBg: string;
+  title: string;
+  subtitle?: string;
+  count?: number;
+  countColor?: string;
+  countBg?: string;
+}) {
+  return (
+    <div className="d-flex align-items-center gap-4 mb-6 p-5" style={{ backgroundColor: '#ffffff', border: '1px solid rgba(226,232,240,0.8)', borderRadius: '20px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
+      <div
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 14,
+          background: iconBg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          boxShadow: `0 4px 12px ${iconBg}`
+        }}
+      >
+        <span style={{ color: iconColor, display: 'flex' }}>
+          <KTIcon iconName={icon} className="fs-1" />
+        </span>
+      </div>
+      <div>
+        <div className="d-flex align-items-center gap-3">
+          <h2 className="fw-bolder fs-2 mb-0" style={{ color: '#0f172a', letterSpacing: '-0.5px' }}>{title}</h2>
+          {count !== undefined && (
+            <span
+              className="fw-bold fs-7 px-3 py-1"
+              style={{ backgroundColor: countBg, color: countColor, borderRadius: '8px' }}
+            >
+              {count}
+            </span>
+          )}
+        </div>
+        {subtitle && <div className="text-muted fs-7 fw-semibold mt-1" style={{ color: '#64748b' }}>{subtitle}</div>}
+      </div>
+    </div>
+  );
+}
+
 // ── Mark as Paid Modal ─────────────────────────────────────────────────────────
 
 const PAYMENT_METHODS = [
@@ -845,12 +1028,12 @@ function MarkAsPaidModal({
               width: 44,
               height: 44,
               borderRadius: 12,
-              background: 'linear-gradient(135deg, #AA393D 0%, #c94c50 100%)',
+              background: 'linear-gradient(135deg, #1E3A8A 0%, #172554 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
-              boxShadow: '0 4px 12px rgba(170,57,61,0.25)',
+              boxShadow: '0 4px 12px rgba(30, 58, 138,0.25)',
             }}
           >
             <KTIcon iconName="wallet" className="fs-2 text-white" />
@@ -887,8 +1070,8 @@ function MarkAsPaidModal({
                       borderRadius: '8px',
                       backgroundColor: '#fff',
                       '& fieldset': { borderColor: '#e2e8f0', borderWidth: '1.5px' },
-                      '&:hover fieldset': { borderColor: '#AA393D' },
-                      '&.Mui-focused fieldset': { borderColor: '#AA393D', borderWidth: '2px' },
+                      '&:hover fieldset': { borderColor: '#1E3A8A' },
+                      '&.Mui-focused fieldset': { borderColor: '#1E3A8A', borderWidth: '2px' },
                     },
                   },
                 },
@@ -924,7 +1107,7 @@ function MarkAsPaidModal({
             </span>
             <span
               className="fs-8 fw-bolder px-3 py-1 rounded-pill"
-              style={{ background: '#fef2f2', color: '#AA393D', fontFamily: 'monospace', letterSpacing: '0.03em' }}
+              style={{ background: '#fef2f2', color: '#1E3A8A', fontFamily: 'monospace', letterSpacing: '0.03em' }}
             >
               {batch?.submissionId || batch?.id || 'N/A'}
             </span>
@@ -974,7 +1157,7 @@ function MarkAsPaidModal({
               <KTIcon iconName="wallet" className="fs-6 text-gray-400" />
               Remaining Balance
             </span>
-            <span className="fs-7 fw-bolder" style={{ color: '#AA393D' }}>₹{fmtAmount(remainingAmount)}</span>
+            <span className="fs-7 fw-bolder" style={{ color: '#1E3A8A' }}>₹{fmtAmount(remainingAmount)}</span>
           </div>
         </div>
 
@@ -999,7 +1182,7 @@ function MarkAsPaidModal({
                 <div
                   className="d-flex align-items-center flex-grow-1 overflow-hidden"
                   style={{
-                    border: '1.5px solid #AA393D',
+                    border: '1.5px solid #1E3A8A',
                     borderRadius: 8,
                     background: '#fff',
                     height: 44,
@@ -1010,7 +1193,7 @@ function MarkAsPaidModal({
                     style={{
                       background: '#fef2f2',
                       borderRight: '1.5px solid #e2e8f0',
-                      color: '#AA393D',
+                      color: '#1E3A8A',
                       height: '100%',
                       minWidth: 36,
                     }}
@@ -1086,7 +1269,7 @@ function MarkAsPaidModal({
                 style={{
                   background: '#f1f5f9',
                   borderRight: '1.5px solid #e2e8f0',
-                  color: '#AA393D',
+                  color: '#1E3A8A',
                   height: '100%',
                   minWidth: 36,
                 }}
@@ -1095,7 +1278,7 @@ function MarkAsPaidModal({
               </span>
               <span
                 className="flex-grow-1 px-3 fs-6 fw-bolder"
-                style={{ color: '#AA393D' }}
+                style={{ color: '#1E3A8A' }}
               >
                 {fmtAmount(editedAmount)}
               </span>
@@ -1157,12 +1340,12 @@ function MarkAsPaidModal({
           style={{
             background: submitting || amountEditing || editedAmount <= 0
               ? '#e9b4b6'
-              : 'linear-gradient(135deg, #AA393D 0%, #c94c50 100%)',
+              : 'linear-gradient(135deg, #1E3A8A 0%, #172554 100%)',
             border: 'none',
             color: '#fff',
             boxShadow: submitting || amountEditing || editedAmount <= 0
               ? 'none'
-              : '0 4px 12px rgba(170,57,61,0.30)',
+              : '0 4px 12px rgba(30, 58, 138,0.30)',
             transition: 'all 0.15s ease',
           }}
           onClick={handleConfirm}
@@ -1318,7 +1501,7 @@ function PaymentTab() {
           ? `₹${amount.toLocaleString('en-IN')} recorded. Remaining balance: ₹${(remaining - amount).toLocaleString('en-IN')}.`
           : 'The batch has been fully paid.',
         icon: 'success',
-        confirmButtonColor: '#AA393D',
+        confirmButtonColor: '#1E3A8A',
       });
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to record payment. Please try again.';
@@ -1332,18 +1515,22 @@ function PaymentTab() {
 
   return (
     <div>
+      {/* KPI overview — always shown */}
+      <PaymentKpiCards batches={batches} loading={loading} />
+
       {/* Pending Payment — only shown when there are pending entries */}
       {!loading && pendingCount > 0 && (
         <div className="mb-8">
-          <div className="d-flex align-items-center gap-3 mb-4">
-            <h2 className="fw-bold fs-3 mb-0">Pending Payment</h2>
-            <span
-              className="badge fw-bold fs-8 px-3 py-2"
-              style={{ backgroundColor: '#fef3c7', color: '#92400e', borderRadius: 6 }}
-            >
-              {pendingCount}
-            </span>
-          </div>
+          <SectionHeader
+            icon="wallet"
+            iconColor="#1E3A8A"
+            iconBg="#fef2f2"
+            title="Pending Payment"
+            subtitle="Approved batches awaiting full or partial settlement"
+            count={pendingCount}
+            countColor="#92400e"
+            countBg="#fef3c7"
+          />
           <PendingPaymentTable
             batches={batches}
             loading={loading}
@@ -1355,7 +1542,13 @@ function PaymentTab() {
 
       {/* Payment Done — always shown */}
       <div>
-        <h2 className="fw-bold fs-3 mb-4">Payment Done</h2>
+        <SectionHeader
+          icon="check-circle"
+          iconColor="#16a34a"
+          iconBg="#f0fdf4"
+          title="Payment Done"
+          subtitle="Batches with a recorded full or partial payment"
+        />
         <PaymentDoneTable
           batches={batches}
           loading={loading}

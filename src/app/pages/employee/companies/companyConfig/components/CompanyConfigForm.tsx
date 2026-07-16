@@ -87,7 +87,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
 
   const initialValues = {
     name: initialData?.name || "",
-    color: initialData?.color || "#8B4444",
+    color: initialData?.color || "#1E3A8A",
     isActive: initialData?.isActive ?? true,
     parentTypeId: initialData?.parentTypeId || "",
     companyTypeId: initialData?.companyTypeId || "",
@@ -250,13 +250,13 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                       id="colorInput"
                       type="color"
                       name="color"
-                      value={values.color || '#8B4444'}
+                      value={values.color || '#1E3A8A'}
                       onChange={(e) => {
                         setFieldValue("color", e.target.value, true);
                       }}
                       onBlur={() => {
                         if (!values.color) {
-                          setFieldValue("color", "#8B4444", true);
+                          setFieldValue("color", "#1E3A8A", true);
                         }
                       }}
                       style={{
@@ -383,7 +383,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                 type="submit" 
                 disabled={isSubmitting}
                 style={{
-                  backgroundColor: '#8B4444',
+                  backgroundColor: '#1E3A8A',
                   border: 'none',
                   borderRadius: '8px',
                   padding: '10px 24px',
@@ -401,8 +401,8 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
       <style jsx>{`
         .form-control:focus {
           background-color: #fff !important;
-          border-color: #8B4444 !important;
-          box-shadow: 0 0 0 0.2rem rgba(139, 68, 68, 0.1) !important;
+          border-color: #1E3A8A !important;
+          box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.1) !important;
           color: #495057 !important;
         }
         
@@ -422,7 +422,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
         }
         
         .btn-primary:hover {
-          background-color: #7a3a3a !important;
+          background-color: #172554 !important;
         }
         
         .btn-primary:disabled {

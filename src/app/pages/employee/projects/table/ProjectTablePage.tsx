@@ -45,6 +45,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatCompactCurrency, getProjectPhase, isDelayedProject, PHASE_THEMES } from "../../entity/entityUtils";
 import PeriodNavigationButtons from "@pages/employee/leads/table/PeriodNavigationButtons";
+import "./ProjectTablePage.css";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -61,6 +62,11 @@ const ProjectTablePage = () => {
   const [tableData, setTableData] = useState<any[]>([]);
   const [projectStatuses, setProjectStatuses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  // True once the first fetch settles. Background refetches (event bus, column
+  // visibility changes) must NOT swap the table for the full-page loader:
+  // unmounting MaterialTable resets its preference state, and the remount
+  // re-emits visible columns → another refetch → an endless refresh loop.
+  const hasLoadedOnceRef = useRef(false);
   const [projectServices, setProjectServices] = useState<any[]>([]);
   const [projectCategories, setProjectCategories] = useState<any[]>([]);
   const [projectSubcategories, setProjectSubcategories] = useState<any[]>([]);
@@ -303,22 +309,6 @@ const ProjectTablePage = () => {
           const derivedRate =
             commercialsArea > 0 ? commercialsTotal / commercialsArea : 0;
 
-          // Handle inquiryDate - check multiple field names, ensure ISO string
-          let inquiryDate: string;
-          try {
-            if (lead.inquiryDate) {
-              inquiryDate = new Date(lead.inquiryDate).toISOString();
-            } else if (lead.inquiry_date) {
-              inquiryDate = new Date(lead.inquiry_date).toISOString();
-            } else if (lead.createdAt) {
-              inquiryDate = new Date(lead.createdAt).toISOString();
-            } else {
-              inquiryDate = new Date().toISOString();
-            }
-          } catch {
-            inquiryDate = new Date().toISOString();
-          }
-
           // Address completeness: a project "has address" only when a usable
           // lat/long exists — on the lead's additionalDetails OR on any of the
           // project's site addresses. Drives the "Missing Address" filter.
@@ -344,7 +334,6 @@ const ProjectTablePage = () => {
             status: lead?.status || null,
             poStatus: lead?.poStatus || null,
             assignedTo: lead?.assignedToId || "N/A",
-            inquiryDate: inquiryDate,
             contact: lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "N/A",
             createdAt: lead?.createdAt ? new Date(lead.createdAt).toISOString() : new Date().toISOString(),
             updatedAt: lead?.updatedAt ? new Date(lead.updatedAt).toISOString() : new Date().toISOString(),
@@ -383,6 +372,7 @@ const ProjectTablePage = () => {
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
+      hasLoadedOnceRef.current = true;
       setLoading(false);
     }
   }, []);
@@ -418,8 +408,13 @@ const ProjectTablePage = () => {
 
   useEffect(() => {
     dispatch(fetchAllEmployeesAsync());
-  }, []);
+  }, [dispatch]);
 
+  // Refresh the table when a project is created/updated elsewhere. useEventBus is a
+  // hook that self-manages subscribe/cleanup via a ref-backed stable handler, so it
+  // must be called at the top level (not inside a useEffect) and registers the
+  // listener exactly once for the component's lifetime — always invoking the latest
+  // fetchAllData, so no duplicate listeners, missed events, or stale-closure refresh.
   useEventBus(EVENT_KEYS.projectCreated, () => fetchAllData());
   useEventBus(EVENT_KEYS.projectUpdated, () => fetchAllData());
 
@@ -522,20 +517,19 @@ const ProjectTablePage = () => {
         },
       },
       {
-        accessorKey: "inquiryDate",
-        header: "Inquiry Date",
-        size: 140,
-        Cell: ({ cell }: { cell: any }) => {
-          const v = cell.getValue();
-          return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
-        },
-      },
-      {
         accessorKey: "projectStartDate",
         header: "Start Date",
-        meta: { defaultVisible: false },
+        // Explicit defaultVisible:true — with the Inquiry Date column removed the
+        // preference reconciliation re-applies meta rules, forcing this column on
+        // even for users whose saved prefs still have it hidden.
+        meta: { defaultVisible: true },
         size: 140,
         enableSorting: true,
+        // "N/A" sorts as oldest so dated rows lead the default (desc) view.
+        sortingFn: (rowA: any, rowB: any) => {
+          const toTime = (v: any) => (v && v !== "N/A" ? new Date(v).getTime() : 0);
+          return toTime(rowA.original.projectStartDate) - toTime(rowB.original.projectStartDate);
+        },
         Cell: ({ cell }: { cell: any }) => {
           try {
             const v = cell.getValue();
@@ -683,7 +677,6 @@ const ProjectTablePage = () => {
         format: (val: any) => val?.name || String(val || ''),
       },
       { key: 'poStatus', header: 'PO Status', type: 'text' as const },
-      { key: 'inquiryDate', header: 'Inquiry Date', type: 'text' as const },
       { key: 'projectStartDate', header: 'Start Date', type: 'text' as const },
       { key: 'projectEndDate', header: 'End Date', type: 'text' as const },
       { key: 'projectCost', header: 'Budget', type: 'currency' as const, showTotal: true },
@@ -701,11 +694,16 @@ const ProjectTablePage = () => {
     [allemployees],
   );
 
-  if (loading) return <Loader />;
+  // Full-page loader only for the very first load; background refetches keep
+  // the table mounted (see hasLoadedOnceRef above).
+  if (loading && !hasLoadedOnceRef.current) return <Loader />;
 
   const baseFilteredData = tableData?.filter((item: any) => {
     let dateMatch = true;
-    const d = item.inquiryDate ? dayjs(item.inquiryDate) : null;
+    // Period filter runs on the project start date — the date the table shows.
+    const d = item.projectStartDate && item.projectStartDate !== "N/A"
+      ? dayjs(item.projectStartDate)
+      : null;
     if (alignment === "daily") {
       dateMatch = d ? d.isSame(day, "day") : false;
     } else if (alignment === "weekly") {
@@ -786,15 +784,15 @@ const ProjectTablePage = () => {
     fontFamily: "Inter",
     fontWeight: 500,
     height: FILTER_HEIGHT,
-    color: hasValue ? "#AA393D" : "#1E293B",
+    color: hasValue ? "#1E3A8A" : "#1E293B",
     "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasValue ? "#AA393D !important" : "#E2E8F0 !important",
+      borderColor: hasValue ? "#1E3A8A !important" : "#E2E8F0 !important",
       borderWidth: "1px !important",
       borderRadius: "6px !important",
     },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#AA393D !important" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#AA393D !important" },
-    "& .MuiSelect-icon": { color: hasValue ? "#AA393D" : "#94A3B8" },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
+    "& .MuiSelect-icon": { color: hasValue ? "#1E3A8A" : "#94A3B8" },
   });
 
   const menuSx = {
@@ -807,10 +805,10 @@ const ProjectTablePage = () => {
         "& .MuiMenuItem-root": {
           fontSize: "12px",
           fontFamily: "Inter",
-          "&:hover": { backgroundColor: "rgba(170,57,61,0.06)" },
+          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
           "&.Mui-selected": {
-            backgroundColor: "rgba(170,57,61,0.1)",
-            color: "#AA393D",
+            backgroundColor: "rgba(30, 58, 138,0.1)",
+            color: "#1E3A8A",
             fontWeight: 600,
           },
         },
@@ -958,9 +956,9 @@ const ProjectTablePage = () => {
                   height: FILTER_HEIGHT,
                   fontFamily: "Inter",
                   fontSize: "12px",
-                  "& fieldset": { borderColor: searchText ? "#AA393D" : "#E2E8F0" },
-                  "&:hover fieldset": { borderColor: "#AA393D" },
-                  "&.Mui-focused fieldset": { borderColor: "#AA393D" },
+                  "& fieldset": { borderColor: searchText ? "#1E3A8A" : "#E2E8F0" },
+                  "&:hover fieldset": { borderColor: "#1E3A8A" },
+                  "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
                 },
               }}
               InputProps={{
@@ -990,7 +988,7 @@ const ProjectTablePage = () => {
                     }
                     const st = projectStatuses.find((s: any) => s.id === val);
                     return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#AA393D" }}>
+                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
                         {st?.name || val}
                       </span>
                     );
@@ -1030,7 +1028,7 @@ const ProjectTablePage = () => {
                     }
                     const emp = projectManagerOptions.find((e: any) => e.employeeId === val);
                     return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#AA393D" }}>
+                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
                         {emp?.employeeName || val}
                       </span>
                     );
@@ -1057,7 +1055,7 @@ const ProjectTablePage = () => {
                   border: "none",
                   cursor: "pointer",
                   fontSize: "12px",
-                  color: "#AA393D",
+                  color: "#1E3A8A",
                   fontWeight: 600,
                   fontFamily: "Inter, sans-serif",
                   padding: "2px 8px",
@@ -1071,111 +1069,51 @@ const ProjectTablePage = () => {
 
           {/* Right-side group: budget/results pill + missing-address toggle, kept together */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'stretch' : 'flex-end', width: isMobile ? '100%' : 'auto' }}>
-          {/* KPI Summary — glassmorphic pill */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            border: '1px solid rgba(226,232,240,0.9)',
-            borderRadius: '10px',
-            padding: '0 14px',
-            background: 'rgba(255,255,255,0.55)',
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            height: '32px',
-            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06)',
-            width: isMobile ? '100%' : 'auto'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Budget:</span>
-              <span style={{ fontSize: '14px', color: '#AA393D', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
-            </div>
-            <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
-              <span style={{ fontSize: '14px', color: '#AA393D', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
-                {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
-              </span>
-            </div>
-          </div>
-
-          {/* Missing-address filter: shows the count and, on click, lists ONLY the
-              projects without lat/long in place — no modal. */}
-          <button
-            type="button"
-            onClick={() => setShowMissingAddress((v) => !v)}
-            title={showMissingAddress
-              ? 'Showing projects with no address (latitude/longitude). Click to show all.'
-              : 'Show only projects missing address (latitude/longitude)'}
-            style={{
-              position: 'relative',
-              overflow: 'hidden',
+            {/* KPI Summary — glassmorphic pill */}
+            <div style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              // Constant border width + padding + height across states so the
-              // button never resizes or shifts when toggled.
-              gap: '7px',
-              border: `1px solid ${showMissingAddress ? 'rgba(255,255,255,0.35)' : 'rgba(226,232,240,0.9)'}`,
+              gap: '10px',
+              border: '1px solid rgba(226,232,240,0.9)',
               borderRadius: '10px',
               padding: '0 14px',
-              height: '32px',
-              cursor: 'pointer',
-              // Glassmorphic base — the red is a separate overlay layer below.
               background: 'rgba(255,255,255,0.55)',
               backdropFilter: 'blur(10px)',
               WebkitBackdropFilter: 'blur(10px)',
-              boxShadow: showMissingAddress
-                ? '0 6px 18px rgba(170, 57, 61, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)'
-                : '0 2px 10px rgba(0, 0, 0, 0.06)',
-              fontFamily: 'Inter, sans-serif',
-              width: isMobile ? '100%' : 'auto',
-              transition: 'box-shadow 0.25s ease, border-color 0.25s ease',
-            }}
-          >
-            {/* Premium red gradient layer — fades in/out via opacity (a linear-gradient
-                background can't be transitioned directly, so we animate opacity). */}
-            <span
-              aria-hidden
-              style={{
-                position: 'absolute',
-                inset: 0,
-                borderRadius: 'inherit',
-                background: 'linear-gradient(135deg, rgba(198,71,75,0.92) 0%, rgba(170,57,61,0.94) 55%, rgba(126,37,41,0.96) 100%)',
-                opacity: showMissingAddress ? 1 : 0,
-                transition: 'opacity 0.3s ease',
-                zIndex: 0,
-              }}
-            />
-            <WrongLocationRoundedIcon
-              style={{ position: 'relative', zIndex: 1, fontSize: 16, color: showMissingAddress ? '#fff' : '#AA393D', transition: 'color 0.3s ease' }}
-            />
-            <span style={{ position: 'relative', zIndex: 1, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: showMissingAddress ? 'rgba(255,255,255,0.95)' : '#64748B', transition: 'color 0.3s ease' }}>
-              Missing Address
-            </span>
-            <span
-              style={{
-                position: 'relative',
-                zIndex: 1,
-                fontSize: '12px',
-                fontWeight: 800,
-                lineHeight: 1,
-                color: showMissingAddress ? '#AA393D' : '#fff',
-                background: showMissingAddress ? '#fff' : '#AA393D',
-                borderRadius: '999px',
-                minWidth: '20px',
-                height: '20px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0 6px',
-                transition: 'color 0.3s ease, background 0.3s ease',
-              }}
+              height: '32px',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06)',
+              width: isMobile ? '100%' : 'auto'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Budget:</span>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
+              </div>
+              <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
+                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
+                  {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
+                </span>
+              </div>
+            </div>
+
+            {/* Missing-address filter: shows the count and, on click, lists ONLY the
+              projects without lat/long in place — no modal. */}
+            <button
+              type="button"
+              onClick={() => setShowMissingAddress((v) => !v)}
+              title={showMissingAddress
+                ? 'Showing projects with no address (latitude/longitude). Click to show all.'
+                : 'Show only projects missing address (latitude/longitude)'}
+              className={`missing-address-btn${showMissingAddress ? ' is-selected' : ''}`}
+              style={{ width: isMobile ? '100%' : 'auto' }}
             >
-              {missingAddressCount}
-            </span>
-          </button>
+              <span aria-hidden className="missing-address-btn__gradient" />
+              <WrongLocationRoundedIcon className="missing-address-btn__icon" style={{ fontSize: 16 }} />
+              <span className="missing-address-btn__label">Missing Address</span>
+              <span className="missing-address-btn__count">{missingAddressCount}</span>
+            </button>
           </div>
         </div>
       </Box>
@@ -1184,7 +1122,7 @@ const ProjectTablePage = () => {
         columns={columns}
         data={quickFilteredData}
         tableName="ProjectTableV2"
-        defaultSorting={[{ id: "inquiryDate", desc: true }]}
+        defaultSorting={[{ id: "projectStartDate", desc: true }]}
         renderExportActions={() => (
           <ExportButton
             data={quickFilteredData}
@@ -1232,7 +1170,7 @@ const ProjectTablePage = () => {
               "& .MuiTableCell-root:first-of-type": {
                 borderTopLeftRadius: "12px",
                 borderBottomLeftRadius: "12px",
-                borderLeft: `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#AA393D"} !important`,
+                borderLeft: `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`,
                 transition: "border-color 0.2s ease-in-out !important",
               },
               "& .MuiTableCell-root:last-of-type": {
@@ -1247,7 +1185,7 @@ const ProjectTablePage = () => {
                   backgroundColor: "#F8FAFC !important",
                 },
                 "& .MuiTableCell-root:first-of-type": {
-                  borderLeftColor: `${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#AA393D"} !important`,
+                  borderLeftColor: `${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`,
                 },
               },
             },

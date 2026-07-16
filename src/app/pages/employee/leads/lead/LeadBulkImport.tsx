@@ -123,7 +123,7 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
     );
 
     // Smooth percentage counter to 100% over ~4.2s
-    let start = 0;
+    const start = 0;
     const duration = 4200;
     const interval = 40;
     const increment = 100 / (duration / interval);

@@ -1,7 +1,9 @@
-$primary-red: #AA393D;
+// Brand primary is Navy blue (#1E3A8A). `$primary-red` keeps its legacy name for
+// backwards compatibility with existing references; the value is the navy brand hue.
+$primary-red: #1E3A8A;
 $primary-blue: #295D8E;
 
 $primary: $primary-red;
 $secondary: $primary-blue;
-$primary-active: #7a2124;
+$primary-active: #172554;
 $input-border-color: $primary-red;

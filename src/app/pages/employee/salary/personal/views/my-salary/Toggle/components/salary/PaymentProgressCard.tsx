@@ -65,7 +65,7 @@ const PaymentProgressCard = ({ title, subtitle, percentPaid, paidAmount, remaini
                     backgroundColor: '#ffe4e6', // Soft pink/red for remaining (matching screenshot track)
                     '& .MuiLinearProgress-bar': {
                         borderRadius: 6,
-                        backgroundColor: '#AA393D', // Dark red for paid (matching screenshot bar)
+                        backgroundColor: '#1E3A8A', // Dark red for paid (matching screenshot bar)
                     },
                 }}
             />

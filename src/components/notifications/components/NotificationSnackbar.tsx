@@ -11,10 +11,9 @@ interface Props {
 /**
  * Collapsed floating snackbar shown above the bottom navigation.
  *
- * Intentionally CONSISTENT: it always shows the same summary (title + unread
- * count, plus a small critical hint) rather than a specific notification, so it
- * reads as a stable access point. The actual notifications are revealed only on
- * expand.
+ * Deliberately minimal — a slim auto-width pill (bell + unread count + chevron)
+ * so it occupies as little screen as possible while staying an obvious,
+ * tappable access point. The actual notifications are revealed only on expand.
  */
 export const NotificationSnackbar = forwardRef<HTMLButtonElement, Props>(
   ({ unreadCount, criticalCount = 0, onOpen }, ref) => {
@@ -29,24 +28,19 @@ export const NotificationSnackbar = forwardRef<HTMLButtonElement, Props>(
         onClick={onOpen}
         aria-label={`${countLabel}. Open notification center.`}
       >
-        <span className="wt-snack__logo" aria-hidden="true">
-          <KTIcon iconName="notification-on" className="fs-4" />
-          {unreadCount > 0 && (
-            <span className="wt-badge wt-badge--pulse">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          )}
+        <span
+          className={`wt-snack__logo${criticalCount > 0 ? ' wt-snack__logo--critical' : ''}`}
+          aria-hidden="true"
+        >
+          <KTIcon iconName="notification-on" className="fs-7" />
         </span>
 
-        <span className="wt-snack__body">
-          <span className="wt-snack__heading">Notifications</span>
-          <span className="wt-snack__count">
-            {unreadCount} unread
-          </span>
+        <span className="wt-snack__count">
+          {unreadCount > 99 ? '99+' : unreadCount} unread
         </span>
 
         <span className="wt-snack__chevron" aria-hidden="true">
-          <KTIcon iconName="up" className="fs-5" />
+          <KTIcon iconName="up" className="fs-8" />
         </span>
       </button>
     );

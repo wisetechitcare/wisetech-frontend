@@ -68,8 +68,8 @@
 }
 
 .modal-dropdown:hover {
-  border-color: #9D4141 !important;
-  box-shadow: 0 2px 8px rgba(157, 65, 65, 0.15);
+  border-color: #1E3A8A !important;
+  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.15);
 }
 
 .modal-submit-button {
@@ -77,9 +77,9 @@
 }
 
 .modal-submit-button:hover:not(:disabled) {
-  background: #8a3636 !important;
+  background: #172554 !important;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(157, 65, 65, 0.25);
+  box-shadow: 0 4px 12px rgba(30, 58, 138, 0.25);
 }
 
 .modal-delete-button {
@@ -210,7 +210,7 @@
 .modal-dropdown:focus,
 .modal-submit-button:focus,
 .modal-delete-button:focus {
-  outline: 2px solid #9D4141;
+  outline: 2px solid #1E3A8A;
   outline-offset: 2px;
 }
 /* Enhanced main.css with FormModal, EmployeeCard, and team management styles */
@@ -228,20 +228,20 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #9D4141;
+  background-color: #1E3A8A;
   border-radius: 6px;
   border: 3px solid #f1f1f1;
   transition: all 0.3s ease; /* smooth thumb animation */
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #b25050; /* optional hover effect */
+  background-color: #3B5BA9; /* optional hover effect */
 }
 
 /* Global scrollbar for Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #9D4141 #f1f1f1;
+  scrollbar-color: #1E3A8A #f1f1f1;
   /* transition: all 0.3s ease; */
 }
 
@@ -363,8 +363,8 @@ html {
 }
 
 .et-search-input:focus {
-  border-color: #AA393D !important;
-  box-shadow: 0 0 0 4px rgba(170, 57, 61, 0.12) !important;
+  border-color: #1E3A8A !important;
+  box-shadow: 0 0 0 4px rgba(30, 58, 138, 0.12) !important;
   background-color: #fff !important;
 }
 
@@ -394,8 +394,8 @@ html {
 }
 
 .et-page-num-btn:not([style*="AA393D"]):hover {
-  border-color: #AA393D !important;
-  color: #AA393D !important;
+  border-color: #1E3A8A !important;
+  color: #1E3A8A !important;
   background-color: #FEF2F2 !important;
   transform: translateY(-1px);
 }
@@ -469,12 +469,12 @@ th.MuiTableCell-head .MuiTableSortLabel-icon {
 
 th.MuiTableCell-head:hover .MuiTableSortLabel-icon {
   opacity: 1;
-  color: #AA393D !important;
+  color: #1E3A8A !important;
 }
 
 th.MuiTableCell-head .MuiTableSortLabel-root.Mui-active .MuiTableSortLabel-icon {
   opacity: 1;
-  color: #AA393D !important;
+  color: #1E3A8A !important;
 }
 
 /* Body cell text overflow */
@@ -517,7 +517,7 @@ thead.MuiTableHead-root th {
 }
 
 .MuiTableBody-root tr.MuiTableRow-root:hover td:first-child {
-  border-left-color: #AA393D;
+  border-left-color: #1E3A8A;
 }
 
 /* Global Premium Badge Overrides for Tables */
@@ -655,9 +655,9 @@ thead.MuiTableHead-root th {
 .MuiTableCell-body button.btn-icon.btn-bg-light:hover {
   background-color: #FEF2F2 !important;
   border-color: #FEE2E2 !important;
-  color: #AA393D !important;
+  color: #1E3A8A !important;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(170, 57, 61, 0.08) !important;
+  box-shadow: 0 4px 12px rgba(30, 58, 138, 0.08) !important;
 }
 
 .MuiTableCell-body button.btn-icon.btn-bg-light:active {
@@ -670,7 +670,7 @@ thead.MuiTableHead-root th {
 
 /* Progress bar color */
 .MuiLinearProgress-bar {
-  background-color: #AA393D !important;
+  background-color: #1E3A8A !important;
 }
 
 .MuiLinearProgress-root {
@@ -679,7 +679,7 @@ thead.MuiTableHead-root th {
 
 /* Column resize handle */
 .MuiDivider-root.MuiDivider-vertical[style] {
-  background-color: #AA393D !important;
+  background-color: #1E3A8A !important;
   width: 2px !important;
   opacity: 0.6;
 }
@@ -690,8 +690,8 @@ thead.MuiTableHead-root th {
 }
 
 .MuiIconButton-root.MuiIconButton-sizeMedium:hover {
-  background-color: rgba(170, 57, 61, 0.08) !important;
-  color: #AA393D !important;
+  background-color: rgba(30, 58, 138, 0.08) !important;
+  color: #1E3A8A !important;
 }
 
 /* Enterprise table container padding */

@@ -141,7 +141,7 @@ function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss 
         /* When checked, show red fill */
         .radio-container input[type="radio"]:checked ~ .custom-radio {
           background-color: #F1CCCC;
-          border-color: #9D4141;
+          border-color: #1E3A8A;
         }
 
         /* inner dot */
@@ -150,7 +150,7 @@ function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss 
           width: 9px;
           height: 9px;
           border-radius: 50%;
-          background: #9D4141;
+          background: #1E3A8A;
         }
       `}</style>
     </div>

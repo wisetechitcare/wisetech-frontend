@@ -1,5 +1,5 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
+import { C, FONT, RADIUS, ConfigSectionCard } from "@app/modules/configuration";
 import { IReimbursementEmployeeLimit } from "@models/employee";
 import { fetchReimbursementEmployeeLimits } from "@services/options";
 import { updateEmployee } from "@services/employee";
@@ -9,6 +9,49 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+
+// ─── Small icon-only action button, matches the hover-tint pattern used by ──
+// the other configuration pages' chip edit/delete controls.
+const RowIconBtn: React.FC<{
+  icon: string;
+  title: string;
+  tone: "primary" | "success" | "danger";
+  onClick: () => void;
+  disabled?: boolean;
+}> = ({ icon, title, tone, onClick, disabled }) => {
+  const [hov, setHov] = useState(false);
+  const TONE = {
+    primary: { bg: "#eff6ff", color: "#4f82c4" },
+    success: { bg: C.successLight, color: "#16a34a" },
+    danger: { bg: C.dangerLight, color: C.danger },
+  }[tone];
+
+  return (
+    <button
+      type="button"
+      title={title}
+      disabled={disabled}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background: hov && !disabled ? TONE.bg : "transparent",
+        border: "none",
+        borderRadius: RADIUS.sm,
+        padding: "6px 8px",
+        cursor: disabled ? "not-allowed" : "pointer",
+        color: hov && !disabled ? TONE.color : C.textMuted,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: disabled ? 0.5 : 1,
+        transition: "all 0.15s ease",
+      }}
+    >
+      <i className={`bi ${icon}`} style={{ fontSize: "14px" }} />
+    </button>
+  );
+};
 
 function ReimbursementEmployeeLimit() {
   const [employeeLimits, setEmployeeLimits] = useState<IReimbursementEmployeeLimit[]>([]);
@@ -95,7 +138,11 @@ function ReimbursementEmployeeLimit() {
         header: "Employee",
         enableSorting: true,
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
+        Cell: ({ renderedCellValue }: any) => (
+          <span style={{ fontFamily: FONT.body, fontWeight: 500, fontSize: "13px", color: C.textPrimary }}>
+            {renderedCellValue}
+          </span>
+        ),
       },
       {
         accessorKey: "reimbursementLimitPerRequest",
@@ -108,8 +155,19 @@ function ReimbursementEmployeeLimit() {
             return (
               <div>
                 <input
-                  className={`form-control form-control-sm${editError ? " is-invalid" : ""}`}
-                  style={{ maxWidth: 180 }}
+                  className="rl-edit-input"
+                  style={{
+                    maxWidth: 180,
+                    height: 34,
+                    border: `1px solid ${editError ? C.danger : C.border}`,
+                    borderRadius: RADIUS.md,
+                    padding: "0 10px",
+                    fontSize: "13px",
+                    fontFamily: FONT.body,
+                    color: C.textPrimary,
+                    outline: "none",
+                    transition: "border-color 0.15s ease",
+                  }}
                   value={editValue}
                   min={0}
                   step="any"
@@ -121,14 +179,28 @@ function ReimbursementEmployeeLimit() {
                   disabled={savingId === rowData.id}
                 />
                 {editError && (
-                  <div className="text-danger fs-8 mt-1">{editError}</div>
+                  <div style={{ fontFamily: FONT.body, fontSize: "11px", color: C.danger, marginTop: "4px" }}>
+                    {editError}
+                  </div>
                 )}
               </div>
             );
           }
-          return rowData.reimbursementLimitPerRequest != null
-            ? Number(rowData.reimbursementLimitPerRequest).toLocaleString("en-IN")
-            : "-";
+          return (
+            <span
+              style={{
+                fontFamily: FONT.body,
+                fontWeight: 600,
+                fontSize: "13px",
+                color: rowData.reimbursementLimitPerRequest != null ? C.textPrimary : C.textMuted,
+                fontStyle: rowData.reimbursementLimitPerRequest != null ? "normal" : "italic",
+              }}
+            >
+              {rowData.reimbursementLimitPerRequest != null
+                ? `₹${Number(rowData.reimbursementLimitPerRequest).toLocaleString("en-IN")}`
+                : "No limit set"}
+            </span>
+          );
         },
       },
       {
@@ -144,46 +216,41 @@ function ReimbursementEmployeeLimit() {
 
           if (isEditing) {
             return (
-              <div className="flex items-center justify-center space-x-4">
-                <button
-                  type="button"
-                  className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
-                  title="Save"
-                  onClick={() => handleSave(rowData)}
-                  disabled={isSaving}
-                >
-                  {isSaving ? (
-                    <span
-                      className="spinner-border spinner-border-sm"
-                      role="status"
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} alt="Save" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-icon btn-active-color-primary btn-sm w-4"
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                {isSaving ? (
+                  <span
+                    className="spinner-border spinner-border-sm"
+                    style={{ color: C.primary, margin: "6px 8px" }}
+                    role="status"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <RowIconBtn
+                    icon="bi-check-lg"
+                    title="Save"
+                    tone="success"
+                    onClick={() => handleSave(rowData)}
+                    disabled={isSaving}
+                  />
+                )}
+                <RowIconBtn
+                  icon="bi-x-lg"
                   title="Cancel"
+                  tone="danger"
                   onClick={handleCancel}
                   disabled={isSaving}
-                >
-                  <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} alt="Cancel" />
-                </button>
+                />
               </div>
             );
           }
 
           return (
-            <button
-              type="button"
-              className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
+            <RowIconBtn
+              icon="bi-pencil"
               title="Edit"
+              tone="primary"
               onClick={() => handleEdit(rowData)}
-            >
-              <KTIcon iconName="pencil" className="inline fs-4 text-red-500" />
-            </button>
+            />
           );
         },
       },
@@ -193,22 +260,36 @@ function ReimbursementEmployeeLimit() {
 
   return (
     <>
-      <MaterialTable
-        columns={columns}
-        data={employeeLimits}
-        hideExportCenter={true}
-        employeeId={employeeId}
-        isLoading={loading}
-        muiTableProps={{
-          sx: {
-            "& .MuiTableBody-root .MuiTableCell-root": {
-              borderBottom: "none",
-              paddingY: "5px",
+      <style>{`
+        .rl-edit-input:focus {
+          border-color: ${C.primary} !important;
+          box-shadow: 0 0 0 3px ${C.primaryLight} !important;
+        }
+      `}</style>
+
+      <ConfigSectionCard
+        title="Employee Limits"
+        description="Set custom per-request reimbursement limits for individual employees."
+        icon="bi-shield-check"
+        iconColor="blue"
+      >
+        <MaterialTable
+          columns={columns}
+          data={employeeLimits}
+          hideExportCenter={true}
+          employeeId={employeeId}
+          isLoading={loading}
+          muiTableProps={{
+            sx: {
+              "& .MuiTableBody-root .MuiTableCell-root": {
+                borderBottom: "none",
+                paddingY: "5px",
+              },
             },
-          },
-        }}
-        tableName="Reimbursement Employee Limits"
-      />
+          }}
+          tableName="Reimbursement Employee Limits"
+        />
+      </ConfigSectionCard>
     </>
   );
 }

@@ -222,9 +222,9 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         const mergedData = data.employees.map((employee: any) => {
           const employeeId = employee.id?.toLowerCase();
           if (!employeeId) return employee;
-          
+
           const amountPaid = salaryMap.get(employeeId) || 0;
-  
+
           return {
             ...employee,
             users: employee.users ? `${employee.users.firstName || ''} ${employee.users.lastName || ''}`.trim() : "N/A",

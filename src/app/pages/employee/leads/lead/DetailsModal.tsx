@@ -107,7 +107,7 @@ const DetailsModal = ({ open, onClose, closeDetailsModal, Datas, onLeadCreated }
                       hoveredCard === template.id ? "#f8f0f0" : "#fdf5f5",
                     border:
                       hoveredCard === template.id
-                        ? "1px solid #9D4141"
+                        ? "1px solid #1E3A8A"
                         : "1px solid #eacaca",
                     borderRadius: "16px",
                     padding: "clamp(16px, 2vw, 20px)",
@@ -140,7 +140,7 @@ const DetailsModal = ({ open, onClose, closeDetailsModal, Datas, onLeadCreated }
                     style={{
                       fontSize: "clamp(1rem, 2.5vw, 1.125rem)",
                       color:
-                        hoveredCard === template.id ? "#9D4141" : "#212529",
+                        hoveredCard === template.id ? "#1E3A8A" : "#212529",
                     }}
                   >
                     {template.title}
@@ -164,7 +164,7 @@ const DetailsModal = ({ open, onClose, closeDetailsModal, Datas, onLeadCreated }
                       style={{
                         width: "60%",
                         height: "3px",
-                        backgroundColor: "#9D4141",
+                        backgroundColor: "#1E3A8A",
                         borderRadius: "2px",
                         marginBottom: "-1px",
                       }}

@@ -81,8 +81,8 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 .sensitive-data-hidden { filter: blur(5px); user-select: none; }
                 .sensitive-data-visible { filter: none; }
                 .wt-btn-primary {
-                    background-color: #AA393D !important;
-                    border-color: #AA393D !important;
+                    background-color: #1E3A8A !important;
+                    border-color: #1E3A8A !important;
                     color: #fff !important;
                 }
             `}</style>

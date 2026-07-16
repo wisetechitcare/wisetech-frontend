@@ -23,14 +23,14 @@
 
 .global-search-input-wrapper.active {
   background: #ffffff;
-  border-color: var(--wt-accent, #9d4141) !important;
-  box-shadow: 0 4px 18px rgba(157, 65, 65, 0.08), 0 1px 3px rgba(0, 0, 0, 0.02);
+  border-color: var(--wt-accent, #1E3A8A) !important;
+  box-shadow: 0 4px 18px rgba(30, 58, 138, 0.08), 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 [data-bs-theme="dark"] .global-search-input-wrapper.active {
   background: #1e1e2d;
-  border-color: var(--wt-accent, #9d4141) !important;
-  box-shadow: 0 4px 18px rgba(157, 65, 65, 0.15), 0 1px 3px rgba(0, 0, 0, 0.2);
+  border-color: var(--wt-accent, #1E3A8A) !important;
+  box-shadow: 0 4px 18px rgba(30, 58, 138, 0.15), 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .global-search-input {

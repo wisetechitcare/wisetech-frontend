@@ -49,7 +49,7 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
 
   const initialValues = {
     name: initialData?.name || "",
-    color: initialData?.color || "#8B4444",
+    color: initialData?.color || "#1E3A8A",
   };
 
   const handleSubmit = async (values: typeof initialValues) => {
@@ -255,7 +255,7 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
                             width: "20px",
                             height: "20px",
                             borderRadius: '50%',
-                            backgroundColor: values.color || "#8B4444",
+                            backgroundColor: values.color || "#1E3A8A",
                             border: `2px solid #fff`,
                             boxShadow: "0 0 0 1px rgba(0,0,0,0.1)",
                           }}
@@ -265,14 +265,14 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
                       <span
                         style={{ fontSize: "12px", color: C.textMuted, fontFamily: FONT.body, fontWeight: 600 }}
                       >
-                        {values.color || "#8B4444"}
+                        {values.color || "#1E3A8A"}
                       </span>
                     </div>
                     <input
                       id="colorInput"
                       type="color"
                       name="color"
-                      value={values.color || "#8B4444"}
+                      value={values.color || "#1E3A8A"}
                       onChange={(e) => setFieldValue("color", e.target.value, true)}
                       style={{
                         opacity: 0,
@@ -368,7 +368,7 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
         .form-select:focus {
           background-color: #fff !important;
           border-color: ${C.primary} !important;
-          box-shadow: 0 0 0 0.2rem rgba(157, 65, 65, 0.1) !important;
+          box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.1) !important;
           color: ${C.textPrimary} !important;
         }
 

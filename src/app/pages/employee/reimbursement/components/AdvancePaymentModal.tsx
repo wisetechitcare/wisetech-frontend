@@ -136,7 +136,7 @@ const AdvancePaymentModal: React.FC<AdvancePaymentModalProps> = ({
                                     type="submit"
                                     disabled={loading || !formikProps.isValid}
                                     className="fw-bold px-12 py-3 shadow-sm"
-                                    style={{ backgroundColor: '#AA393D', borderColor: '#AA393D', color: '#fff' }}
+                                    style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A', color: '#fff' }}
                                 >
                                     {loading ? (
                                         <span className="indicator-label">

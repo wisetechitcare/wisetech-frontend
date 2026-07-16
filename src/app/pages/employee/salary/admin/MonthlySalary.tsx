@@ -247,7 +247,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               accessorKey: "id",
               header: "ID",
               Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A",
-              Footer: () => <span style={{ fontWeight: 900, color: '#AA393D', fontSize: '1.05rem', letterSpacing: '0.08em' }}>TOTAL</span>,
+              Footer: () => <span style={{ fontWeight: 900, color: '#1E3A8A', fontSize: '1.05rem', letterSpacing: '0.08em' }}>TOTAL</span>,
             },
             {
               accessorKey: "name",

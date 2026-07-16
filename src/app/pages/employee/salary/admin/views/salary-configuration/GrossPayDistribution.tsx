@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon } from "@metronic/helpers";
 import { Modal } from "react-bootstrap";
@@ -78,7 +78,7 @@ const GrossPayDistribution = () => {
   const handleDelete = async (rowDetails: any) => {
     const sure = await deleteConfirmation('Gross Pay Rule deleted successfully')
     if(!sure) return;
-    let config: any = configurationRule;
+    const config: any = configurationRule;
 
     delete config[rowDetails.name];
 
@@ -142,9 +142,9 @@ const GrossPayDistribution = () => {
 
   async function fetchPayrollConfiguration() {
     const { data: { configuration } } = await fetchConfiguration(GROSS_PAY);
-    const jsonObject = safeJsonParse(configuration.configuration);
+    const jsonObject = safeJsonParse(configuration?.configuration);
     setConfigurationRule(jsonObject);
-    setConfigurationId(configuration.id);
+    setConfigurationId(configuration?.id);
     const tableData = Object.keys(jsonObject).map((gpd: string) => {
       return {
         name: gpd,
@@ -204,10 +204,10 @@ const GrossPayDistribution = () => {
           header: "Actions",
           enableSorting: false,
           muiTableHeadCellProps: {
-            align: "right" as "right",
+            align: "right" as const,
           },
           muiTableBodyCellProps: {
-            align: "right" as "right",
+            align: "right" as const,
           },
           Cell: ({ row }: any) => {            
             const resEdit = hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.editOthers);
@@ -255,17 +255,17 @@ const GrossPayDistribution = () => {
       <div style={{
         display: 'flex', flexDirection: 'column', gap: '12px',
         padding: '14px 16px',
-        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        background: 'linear-gradient(135deg, #EEF3FC 0%, #fff8f8 100%)',
         borderRadius: '12px',
-        border: '1px solid rgba(157,65,65,0.1)',
+        border: '1px solid rgba(30, 58, 138,0.1)',
         marginBottom: '20px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
             width: '34px', height: '34px', borderRadius: '9px',
-            background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+            background: 'linear-gradient(135deg, #1E3A8A 0%, #3B5BA9 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+            boxShadow: '0 3px 10px rgba(30, 58, 138,0.25)', flexShrink: 0,
           }}>
             <i className="bi bi-cash-stack" style={{ fontSize: '15px', color: '#fff' }} />
           </div>
@@ -285,14 +285,14 @@ const GrossPayDistribution = () => {
               className="btn btn-sm d-flex align-items-center gap-2"
               onClick={() => handleNew()}
               style={{
-                backgroundColor: '#9d4141', color: '#fff', border: 'none',
+                backgroundColor: '#1E3A8A', color: '#fff', border: 'none',
                 borderRadius: '9px', padding: '9px 18px',
                 fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px',
-                boxShadow: '0 3px 10px rgba(157,65,65,0.2)', transition: 'all 0.15s ease',
+                boxShadow: '0 3px 10px rgba(30, 58, 138,0.2)', transition: 'all 0.15s ease',
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
               }}
-              onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(157,65,65,0.28)'; }}
-              onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(157,65,65,0.2)'; }}
+              onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(30, 58, 138,0.28)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(30, 58, 138,0.2)'; }}
             >
               <i className="bi bi-plus-lg"></i> Add New Category
             </button>
@@ -438,7 +438,7 @@ const GrossPayDistribution = () => {
                     type="submit"
                     disabled={loading || !formikProps.isValid}
                     style={{
-                      backgroundColor: '#9d4141',
+                      backgroundColor: '#1E3A8A',
                       border: 'none',
                       borderRadius: '8px',
                       color: 'white',
@@ -449,7 +449,7 @@ const GrossPayDistribution = () => {
                       fontSize: '15px',
                       cursor: (loading || !formikProps.isValid) ? 'not-allowed' : 'pointer',
                       opacity: (loading || !formikProps.isValid) ? 0.7 : 1,
-                      boxShadow: '0 4px 12px rgba(157, 65, 65, 0.2)',
+                      boxShadow: '0 4px 12px rgba(30, 58, 138, 0.2)',
                       transition: 'all 0.2s ease',
                       display: 'flex',
                       alignItems: 'center',

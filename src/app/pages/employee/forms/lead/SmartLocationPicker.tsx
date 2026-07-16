@@ -49,7 +49,7 @@ const mapStyles = `
     transition: color 0.2s ease;
   }
   .leaflet-control-layers-base label:hover {
-    color: #9d4141;
+    color: #1E3A8A;
   }
   .leaflet-control-layers-base input[type="radio"] {
     appearance: none;
@@ -64,7 +64,7 @@ const mapStyles = `
     transition: all 0.2s ease;
   }
   .leaflet-control-layers-base input[type="radio"]:checked {
-    border-color: #9d4141;
+    border-color: #1E3A8A;
   }
   .leaflet-control-layers-base input[type="radio"]:checked::after {
     content: "";
@@ -74,7 +74,7 @@ const mapStyles = `
     transform: translate(-50%, -50%);
     width: 10px;
     height: 10px;
-    background-color: #9d4141;
+    background-color: #1E3A8A;
     border-radius: 50%;
   }
 `;
@@ -151,6 +151,16 @@ const premiumMarkerIcon = L.divIcon({
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 const OPEN_CAGE_API_KEY = import.meta.env.VITE_APP_OPEN_CAGE_API_KEY;
+
+// Third-party geocoding (OpenCage / Nominatim / India Post) MUST NOT use the
+// app's global axios instance. Its response interceptor (setupAxios in
+// AuthHelpers) treats ANY 401 as an expired session and hard-redirects to
+// /auth — and OpenCage returns 401 on an invalid/exhausted API key, so a single
+// failed reverse-geocode was logging the user out mid-form. A bare instance has
+// none of the app interceptors (so a geocoding 401 stays a local, caught error)
+// and doesn't attach our Bearer token to third-party hosts. Backend calls
+// (resolve-map-link) keep using the global `axios` because they need auth.
+const geoClient = axios.create();
 
 // ── Coordinate / link helpers ────────────────────────────────────────────────
 const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
@@ -266,22 +276,22 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
   handleAddressStateChange
 }) => {
   const { values, setFieldValue } = useFormikContext<any>();
-  
+
   const addressPath = `addresses.${index}`;
   const addressData = values.addresses?.[index] || {};
-  
+
   const states = values.addressStatesOptions?.[index] || [];
   const cities = values.addressCitiesOptions?.[index] || [];
 
   const [center, setCenter] = useState({ lat: 19.0760, lng: 72.8777 }); // Default: Mumbai
-  const [markerPosition, setMarkerPosition] = useState<{lat: number, lng: number} | null>(null);
+  const [markerPosition, setMarkerPosition] = useState<{ lat: number, lng: number } | null>(null);
   const [mapBounds, setMapBounds] = useState<L.LatLngBoundsExpression | null>(null);
-  
+
   const [searchQuery, setSearchQuery] = useState(addressData.projectAddress || "");
   const [isResolving, setIsResolving] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  
+
   const [pendingGeoState, setPendingGeoState] = useState<string | null>(null);
   const [pendingGeoCity, setPendingGeoCity] = useState<string | null>(null);
 
@@ -299,13 +309,13 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
   // Sync pending state when states array loads
   useEffect(() => {
     if (pendingGeoState && states && states.length > 0) {
-      const foundState = states.find((s: any) => 
-        s.name.toLowerCase() === pendingGeoState.toLowerCase() || 
+      const foundState = states.find((s: any) =>
+        s.name.toLowerCase() === pendingGeoState.toLowerCase() ||
         pendingGeoState.toLowerCase().includes(s.name.toLowerCase())
       );
       if (foundState) {
         if (addressData.state !== foundState.id) {
-           handleAddressStateChange(index, foundState.id, addressData.country, setFieldValue);
+          handleAddressStateChange(index, foundState.id, addressData.country, setFieldValue);
         }
         setPendingGeoState(null);
       }
@@ -328,7 +338,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
       foundCity = cities.find((c: any) => {
         const cityNameLower = c.name.toLowerCase().trim();
         return pendingLower.includes(cityNameLower) ||
-               cityNameLower.includes(pendingLower);
+          cityNameLower.includes(pendingLower);
       });
     }
 
@@ -359,7 +369,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
   useEffect(() => {
     const lat = parseFloat(addressData.latitude);
     const lng = parseFloat(addressData.longitude);
-    
+
     if (!isNaN(lat) && !isNaN(lng)) {
       setCenter({ lat, lng });
       setMarkerPosition({ lat, lng });
@@ -381,16 +391,16 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
       setIsResolving(true);
       try {
         if (link.includes("maps.app.goo.gl") || link.includes("goo.gl")) {
-           const { data } = await axios.get(`${API_BASE_URL}/api/employee/resolve-map-link?url=${encodeURIComponent(link)}`, {
-             headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-           });
-           if (active && data?.data?.finalUrl) {
-              const coords = parseCoordsFromUrl(data.data.finalUrl);
-              if (coords) updateLocation(coords.lat, coords.lng, undefined, { keepLink: true });
-           }
+          const { data } = await axios.get(`${API_BASE_URL}/api/employee/resolve-map-link?url=${encodeURIComponent(link)}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+          });
+          if (active && data?.data?.finalUrl) {
+            const coords = parseCoordsFromUrl(data.data.finalUrl);
+            if (coords) updateLocation(coords.lat, coords.lng, undefined, { keepLink: true });
+          }
         } else {
-           const coords = parseCoordsFromUrl(link);
-           if (active && coords) updateLocation(coords.lat, coords.lng, undefined, { keepLink: true });
+          const coords = parseCoordsFromUrl(link);
+          if (active && coords) updateLocation(coords.lat, coords.lng, undefined, { keepLink: true });
         }
       } catch (error) {
         console.error("Failed to resolve link", error);
@@ -424,22 +434,22 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
     }
 
     if (placeData) {
-       // If bounds exist, use them for smart zoom
-       // Nominatim returns boundingbox as string array: [latMin, latMax, lonMin, lonMax]
-       if (placeData.boundingbox) {
-         setMapBounds([
-           [parseFloat(placeData.boundingbox[0]), parseFloat(placeData.boundingbox[2])],
-           [parseFloat(placeData.boundingbox[1]), parseFloat(placeData.boundingbox[3])]
-         ]);
-       } else {
-         setMapBounds(null);
-       }
-       // If placeData is from Search, it might not have detailed address components. 
-       // We'll do a reverseGeocode on its exact lat/lon to get perfect Formik fields.
-       reverseGeocode(lat, lng);
+      // If bounds exist, use them for smart zoom
+      // Nominatim returns boundingbox as string array: [latMin, latMax, lonMin, lonMax]
+      if (placeData.boundingbox) {
+        setMapBounds([
+          [parseFloat(placeData.boundingbox[0]), parseFloat(placeData.boundingbox[2])],
+          [parseFloat(placeData.boundingbox[1]), parseFloat(placeData.boundingbox[3])]
+        ]);
+      } else {
+        setMapBounds(null);
+      }
+      // If placeData is from Search, it might not have detailed address components. 
+      // We'll do a reverseGeocode on its exact lat/lon to get perfect Formik fields.
+      reverseGeocode(lat, lng);
     } else {
-       setMapBounds(null);
-       reverseGeocode(lat, lng);
+      setMapBounds(null);
+      reverseGeocode(lat, lng);
     }
   };
 
@@ -448,7 +458,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
     // components); silently fall back to free Nominatim on any error/quota.
     if (OPEN_CAGE_API_KEY) {
       try {
-        const { data } = await axios.get(
+        const { data } = await geoClient.get(
           `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${OPEN_CAGE_API_KEY}&no_annotations=1&limit=1&language=en`,
           { withCredentials: false }
         );
@@ -464,7 +474,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
     try {
       // withCredentials must stay off for third-party APIs — they respond with
       // Access-Control-Allow-Origin: * which rejects credentialed requests.
-      const { data } = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lng}`, { withCredentials: false });
+      const { data } = await geoClient.get(`https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lng}`, { withCredentials: false });
       if (data && data.address) {
         parseAddressComponents(data);
       }
@@ -480,7 +490,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
     lastPincodeLookup.current = code;
     setPincodeLoading(true);
     try {
-      const { data } = await axios.get(`https://api.postalpincode.in/pincode/${code}`, { withCredentials: false });
+      const { data } = await geoClient.get(`https://api.postalpincode.in/pincode/${code}`, { withCredentials: false });
       const postOffices = data?.[0]?.PostOffice || [];
 
       if (postOffices.length > 0) {
@@ -547,7 +557,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
         try {
           // Add &addressdetails=1 to get address components in search results
           // Add &countrycodes=in to prioritize India (for Indian locations)
-          const { data } = await axios.get(
+          const { data } = await geoClient.get(
             `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=5&addressdetails=1&countrycodes=in`,
             { withCredentials: false }
           );
@@ -572,7 +582,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
         // Force immediate search if they press enter before debounce finishes
         if (searchTimeout.current) clearTimeout(searchTimeout.current);
         try {
-          const { data } = await axios.get(
+          const { data } = await geoClient.get(
             `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1&countrycodes=in`,
             { withCredentials: false }
           );
@@ -609,50 +619,66 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
     // Extract address fields with multiple fallbacks
     // Prefer city over district to get the most recognizable city name
     const city = components.city ||
-                 components.town ||
-                 components.municipality ||
-                 components.county ||
-                 components.village ||
-                 components.district ||
-                 "";
+      components.town ||
+      components.municipality ||
+      components.county ||
+      components.village ||
+      components.district ||
+      "";
 
     const state = components.state ||
-                  components.province ||
-                  components.region ||
-                  "";
+      components.province ||
+      components.region ||
+      "";
 
     const country = components.country || "";
     const pincode = components.postcode || "";
+
+    // Locality = the area / neighbourhood below city level. OpenCage is normalised
+    // to `suburb` (see openCageToNominatim); raw Nominatim exposes several keys.
+    const locality =
+      components.suburb ||
+      components.neighbourhood ||
+      components.residential ||
+      components.quarter ||
+      components.city_district ||
+      components.hamlet ||
+      "";
 
     // Set pincode if available
     if (pincode) {
       setFieldValue(`${addressPath}.pincode`, pincode);
     }
 
+    // Set locality if available
+    if (locality) {
+      setFieldValue(`${addressPath}.locality`, locality);
+    }
+
     // Auto-sync country, state, and city
     if (country) {
-       const foundCountry = countryOptions.find(c =>
-         c.label.toLowerCase() === country.toLowerCase() ||
-         country.toLowerCase().includes(c.label.toLowerCase())
-       );
+      const foundCountry = countryOptions.find(c =>
+        c.label.toLowerCase() === country.toLowerCase() ||
+        country.toLowerCase().includes(c.label.toLowerCase())
+      );
 
-       if (foundCountry && addressData.country !== foundCountry.value) {
-          handleAddressCountryChange(index, foundCountry.value, setFieldValue);
-       }
+      if (foundCountry && addressData.country !== foundCountry.value) {
+        handleAddressCountryChange(index, foundCountry.value, setFieldValue);
+      }
 
-       // Queue state and city to be synced once the dropdown options load from the backend
-       if (state) setPendingGeoState(state);
+      // Queue state and city to be synced once the dropdown options load from the backend
+      if (state) setPendingGeoState(state);
 
-       // For city, prefer the one from components, but also try extracting from display_name
-       let cityToSet = city;
-       if (!cityToSet && display) {
-         // Try to extract city from display name (usually second or third component)
-         const parts = display.split(',').map((p: string) => p.trim());
-         // Filter out short parts and get a reasonable city name
-         cityToSet = parts.find((p: string) => p.length > 2 && p.length < 30) || "";
-       }
+      // For city, prefer the one from components, but also try extracting from display_name
+      let cityToSet = city;
+      if (!cityToSet && display) {
+        // Try to extract city from display name (usually second or third component)
+        const parts = display.split(',').map((p: string) => p.trim());
+        // Filter out short parts and get a reasonable city name
+        cityToSet = parts.find((p: string) => p.length > 2 && p.length < 30) || "";
+      }
 
-       if (cityToSet) setPendingGeoCity(cityToSet);
+      if (cityToSet) setPendingGeoCity(cityToSet);
     }
   };
 
@@ -678,23 +704,23 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
   return (
     <div className="p-0 border rounded bg-white mb-6 overflow-hidden shadow-sm">
       <div className="d-flex justify-content-between align-items-center p-4 border-bottom bg-light">
-         <h5 className="mb-0 fw-bold d-flex align-items-center text-primary gap-2" style={{ fontFamily: 'Inter' }}>
-            <LocationOn className="me-1" /> Smart Location Details
-            {locationVerified ? (
-              <span className="badge d-inline-flex align-items-center gap-1" style={{ background: '#dcfce7', color: '#15803d', fontWeight: 600 }}>
-                <CheckCircle style={{ fontSize: 14 }} /> Location set
-              </span>
-            ) : (
-              <span className="badge" style={{ background: '#f1f5f9', color: '#64748b', fontWeight: 600 }}>
-                Not set
-              </span>
-            )}
-         </h5>
-         <Tooltip title="Use My Current Location">
-           <IconButton color="primary" onClick={locateMe} size="small" style={{ backgroundColor: '#e1f0ff' }}>
-             <MyLocation fontSize="small" />
-           </IconButton>
-         </Tooltip>
+        <h5 className="mb-0 fw-bold d-flex align-items-center text-primary gap-2" style={{ fontFamily: 'Inter' }}>
+          <LocationOn className="me-1" /> Smart Location Details
+          {locationVerified ? (
+            <span className="badge d-inline-flex align-items-center gap-1" style={{ background: '#dcfce7', color: '#15803d', fontWeight: 600 }}>
+              <CheckCircle style={{ fontSize: 14 }} /> Location set
+            </span>
+          ) : (
+            <span className="badge" style={{ background: '#f1f5f9', color: '#64748b', fontWeight: 600 }}>
+              Not set
+            </span>
+          )}
+        </h5>
+        <Tooltip title="Use My Current Location">
+          <IconButton color="primary" onClick={locateMe} size="small" style={{ backgroundColor: '#e1f0ff' }}>
+            <MyLocation fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </div>
 
       <div className="p-5">
@@ -711,12 +737,12 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
             style={{ paddingLeft: '45px', fontWeight: 500, fontSize: '15px' }}
           />
           <LocationOn style={{ position: 'absolute', top: '44px', left: '15px', color: '#B5B5C3' }} />
-          
+
           {showDropdown && searchResults.length > 0 && (
             <div className="position-absolute w-100 bg-white border rounded shadow-sm mt-1" style={{ zIndex: 1000, maxHeight: '200px', overflowY: 'auto' }}>
               {searchResults.map((result, idx) => (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className="p-3 border-bottom cursor-pointer text-dark"
                   style={{ cursor: 'pointer' }}
                   onMouseDown={(e) => { e.preventDefault(); selectPlace(result); }}
@@ -732,15 +758,15 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
         </div>
 
         <div style={{ height: "450px", borderRadius: "12px", overflow: "hidden", border: "1px solid #E4E6EF", marginBottom: "24px", boxShadow: "0px 4px 12px rgba(0,0,0,0.05)", position: 'relative', zIndex: 1 }}>
-          <MapContainer 
-            center={[center.lat, center.lng]} 
-            zoom={markerPosition ? 16 : 11} 
+          <MapContainer
+            center={[center.lat, center.lng]}
+            zoom={markerPosition ? 16 : 11}
             style={{ height: "100%", width: "100%" }}
             scrollWheelZoom={true}
           >
             <LayersControl position="topright">
-              <LayersControl.BaseLayer 
-                name="Carto Light" 
+              <LayersControl.BaseLayer
+                name="Carto Light"
                 checked={(localStorage.getItem("preferredMapStyle") || "Google Satellite (Hybrid)") === "Carto Light"}
               >
                 <TileLayer
@@ -749,8 +775,8 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
                 />
               </LayersControl.BaseLayer>
 
-              <LayersControl.BaseLayer 
-                name="Esri Street Map" 
+              <LayersControl.BaseLayer
+                name="Esri Street Map"
                 checked={(localStorage.getItem("preferredMapStyle") || "Google Satellite (Hybrid)") === "Esri Street Map"}
               >
                 <TileLayer
@@ -759,8 +785,8 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
                 />
               </LayersControl.BaseLayer>
 
-              <LayersControl.BaseLayer 
-                name="Google Satellite (Hybrid)" 
+              <LayersControl.BaseLayer
+                name="Google Satellite (Hybrid)"
                 checked={(localStorage.getItem("preferredMapStyle") || "Google Satellite (Hybrid)") === "Google Satellite (Hybrid)"}
               >
                 <TileLayer
@@ -770,8 +796,8 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
                 />
               </LayersControl.BaseLayer>
 
-              <LayersControl.BaseLayer 
-                name="OpenStreetMap" 
+              <LayersControl.BaseLayer
+                name="OpenStreetMap"
                 checked={(localStorage.getItem("preferredMapStyle") || "Google Satellite (Hybrid)") === "OpenStreetMap"}
               >
                 <TileLayer
@@ -780,7 +806,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
                 />
               </LayersControl.BaseLayer>
             </LayersControl>
-           
+
             {/* Show all search results as clickable markers */}
             {searchResults.length > 0 && !markerPosition && (
               searchResults.map((result, idx) => (
@@ -817,7 +843,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
 
           {!markerPosition && (
             <div style={{ position: 'absolute', bottom: '30px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', padding: '8px 16px', borderRadius: '20px', fontSize: '14px', pointerEvents: 'none', zIndex: 1000 }}>
-               Click anywhere on the map to drop a pin — drag the pin to fine-tune
+              Click anywhere on the map to drop a pin — drag the pin to fine-tune
             </div>
           )}
         </div>
@@ -871,76 +897,82 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
               </button>
             </h2>
             <div id={`collapseLocation-${index}`} className="accordion-collapse collapse" data-bs-parent={`#advancedLocation-${index}`}>
-               <Grid container spacing={4} className="bg-white p-5 rounded">
-                  <Grid item xs={12} md={4}>
-                    <DropDownInput
-                      isRequired={false}
-                      formikField={`${addressPath}.country`}
-                      inputLabel="Country"
-                      options={countryOptions}
-                      onChange={(val: any) => handleAddressCountryChange(index, val?.value, setFieldValue)}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <DropDownInput
-                      isRequired={false}
-                      formikField={`${addressPath}.state`}
-                      inputLabel="State"
-                      options={(states || []).map((x: any) => ({ value: x.id, label: x.name }))}
-                      onChange={(val: any) => handleAddressStateChange(index, val?.value, addressData.country, setFieldValue)}
-                      disabled={!addressData.country}
-                    />
-                    {!addressData.country && (
-                      <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
-                        Select a country first
-                      </span>
-                    )}
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <DropDownInput
-                      isRequired={false}
-                      formikField={`${addressPath}.city`}
-                      inputLabel="City"
-                      options={(cities || []).map((x: any) => ({ value: x.id, label: x.name }))}
-                      disabled={!addressData.state}
-                    />
-                    {!addressData.state && (
-                      <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
-                        Select a state first
-                      </span>
-                    )}
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextInput formikField={`${addressPath}.pincode`} label="Pincode" isRequired={false} />
-                    {pincodeLoading ? (
-                      <span className="text-muted d-inline-flex align-items-center gap-1 mt-1" style={{ fontSize: 12 }}>
-                        <CircularProgress size={12} /> Looking up city & state…
-                      </span>
-                    ) : (
-                      <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
-                        Enter a 6-digit Indian pincode to auto-fill City &amp; State.
-                      </span>
-                    )}
-                  </Grid>
-                  
-                  <Grid item xs={12} md={6}>
-                     <TextInput formikField={`${addressPath}.projectAddress`} label="Formatted Address" isRequired={false} />
-                  </Grid>
+              <Grid container spacing={4} className="bg-white p-5 rounded">
+                <Grid item xs={12} md={4}>
+                  <DropDownInput
+                    isRequired={false}
+                    formikField={`${addressPath}.country`}
+                    inputLabel="Country"
+                    options={countryOptions}
+                    onChange={(val: any) => handleAddressCountryChange(index, val?.value, setFieldValue)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <DropDownInput
+                    isRequired={false}
+                    formikField={`${addressPath}.state`}
+                    inputLabel="State"
+                    options={(states || []).map((x: any) => ({ value: x.id, label: x.name }))}
+                    onChange={(val: any) => handleAddressStateChange(index, val?.value, addressData.country, setFieldValue)}
+                    disabled={!addressData.country}
+                  />
+                  {!addressData.country && (
+                    <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
+                      Select a country first
+                    </span>
+                  )}
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <DropDownInput
+                    isRequired={false}
+                    formikField={`${addressPath}.city`}
+                    inputLabel="City"
+                    options={(cities || []).map((x: any) => ({ value: x.id, label: x.name }))}
+                    disabled={!addressData.state}
+                  />
+                  {!addressData.state && (
+                    <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
+                      Select a state first
+                    </span>
+                  )}
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextInput formikField={`${addressPath}.locality`} label="Locality" isRequired={false} />
+                  <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
+                    Area / neighbourhood — auto-filled from the map, or enter manually.
+                  </span>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextInput formikField={`${addressPath}.pincode`} label="Pincode" isRequired={false} />
+                  {pincodeLoading ? (
+                    <span className="text-muted d-inline-flex align-items-center gap-1 mt-1" style={{ fontSize: 12 }}>
+                      <CircularProgress size={12} /> Looking up city & state…
+                    </span>
+                  ) : (
+                    <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
+                      Enter a 6-digit Indian pincode to auto-fill City &amp; State.
+                    </span>
+                  )}
+                </Grid>
 
-                  <Grid item xs={12} md={3}>
-                    <TextInput formikField={`${addressPath}.latitude`} label="Latitude" isRequired={false} />
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <TextInput formikField={`${addressPath}.longitude`} label="Longitude" isRequired={false} />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextInput
-                      formikField={`${addressPath}.googleMapLink`}
-                      label="Google Map Link"
-                      isRequired={false}
-                    />
-                  </Grid>
-               </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextInput formikField={`${addressPath}.projectAddress`} label="Formatted Address" isRequired={false} />
+                </Grid>
+
+                <Grid item xs={12} md={3}>
+                  <TextInput formikField={`${addressPath}.latitude`} label="Latitude" isRequired={false} />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextInput formikField={`${addressPath}.longitude`} label="Longitude" isRequired={false} />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextInput
+                    formikField={`${addressPath}.googleMapLink`}
+                    label="Google Map Link"
+                    isRequired={false}
+                  />
+                </Grid>
+              </Grid>
             </div>
           </div>
         </div>

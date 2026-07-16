@@ -142,8 +142,8 @@ const CompanyChartSettingsForm: React.FC<CompanyChartSettingsFormProps> = ({ onS
           onClick={handleSave}
           disabled={isSaving}
           style={{
-            backgroundColor: '#9D4141',
-            borderColor: '#9D4141',
+            backgroundColor: '#1E3A8A',
+            borderColor: '#1E3A8A',
             fontFamily: 'Inter',
             fontWeight: '600'
           }}

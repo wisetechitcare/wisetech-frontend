@@ -224,7 +224,7 @@ const TaskOverview: React.FC<TaskOverviewProps> = ({ task }) => {
                             <div className="mb-3">
                                 <div className="d-flex justify-content-between align-items-center">
                                     <span className=" " style={{fontFamily:'Inter', fontWeight:'500', fontSize:'14px'}}>Project</span>
-                                    <span className=" text-end" style={{maxWidth: '60%', wordWrap: 'break-word', fontFamily:'Inter', fontWeight:'400', fontSize:'14px', color:'#9d4141', cursor:'pointer'}} onClick={() => navigate(`/projects/${task?.project?.id}`)}>
+                                    <span className=" text-end" style={{maxWidth: '60%', wordWrap: 'break-word', fontFamily:'Inter', fontWeight:'400', fontSize:'14px', color:'#1E3A8A', cursor:'pointer'}} onClick={() => navigate(`/projects/${task?.project?.id}`)}>
                                         {asText(task?.project)}
                                     </span>
                                 </div>

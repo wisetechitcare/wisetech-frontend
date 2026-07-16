@@ -223,11 +223,11 @@ function Approvals() {
   );
 
   const tabItems: TabItem[] = [
-    { title: 'Attendance',    component: <AttendanceApprovals />,        icon: activeTab === 0 ? navbarIcon.overview.active       : navbarIcon.overview.default,       badge: pendingByTab.attendance },
-    { title: 'Leaves',        component: <LeaveApprovals />,             icon: activeTab === 1 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default, badge: pendingByTab.leave },
-    { title: 'Reimbursements',component: <ReimbursementApprovals />,     icon: activeTab === 2 ? navbarIcon.overview.active       : navbarIcon.overview.default,       badge: pendingByTab.reimbursement },
-    { title: 'Tasks/Projects',component: <TaskApprovals />,              icon: activeTab === 3 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default, badge: pendingByTab.taskProject },
-    { title: 'Others',        component: <OtherApprovals />,             icon: activeTab === 4 ? navbarIcon.overview.active       : navbarIcon.overview.default,       badge: pendingByTab.others },
+    { title: 'Attendance',    component: <AttendanceApprovals />,        icon: 'bi-calendar-check', badge: pendingByTab.attendance },
+    { title: 'Leaves',        component: <LeaveApprovals />,             icon: 'bi-calendar-x', badge: pendingByTab.leave },
+    { title: 'Reimbursements',component: <ReimbursementApprovals />,     icon: 'bi-receipt', badge: pendingByTab.reimbursement },
+    { title: 'Tasks/Projects',component: <TaskApprovals />,              icon: 'bi-kanban', badge: pendingByTab.taskProject },
+    { title: 'Others',        component: <OtherApprovals />,             icon: 'bi-three-dots', badge: pendingByTab.others },
   ];
 
   return (

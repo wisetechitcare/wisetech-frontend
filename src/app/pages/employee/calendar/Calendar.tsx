@@ -1,54 +1,39 @@
-import React, { useState } from 'react'
+import React from 'react'
 import CustomCalendar from '../CustomCalendar';
-import { BarChart } from "@mui/icons-material";
 import MaterialHeaderTab, { TabItem } from "@app/modules/common/components/MaterialHeaderTab";
 import Holidays from './admin/Holidays';
 import Meetings from './views/Meetings';
 import { PageTitle } from '@metronic/layout/core';
-import { calenderIcons } from "@metronic/assets/sidepanelicons";
-import RenameHoliday from './views/RenameHoliday';
-import { leadsIcons } from "@metronic/assets/sidepanelicons";
 import CalendarConfigure from './views/CalendarConfigure';
 import { hasPermission } from "@utils/authAbac";
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, uiControlResourceNameMapWithCamelCase } from "@constants/statistics";
+import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 
+// Sidebar-style tab icons: Bootstrap Icon fonts (`bi-*`) — the same icon system
+// the aside menu uses (see useNavigation.ts `fontIcon`). MaterialHeaderTab renders
+// a `bi-*` string as a Bootstrap `<i>` (and boxes it when the tab is selected).
 function Calendar() {
-  const [activeTab, setActiveTab] = useState(0);
-
   const tabItems: TabItem[] = [
     {
       title: "Calendar",
       component: <CustomCalendar />,
-      icon:
-        activeTab === 0
-          ? calenderIcons.calenderIcon.active
-          : calenderIcons.calenderIcon.default,
+      icon: 'bi-calendar-event',
     },
     ...(hasPermission(resourceNameMapWithCamelCase.meeting, permissionConstToUseWithHasPermission.readOwn) ? [
     {
       title: "Meetings",
       component: <Meetings />,
-      icon:
-        activeTab === 1
-          ? calenderIcons.holidayesIcon.active
-          : calenderIcons.holidayesIcon.default, // Using holiday icon temporarily if meeting icon doesn't exist
+      icon: 'bi-people',
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.editOthers) ? [
     {
       title: "Holidays",
       component: <Holidays />,
-      icon:
-        activeTab === 2
-          ? calenderIcons.holidayesIcon.active
-          : calenderIcons.holidayesIcon.default,
+      icon: 'bi-calendar2-check',
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.editOthers) ? [{
       title: "Configure",
       component: <CalendarConfigure/>,
-      icon:
-        activeTab === 3
-          ? leadsIcons.leadsConfigIcon.active
-          : leadsIcons.leadsConfigIcon.default,
+      icon: 'bi-gear',
     }] : [])
   ];
 
@@ -72,7 +57,7 @@ function Calendar() {
       <PageTitle breadcrumbs={calendarBreadcrumbs}>
         Calendar
       </PageTitle>
-      <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} hideScrollButtons />
+      <MaterialHeaderTab tabItems={tabItems} hideScrollButtons />
     </>
   )
 }

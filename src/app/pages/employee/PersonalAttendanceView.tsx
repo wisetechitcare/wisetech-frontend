@@ -37,29 +37,27 @@ const PersonalAttendanceView = () => {
         {
             title: 'Overview',
             component: <OverviewView />,
-            icon: activeTab === 0 ? navbarIcon.overview.active : navbarIcon.overview.default,
+            icon: 'bi-grid-1x2',
         },
         {
             title: 'My Attendance',
             component: <MyAttendanceView resourseAndView={resourseAndView} />,
-            icon: activeTab === 1 ? navbarIcon.myAttendance.active : navbarIcon.myAttendance.default,
+            icon: 'bi-calendar-check',
         },
         {
             title: 'My Leaves',
             component: <PersonalLeaveView />,
-            icon: activeTab === 2 ? navbarIcon.leaves.active : navbarIcon.leaves.default,
+            icon: 'bi-calendar-x',
         },
         {
             title: 'Rules',
             component: <PersonalRules />,
-            icon: activeTab === 3 ? leadsIcons.leadsConfigIcon.active
-                                  : leadsIcons.leadsConfigIcon.default, // Can be SVG or Image URL
+            icon: 'bi-journal-text',
         },
         {
             title: 'FAQS',
             component: <FaqsMainPage hideEditButton={true} />,
-            icon: activeTab === 4 ? faqsIcons.faqDefualtIcon?.active
-                      : faqsIcons.faqDefualtIcon?.default,
+            icon: 'bi-question-circle',
         },
     ];
 

@@ -366,7 +366,7 @@ function ModalContent({
                     type="submit"
                     className="btn"
                     disabled={isSubmitting}
-                    style={{ backgroundColor: "#8B4444", border: "none", color: "#fff", borderRadius: 8, padding: "10px 24px", fontWeight: 500, fontSize: 14 }}
+                    style={{ backgroundColor: "#1E3A8A", border: "none", color: "#fff", borderRadius: 8, padding: "10px 24px", fontWeight: 500, fontSize: 14 }}
                 >
                     {isSubmitting ? "Saving..." : "Save Changes"}
                 </button>
@@ -612,7 +612,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     transition: background .15s, color .15s;
                 }
                 .app-settings-nav-item:hover { background: #f0f0f5; color: #374151; }
-                .app-settings-nav-item.active { background: #fef2f2; color: #8B4444; font-weight: 600; border-left: 3px solid #8B4444; }
+                .app-settings-nav-item.active { background: #fef2f2; color: #1E3A8A; font-weight: 600; border-left: 3px solid #1E3A8A; }
 
                 /* Content panel */
                 .app-settings-content {

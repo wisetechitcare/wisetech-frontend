@@ -111,7 +111,7 @@ const TimePickerInput: React.FC<TimePickerInputProps> = ({
           transition: 'border-color 0.3s ease-in-out'
         }}
         onFocus={(e) => {
-          e.target.style.borderColor = '#9D4141';
+          e.target.style.borderColor = '#1E3A8A';
         }}
         onBlur={(e) => {
           e.target.style.borderColor = error && isTouched ? '#f1416c' : '#c9d2df';
@@ -148,7 +148,7 @@ const TimePickerInput: React.FC<TimePickerInputProps> = ({
                   height: "44px", 
                   backgroundColor: "#fff", 
                   borderRadius: "6px", 
-                  borderColor: "#9D4141", 
+                  borderColor: "#1E3A8A", 
                   transition: "border-color 0.3s ease-in-out" 
                 },
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: "#c9d2df" },
@@ -157,10 +157,10 @@ const TimePickerInput: React.FC<TimePickerInputProps> = ({
                   color: "#99A1B7",
                 },
                 "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "#9D4141 !important",
+                  borderColor: "#1E3A8A !important",
                 },
                 "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "#9D4141 !important",
+                  borderColor: "#1E3A8A !important",
                   borderWidth: "1px",
                 },
               },

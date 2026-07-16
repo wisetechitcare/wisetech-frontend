@@ -84,7 +84,7 @@ const LeaveTypesBalance: React.FC = () => {
     setLoading(true);
     try {
       // Update leaves limit — include rows where value=0 (allows resetting a leave type to 0)
-      let leaveData = Object.entries(values).filter(
+      const leaveData = Object.entries(values).filter(
         ([key, value]) => key && value !== undefined && value !== null && value !== ''
       );
       const allCalls: Promise<any>[] = [];
@@ -156,32 +156,23 @@ const LeaveTypesBalance: React.FC = () => {
       onSubmit={handleSubmit}
     >
       {({ setFieldValue, values }) => {
-        useEffect(() => {
-          if (leaveOptionInitialValues?.length > 0) {
-            leaveOptionInitialValues.forEach((leaveOption: any) => {
-              const key = Object.keys(leaveOption)[0];
-              setFieldValue(key, Number(leaveOption[key]));
-            });
-          }
-        }, [leaveOptionInitialValues]);
-
         return (
           <FormikForm>
             <div style={{ padding: '24px 20px', backgroundColor: '#f7f9fc' }}>
               {/* Branch Specific Divider */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                <div style={{ width: '26px', height: '1px', backgroundColor: '#9d4141' }} />
+                <div style={{ width: '26px', height: '1px', backgroundColor: '#1E3A8A' }} />
                 <span style={{
                   fontSize: '15px',
                   fontWeight: 600,
                   fontFamily: 'Inter, sans-serif',
-                  color: '#9d4141',
+                  color: '#1E3A8A',
                   textTransform: 'uppercase',
                   letterSpacing: '0.75px'
                 }}>
                   Branch Specific
                 </span>
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#9d4141' }} />
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#1E3A8A' }} />
               </div>
 
               {/* Leave Types Section */}
@@ -345,7 +336,7 @@ const LeaveTypesBalance: React.FC = () => {
                     type="submit"
                     disabled={loading}
                     style={{
-                      backgroundColor: '#9d4141',
+                      backgroundColor: '#1E3A8A',
                       border: 'none',
                       borderRadius: '6px',
                       padding: '10px 20px',

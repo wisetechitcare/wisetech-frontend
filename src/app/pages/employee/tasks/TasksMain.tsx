@@ -2,7 +2,6 @@ import { safeJsonParse } from '@utils/safeJson';
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
-import { leadsIcons } from "@metronic/assets/sidepanelicons";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
@@ -44,9 +43,9 @@ const TasksMain = () => {
             data: { configuration },
           } = await fetchConfiguration(DATE_SETTINGS_KEY);
           const parsed =
-            typeof configuration.configuration === "string"
+            typeof configuration?.configuration === "string"
               ? safeJsonParse(configuration.configuration)
-              : configuration.configuration;
+              : configuration?.configuration;
           setDateSettingsEnabled(parsed?.useDateSettings ?? false);
         } catch (err) {
           console.error("Error fetching date settings", err);
@@ -72,19 +71,13 @@ const TasksMain = () => {
     {
       title: "Tasks",
       component: <TasksMainTable />,
-      icon:
-        activeTab === 0
-          ? leadsIcons.leadsOverviewIcon.active
-          : leadsIcons.leadsOverviewIcon.default,
+      icon: 'bi-check2-square',
     },
     ...(canConfigure
       ? [{
           title: "Configure",
           component: <TasksConfigure />,
-          icon:
-            activeTab === 1
-              ? leadsIcons.leadsConfigIcon.active
-              : leadsIcons.leadsConfigIcon.default,
+          icon: 'bi-gear',
         }]
       : []),
   ];

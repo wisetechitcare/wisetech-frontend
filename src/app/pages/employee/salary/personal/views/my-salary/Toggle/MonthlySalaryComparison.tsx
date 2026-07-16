@@ -34,7 +34,7 @@ const COLOR_PF     = '#3B82F6'; // bright blue    — PF
 const COLOR_PTAX   = '#8B5CF6'; // vivid purple   — PTax
 const COLOR_TDS    = '#EF4444'; // vivid red       — TDS
 const COLOR_TDS2   = '#F97316'; // vivid orange    — TDS2
-const COLOR_LINE   = '#AA393D'; // dark crimson   — Average line
+const COLOR_LINE   = '#1E3A8A'; // dark crimson   — Average line
 
 const MonthlySalaryComparison = ({
     ComparisonData,

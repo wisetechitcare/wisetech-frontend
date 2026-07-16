@@ -26,10 +26,9 @@ interface MyComponentProps {
 
 function PersonalLoan({ resource, viewOthers, viewOwn, isSelecteEmployee }: { resource: string; viewOthers: boolean; viewOwn: boolean; isSelecteEmployee?: boolean }) {
     const [showApplyLoanModal, setShowApplyLoanModal] = useState(false)
-    let employeeId = useSelector((state: RootState) => state.employee.currentEmployee?.id)
-    if (isSelecteEmployee) {
-        employeeId = useSelector((state: RootState) => state.employee.selectedEmployee.id)
-    }
+    const currentEmployeeId = useSelector((state: RootState) => state.employee.currentEmployee?.id)
+    const selectedEmployeeId = useSelector((state: RootState) => state.employee.selectedEmployee.id)
+    const employeeId = isSelecteEmployee ? selectedEmployeeId : currentEmployeeId
     const [totalLoanAmountTaken, setTotalLoanAmountTaken] = useState(0)
     const [totalLoanAmountPaid, setTotalLoanAmountPaid] = useState(0)
     const [loanData, setLoanData] = useState<any[]>([])
@@ -48,7 +47,7 @@ function PersonalLoan({ resource, viewOthers, viewOwn, isSelecteEmployee }: { re
     const [allTimeTotalInstallmentPaid, setAllTimeTotalInstallmentPaid] = useState(0)
     const [allTimeTotalInstallmentPending, setAllTimeTotalInstallmentPending] = useState(0)
     const [allTimeTotalInstallmentSkipped, setAllTimeTotalInstallmentSkipped] = useState(0)
-    let formatter = new Intl.NumberFormat('en-IN', {
+    const formatter = new Intl.NumberFormat('en-IN', {
         style: 'currency',
         currency: 'INR',
         minimumFractionDigits: 2

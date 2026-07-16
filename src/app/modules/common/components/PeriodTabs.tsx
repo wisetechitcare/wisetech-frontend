@@ -23,7 +23,7 @@ const PeriodTabs = ({
     onChange,
     ariaLabel = 'period selection',
     sx,
-    selectedColor = '#aa393d',
+    selectedColor = '#1E3A8A',
 }: PeriodTabsProps) => (
     <ToggleButtonGroup
         value={value}

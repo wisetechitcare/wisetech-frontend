@@ -357,8 +357,8 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ show, onHide, label
               onHide();
             }}
             style={{
-              backgroundColor: '#9d4141',
-              borderColor: '#9d4141',
+              backgroundColor: '#1E3A8A',
+              borderColor: '#1E3A8A',
               padding: '8px 16px',
               fontSize: '14px',
               fontWeight: 500,
@@ -501,7 +501,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
               <div style={{
                 width: '26px',
                 height: '1px',
-                backgroundColor: '#9d4141'
+                backgroundColor: '#1E3A8A'
               }} />
               <p style={{
                 fontFamily: 'Inter, sans-serif',
@@ -510,7 +510,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
                 letterSpacing: '0.8px',
                 textTransform: 'uppercase',
                 lineHeight: 'normal',
-                color: '#9d4141',
+                color: '#1E3A8A',
                 margin: 0,
                 whiteSpace: 'pre'
               }}>
@@ -519,7 +519,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
               <div style={{
                 flex: 1,
                 height: '1px',
-                backgroundColor: '#9d4141',
+                backgroundColor: '#1E3A8A',
                 minWidth: '1px'
               }} />
             </div>
@@ -598,8 +598,8 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
             type="submit"
             disabled={loading || !formik.isValid}
             style={{
-              backgroundColor: '#9d4141',
-              border: '1px solid #9d4141',
+              backgroundColor: '#1E3A8A',
+              border: '1px solid #1E3A8A',
               borderRadius: '6px',
               height: '40px',
               display: 'flex',

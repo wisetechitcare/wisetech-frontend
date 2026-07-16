@@ -266,7 +266,7 @@ function Monthly({ month, showEditDeleteOption=false, showIdCol=false, showName=
         accessorKey: "projectId",
         header: "Project Name",
         enableColumnActions: false,
-        Cell: ({ row }: any) => resolveProject(row.original.projectId),
+        Cell: ({ row }: any) => <span>{row.original.project?.title || resolveProject(row.original.projectId) || 'N/A'}</span>,
       },
       {
         accessorKey: "fromLocation",

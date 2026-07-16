@@ -208,7 +208,7 @@ const SettingToggleRow: React.FC<{
         fontWeight: 700,
         color: C.primary,
         backgroundColor: C.primaryLight,
-        border: `1px solid rgba(157,65,65,0.15)`,
+        border: `1px solid rgba(30, 58, 138,0.15)`,
         borderRadius: RADIUS.md,
         padding: '3px 11px',
         letterSpacing: '0.01em',
@@ -668,7 +668,7 @@ const AttendanceConfig: React.FC = () => {
           {activeTab === 'attendance' && (
             <div key="attendance" className="cfg-fade-in">
               <div className="row g-6">
-                
+
                 {/* Left Column: Scope Selector sidebar */}
                 {(subOrgOptions.length > 0 || branchOptions.length > 0) && (
                   <div className="col-12 col-lg-4 col-xl-3 mb-6 mb-lg-0">
@@ -1048,11 +1048,11 @@ const AttendanceConfig: React.FC = () => {
             return (
               <div style={{ padding: '16px 28px 0', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, margin: 0 }}>Configuring for:</label>
-                <span style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid #e4e6ef', background: '#fff', fontSize: 13, fontWeight: 600, color: '#9d4141' }}>
+                <span style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid #e4e6ef', background: '#fff', fontSize: 13, fontWeight: 600, color: '#1E3A8A' }}>
                   {scopeLabel}
                 </span>
                 {configScope.branchId
-                  ? <span style={{ fontSize: 12, color: '#9d4141' }}>Applies to this branch only.</span>
+                  ? <span style={{ fontSize: 12, color: '#1E3A8A' }}>Applies to this branch only.</span>
                   : <span style={{ fontSize: 12, color: '#6c757d' }}>Applies to every sub-org & branch (unless a branch has its own override).</span>}
                 {!canEditConfig && <span style={{ fontSize: 12, color: '#c0392b' }}>You don’t have permission to edit (view only).</span>}
               </div>

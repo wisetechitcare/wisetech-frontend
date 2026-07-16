@@ -269,7 +269,7 @@ Location: ${branches?.address || 'N/A'}`;
                   padding: "8px 16px",
                   fontSize: "clamp(12px, 3vw, 14px)",
                   borderRadius: "6px",
-                  backgroundColor: "#8B4444",
+                  backgroundColor: "#1E3A8A",
                   color: "white",
                   border: "none",
                   cursor: "pointer"
@@ -532,7 +532,7 @@ Location: ${branches?.address || 'N/A'}`;
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px" }}>
                       <div style={{ fontFamily: "Inter", fontWeight: "500", color: "black" }}>Company Email</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400", color: "#9d4141" }}>{companyEmailId || "-NA-"}</div>
+                      <div style={{ fontFamily: "Inter", fontWeight: "400", color: "#1E3A8A" }}>{companyEmailId || "-NA-"}</div>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
                       <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Company Phone</div>
@@ -546,7 +546,7 @@ Location: ${branches?.address || 'N/A'}`;
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px" }}>
                       <div style={{ fontFamily: "Inter", fontWeight: "500", color: "black" }}>Personal Email</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400", color: "#9d4141" }}>{users?.personalEmailId || "-NA-"}</div>
+                      <div style={{ fontFamily: "Inter", fontWeight: "400", color: "#1E3A8A" }}>{users?.personalEmailId || "-NA-"}</div>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
                       <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Personal Phone</div>

@@ -144,8 +144,8 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                             borderRadius: '6px',
                             padding: '8px 20px',
                             height: '40px',
-                            backgroundColor: '#9d4141',
-                            borderColor: '#9d4141',
+                            backgroundColor: '#1E3A8A',
+                            borderColor: '#1E3A8A',
                             opacity: loading ? 0.6 : 1,
                             cursor: loading ? 'not-allowed' : 'pointer'
                         }}

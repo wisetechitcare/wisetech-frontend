@@ -15,7 +15,11 @@ const renderIcon = (data: any) => {
         src={getAvatarUrl(data)}
         alt={data.label}
         onError={(e) => {
-          (e.target as HTMLImageElement).src = getAvatarUrl(data);
+          // If real avatar fails to load, fall back to generated avatar
+          const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            data.label || "User"
+          )}&background=eeeeee&color=888888&size=20&rounded=true`;
+          (e.target as HTMLImageElement).src = fallbackUrl;
         }}
         style={{
           width: "25px",

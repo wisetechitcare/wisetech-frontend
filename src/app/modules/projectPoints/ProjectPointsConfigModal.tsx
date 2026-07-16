@@ -17,7 +17,7 @@ interface ProjectPointsConfigModalProps {
 
 const FIELD_TYPES: ProjectPointFieldType[] = ["TEXTAREA", "TEXT", "NUMBER", "DATE", "DROPDOWN", "BOOLEAN"];
 
-const PRIMARY = "#9D4141";
+const PRIMARY = "#1E3A8A";
 const label: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, color: "#475569", marginBottom: 4, display: "block" };
 const input: React.CSSProperties = {
     width: "100%", padding: "9px 12px", border: "1px solid #e2e8f0", borderRadius: 8,
@@ -152,7 +152,7 @@ const ProjectPointsConfigModal: React.FC<ProjectPointsConfigModalProps> = ({
                         Cancel
                     </button>
                     <button type="button" onClick={submit} disabled={saving}
-                        style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: PRIMARY, color: "#fff", fontWeight: 600, fontSize: 13, cursor: saving ? "wait" : "pointer", boxShadow: "0 4px 12px rgba(157,65,65,0.3)" }}>
+                        style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: PRIMARY, color: "#fff", fontWeight: 600, fontSize: 13, cursor: saving ? "wait" : "pointer", boxShadow: "0 4px 12px rgba(30, 58, 138,0.3)" }}>
                         {saving ? "Saving…" : isEditing ? "Update" : "Create"}
                     </button>
                 </div>

@@ -189,7 +189,7 @@ const OrganizationConfigureForm: React.FC<ConfigFormProps> = ({
                   type="submit"
                   disabled={isSubmitting}
                   style={{
-                    backgroundColor: "#8B4444",
+                    backgroundColor: "#1E3A8A",
                     border: "none",
                     borderRadius: "8px",
                     padding: "10px 24px",
@@ -209,8 +209,8 @@ const OrganizationConfigureForm: React.FC<ConfigFormProps> = ({
         .form-control:focus,
         .form-select:focus {
           background-color: #fff !important;
-          border-color: #8b4444 !important;
-          box-shadow: 0 0 0 0.2rem rgba(139, 68, 68, 0.1) !important;
+          border-color: #1E3A8A !important;
+          box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.1) !important;
           color: #495057 !important;
         }
 
@@ -230,7 +230,7 @@ const OrganizationConfigureForm: React.FC<ConfigFormProps> = ({
         }
 
         .btn-primary:hover {
-          background-color: #7a3a3a !important;
+          background-color: #172554 !important;
         }
 
         .btn-secondary:hover {
