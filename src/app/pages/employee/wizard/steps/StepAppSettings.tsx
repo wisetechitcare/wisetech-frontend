@@ -4,6 +4,7 @@ import { fetchAllEmployees } from "@services/employee";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
+import MonthYearInput from "@app/modules/common/inputs/MonthYearInput";
 // Leave Settings section removed — no longer needed
 // import LeaveAllocationStep from "../forms/LeaveAllocationStep";
 import AppSettings from "../forms/AppSettings";
@@ -65,6 +66,19 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
     const tds2Enabled = String(formikProps.values.tds2Enabled) === "true";
     const tds2Type =
         formikProps.values.tds2Type === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+    const retentionEnabled = String(formikProps.values.retentionEnabled) === "true";
+    const retentionType =
+        formikProps.values.retentionType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+
+    // Retention start month auto-fills from the joining month the moment HR
+    // enables the toggle — stays editable afterwards. Month-only: stored as
+    // the first day of the month ('YYYY-MM-01').
+    useEffect(() => {
+        if (retentionEnabled && !formikProps.values.retentionStartDate && formikProps.values.dateOfJoining) {
+            formikProps.setFieldValue("retentionStartDate", `${String(formikProps.values.dateOfJoining).slice(0, 7)}-01`);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [retentionEnabled]);
 
     return (
         <>
@@ -193,6 +207,79 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                     </>
                 )}
             </div>
+
+            {/* Retention (fresher bond) — monthly deduction between start & end dates */}
+            <div className="separator separator-dashed my-6" />
+            <div className="row">
+                <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
+                    <RadioInput
+                        formikField="retentionEnabled"
+                        inputLabel="Retention (Fresher Bond)"
+                        radioBtns={[
+                            { label: "Enabled", value: "true" },
+                            { label: "Disabled", value: "false" },
+                        ]}
+                        isRequired={false}
+                    />
+                </div>
+
+                {retentionEnabled && (
+                    <>
+                        <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
+                            <MonthYearInput
+                                formikField="retentionStartDate"
+                                inputLabel="Retention Start Month"
+                                placeHolder="Auto-filled from joining month"
+                                isRequired={false}
+                                formikProps={formikProps}
+                            />
+                        </div>
+                        <div className="col-lg-4 col-md-4 col-sm-12">
+                            <MonthYearInput
+                                formikField="retentionEndDate"
+                                inputLabel="Retention End Month"
+                                placeHolder="Retention End Month"
+                                isRequired={false}
+                                formikProps={formikProps}
+                                minDateField="retentionStartDate"
+                            />
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {retentionEnabled && (
+                <div className="row mt-4">
+                    <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
+                        <RadioInput
+                            formikField="retentionType"
+                            inputLabel="Retention Type"
+                            radioBtns={[
+                                { label: "Fixed", value: "FIXED" },
+                                { label: "Percentage", value: "PERCENTAGE" },
+                            ]}
+                            isRequired={false}
+                        />
+                    </div>
+                    <div className="col-lg-4 col-md-4 col-sm-12">
+                        {retentionType === "PERCENTAGE" ? (
+                            <TextInput
+                                isRequired={false}
+                                label="Retention % (per month)"
+                                formikField="retentionPercentage"
+                            />
+                        ) : (
+                            <TextInput
+                                isRequired={false}
+                                label="Retention Amount (per month)"
+                                formikField="retentionAmount"
+                                formatter={formatINNumber}
+                                parser={parseINNumber}
+                            />
+                        )}
+                    </div>
+                </div>
+            )}
             </>
         );
 }

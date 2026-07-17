@@ -8,6 +8,7 @@ import { successConfirmation, errorConfirmation } from "@utils/modal";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
+import MonthYearInput from "@app/modules/common/inputs/MonthYearInput";
 import Loader from "@app/modules/common/utils/Loader";
 import ApprovalSettings from "@app/components/ApprovalSettings";
 import { useSalaryMaster } from "@/modules/payroll/hooks/useSalaryComponentNames";
@@ -49,6 +50,26 @@ function buildTds2Payload(values: any) {
         tds2Type: type,
         tds2Amount: type === "FIXED" ? parse(values.tds2Amount) : null,
         tds2Percentage: type === "PERCENTAGE" ? parse(values.tds2Percentage) : null,
+    };
+}
+
+// Retention (fresher bond): monthly deduction active between start & end dates.
+// Blank start date falls back to the employee's Date of Joining.
+function buildRetentionPayload(values: any) {
+    const raw = values.retentionEnabled;
+    const enabled = raw === true || raw === 1 || raw === "1" || raw === "true";
+    const type = values.retentionType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+    if (!enabled) {
+        return { retentionEnabled: false, retentionType: "FIXED" as const, retentionAmount: null, retentionPercentage: null, retentionStartDate: null, retentionEndDate: null };
+    }
+    const parse = (v: any) => { const n = parseFloat(String(v || "").replace(/,/g, "")); return isFinite(n) ? n : null; };
+    return {
+        retentionEnabled: true,
+        retentionType: type,
+        retentionAmount: type === "FIXED" ? parse(values.retentionAmount) : null,
+        retentionPercentage: type === "PERCENTAGE" ? parse(values.retentionPercentage) : null,
+        retentionStartDate: values.retentionStartDate || values.dateOfJoining || null,
+        retentionEndDate: values.retentionEndDate || null,
     };
 }
 
@@ -104,13 +125,26 @@ function ReportingSection({ managerOptions }: { managerOptions: any[] }) {
 }
 
 function FinancialSection() {
-    const { values } = useFormikContext<any>();
+    const formik = useFormikContext<any>();
+    const { values, setFieldValue } = formik;
     const formatIN = (val: any) => val ? Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(val)) : "";
     const parseIN = (val: string) => val.replace(/,/g, "");
     const pfEnabled = String(values.professionalFeesEnabled) === "true";
     const pfType = values.professionalFeesType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
     const tds2Enabled = String(values.tds2Enabled) === "true";
     const tds2Type = values.tds2Type === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+    const retentionEnabled = String(values.retentionEnabled) === "true";
+    const retentionType = values.retentionType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+
+    // Retention start month auto-fills from the joining month when the toggle
+    // is switched on — stays editable afterwards. Month-only: stored as the
+    // first day of the month ('YYYY-MM-01').
+    useEffect(() => {
+        if (retentionEnabled && !values.retentionStartDate && values.dateOfJoining) {
+            setFieldValue("retentionStartDate", `${String(values.dateOfJoining).slice(0, 7)}-01`);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [retentionEnabled]);
 
     const { resolveComponent } = useSalaryMaster();
     const tds1Comp = resolveComponent('Professional Fees');
@@ -201,6 +235,63 @@ function FinancialSection() {
                                 <TextInput isRequired={false} label={`${tds2ShortLabel} %`} formikField="tds2Percentage" />
                             ) : (
                                 <TextInput isRequired={false} label={`${tds2ShortLabel} Amount`} formikField="tds2Amount" formatter={formatIN} parser={parseIN} />
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Retention (fresher bond) — monthly deduction between start & end dates */}
+            <div className="separator separator-dashed my-6" />
+            <div className="row g-4">
+                <div className="col-sm-6 col-md-4">
+                    <RadioInput
+                        formikField="retentionEnabled"
+                        inputLabel="Retention (Fresher Bond)"
+                        radioBtns={[
+                            { label: "Enabled", value: "true" },
+                            { label: "Disabled", value: "false" },
+                        ]}
+                        isRequired={false}
+                    />
+                </div>
+                {retentionEnabled && (
+                    <>
+                        <div className="col-sm-6 col-md-4">
+                            <MonthYearInput
+                                formikField="retentionStartDate"
+                                inputLabel="Retention Start Month"
+                                placeHolder="Auto-filled from joining month"
+                                isRequired={false}
+                                formikProps={formik}
+                            />
+                        </div>
+                        <div className="col-sm-6 col-md-4">
+                            <MonthYearInput
+                                formikField="retentionEndDate"
+                                inputLabel="Retention End Month"
+                                placeHolder="Retention End Month"
+                                isRequired={false}
+                                formikProps={formik}
+                                minDateField="retentionStartDate"
+                            />
+                        </div>
+                        <div className="col-sm-6 col-md-4">
+                            <RadioInput
+                                formikField="retentionType"
+                                inputLabel="Retention Type"
+                                radioBtns={[
+                                    { label: "Fixed", value: "FIXED" },
+                                    { label: "Percentage", value: "PERCENTAGE" },
+                                ]}
+                                isRequired={false}
+                            />
+                        </div>
+                        <div className="col-sm-6 col-md-4">
+                            {retentionType === "PERCENTAGE" ? (
+                                <TextInput isRequired={false} label="Retention % (per month)" formikField="retentionPercentage" />
+                            ) : (
+                                <TextInput isRequired={false} label="Retention Amount (per month)" formikField="retentionAmount" formatter={formatIN} parser={parseIN} />
                             )}
                         </div>
                     </>
@@ -411,6 +502,14 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         tds2Type: "FIXED",
         tds2Amount: "",
         tds2Percentage: "",
+        // Retention (fresher bond)
+        retentionEnabled: "false",
+        retentionType: "FIXED",
+        retentionAmount: "",
+        retentionPercentage: "",
+        retentionStartDate: "",
+        retentionEndDate: "",
+        dateOfJoining: "",
         // access
         isEmployeeActive: "1",
         appRole: "",
@@ -454,6 +553,14 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     tds2Type: w?.tds2Type ?? "FIXED",
                     tds2Amount: (() => { const v = w?.tds2Amount; return v != null && v !== "" ? String(v) : ""; })(),
                     tds2Percentage: (() => { const v = w?.tds2Percentage; return v != null && v !== "" ? String(v) : ""; })(),
+                    // Retention (fresher bond) — dates trimmed to YYYY-MM-DD for the pickers
+                    retentionEnabled: (() => { const v = (w as any)?.retentionEnabled; return (v === true || v === 1 || v === "1" || v === "true") ? "true" : "false"; })(),
+                    retentionType: (w as any)?.retentionType ?? "FIXED",
+                    retentionAmount: (() => { const v = (w as any)?.retentionAmount; return v != null && v !== "" ? String(v) : ""; })(),
+                    retentionPercentage: (() => { const v = (w as any)?.retentionPercentage; return v != null && v !== "" ? String(v) : ""; })(),
+                    retentionStartDate: (() => { const v = (w as any)?.retentionStartDate; return v ? String(v).slice(0, 10) : ""; })(),
+                    retentionEndDate: (() => { const v = (w as any)?.retentionEndDate; return v ? String(v).slice(0, 10) : ""; })(),
+                    dateOfJoining: (() => { const v = (w as any)?.dateOfJoining; return v ? String(v).slice(0, 10) : ""; })(),
                     // access
                     isEmployeeActive: w?.isActive ? "1" : "0",
                     appRole: w?.roles?.[0]?.id ?? "",
@@ -513,6 +620,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 //     : {}),
                 ...buildProfessionalFeesPayload(values),
                 ...buildTds2Payload(values),
+                ...buildRetentionPayload(values),
             };
 
             const roleId = values.appRole || null;

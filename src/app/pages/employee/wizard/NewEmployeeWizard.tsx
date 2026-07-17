@@ -130,6 +130,35 @@ function buildTds2Payload(values: {
 
 const TDS2_KEYS = new Set(["tds2Enabled", "tds2Type", "tds2Amount", "tds2Percentage"]);
 
+// Retention (fresher bond): monthly salary deduction active between start & end
+// dates. Start date falls back to Date of Joining when HR leaves it blank.
+function buildRetentionPayload(values: {
+  retentionEnabled: unknown;
+  retentionType: unknown;
+  retentionAmount: unknown;
+  retentionPercentage: unknown;
+  retentionStartDate: unknown;
+  retentionEndDate: unknown;
+  dateOfJoining?: unknown;
+}) {
+  const enabled = String(values.retentionEnabled) === "true";
+  const type = values.retentionType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+
+  if (!enabled) {
+    return { retentionEnabled: false, retentionType: "FIXED" as const, retentionAmount: null, retentionPercentage: null, retentionStartDate: null, retentionEndDate: null };
+  }
+  return {
+    retentionEnabled: true,
+    retentionType: type,
+    retentionAmount: type === "FIXED" ? toNumberOrNull(values.retentionAmount) : null,
+    retentionPercentage: type === "PERCENTAGE" ? toNumberOrNull(values.retentionPercentage) : null,
+    retentionStartDate: (values.retentionStartDate as string) || (values.dateOfJoining as string) || null,
+    retentionEndDate: (values.retentionEndDate as string) || null,
+  };
+}
+
+const RETENTION_KEYS = new Set(["retentionEnabled", "retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]);
+
 const ONBOARDING_DRAFT_KEY = "employee-onboarding-draft";
 
 const hasDraftValue = (value: any) => {
@@ -436,6 +465,8 @@ const initialState = {
   professionalFeesEnabled: "false", professionalFeesAmount: "",
   professionalFeesPercentage: "", professionalFeesType: "FIXED",
   tds2Enabled: "false", tds2Type: "FIXED", tds2Amount: "", tds2Percentage: "",
+  retentionEnabled: "false", retentionType: "FIXED", retentionAmount: "",
+  retentionPercentage: "", retentionStartDate: "", retentionEndDate: "",
   isHiddenFromStaff: false,
   reimbursementLimitPerRequest: "",
 };
@@ -497,6 +528,8 @@ const saveNewEmployee = async (values: any, userId: string) => {
     professionalFeesEnabled, professionalFeesAmount,
     professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
     tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
+    retentionEnabled, retentionType, retentionAmount,
+    retentionPercentage, retentionStartDate, retentionEndDate,
     reimbursementLimitPerRequest: reimbLimitNew,
   } = values;
 
@@ -558,12 +591,13 @@ const saveNewEmployee = async (values: any, userId: string) => {
     // ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
     ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
     ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
+    ...buildRetentionPayload({ retentionEnabled, retentionType, retentionAmount, retentionPercentage, retentionStartDate, retentionEndDate, dateOfJoining }),
     isHiddenFromStaff: isHiddenFromStaff === true,
     reimbursementLimitPerRequest: (reimbLimitNew !== "" && reimbLimitNew != null && !isNaN(Number(reimbLimitNew))) ? Number(reimbLimitNew) : null,
   };
 
   Object.keys(employee).forEach((key) => {
-    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
+    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key) || RETENTION_KEYS.has(key)) return;
     if (!employee[key] && employee[key] !== 0 && employee[key] !== false) delete employee[key];
   });
   if (!employee.employeeTypeConfigId) delete employee.employeeTypeConfigId;
@@ -922,6 +956,8 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       professionalFeesPercentage, professionalFeesType, isAdmin, rejoinHistory, teamId,
       roomOrBlock, shift, experienceLevel, employeeLevelId, isHiddenFromStaff: isHiddenFromStaffEdit,
       tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
+      retentionEnabled, retentionType, retentionAmount,
+      retentionPercentage, retentionStartDate, retentionEndDate,
       reimbursementLimitPerRequest: reimbLimitEdit,
     } = values;
 
@@ -986,12 +1022,13 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       // ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
       ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
       ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
+      ...buildRetentionPayload({ retentionEnabled, retentionType, retentionAmount, retentionPercentage, retentionStartDate, retentionEndDate, dateOfJoining }),
       isHiddenFromStaff: isHiddenFromStaffEdit === true,
       reimbursementLimitPerRequest: (reimbLimitEdit !== "" && reimbLimitEdit != null && !isNaN(Number(reimbLimitEdit))) ? Number(reimbLimitEdit) : null,
     };
 
     Object.keys(employeePayload).forEach((key) => {
-      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
+      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key) || RETENTION_KEYS.has(key)) return;
       if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
     });
     if (!employeePayload.employeeTypeConfigId) delete employeePayload.employeeTypeConfigId;
@@ -1308,6 +1345,13 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         tds2Type: (wizardData as any)?.tds2Type || (wizardData as any)?.tds2_type || "FIXED",
         tds2Amount: (() => { const v = (wizardData as any)?.tds2Amount ?? (wizardData as any)?.tds2_amount; return v != null && v !== "" ? String(v) : ""; })(),
         tds2Percentage: (() => { const v = (wizardData as any)?.tds2Percentage ?? (wizardData as any)?.tds2_percentage; return v != null && v !== "" ? String(v) : ""; })(),
+        retentionEnabled: (() => { const v = (wizardData as any)?.retentionEnabled; return (v === true || v === 1 || v === '1' || v === 'true') ? "true" : "false"; })(),
+        retentionType: (wizardData as any)?.retentionType || "FIXED",
+        retentionAmount: (() => { const v = (wizardData as any)?.retentionAmount; return v != null && v !== "" ? String(v) : ""; })(),
+        retentionPercentage: (() => { const v = (wizardData as any)?.retentionPercentage; return v != null && v !== "" ? String(v) : ""; })(),
+        // Dates arrive as ISO datetimes — keep only the date part for the pickers.
+        retentionStartDate: (() => { const v = (wizardData as any)?.retentionStartDate; return v ? String(v).slice(0, 10) : ""; })(),
+        retentionEndDate: (() => { const v = (wizardData as any)?.retentionEndDate; return v ? String(v).slice(0, 10) : ""; })(),
         reimbursementLimitPerRequest: wizardData?.reimbursementLimitPerRequest != null ? String(wizardData.reimbursementLimitPerRequest) : "",
       };
       setDefaultState(newState);

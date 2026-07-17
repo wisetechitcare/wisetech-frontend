@@ -5,13 +5,15 @@ import { logoutUser } from '@redux/slices/auth';
 import { getAuth, removeAuth, AUTH_LOCAL_STORAGE_KEY } from '@app/modules/auth/core/AuthHelpers';
 import { logout as logoutApi } from '@services/auth';
 
-// Idle window is env-configurable: VITE_APP_IDLE_TIMEOUT_MINUTES (default 15,
-// 0 disables idle logout entirely).
+// Idle logout is DISABLED by default: sessions persist until the user signs
+// out explicitly (closing the browser / shutting down the PC never ends the
+// session). Set VITE_APP_IDLE_TIMEOUT_MINUTES to a positive number to opt a
+// deployment back into inactivity logout.
 const configuredMinutes = Number(import.meta.env.VITE_APP_IDLE_TIMEOUT_MINUTES);
 const IDLE_TIMEOUT_MS =
-  Number.isFinite(configuredMinutes) && configuredMinutes >= 0
+  Number.isFinite(configuredMinutes) && configuredMinutes > 0
     ? configuredMinutes * 60 * 1000
-    : 15 * 60 * 1000;
+    : 0;
 const WARNING_WINDOW_MS = 60 * 1000; // warn during the final 60s of the idle window
 const CHECK_INTERVAL_MS = 5 * 1000;
 const ACTIVITY_WRITE_THROTTLE_MS = 2 * 1000;
@@ -26,7 +28,9 @@ export const IdleLogoutGuard = () => {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    if (IDLE_TIMEOUT_MS <= 0) return; // idle logout disabled via env
+    // Even with idle logout disabled, the cross-tab sign-out sync below must
+    // stay active — signing out in one tab should log every tab out instantly.
+    const idleLogoutEnabled = IDLE_TIMEOUT_MS > 0;
 
     let localActivityAt = Date.now();
     let lastActivityWriteAt = 0;
@@ -193,15 +197,16 @@ export const IdleLogoutGuard = () => {
     };
 
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'] as const;
-    events.forEach((event) => window.addEventListener(event, handleActivity, { passive: true }));
     window.addEventListener('storage', handleStorage);
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    markActivity(true); // mounting (login / reload) counts as activity
-    const intervalId = setInterval(check, CHECK_INTERVAL_MS);
+    if (idleLogoutEnabled) {
+      events.forEach((event) => window.addEventListener(event, handleActivity, { passive: true }));
+      document.addEventListener('visibilitychange', handleVisibility);
+      markActivity(true); // mounting (login / reload) counts as activity
+    }
+    const intervalId = idleLogoutEnabled ? setInterval(check, CHECK_INTERVAL_MS) : null;
 
     return () => {
-      clearInterval(intervalId);
+      if (intervalId) clearInterval(intervalId);
       clearCountdown();
       events.forEach((event) => window.removeEventListener(event, handleActivity));
       window.removeEventListener('storage', handleStorage);
