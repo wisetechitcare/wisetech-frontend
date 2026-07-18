@@ -18,6 +18,7 @@ interface Branch {
     showDateIn12HourFormat?: boolean,
     currency?: string,
     dateFormat?: string,
+    timezone?: string,
 }
 
 interface Department {

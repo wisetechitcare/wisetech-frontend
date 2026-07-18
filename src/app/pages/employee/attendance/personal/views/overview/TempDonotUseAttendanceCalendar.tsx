@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import Calendar from "react-calendar";
-import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, isDateBeforeOrSameAsCurrDate } from "@utils/date";
+import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, isDateBeforeOrSameAsCurrDate, MUMBAI_TZ as mumbaiTz } from "@utils/date";
 import { parseWorkingDays } from "@utils/workingDays";
 import { ATTENDANCE_STATUS } from "@constants/attendance";
 import { useDispatch, useSelector } from "react-redux";
@@ -58,8 +58,6 @@ const faqSchema = Yup.object().shape({
   workingMethodId: Yup.string().required("Working Method is required"),
 });
 
-
-const mumbaiTz = 'Asia/Kolkata';
 
 function AttendanceCalendar({ calendarCells , activeStartDate, setActiveStartDate}: AttendanceCalendarProps) {
     const dispatch = useDispatch();

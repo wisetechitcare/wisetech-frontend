@@ -1,5 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
-import { convertToTimeZone, formatTime, convertTo12HourFormat } from '@utils/date';
+import { convertToTimeZone, formatTime, convertTo12HourFormat, MUMBAI_TZ as mumbaiTz } from '@utils/date';
 import { parseWorkingDays } from '@utils/workingDays';
 import { allStreaksIndicator, donutaDataLabel, getWorkingDaysInYear, handleDatesChange, todayProgressPercent, totalProgressPercent,currentDayWorkingHours, fetchEmpYearlyStatistics, getWorkingDaysInRange, formatDisplay } from '@utils/statistics';
 import { Card, Row, Col } from 'react-bootstrap';
@@ -57,7 +57,6 @@ const OverviewProgessBar: React.FC = React.memo(() => {
     const [day, setDay] = useState(dayjs());
     const [workingTime, setWorkingTime] = useState("");
 
-    const mumbaiTz = 'Asia/Kolkata';
     const [dailyStats, setDailyStats] = useState<any[]>([]);
 
     const progessBarSeries: number[] = [todayProgressPercent(dailyStats)];

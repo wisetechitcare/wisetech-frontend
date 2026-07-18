@@ -95,7 +95,7 @@ export interface ExistingLeaveView {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, onDeleteSegment, initialDate, target }: {
+export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, onDeleteSegment, initialDate, target, reviewActions }: {
     onClose: () => void;
     mode?: 'apply' | 'view' | 'edit';
     existing?: ExistingLeaveView;
@@ -105,6 +105,12 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     initialDate?: string;
     /** Apply/edit on behalf of another employee (admin). When set, overrides the Redux currentEmployee. */
     target?: { employeeId: string; branchId?: string; dateOfJoining?: string | Date | null; workingAndOffDays?: string | Record<string, string> | null };
+    /**
+     * Host-supplied action row rendered in the footer in VIEW mode only (above the primary
+     * button). ApplyLeave stays domain-agnostic — the approval queue passes Approve/Reject here so
+     * an approver can review and decide in one place. Empty for the employee's own view.
+     */
+    reviewActions?: React.ReactNode;
 }) {
     // Load Plus Jakarta Sans once — matches the design's Google Fonts import
     useEffect(() => {
@@ -263,7 +269,16 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         return () => { alive = false; clearTimeout(t); socket.off('sandwichRules:updated', onRules); };
     }, [s.from, s.to, s.isHalfDay, employeeId]);
 
-    const alloc = useMemo(() => preview({ ...s, excludeSick: sickConfirmed === false }, sandwichExcluded), [s, sickConfirmed, preview, sandwichExcluded]);
+    // When editing, credit the request's own persisted days back into the balance + cumulative pool
+    // before re-allocating — otherwise its still-pending days make its own leave type look
+    // exhausted and the SAME span re-allocates to Unpaid, contradicting the view screen.
+    const creditBack = useMemo(
+        () => (isEdit && existing?.segments?.length
+            ? existing.segments.map(seg => ({ leaveType: seg.leaveType, days: seg.days, isPaid: seg.isPaid }))
+            : []),
+        [isEdit, existing],
+    );
+    const alloc = useMemo(() => preview({ ...s, excludeSick: sickConfirmed === false }, sandwichExcluded, creditBack), [s, sickConfirmed, preview, sandwichExcluded, creditBack]);
     const segByDate = useMemo(() => {
         const map = new Map<string, { leaveType: string; isPaid: boolean }>();
         // View mode: colour the calendar by what was actually booked (persisted segments).
@@ -647,7 +662,10 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         );
     };
 
-    const HalfDay = () => !s.from ? null : (
+    // View mode is a read-only review (the approver/employee is inspecting a booked leave, not
+    // applying) — the half-day toggle is an applicant input, so it disappears. The persisted
+    // half-day state is already reflected in the ViewBreakdown.
+    const HalfDay = () => (isView || !s.from) ? null : (
         <div style={{ marginTop: isMobile ? 11 : 12, padding: isMobile ? '11px 13px' : '12px 14px', border: '1px solid #e6e6e8', borderRadius: isMobile ? 11 : 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
@@ -813,7 +831,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         );
     };
 
-    const Attachments = ({ idSuffix }: { idSuffix: string }) => (
+    const Attachments = ({ idSuffix }: { idSuffix: string }) => isView ? null : (
         <div>
             <input id={`leave-files-${idSuffix}`} type="file" multiple accept=".pdf,.png,.jpg,.jpeg" style={{ display: 'none' }}
                 onChange={e => setS(p => ({ ...p, files: [...p.files, ...Array.from(e.target.files ?? [])] }))} />
@@ -963,7 +981,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         <div style={{ fontSize: 18, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>{headerTitle}</div>
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#727577' }}>{!s.from ? '' : N === 0 ? '0 days' : daysLabel(N)}</span>
                     </div>
-                    <div style={{ marginBottom: 13 }}><TypeSelector /></div>
+                    {!isView && <div style={{ marginBottom: 13 }}><TypeSelector /></div>}
                     <div style={{ display: isView ? 'none' : 'flex', gap: 8, marginBottom: 10 }}>
                         {[{ label: 'Today', iso: today }, { label: 'Tomorrow', iso: tomorrow }].map(({ label, iso }) => {
                             const active = s.from === iso && s.to === iso;
@@ -1009,13 +1027,16 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             </button>
                         </div>
                     )}
-                    <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Reason (optional)…"
-                        style={{ width: '100%', minHeight: 48, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 12px', fontSize: 13, outline: 'none', marginTop: 11, lineHeight: 1.5 }} />
+                    {!isView && (
+                        <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Reason (optional)…"
+                            style={{ width: '100%', minHeight: 48, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 12px', fontSize: 13, outline: 'none', marginTop: 11, lineHeight: 1.5 }} />
+                    )}
                     <div style={{ marginTop: 8 }}><Attachments idSuffix="m" /></div>
                     <div style={{ marginTop: 12 }}><ApprovalChain compact /></div>
                 </div>
                 <div style={{ flexShrink: 0, padding: '11px 16px 16px', borderTop: '1px solid #eef0f1', background: '#fff' }}>
                     <div style={{ marginBottom: 10 }}><Financial compact /></div>
+                    {isView && reviewActions && <div style={{ marginBottom: 10 }}>{reviewActions}</div>}
                     {error && <div style={errBox}>{error}</div>}
                     <button disabled={primaryDisabled} onClick={onPrimary}
                         style={{ width: '100%', padding: 15, borderRadius: 14, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, background: primaryActive ? ACCENT : '#cdd0d4', cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
@@ -1044,8 +1065,15 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 332px' }}>
                 {/* Left — form */}
                 <div style={{ padding: '22px 24px', maxHeight: '78vh', overflowY: 'auto' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#8b8e91', marginBottom: 10, fontFamily: PJK }}>Apply using</div>
-                    <TypeSelector />
+                    {/* "Apply using" is the allocation-strategy chooser for a NEW request. In view
+                        mode there is nothing to allocate — the ViewBreakdown on the right shows what
+                        was actually booked — so it (and the applicant chrome below) is hidden. */}
+                    {!isView && (
+                        <>
+                            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#8b8e91', marginBottom: 10, fontFamily: PJK }}>Apply using</div>
+                            <TypeSelector />
+                        </>
+                    )}
                     <div style={{ display: isView ? 'none' : 'flex', gap: 8, marginTop: 16, marginBottom: 4 }}>
                         {[{ label: 'Today', iso: today }, { label: 'Tomorrow', iso: tomorrow }].map(({ label, iso }) => {
                             const active = s.from === iso && s.to === iso;
@@ -1088,12 +1116,15 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             </button>
                         </div>
                     )}
-                    {/* Remarks */}
-                    <div style={{ marginTop: 14 }}>
-                        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#5f6266', marginBottom: 6 }}>Remarks</label>
-                        <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Add a note for your manager (optional)…"
-                            style={{ width: '100%', minHeight: 58, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 13px', fontSize: 13.5, color: '#2b2e30', outline: 'none', lineHeight: 1.5 }} />
-                    </div>
+                    {/* Remarks — an applicant input; view mode shows the persisted remark inside
+                        the ViewBreakdown instead. */}
+                    {!isView && (
+                        <div style={{ marginTop: 14 }}>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#5f6266', marginBottom: 6 }}>Remarks</label>
+                            <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Add a note for your manager (optional)…"
+                                style={{ width: '100%', minHeight: 58, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 13px', fontSize: 13.5, color: '#2b2e30', outline: 'none', lineHeight: 1.5 }} />
+                        </div>
+                    )}
                     <div style={{ marginTop: 12 }}><Attachments idSuffix="d" /></div>
                 </div>
 
@@ -1127,6 +1158,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 
                     {/* Primary action — sticky so it's always visible without scrolling the rail. */}
                     <div style={{ position: 'sticky', bottom: 0, zIndex: 2, marginTop: 'auto', paddingTop: 12, paddingBottom: 2, background: '#f6f7f9', borderTop: '1px solid #ececed' }}>
+                        {isView && reviewActions && <div style={{ marginBottom: 10 }}>{reviewActions}</div>}
                         <button disabled={primaryDisabled} onClick={onPrimary}
                             style={{ width: '100%', padding: 13, borderRadius: 11, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, background: primaryActive ? ACCENT : '#cdd0d4', cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
                             {primaryLabel}

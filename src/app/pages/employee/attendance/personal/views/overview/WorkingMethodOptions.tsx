@@ -13,7 +13,7 @@ import { safeJsonParse } from '@utils/safeJson';
 // import dayjs from 'dayjs';
 // import { useEffect, useState } from 'react';
 // import { getKey } from '@utils/localStorage';
-// import { generateDatesForMonth, generateDatesForMonth2, convertToTimeZone } from '@utils/date';
+// import { generateDatesForMonth, generateDatesForMonth2, convertToTimeZone, MUMBAI_TZ as mumbaiTz } from '@utils/date';
 // import { toAbsoluteUrl } from '@metronic/helpers';
 // import { transformAttendance } from '../../OverviewView';
 // import { distanceInMeters } from '@utils/file';
@@ -1099,7 +1099,7 @@ import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { getKey } from '@utils/localStorage';
-import { generateDatesForMonth, generateDatesForMonth2, convertToTimeZone } from '@utils/date';
+import { generateDatesForMonth, generateDatesForMonth2, convertToTimeZone, MUMBAI_TZ as mumbaiTz } from '@utils/date';
 import { toAbsoluteUrl } from '@metronic/helpers';
 import { transformAttendance } from '../../OverviewView';
 import { distanceInMeters } from '@utils/file';
@@ -1486,7 +1486,6 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
             // Fetch yesterday's attendance from API to avoid stale client state
             const yesterdayMonth = dayjs(yeaterdayDate).month() + 1;
             const yesterdayYear = dayjs(yeaterdayDate).year();
-            const mumbaiTz = 'Asia/Kolkata';
             let yesterdayAttendance: any = null;
             try {
                 const { data: { attendance: yesterdayAttendanceData } } = await fetchAttendanceDetails(

@@ -7,6 +7,8 @@
 export { T, tonePair, label, glassTokens } from './tokens';
 export type { SemanticTone, VividTone, GlassVariant, ThemeMode, LabelTier } from './tokens';
 export * from './buttons';
+export { ToneChip } from './chips';
+export type { ToneChipProps } from './chips';
 export {
   glassSx, GlassSurface, GlassDialog, GlassHeader, GlassCard, GlassTransition,
 } from './glass';

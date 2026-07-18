@@ -11,6 +11,7 @@ import { transformLeaves } from "../../OverviewView";
 import LeaveSegmentChips, { useLeaveTypeColor } from "@app/modules/common/components/LeaveSegmentChips";
 import { rgba } from "@utils/leaveTypeColors";
 import ApplyLeave, { type ExistingLeaveView } from "./ApplyLeave";
+import { fromGroupedLeave } from "./toExistingLeaveView";
 import { Modal } from "react-bootstrap";
 import { deleteConfirmation } from "@utils/modal";
 import { savePersonalLeaves } from "@redux/slices/leaves";
@@ -196,19 +197,9 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
     const [detailMode, setDetailMode] = useState<'view' | 'edit'>('view');
     const leaveColor = useLeaveTypeColor();
 
-    // Map a grouped row → the shape ApplyLeave's view/edit modes consume.
-    const toExisting = (g: GroupedLeaveRequest): ExistingLeaveView => ({
-        id: g.segments[0]?.id,
-        requestGroupId: g.groupId,
-        dateFrom: g.dateFrom ? dayjs(g.dateFrom).format('YYYY-MM-DD') : '',
-        dateTo: g.dateTo ? dayjs(g.dateTo).format('YYYY-MM-DD') : (g.dateFrom ? dayjs(g.dateFrom).format('YYYY-MM-DD') : ''),
-        reason: g.reason ?? '',
-        isHalfDay: g.isHalfDay,
-        halfDaySession: (g.halfDaySession as any) ?? null,
-        status: g.status,
-        canDelete: (g as any).canDelete,
-        segments: g.segments.map((s) => ({ id: s.id, leaveType: s.leaveType ?? '', days: s.days ?? 0, isPaid: s.isPaid, dateFrom: s.dateFrom, dateTo: s.dateTo, status: s.status })),
-    });
+    // Map a grouped row → the shape ApplyLeave's view/edit modes consume. The mapper is shared with
+    // the approval queue (see toExistingLeaveView.ts) so both routes feed ApplyLeave identically.
+    const toExisting = (g: GroupedLeaveRequest): ExistingLeaveView => fromGroupedLeave(g as any);
 
     async function fetchLeaves() {
         if (!selectedEmployeeId) return;

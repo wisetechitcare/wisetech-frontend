@@ -300,11 +300,38 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
         // `sandwichDates` are the interior off-days the BACKEND rule engine docks as Unpaid — the
         // caller fetches them from the sandwich preview endpoint (single source of truth). Empty
         // under the default rule set, so off-days follow normal payroll (strictly rule-driven).
-        (s: ApplyLeaveState, sandwichDates: string[] = []): AllocationResult | null => {
+        (
+            s: ApplyLeaveState,
+            sandwichDates: string[] = [],
+            /**
+             * The segments of the request currently being EDITED. Its days are still booked as
+             * pending against `balances` and the cumulative pool, so re-allocating the same span
+             * would find the type exhausted and spill those very days to Unpaid — the edit screen
+             * would contradict the view screen for one unchanged leave. The backend has no such
+             * problem (it deletes the group, THEN re-allocates), so the preview credits them back
+             * to mirror it. Empty on apply.
+             */
+            creditBack: Array<{ leaveType: string; days: number; isPaid: boolean }> = [],
+        ): AllocationResult | null => {
             if (!s.from || !s.to) return null;
             const chargeableDates = expandChargeableDates(s.from, s.to, workingAndOffDays ?? {}, holidaySet);
             if (chargeableDates.length === 0) return null;
             const unit = s.isHalfDay ? 0.5 : 1;
+            // Credit the edited request back to the pools it currently occupies.
+            const creditByType = new Map<string, number>();
+            let creditPaidDays = 0;
+            for (const c of creditBack) {
+                if (!c.leaveType) continue;
+                creditByType.set(c.leaveType, (creditByType.get(c.leaveType) ?? 0) + (c.days || 0));
+                if (c.isPaid) creditPaidDays += c.days || 0;
+            }
+            const effectiveBalances = creditByType.size
+                ? balances.map((b) =>
+                      creditByType.has(b.leaveType)
+                          ? { ...b, available: b.available + (creditByType.get(b.leaveType) ?? 0) }
+                          : b,
+                  )
+                : balances;
             const probationActive = probation.enabled && isWithinProbation(dateOfJoining, probation.durationDays);
             const order = s.leaveTypeName
                 ? [s.leaveTypeName]
@@ -317,14 +344,17 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
             return allocateLeave({
                 chargeableDates,
                 sandwichDates: effectiveSandwich,
-                balances,
+                balances: effectiveBalances,
                 priorityOrder: order,
                 probationActive,
                 probationAllowUnpaid: probation.allowUnpaid,
                 unit,
                 cumulative: {
                     totalPaidAllocated: cumulativePool.totalPaidAllocated,
-                    usedPlusPendingPaid: cumulativePool.usedPlusPendingPaid,
+                    // Same credit-back as the per-type balances: the edited request's paid days are
+                    // already inside usedPlusPendingPaid, and double-counting them would fire the
+                    // cumulative cap against a leave that is merely being re-saved.
+                    usedPlusPendingPaid: Math.max(0, cumulativePool.usedPlusPendingPaid - creditPaidDays),
                     fiscalMonthIndex,
                     overflow,
                 },

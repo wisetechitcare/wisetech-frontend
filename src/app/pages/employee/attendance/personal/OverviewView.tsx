@@ -8,7 +8,7 @@ import { RootState, store } from "@redux/store";
 import { Attendance, IAttendance, ILeaves } from "@models/employee";
 import { KTCard, KTCardBody } from "@metronic/helpers";
 import { fetchAttendanceDetails, fetchEmployeeLeaves, getAttendanceRequest } from "@services/employee";
-import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, getWeekDay, isDateAfterOrSameAsEmployeeOnboardingDate, isDateBeforeOrSameAsCurrDate } from "@utils/date";
+import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, getWeekDay, isDateAfterOrSameAsEmployeeOnboardingDate, isDateBeforeOrSameAsCurrDate, MUMBAI_TZ as mumbaiTz } from "@utils/date";
 import { saveCoordinates, savePersonalAttendance, toggleLocationPermission } from "@redux/slices/attendance";
 import { savePersonalLeaves } from "@redux/slices/leaves";
 import AttendanceCalendar from "./views/overview/AttendanceCalendar";
@@ -58,9 +58,6 @@ interface LeaveResponse {
         };
     };
 }
-
-//TODO: Pull timezone and date format settings from db
-const mumbaiTz = 'Asia/Kolkata';
 
 export const transformAttendance = (dates: FormattedDate[], attendance: Attendance[], leaves: any[] = [], publicHolidays: any[] = []): IAttendance[] => {
     

@@ -3,7 +3,7 @@ import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import Calendar from "react-calendar";
-import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, isDateBeforeOrSameAsCurrDate } from "@utils/date";
+import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, isDateBeforeOrSameAsCurrDate, MUMBAI_TZ as mumbaiTz } from "@utils/date";
 import { parseWorkingDays } from "@utils/workingDays";
 import { ATTENDANCE_STATUS } from "@constants/attendance";
 import { useDispatch, useSelector } from "react-redux";
@@ -74,8 +74,6 @@ const faqSchema = Yup.object().shape({
     workingMethodId: Yup.string().required("Working Method is required"),
 });
 
-
-const mumbaiTz = 'Asia/Kolkata';
 
 function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate }: AttendanceCalendarProps) {
 
@@ -268,6 +266,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
     // }, [featureConfig?.restrictAttendanceTo7Days]);
 
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
+    const employeeTimezone = useSelector((state: RootState) => state.employee.currentEmployee?.branches?.timezone) || mumbaiTz;
     const branchWorkingDays = useSelector((state: RootState) => {
         const _wd = parseWorkingDays(state.employee.currentEmployee?.branches?.workingAndOffDays);
         return Object.keys(_wd).length ? _wd : null;
@@ -565,7 +564,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                 finalPayload.id = values.id;
             }
 
-            // Time format and validation using Asia/Kolkata timezone
+            // Time format and validation using the employee's own branch timezone
             if (requestType === 'checkin') {
                 if (!values.checkIn || values.checkIn === "") {
                     errorConfirmation('Check In time is required for check-in request');
@@ -575,8 +574,8 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                     errorConfirmation('Enter Check In in HH:MM (24 hr format)');
                     return;
                 }
-                
-                finalPayload.checkIn = dayjs.tz(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm", "Asia/Kolkata").toISOString();
+
+                finalPayload.checkIn = dayjs.tz(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm", employeeTimezone).toISOString();
                 finalPayload.checkOut = null; // Explicitly null for check-in requests
             } else if (requestType === 'checkout') {
                 if (!values.checkOut || values.checkOut === "") {
@@ -588,12 +587,12 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                     return;
                 }
 
-                finalPayload.checkOut = dayjs.tz(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm", "Asia/Kolkata").toISOString();
-                
+                finalPayload.checkOut = dayjs.tz(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm", employeeTimezone).toISOString();
+
                 // If there's an existing check-in time in Formik, include it as well
                 if (values.checkIn && values.checkIn !== "") {
                     if (isValidTime(values.checkIn)) {
-                        finalPayload.checkIn = dayjs.tz(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm", "Asia/Kolkata").toISOString();
+                        finalPayload.checkIn = dayjs.tz(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm", employeeTimezone).toISOString();
                     }
                 } else {
                     finalPayload.checkIn = null;

@@ -16,14 +16,14 @@ import { getAllAttendanceRequestByCompanyId } from "@services/employee";
 import { hasPermission } from "@utils/authAbac";
 import { getGraceBasedThresholds } from "@utils/getGraceBasedThresholds";
 import { markWeekendOrHoliday, transformAttendanceRequest } from "@utils/statistics";
-import { convertTo12HourFormat } from "@utils/date";
+import { convertTo12HourFormat, MUMBAI_TZ } from "@utils/date";
 import dayjs from "dayjs";
 import dayjsTimezone from "dayjs/plugin/timezone";
 import dayjsUTC from "dayjs/plugin/utc";
 dayjs.extend(dayjsUTC);
 dayjs.extend(dayjsTimezone);
 
-export const normalizeAttendanceRequestTime = (value: string | undefined, dateStr: string): string | undefined => {
+export const normalizeAttendanceRequestTime = (value: string | undefined, dateStr: string, timezone: string = MUMBAI_TZ): string | undefined => {
     if (!value || value === "" || value === "-NA-") {
         return undefined;
     }
@@ -49,7 +49,7 @@ export const normalizeAttendanceRequestTime = (value: string | undefined, dateSt
     ];
 
     for (const fmt of attemptFormats) {
-        const candidate = dayjs.tz(`${formattedDate} ${value}`, fmt, 'Asia/Kolkata');
+        const candidate = dayjs.tz(`${formattedDate} ${value}`, fmt, timezone);
         if (candidate.isValid()) {
             parsed = candidate;
             break;

@@ -60,6 +60,12 @@ export function calculateTotalDuration(entries: any | any[]): string {
   for (const entry of entryArray) {
     if (!entry || !entry.checkIn || !entry.checkOut) continue;
 
+    // NOTE: the .tz() here is NOT a business-timezone dependency worth threading
+    // per-branch — checkOutTime.diff(checkInTime) is the difference between two
+    // absolute instants, which is identical regardless of which (single, shared)
+    // timezone both sides are viewed in. Kept for .isValid()/readability, not
+    // correctness — unlike calendar-day classification elsewhere, no branch
+    // timezone can change this function's result.
     const checkInTime = dayjs(entry.checkIn).tz("Asia/Kolkata");
     const checkOutTime = dayjs(entry.checkOut).tz("Asia/Kolkata");
 

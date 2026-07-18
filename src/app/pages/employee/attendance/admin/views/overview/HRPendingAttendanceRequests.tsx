@@ -14,6 +14,7 @@ import { approveAttendanceRequest, getPendingAttendanceRequests, rejectAttendanc
 import { transformAttendanceRequest } from "@utils/statistics";
 import { rejectConfirmation, successConfirmation, errorConfirmation } from "@utils/modal";
 import { normalizeAttendanceRequestTime } from "./OpenAttendanceRequests";
+import { MUMBAI_TZ } from "@utils/date";
 import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { useEventBus } from "@hooks/useEventBus";
@@ -62,11 +63,12 @@ function HRPendingAttendanceRequests() {
             };
 
             if (attendance.checkIn && attendance.checkIn !== '' && attendance.checkIn !== '-NA-') {
-                const normalizedCheckIn = normalizeAttendanceRequestTime(attendance.checkIn, request.date);
+                const employeeTimezone = request.employeeTimezone || MUMBAI_TZ;
+                const normalizedCheckIn = normalizeAttendanceRequestTime(attendance.checkIn, request.date, employeeTimezone);
                 if (normalizedCheckIn) attendance.checkIn = normalizedCheckIn;
 
                 if (attendance.checkOut && attendance.checkOut !== '' && attendance.checkOut !== '-NA-') {
-                    const normalizedCheckOut = normalizeAttendanceRequestTime(attendance.checkOut, request.date);
+                    const normalizedCheckOut = normalizeAttendanceRequestTime(attendance.checkOut, request.date, employeeTimezone);
                     if (normalizedCheckOut) attendance.checkOut = normalizedCheckOut;
                     else delete attendance.checkOut;
                 } else {
