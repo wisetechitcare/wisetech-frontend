@@ -432,7 +432,7 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                   gap: 18,
                 }}
               >
-                <PipelineDistribution rows={rows} onSelect={onSelect} />
+                <PipelineDistribution rows={rows} onSelect={onSelect} context={context} />
                 {/* Lifecycle roll-up removed — its Active/Converted/Lost numbers
                     duplicated the KPI pills above. */}
               </div>
