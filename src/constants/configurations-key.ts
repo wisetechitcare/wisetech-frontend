@@ -32,6 +32,9 @@ export const SHOW_MARRIAGE_ANNIVERSARY_EXTERNAL='showMarriageAnniversaryExternal
 export const SHOW_SATURDAY_ON_CALENDAR='showSaturdayOnCalendar';
 export const SHOW_SUNDAY_ON_CALENDAR='showSundayOnCalendar';
 export const SHOW_MEETINGS_ON_CALENDAR='showMeetingsOnCalendar';
+// Public-holiday appearance on the workspace calendar ({enabled, color, icon}).
+// enabled defaults to TRUE when unset — holidays always showed historically.
+export const SHOW_HOLIDAYS_ON_CALENDAR='showHolidaysOnCalendar';
 
 
 // Leads

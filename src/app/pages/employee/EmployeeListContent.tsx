@@ -12,7 +12,7 @@ import { usePermission } from "@hooks/usePermission";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { fetchAllBranches } from "@services/company";
 import Loader from "@app/modules/common/utils/Loader";
-import { getEmployeeStatusString } from "@utils/employeeStatus";
+import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employeeStatus";
 import StatusToggle from "@app/modules/common/components/StatusToggle";
 import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTableFilters";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
@@ -45,6 +45,16 @@ const EmployeeListContent = () => {
 
   const navigate = useNavigate();
 
+  // Parse "X Years Y Months" to total months for sorting.
+  const parseExperienceToMonths = (exp: string | null | undefined): number => {
+    if (!exp) return 0;
+    const match = exp.match(/(\d+)\s+Years?\s+(\d+)\s+Months?/i);
+    if (match) {
+      return parseInt(match[1], 10) * 12 + parseInt(match[2], 10);
+    }
+    return 0;
+  };
+
   // Save current page to sessionStorage whenever it changes
   useEffect(() => {
     sessionStorage.setItem('employeeListPage', currentPage.toString());
@@ -69,11 +79,16 @@ const EmployeeListContent = () => {
     window.open(whatsappUrl, '_blank');
   }, []);
 
-  // Memoize base columns to prevent recreation on every render
+  // Memoize base columns to prevent recreation on every render.
+  // Default format (order + visibility): Name → Designation → Department →
+  // Date Of Joining → Total Experience → Contact. Everything else starts
+  // hidden (meta.defaultVisible: false) and stays available in the column
+  // panel; users can still toggle any column, and their choice persists.
   const baseColumns = useMemo(() => [
     {
       accessorKey: "avatar",
       header: "Profile Photo",
+      meta: { defaultVisible: false },
       Cell: ({ row }: any) => (
         <img
           src={getAvatar(row.original.avatar, row.original.gender)}
@@ -102,18 +117,23 @@ const EmployeeListContent = () => {
       ),
     },
     {
-      accessorKey: "companyEmailId",
-      header: "Email Id",
-      Cell: ({ renderedCellValue }: any) => renderedCellValue ? <a href={`mailto:${renderedCellValue}`}>{renderedCellValue}</a> : "N/A"
-    },
-    {
-      accessorKey: "designations",
-      header: "Designation",
+      accessorKey: "departments",
+      header: "Department",
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
-      accessorKey: "departments",
-      header: "Department",
+      accessorKey: "dateOfJoining",
+      header: "Date Of Joining",
+      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+    },
+    {
+      accessorKey: "experience",
+      header: "Total Experience",
+      sortingFn: (rowA: any, rowB: any) => {
+        const monthsA = parseExperienceToMonths(rowA.getValue("experience"));
+        const monthsB = parseExperienceToMonths(rowB.getValue("experience"));
+        return monthsA - monthsB;
+      },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
@@ -122,32 +142,43 @@ const EmployeeListContent = () => {
       Cell: ({ renderedCellValue }: any) => renderedCellValue ? <a href={`tel:${renderedCellValue}`}>{renderedCellValue}</a> : "N/A"
     },
     {
-      accessorKey: "dateOfJoining",
-      header: "Date Of Joining",
+      accessorKey: "designations",
+      header: "Designation",
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+    },
+    {
+      accessorKey: "companyEmailId",
+      header: "Email Id",
+      meta: { defaultVisible: false },
+      Cell: ({ renderedCellValue }: any) => renderedCellValue ? <a href={`mailto:${renderedCellValue}`}>{renderedCellValue}</a> : "N/A"
     },
     {
       accessorKey: "branches",
       header: "Branch",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
       accessorKey: "subOrganization",
       header: "Sub Organization",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
       accessorKey: "payType",
       header: "Pay Type",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
   ], [navigate]);
 
-  // Memoize admin columns
+  // Memoize admin columns — all hidden by default (toggle on via the column
+  // panel); only the Actions column stays visible for admins.
   const adminColumns = useMemo(() => [
     {
       accessorKey: "createdAt",
       header: "Created On",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     // {
@@ -163,41 +194,49 @@ const EmployeeListContent = () => {
     {
       accessorKey: "employeeType",
       header: "Type of Employee",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
       accessorKey: "employeeStatus",
       header: "Status",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
       accessorKey: "employeeCode",
       header: "Employee Code",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
       accessorKey: "gender",
       header: "Gender",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
       accessorKey: "maritalStatus",
       header: "Marital Status",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
       accessorKey: "mealPreference",
       header: "Meal preference",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
       accessorKey: "dateOfExit",
       header: "Date Of Exit",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
       accessorKey: "referredBy",
       header: "Referred By",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
@@ -269,6 +308,7 @@ const EmployeeListContent = () => {
           return {
             ...obj,
             users: `${obj.users.firstName} ${obj.users.lastName}`,
+            experience: calculateTotalExperience(obj as any),
             designations: obj.designations ? obj?.designations?.role : "N/A",
             departments: obj.departments ? obj.departments.name : "N/A",
             dateOfJoining: obj.dateOfJoining ? dayjs(obj.dateOfJoining).format("DD/MM/YYYY") : "N/A",
@@ -455,7 +495,7 @@ const EmployeeListContent = () => {
       <MaterialTable
         columns={columns}
         data={displayedEmployees}
-        tableName="Employees"
+        tableName="EmployeesV2"
         employeeId={employeeId}
         enableColumnSpecificSearch={true}
       />

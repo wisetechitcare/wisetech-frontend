@@ -57,6 +57,12 @@ export default defineConfig({
       '@mui/material',
       '@mui/icons-material',
       '@mui/x-date-pickers',
+      // Lazily `await import()`ed packages MUST be pre-bundled: if Vite only
+      // discovers them mid-session it re-optimizes the dep cache, the version
+      // hash changes, and the browser's in-flight URL 404s with
+      // "Failed to fetch dynamically imported module" (exceljs bug).
+      'exceljs',
+      'js-confetti',
     ],
   },
   css: {

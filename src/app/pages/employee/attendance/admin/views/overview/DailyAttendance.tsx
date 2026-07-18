@@ -190,10 +190,10 @@ interface DailyAttendanceProps {
     date: any; // dayjs object from parent
 }
 
-// Module-level component (not defined inside DailyAttendance via useCallback) so its
-// useState/useEffect calls are valid — hooks cannot be called inside a callback.
-// Currently unused (its one call site, the "location" column below, is commented out)
-// but kept available for when that column is re-enabled.
+// Module-scope component (was a useCallback inside DailyAttendance): hooks may not be
+// called inside a plain callback, and hoisting keeps its identity stable so rows don't
+// remount on every parent render. Currently unused (its one call site, the "location"
+// column below, is commented out) but kept for when that column is re-enabled.
 const LocationCell = ({ latitude, longitude, location }: { latitude?: number, longitude?: number, location?: string }) => {
     const [address, setAddress] = useState("Fetching...");
 

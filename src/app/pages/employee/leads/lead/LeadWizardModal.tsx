@@ -865,6 +865,12 @@ const LeadWizardModal = ({
             cost: "",
           },
         ],
+        // Payment plan (stage-wise fee break-up) selection for the commercial step.
+        paymentPlanId: "",
+        paymentPlan: null,
+        // Meeting schedule type selection for the meeting-schedule step.
+        meetingScheduleTypeId: "",
+        meetingScheduleType: null,
         useCalculatedAmount: true,
 
         // status: 'new',
@@ -1252,6 +1258,14 @@ const LeadWizardModal = ({
               cost: "",
             },
           ],
+      // Payment plan selection — prefill from the saved lead so the commercial step
+      // re-renders the computed stage break-up on edit.
+      paymentPlanId: leadData.paymentPlanId || leadData.paymentPlan?.id || "",
+      paymentPlan: leadData.paymentPlan || null,
+      // Meeting schedule type selection — prefill so the meeting-schedule step
+      // re-resolves the matching bracket + completion year on edit.
+      meetingScheduleTypeId: leadData.meetingScheduleTypeId || leadData.meetingScheduleType?.id || "",
+      meetingScheduleType: leadData.meetingScheduleType || null,
       poNumber: additionalDetailsArray[0]?.poNumber || "",
       poDate: additionalDetailsArray[0]?.poDate
         ? new Date(additionalDetailsArray[0].poDate)
@@ -2758,6 +2772,11 @@ const LeadWizardModal = ({
     delete finalData?.companyId;
     delete finalData.googleMapLink;
     delete finalData.googleMyBusinessLink;
+    // paymentPlan is a client-only convenience object (full plan + stages for live
+    // rendering). Only the scalar paymentPlanId is persisted; drop the object.
+    delete finalData.paymentPlan;
+    // Likewise, meetingScheduleType is a client-only object; only the id is persisted.
+    delete finalData.meetingScheduleType;
     // delete finalData.cancellationReasonId; //new
     // delete finalData.handledBy; // This will be handled before the delete //new
     // delete finalData.fileLocationCompanyType;//new
@@ -2821,7 +2840,8 @@ const LeadWizardModal = ({
         || key === "reasonForCancellation" || key === "isCancelled"
         || key === "fileLocationCompanyType" || key === "fileLocationCompany"
         || key === "handledByEntries" || key === "poStatus" || key === "poFile"
-        || key === "leadAssignedTo" || key === "leadDirectSourceId") {
+        || key === "leadAssignedTo" || key === "leadDirectSourceId"
+        || key === "paymentPlanId" || key === "meetingScheduleTypeId") {
         acc[key] = value !== undefined ? value : (key === "handledByEntries" ? [] : ""); // Ensure it's included
       } else if (value !== "" && value !== null && value !== undefined) {
         acc[key] = value;
