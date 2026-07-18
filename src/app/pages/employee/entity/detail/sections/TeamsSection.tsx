@@ -10,7 +10,7 @@ import {
 } from '@app/modules/detail-page/EditableDetailCard';
 import { updateLeadSection } from '@services/leadService';
 import { getAllCompanyTypes, getAllClientCompanies, getAllClientContacts, getAllSubCompanies } from '@services/companies';
-import { getAllTeams } from '@services/projects';
+import { getAllTeams, getAllTeamsMember } from '@services/projects';
 import { EmptyState } from '../widgets';
 import { employeeNameById, fmtDate, DASH } from '../entityViewModel';
 
@@ -51,6 +51,11 @@ const addBtn: React.CSSProperties = {
 const seedBtn: React.CSSProperties = {
   ...addBtn, borderStyle: 'solid', borderColor: '#1E3A8A33', color: '#1E3A8A', marginLeft: 8,
 };
+
+// Roster ordering: active members first, inactive below (stable within each group).
+// Used for the read-mode table and the Change-Team review list so the split is visible.
+const sortByActive = (arr: any[]) =>
+  [...arr].sort((a, b) => (a.isActive !== false ? 0 : 1) - (b.isActive !== false ? 0 : 1));
 
 const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const allEmployees = useSelector((s: RootState) => s.allEmployees?.list) || [];
@@ -116,33 +121,99 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
     });
 
   // ── Execution team picker (also settable from Summary → Ownership). A button
-  //    opens a dialog with its own explicit Save — nothing is written until the
-  //    user confirms. Writes ONLY leadExecution.teamId via the dedicated
-  //    `executionTeam` section (so PM/status are untouched); the refetch then
-  //    re-seeds the roster from the new team's members. ──────────────────────────
+  //    opens a two-step dialog with its own explicit Save — nothing is written
+  //    until the user confirms.
+  //
+  //    Step 1 picks the team; Step 2 reviews the MERGED roster. "Change Team" no
+  //    longer re-seeds (which dropped the old members) — instead it KEEPS every
+  //    current member and ADDS the new team's members, then lets the user mark
+  //    each active/inactive with start/end dates. Save writes teamId + the merged
+  //    roster together via the `executionTeam` section, so the switch and the
+  //    roster persist in ONE revision (no 409 from two writes). ─────────────────
   const [teams, setTeams] = useState<any[]>([]);
+  // employeeIds grouped by teamId — sourced from getAllTeamsMember() since the
+  // paginated teams list doesn't embed members. Powers the merge in step 1→2.
+  const [membersByTeamId, setMembersByTeamId] = useState<Map<string, string[]>>(new Map());
   const [savingTeam, setSavingTeam] = useState(false);
   const [showTeamModal, setShowTeamModal] = useState(false);
+  const [teamStep, setTeamStep] = useState<1 | 2>(1);
   const [draftTeamId, setDraftTeamId] = useState<string>(ex.teamId || '');
+  const [rosterDraft, setRosterDraft] = useState<any[]>([]);
 
   useEffect(() => {
     getAllTeams(1, 9999).then((r: any) => setTeams(r?.data?.teams || r?.teams || [])).catch(() => {});
+    getAllTeamsMember().then((r: any) => {
+      const list = r?.data?.teamMembers || r?.teamMembers || [];
+      const map = new Map<string, string[]>();
+      list.forEach((tm: any) => {
+        const tId = String(tm.teamId || tm.team?.id || '');
+        const eId = tm.employeeId || tm.employee?.id;
+        if (!tId || !eId) return;
+        if (!map.has(tId)) map.set(tId, []);
+        map.get(tId)!.push(String(eId));
+      });
+      setMembersByTeamId(map);
+    }).catch(() => {});
   }, []);
 
   const teamOptions = useMemo(
     () => (teams || []).map((t: any) => ({ value: t.id, label: t.name || t.teamName || 'Unnamed Team' })),
     [teams],
   );
+  const selectedTeamName = useMemo(
+    () => teamOptions.find(o => String(o.value) === String(draftTeamId))?.label || 'the selected team',
+    [teamOptions, draftTeamId],
+  );
 
   const openTeamModal = () => {
     setDraftTeamId(ex.teamId || '');
+    setRosterDraft([]);
+    setTeamStep(1);
     setShowTeamModal(true);
   };
 
+  // Step 1 → 2: merge the picked team's members INTO the current roster. Existing
+  // members keep their status/dates/source; brand-new members come in Active with
+  // no dates. Deactivated employees are never auto-added.
+  const continueToRoster = () => {
+    if (!draftTeamId) return;
+    const base = displayMembers
+      .map((m: any) => ({
+        id: m.id,
+        employeeId: m.employeeId || '',
+        startDate: m.startDate || '',
+        endDate: m.endDate || '',
+        isActive: m.isActive !== false,
+        source: m.source || 'team',
+      }))
+      .filter((m: any) => m.employeeId);
+    const present = new Set(base.map((m: any) => String(m.employeeId)));
+    const additions = (membersByTeamId.get(String(draftTeamId)) || [])
+      .filter((id: string) => id && !present.has(String(id)) && isEmployeeActive(id))
+      .map((employeeId: string) => ({ employeeId, startDate: '', endDate: '', isActive: true, source: 'team', _added: true }));
+    setRosterDraft([...base, ...additions]);
+    setTeamStep(2);
+  };
+
+  const updateRosterRow = (i: number, patch: any) =>
+    setRosterDraft(prev => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  const markAllActive = (active: boolean) =>
+    setRosterDraft(prev => prev.map(m => ({ ...m, isActive: active })));
+
   const confirmTeamChange = () => {
-    if (draftTeamId === (ex.teamId || '') || savingTeam) return;
+    if (savingTeam || !draftTeamId) return;
     setSavingTeam(true);
-    saveSection('executionTeam', { teamId: draftTeamId || null })
+    // Persist active-first so the saved order matches how the roster reads back.
+    const members = sortByActive(rosterDraft)
+      .filter((m: any) => m.employeeId)
+      .map((m: any) => ({
+        employeeId: m.employeeId,
+        startDate: m.startDate || '',
+        endDate: m.endDate || '',
+        isActive: m.isActive !== false,
+        source: m.source === 'adhoc' ? 'adhoc' : 'team',
+      }));
+    saveSection('executionTeam', { teamId: draftTeamId || null, internalMembers: members })
       .then(() => setShowTeamModal(false))
       .catch((e: any) => {
         // eslint-disable-next-line no-alert
@@ -194,7 +265,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   //    editable here with the SAME cascading dropdowns the lead form uses:
   //    Company Type → Company → Sub Company → Contact Person. ──────────────────
   const stakeholders = useMemo(
-    () => leadTeams.map((t: any) => ({
+    () => sortByActive(leadTeams).map((t: any) => ({
       name: t?.company?.companyName || t?.subCompany?.subCompanyName || DASH,
       companyAvatar: t?.company?.companyLogo || t?.company?.logo || null,
       type: t?.companyType?.name || '',
@@ -202,6 +273,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       contact: t?.contact?.fullName || '',
       contactAvatar: t?.contact?.profilePhoto || t?.contact?.avatar || t?.contact?.users?.avatar || null,
       phone: t?.contact?.phone || t?.company?.phone || '',
+      startDate: t?.startDate || '',
+      endDate: t?.endDate || '',
+      isActive: t?.isActive !== false,
     })),
     [leadTeams],
   );
@@ -299,7 +373,8 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             values={{
               // Seed the edit draft from persisted members, or the live team roster
               // when nothing's saved yet — so the first Edit already lists the team.
-              internalMembers: displayMembers.map(m => ({
+              // Active first, inactive below (matches the read table + roster save order).
+              internalMembers: sortByActive(displayMembers).map(m => ({
                 id: m.id,
                 employeeId: m.employeeId || '',
                 startDate: m.startDate || '',
@@ -388,7 +463,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                           <tr>{['Employee', 'Start Date', 'End Date', 'Status', 'Source'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
                         </thead>
                         <tbody>
-                          {displayMembers.map((m, i) => (
+                          {sortByActive(displayMembers).map((m, i) => (
                             <tr key={m.id || m.employeeId || i}>
                               <td style={tdName}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -454,34 +529,131 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       </div>
 
       {/* Execution-team dialog: opened by the "Assign/Change Team" button above.
-          Nothing is written until Save is clicked. */}
-      <Modal show={showTeamModal} onHide={() => !savingTeam && setShowTeamModal(false)} centered>
+          Two steps — (1) pick the team, (2) review the merged roster & set each
+          member active/inactive. Nothing is written until Save on step 2. */}
+      <Modal show={showTeamModal} onHide={() => !savingTeam && setShowTeamModal(false)} centered scrollable size={teamStep === 2 ? 'lg' : undefined}>
         <Modal.Header closeButton>
-          <Modal.Title style={{ fontSize: 14, fontWeight: 600 }}>Assign Execution Team</Modal.Title>
+          <Modal.Title style={{ fontSize: 14, fontWeight: 600 }}>
+            {teamStep === 1 ? (team?.name ? 'Change Execution Team' : 'Assign Execution Team') : 'Review Team Members'}
+            <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: '#94A3B8' }}>Step {teamStep} of 2</span>
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body style={{ padding: 16 }}>
-          <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            Execution Team
-          </div>
-          <SearchableSelectEditor value={draftTeamId} options={teamOptions} onChange={setDraftTeamId} placeholder="Select execution team" />
-          <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#94A3B8', marginTop: 10 }}>
-            Changing the team re-seeds the Internal Team roster from the new team's members. Project Manager and Status are unaffected.
-          </div>
-        </Modal.Body>
-        <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6' }}>
-          <button type="button" className="btn btn-light btn-sm" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={confirmTeamChange}
-            disabled={savingTeam || draftTeamId === (ex.teamId || '')}
-            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
-          >
-            {savingTeam ? 'Saving...' : 'Save'}
-          </button>
-        </Modal.Footer>
+
+        {teamStep === 1 ? (
+          <>
+            <Modal.Body style={{ padding: 16 }}>
+              <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                Execution Team
+              </div>
+              <SearchableSelectEditor value={draftTeamId} options={teamOptions} onChange={setDraftTeamId} placeholder="Select execution team" />
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, padding: '10px 12px', borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe', fontFamily: 'Inter', fontSize: 12.5, color: '#1e40af' }}>
+                <i className="bi bi-info-circle" style={{ marginTop: 1 }} />
+                <span>
+                  Members already on this project are <strong>kept</strong>. The selected team's members are <strong>added</strong> to the roster.
+                  On the next step you can mark anyone active or inactive. Project Manager and Status are unaffected.
+                </span>
+              </div>
+            </Modal.Body>
+            <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6' }}>
+              <button type="button" className="btn btn-light btn-sm" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={continueToRoster}
+                disabled={!draftTeamId}
+                style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
+              >
+                Continue <i className="bi bi-arrow-right" />
+              </button>
+            </Modal.Footer>
+          </>
+        ) : (
+          <>
+            <Modal.Body style={{ padding: 16 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+                <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#475569' }}>
+                  Roster for <strong style={{ color: '#1E293B' }}>{selectedTeamName}</strong> — mark everyone as active, or inactivate specific members below.
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={() => markAllActive(true)} style={{ ...addBtn, marginTop: 0, borderColor: '#16a34a55', color: '#15803d' }}>
+                    <i className="bi bi-check-all" /> Mark all active
+                  </button>
+                  <button type="button" onClick={() => markAllActive(false)} style={{ ...addBtn, marginTop: 0 }}>
+                    <i className="bi bi-slash-circle" /> Mark all inactive
+                  </button>
+                </div>
+              </div>
+
+              {rosterDraft.length === 0 ? (
+                <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '16px 0' }}>
+                  {selectedTeamName} has no members to add, and this project has no members yet.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ display: 'flex', gap: 8, padding: '0 0 6px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    <div style={{ flex: 2, minWidth: 180 }}>Employee</div>
+                    <div style={{ flex: 1, minWidth: 120 }}>Start</div>
+                    <div style={{ flex: 1, minWidth: 120 }}>End</div>
+                    <div style={{ flex: 1, minWidth: 120 }}>Status</div>
+                  </div>
+                  {(() => {
+                    const sorted = rosterDraft
+                      .map((m, i) => ({ m, i }))
+                      .sort((a, b) => (a.m.isActive !== false ? 0 : 1) - (b.m.isActive !== false ? 0 : 1));
+                    const firstInactive = sorted.findIndex(x => x.m.isActive === false);
+                    return sorted.map((x, pos) => (
+                      <React.Fragment key={x.m.employeeId || x.i}>
+                        {pos === firstInactive && firstInactive > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 4px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            <span>Inactive</span>
+                            <span style={{ flex: 1, height: 1, background: '#EEF2F6' }} />
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9', opacity: x.m.isActive === false ? 0.75 : 1 }}>
+                          <div style={{ flex: 2, minWidth: 180, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <img
+                              src={empAvatar(x.m.employeeId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(empName(x.m.employeeId) === DASH ? '?' : empName(x.m.employeeId))}&background=eeeeee&color=888888&size=20&rounded=true`}
+                              alt=""
+                              style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                            />
+                            <span style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName(x.m.employeeId)}</span>
+                            <span style={{ fontFamily: 'Inter', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, whiteSpace: 'nowrap', ...(x.m._added ? { background: '#dbeafe', color: '#1e40af' } : { background: '#F1F5F9', color: '#64748B' }) }}>
+                              {x.m._added ? 'New' : 'Existing'}
+                            </span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.startDate} onChange={v => updateRosterRow(x.i, { startDate: v })} /></div>
+                          <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.endDate} onChange={v => updateRosterRow(x.i, { endDate: v })} /></div>
+                          <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={x.m.isActive !== false} onChange={v => updateRosterRow(x.i, { isActive: v })} onLabel="Active" offLabel="Inactive" /></div>
+                        </div>
+                      </React.Fragment>
+                    ));
+                  })()}
+                </div>
+              )}
+            </Modal.Body>
+            <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6', justifyContent: 'space-between' }}>
+              <button type="button" className="btn btn-light btn-sm" onClick={() => setTeamStep(1)} disabled={savingTeam}>
+                <i className="bi bi-arrow-left" /> Back
+              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn btn-light btn-sm" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={confirmTeamChange}
+                  disabled={savingTeam || !draftTeamId}
+                  style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
+                >
+                  {savingTeam ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </Modal.Footer>
+          </>
+        )}
       </Modal>
 
       {/* Project-manager dialog: opened by the "Assign/Change Manager" button above.
@@ -524,23 +696,34 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             icon="bi bi-buildings"
             accentColor="purple"
             values={{
-              leadTeams: leadTeams.map((t: any) => ({
+              // Active first, inactive below — same ordering as the read table.
+              leadTeams: sortByActive(leadTeams).map((t: any) => ({
                 id: t.id,
                 companyTypeId: t?.companyType?.id || t?.companyTypeId || '',
                 companyId: t?.company?.id || t?.companyId || '',
                 subCompanyId: t?.subCompany?.id || t?.subCompanyId || '',
                 contactId: t?.contact?.id || t?.contactId || '',
+                startDate: t?.startDate || '',
+                endDate: t?.endDate || '',
+                isActive: t?.isActive !== false,
               })),
             }}
             onSave={d => saveSection('externalTeam', {
-              leadTeams: (d.leadTeams || []).filter((t: any) => t.companyTypeId || t.companyId || t.subCompanyId || t.contactId),
+              leadTeams: (d.leadTeams || [])
+                .filter((t: any) => t.companyTypeId || t.companyId || t.subCompanyId || t.contactId)
+                .map((t: any) => ({
+                  ...t,
+                  startDate: t.startDate || '',
+                  endDate: t.endDate || '',
+                  isActive: t.isActive !== false,
+                })),
             })}
           >
             {({ editing, draft, set }) => {
               const rows: any[] = draft.leadTeams || [];
               const update = (i: number, patch: any) => { const next = [...rows]; next[i] = { ...next[i], ...patch }; set({ leadTeams: next }); };
               const remove = (i: number) => set({ leadTeams: rows.filter((_, idx) => idx !== i) });
-              const add = () => set({ leadTeams: [...rows, { companyTypeId: '', companyId: '', subCompanyId: '', contactId: '' }] });
+              const add = () => set({ leadTeams: [...rows, { companyTypeId: '', companyId: '', subCompanyId: '', contactId: '', startDate: '', endDate: '', isActive: true }] });
               // Forward cascade: picking a company back-fills its type and resets dependents.
               const onCompanyChange = (i: number, companyId: string) => {
                 const company = companyById.get(String(companyId));
@@ -582,13 +765,13 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter' }}>
-                      <thead><tr>{['Company / Client', 'Type', 'Sub Company', 'Contact', 'Phone'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
+                      <thead><tr>{['Company / Client', 'Type', 'Sub Company', 'Contact', 'Phone', 'Start Date', 'End Date', 'Status'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
                       <tbody>
                         {stakeholders.map((s, i) => (
                           <tr key={i}>
                             <td style={tdName}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <img 
+                                <img
                                   src={s.companyAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name === DASH ? 'C' : s.name)}&background=eeeeee&color=888888&size=20&rounded=true`}
                                   alt=""
                                   style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
@@ -601,7 +784,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                             <td style={td}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 {s.contact !== DASH && s.contact !== '' && (
-                                  <img 
+                                  <img
                                     src={s.contactAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.contact)}&background=eeeeee&color=888888&size=20&rounded=true`}
                                     alt=""
                                     style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
@@ -611,6 +794,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                               </div>
                             </td>
                             <td style={td}>{s.phone || DASH}</td>
+                            <td style={td}>{s.startDate ? fmtDate(s.startDate) : DASH}</td>
+                            <td style={td}>{s.endDate ? fmtDate(s.endDate) : DASH}</td>
+                            <td style={td}><DetailStatusBadge status={s.isActive ? 'Active' : 'Inactive'} color={s.isActive ? '#16a34a' : '#94A3B8'} /></td>
                           </tr>
                         ))}
                       </tbody>
@@ -628,6 +814,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <div style={{ flex: 1, minWidth: 150 }}>Company</div>
                         <div style={{ flex: 1, minWidth: 150 }}>Sub Company</div>
                         <div style={{ flex: 1, minWidth: 150 }}>Contact Person</div>
+                        <div style={{ flex: 1, minWidth: 120 }}>Start</div>
+                        <div style={{ flex: 1, minWidth: 120 }}>End</div>
+                        <div style={{ flex: 1, minWidth: 110 }}>Status</div>
                         <div style={{ width: 32 }} />
                       </div>
                     )}
@@ -640,6 +829,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" showColor /></div>
                         <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => onSubCompanyChange(i, v)} placeholder="Select sub company" /></div>
                         <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => onContactChange(i, v)} placeholder="Select contact" showColor /></div>
+                        <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.startDate} onChange={v => update(i, { startDate: v })} /></div>
+                        <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.endDate} onChange={v => update(i, { endDate: v })} /></div>
+                        <div style={{ flex: 1, minWidth: 110 }}><ToggleEditor value={t.isActive !== false} onChange={v => update(i, { isActive: v })} onLabel="Active" offLabel="Inactive" /></div>
                         <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
                       </div>
                     ))}

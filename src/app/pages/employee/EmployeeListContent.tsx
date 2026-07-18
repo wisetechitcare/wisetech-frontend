@@ -45,6 +45,16 @@ const EmployeeListContent = () => {
 
   const navigate = useNavigate();
 
+  // Parse "X Years Y Months" to total months for sorting.
+  const parseExperienceToMonths = (exp: string | null | undefined): number => {
+    if (!exp) return 0;
+    const match = exp.match(/(\d+)\s+Years?\s+(\d+)\s+Months?/i);
+    if (match) {
+      return parseInt(match[1], 10) * 12 + parseInt(match[2], 10);
+    }
+    return 0;
+  };
+
   // Save current page to sessionStorage whenever it changes
   useEffect(() => {
     sessionStorage.setItem('employeeListPage', currentPage.toString());
@@ -119,6 +129,11 @@ const EmployeeListContent = () => {
     {
       accessorKey: "experience",
       header: "Total Experience",
+      sortingFn: (rowA: any, rowB: any) => {
+        const monthsA = parseExperienceToMonths(rowA.getValue("experience"));
+        const monthsB = parseExperienceToMonths(rowB.getValue("experience"));
+        return monthsA - monthsB;
+      },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
