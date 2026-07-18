@@ -318,7 +318,11 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
   return (
     <div
       className={`${isExpanded ? "fixed-top w-100 h-100 p-4 bg-white" : "w-100"}`}
-      style={{ zIndex: 1070 }}
+      // The high z-index is only for the fullscreen overlay. In the normal state
+      // the parent <section> is a flexbox, so a z-index applies to this flex item
+      // even at position:static and would lift the card above the sticky header
+      // tab bar — so keep it `auto` unless expanded.
+      style={{ zIndex: isExpanded ? 1070 : "auto" }}
     >
       <Card
         className={`border-0 rounded-4 overflow-hidden shadow-sm ${isExpanded ? "h-100" : "mb-4"}`}

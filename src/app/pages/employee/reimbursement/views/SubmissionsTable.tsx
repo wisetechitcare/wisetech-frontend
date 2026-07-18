@@ -308,7 +308,7 @@ function SubmissionDetailModal({
         header: 'Project Name',
         enableColumnActions: false,
         Cell: ({ row }: any) =>
-          row.original.project?.title || resolveProject(row.original.projectId) || 'N/A',
+          row.original.lead?.title || row.original.project?.title || resolveProject(row.original.projectId) || 'N/A',
       },
       {
         accessorKey: 'type',
