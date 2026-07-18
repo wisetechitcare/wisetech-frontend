@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Grid, Box, Typography, IconButton, CircularProgress, Switch, FormControlLabel } from "@mui/material";
 import axios from "axios";
 import { ProjectPointsSection } from "@app/modules/projectPoints";
@@ -107,6 +107,24 @@ const buildRowContacts = (team: any, index: number, props: LeadSectionsProps): a
   return allContacts;
 };
 
+/**
+ * Company Type dropdown options — TOP-LEVEL (main) types only, matching the
+ * Company form. Sub-types/services (a type whose parentTypeId points to a
+ * top-level type) are excluded; orphans (parent missing/invalid) are promoted
+ * so nothing silently disappears. Mirrors NewCompanyForm's `mainTypes` logic.
+ */
+const mainCompanyTypeOptions = (companyTypes: any[]): { value: any; label: string }[] => {
+  const list = companyTypes || [];
+  const typeById = new Map(list.map((t: any) => [t.id, t]));
+  const parentIsTopLevel = (pid: any) => {
+    const p = typeById.get(pid);
+    return !!p && (!p.parentTypeId || !typeById.has(p.parentTypeId));
+  };
+  const isSub = (t: any) =>
+    !!(t.parentTypeId && typeById.has(t.parentTypeId) && parentIsTopLevel(t.parentTypeId));
+  return list.filter((t: any) => !isSub(t)).map((t: any) => ({ value: t.id, label: t.name }));
+};
+
 // 1. Lead Details Section
 export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
@@ -179,8 +197,7 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
             {({ push, remove }) => (
               <div className="d-flex flex-column gap-4">
                 {(values.leadTeams || []).map((team: any, index: number) => {
-                  const sortedCompanyTypes = (props.companyTypes || [])
-                    .map(x => ({ value: x.id, label: x.name }));
+                  const sortedCompanyTypes = mainCompanyTypeOptions(props.companyTypes);
                   let filteredCompanies = props.companies || [];
                   if (team.companyTypeId) {
                     filteredCompanies = filteredCompanies.filter((c: any) => String(c.companyTypeId) === String(team.companyTypeId));
@@ -264,14 +281,17 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                     </div>
                   );
                 })}
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  onClick={() => push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })}
-                  className="align-self-start fw-bold mt-2"
-                >
-                  + Add Client Company Connection
-                </Button>
+                {/* Single Address To — hidden once one client connection exists. */}
+                {(values.leadTeams || []).length === 0 && (
+                  <Button
+                    variant="outline-primary"
+                    size="sm"
+                    onClick={() => push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })}
+                    className="align-self-start fw-bold mt-2"
+                  >
+                    + Add Client Company Connection
+                  </Button>
+                )}
               </div>
             )}
           </FieldArray>
@@ -530,6 +550,25 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
     return baseTypeOptions;
   };
 
+  // On a NEW lead, pre-select the two default referral rows — first External,
+  // second Internal — once the referral types have loaded from the backend
+  // (their ids are UUIDs, unknown at form-init time). Seeds only once, and only
+  // while both rows are still blank, so it never overrides a user's own choice
+  // or the saved values of a lead being edited. Rows added later via
+  // "+ Add Referral Source" stay blank.
+  const didSeedReferralTypesRef = useRef(false);
+  useEffect(() => {
+    if (didSeedReferralTypesRef.current) return;
+    if (props.isEditMode) return;
+    if (!internalType || !externalType) return;
+    const refs = values.referrals || [];
+    if (refs.length < 2) return;
+    if (refs[0]?.referralType || refs[1]?.referralType) return;
+    setFieldValue("referrals.0.referralType", externalType.id);
+    setFieldValue("referrals.1.referralType", internalType.id);
+    didSeedReferralTypesRef.current = true;
+  }, [props.isEditMode, internalType, externalType, values.referrals, setFieldValue]);
+
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
       <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
@@ -587,8 +626,7 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                   ) : (
                     <React.Fragment>
                       {(() => {
-                        const sortedCompanyTypes = (props.companyTypes || [])
-                          .map(x => ({ value: x.id, label: x.name }));
+                        const sortedCompanyTypes = mainCompanyTypeOptions(props.companyTypes);
 
                         let filteredCompanies = props.companies || [];
                         if (ref.referringCompanyType) {
@@ -1335,10 +1373,7 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
         {({ push, remove }) => (
           <div className="d-flex flex-column gap-3">
             {(values.leadTeams || []).map((team: any, index: number) => {
-              const sortedCompanyTypes = (props.companyTypes || []).map((x) => ({
-                value: x.id,
-                label: x.name,
-              }));
+              const sortedCompanyTypes = mainCompanyTypeOptions(props.companyTypes);
               const filteredCompanies =
                 props.teamFilteredCompanies[index] || props.companies;
               const selectedCompany = props.companies.find(
@@ -1434,17 +1469,23 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
               );
             })}
 
-            <Button
-              variant="outline-primary"
-              size="sm"
-              type="button"
-              onClick={() =>
-                push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })
-              }
-              className="align-self-start fw-bold mt-1"
-            >
-              + Add Client Company Connection
-            </Button>
+            {/* Address To is a SINGLE client connection — the "+ Add" button is
+                hidden once one row exists. This single Address To is mirrored
+                one-way into the project's External Team; additional stakeholders
+                are managed there, not here. */}
+            {(values.leadTeams || []).length === 0 && (
+              <Button
+                variant="outline-primary"
+                size="sm"
+                type="button"
+                onClick={() =>
+                  push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })
+                }
+                className="align-self-start fw-bold mt-1"
+              >
+                + Add Client Company Connection
+              </Button>
+            )}
           </div>
         )}
       </FieldArray>

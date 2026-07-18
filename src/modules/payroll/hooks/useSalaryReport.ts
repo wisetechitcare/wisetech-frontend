@@ -158,6 +158,21 @@ export const useSalaryReport = () => {
                 }
             }
 
+            // 3. Company Deduction (Retention) — separate category from government
+            // fees, settled through the same statutory-payment ledger.
+            if (paymentType === 'COMPANY') {
+                const amount = typeof values.companyAmount === 'string' ? parseCurrencyString(values.companyAmount) : Number(values.companyAmount);
+                if (amount > 0) {
+                    await PayrollService.recordGovernmentPayment({
+                        ...basePayload,
+                        deductionType: values.companyType || 'Retention',
+                        amount: amount,
+                        paidAmount: amount,
+                        status: 'PAID'
+                    });
+                }
+            }
+
             successConfirmation('Disbursement authorized successfully');
             setShowPaymentModal(false);
             handleRefresh(onSuccess);

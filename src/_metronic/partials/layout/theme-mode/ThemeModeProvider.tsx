@@ -30,18 +30,16 @@ const getThemeModeFromLocalStorage = (lsKey: string): ThemeModeType => {
   }
 
   const data = localStorage.getItem(lsKey)
-  if (data === 'dark' || data === 'light' || data === 'system') {
-    return data
+  // Force light mode only — ignore any stored dark/system to heal stale localStorage
+  if (data === 'dark' || data === 'system') {
+    return 'light'
+  }
+  if (data === 'light') {
+    return 'light'
   }
 
-  if (document.documentElement.hasAttribute('data-bs-theme')) {
-    const dataTheme = document.documentElement.getAttribute('data-bs-theme')
-    if (dataTheme && (dataTheme === 'dark' || dataTheme === 'light' || dataTheme === 'system')) {
-      return dataTheme
-    }
-  }
-
-  return 'system'
+  // Ignore data-bs-theme attribute as well; always light
+  return 'light'
 }
 
 const defaultThemeMode: ThemeModeContextType = {
