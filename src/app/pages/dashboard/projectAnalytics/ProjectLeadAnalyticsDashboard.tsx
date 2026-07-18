@@ -93,9 +93,9 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-      {/* ── Section 1: Pipeline Performance ────────────────────────────── */}
+      {/* ── Section 1: Pipeline Performance (Projects) ────────────────────────────── */}
       {showStatus && (
-        <PipelinePerformance statusData={statusData} onSelect={onStatusSelect} />
+        <PipelinePerformance statusData={statusData} onSelect={onStatusSelect} context="projects" />
       )}
 
       {/* ── Section 2: Service Performance ─────────────────────────────── */}
