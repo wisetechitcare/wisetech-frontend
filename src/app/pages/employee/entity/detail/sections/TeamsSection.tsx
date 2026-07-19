@@ -66,7 +66,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const team = ex.team || null;
   const teamMembers: any[] = team?.members || [];
   const internal: any[] = lead?.internalMembers || [];
-  const leadTeams: any[] = lead?.leadTeams || [];
+  // External Team roster is DECOUPLED from the lead form's Address To (lead.leadTeams).
+  // It reads its own project_external_teams rows — the lead's single Address To is
+  // mirrored in one-way as a `syncedFromLead` row, and anything edited/added here
+  // never flows back to the lead form.
+  const projectExternalTeams: any[] = lead?.projectExternalTeams || [];
 
   const empName = (id?: string | null) => employeeNameById(allEmployees, id) || id || DASH;
 
@@ -261,24 +265,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const persisted = internal.length > 0;
   const displayMembers: any[] = persisted ? internal : teamRoster;
 
-  // ── External roster = the lead-form company/client connections (leadTeams),
+  // ── External roster = the project's OWN stakeholders (projectExternalTeams),
   //    editable here with the SAME cascading dropdowns the lead form uses:
-  //    Company Type → Company → Sub Company → Contact Person. ──────────────────
-  const stakeholders = useMemo(
-    () => sortByActive(leadTeams).map((t: any) => ({
-      name: t?.company?.companyName || t?.subCompany?.subCompanyName || DASH,
-      companyAvatar: t?.company?.companyLogo || t?.company?.logo || null,
-      type: t?.companyType?.name || '',
-      subCompany: t?.subCompany?.subCompanyName || '',
-      contact: t?.contact?.fullName || '',
-      contactAvatar: t?.contact?.profilePhoto || t?.contact?.avatar || t?.contact?.users?.avatar || null,
-      phone: t?.contact?.phone || t?.company?.phone || '',
-      startDate: t?.startDate || '',
-      endDate: t?.endDate || '',
-      isActive: t?.isActive !== false,
-    })),
-    [leadTeams],
-  );
+  //    Company Type → Company → Sub Company → Contact Person. FKs are scalar, so
+  //    display names are resolved from the loaded masters (stakeholders memo,
+  //    defined below the resolver maps). ───────────────────────────────────────
 
   // Cascade option sources (mirrors the lead form's Address To widget). We load
   // the FULL contact + sub-company masters up front (like the lead form) so any
@@ -303,14 +294,54 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const subCompanyById = useMemo(() => new Map(allSubCompanies.map((s: any) => [String(s.id), s])), [allSubCompanies]);
   const contactById = useMemo(() => new Map(allContacts.map((c: any) => [String(c.id), c])), [allContacts]);
   const companyNameById = useMemo(() => new Map(companies.map((c: any) => [String(c.id), c.companyName])), [companies]);
+  const companyTypeById = useMemo(() => new Map(companyTypes.map((t: any) => [String(t.id), t])), [companyTypes]);
+
+  // External roster view model — resolves scalar FKs (companyTypeId/companyId/
+  // subCompanyId/contactId) against the loaded masters. `syncedFromLead` marks the
+  // row mirrored one-way from the lead's Address To.
+  const stakeholders = useMemo(
+    () => sortByActive(projectExternalTeams).map((t: any) => {
+      const company = companyById.get(String(t.companyId));
+      const subCompany = subCompanyById.get(String(t.subCompanyId));
+      const contact = contactById.get(String(t.contactId));
+      const companyType = companyTypeById.get(String(t.companyTypeId));
+      return {
+        name: company?.companyName || subCompany?.subCompanyName || subCompany?.name || DASH,
+        companyAvatar: company?.companyLogo || company?.logo || null,
+        type: companyType?.name || '',
+        subCompany: subCompany?.subCompanyName || subCompany?.name || '',
+        contact: contact?.fullName || contact?.name || '',
+        contactAvatar: contact?.profilePhoto || contact?.avatar || contact?.users?.avatar || null,
+        phone: contact?.phone || company?.phone || '',
+        startDate: t?.startDate || '',
+        endDate: t?.endDate || '',
+        isActive: t?.isActive !== false,
+        syncedFromLead: t?.syncedFromLead === true,
+      };
+    }),
+    [projectExternalTeams, companyById, subCompanyById, contactById, companyTypeById],
+  );
 
   const byLabel = (a: { label: string }, b: { label: string }) =>
     a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
 
-  const companyTypeOptions = useMemo(
-    () => companyTypes.map((t: any) => ({ value: t.id, label: t.name })).sort(byLabel),
-    [companyTypes],
-  );
+  // Company Type dropdown — TOP-LEVEL (main) types only, matching the Company
+  // form. A type is a sub-type/service when its parentTypeId points to a valid
+  // top-level parent; those are excluded. Orphans (missing/invalid parent) are
+  // kept so nothing silently disappears.
+  const companyTypeOptions = useMemo(() => {
+    const typeById = new Map(companyTypes.map((t: any) => [t.id, t]));
+    const parentIsTopLevel = (pid: any) => {
+      const p = typeById.get(pid);
+      return !!p && (!p.parentTypeId || !typeById.has(p.parentTypeId));
+    };
+    const isSub = (t: any) =>
+      !!(t.parentTypeId && typeById.has(t.parentTypeId) && parentIsTopLevel(t.parentTypeId));
+    return companyTypes
+      .filter((t: any) => !isSub(t))
+      .map((t: any) => ({ value: t.id, label: t.name }))
+      .sort(byLabel);
+  }, [companyTypes]);
   const companyOptionsFor = (typeId?: string) => companies
     .filter((c: any) => !typeId || c.companyTypeId === typeId)
     .map((c: any) => ({ 
@@ -697,15 +728,17 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             accentColor="purple"
             values={{
               // Active first, inactive below — same ordering as the read table.
-              leadTeams: sortByActive(leadTeams).map((t: any) => ({
+              // Sourced from the project's own rows (scalar FKs), NOT the lead form.
+              leadTeams: sortByActive(projectExternalTeams).map((t: any) => ({
                 id: t.id,
-                companyTypeId: t?.companyType?.id || t?.companyTypeId || '',
-                companyId: t?.company?.id || t?.companyId || '',
-                subCompanyId: t?.subCompany?.id || t?.subCompanyId || '',
-                contactId: t?.contact?.id || t?.contactId || '',
+                companyTypeId: t?.companyTypeId || '',
+                companyId: t?.companyId || '',
+                subCompanyId: t?.subCompanyId || '',
+                contactId: t?.contactId || '',
                 startDate: t?.startDate || '',
                 endDate: t?.endDate || '',
                 isActive: t?.isActive !== false,
+                syncedFromLead: t?.syncedFromLead === true,
               })),
             }}
             onSave={d => saveSection('externalTeam', {
@@ -716,6 +749,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                   startDate: t.startDate || '',
                   endDate: t.endDate || '',
                   isActive: t.isActive !== false,
+                  syncedFromLead: t.syncedFromLead === true,
                 })),
             })}
           >
@@ -723,7 +757,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
               const rows: any[] = draft.leadTeams || [];
               const update = (i: number, patch: any) => { const next = [...rows]; next[i] = { ...next[i], ...patch }; set({ leadTeams: next }); };
               const remove = (i: number) => set({ leadTeams: rows.filter((_, idx) => idx !== i) });
-              const add = () => set({ leadTeams: [...rows, { companyTypeId: '', companyId: '', subCompanyId: '', contactId: '', startDate: '', endDate: '', isActive: true }] });
+              const add = () => set({ leadTeams: [...rows, { companyTypeId: '', companyId: '', subCompanyId: '', contactId: '', startDate: '', endDate: '', isActive: true, syncedFromLead: false }] });
               // Forward cascade: picking a company back-fills its type and resets dependents.
               const onCompanyChange = (i: number, companyId: string) => {
                 const company = companyById.get(String(companyId));
@@ -777,6 +811,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                                   style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
                                 />
                                 {s.name}
+                                {s.syncedFromLead && (
+                                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: '#ede9fe', color: '#6d28d9', whiteSpace: 'nowrap' }}>
+                                    From Lead
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td style={td}>{s.type || DASH}</td>
@@ -824,15 +863,23 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                       <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '8px 0 12px' }}>No client company linked yet — add one below.</div>
                     )}
                     {rows.map((t, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
-                        <div style={{ flex: 1, minWidth: 140 }}><SearchableSelectEditor value={t.companyTypeId} options={companyTypeOptions} onChange={v => update(i, { companyTypeId: v })} placeholder="Select type" /></div>
-                        <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" showColor /></div>
-                        <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => onSubCompanyChange(i, v)} placeholder="Select sub company" /></div>
-                        <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => onContactChange(i, v)} placeholder="Select contact" showColor /></div>
-                        <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.startDate} onChange={v => update(i, { startDate: v })} /></div>
-                        <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.endDate} onChange={v => update(i, { endDate: v })} /></div>
-                        <div style={{ flex: 1, minWidth: 110 }}><ToggleEditor value={t.isActive !== false} onChange={v => update(i, { isActive: v })} onLabel="Active" offLabel="Inactive" /></div>
-                        <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
+                      <div key={i} style={{ borderBottom: '1px solid #F4F6F9', padding: '4px 0 8px' }}>
+                        {t.syncedFromLead && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 4px' }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: '#ede9fe', color: '#6d28d9' }}>From Lead</span>
+                            <span style={{ fontFamily: 'Inter', fontSize: 11, color: '#94A3B8' }}>Synced from the lead's Address To · edits here won't change the lead</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <div style={{ flex: 1, minWidth: 140 }}><SearchableSelectEditor value={t.companyTypeId} options={companyTypeOptions} onChange={v => update(i, { companyTypeId: v })} placeholder="Select type" /></div>
+                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" showColor /></div>
+                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => onSubCompanyChange(i, v)} placeholder="Select sub company" /></div>
+                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => onContactChange(i, v)} placeholder="Select contact" showColor /></div>
+                          <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.startDate} onChange={v => update(i, { startDate: v })} /></div>
+                          <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.endDate} onChange={v => update(i, { endDate: v })} /></div>
+                          <div style={{ flex: 1, minWidth: 110 }}><ToggleEditor value={t.isActive !== false} onChange={v => update(i, { isActive: v })} onLabel="Active" offLabel="Inactive" /></div>
+                          <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
+                        </div>
                       </div>
                     ))}
                   </div>

@@ -44,6 +44,13 @@ export interface PayrollSummary {
     activeGovType: string;
     hasTDS?: boolean;
     hasPTax?: boolean;
+    // Retention (fresher bond) is a company-side deduction, tracked separately
+    // from the government/statutory bucket.
+    hasRetention?: boolean;
+    totalGovtDeduction?: number;
+    totalRetention?: number;
+    retentionPaid?: number;
+    retentionPending?: number;
     // Arrear fields — present when pending arrears exist for this payroll month
     totalPendingArrears?: number;
     arrearCount?: number;

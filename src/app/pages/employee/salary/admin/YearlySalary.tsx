@@ -99,6 +99,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
         professionalFees: rawTotals.professionalFeesDeducted ?? 0,
         tds2: rawTotals.tds2Deducted ?? 0,
         professionalTax: rawTotals.professionalTaxDeducted ?? 0,
+        retention: rawTotals.retentionDeducted ?? 0,
         totalWorkingTime: rawTotals?.workingDays ? `${((rawTotals?.workingDays ?? 0) * 8).toFixed(2)} hrs` : '-',
         workedTime: rawTotals?.payableHours != null ? `${Number(rawTotals.payableHours).toFixed(2)} hrs` : '-',
         remainingMinutes: rawTotals?.remainingMinutes ? `${rawTotals?.remainingMinutes?.toFixed(2)} hrs` : '-',
@@ -126,12 +127,13 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
         acc.professionalFees += num(r.professionalFees);
         acc.tds2             += num(r.tds2);
         acc.professionalTax  += num(r.professionalTax);
+        acc.retention        += num(r.retention);
         acc.netAmount        += num(r.netAmount);
         acc.amountPaid       += num(r.amountPaid);
         acc.dueAmount        += num(r.dueAmount);
         return acc;
       },
-      { basicSalary: 0, overTimeAmount: 0, professionalFees: 0, tds2: 0, professionalTax: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
+      { basicSalary: 0, overTimeAmount: 0, professionalFees: 0, tds2: 0, professionalTax: 0, retention: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
     );
   }, [tableData]);
 
@@ -146,6 +148,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
     { key: 'professionalFees',header: tds1Name,              type: 'currency' as const, showTotal: true },
     { key: 'tds2',            header: tds2Name,              type: 'currency' as const, showTotal: true },
     { key: 'professionalTax', header: 'Prof. Tax',           type: 'currency' as const, showTotal: true },
+    { key: 'retention',       header: 'Retention',           type: 'currency' as const, showTotal: true },
     { key: 'netAmount',       header: 'Net Payable',         type: 'currency' as const, showTotal: true },
     { key: 'amountPaid',      header: 'Paid',                type: 'currency' as const, showTotal: true, color: '#1d4ed8' },
     {
@@ -262,6 +265,16 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
                 return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtINR(columnTotals.professionalTax),
+            },
+            {
+              accessorKey: "retention",
+              header: "Retention",
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Math.round(Number(renderedCellValue));
+                if (!val || val === 0) return "-";
+                return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              },
+              Footer: () => fmtINR(columnTotals.retention),
             },
             {
               accessorKey: "netAmount",
