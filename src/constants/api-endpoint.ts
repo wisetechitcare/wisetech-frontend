@@ -703,4 +703,7 @@ export const BIOMETRIC = {
     TEST_DEVICE:    'api/biometric/devices',
     SYNC_DEVICE:    'api/biometric/devices',
     DEVICE_LOGS:    'api/biometric/devices',
+    CONFLICTS:        'api/biometric/conflicts',
+    CONFLICTS_COUNT:  'api/biometric/conflicts/count',
+    CONFLICTS_RESOLVE:'api/biometric/conflicts',
 };
