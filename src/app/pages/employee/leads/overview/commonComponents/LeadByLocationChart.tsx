@@ -21,7 +21,7 @@ type Filters = {
   status: string;
 };
 
-const UNKNOWN = "Unknown"; // display for null/empty
+const UNKNOWN = "NA"; // display for null/empty
 
 interface LocationAnalytics {
   statusId: string;
@@ -117,14 +117,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
     return ["All", ...uniqueSorted(data.map((item) => item.status))];
   }, [data]);
 
-  // Determine grouping level based on filters
-  const groupBy = useMemo(() => {
-    if (filters.country === "All") return "country";
-    if (filters.state === "All") return "state";
-    if (filters.city === "All") return "city";
-    if (filters.locality === "All") return "locality";
-    return "status"; // finest level when all location filters are set
-  }, [filters]);
+  // Show all levels separately
 
   const handleLocationChartClick = (selectedLabel: string) => {
     const selectedLocation:any = data?.find(
@@ -139,8 +132,8 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
   };
 
 
-  // Group and aggregate data
-  const grouped = useMemo(() => {
+  // Create separate groupings for each geographic level
+  const createGroupedData = (getKey: (item: LocationAnalytics) => string) => {
     const map: Record<string, {
       name: string;
       totalBudget: number;
@@ -149,28 +142,8 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
     }> = {};
 
     filteredData.forEach((item) => {
-      let key: string;
+      const key = getKey(item);
       const color = item.color;
-
-      switch (groupBy) {
-        case "country":
-          key = normalize(item.country);
-          break;
-        case "state":
-          key = normalize(item.state);
-          break;
-        case "city":
-          key = normalize(item.city);
-          break;
-        case "locality":
-          key = normalize(item.locality);
-          break;
-        case "status":
-          key = item.status;
-          break;
-        default:
-          key = "Other";
-      }
 
       if (!map[key]) {
         map[key] = {
@@ -197,12 +170,17 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
     } else if (sortOption === "title-desc") {
       result.sort((a, b) => b.name.toLowerCase().localeCompare(a.name.toLowerCase()));
     } else {
-      // Default sort by budget desc
-      result.sort((a, b) => b.totalBudget - a.totalBudget);
+      // Default sort by lead count desc
+      result.sort((a, b) => b.totalCount - a.totalCount);
     }
 
     return result;
-  }, [filteredData, groupBy, sortOption]);
+  };
+
+  const countryGrouped = useMemo(() => createGroupedData(item => normalize(item.country)), [filteredData, sortOption]);
+  const stateGrouped = useMemo(() => createGroupedData(item => normalize(item.state)), [filteredData, sortOption]);
+  const cityGrouped = useMemo(() => createGroupedData(item => normalize(item.city)), [filteredData, sortOption]);
+  const localityGrouped = useMemo(() => createGroupedData(item => normalize(item.locality)), [filteredData, sortOption]);
 
   // Change handlers with cascading resets
   const handleChange = (key: keyof Filters) => (e: SelectChangeEvent<string>) => {
@@ -245,20 +223,17 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
     }
   };
 
-  // Map grouped data into the shared chart format (volume-ranked, ₹ in tooltip).
-  // NOTE: no per-row color — the lean bars use one flat accent so the chart looks
-  // identical in both Lead Overview and Project Overview (previously the bars were
-  // tinted by each row's status color, which made the two views look different).
-  const locationChartData: ChartDatum[] = grouped.map((g) => ({
+  // Map grouped data into chart format for each level
+  const createChartData = (grouped: any[]) => grouped.map((g) => ({
     label: g.name,
     value: g.totalCount,
     totalCost: Math.round(g.totalBudget),
   }));
 
-  const getChartTitle = () => {
-    const level = groupBy.charAt(0).toUpperCase() + groupBy.slice(1);
-    return `Leads by ${level}`;
-  };
+  const countryChartData: ChartDatum[] = createChartData(countryGrouped);
+  const stateChartData: ChartDatum[] = createChartData(stateGrouped);
+  const cityChartData: ChartDatum[] = createChartData(cityGrouped);
+  const localityChartData: ChartDatum[] = createChartData(localityGrouped);
 
   return (
     <>
@@ -281,7 +256,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                 color: "#0F172A",
               }}
             >
-              {getChartTitle()}
+              Leads by Geographic Location
             </h2>
           </div>
           <Box sx={{ p: 3, borderRadius: 2 }}>
@@ -564,54 +539,94 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
               </FormControl>
             </Box>
 
-            <Box sx={{ mt: 3, }}>
-              {grouped.length > 0 ? (
-                <RankedBarChart
-                  data={locationChartData}
-                  onSelect={handleLocationChartClick}
-                  showRevenue
-                  lean
-                  barColor="#0EA5E9"
-                  height={Math.max(220, locationChartData.length * 34)}
-                />
-              ) : (
-
-                <div style={{ backgroundColor: "#f8faff", margin: 0, border: "2px solid #EAEEF5" }} className="rounded-2 m-6">
-                  <div
-
-                    style={{
-                      height: "270px",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      textAlign: "center",
-                      gap: "10px",
-                      color: "#6c757d",
-                    }}
-                  >
-                    <div>
-                      <i className="bi bi-info-circle" style={{ fontSize: "24px", color: "#9CAFC9" }}></i>
-                    </div>
-
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: 500,
-                        fontStyle: "normal",
-                        fontSize: "13px",
-                        textAlign: "center",
-                        color: "#9CAFC9"
-                      }}>
-                      Nothing to see here yet, <br /> add data to view
-                    </div>
+            <Box sx={{ mt: 3, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
+              {/* Country Chart */}
+              <Box>
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "#0F172A" }}>By Country</h3>
+                {countryChartData.length > 0 ? (
+                  <RankedBarChart
+                    data={countryChartData}
+                    onSelect={handleLocationChartClick}
+                    showRevenue
+                    lean
+                    barColor="#0EA5E9"
+                    height={Math.max(220, Math.min(countryChartData.length, 10) * 34)}
+                    valueLabel
+                    title="Leads by Country"
+                  />
+                ) : (
+                  <div style={{ backgroundColor: "#f8faff", padding: "20px", borderRadius: "8px", textAlign: "center", color: "#9CAFC9", fontSize: "13px" }}>
+                    No data available
                   </div>
-                </div>
-              )}
+                )}
+              </Box>
+
+              {/* State Chart */}
+              <Box>
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "#0F172A" }}>By State</h3>
+                {stateChartData.length > 0 ? (
+                  <RankedBarChart
+                    data={stateChartData}
+                    onSelect={handleLocationChartClick}
+                    showRevenue
+                    lean
+                    barColor="#10B981"
+                    height={Math.max(220, Math.min(stateChartData.length, 10) * 34)}
+                    valueLabel
+                    title="Leads by State"
+                  />
+                ) : (
+                  <div style={{ backgroundColor: "#f8faff", padding: "20px", borderRadius: "8px", textAlign: "center", color: "#9CAFC9", fontSize: "13px" }}>
+                    No data available
+                  </div>
+                )}
+              </Box>
+
+              {/* City Chart */}
+              <Box>
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "#0F172A" }}>By City</h3>
+                {cityChartData.length > 0 ? (
+                  <RankedBarChart
+                    data={cityChartData}
+                    onSelect={handleLocationChartClick}
+                    showRevenue
+                    lean
+                    barColor="#F59E0B"
+                    height={Math.max(220, Math.min(cityChartData.length, 10) * 34)}
+                    valueLabel
+                    title="Leads by City"
+                  />
+                ) : (
+                  <div style={{ backgroundColor: "#f8faff", padding: "20px", borderRadius: "8px", textAlign: "center", color: "#9CAFC9", fontSize: "13px" }}>
+                    No data available
+                  </div>
+                )}
+              </Box>
+
+              {/* Locality Chart */}
+              <Box>
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "#0F172A" }}>By Locality</h3>
+                {localityChartData.length > 0 ? (
+                  <RankedBarChart
+                    data={localityChartData}
+                    onSelect={handleLocationChartClick}
+                    showRevenue
+                    lean
+                    barColor="#8B5CF6"
+                    height={Math.max(220, Math.min(localityChartData.length, 10) * 34)}
+                    valueLabel
+                    title="Leads by Locality"
+                  />
+                ) : (
+                  <div style={{ backgroundColor: "#f8faff", padding: "20px", borderRadius: "8px", textAlign: "center", color: "#9CAFC9", fontSize: "13px" }}>
+                    No data available
+                  </div>
+                )}
+              </Box>
             </Box>
-            {grouped.length > 0 && (
+            {filteredData.length > 0 && (
               <Box
-                sx={{ mt: 2, display: "flex", gap: 3, justifyContent: "center" }}
+                sx={{ mt: 3, display: "flex", gap: 3, justifyContent: "center" }}
                 style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: "#64748B" }}
               >
                 <span>

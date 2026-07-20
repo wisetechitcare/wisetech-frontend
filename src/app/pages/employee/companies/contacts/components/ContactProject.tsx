@@ -49,7 +49,6 @@ const ContactProject = ({ contact }: { contact: any }) => {
   const getAllProjectsData = async () => {
     try {
       setLoading(true);
-      const allProjects = await getAllProjects();
       const response = await getProjectsByContactId(contact?.id);
       const response2 = await getAllProjectCategories();
       const response3 = await getAllProjectSubcategories();
@@ -61,13 +60,9 @@ const ContactProject = ({ contact }: { contact: any }) => {
       const response10 = await getAllCompanyTypes();
       const response11 = await getAllTeams(1, 9999); // Get all teams for dropdown
 
-      setAllProjects(
-        allProjects.data?.projects.filter((project: any) =>
-          project?.projectCompanyMappings?.some(
-            (mapping: any) => mapping.contactPersonId === contact?.id
-          )
-        ) || []
-      );
+      // Use the contact-scoped endpoint (projects where this contact is on the Teams
+      // page external roster) instead of client-side filtering all projects.
+      setAllProjects(response.data?.projects || []);
 
       setAllProjectCategories(response2?.projectCategories);
       setAllProjectSubcategories(response3?.projectSubCategories);

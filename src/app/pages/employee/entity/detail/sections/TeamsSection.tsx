@@ -1,12 +1,13 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Modal } from 'react-bootstrap';
+import Swal from 'sweetalert2';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
 import {
-  EditableDetailCard, SelectEditor, SearchableSelectEditor, DateEditor, ToggleEditor,
+  EditableDetailCard, SelectEditor, SearchableSelectEditor, DateEditor, ToggleEditor, toDateInputValue,
 } from '@app/modules/detail-page/EditableDetailCard';
 import { updateLeadSection } from '@services/leadService';
 import { getAllCompanyTypes, getAllClientCompanies, getAllClientContacts, getAllSubCompanies } from '@services/companies';
@@ -178,9 +179,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
 
   // Step 1 → 2: merge the picked team's members INTO the current roster. Existing
   // members keep their status/dates/source; brand-new members come in Active with
-  // no dates. Deactivated employees are never auto-added.
+  // their start date defaulted to today (they're joining now — editable before Save).
+  // Deactivated employees are never auto-added.
   const continueToRoster = () => {
     if (!draftTeamId) return;
+    const today = toDateInputValue(new Date());
     const base = displayMembers
       .map((m: any) => ({
         id: m.id,
@@ -194,7 +197,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
     const present = new Set(base.map((m: any) => String(m.employeeId)));
     const additions = (membersByTeamId.get(String(draftTeamId)) || [])
       .filter((id: string) => id && !present.has(String(id)) && isEmployeeActive(id))
-      .map((employeeId: string) => ({ employeeId, startDate: '', endDate: '', isActive: true, source: 'team', _added: true }));
+      .map((employeeId: string) => ({ employeeId, startDate: today, endDate: '', isActive: true, source: 'team', _added: true }));
     setRosterDraft([...base, ...additions]);
     setTeamStep(2);
   };
@@ -202,7 +205,66 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const updateRosterRow = (i: number, patch: any) =>
     setRosterDraft(prev => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
   const markAllActive = (active: boolean) =>
-    setRosterDraft(prev => prev.map(m => ({ ...m, isActive: active })));
+    setRosterDraft(prev =>
+      prev.map(m => ({
+        ...m,
+        isActive: active,
+        // Inactive → stamp today's end date (keep an existing one); Active → clear it.
+        endDate: active ? '' : (m.endDate || toDateInputValue(new Date())),
+      }))
+    );
+
+  /**
+   * Status toggle with end-date safety. Inactive stamps today's End date; Active
+   * clears it. When the row ALREADY has an End date, we don't silently overwrite —
+   * we confirm first, then let the user pick the new (today / cleared) value or keep
+   * the existing one. `apply` writes the resolved patch back to the right row.
+   */
+  const applyStatusToggle = async (
+    newActive: boolean,
+    row: any,
+    apply: (patch: { isActive: boolean; endDate: string }) => void,
+  ) => {
+    const today = toDateInputValue(new Date());
+    const autoEnd = newActive ? '' : today; // reactivating clears; inactivating stamps today
+
+    // No existing End date → apply the auto behaviour instantly, no prompt.
+    if (!row?.endDate) {
+      apply({ isActive: newActive, endDate: autoEnd });
+      return;
+    }
+
+    // There's an existing End date — confirm before touching it.
+    const confirm = await Swal.fire({
+      title: 'This will change the End date',
+      html: `This member already has an End date of <b>${fmtDate(row.endDate)}</b>. ${
+        newActive ? 'Reactivating' : 'Marking inactive'
+      } will affect it. Do you want to continue?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Continue',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#1E3A8A',
+    });
+    if (!confirm.isConfirmed) return; // leave status + end date untouched
+
+    // Let the user choose which End date to keep.
+    const choice = await Swal.fire({
+      title: 'Which End date should apply?',
+      icon: 'question',
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: newActive ? 'Clear end date' : `Use today (${fmtDate(today)})`,
+      denyButtonText: `Keep existing (${fmtDate(row.endDate)})`,
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#1E3A8A',
+    });
+    if (choice.isDismissed) return; // cancelled → no change at all
+
+    // Confirm = new/auto value; Deny = keep the existing date.
+    const endDate = choice.isConfirmed ? autoEnd : row.endDate;
+    apply({ isActive: newActive, endDate });
+  };
 
   const confirmTeamChange = () => {
     if (savingTeam || !draftTeamId) return;
@@ -300,25 +362,35 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   // subCompanyId/contactId) against the loaded masters. `syncedFromLead` marks the
   // row mirrored one-way from the lead's Address To.
   const stakeholders = useMemo(
-    () => sortByActive(projectExternalTeams).map((t: any) => {
-      const company = companyById.get(String(t.companyId));
-      const subCompany = subCompanyById.get(String(t.subCompanyId));
-      const contact = contactById.get(String(t.contactId));
-      const companyType = companyTypeById.get(String(t.companyTypeId));
-      return {
-        name: company?.companyName || subCompany?.subCompanyName || subCompany?.name || DASH,
-        companyAvatar: company?.companyLogo || company?.logo || null,
-        type: companyType?.name || '',
-        subCompany: subCompany?.subCompanyName || subCompany?.name || '',
-        contact: contact?.fullName || contact?.name || '',
-        contactAvatar: contact?.profilePhoto || contact?.avatar || contact?.users?.avatar || null,
-        phone: contact?.phone || company?.phone || '',
-        startDate: t?.startDate || '',
-        endDate: t?.endDate || '',
-        isActive: t?.isActive !== false,
-        syncedFromLead: t?.syncedFromLead === true,
-      };
-    }),
+    () =>
+      projectExternalTeams
+        .map((t: any) => {
+          const company = companyById.get(String(t.companyId));
+          const subCompany = subCompanyById.get(String(t.subCompanyId));
+          const contact = contactById.get(String(t.contactId));
+          const companyType = companyTypeById.get(String(t.companyTypeId));
+          return {
+            name: company?.companyName || subCompany?.subCompanyName || subCompany?.name || DASH,
+            companyAvatar: company?.companyLogo || company?.logo || null,
+            type: companyType?.name || '',
+            subCompany: subCompany?.subCompanyName || subCompany?.name || '',
+            contact: contact?.fullName || contact?.name || '',
+            contactAvatar: contact?.profilePhoto || contact?.avatar || contact?.users?.avatar || null,
+            designation: contact?.roleInCompany || '',
+            phone: contact?.phone || company?.phone || '',
+            startDate: t?.startDate || '',
+            endDate: t?.endDate || '',
+            isActive: t?.isActive !== false,
+            syncedFromLead: t?.syncedFromLead === true,
+          };
+        })
+        // Active before Inactive, then company/client name A→Z within each group.
+        .sort((a, b) => {
+          const aActive = a.isActive ? 0 : 1;
+          const bActive = b.isActive ? 0 : 1;
+          if (aActive !== bActive) return aActive - bActive;
+          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        }),
     [projectExternalTeams, companyById, subCompanyById, contactById, companyTypeById],
   );
 
@@ -420,14 +492,17 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
               const rows: any[] = draft.internalMembers || [];
               const update = (i: number, patch: any) => { const next = [...rows]; next[i] = { ...next[i], ...patch }; set({ internalMembers: next }); };
               const remove = (i: number) => set({ internalMembers: rows.filter((_, idx) => idx !== i) });
-              const add = () => set({ internalMembers: [...rows, { employeeId: '', startDate: '', endDate: '', isActive: true, source: 'adhoc' }] });
+              // New rows default their start date to today (member joining now);
+              // the date stays editable before Save.
+              const add = () => set({ internalMembers: [...rows, { employeeId: '', startDate: toDateInputValue(new Date()), endDate: '', isActive: true, source: 'adhoc' }] });
               const seedFromTeam = () => {
+                const today = toDateInputValue(new Date());
                 const present = new Set(rows.map(r => r.employeeId).filter(Boolean));
                 const toAdd = teamMembers
                   .map((tm: any) => tm.employeeId)
                   // Don't seed deactivated employees onto the roster.
                   .filter((id: string) => id && !present.has(id) && isEmployeeActive(id))
-                  .map((employeeId: string) => ({ employeeId, startDate: '', endDate: '', isActive: true, source: 'team' }));
+                  .map((employeeId: string) => ({ employeeId, startDate: today, endDate: '', isActive: true, source: 'team' }));
                 if (toAdd.length) set({ internalMembers: [...rows, ...toAdd] });
               };
 
@@ -494,7 +569,19 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                           <tr>{['Employee', 'Start Date', 'End Date', 'Status', 'Source'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
                         </thead>
                         <tbody>
-                          {sortByActive(displayMembers).map((m, i) => (
+                          {[...displayMembers]
+                            .sort((a, b) => {
+                              // Active before Inactive, then employee name A→Z within each group.
+                              const aActive = a.isActive !== false ? 0 : 1;
+                              const bActive = b.isActive !== false ? 0 : 1;
+                              if (aActive !== bActive) return aActive - bActive;
+                              return empName(a.employeeId).localeCompare(
+                                empName(b.employeeId),
+                                undefined,
+                                { sensitivity: 'base' }
+                              );
+                            })
+                            .map((m, i) => (
                             <tr key={m.id || m.employeeId || i}>
                               <td style={tdName}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -541,7 +628,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <div style={{ flex: 2, minWidth: 160 }}><SearchableSelectEditor value={m.employeeId} options={employeeOptions} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" formatOptionLabel={formatEmployeeOption} /></div>
                         <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.startDate} onChange={v => update(i, { startDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.endDate} onChange={v => update(i, { endDate: v })} /></div>
-                        <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={m.isActive !== false} onChange={v => update(i, { isActive: v })} onLabel="Active" offLabel="Inactive" /></div>
+                        <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={m.isActive !== false} onChange={v => applyStatusToggle(v, m, patch => update(i, patch))} onLabel="Active" offLabel="Inactive" /></div>
                         <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
                       </div>
                     ))}
@@ -656,7 +743,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                           </div>
                           <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.startDate} onChange={v => updateRosterRow(x.i, { startDate: v })} /></div>
                           <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.endDate} onChange={v => updateRosterRow(x.i, { endDate: v })} /></div>
-                          <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={x.m.isActive !== false} onChange={v => updateRosterRow(x.i, { isActive: v })} onLabel="Active" offLabel="Inactive" /></div>
+                          <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={x.m.isActive !== false} onChange={v => applyStatusToggle(v, x.m, patch => updateRosterRow(x.i, patch))} onLabel="Active" offLabel="Inactive" /></div>
                         </div>
                       </React.Fragment>
                     ));
@@ -799,7 +886,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter' }}>
-                      <thead><tr>{['Company / Client', 'Type', 'Sub Company', 'Contact', 'Phone', 'Start Date', 'End Date', 'Status'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
+                      <thead><tr>{['Company / Client', 'Type', 'Sub Company', 'Contact', 'Designation', 'Phone', 'Start Date', 'End Date', 'Status'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
                       <tbody>
                         {stakeholders.map((s, i) => (
                           <tr key={i}>
@@ -832,6 +919,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                                 {s.contact || DASH}
                               </div>
                             </td>
+                            <td style={td}>{s.designation || DASH}</td>
                             <td style={td}>{s.phone || DASH}</td>
                             <td style={td}>{s.startDate ? fmtDate(s.startDate) : DASH}</td>
                             <td style={td}>{s.endDate ? fmtDate(s.endDate) : DASH}</td>
@@ -853,6 +941,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <div style={{ flex: 1, minWidth: 150 }}>Company</div>
                         <div style={{ flex: 1, minWidth: 150 }}>Sub Company</div>
                         <div style={{ flex: 1, minWidth: 150 }}>Contact Person</div>
+                        <div style={{ flex: 1, minWidth: 130 }}>Designation</div>
                         <div style={{ flex: 1, minWidth: 120 }}>Start</div>
                         <div style={{ flex: 1, minWidth: 120 }}>End</div>
                         <div style={{ flex: 1, minWidth: 110 }}>Status</div>
@@ -875,9 +964,32 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                           <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" showColor /></div>
                           <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => onSubCompanyChange(i, v)} placeholder="Select sub company" /></div>
                           <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => onContactChange(i, v)} placeholder="Select contact" showColor /></div>
+                          <div style={{ flex: 1, minWidth: 130 }}>
+                            {/* Auto-fetched from the selected contact's Role in Company. */}
+                            <div
+                              title="Auto-filled from the selected contact"
+                              style={{
+                                minHeight: 38,
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '6px 12px',
+                                borderRadius: 8,
+                                border: '1px solid #EDF1F7',
+                                background: '#F8FAFC',
+                                fontFamily: 'Inter',
+                                fontSize: 13,
+                                color: contactById.get(String(t.contactId))?.roleInCompany ? '#334155' : '#94A3B8',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {contactById.get(String(t.contactId))?.roleInCompany || 'Select a contact'}
+                            </div>
+                          </div>
                           <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.startDate} onChange={v => update(i, { startDate: v })} /></div>
                           <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.endDate} onChange={v => update(i, { endDate: v })} /></div>
-                          <div style={{ flex: 1, minWidth: 110 }}><ToggleEditor value={t.isActive !== false} onChange={v => update(i, { isActive: v })} onLabel="Active" offLabel="Inactive" /></div>
+                          <div style={{ flex: 1, minWidth: 110 }}><ToggleEditor value={t.isActive !== false} onChange={v => applyStatusToggle(v, t, patch => update(i, patch))} onLabel="Active" offLabel="Inactive" /></div>
                           <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
                         </div>
                       </div>

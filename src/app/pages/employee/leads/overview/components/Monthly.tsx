@@ -35,6 +35,7 @@ import {
   AnalyticsCard,
   AnalyticsHeader,
   RankedBarChart,
+  ClientAnalysisSection,
 } from "@pages/dashboard/leadAnalytics";
 
 interface Props {
@@ -664,107 +665,64 @@ const Monthly = ({ month, endDate }: Props) => {
   const topLeadsFilterOptions = getTopLeadsFilterOptions();
 
 
+  // Period-specific sections injected into the dashboard tabs.
+  const dailyTrendSlot = (
+    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <AnalyticsHeader
+        title="Daily Inquiry Trend"
+        subtitle="Cumulative inquiries, forecast, and target tracking"
+        icon="bi-graph-up"
+        accent="#3B82F6"
+      />
+      <MonthlyLeadsChart startDate={startDate} endDate={endDates} />
+    </section>
+  );
+
+  const clientAnalysisSlot = settings?.showLeadsByCompanyType ? (
+    <ClientAnalysisSection startDate={startDate} endDate={endDates} />
+  ) : null;
+
+  const geographySlot = settings?.showLeadsByLocation ? (
+    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <AnalyticsHeader
+        title="Geographic Distribution"
+        subtitle="Where your leads are located — drill down country → locality"
+        icon="bi-geo-alt"
+        accent="#14B8A6"
+      />
+      <LeadByLocationAndStatus
+        data={locationRes || []}
+        startDate={month || undefined}
+        endDate={endDate || undefined}
+      />
+    </section>
+  ) : null;
+
   return (
     <div className="">
-      <div className="row g-3">
-        {/* ── Premium executive analytics (status, service, acquisition, category) ── */}
-        <div className="col-12">
-          <LeadOverviewDashboard
-            statusData={chartData.statusData}
-            serviceData={chartData.serviceData}
-            categoryData={chartData.categoryData}
-            subcategoryRaw={subcategoryRes?.data || []}
-            sourceData={chartData.sourceData}
-            referralSourceData={chartData.referralSourceData}
-            directSourceData={chartData.directSourceData}
-            cancellationReasonData={chartData.cancellationReasonData}
-            settings={settings}
-            showKpis={false}
-            onStatusSelect={handleStatusChartClick}
-            onServiceSelect={handleServiceChartClick}
-            onCategorySelect={handleCategoryNodeClick}
-            onSourceSelect={handleSourceChartClick}
-            onReferralSelect={handleReferralChartClick}
-          />
-        </div>
-
-        {/* ── Daily Inquiry Trend ────────────────────────────────────────────── */}
-        <div className="col-12">
-          <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AnalyticsHeader
-              title="Daily Inquiry Trend"
-              subtitle="Cumulative inquiries, forecast, and target tracking"
-              icon="bi-graph-up"
-              accent="#3B82F6"
-            />
-            <MonthlyLeadsChart startDate={startDate} endDate={endDates} />
-          </section>
-        </div>
-
-        {/* Lead By Company Type */}
-        {settings?.showLeadsByCompanyType && (
-          <div className="col-12">
-            <AnalyticsHeader
-              title="Segment Analysis"
-              subtitle="Which client segments generate the most leads"
-              icon="bi-buildings"
-              accent="#EC4899"
-            />
-            <div className="mt-3">
-              <AnalyticsCard
-                title="Lead by Company Type"
-                subtitle="Ranked by lead volume · revenue in tooltip"
-                isEmpty={
-                  !chartData.companyTypeData?.length ||
-                  chartData.companyTypeData.every((d: any) => !d.value)
-                }
-                emptyHint="No company-type data for this period."
-                headerRight={
-                  <select
-                    className="form-select form-select-sm"
-                    style={{ minWidth: 150 }}
-                    value={filters.companyType || ""}
-                    onChange={(e) => handleFilterChange("companyType", e.target.value)}
-                  >
-                    <option value="">All Status</option>
-                    {companyTypeFilterOptions.map((o: string) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
-                }
-              >
-                <RankedBarChart
-                  data={chartData.companyTypeData}
-                  onSelect={handleCompanyTypeChartClick}
-                  showRevenue
-                  height={320}
-                />
-              </AnalyticsCard>
-            </div>
-          </div>
-        )}
-
-        {/* Lead By Location */}
-        {settings?.showLeadsByLocation && (
-          <div className="col-12">
-            <AnalyticsHeader
-              title="Geographic Distribution"
-              subtitle="Where your leads are located — drill down country → locality"
-              icon="bi-geo-alt"
-              accent="#14B8A6"
-            />
-            <div className="mt-3">
-              <LeadByLocationAndStatus
-                data={locationRes || []}
-                startDate={month || undefined}
-                endDate={endDate || undefined}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      <LeadOverviewDashboard
+        statusData={chartData.statusData}
+        serviceData={chartData.serviceData}
+        categoryData={chartData.categoryData}
+        subcategoryRaw={subcategoryRes?.data || []}
+        sourceData={chartData.sourceData}
+        referralSourceData={chartData.referralSourceData}
+        directSourceData={chartData.directSourceData}
+        cancellationReasonData={chartData.cancellationReasonData}
+        settings={settings}
+        showKpis={false}
+        onStatusSelect={handleStatusChartClick}
+        onServiceSelect={handleServiceChartClick}
+        onCategorySelect={handleCategoryNodeClick}
+        onSourceSelect={handleSourceChartClick}
+        onReferralSelect={handleReferralChartClick}
+        tabStorageKey="leadOverviewActiveTab"
+        slots={{
+          summary: dailyTrendSlot,
+          sources: clientAnalysisSlot,
+          geography: geographySlot,
+        }}
+      />
       {/* Chart Dialog Modal */}
       <ChartDialogModal
         open={open}
