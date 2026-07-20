@@ -530,6 +530,31 @@ export const createMultipleTeamMembers = async (payload: any) => {
     }
 }
 
+// Move an employee to another team (one team per employee). Keeps the Teams page
+// and the employee's onboarding team assignment in sync. Pass teamId=null to detach.
+export const moveEmployeeTeam = async (employeeId: string, teamId: string | null) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.MOVE_TEAM_MEMBER}`;
+        const { data } = await axios.put(endpoint, { employeeId, teamId });
+        return data;
+    } catch (err) {
+        console.log("move employee team error", err);
+        throw err;
+    }
+}
+
+// One-time backfill so employees onboarded before the sync appear on the Teams page.
+export const backfillTeamMemberships = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.BACKFILL_TEAM_MEMBERSHIPS}`;
+        const { data } = await axios.post(endpoint, {});
+        return data;
+    } catch (err) {
+        console.log("backfill team memberships error", err);
+        throw err;
+    }
+}
+
 // Get All stakeholders services
 export const getAllStakeholders = async () => {
     try {

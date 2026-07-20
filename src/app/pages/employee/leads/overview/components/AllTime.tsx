@@ -32,6 +32,7 @@ import {
   AnalyticsCard,
   AnalyticsHeader,
   RankedBarChart,
+  ClientAnalysisSection,
 } from "@pages/dashboard/leadAnalytics";
 
 /**
@@ -511,61 +512,24 @@ const AllTime = () => {
           onCategorySelect={handleCategoryNodeClick}
           onSourceSelect={handleSourceChartClick}
           onReferralSelect={handleReferralChartClick}
+          tabStorageKey="leadOverviewActiveTab"
+          slots={{
+            sources: settings?.showLeadsByCompanyType ? (
+              <ClientAnalysisSection startDate="2000-01-01" endDate="2099-12-31" />
+            ) : null,
+            geography: settings?.showLeadsByLocation ? (
+              <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <AnalyticsHeader
+                  title="Geographic Distribution"
+                  subtitle="Where leads have come from historically"
+                  icon="bi-geo-alt"
+                  accent="#14B8A6"
+                />
+                <LeadByLocationAndStatus data={locationRes?.data || []} />
+              </section>
+            ) : null,
+          }}
         />
-
-        {settings?.showLeadsByCompanyType && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AnalyticsHeader
-              title="Segment Analysis"
-              subtitle="Client segment performance over all time"
-              icon="bi-buildings"
-              accent="#EC4899"
-            />
-            <AnalyticsCard
-              title="Lead by Company Type"
-              subtitle="Ranked by lead volume · revenue in tooltip"
-              isEmpty={
-                !chartData.companyTypeData?.length ||
-                chartData.companyTypeData.every((d: any) => !d.value)
-              }
-              emptyHint="No company-type data available."
-              headerRight={
-                <select
-                  className="form-select form-select-sm"
-                  style={{ minWidth: 150 }}
-                  value={filters.companyType || ""}
-                  onChange={(e) => handleFilterChange("companyType", e.target.value)}
-                >
-                  <option value="">All Status</option>
-                  {companyTypeFilterOptions.map((o: string) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              }
-            >
-              <RankedBarChart
-                data={chartData.companyTypeData}
-                onSelect={handleCompanyTypeChartClick}
-                showRevenue
-                height={320}
-              />
-            </AnalyticsCard>
-          </section>
-        )}
-
-        {settings?.showLeadsByLocation && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AnalyticsHeader
-              title="Geographic Distribution"
-              subtitle="Where leads have come from historically"
-              icon="bi-geo-alt"
-              accent="#14B8A6"
-            />
-            <LeadByLocationAndStatus data={locationRes?.data || []} />
-          </section>
-        )}
       </div>
 
       <ChartDialogModal

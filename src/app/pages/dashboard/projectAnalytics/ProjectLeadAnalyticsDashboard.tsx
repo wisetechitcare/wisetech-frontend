@@ -185,7 +185,7 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
             isEmpty={isEmpty(categoryData)}
             emptyHint="Create project categories to view the ranking."
           >
-            <RankedBarChart data={categoryData} onSelect={onCategorySelect} limit={10} showRevenue />
+            <RankedBarChart data={categoryData} onSelect={onCategorySelect} showRevenue valueLabel />
           </AnalyticsCard>
         </section>
       )}

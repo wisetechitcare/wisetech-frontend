@@ -397,6 +397,8 @@ export const LEAD_PROJECT_COMPANY = {
     DELETE_MEMBER: 'api/lead-project-companies/members/:id',
     UPDATE_MEMBER_ROLE: 'api/lead-project-companies/members/:id/role',
     CREATE_MULTIPLE_TEAMS_MEMBERS: 'api/lead-project-companies/many',
+    MOVE_TEAM_MEMBER: 'api/lead-project-companies/members/move',
+    BACKFILL_TEAM_MEMBERSHIPS: 'api/lead-project-companies/projects/teams/backfill-memberships',
 
     GET_ALL_PROJECTS: 'api/lead-project-companies/projects',
     // Slim project picker for the reimbursement form — accessible to every
@@ -517,6 +519,7 @@ export const LEAD_PROJECT_COMPANY = {
     GET_LEADS_BY_REFERRAL_SOURCE_ANALYTICS: "api/lead-project-companies/lead-analytics/referral-source",
     GET_LEADS_BY_SOURCE_ANALYTICS: "api/lead-project-companies/lead-analytics/source",
     GET_LEADS_BY_COMPANY_TYPE_ANALYTICS: "api/lead-project-companies/lead-analytics/company-type",
+    GET_LEADS_BY_EXTERNAL_REFERRAL_ANALYTICS: "api/lead-project-companies/lead-analytics/external-referral",
     GET_MONTHLY_TOP_LEADS: "api/lead-project-companies/lead-analytics/monthly-top-leads",
     GET_MONTHLY_LEAD_ANALYTICS: "api/lead-project-companies/lead-analytics/monthly",
     GET_MONTHLY_TARGETS: "api/lead-project-companies/lead-analytics/monthly-targets",

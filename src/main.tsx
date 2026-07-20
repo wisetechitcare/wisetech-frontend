@@ -371,7 +371,7 @@ const showFailedSplash = () => {
         <div class="wt-brand-logo">
           <img src="/WT-logo.ico" alt="WiseTech Logo" style="width:72px;height:72px;object-fit:contain" onerror="this.style.display='none'"/>
         </div>
-        <p style="font-size:10px;font-weight:800;letter-spacing:2px;color:#37474f;text-transform:uppercase;margin-top:-20px;margin-bottom:28px">
+        <p style="font-size:10px;font-weight:800;letter-spacing:2px;color:#37474f;text-transform:uppercase;margin-top:4px;margin-bottom:28px">
           WISETECH &nbsp;·&nbsp; MEP CONSULTANTS
         </p>
 
