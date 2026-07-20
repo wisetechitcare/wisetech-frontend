@@ -61,6 +61,9 @@ export default function LeaveDetail({ step, onClose, onDone, canEdit, canDecide,
                 mode={mode}
                 existing={existing}
                 reviewActions={reviewActions}
+                // Real, persisted approval chain for THIS request — not ApplyLeave's self-resolved
+                // preview (which would show the approver's own chain).
+                approvalInstanceId={instance.id}
                 // View → Edit flips in place (same modal), matching My-Leaves. Only offered when the
                 // viewer can approve; the backend still has final say.
                 onEdit={canEdit ? () => setMode('edit') : undefined}

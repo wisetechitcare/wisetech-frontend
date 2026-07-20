@@ -114,7 +114,12 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
                                 {name.charAt(0).toUpperCase()}
                             </span>
                         </div>
-                        <span className='text-dark fw-semibold fs-7'>{name}</span>
+                        <div className='d-flex flex-column'>
+                            <span className='text-dark fw-semibold fs-7'>{name}</span>
+                            {g.actedAt && (
+                                <span className='text-muted fs-8'>{formatDateFromISTString(g.actedAt)}</span>
+                            )}
+                        </div>
                     </div>
                 );
             }

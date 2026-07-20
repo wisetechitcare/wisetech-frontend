@@ -24,6 +24,7 @@ import { getSocket } from '@utils/socketClient';
 import { parseWorkingDays } from '@utils/workingDays';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { rgba, tintOf, borderOf, resolveLeaveTypeColor } from '@utils/leaveTypeColors';
+import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const ACCENT   = '#1E3A8A';
@@ -95,7 +96,7 @@ export interface ExistingLeaveView {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, onDeleteSegment, initialDate, target, reviewActions }: {
+export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, onDeleteSegment, initialDate, target, reviewActions, approvalInstanceId }: {
     onClose: () => void;
     mode?: 'apply' | 'view' | 'edit';
     existing?: ExistingLeaveView;
@@ -111,6 +112,14 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
      * an approver can review and decide in one place. Empty for the employee's own view.
      */
     reviewActions?: React.ReactNode;
+    /**
+     * The REAL approval instance id for an existing request. In view mode this renders the actual
+     * persisted chain (real approvers + who has acted) via ApprovalStatusTracker, instead of the
+     * "who would approve if I applied" preview — which is resolved for the LOGGED-IN user (the
+     * self-readable endpoint), so an approver reviewing someone else's leave would otherwise see
+     * their OWN chain. Omit for apply mode (there's no instance yet → preview is correct).
+     */
+    approvalInstanceId?: string;
 }) {
     // Load Plus Jakarta Sans once — matches the design's Google Fonts import
     useEffect(() => {
@@ -254,6 +263,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     // interior weekend simply counts (strictly rule-driven).
     const [sandwichExcluded, setSandwichExcluded] = useState<string[]>([]);
     useEffect(() => {
+        // View mode is read-only: the persisted segments already encode the sandwich outcome, so
+        // skip the preview fetch entirely (no network round-trip just to re-derive what's booked).
+        if (isView) { setSandwichExcluded([]); return; }
         const from = s.from, to = s.to || s.from;
         if (!from || !to) { setSandwichExcluded([]); return; }
         let alive = true;
@@ -278,7 +290,15 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             : []),
         [isEdit, existing],
     );
-    const alloc = useMemo(() => preview({ ...s, excludeSick: sickConfirmed === false }, sandwichExcluded, creditBack), [s, sickConfirmed, preview, sandwichExcluded, creditBack]);
+    // View mode renders from the PERSISTED segments (viewTotals / viewSegByDate / mergedSegments),
+    // so the allocation preview is pure wasted compute there — skip it when we have segments to show.
+    // (Falls through to preview() only in the defensive case of a view with no segments.)
+    const alloc = useMemo(
+        () => (isView && existing?.segments?.length)
+            ? null
+            : preview({ ...s, excludeSick: sickConfirmed === false }, sandwichExcluded, creditBack),
+        [isView, existing, s, sickConfirmed, preview, sandwichExcluded, creditBack],
+    );
     const segByDate = useMemo(() => {
         const map = new Map<string, { leaveType: string; isPaid: boolean }>();
         // View mode: colour the calendar by what was actually booked (persisted segments).
@@ -909,6 +929,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         );
     };
 
+    // View mode with a real instance → the actual persisted chain (real approvers + who's acted),
+    // not the self-resolved preview. Apply/edit or no instance → the preview ApprovalChain.
+    const ApprovalFlowView = ({ compact }: { compact?: boolean }) =>
+        (isView && approvalInstanceId)
+            ? <div style={railCardSt()}><ApprovalStatusTracker instanceId={approvalInstanceId} compact /></div>
+            : <ApprovalChain compact={compact} />;
+
     const Lightbox = () => !pv ? null : (
         <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'rgba(20,24,33,.74)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 22 : 30, borderRadius: isMobile ? '24px 24px 0 0' : 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: 560, marginBottom: 12 }}>
@@ -1032,7 +1059,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             style={{ width: '100%', minHeight: 48, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 12px', fontSize: 13, outline: 'none', marginTop: 11, lineHeight: 1.5 }} />
                     )}
                     <div style={{ marginTop: 8 }}><Attachments idSuffix="m" /></div>
-                    <div style={{ marginTop: 12 }}><ApprovalChain compact /></div>
+                    <div style={{ marginTop: 12 }}><ApprovalFlowView compact /></div>
                 </div>
                 <div style={{ flexShrink: 0, padding: '11px 16px 16px', borderTop: '1px solid #eef0f1', background: '#fff' }}>
                     <div style={{ marginBottom: 10 }}><Financial compact /></div>
@@ -1153,7 +1180,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     {overlapConflict && <div style={errBox}>This range overlaps a leave you already have.</div>}
                     {alloc?.blocked && <div style={errBox}>{alloc.blocked.reason}</div>}
                     {/* Approval flow */}
-                    <ApprovalChain />
+                    <ApprovalFlowView />
                     {error && <div style={errBox}>{error}</div>}
 
                     {/* Primary action — sticky so it's always visible without scrolling the rail. */}

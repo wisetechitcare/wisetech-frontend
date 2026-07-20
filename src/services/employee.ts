@@ -813,6 +813,7 @@ export interface GroupedLeaveRequest {
     createdAt: string;
     approvedByName: string;
     rejectedByName: string;
+    actedAt: string | null;
     hasApprovalInstance: boolean;
     canEdit: boolean;
     canDelete: boolean;
