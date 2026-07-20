@@ -54,7 +54,7 @@ const PeriodNavigator = ({
                 ...sx,
             }}
         >
-            <Tooltip title={previousTitle || 'Previous period'} placement="top" arrow disableInteractiveElementTooltip>
+            <Tooltip title={previousTitle || 'Previous period'} placement="top" arrow>
                 <IconButton
                     aria-label="Previous period"
                     onClick={onPrevious}
@@ -136,7 +136,7 @@ const PeriodNavigator = ({
                 )}
             </Box>
 
-            <Tooltip title={nextTitle || 'Next period'} placement="top" arrow disableInteractiveElementTooltip>
+            <Tooltip title={nextTitle || 'Next period'} placement="top" arrow>
                 <IconButton
                     aria-label="Next period"
                     onClick={onNext}
