@@ -151,36 +151,42 @@ const LeadsOverviewToggle = ({
         </div>
       </div>
 
-      <div className="d-flex flex-row justify-content-between align-items-center mb-6">
-        <PeriodFilter
-          onChange={setPeriodRange}
-          initialMode="yearly"
-          storageKey="leadsOverviewPeriodMode"
-          useFiscalYear={true}
-          clampYearToToday={dateSettingsEnabled}
-          getFiscalYearRange={generateFiscalYearFromGivenYear}
-        />
+      <div className="d-flex flex-row justify-content-between align-items-center mb-6 flex-wrap gap-3">
+        <div className="d-flex align-items-center gap-4 flex-wrap">
+          <PeriodFilter
+            onChange={setPeriodRange}
+            initialMode="yearly"
+            storageKey="leadsOverviewPeriodMode"
+            useFiscalYear={true}
+            clampYearToToday={dateSettingsEnabled}
+            getFiscalYearRange={generateFiscalYearFromGivenYear}
+          />
 
-        {periodRange.mode === "custom" && (
-          <div className="d-flex align-items-center gap-4">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
-              <DatePicker
-                label="Start Date"
-                value={customStartDate}
-                onChange={(newValue) => setCustomStartDate(newValue ?? undefined)}
-                maxDate={customEndDate}
-                format={DATE_FORMATS.DATE_PICKER}
-              />
-              <DatePicker
-                label="End Date"
-                value={customEndDate}
-                onChange={(newValue) => setCustomEndDate(newValue ?? undefined)}
-                minDate={customStartDate}
-                format={DATE_FORMATS.DATE_PICKER}
-              />
-            </LocalizationProvider>
-          </div>
-        )}
+          {periodRange.mode === "custom" && (
+            <div className="d-flex align-items-center gap-4">
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DatePicker
+                  label="Start Date"
+                  value={customStartDate}
+                  onChange={(newValue) => setCustomStartDate(newValue ?? undefined)}
+                  maxDate={customEndDate}
+                  format={DATE_FORMATS.DATE_PICKER}
+                />
+                <DatePicker
+                  label="End Date"
+                  value={customEndDate}
+                  onChange={(newValue) => setCustomEndDate(newValue ?? undefined)}
+                  minDate={customStartDate}
+                  format={DATE_FORMATS.DATE_PICKER}
+                />
+              </LocalizationProvider>
+            </div>
+          )}
+        </div>
+
+        {/* Sub-tabs (Summary / Services / Sources / Insights) portal into here,
+            so they share this row and sit on the right. */}
+        <div id="leadOverviewTabSlot" className="d-flex justify-content-end" />
       </div>
 
       {periodRange.mode === "monthly" && periodRange.start && periodRange.end && (

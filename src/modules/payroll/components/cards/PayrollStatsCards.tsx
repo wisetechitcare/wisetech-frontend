@@ -4,6 +4,7 @@ import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalance
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import HourglassBottomOutlinedIcon from '@mui/icons-material/HourglassBottomOutlined';
+import SavingsOutlinedIcon from '@mui/icons-material/SavingsOutlined';
 import { Box, Skeleton } from '@mui/material';
 import YearlyKpiCard, { YearlyKpiCardProps } from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/YearlyKpiCard';
 import { PayrollSummary } from '../../types/payroll.types';
@@ -65,13 +66,25 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
     const payablePending       = Math.trunc(summaryData.salaryPending);
     const hasPendingArrears    = (summaryData.totalPendingArrears ?? 0) > 0;
 
-    let deductionLabel = 'DEDUCTIONS';
-    if (summaryData.hasTDS && summaryData.hasPTax) deductionLabel = 'DEDUCTIONS (TDS & PTAX)';
-    else if (summaryData.hasTDS)                   deductionLabel = 'DEDUCTIONS (TDS)';
-    else if (summaryData.hasPTax)                  deductionLabel = 'DEDUCTIONS (PTAX)';
+    // Retention (fresher bond) is a company-side deduction — it gets its own card
+    // instead of being folded into the government/statutory total.
+    const hasRetention     = !!summaryData.hasRetention && (summaryData.totalRetention ?? 0) > 0;
+    const retentionTotal   = summaryData.totalRetention ?? 0;
+    const retentionPending = Math.trunc(summaryData.retentionPending ?? 0);
+    const govtDeductions   = summaryData.totalGovtDeduction ?? Math.max(0, summaryData.totalFixedDeduction - retentionTotal);
+
+    // Government-only label — retention is never listed here.
+    const deductionParts = [
+        ...(summaryData.hasTDS ? ['TDS'] : []),
+        ...(summaryData.hasPTax ? ['PTAX'] : []),
+    ];
+    const deductionLabel = deductionParts.length > 0
+        ? `DEDUCTIONS (${deductionParts.join(' & ')})`
+        : 'DEDUCTIONS';
 
     const deductionFt  = pendingFooter(deductionsPending);
     const payableFt    = pendingFooter(payablePending);
+    const retentionFt  = pendingFooter(retentionPending);
 
     const cards: YearlyKpiCardProps[] = [
         {
@@ -86,14 +99,26 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
         },
         {
             label:       deductionLabel,
-            sublabel:    'Govt. & fixed charges',
-            value:       formatINRDecimal(summaryData.totalFixedDeduction),
+            sublabel:    'Govt. & statutory charges',
+            value:       formatINRDecimal(govtDeductions),
             footer:      deductionFt.label,
             footerValue: deductionFt.value,
             tone:        'purple',
             icon:        <AccountBalanceOutlinedIcon fontSize="small" />,
             showSensitiveData,
         },
+        ...(hasRetention
+            ? [{
+                label:       'COMPANY DEDUCTION (RETENTION)',
+                sublabel:    'Fresher bond held back',
+                value:       formatINRDecimal(retentionTotal),
+                footer:      retentionFt.label,
+                footerValue: retentionFt.value,
+                tone:        'amber' as const,
+                icon:        <SavingsOutlinedIcon fontSize="small" />,
+                showSensitiveData,
+            }]
+            : []),
         {
             label:       'PAYABLE SALARY',
             sublabel:    'Net take-home amount',
@@ -119,7 +144,8 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
             : []),
     ];
 
-    const cols = hasPendingArrears ? 4 : 3;
+    // Cap at 4 per row — a 5th card (retention + arrears both present) wraps.
+    const cols = Math.min(cards.length, 4);
 
     return (
         <Box

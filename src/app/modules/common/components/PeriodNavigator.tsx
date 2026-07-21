@@ -1,6 +1,6 @@
 import KeyboardArrowLeftRoundedIcon from '@mui/icons-material/KeyboardArrowLeftRounded';
 import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded';
-import { Box, IconButton, SxProps, Theme, Typography } from '@mui/material';
+import { Box, IconButton, SxProps, Theme, Typography, Tooltip, useMediaQuery, useTheme } from '@mui/material';
 
 interface PeriodNavigatorProps {
     label: string;
@@ -12,27 +12,9 @@ interface PeriodNavigatorProps {
     nextTitle?: string;
     minWidth?: number | string;
     sx?: SxProps<Theme>;
-    /** Color of the period label text. Defaults to the app's red brand color;
-     * pass a page-specific accent (e.g. the blue design tokens) to opt just that
-     * page's usage into a different palette without touching every other caller. */
     labelColor?: string;
+    secondaryLabel?: string;
 }
-
-const buttonSx = {
-    width: 24,
-    height: 24,
-    borderRadius: '4px',
-    color: '#475569',
-    p: 0,
-    '&:hover': {
-        color: '#172554',
-        backgroundColor: '#e8eef6',
-    },
-    '&.Mui-disabled': {
-        color: '#cbd5e1',
-        backgroundColor: 'transparent',
-    },
-};
 
 const PeriodNavigator = ({
     label,
@@ -45,67 +27,149 @@ const PeriodNavigator = ({
     minWidth = 'fit-content',
     sx,
     labelColor = '#1E3A8A',
-}: PeriodNavigatorProps) => (
-    <Box
-        sx={{
-            height: 30,
-            width: 'fit-content',
-            minWidth,
-            maxWidth: '100%',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderRadius: '5px',
-            backgroundColor: '#f1f5f9',
-            border: '1px solid #eef2f7',
-            p: '2px',
-            overflow: 'hidden',
-            ...sx,
-        }}
-    >
-        <IconButton
-            aria-label="Previous period"
-            title={previousTitle}
-            onClick={onPrevious}
-            disabled={disablePrevious}
-            sx={buttonSx}
-        >
-            <KeyboardArrowLeftRoundedIcon sx={{ fontSize: 18 }} />
-        </IconButton>
+    secondaryLabel,
+}: PeriodNavigatorProps) => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-        <Typography
-            component="span"
+    return (
+        <Box
             sx={{
-                flex: 1,
-                minWidth: 0,
-                px: 1.25,
-                mx: '2px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                height: isMobile ? 32 : 36,
+                minWidth,
+                maxWidth: '100%',
                 backgroundColor: '#ffffff',
-                color: labelColor,
-                fontSize: 12,
-                fontWeight: 700,
-                lineHeight: '24px',
-                textAlign: 'center',
-                whiteSpace: 'nowrap',
+                border: `1.5px solid ${labelColor}12`,
+                borderRadius: '8px',
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                borderRadius: '4px',
-                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
+                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                    boxShadow: `0 2px 8px ${labelColor}10`,
+                    borderColor: `${labelColor}20`,
+                },
+                ...sx,
             }}
         >
-            {label}
-        </Typography>
+            <Tooltip title={previousTitle || 'Previous period'} placement="top" arrow>
+                <IconButton
+                    aria-label="Previous period"
+                    onClick={onPrevious}
+                    disabled={disablePrevious}
+                    sx={{
+                        width: isMobile ? 32 : 36,
+                        height: isMobile ? 32 : 36,
+                        borderRadius: 0,
+                        color: '#64748b',
+                        p: 0,
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        '&:hover:not(.Mui-disabled)': {
+                            backgroundColor: `${labelColor}08`,
+                            color: labelColor,
+                        },
+                        '&:active:not(.Mui-disabled)': {
+                            backgroundColor: `${labelColor}15`,
+                        },
+                        '&.Mui-disabled': {
+                            color: '#cbd5e1',
+                            cursor: 'not-allowed',
+                        },
+                    }}
+                >
+                    <KeyboardArrowLeftRoundedIcon sx={{ fontSize: isMobile ? 18 : 20 }} />
+                </IconButton>
+            </Tooltip>
 
-        <IconButton
-            aria-label="Next period"
-            title={nextTitle}
-            onClick={onNext}
-            disabled={disableNext}
-            sx={buttonSx}
-        >
-            <KeyboardArrowRightRoundedIcon sx={{ fontSize: 18 }} />
-        </IconButton>
-    </Box>
-);
+            <Box
+                sx={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: 0,
+                    px: isMobile ? 0.75 : 1,
+                    py: 0,
+                }}
+            >
+                <Typography
+                    component="span"
+                    sx={{
+                        color: labelColor,
+                        fontSize: isMobile ? 11 : 12,
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '100%',
+                    }}
+                >
+                    {label}
+                </Typography>
+                {secondaryLabel && (
+                    <Typography
+                        component="span"
+                        sx={{
+                            color: '#94a3b8',
+                            fontSize: 9,
+                            fontWeight: 500,
+                            lineHeight: 1,
+                            textAlign: 'center',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            maxWidth: '100%',
+                            mt: 0.2,
+                        }}
+                    >
+                        {secondaryLabel}
+                    </Typography>
+                )}
+            </Box>
+
+            <Tooltip title={nextTitle || 'Next period'} placement="top" arrow>
+                <IconButton
+                    aria-label="Next period"
+                    onClick={onNext}
+                    disabled={disableNext}
+                    sx={{
+                        width: isMobile ? 32 : 36,
+                        height: isMobile ? 32 : 36,
+                        borderRadius: 0,
+                        color: '#64748b',
+                        p: 0,
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        '&:hover:not(.Mui-disabled)': {
+                            backgroundColor: `${labelColor}08`,
+                            color: labelColor,
+                        },
+                        '&:active:not(.Mui-disabled)': {
+                            backgroundColor: `${labelColor}15`,
+                        },
+                        '&.Mui-disabled': {
+                            color: '#cbd5e1',
+                            cursor: 'not-allowed',
+                        },
+                    }}
+                >
+                    <KeyboardArrowRightRoundedIcon sx={{ fontSize: isMobile ? 18 : 20 }} />
+                </IconButton>
+            </Tooltip>
+        </Box>
+    );
+};
 
 export default PeriodNavigator;
