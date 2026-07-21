@@ -1,17 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useField, useFormikContext } from 'formik';
 import { HelpCircle, CheckCircle, AlertCircle } from 'lucide-react';
-import DropDownInput from '@app/modules/common/inputs/DropdownInput';
 import DateInput from '@app/modules/common/inputs/DateInput';
 import TextInput from '@app/modules/common/inputs/TextInput';
-
-/* ── helpers ── */
-const bloodGroupOptions = [
-  { value: 'A_POS', label: 'A+' }, { value: 'A_NEG', label: 'A-' },
-  { value: 'B_POS', label: 'B+' }, { value: 'B_NEG', label: 'B-' },
-  { value: 'AB_POS', label: 'AB+' }, { value: 'AB_NEG', label: 'AB-' },
-  { value: 'O_POS', label: 'O+' }, { value: 'O_NEG', label: 'O-' },
-];
 
 interface TooltipProps { text: string }
 function Tooltip({ text }: TooltipProps) {
@@ -56,9 +47,10 @@ function TogglePillGroup({ field, options, label, required, tooltip }: TogglePil
             {opt.label}
           </button>
         ))}
-        {isValid  && <CheckCircle size={16} style={{ color: 'var(--ob-success)', marginLeft: 4 }} />}
-        {hasError && <AlertCircle size={16} style={{ color: 'var(--ob-danger)', marginLeft: 4 }} />}
+        {isValid && <CheckCircle size={16} style={{ color: 'var(--ob-success)', marginLeft: 4 }} />}
       </div>
+      {/* Single error indicator — the message line below (with its own icon). The standalone
+          red "!" next to the pills was a second, duplicate alert for the same error. */}
       {hasError && (
         <p className="ob-field-error-text">
           <AlertCircle size={11} />
@@ -84,6 +76,14 @@ const GENDER_OPTIONS = [
     icon: (
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="8" r="5"/><line x1="12" y1="13" x2="12" y2="21"/><line x1="9" y1="18" x2="15" y2="18"/>
+      </svg>
+    ),
+  },
+  {
+    value: '2', label: 'Others',
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="5"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
       </svg>
     ),
   },
@@ -127,7 +127,6 @@ function BasicInfo({ formikProps }: { formikProps: any }) {
               <Tooltip text="This is what colleagues will call you on a daily basis." />
             </label>
             <TextInput isRequired={false} formikField="nickName" margin="mb-0" />
-            <p className="ob-field-helper">This is what colleagues will call you.</p>
           </div>
         </div>
         <div className="col-lg-6 col-md-6 col-sm-12">
@@ -162,39 +161,21 @@ function BasicInfo({ formikProps }: { formikProps: any }) {
         </div>
       </div>
 
-      {/* Row 4 – Anniversary & Blood Group */}
-      <div className="row g-3">
-        {isMarried ? (
-          <>
-            <div className="col-lg-6 col-md-6 col-sm-12">
-              <DateInput
-                formikField="anniversary"
-                isRequired={false}
-                formikProps={formikProps}
-                inputLabel="Anniversary Date"
-                placeHolder="DD / MM / YYYY"
-              />
-            </div>
-            <div className="col-lg-6 col-md-6 col-sm-12">
-              <DropDownInput
-                isRequired={false}
-                formikField="emergencyDetails.bloodGroup"
-                inputLabel="Blood Group"
-                options={bloodGroupOptions}
-              />
-            </div>
-          </>
-        ) : (
+      {/* Row 4 – Anniversary (married only). Blood Group lives only in Health &
+          Emergency Info now — no second editable copy here. */}
+      {isMarried && (
+        <div className="row g-3">
           <div className="col-lg-6 col-md-6 col-sm-12">
-            <DropDownInput
+            <DateInput
+              formikField="anniversary"
               isRequired={false}
-              formikField="emergencyDetails.bloodGroup"
-              inputLabel="Blood Group"
-              options={bloodGroupOptions}
+              formikProps={formikProps}
+              inputLabel="Anniversary Date"
+              placeHolder="DD / MM / YYYY"
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
     </div>
   );

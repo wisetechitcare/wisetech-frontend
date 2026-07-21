@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 import { useNavigate } from "react-router-dom";
@@ -13,6 +13,49 @@ import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission, ui
 import { hasPermission } from "@utils/authAbac";
 import AppSettingsModal from "./components/AppSettingsModal";
 import { getEducationAcademicLabel, getEducationDetailValue } from "../../../utils/educationUtils";
+import "./glass.css";
+import "./ShowEmployeeDetails.css";
+
+/* ── Presentational building blocks (className-driven, zero inline sizing) ──
+   All layout/typography comes from ShowEmployeeDetails.css tokens, so cards and rows
+   reflow fluidly with available/container width. */
+
+function DetailCard({
+  icon,
+  title,
+  iconVariant,
+  wide = false,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  iconVariant?: "warn" | "success";
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <section className={`emp-card${wide ? " emp-card--wide" : ""}`}>
+      <div className="emp-card-header">
+        <span className={`emp-card-icon${iconVariant ? ` emp-card-icon--${iconVariant}` : ""}`}>{icon}</span>
+        <h3 className="emp-card-title">{title}</h3>
+      </div>
+      <div className="emp-card-body">{children}</div>
+    </section>
+  );
+}
+
+function DetailRow({ label, value, link = false }: { label: string; value: ReactNode; link?: boolean }) {
+  return (
+    <div className="emp-row">
+      <span className="emp-row-label">{label}</span>
+      <span className={`emp-row-value${link ? " emp-row-value--link" : ""}`}>{value}</span>
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className="emp-empty">{text}</div>;
+}
 
 const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
   const allemployees = useSelector((state: RootState) => state.allEmployees);
@@ -21,7 +64,6 @@ const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
   const [showAppSettingsModal, setShowAppSettingsModal] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-
 
   useEffect(() => {
     dispatch(loadAllEmployeesIfNeeded());
@@ -48,20 +90,15 @@ const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
 
   const {
     users,
-    id: empId,
-    employeeCode,
-    dateOfJoining,
     departments,
     designations,
     branches,
     nickName,
+    dateOfJoining,
     dateOfExit,
-    dateOfReJoining,
-    dateOfReExit,
     companyPhoneNumber,
     companyPhoneExtension,
     reportsToId,
-    avatar,
     EmployeeAddressDetails,
     EmployeeBankDetails,
     EmployeeEducationalDetails,
@@ -77,54 +114,34 @@ const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
     vegMealPreference,
     nonVegMealPreference,
     veganMealPreference,
-    allowOverTime,
     isActive,
     anniversary,
     method,
-    aadharNumber,
-    panNumber,
-    showAppSettings,
-    createdAt: employeeCreatedAt,
-    companyId,
     employeeTypeId,
-    branchId,
-    departmentId,
-    sourceOfHireId,
+    employeeTypeConfig,
     referredById,
-    workingMethodId,
-    employeeStatusId,
-    workSchedule,
-    digitalSignatureHash,
-    digitalSignaturePath,
-    aadharCardPath,
-    panCardPath,
   } = employee;
 
-  const getGender = (val: number) => (val === 0 ? "Male" : "Female");
-  const getMaritalStatus = (val: number) => (val === 1 ? "Single" : "Married");
-  const getMethod = (val: number) => (val === 0 ? "Office" : "Remote");
+  // Return "-NA-" for a missing value rather than a misleading default (a null gender used to
+  // read as "Female", null marital status as "Married", null method as "Remote").
+  const getGender = (val: number) => (val === 0 ? "Male" : val === 1 ? "Female" : "-NA-");
+  const getMaritalStatus = (val: number) => (val === 1 ? "Unmarried" : val === 0 ? "Married" : "-NA-");
+  const getMethod = (val: number) => (val === 0 ? "Office" : val === 1 ? "Remote" : "-NA-");
+
+  // The onboarding phone input stores the country dial code (e.g. "91") in the *Extension field,
+  // so render it merged into the number ("+91 9987221079") instead of as a standalone "Extension".
+  const formatPhoneWithCode = (number?: string | null, code?: string | null) => {
+    if (!number) return "-NA-";
+    return code ? `+${code} ${number}` : number;
+  };
 
   const formatBloodGroup = (bloodGroup: string | null | undefined) => {
     if (!bloodGroup) return "-NA-";
     const bloodGroupMap: { [key: string]: string } = {
-      'A_POS': 'A+',
-      'A_NEG': 'A-',
-      'B_POS': 'B+',
-      'B_NEG': 'B-',
-      'AB_POS': 'AB+',
-      'AB_NEG': 'AB-',
-      'O_POS': 'O+',
-      'O_NEG': 'O-'
+      'A_POS': 'A+', 'A_NEG': 'A-', 'B_POS': 'B+', 'B_NEG': 'B-',
+      'AB_POS': 'AB+', 'AB_NEG': 'AB-', 'O_POS': 'O+', 'O_NEG': 'O-',
     };
     return bloodGroupMap[bloodGroup] || bloodGroup;
-  };
-
-  const handleEditClick = async (employeeId: string) => {
-    navigate(`/employees/edit/${employeeId}`, { state: { employeeId } });
-  };
-
-  const handleBackClick = () => {
-    navigate(-1);
   };
 
   const handleWhatsAppShare = () => {
@@ -133,8 +150,8 @@ const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
 ${users.firstName} ${users.lastName}
 ${designations?.role || 'Employee'} | ${departments?.name || 'Department'}
 Email: ${companyEmailId || 'N/A'}
-Phone: ${companyPhoneNumber || 'N/A'}${companyPhoneExtension ? ` (Ext: ${companyPhoneExtension})` : ''}
-Mobile: ${users.personalPhoneNumber || 'N/A'}
+Phone: ${companyPhoneNumber ? formatPhoneWithCode(companyPhoneNumber, companyPhoneExtension) : 'N/A'}
+Mobile: ${users.personalPhoneNumber ? formatPhoneWithCode(users.personalPhoneNumber, users.personalPhoneNumberExtension) : 'N/A'}
 Company: ${employee?.companyOverview?.name || 'N/A'}
 Branch: ${branches?.name || 'N/A'}
 Location: ${branches?.address || 'N/A'}`;
@@ -144,8 +161,7 @@ Location: ${branches?.address || 'N/A'}`;
 
   // Find reporting manager name
   const reportingManagerName =
-    allemployees?.list?.find((emp: any) => emp.employeeId === reportsToId)
-      ?.employeeName || "Not Assigned";
+    allemployees?.list?.find((emp: any) => emp.employeeId === reportsToId)?.employeeName || "Not Assigned";
 
   // Format date function - DD/MM/YYYY
   const formatDate = (dateString: string | null) => {
@@ -157,1175 +173,267 @@ Location: ${branches?.address || 'N/A'}`;
     return `${day}/${month}/${year}`;
   };
 
-  // Check if employee is actually active based on dateOfExit
-  const isEmployeeActive = () => {
-    if (!isActive) return false;
-    if (dateOfExit) {
-      const exitDate = new Date(dateOfExit);
-      const currentDate = new Date();
-      // If exit date is before current date, employee is inactive
-      if (exitDate < currentDate) return false;
-    }
-    return true;
-  };
+  const referredByEmployeeName = allemployees?.list?.find(
+    (emp: any) => emp.employeeId?.toString() === employee?.referredById?.toString()
+  )?.employeeName;
 
-  // Parse working days
-  const parseWorkingDays = (workingDaysString: string) => {
-    try {
-      const days = JSON.parse(workingDaysString);
-      const dayNames = [
-        "Sunday",
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-      ];
-      const workingDays: string[] = [];
-      const offDays: string[] = [];
+  const mealPreference = vegMealPreference
+    ? "Vegetarian"
+    : nonVegMealPreference
+      ? "Non-Vegetarian"
+      : veganMealPreference
+        ? "Vegan"
+        : "-NA-";
 
-      Object.entries(days).forEach(([day, isWorking]) => {
-        const dayIndex = [
-          "monday",
-          "tuesday",
-          "wednesday",
-          "thursday",
-          "friday",
-          "saturday",
-          "sunday",
-        ].indexOf(day.toLowerCase());
-        const dayName = dayNames[dayIndex === 6 ? 0 : dayIndex + 1]; // Adjust for Sunday being 0
-        if (isWorking === "1") {
-          workingDays.push(dayName);
-        } else {
-          offDays.push(dayName);
-        }
-      });
+  const employeeType =
+    employeeTypes.find((type: any) => type.id === employeeTypeId)?.type || employeeTypeConfig?.name || "-NA-";
 
-      return { workingDays, offDays };
-    } catch {
-      return { workingDays: [], offDays: [] };
-    }
-  };
+  const canSeePackage = hasPermission(
+    uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves,
+    permissionConstToUseWithHasPermission.readOthers
+  );
 
-  const workingDaysInfo = branches?.workingAndOffDays
-    ? parseWorkingDays(branches.workingAndOffDays)
-    : { workingDays: [], offDays: [] };
-
-  const referredByEmployeeName = allemployees?.list?.find((emp: any) => emp.employeeId?.toString() === employee?.referredById?.toString())?.employeeName;
+  const address = EmployeeAddressDetails?.[0];
+  const currentAddress = address
+    ? [
+        address.presentAddressLine1 || address.permanentAddressLine1,
+        address.presentAddressLine2 || address.permanentAddressLine2,
+        address.presentCity || address.permanentCity,
+        address.presentState || address.permanentState,
+        address.presentCountry || address.permanentCountry,
+        address.presentPostalCode || address.permanentPostalCode,
+      ].filter(Boolean).join(", ") || "-NA-"
+    : "-NA-";
+  const permanentAddress = address
+    ? [
+        address.permanentAddressLine1,
+        address.permanentAddressLine2,
+        address.permanentCity,
+        address.permanentState,
+        address.permanentCountry,
+        address.permanentPostalCode,
+      ].filter(Boolean).join(", ") || "-NA-"
+    : "-NA-";
 
   return (
-    <>
-      <div style={{ padding: "0px", margin: "0px" }}>
-        <div style={{ padding: "0px" }}>
-          {/* Header with WhatsApp Share Button */}
-          <div
-            className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-3 mb-sm-4"
+    <div className="emp-details">
+      {/* Header actions */}
+      <div className="emp-header">
+        <div className="emp-actions">
+          <button
+            type="button"
+            onClick={handleWhatsAppShare}
+            className="emp-btn emp-btn-whatsapp"
+            title="Share Employee Details via WhatsApp"
           >
-            <h2
-              style={{
-                margin: "0px",
-                fontFamily: "Barlow",
-                fontWeight: "600",
-                fontSize: "clamp(18px, 5vw, 24px)",
-                color: "#000"
-              }}
+            <i className="bi bi-whatsapp" aria-hidden></i>
+            Share Details
+          </button>
+          {hasPermission(
+            resourceNameMapWithCamelCase.employee,
+            permissionConstToUseWithHasPermission.editOthers
+          ) && (
+            <button
+              type="button"
+              onClick={() => setShowAppSettingsModal(true)}
+              className="emp-btn emp-btn-settings"
+              title="App Settings"
             >
-              {/* Employee Details - {users.firstName} {users.lastName} */}
-            </h2>
-            <div className="d-flex gap-2">
-              <button
-                onClick={handleWhatsAppShare}
-                className="w-100 w-sm-auto"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  padding: "8px 16px",
-                  fontSize: "clamp(12px, 3vw, 14px)",
-                  borderRadius: "6px",
-                  backgroundColor: "#25D366",
-                  color: "white",
-                  border: "none",
-                  cursor: "pointer"
-                }}
-                title="Share Employee Details via WhatsApp"
-              >
-                <i className="bi bi-whatsapp" style={{ fontSize: "16px", color: "white" }}></i>
-                Share Details
-              </button>
-              {hasPermission(
-          resourceNameMapWithCamelCase.employee,
-          permissionConstToUseWithHasPermission.editOthers) && <button
-                onClick={() => setShowAppSettingsModal(true)}
-                className="w-100 w-sm-auto"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  padding: "8px 16px",
-                  fontSize: "clamp(12px, 3vw, 14px)",
-                  borderRadius: "6px",
-                  backgroundColor: "#1E3A8A",
-                  color: "white",
-                  border: "none",
-                  cursor: "pointer"
-                }}
-                title="App Settings"
-              >
-                <i className="bi bi-gear" style={{ fontSize: "16px", color: "white" }}></i>
-                App Settings
-              </button>}
-              
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            {/* First Row - Personal and Employee Details */}
-            <div className="row g-3">
-              {/* Personal Details Card */}
-              <div className="col-12 col-md-6 d-flex">
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    width: "100%"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        backgroundColor: "#e6eaf1",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <i className="bi bi-person fs-2 text-primary"></i>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: "600",
-                        fontSize: "19px",
-                        color: "black",
-                        letterSpacing: "0.19px",
-                        margin: "0"
-                      }}
-                    >
-                      Personal Details
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Full Name</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {users.firstName + " " + users.lastName || "-NA-"}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Nickname</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{nickName || "-NA-"}</div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Date of Birth</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {formatDate(users.dateOfBirth) || "-NA-"}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Gender</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {getGender(gender) || "-NA-"}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Marital Status</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {getMaritalStatus(maritalStatus) || "-NA-"}
-                      </div>
-                    </div>
-                    {maritalStatus == 0 && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Anniversary</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {formatDate(anniversary) || "-NA-"}
-                      </div>
-                    </div>}
-                    {/* <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                    <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Blood Group</div>
-                    <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                      {formatBloodGroup(users?.bloodGroup)}
-                    </div>
-                  </div> */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Meal Preference</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {vegMealPreference
-                          ? "Vegetarian"
-                          : nonVegMealPreference
-                            ? "Non-Vegetarian"
-                            : veganMealPreference
-                              ? "Vegan"
-                              : "-NA-"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Employee Details Card */}
-              <div className="col-12 col-md-6 d-flex">
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    width: "100%"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        backgroundColor: "#e6eaf1",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <i className="bi bi-briefcase fs-2 text-primary"></i>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: "600",
-                        fontSize: "19px",
-                        color: "black",
-                        letterSpacing: "0.19px",
-                        margin: "0"
-                      }}
-                    >
-                      Employee Details
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Job Profile</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {designations?.role || "-NA-"}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Department</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {departments?.name || "-NA-"}
-                      </div>
-                    </div>
-                    {/* <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                    <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Experience Level</div>
-                    <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                      {"-NA-"}
-                    </div>
-                  </div> */}
-                    {/* <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                    <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Management level</div>
-                    <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                      {"-"}
-                    </div>
-                  </div> */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Type of Employee</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {employeeTypes.find((type: any) => type.id === employeeTypeId)?.type || "-NA-"}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Working Location Type</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {getMethod(method) || "-NA-"}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Branch</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {branches?.name || "-NA-"}
-                      </div>
-                    </div>
-                    {/* <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                    <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Shift</div>
-                    <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                      {"-"}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                    <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Room/Block</div>
-                    <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                      {"-"}
-                    </div>
-                  </div> */}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Second Row - Contact Details and Hiring Details */}
-            <div className="row g-3">
-              {/* Contact Details Card */}
-              <div className="col-12 col-md-6 d-flex">
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    width: "100%"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        backgroundColor: "#e6eaf1",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <i className="bi bi-telephone fs-2 text-info"></i>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: "600",
-                        fontSize: "19px",
-                        color: "black",
-                        letterSpacing: "0.19px",
-                        margin: "0"
-                      }}
-                    >
-                      Contact Details
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500", color: "black" }}>Company Email</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400", color: "#1E3A8A" }}>{companyEmailId || "-NA-"}</div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Company Phone</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{companyPhoneNumber || "-NA-"}</div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Extension</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{companyPhoneExtension || "-NA-"}</div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500", color: "black" }}>Personal Email</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400", color: "#1E3A8A" }}>{users?.personalEmailId || "-NA-"}</div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Personal Phone</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{users?.personalPhoneNumber || "-NA-"}</div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Alternate Phone</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{users?.alternatePhoneNumber || "-NA-"}</div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      {/* <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Socials</div> */}
-                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                        <div style={{ width: "28px", height: "28px" }}></div>
-                        <div style={{ width: "28px", height: "28px" }}></div>
-                        <div style={{ width: "28px", height: "28px" }}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Hiring Details Card */}
-              <div className="col-12 col-md-6 d-flex">
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    width: "100%"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        backgroundColor: "#e6eaf1",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <i className="bi bi-building fs-2 text-primary"></i>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: "600",
-                        fontSize: "19px",
-                        color: "black",
-                        letterSpacing: "0.19px",
-                        margin: "0"
-                      }}
-                    >
-                      Hiring Details
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Hiring Source</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {employee?.companySrcOfHire?.source || "-NA-"}
-                      </div>
-                    </div>
-                    {hasPermission(
-                      uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves,
-                      permissionConstToUseWithHasPermission.readOthers
-                    ) && (
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                          <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Current Package</div>
-                          <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                            {ctcInLpa
-                              ? `${(parseInt(ctcInLpa) / 100000).toFixed(2)} LPA`
-                              : "-NA-"}
-                          </div>
-                        </div>
-                      )}
-                    {/* <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                    <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Referred By</div>
-                    <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                      {"-NA-"}
-                    </div>
-                  </div> */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Date of Joining</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {formatDate(dateOfJoining) || "-NA-"}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Date of Exit</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {formatDate(dateOfExit) || "-NA-"}
-                      </div>
-                    </div>
-                    {/* <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                    <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Date of Rejoining</div>
-                    <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                      {formatDate(dateOfReJoining) || "-NA-" }
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                    <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Date of Re-exit</div>
-                    <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                      {formatDate(dateOfReExit) || "-NA-" }
-                    </div>
-                  </div> */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Reporting Manager</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {reportingManagerName || "-NA-"}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Referred By</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {referredByEmployeeName || "-NA-"}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Account Role</div>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                        {roles && roles.length > 0 ? roles[0].name : "-NA-"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Third Row - Work Experience and Education */}
-            <div className="row g-3">
-              {/* Work Experience Card */}
-              <div className="col-12 col-md-6 d-flex">
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    width: "100%"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        backgroundColor: "#e6eaf1",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <i className="bi bi-briefcase fs-2 text-primary"></i>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: "600",
-                        fontSize: "19px",
-                        color: "black",
-                        letterSpacing: "0.19px",
-                        margin: "0"
-                      }}
-                    >
-                      Work Experience
-                    </div>
-                  </div>
-                  {EmployeePreviousExperience && EmployeePreviousExperience.length > 0 ? (
-                    <div style={{
-                      maxHeight: "200px",
-                      overflowY: "auto",
-                      scrollbarWidth: "thin",
-                      scrollbarColor: "#e6eaf1 transparent"
-                    }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                        {EmployeePreviousExperience.map((exp: any, index: any) => (
-                          <div key={index}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Company</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{exp.companyName || "-NA-"}</div>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Job Title</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{exp.jobTitle || "-NA-"}</div>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>From Date</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                                  {exp.fromDate
-                                    ? `${formatDate(exp.fromDate)}`
-                                    : "-NA-"}
-                                </div>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>To Date</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                                  {exp.toDate
-                                    ? `${formatDate(exp.toDate)}`
-                                    : "-NA-"}
-                                </div>
-                              </div>
-                            </div>
-                            {index < EmployeePreviousExperience.length - 1 && (
-                              <div style={{ height: "0px", borderTop: "1px solid #e6eaf0", margin: "16px 0" }}></div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: "center", padding: "20px 0", color: "#666" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400", fontSize: "14px" }}>No work experience data available</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="col-12 col-md-6 d-flex">
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    width: "100%"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        backgroundColor: "#e6eaf1",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <i className="bi bi-briefcase fs-2 text-primary"></i>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: "600",
-                        fontSize: "19px",
-                        color: "black",
-                        letterSpacing: "0.19px",
-                        margin: "0"
-                      }}
-                    >
-                      Re-joining History
-                    </div>
-                  </div>
-                  {EmployeeRejoinHistory && EmployeeRejoinHistory.length > 0 ? (
-                    <div style={{
-                      maxHeight: "200px",
-                      overflowY: "auto",
-                      scrollbarWidth: "thin",
-                      scrollbarColor: "#e6eaf1 transparent"
-                    }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                        {EmployeeRejoinHistory.map((exp: any, index: any) => (
-                          <div key={index}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Date Of Re-Joining</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{formatDate(exp.dateOfReJoining) || "-NA-"}</div>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Date Of Re-Exit</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{formatDate(exp.dateOfReExit) || "-NA-"}</div>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Reason</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                                  {exp.reason
-                                    ? `${exp.reason}`
-                                    : "-NA-"}
-                                </div>
-                              </div>
-                            </div>
-                            {index < EmployeeRejoinHistory.length - 1 && (
-                              <div style={{ height: "0px", borderTop: "1px solid #e6eaf0", margin: "16px 0" }}></div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: "center", padding: "20px 0", color: "#666" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400", fontSize: "14px" }}>No Re-joining history available</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-
-            </div>
-
-            {/* Fourth Row - Address and Family Details */}
-            <div className="row g-3">
-              {/* Address Card */}
-              {/* Education Card */}
-              <div className="col-12 col-md-6 d-flex">
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    width: "100%"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        backgroundColor: "#e6eaf1",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <i className="bi bi-mortarboard fs-2 text-primary"></i>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: "600",
-                        fontSize: "19px",
-                        color: "black",
-                        letterSpacing: "0.19px",
-                        margin: "0"
-                      }}
-                    >
-                      Education
-                    </div>
-                  </div>
-                  {EmployeeEducationalDetails && EmployeeEducationalDetails.length > 0 ? (
-                    <div style={{
-                      maxHeight: "200px",
-                      overflowY: "auto",
-                      scrollbarWidth: "thin",
-                      scrollbarColor: "#e6eaf1 transparent"
-                    }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                        {EmployeeEducationalDetails.map((edu: any, index: any) => {
-                          const academicLabel = getEducationAcademicLabel(edu);
-                          const detailValue = getEducationDetailValue(edu) || "-NA-";
-                          const academicValue = academicLabel === "Passing Year"
-                            ? (edu.passingYear || "-NA-")
-                            : [edu.fromDate && formatDate(edu.fromDate), edu.toDate && formatDate(edu.toDate)].filter(Boolean).join(" - ") || "-NA-";
-
-                          return (
-                            <div key={index}>
-                              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                  <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Institute</div>
-                                  <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{edu.instituteName || "-NA-"}</div>
-                                </div>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                  <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Qualification</div>
-                                  <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{edu.qualificationName || edu.degree || "-NA-"}</div>
-                                </div>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                  <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Detail</div>
-                                  <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{detailValue}</div>
-                                </div>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                  <div style={{ fontFamily: "Inter", fontWeight: "500" }}>{academicLabel}</div>
-                                  <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{academicValue}</div>
-                                </div>
-                              </div>
-                              {index < EmployeeEducationalDetails.length - 1 && (
-                                <div style={{ height: "0px", borderTop: "1px solid #e6eaf0", margin: "16px 0" }}></div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: "center", padding: "20px 0", color: "#666" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400", fontSize: "14px" }}>No education data available</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="col-12 col-md-6 d-flex">
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    width: "100%"
-                  }}
-                >
-
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        backgroundColor: "#e6eaf1",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <i className="bi bi-house fs-2 text-primary"></i>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: "600",
-                        fontSize: "19px",
-                        color: "black",
-                        letterSpacing: "0.19px",
-                        margin: "0"
-                      }}
-                    >
-                      Address
-                    </div>
-                  </div>
-                  {EmployeeAddressDetails && EmployeeAddressDetails.length > 0 ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                        <div style={{ fontFamily: "Inter", fontWeight: "600", fontSize: "14px", color: "black" }}>Current Address</div>
-                        <div style={{ fontFamily: "Inter", fontWeight: "400", fontSize: "14px", color: "black" }}>
-                          {[
-                            EmployeeAddressDetails[0]?.presentAddressLine1 || EmployeeAddressDetails[0]?.permanentAddressLine1,
-                            EmployeeAddressDetails[0]?.presentAddressLine2 || EmployeeAddressDetails[0]?.permanentAddressLine2,
-                            EmployeeAddressDetails[0]?.presentCity || EmployeeAddressDetails[0]?.permanentCity,
-                            EmployeeAddressDetails[0]?.presentState || EmployeeAddressDetails[0]?.permanentState,
-                            EmployeeAddressDetails[0]?.presentCountry || EmployeeAddressDetails[0]?.permanentCountry,
-                            EmployeeAddressDetails[0]?.presentPostalCode || EmployeeAddressDetails[0]?.permanentPostalCode
-                          ].filter(Boolean).join(", ") || "-NA-"}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                        <div style={{ fontFamily: "Inter", fontWeight: "600", fontSize: "14px", color: "black" }}>Permanent Address</div>
-                        <div style={{ fontFamily: "Inter", fontWeight: "400", fontSize: "14px", color: "black" }}>
-                          {[
-                            EmployeeAddressDetails[0]?.permanentAddressLine1,
-                            EmployeeAddressDetails[0]?.permanentAddressLine2,
-                            EmployeeAddressDetails[0]?.permanentCity,
-                            EmployeeAddressDetails[0]?.permanentState,
-                            EmployeeAddressDetails[0]?.permanentCountry,
-                            EmployeeAddressDetails[0]?.permanentPostalCode
-                          ].filter(Boolean).join(", ") || "-NA-"}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: "center", padding: "20px 0", color: "#666" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400", fontSize: "14px" }}>No address data available</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            </div>
-
-            {/* Fifth Row - Emergency Details and Bank Details */}
-            <div className="row g-3">
-
-              {/* Family Details Card */}
-              <div className="col-12 col-md-6 d-flex">
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    width: "100%"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        backgroundColor: "#e6eaf1",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <i className="bi bi-people fs-2 text-primary"></i>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: "600",
-                        fontSize: "19px",
-                        color: "black",
-                        letterSpacing: "0.19px",
-                        margin: "0"
-                      }}
-                    >
-                      Family Details
-                    </div>
-                  </div>
-                  {EmergencyContacts && EmergencyContacts.length > 0 ? (
-                    <div style={{
-                      maxHeight: "200px",
-                      overflowY: "auto",
-                      scrollbarWidth: "thin",
-                      scrollbarColor: "#e6eaf1 transparent"
-                    }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                        {EmergencyContacts.map((contact: any, index: number) => (
-                          <div key={index}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Relative Name</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{contact.name || "-NA-"}</div>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Relation</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{contact.relationship || "-NA-"}</div>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Phone</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{contact.mobileNumber || "-NA-"}</div>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Date of Birth</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{formatDate(contact.dateOfBirth) || "-NA-"}</div>
-                              </div>
-                            </div>
-                            {index < EmergencyContacts.length - 1 && (
-                              <div style={{ height: "0px", borderTop: "1px solid #e6eaf0", margin: "16px 0" }}></div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: "center", padding: "20px 0", color: "#666" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400", fontSize: "14px" }}>No family details available</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Emergency Details Card */}
-              <div className="col-12 col-md-6 d-flex">
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    width: "100%"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        backgroundColor: "#e6eaf1",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <i className="bi bi-exclamation-triangle fs-2 text-warning"></i>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: "600",
-                        fontSize: "19px",
-                        color: "black",
-                        letterSpacing: "0.19px",
-                        margin: "0"
-                      }}
-                    >
-                      Emergency Details
-                    </div>
-                  </div>
-                  {EmployeeEmergencyDetails && EmployeeEmergencyDetails.length > 0 ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                        <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Blood Group</div>
-                        <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                          {formatBloodGroup(EmployeeEmergencyDetails[0].bloodGroup)}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                        <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Allergies</div>
-                        <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                          {EmployeeEmergencyDetails[0].allergies || "-NA-"}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                        <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Emergency Contact Name</div>
-                        <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                          {EmployeeEmergencyDetails[0].emergencyContactName || "-NA-"}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                        <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Emergency Contact Number</div>
-                        <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                          {EmployeeEmergencyDetails[0].emergencyContactNumber || "-NA-"}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: "center", padding: "20px 0", color: "#666" }}>
-                      <div style={{ fontFamily: "Inter", fontWeight: "400", fontSize: "14px" }}>No emergency details available</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Bank Details Card */}
-              <div className="col-12 col-md-6 d-flex">
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    width: "100%"
-                  }}
-                >
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        backgroundColor: "#e6eaf1",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <i className="bi bi-bank fs-2 text-success"></i>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "Barlow",
-                        fontWeight: "600",
-                        fontSize: "19px",
-                        color: "black",
-                        letterSpacing: "0.19px",
-                        margin: "0"
-                      }}
-                    >
-                      Bank Details
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    {EmployeeBankDetails && EmployeeBankDetails.length > 0 ? (
-                      <>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                          <div style={{ fontFamily: "Inter", fontWeight: "500" }}>AC Number</div>
-                          <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{EmployeeBankDetails[0].accountNumber || "-NA-"}</div>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                          <div style={{ fontFamily: "Inter", fontWeight: "500" }}>AC Holder Name</div>
-                          <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{EmployeeBankDetails[0].accountName || "-NA-"} </div>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                          <div style={{ fontFamily: "Inter", fontWeight: "500" }}>IFSC</div>
-                          <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{EmployeeBankDetails[0].ifscCode || "-NA-"}</div>
-                        </div>
-                      </>
-                    ) : (
-                      <div style={{ textAlign: "center", padding: "20px 0", color: "#666" }}>
-                        <div style={{ fontFamily: "Inter", fontWeight: "400", fontSize: "14px" }}>No bank details available</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Note Card - Full Width */}
-            {/* <div
-              style={{
-                backgroundColor: "white",
-                borderRadius: "12px",
-                boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-                padding: "20px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "16px",
-                height: "185px"
-              }}
-            >
-              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                <div
-                  style={{
-                    width: "44px",
-                    height: "44px",
-                    backgroundColor: "#e6eaf1",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center"
-                  }}
-                >
-                  <i className="bi bi-sticky fs-2 text-info"></i>
-                </div>
-                <div
-                  style={{
-                    fontFamily: "Barlow",
-                    fontWeight: "600",
-                    fontSize: "19px",
-                    color: "black",
-                    letterSpacing: "0.19px",
-                    margin: "0"
-                  }}
-                >
-                  Note
-                </div>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <div style={{ fontFamily: "Inter", fontWeight: "400", fontSize: "14px", color: "black" }}>
-                  Lorem ipsum
-                </div>
-              </div>
-            </div> */}
-          </div>
+              <i className="bi bi-gear" aria-hidden></i>
+              App Settings
+            </button>
+          )}
         </div>
       </div>
-      
-        <AppSettingsModal
-            show={showAppSettingsModal}
-            onClose={() => setShowAppSettingsModal(false)}
-            onSuccess={() => {
-              fetchEmployeeData();
-            }}
-            employeeId={employeeId}
-        />
-      
-    </>
+
+      {/* Fluid card grid — reflows 2-up ↔ 1-up from available width */}
+      <div className="emp-grid">
+        {/* Personal Details */}
+        <DetailCard icon={<i className="bi bi-person" aria-hidden></i>} title="Personal Details">
+          <DetailRow label="Full Name" value={`${users.firstName} ${users.lastName}`.trim() || "-NA-"} />
+          <DetailRow label="Nickname" value={nickName || "-NA-"} />
+          <DetailRow label="Date of Birth" value={formatDate(users.dateOfBirth)} />
+          <DetailRow label="Gender" value={getGender(gender)} />
+          <DetailRow label="Marital Status" value={getMaritalStatus(maritalStatus)} />
+          {maritalStatus == 0 && <DetailRow label="Anniversary" value={formatDate(anniversary)} />}
+          <DetailRow label="Meal Preference" value={mealPreference} />
+        </DetailCard>
+
+        {/* Employee Details */}
+        <DetailCard icon={<i className="bi bi-briefcase" aria-hidden></i>} title="Employee Details">
+          <DetailRow label="Job Profile" value={designations?.role || "-NA-"} />
+          <DetailRow label="Department" value={departments?.name || "-NA-"} />
+          <DetailRow label="Type of Employee" value={employeeType} />
+          <DetailRow label="Working Location Type" value={getMethod(method)} />
+          <DetailRow label="Branch" value={branches?.name || "-NA-"} />
+        </DetailCard>
+
+        {/* Contact Details */}
+        <DetailCard icon={<i className="bi bi-telephone" aria-hidden></i>} title="Contact Details">
+          <DetailRow label="Company Email" value={companyEmailId || "-NA-"} link />
+          <DetailRow label="Company Phone" value={formatPhoneWithCode(companyPhoneNumber, companyPhoneExtension)} />
+          <DetailRow label="Personal Email" value={users?.personalEmailId || "-NA-"} link />
+          <DetailRow label="Personal Phone" value={formatPhoneWithCode(users?.personalPhoneNumber, users?.personalPhoneNumberExtension)} />
+          <DetailRow label="Alternate Phone" value={users?.alternatePhoneNumber || "-NA-"} />
+        </DetailCard>
+
+        {/* Hiring Details */}
+        <DetailCard icon={<i className="bi bi-building" aria-hidden></i>} title="Hiring Details">
+          <DetailRow label="Hiring Source" value={employee?.companySrcOfHire?.source || "-NA-"} />
+          {canSeePackage && (
+            <DetailRow
+              label="Current Package"
+              value={ctcInLpa ? `${(parseInt(ctcInLpa) / 100000).toFixed(2)} LPA` : "-NA-"}
+            />
+          )}
+          <DetailRow label="Date of Joining" value={formatDate(dateOfJoining)} />
+          <DetailRow label="Date of Exit" value={formatDate(dateOfExit)} />
+          <DetailRow label="Reporting Manager" value={reportingManagerName || "-NA-"} />
+          <DetailRow label="Referred By" value={referredByEmployeeName || "-NA-"} />
+          <DetailRow label="Account Role" value={roles && roles.length > 0 ? roles[0].name : "-NA-"} />
+        </DetailCard>
+
+        {/* Work Experience */}
+        <DetailCard icon={<i className="bi bi-briefcase" aria-hidden></i>} title="Work Experience">
+          {EmployeePreviousExperience && EmployeePreviousExperience.length > 0 ? (
+            <div className="emp-scroll-list">
+              {EmployeePreviousExperience.map((exp: any, index: number) => (
+                <div className="emp-list-item" key={index}>
+                  <DetailRow label="Company" value={exp.companyName || "-NA-"} />
+                  <DetailRow label="Job Title" value={exp.jobTitle || "-NA-"} />
+                  <DetailRow label="From Date" value={exp.fromDate ? formatDate(exp.fromDate) : "-NA-"} />
+                  <DetailRow label="To Date" value={exp.toDate ? formatDate(exp.toDate) : "-NA-"} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState text="No work experience data available" />
+          )}
+        </DetailCard>
+
+        {/* Re-joining History */}
+        <DetailCard icon={<i className="bi bi-briefcase" aria-hidden></i>} title="Re-joining History">
+          {EmployeeRejoinHistory && EmployeeRejoinHistory.length > 0 ? (
+            <div className="emp-scroll-list">
+              {EmployeeRejoinHistory.map((exp: any, index: number) => (
+                <div className="emp-list-item" key={index}>
+                  <DetailRow label="Date Of Re-Joining" value={formatDate(exp.dateOfReJoining)} />
+                  <DetailRow label="Date Of Re-Exit" value={formatDate(exp.dateOfReExit)} />
+                  <DetailRow label="Reason" value={exp.reason || "-NA-"} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState text="No Re-joining history available" />
+          )}
+        </DetailCard>
+
+        {/* Education */}
+        <DetailCard icon={<i className="bi bi-mortarboard" aria-hidden></i>} title="Education">
+          {EmployeeEducationalDetails && EmployeeEducationalDetails.length > 0 ? (
+            <div className="emp-scroll-list">
+              {EmployeeEducationalDetails.map((edu: any, index: number) => {
+                const academicLabel = getEducationAcademicLabel(edu);
+                const detailValue = getEducationDetailValue(edu) || "-NA-";
+                const academicValue = academicLabel === "Passing Year"
+                  ? (edu.passingYear || "-NA-")
+                  : [edu.fromDate && formatDate(edu.fromDate), edu.toDate && formatDate(edu.toDate)].filter(Boolean).join(" - ") || "-NA-";
+                return (
+                  <div className="emp-list-item" key={index}>
+                    <DetailRow label="Institute" value={edu.instituteName || "-NA-"} />
+                    <DetailRow label="Qualification" value={edu.qualificationName || edu.degree || "-NA-"} />
+                    <DetailRow label="Detail" value={detailValue} />
+                    <DetailRow label={academicLabel} value={academicValue} />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState text="No education data available" />
+          )}
+        </DetailCard>
+
+        {/* Address — normal card; Permanent stacks under Current to stay compact */}
+        <DetailCard icon={<i className="bi bi-house" aria-hidden></i>} title="Address">
+          {EmployeeAddressDetails && EmployeeAddressDetails.length > 0 ? (
+            <div className="emp-address-grid">
+              <div className="emp-address-block">
+                <div className="emp-subhead">Current Address</div>
+                <div className="emp-address-text">{currentAddress}</div>
+              </div>
+              <div className="emp-address-block">
+                <div className="emp-subhead">Permanent Address</div>
+                <div className="emp-address-text">{permanentAddress}</div>
+              </div>
+            </div>
+          ) : (
+            <EmptyState text="No address data available" />
+          )}
+        </DetailCard>
+
+        {/* Family Details */}
+        <DetailCard icon={<i className="bi bi-people" aria-hidden></i>} title="Family Details">
+          {EmergencyContacts && EmergencyContacts.length > 0 ? (
+            <div className="emp-scroll-list">
+              {EmergencyContacts.map((contact: any, index: number) => (
+                <div className="emp-list-item" key={index}>
+                  <DetailRow label="Relative Name" value={contact.name || "-NA-"} />
+                  <DetailRow label="Relation" value={contact.relationship || "-NA-"} />
+                  <DetailRow label="Phone" value={contact.mobileNumber || "-NA-"} />
+                  <DetailRow label="Date of Birth" value={formatDate(contact.dateOfBirth)} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState text="No family details available" />
+          )}
+        </DetailCard>
+
+        {/* Emergency Details */}
+        <DetailCard
+          icon={<i className="bi bi-exclamation-triangle" aria-hidden></i>}
+          title="Emergency Details"
+          iconVariant="warn"
+        >
+          {EmployeeEmergencyDetails && EmployeeEmergencyDetails.length > 0 ? (
+            <>
+              <DetailRow label="Blood Group" value={formatBloodGroup(EmployeeEmergencyDetails[0].bloodGroup)} />
+              <DetailRow label="Allergies" value={EmployeeEmergencyDetails[0].allergies || "-NA-"} />
+              <DetailRow label="Emergency Contact Name" value={EmployeeEmergencyDetails[0].emergencyContactName || "-NA-"} />
+              <DetailRow label="Emergency Contact Number" value={EmployeeEmergencyDetails[0].emergencyContactNumber || "-NA-"} />
+            </>
+          ) : (
+            <EmptyState text="No emergency details available" />
+          )}
+        </DetailCard>
+
+        {/* Bank Details */}
+        <DetailCard
+          icon={<i className="bi bi-bank" aria-hidden></i>}
+          title="Bank Details"
+          iconVariant="success"
+        >
+          {EmployeeBankDetails && EmployeeBankDetails.length > 0 ? (
+            <>
+              <DetailRow label="AC Number" value={EmployeeBankDetails[0].accountNumber || "-NA-"} />
+              <DetailRow label="AC Holder Name" value={EmployeeBankDetails[0].accountName || "-NA-"} />
+              <DetailRow label="IFSC" value={EmployeeBankDetails[0].ifscCode || "-NA-"} />
+            </>
+          ) : (
+            <EmptyState text="No bank details available" />
+          )}
+        </DetailCard>
+      </div>
+
+      <AppSettingsModal
+        show={showAppSettingsModal}
+        onClose={() => setShowAppSettingsModal(false)}
+        onSuccess={() => {
+          fetchEmployeeData();
+        }}
+        employeeId={employeeId}
+      />
+    </div>
   );
 };
 

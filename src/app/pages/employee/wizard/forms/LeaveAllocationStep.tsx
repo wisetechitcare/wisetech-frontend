@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useFormikContext } from "formik";
 import { fetchLeaveOptions } from "@services/company";
 import { fetchLeaveAllocations } from "@services/employee";
+import "./LeaveAllocationStep.css";
 
 interface LeaveOption {
     id: string;
@@ -164,7 +165,7 @@ const LeaveAllocationStep = () => {
 
     if (loading) {
         return (
-            <div className="d-flex align-items-center gap-2 text-muted" style={{ fontSize: 14 }}>
+            <div className="ob-leave-msg">
                 <span className="spinner-border spinner-border-sm" />
                 Loading leave types…
             </div>
@@ -173,7 +174,7 @@ const LeaveAllocationStep = () => {
 
     if (!branchId) {
         return (
-            <div className="text-muted" style={{ fontSize: 14 }}>
+            <div className="ob-leave-msg">
                 Select a branch in the Hiring Information section above to configure leave allocation.
             </div>
         );
@@ -181,141 +182,97 @@ const LeaveAllocationStep = () => {
 
     if (rows.length === 0) {
         return (
-            <div className="text-muted" style={{ fontSize: 14 }}>
+            <div className="ob-leave-msg">
                 No paid leave types configured for this branch. Leave allocation will use global policy defaults.
             </div>
         );
     }
 
     return (
-        <div>
-            <p style={{ fontSize: 13, color: "#6c757d", marginBottom: 12 }}>
+        <div className="ob-leave">
+            <p className="ob-leave-hint">
                 Configure paid leave days per employee. Leave blank to use branch policy defaults.
                 Unpaid leave days are automatically calculated as the remainder of the year.
             </p>
-            <div style={{ overflowX: "auto" }}>
-                <table className="table table-bordered align-middle" style={{ fontSize: 13, minWidth: 480 }}>
-                    <thead style={{ backgroundColor: "#f8f9fa" }}>
-                        <tr>
-                            <th style={{ width: "32%" }}>Leave Type</th>
-                            <th style={{ width: "18%", textAlign: "center" }}>Branch Default</th>
-                            <th style={{ width: "18%", textAlign: "center" }}>Custom Days</th>
-                            <th style={{ width: "22%" }}>Note</th>
-                            <th style={{ width: "10%", textAlign: "center" }}></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map((row, idx) => {
-                            const isOverridden = Number(row.allocatedDays) !== row.defaultDays;
-                            return (
-                                <tr
-                                    key={row.leaveTypeId}
-                                    style={{
-                                        backgroundColor: isOverridden ? "#fff9db" : undefined,
-                                        transition: "background-color 0.15s",
-                                    }}
-                                >
-                                    <td>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontWeight: 500 }}>{row.leaveType}</span>
-                                            <span style={{
-                                                padding: "1px 7px",
-                                                borderRadius: 10,
-                                                fontSize: 10,
-                                                fontWeight: 600,
-                                                backgroundColor: "#e6f9f0",
-                                                color: "#17a855",
-                                            }}>
-                                                Paid
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td style={{ textAlign: "center", color: "#6c757d" }}>
-                                        {row.defaultDays} days
-                                    </td>
-                                    <td style={{ textAlign: "center" }}>
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            max={365}
-                                            className="form-control form-control-sm text-center"
-                                            value={row.allocatedDays}
-                                            onChange={e => handleChange(idx, "allocatedDays", e.target.value)}
-                                            style={{
-                                                borderColor: isOverridden ? "#f59f00" : undefined,
-                                                fontWeight: isOverridden ? 600 : undefined,
-                                            }}
-                                        />
-                                    </td>
-                                    <td>
-                                        <input
-                                            type="text"
-                                            className="form-control form-control-sm"
-                                            placeholder="Reason (optional)"
-                                            value={row.note}
-                                            onChange={e => handleChange(idx, "note", e.target.value)}
-                                            disabled={!isOverridden}
-                                        />
-                                    </td>
-                                    <td style={{ textAlign: "center" }}>
-                                        {isOverridden && (
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm btn-light-danger"
-                                                title="Reset to branch default"
-                                                onClick={() => handleReset(idx)}
-                                                style={{ fontSize: 11, padding: "2px 8px" }}
-                                            >
-                                                Reset
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+
+            <div className="ob-leave-grid">
+                <div className="ob-leave-head" aria-hidden>
+                    <span>Leave Type</span>
+                    <span className="ob-leave-center">Branch Default</span>
+                    <span className="ob-leave-center">Custom Days</span>
+                    <span>Note</span>
+                    <span></span>
+                </div>
+
+                {rows.map((row, idx) => {
+                    const isOverridden = Number(row.allocatedDays) !== row.defaultDays;
+                    return (
+                        <div
+                            key={row.leaveTypeId}
+                            className={`ob-leave-row${isOverridden ? " is-overridden" : ""}`}
+                        >
+                            <div className="ob-leave-type">
+                                <span className="ob-leave-type-name">{row.leaveType}</span>
+                                <span className="ob-leave-badge">Paid</span>
+                            </div>
+
+                            <div className="ob-leave-default">
+                                <span className="ob-leave-cell-label">Branch Default</span>
+                                {row.defaultDays} days
+                            </div>
+
+                            <div>
+                                <span className="ob-leave-cell-label">Custom Days</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={365}
+                                    className={`form-control form-control-sm text-center ob-leave-input${isOverridden ? " is-overridden" : ""}`}
+                                    value={row.allocatedDays}
+                                    onChange={e => handleChange(idx, "allocatedDays", e.target.value)}
+                                />
+                            </div>
+
+                            <div>
+                                <span className="ob-leave-cell-label">Note</span>
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm"
+                                    placeholder="Reason (optional)"
+                                    value={row.note}
+                                    onChange={e => handleChange(idx, "note", e.target.value)}
+                                    disabled={!isOverridden}
+                                />
+                            </div>
+
+                            <div>
+                                {isOverridden && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-light-danger ob-leave-reset"
+                                        title="Reset to branch default"
+                                        onClick={() => handleReset(idx)}
+                                    >
+                                        Reset
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Derived unpaid days — read-only, always = 365 − totalPaid */}
-            <div style={{
-                marginTop: 8,
-                padding: "10px 14px",
-                backgroundColor: "#f8f9fa",
-                borderRadius: 8,
-                border: "1px solid #dee2e6",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-            }}>
+            <div className="ob-leave-derived">
                 <div>
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>Unpaid Leave (derived)</span>
-                    <span style={{ fontSize: 12, color: "#6c757d", marginLeft: 8 }}>
-                        = 365 − {totalPaidAllocated} paid days
-                    </span>
+                    <span className="ob-leave-derived-label">Unpaid Leave (derived)</span>
+                    <span className="ob-leave-derived-sub">= 365 − {totalPaidAllocated} paid days</span>
                 </div>
-                <span style={{
-                    padding: "3px 12px",
-                    borderRadius: 10,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    backgroundColor: "#fff0f0",
-                    color: "#e03131",
-                }}>
-                    {unpaidDays} days
-                </span>
+                <span className="ob-leave-derived-badge">{unpaidDays} days</span>
             </div>
 
             {rows.some(r => Number(r.allocatedDays) !== r.defaultDays) && (
-                <div style={{
-                    marginTop: 8,
-                    padding: "8px 12px",
-                    backgroundColor: "#fff9db",
-                    borderRadius: 6,
-                    fontSize: 12,
-                    color: "#856404",
-                    border: "1px solid #ffe08a",
-                }}>
+                <div className="ob-leave-override-note">
                     <strong>Note:</strong> Highlighted rows will override the branch policy for this employee only.
                     These overrides apply to the current fiscal year.
                 </div>

@@ -13,6 +13,7 @@ import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalance
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import HourglassBottomOutlinedIcon from '@mui/icons-material/HourglassBottomOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import SavingsOutlinedIcon from '@mui/icons-material/SavingsOutlined';
 import { formatCurrencyDecimal, formatCurrencyRounded } from '@utils/currency';
 import YearlyKpiCard from './components/salary/YearlyKpiCard';
 import YearlyOverViewCard from './YearlyOverViewCard';
@@ -37,6 +38,9 @@ type YearOverview = {
     totalGrossPay: number;
     totalVariableDeduction: number;
     totalGovernmentPaid: number;
+    // Retention (company-side bond) is reported separately from govt. fees
+    totalRetention: number;
+    totalRetentionPaid: number;
 };
 
 const fiscalMonths = [
@@ -76,6 +80,8 @@ const getFixedDeductionAmount = (row: any, matcher: (key: string) => boolean): n
 
 const isPfKey = (key: string) => key.includes('provident fund') || key.includes('pf');
 const isPtaxKey = (key: string) => key.includes('professional tax') || key.includes('ptax');
+/** Retention (fresher bond) is a COMPANY-side deduction, never a government fee. */
+const isRetentionKey = (key: string) => key.includes('retention');
 const isTdsKey = (key: string) => key.includes('tds') || key.includes('tax deducted') || key.includes('professional fees');
 const isTds2Key = (key: string) => key.includes('tds 2') || key.includes('tds2') || key.includes('tds ii');
 
@@ -202,6 +208,8 @@ const initialOverview: YearOverview = {
     totalGrossPay: 0,
     totalVariableDeduction: 0,
     totalGovernmentPaid: 0,
+    totalRetention: 0,
+    totalRetentionPaid: 0,
 };
 
 const Yearly = ({
@@ -380,6 +388,13 @@ const Yearly = ({
             const variableDeduction = getAllVariableDeductions(item);
             const grossPay = parseCurrencyOrNumber(item.totalGrossPayAmount);
             const govPaid = parseCurrencyOrNumber(item.governmentPaid);
+            const retention = getFixedDeductionAmount(item, isRetentionKey);
+            // Retention settlements share the statutory ledger (so they land in the
+            // master governmentPaid) — split them back out for their own bucket.
+            const retentionPaid = ((item as any)?.govtPayments || []).reduce((sum: number, p: any) => {
+                const dt = String(p?.deductionType ?? '').toUpperCase();
+                return dt.includes('RETENTION') ? sum + parseCurrencyOrNumber(p?.paidAmount ?? p?.amount) : sum;
+            }, 0);
 
             return {
                 payableDays: acc.payableDays + payableDays,
@@ -393,6 +408,8 @@ const Yearly = ({
                 totalVariableDeduction: acc.totalVariableDeduction + variableDeduction,
                 totalGrossPay: acc.totalGrossPay + grossPay,
                 governmentPaid: acc.governmentPaid + govPaid,
+                retentionAmount: acc.retentionAmount + retention,
+                retentionPaid: acc.retentionPaid + retentionPaid,
             };
         }, {
             payableDays: 0,
@@ -406,6 +423,8 @@ const Yearly = ({
             totalVariableDeduction: 0,
             totalGrossPay: 0,
             governmentPaid: 0,
+            retentionAmount: 0,
+            retentionPaid: 0,
         });
 
         const attendancePercent = totals.workingDays > 0
@@ -429,6 +448,8 @@ const Yearly = ({
             totalVariableDeduction: totals.totalVariableDeduction,
             totalGrossPay: totals.totalGrossPay,
             totalGovernmentPaid: totals.governmentPaid,
+            totalRetention: totals.retentionAmount,
+            totalRetentionPaid: totals.retentionPaid,
         });
     }, [startDaySalaryData, startDate, endDate, isLoadingSalaryData]);
 
@@ -454,6 +475,13 @@ const Yearly = ({
 
     const intermediateSalary = yearOverview.totalGrossPay - yearOverview.totalVariableDeduction;
 
+    // Retention (fresher bond) is a company-side deduction — split it out of the
+    // government/statutory bucket so each reports its own total and pending.
+    const retentionTotal = yearOverview.totalRetention;
+    const hasRetention = retentionTotal > 0;
+    const govtOnlyDeduction = Math.max(0, yearOverview.totalFixedDeduction - retentionTotal);
+    const govtOnlyPaid = Math.max(0, yearOverview.totalGovernmentPaid - yearOverview.totalRetentionPaid);
+
     const kpis = [
         {
             label:    'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
@@ -465,14 +493,25 @@ const Yearly = ({
             icon: <AccountBalanceWalletOutlinedIcon fontSize="small" />,
         },
         {
-            label:    'DEDUCTIONS',
-            sublabel: 'Govt. & fixed charges',
-            value:    formatCurrencyDecimal(yearOverview.totalFixedDeduction),
-            footer:     getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).label,
-            footerValue: getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).value,
+            label:    hasPtax ? 'DEDUCTIONS (PTAX)' : 'DEDUCTIONS',
+            sublabel: 'Govt. & statutory charges',
+            value:    formatCurrencyDecimal(govtOnlyDeduction),
+            footer:     getPendingFooter(govtOnlyDeduction - govtOnlyPaid).label,
+            footerValue: getPendingFooter(govtOnlyDeduction - govtOnlyPaid).value,
             tone: 'purple' as const,
             icon: <AccountBalanceOutlinedIcon fontSize="small" />,
         },
+        ...(hasRetention
+            ? [{
+                label:    'COMPANY DEDUCTION (RETENTION)',
+                sublabel: 'Fresher bond held back',
+                value:    formatCurrencyDecimal(retentionTotal),
+                footer:      getPendingFooter(retentionTotal - yearOverview.totalRetentionPaid).label,
+                footerValue: getPendingFooter(retentionTotal - yearOverview.totalRetentionPaid).value,
+                tone: 'amber' as const,
+                icon: <SavingsOutlinedIcon fontSize="small" />,
+            }]
+            : []),
         {
             label:    'PAYABLE SALARY',
             sublabel: 'Net take-home amount',
@@ -492,13 +531,13 @@ const Yearly = ({
                     gridTemplateColumns: {
                         xs: '1fr',
                         sm: 'repeat(2, minmax(0, 1fr))',
-                        lg: `repeat(3, minmax(0, 1fr))`,
+                        lg: `repeat(${kpis.length}, minmax(0, 1fr))`,
                     },
                     gap: 1.25,
                 }}
             >
                 {isLoadingOverview
-                    ? Array.from({ length: 3 }).map((_, index) => (
+                    ? Array.from({ length: kpis.length }).map((_, index) => (
                         <Skeleton key={index} variant="rounded" height={140} sx={{ borderRadius: '16px' }} />
                     ))
                     : kpis.map((item) => <YearlyKpiCard key={item.label} {...item} showSensitiveData={showSensitiveData} />)}

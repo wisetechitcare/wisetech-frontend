@@ -24,6 +24,8 @@ interface PipelinePerformanceProps {
   index?: number;
   /** Show skeletons instead of data. */
   loading?: boolean;
+  /** Context: 'leads' | 'projects' — controls title & labels. Default: 'leads' */
+  context?: 'leads' | 'projects';
 }
 
 /* ── Compact KPI pill ───────────────────────────────────────────────────── */
@@ -282,6 +284,7 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
   onSelect,
   index = 0,
   loading = false,
+  context = 'leads',
 }) => {
   const rows = useMemo(() => buildStatusDistribution(statusData), [statusData]);
   const kpis = useMemo(() => computeLeadStatusKpis(statusData), [statusData]);
@@ -296,6 +299,17 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
   const [insightsOpen, setInsightsOpen] = useState(false);
 
   const isEmpty = kpis.total === 0;
+
+  // Contextual titles based on whether this is for leads or projects
+  const titles = context === 'projects' ? {
+    main: 'How Your Projects Are Doing',
+    subtitle: 'Project status overview and what needs attention',
+    cardTitle: 'Where Your Projects Stand',
+  } : {
+    main: 'How Your Leads Are Doing',
+    subtitle: 'A simple look at where your leads stand and what needs attention',
+    cardTitle: 'Where Your Leads Stand',
+  };
 
   // Resolve the real backend labels so pill drill-down hits the right status.
   const labelFor = (key: string): string | undefined =>
@@ -348,15 +362,15 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <AnalyticsHeader
-        title="How Your Leads Are Doing"
-        subtitle="A simple look at where your leads stand and what needs attention"
+        title={titles.main}
+        subtitle={titles.subtitle}
         icon="bi-bar-chart-steps"
         accent="#F59E0B"
       />
 
       <AnalyticsCard
-        title="Where Your Leads Stand"
-        subtitle="Tap any row to see those leads"
+        title={titles.cardTitle}
+        subtitle={context === 'projects' ? 'Tap any row to see those projects' : 'Tap any row to see those leads'}
         index={index}
         isEmpty={!loading && isEmpty}
         emptyHint="Create leads to see the pipeline distribution."
@@ -418,7 +432,7 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                   gap: 18,
                 }}
               >
-                <PipelineDistribution rows={rows} onSelect={onSelect} />
+                <PipelineDistribution rows={rows} onSelect={onSelect} context={context} />
                 {/* Lifecycle roll-up removed — its Active/Converted/Lost numbers
                     duplicated the KPI pills above. */}
               </div>

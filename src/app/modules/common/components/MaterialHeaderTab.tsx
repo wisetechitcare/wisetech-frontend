@@ -215,6 +215,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                             })());
 
                     const hasBadge = typeof tabItem.badge === 'number' && tabItem.badge > 0;
+                    const isSelected = value === index;
                     // Title text always sits in .mht-label so the selected
                     // underline applies to the text only (never icon/badge).
                     const label = hasBadge ? (
@@ -222,16 +223,19 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                             <span className="mht-label">{tabItem.title}</span>
                             <span
                                 style={{
-                                    marginLeft: '8px',
+                                    marginLeft: '6px',
                                     minWidth: '18px',
                                     height: '18px',
                                     padding: '0 5px',
                                     borderRadius: '9px',
-                                    background: '#ffffff',
-                                    color: '#1E3A8A',
-                                    fontSize: '110px',
+                                    // Badge tracks the tab's state so it reads as part of the
+                                    // tab rather than a floating chip: solid white on the active
+                                    // tab, soft translucent white on inactive tabs.
+                                    background: isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.25)',
+                                    color: isSelected ? '#1E3A8A' : '#ffffff',
+                                    fontSize: '11px',
                                     fontWeight: 700,
-                                    lineHeight: '18px',
+                                    lineHeight: 1,
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',

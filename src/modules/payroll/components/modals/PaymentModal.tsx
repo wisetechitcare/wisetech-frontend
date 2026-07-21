@@ -75,12 +75,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
     const [activeTab, setActiveTab] = useState('SALARY');
 
-    const paymentModes = [
-        { label: 'Salary Payment', value: 'SALARY' },
-        { label: 'Government Fee Payment', value: 'GOVERNMENT' },
-        { label: 'Combined Payment', value: 'COMBINED' },
-    ];
-
     const paymentMethods = [
         { label: 'Bank Transfer', value: 'BANK_TRANSFER' },
         { label: 'Cash', value: 'CASH' },
@@ -88,7 +82,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         { label: 'UPI / Online', value: 'UPI' }
     ];
 
-    const govtDeductions = Object.entries(statutoryBreakdown || {})
+    // Retention is a COMPANY-side deduction (fresher bond held back by the
+    // employer) — it must not appear under Government Fee Payment.
+    const isRetentionKey = (key: string) => key.toLowerCase().includes('retention');
+
+    const allStatutoryDeductions = Object.entries(statutoryBreakdown || {})
         .map(([key, data]: [string, any]) => ({
             label: key === 'Professional Fees' ? 'Tax Deducted at Source (TDS)' : key,
             value: key,
@@ -96,6 +94,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             isActive: data?.isActive !== false,
         }))
         .filter(d => d.amount > 0); // show any deduction with earned > 0, even if auto-calc is inactive (e.g. TDS added via modify)
+
+    const govtDeductions = allStatutoryDeductions.filter(d => !isRetentionKey(d.value));
+    const companyDeductions = allStatutoryDeductions.filter(d => isRetentionKey(d.value));
+    const hasCompanyDeductions = companyDeductions.length > 0;
+    const companyTotal = companyDeductions.reduce((sum, d) => sum + d.amount, 0);
+
+    const paymentModes = [
+        { label: 'Salary Payment', value: 'SALARY' },
+        { label: 'Government Fee Payment', value: 'GOVERNMENT' },
+        { label: 'Combined Payment', value: 'COMBINED' },
+        ...(hasCompanyDeductions ? [{ label: 'Company Deduction (Retention)', value: 'COMPANY' }] : []),
+    ];
 
     // Sum paid amounts per normalized deduction type from govtPayments
     const paidByNormalizedType: Record<string, number> = (govtPayments || []).reduce((acc: Record<string, number>, p: any) => {
@@ -123,22 +133,32 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     };
 
     const hasGovtDeductions = govtDeductions.length > 0;
-    const availablePaymentModes = hasGovtDeductions
-        ? paymentModes
-        : paymentModes.filter(mode => mode.value === 'SALARY');
+    const availablePaymentModes = paymentModes.filter(mode => {
+        if (mode.value === 'SALARY') return true;
+        if (mode.value === 'COMPANY') return hasCompanyDeductions;
+        return hasGovtDeductions; // GOVERNMENT / COMBINED
+    });
 
     useEffect(() => {
-        if (!hasGovtDeductions && activeTab !== 'SALARY') {
+        const allowed = new Set(availablePaymentModes.map(m => m.value));
+        if (!allowed.has(activeTab)) {
             setActiveTab('SALARY');
         }
-    }, [activeTab, hasGovtDeductions]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, hasGovtDeductions, hasCompanyDeductions]);
 
-    // Use fixedDeductions prop as the authoritative total; fall back to summing breakdown entries
+    // Use fixedDeductions prop as the authoritative total (minus the company-side
+    // retention portion); fall back to summing the government breakdown entries.
     const correctedFixedDeductions = fixedDeductions > 0
-        ? fixedDeductions
+        ? Math.max(0, fixedDeductions - companyTotal)
         : Math.max(0, govtDeductions.reduce((sum, item) => sum + item.amount, 0));
 
-    const govtPending = Math.max(0, correctedFixedDeductions - governmentPaid);
+    // Master governmentPaid accumulates ALL statutory-ledger payments (incl.
+    // retention) — split retention back out so each bucket tracks its own pending.
+    const retentionPaid = paidByNormalizedType['RETENTION'] || 0;
+    const govPaidNonRetention = Math.max(0, governmentPaid - retentionPaid);
+    const govtPending = Math.max(0, correctedFixedDeductions - govPaidNonRetention);
+    const companyPending = Math.max(0, companyTotal - retentionPaid);
     const payableAmount = Math.max(0, salaryInHand - salaryPaid);
 
     const displayGovType = govtDeductions.length === 1
@@ -260,16 +280,34 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                 <div className="border-top border-info border-opacity-25 mt-2 pt-3">
                                                     <div className="d-flex justify-content-between align-items-center">
                                                         <span className="fs-8 fw-semibold text-gray-500">Total Paid</span>
-                                                        <span className="fs-5 fw-bolder text-info">{formatINR2(governmentPaid)}</span>
+                                                        <span className="fs-5 fw-bolder text-info">{formatINR2(govPaidNonRetention)}</span>
                                                     </div>
                                                     <Badge bg="info" className="bg-opacity-10 text-info mt-2 px-3 rounded-pill">Paid</Badge>
                                                 </div>
                                             </>
                                         ) : (
                                             <>
-                                                <span className="text-info fs-3 fw-bolder d-block">{formatINR2(governmentPaid)}</span>
+                                                <span className="text-info fs-3 fw-bolder d-block">{formatINR2(govPaidNonRetention)}</span>
                                                 <Badge bg="info" className="bg-opacity-10 text-info mt-1">Paid</Badge>
                                             </>
+                                        )}
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                        )}
+                        {hasCompanyDeductions && (
+                            <Col md={3}>
+                                <Card className="bg-light-warning border-0 shadow-none h-100">
+                                    <Card.Body className="p-4 d-flex flex-column">
+                                        <div className="d-flex align-items-center gap-2 mb-3">
+                                            <div style={{ width: 3, height: 16, borderRadius: 2, backgroundColor: '#ffc700', flexShrink: 0 }} />
+                                            <span className="text-gray-500 fs-9 fw-bold text-uppercase" style={{ letterSpacing: '0.06em' }}>Company Deduction (Retention)</span>
+                                        </div>
+                                        <span className="text-gray-900 fs-3 fw-bolder d-block">{formatINR2(companyTotal)}</span>
+                                        {companyPending > 0 ? (
+                                            <Badge bg="warning" className="bg-opacity-10 text-warning mt-1">Pending: {formatINR2(companyPending)}</Badge>
+                                        ) : (
+                                            <Badge bg="success" className="bg-opacity-10 text-success mt-1">Settled: {formatINR2(retentionPaid)}</Badge>
                                         )}
                                     </Card.Body>
                                 </Card>
@@ -286,6 +324,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                         govAmount: Math.trunc(initialValues.govAmount || 0),
                         govType: initialValues.govType || (hasGovtDeductions ? govtDeductions[0].value : ''),
                         govChallan: initialValues.govChallan || '',
+                        companyType: initialValues.companyType || (hasCompanyDeductions ? companyDeductions[0].value : ''),
+                        companyAmount: Math.trunc(initialValues.companyAmount || (hasCompanyDeductions ? companyPending : 0)),
                         paymentMethod: initialValues.paymentMethod || 'BANK_TRANSFER',
                         paidAt: initialValues.paidAt || new Date().toISOString().split('T')[0],
                         _netSalary: netPayable,
@@ -366,8 +406,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                         <div className="bg-white rounded-3 p-0 shadow-sm border h-100 overflow-hidden">
                                             <div className="px-6 py-4 bg-light border-bottom d-flex justify-content-between align-items-center">
                                                 <h4 className="fw-bolder text-gray-800 mb-0">
-                                                    {activeTab === 'SALARY' ? 'Salary Installment' : 
-                                                     activeTab === 'GOVERNMENT' ? `${displayGovType} Settlement` : 
+                                                    {activeTab === 'SALARY' ? 'Salary Installment' :
+                                                     activeTab === 'GOVERNMENT' ? `${displayGovType} Settlement` :
+                                                     activeTab === 'COMPANY' ? 'Company Deduction Settlement' :
                                                      'Combined Disbursement'}
                                                 </h4>
                                             </div>
@@ -469,6 +510,65 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                     <div className="text-gray-700 fw-bold fs-7">
                                                                         Government & statutory deduction payments update the ledger and master status.
                                                                         Ensure the Challan / Reference # is recorded for audit purposes.
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* SECTION: Company Deduction (Retention) — separate from government fees */}
+                                                {hasCompanyDeductions && activeTab === 'COMPANY' && (
+                                                    <div>
+                                                        <Row className="g-5">
+                                                            <Col md={6}>
+                                                                <FormikDropdownInput
+                                                                    inputLabel="Deduction Type"
+                                                                    formikField="companyType"
+                                                                    options={companyDeductions.map(d => {
+                                                                        const paid = isDeductionFullyPaid(d.value, d.amount);
+                                                                        return {
+                                                                            label: paid
+                                                                                ? `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')}) — ✓ Paid`
+                                                                                : `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')})`,
+                                                                            value: d.value,
+                                                                            color: paid ? '#22c55e' : '#FFB700',
+                                                                            isDisabled: paid,
+                                                                        };
+                                                                    })}
+                                                                    isRequired={true}
+                                                                    onChange={(option: any) => {
+                                                                        const selected = companyDeductions.find(d => d.value === option.value);
+                                                                        setFieldValue('companyType', option.value);
+                                                                        if (selected) {
+                                                                            setFieldValue('companyAmount', Math.trunc(Math.max(0, selected.amount - getPaidForDeduction(selected.value))));
+                                                                        } else {
+                                                                            setFieldValue('companyAmount', 0);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </Col>
+                                                            <Col md={6}>
+                                                                <TextInput
+                                                                    label="Amount to Transfer"
+                                                                    formikField="companyAmount"
+                                                                    type="number"
+                                                                    isRequired={true}
+                                                                />
+                                                                <div className="text-muted fs-8 mt-1">
+                                                                    Retention pending: {formatINR2(Math.max(0, companyPending - (Number(values.companyAmount) || 0)))}
+                                                                </div>
+                                                            </Col>
+                                                        </Row>
+
+                                                        <div className="mt-6 p-5 bg-light-warning rounded border border-warning border-dashed">
+                                                            <div className="d-flex flex-stack">
+                                                                <div className="d-flex align-items-center">
+                                                                    <KTIcon iconName="information-5" className="fs-1 text-warning me-4" />
+                                                                    <div className="text-gray-700 fw-bold fs-7">
+                                                                        Company deductions (retention bond) are tracked separately from
+                                                                        government fees — this payout settles the amount held back from
+                                                                        the employee's salary.
                                                                     </div>
                                                                 </div>
                                                             </div>

@@ -11,7 +11,7 @@ import Loader from "@app/modules/common/utils/Loader";
 import ShowEmployeeDetailsById from "./ShowEmployeeDetailsById";
 import { miscellaneousIcons } from "@metronic/assets/miscellaneousicons";
 import { ToggleButtonGroup, ToggleButton } from "@mui/material";
-import { getAvatar } from "@utils/avatar";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
 import { getEmployeeStatus, getEmployeeStatusString } from "@utils/employeeStatus";
@@ -71,7 +71,7 @@ const ShowEmployeeDetailsToggle = () => {
     navigate(-1);
   };
 
-  const { users, designations, isActive, avatar, gender, dateOfExit } = employee;
+  const { users, designations, isActive, avatar, dateOfExit } = employee;
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
@@ -119,11 +119,12 @@ const ShowEmployeeDetailsToggle = () => {
 
           {/* Profile Section */}
           <div className="d-flex align-items-center ms-2 ms-md-8 mb-4 mb-md-7">
-            <img
-              src={getAvatar(avatar, gender)}
-              alt="Avatar"
-              className="rounded-circle"
-              style={{ width: "45px", height: "45px", objectFit: "cover" }}
+            <SmartAvatar
+              name={`${users.firstName} ${users.lastName}`}
+              id={employee?.id}
+              imageUrl={avatar}
+              size={45}
+              imageFit="cover"
             />
             <div className="ms-3">
               <h5 className="fw-bold mb-1" style={{ fontSize: "clamp(14px, 4vw, 18px)" }}>

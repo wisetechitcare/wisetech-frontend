@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -28,7 +29,7 @@ function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
             aria-label={`Remove relative ${index + 1}`}
             onClick={onRemove}
           >
-            X
+            <X size={16} />
           </button>
         ) : (
           <div style={{ width: "20px", height: "20px" }} />

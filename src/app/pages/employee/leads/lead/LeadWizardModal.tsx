@@ -321,7 +321,7 @@ const LeadWizardModal = ({
   const [projectData, setProjectData] = useState<any>(null);
   const [useCalculatedAmount, setUseCalculatedAmount] = useState<boolean>(true);
   const [allCompanyTypes, setAllCompanyTypes] = useState<
-    { id: string | number; name: string }[]
+    { id: string | number; name: string; parentTypeId?: string | null }[]
   >([]); //new update of alpabetical order
   const [currCompanyTypeId, setCurrCompanyTypeId] = useState("");
   // Modal states
@@ -2075,9 +2075,12 @@ const LeadWizardModal = ({
       const { companyTypes } = await getAllCompanyTypes();
 
       //new update of alpabetical order
-      const typesWithIds = companyTypes.map((ct, index: number) => ({
+      // Keep parentTypeId so downstream dropdowns can show only top-level
+      // (main) company types, matching the Company form's behaviour.
+      const typesWithIds = companyTypes.map((ct: any, index: number) => ({
         id: ct.id ?? index,
         name: ct.name,
+        parentTypeId: ct.parentTypeId ?? null,
       }));
       const sortedCompanyTypes = sortItemsAlphabetically(typesWithIds);
       setAllCompanyTypes(sortedCompanyTypes);

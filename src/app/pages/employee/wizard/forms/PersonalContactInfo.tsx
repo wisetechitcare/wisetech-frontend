@@ -54,7 +54,7 @@ function PersonalContactInfo({ formikProps }: { formikProps: any }) {
         <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
           <TextInput
             isRequired={false}
-            label="Instgram Profile URL"
+            label="Instagram Profile URL"
             formikField="instagramProfileUrl"
             margin="mb-0"
           />

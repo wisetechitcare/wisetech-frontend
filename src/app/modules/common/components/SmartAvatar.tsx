@@ -294,7 +294,7 @@ const SmartAvatar: React.FC<Props> = ({
         width: sz,
         height: sz,
         borderRadius: outerRadius,
-        padding: 2.5,
+        padding: 2,
         background: ring,
         flexShrink: 0,
         boxShadow: "0 1px 4px rgba(0,0,0,0.10)",

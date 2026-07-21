@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Container, Card, Row, Col, Button } from 'react-bootstrap';
+import { useLocation, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { KTIcon } from '@metronic/helpers';
 
@@ -61,6 +62,21 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
         if (!apiSalaryData) return null;
         return transformApiDataToSalarySlipProps(apiSalaryData, employee);
     }, [apiSalaryData, employee]);
+
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const state = location.state as any;
+        if (state?.openPaymentModal && apiSalaryData && !ui.showPaymentModal) {
+            ui.setShowPaymentModal(true);
+            
+            // Clean up the state so it doesn't reopen if the user closes it and triggers a re-render
+            const newState = { ...state };
+            delete newState.openPaymentModal;
+            navigate(location.pathname, { replace: true, state: newState });
+        }
+    }, [location.state, apiSalaryData, ui, navigate, location.pathname]);
 
     if (payrollData.isLoading || isApiDataLoading) {
         return (

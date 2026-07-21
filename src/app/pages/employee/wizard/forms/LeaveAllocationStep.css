@@ -1,0 +1,140 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Leave allocation — fluid, container-driven. Renders as an aligned grid "table" on
+   wide widths and collapses into stacked label:value cards when the form ITSELF is
+   narrow (container query, not a device breakpoint). All sizes are rem/clamp tokens.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.ob-leave {
+  container-type: inline-size;
+  width: 100%;
+  --obl-row-fs: clamp(0.78rem, 0.72rem + 0.3vw, 0.85rem);
+}
+
+.ob-leave-hint {
+  font-size: clamp(0.76rem, 0.7rem + 0.3vw, 0.85rem);
+  color: #6c757d;
+  margin: 0 0 0.75rem;
+}
+
+.ob-leave-msg {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: clamp(0.8rem, 0.75rem + 0.3vw, 0.9rem);
+  color: #6c757d;
+}
+
+.ob-leave-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ob-leave-head,
+.ob-leave-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: 0.4rem 0.75rem;
+  align-items: center;
+}
+
+.ob-leave-head {
+  padding: 0.4rem 0.35rem;
+  border-bottom: 1px solid #dee2e6;
+  font-size: clamp(0.7rem, 0.66rem + 0.2vw, 0.78rem);
+  font-weight: 600;
+  color: #495057;
+}
+.ob-leave-head .ob-leave-center,
+.ob-leave-default { text-align: center; }
+
+.ob-leave-row {
+  padding: 0.45rem 0.35rem;
+  border-bottom: 1px solid #f1f3f5;
+  border-radius: 0.375rem;
+  font-size: var(--obl-row-fs);
+  transition: background-color 0.15s;
+}
+.ob-leave-row.is-overridden { background: #fff9db; }
+
+.ob-leave-type { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
+.ob-leave-type-name { font-weight: 500; overflow-wrap: anywhere; }
+.ob-leave-badge {
+  padding: 0.05rem 0.45rem;
+  border-radius: 0.625rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  background: #e6f9f0;
+  color: #17a855;
+  white-space: nowrap;
+}
+.ob-leave-default { color: #6c757d; }
+
+.ob-leave-input.is-overridden {
+  border-color: #f59f00;
+  font-weight: 600;
+}
+.ob-leave-reset { font-size: 0.7rem; padding: 0.15rem 0.55rem; }
+
+/* Cell labels only appear when the row is stacked (see container query). */
+.ob-leave-cell-label {
+  display: none;
+  margin-right: 0.5rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+/* Derived unpaid + override note */
+.ob-leave-derived {
+  margin-top: 0.65rem;
+  padding: clamp(0.5rem, 0.4rem + 0.5vw, 0.75rem) clamp(0.7rem, 0.5rem + 0.6vw, 0.95rem);
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.ob-leave-derived-label { font-weight: 600; font-size: var(--obl-row-fs); }
+.ob-leave-derived-sub { margin-left: 0.5rem; font-size: 0.72rem; color: #6c757d; }
+.ob-leave-derived-badge {
+  padding: 0.2rem 0.7rem;
+  border-radius: 0.625rem;
+  font-size: var(--obl-row-fs);
+  font-weight: 700;
+  background: #fff0f0;
+  color: #e03131;
+  white-space: nowrap;
+}
+
+.ob-leave-override-note {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #fff9db;
+  border: 1px solid #ffe08a;
+  border-radius: 0.375rem;
+  font-size: 0.72rem;
+  color: #856404;
+}
+
+/* Stack each row into a label:value card when the form is narrow. */
+@container (max-width: 40rem) {
+  .ob-leave-head { display: none; }
+  .ob-leave-row {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+    padding: 0.7rem;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+  }
+  .ob-leave-cell-label { display: inline; }
+  .ob-leave-default { text-align: left; }
+}
+
+[data-bs-theme="dark"] .ob-leave-head { color: #cdd2df; border-color: #2b2b40; }
+[data-bs-theme="dark"] .ob-leave-row { border-color: #2b2b40; }
+[data-bs-theme="dark"] .ob-leave-row.is-overridden { background: #322d16; }
+[data-bs-theme="dark"] .ob-leave-derived { background: #1b1b29; border-color: #2b2b40; }
+[data-bs-theme="dark"] .ob-leave-cell-label { color: #cdd2df; }

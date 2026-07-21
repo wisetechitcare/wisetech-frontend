@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import FileInput from "@app/modules/common/inputs/FileInput";
 
@@ -17,25 +17,18 @@ function Documents({ formikProps, index, setFile }: any) {
     
     const element = documentInfo[documentInfoIndex];
     const { id, fieldName, hasIdentityNumber } = docField;
-    
-    console.log("Documents component - documentInfo:: ", documentInfo);
-    console.log("Documents component - documentInfoIndex:: ", documentInfoIndex);
-    console.log("Documents component - current element:: ", element);
-    console.log("Documents component - element identityNumber:: ", element?.identityNumber);
-    console.log("Documents component - formik field path:: ", `documentInfo[${documentInfoIndex}].identityNumber`);
-    
-    useEffect(() => {
-        console.log(`Documents component ${index} - documentInfo changed:: `, documentInfo);
-        console.log(`Documents component ${index} - element changed:: `, element);
-    }, [documentInfo, element, index]);
-    
-    // debugger;
+
+    // Same DOM-safe id TextInput derives from this Formik path, so the row's field-name label
+    // can be programmatically linked to the identity-number input.
+    const identityFieldPath = `documentInfo[${documentInfoIndex}].identityNumber`;
+    const identityInputId = `field-${identityFieldPath.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+
     return (
         <>
             <div className="row ob-document-row g-3 g-lg-4">
                 <div className="col-12 col-lg-3">
                     <div className='d-flex flex-column mb-3 mb-lg-7 fv-row py-lg-5'>
-                        <label className='fs-6 fw-bold form-label mb-0'>{fieldName}</label>
+                        <label htmlFor={identityInputId} className='fs-6 fw-bold form-label mb-0'>{fieldName}</label>
                     </div>
                 </div>
 

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { getIn } from "formik";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { uploadUserAsset } from "@services/uploader";
 import ObFileUpload from "../components/ObFileUpload";
@@ -30,6 +31,8 @@ function BankInfo({ formikProps, userId }: any) {
         label="Account Number"
         formikField="bankInfo.accountNumber"
         margin="mb-0"
+        inputValidation="numbers"
+        maxLength={20}
       />
     </div>
 
@@ -51,6 +54,7 @@ function BankInfo({ formikProps, userId }: any) {
         label="IFSC Code"
         formikField="bankInfo.ifscCode"
         margin="mb-0"
+        maxLength={11}
       />
     </div>
 
@@ -67,7 +71,7 @@ function BankInfo({ formikProps, userId }: any) {
   {/* Row 3: Attach Document */}
   <div className="row g-3">
     <div className="col-lg-6 col-md-6 col-sm-12">
-      <label className="d-flex align-items-center fs-6 form-label mb-2">
+      <label htmlFor="bank-passbook-upload" className="d-flex align-items-center fs-6 form-label mb-2">
         <span>Attach Document</span>
       </label>
 
@@ -85,6 +89,7 @@ function BankInfo({ formikProps, userId }: any) {
       )}
 
       <ObFileUpload
+        id="bank-passbook-upload"
         disabled={!userId}
         accept=".pdf,.jpg,.jpeg,.png"
         hint="PDF or image — max 5MB"
@@ -92,9 +97,9 @@ function BankInfo({ formikProps, userId }: any) {
         onChange={handlePassbookFile}
       />
 
-      {formikProps.touched.filePath && formikProps.errors.filePath && (
+      {getIn(formikProps.touched, "bankInfo.filePath") && getIn(formikProps.errors, "bankInfo.filePath") && (
         <div className="fv-plugins-message-container">
-          <div className="fv-help-block">{formikProps.errors.filePath}</div>
+          <div className="fv-help-block">{getIn(formikProps.errors, "bankInfo.filePath")}</div>
         </div>
       )}
     </div>

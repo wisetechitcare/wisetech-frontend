@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Dayjs } from "dayjs";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -8,6 +8,7 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import ExportButton from "@app/modules/common/components/ExportButton";
 import { useSalaryFilters, SalaryFilterToolbar, StatusFilter } from "./SalaryTableFilters";
 import { useSalaryMaster } from "@modules/payroll/hooks/useSalaryComponentNames";
+import QuickPayModal from "@modules/payroll/components/modals/QuickPayModal";
 
 interface MonthlySalaryProps {
   month: Dayjs;
@@ -30,6 +31,9 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
 
   const navigate = useNavigate();
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
+
+  // Employee selected via the Pay button — opens the payout dialog on this page
+  const [payTarget, setPayTarget] = useState<{ employeeId: string; name: string } | null>(null);
 
   const filters = useSalaryFilters(employeesData);
   const { filteredEmployeeSummaries, statusFilter } = filters;
@@ -114,6 +118,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         professionalFees: rawTotals.professionalFeesDeducted ?? 0,
         tds2: rawTotals.tds2Deducted ?? 0,
         professionalTax: rawTotals.professionalTaxDeducted ?? 0,
+        retention: rawTotals.retentionDeducted ?? 0,
         totalWorkingTime: rawTotals?.workingDays ? `${((rawTotals?.workingDays ?? 0) * 8).toFixed(2)} hrs` : '-',
         workedTime: rawTotals?.payableHours != null ? `${Number(rawTotals.payableHours).toFixed(2)} hrs` : '-',
         remainingMinutes: rawTotals?.remainingMinutes ? `${rawTotals?.remainingMinutes?.toFixed(2)} hrs` : '-',
@@ -130,7 +135,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
 
     const dataScore = (r: any) => {
       const numFields = ['basicSalary', 'overTimeAmount', 'totalSalaryAfterAttendance', 'netAmount', 'amountPaid',
-        'professionalFees', 'tds2', 'professionalTax', 'totalDays', 'present'];
+        'professionalFees', 'tds2', 'professionalTax', 'retention', 'totalDays', 'present'];
       return numFields.reduce((s, k) => {
         const v = Number(r[k]);
         return s + (Number.isFinite(v) && v > 0 ? 1 : 0);
@@ -164,12 +169,13 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         acc.professionalFees        += num(r.professionalFees);
         acc.tds2                    += num(r.tds2);
         acc.professionalTax         += num(r.professionalTax);
+        acc.retention               += num(r.retention);
         acc.netAmount               += num(r.netAmount);
         acc.amountPaid              += num(r.amountPaid);
         acc.dueAmount               += num(r.dueAmount);
         return acc;
       },
-      { basicSalary: 0, overTimeAmount: 0, totalSalaryAfterAttendance: 0, professionalFees: 0, tds2: 0, professionalTax: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
+      { basicSalary: 0, overTimeAmount: 0, totalSalaryAfterAttendance: 0, professionalFees: 0, tds2: 0, professionalTax: 0, retention: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
     );
   }, [tableData]);
 
@@ -182,6 +188,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     { key: 'basicSalary',     header: 'Basic Salary',        type: 'currency' as const, showTotal: true },
     { key: 'overTimeAmount',  header: 'Over Time Amount',    type: 'currency' as const, showTotal: true },
     { key: 'totalSalaryAfterAttendance', header: 'Total Salary After Attendance Adjustments', type: 'currency' as const, showTotal: true },
+    { key: 'retention',       header: 'Retention',           type: 'currency' as const, showTotal: true },
     { key: 'professionalFees',header: tds1Name,              type: 'currency' as const, showTotal: true },
     { key: 'tds2',            header: tds2Name,              type: 'currency' as const, showTotal: true },
     { key: 'professionalTax', header: 'Prof. Tax',           type: 'currency' as const, showTotal: true },
@@ -299,6 +306,16 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                 return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtINR(columnTotals.totalSalaryAfterAttendance),
+            },
+            {
+              accessorKey: "retention",
+              header: "Retention",
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Math.round(Number(renderedCellValue));
+                if (!val || val === 0) return "-";
+                return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              },
+              Footer: () => fmtINR(columnTotals.retention),
             },
             {
               accessorKey: "professionalFees",
@@ -424,12 +441,37 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               header: "Extra day",
               Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
             },
+            {
+              accessorKey: "payAction",
+              header: "Action",
+              Cell: ({ row }: any) => {
+                if (!row.original.employeeId) return "-";
+                const amount = Math.round(Number(row.original.dueAmount || 0));
+                if (amount <= 0) {
+                    return <span className="text-success fw-bold">Settled</span>;
+                }
+                return (
+                  <button 
+                    className="btn btn-sm btn-primary py-1 px-3"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPayTarget({ employeeId: row.original.employeeId, name: row.original.name });
+                    }}
+                  >
+                    Pay
+                  </button>
+                )
+              }
+            },
           ]}
           data={tableData}
           tableName="MonthlySalaryEmployeeData"
           employeeId={employeeIdCurrent}
           enableColumnSpecificSearch={true}
           showColumnFooter={true}
+          // Bound the table's own height so rows scroll *inside* the table (not the page),
+          // which lets the already-enabled sticky header stay pinned while scrolling.
+          muiTableContainerProps={{ sx: { maxHeight: '60vh', overflowY: 'auto' } }}
           muiTableProps={{
             muiTableBodyRowProps: ({ row }: any) => ({
               onClick: () => {
@@ -441,6 +483,16 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
           }}
         />
       </div>
+
+      {/* Record Payroll Payout — opened in place by the Pay button */}
+      {payTarget && (
+        <QuickPayModal
+          employeeId={payTarget.employeeId}
+          employeeName={payTarget.name}
+          month={month}
+          onClose={() => setPayTarget(null)}
+        />
+      )}
     </>
   );
 };

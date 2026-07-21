@@ -43,10 +43,21 @@ const getProfessionalTaxAmount = (fixedBreakdown: Record<string, any> | undefine
     return Number(item?.earned ?? item?.value ?? item ?? 0);
 };
 
+const getRetentionAmount = (fixedBreakdown: Record<string, any> | undefined) => {
+    const entry = Object.entries(fixedBreakdown || {}).find(([key, item]: [string, any]) => {
+        return key.toLowerCase().includes('retention') && item?.isActive !== false;
+    });
+
+    if (!entry) return 0;
+    const item: any = entry[1];
+    return Number(item?.earned ?? item?.value ?? item ?? 0);
+};
+
 // Build per-type government deduction amounts (includes inactive entries with earned > 0 from modify)
-const buildGovTypeAmounts = (fixedBreakdown?: Record<string, any>): { profFees: number; profTax: number } => {
+const buildGovTypeAmounts = (fixedBreakdown?: Record<string, any>): { profFees: number; profTax: number; retention: number } => {
     let profFees = 0;
     let profTax = 0;
+    let retention = 0;
     Object.entries(fixedBreakdown || {}).forEach(([key, data]: [string, any]) => {
         const earned = Number(data?.earned ?? data?.value ?? 0);
         // For inactive entries (e.g. PTAX when TDS is active), fall back to extraAmount
@@ -57,9 +68,11 @@ const buildGovTypeAmounts = (fixedBreakdown?: Record<string, any>): { profFees: 
             profFees = effective;
         } else if (k.includes('professional tax') || k.includes('ptax')) {
             profTax = effective;
+        } else if (k.includes('retention')) {
+            retention = effective;
         }
     });
-    return { profFees, profTax };
+    return { profFees, profTax, retention };
 };
 
 export const useSalaryCalculations = (
@@ -101,8 +114,10 @@ export const useSalaryCalculations = (
         let netSalary = 0;
         let salaryPaid = 0;
         let governmentPaid = 0;
+        let retentionPaid = 0;
         let totalProfessionalFees = 0;
         let totalProfessionalTax = 0;
+        let totalRetention = 0;
 
         salaryData.forEach(item => {
             const gross = Number(item.totalGrossPayAmountInNumber ?? parseCurrencyString(item.totalGrossPayAmount));
@@ -120,6 +135,7 @@ export const useSalaryCalculations = (
             }, 0);
             const professionalFees = getProfessionalFeesAmount(item.deductionBreakdown?.fixed);
             const professionalTax = getProfessionalTaxAmount(item.deductionBreakdown?.fixed);
+            const retention = getRetentionAmount(item.deductionBreakdown?.fixed);
             const net = Number(item.netAmountInNumber ?? parseCurrencyString(item.netAmount ?? item.netSalaryAmount));
             const history = [...(item.govtPayments || []), ...(item.paymentHistory || [])];
             const uniqueHistory = Array.from(new Map(history.map((p: any) => [p.id || `${getPaymentAmount(p)}-${p.paymentDate}-${getPaymentType(p)}`, p])).values());
@@ -129,6 +145,13 @@ export const useSalaryCalculations = (
             const amountPaidFromRecord = Number(item.amountPaidInNumber ?? parseCurrencyString(item.amountPaid || '0'));
             const amountPaid = amountPaidFromRecord > 0 ? amountPaidFromRecord : salaryPaidFromHistory;
             const govPaid = Number(item.governmentPaidInNumber ?? parseCurrencyString(item.governmentPaid || '0'));
+            // Retention settlements share the statutory ledger (and therefore the
+            // master governmentPaid accumulator), so split them back out — the
+            // Company Deduction bucket tracks its own paid/pending totals.
+            const retentionPaidThisMonth = (item.govtPayments || []).reduce((total: number, p: any) => {
+                const dt = String(p?.deductionType ?? '').toUpperCase();
+                return dt.includes('RETENTION') ? total + Number(p?.paidAmount ?? p?.amount ?? 0) : total;
+            }, 0);
 
             totalGrossPay += gross;
             totalVariableDeduction += variable;
@@ -138,6 +161,8 @@ export const useSalaryCalculations = (
             salaryPaid += amountPaid;
             totalProfessionalFees += professionalFees;
             totalProfessionalTax += professionalTax;
+            totalRetention += retention;
+            retentionPaid += retentionPaidThisMonth;
             governmentPaid += govPaid; // Always include government payment
         });
 
@@ -145,6 +170,14 @@ export const useSalaryCalculations = (
         const hasProfessionalFees = professionalFeesSum > 0 || totalProfessionalFees > 0;
         const professionalTaxSum = getProfessionalTaxAmount(apiSalaryData?.deductionBreakdown?.fixed);
         const hasProfessionalTax = professionalTaxSum > 0 || totalProfessionalTax > 0;
+        const retentionSum = getRetentionAmount(apiSalaryData?.deductionBreakdown?.fixed);
+        const hasRetention = retentionSum > 0 || totalRetention > 0;
+
+        // Retention is a COMPANY-side deduction (fresher bond), not a government
+        // fee — the two are reported and settled in separate buckets.
+        const retentionTotal = totalRetention > 0 ? totalRetention : retentionSum;
+        const govtOnlyDeduction = Math.max(0, totalFixedDeduction - retentionTotal);
+        const govtOnlyPaid = Math.max(0, governmentPaid - retentionPaid);
 
         return {
             totalGrossPay: Number(totalGrossPay.toFixed(2)),
@@ -155,11 +188,17 @@ export const useSalaryCalculations = (
             salaryPaid: Number(salaryPaid.toFixed(2)),
             salaryPending: netSalary - salaryPaid,
             governmentPaid: Number(governmentPaid.toFixed(2)),
-            governmentPending: totalFixedDeduction - governmentPaid,
+            // Government bucket only — retention is reported on its own card.
+            governmentPending: govtOnlyDeduction - govtOnlyPaid,
             totalCompanyPayout: Number((salaryPaid + governmentPaid).toFixed(2)),
             activeGovType: hasProfessionalFees ? 'Professional Fees' : '',
             hasTDS: hasProfessionalFees,
-            hasPTax: hasProfessionalTax
+            hasPTax: hasProfessionalTax,
+            hasRetention,
+            totalGovtDeduction: Number(govtOnlyDeduction.toFixed(2)),
+            totalRetention: Number(retentionTotal.toFixed(2)),
+            retentionPaid: Number(retentionPaid.toFixed(2)),
+            retentionPending: Number((retentionTotal - retentionPaid).toFixed(2))
         };
     }, [monthlyApiData, apiSalaryData, targetMonth, targetYear]);
 
@@ -178,9 +217,9 @@ export const useSalaryCalculations = (
                 if (earned > 0) return acc + earned;
                 return acc + Math.max(0, Number(v?.extraAmount || 0));
             }, 0);
-            const { profFees: profFeesAmt, profTax: profTaxAmt } = buildGovTypeAmounts(item.deductionBreakdown?.fixed);
-            const hasGovDeductions = profFeesAmt > 0 || profTaxAmt > 0;
-            const totalGovDeductions = profFeesAmt + profTaxAmt;
+            const { profFees: profFeesAmt, profTax: profTaxAmt, retention: retentionAmt } = buildGovTypeAmounts(item.deductionBreakdown?.fixed);
+            const hasGovDeductions = profFeesAmt > 0 || profTaxAmt > 0 || retentionAmt > 0;
+            const totalGovDeductions = profFeesAmt + profTaxAmt + retentionAmt;
             const net = Number(item.netAmountInNumber ?? parseCurrencyString(item.netAmount ?? item.netSalaryAmount));
             const history = [...(item.govtPayments || []), ...(item.paymentHistory || [])];
 
@@ -269,10 +308,12 @@ export const useSalaryCalculations = (
                 }
                 const isTds = dt.includes('tds') || dt.includes('professional fees') || dt.includes('professional fee');
                 const isPtax = dt.includes('professional tax') || dt.includes('ptax') || dt === 'pt' || dt.includes('prof. tax');
+                const isRetention = dt.includes('retention');
                 for (const key of govTypeMap.keys()) {
                     const k = key.toLowerCase();
                     if (isTds && k.includes('professional') && !k.includes('fund') && !k.includes('tax')) return key;
                     if (isPtax && (k.includes('professional tax') || k.includes('ptax'))) return key;
+                    if (isRetention && k.includes('retention')) return key;
                 }
                 return null;
             };

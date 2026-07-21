@@ -1,5 +1,6 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
-import { useEffect, useRef, useState } from "react";
+import { safeJsonParse } from "@utils/safeJson";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from "react-bootstrap";
 import { Form, Formik, FormikValues, useFormikContext } from "formik";
@@ -14,6 +15,7 @@ import Step3 from "./steps/Step3";
 import Step4 from "./steps/Step4";
 import StepAppSettings from "./steps/StepAppSettings";
 import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
+import "../glass.css";
 import "./steps/Step2.css";
 import { createNewUser, updateUser, archiveUser } from "@services/users";
 import {
@@ -161,12 +163,120 @@ const RETENTION_KEYS = new Set(["retentionEnabled", "retentionType", "retentionA
 
 const ONBOARDING_DRAFT_KEY = "employee-onboarding-draft";
 
+// Draft autosave for the NEW-employee form. sessionStorage (not localStorage) so the draft lives
+// only until the admin shuts the tab/website — surviving an accidental form close, navigation, or
+// refresh, but never outliving the session. Only text/select/array `values` are drafted; uploaded
+// File blobs live in separate React state and can't be serialized.
+const loadDraft = (): any => safeJsonParse(sessionStorage.getItem(ONBOARDING_DRAFT_KEY) as any, null);
+const saveDraft = (values: any) => {
+  try { sessionStorage.setItem(ONBOARDING_DRAFT_KEY, JSON.stringify(values)); } catch { /* quota / serialization — ignore */ }
+};
+const clearDraft = () => {
+  try {
+    sessionStorage.removeItem(ONBOARDING_DRAFT_KEY);
+    localStorage.removeItem(ONBOARDING_DRAFT_KEY); // drop any legacy localStorage draft too
+  } catch { /* ignore */ }
+};
+
 const hasDraftValue = (value: any) => {
   if (value === undefined || value === null) return false;
   if (typeof value === "boolean") return value;
   if (Array.isArray(value)) return value.length > 0;
   return String(value).trim() !== "";
 };
+
+// Recursively marks every leaf of a value as `touched`, preserving Formik's nested
+// shape (arrays/objects) so `meta.touched` resolves correctly for dot-path fields
+// like "addressInfo.presentAddressLine1" — used to reveal validation errors for a
+// whole section at once when a user tries to skip past it.
+const touchDeep = (value: any): any => {
+  if (Array.isArray(value)) return value.map(touchDeep);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, touchDeep(v)]));
+  return true;
+};
+
+// Ordered left-hand sections per top step. The floating "Continue" button walks the sections
+// of WHATEVER step you're on (not only step 1) before advancing to the next step. Keep these
+// in sync with each step component's own `sections` list. Module-level (not per-render) so
+// `FormikValidationErrorFocus` below can also use it to jump to the right section on any step.
+// Top-step display names (index = 1-based step number → its own title; index N is also the
+// NEXT step's title when you're finishing step N-1). Drives the "Continue to <next step>" label
+// consistently on every step's terminal button.
+const STEP_TITLES = ["Personal Details", "Company Details", "App Settings", "Documents"];
+
+const STEP_SECTIONS: Record<number, string[]> = {
+  1: ALL_SECTION_IDS,
+  2: ["employee_info", "contact_info", "hiring_info", "work_experience", "leave_settings"],
+  3: ["reporting", "financial", "reimbursement", "access", "privacy"],
+  4: ["upload_docs"],
+};
+
+// Which top-level Formik keys each section owns — drives per-section Continue gating AND
+// (via FIELD_TO_SECTION below) redirecting the user straight to whichever section owns a
+// missing/invalid required field, on every step, not just step 1.
+const SECTION_FIELD_KEYS: Record<number, Record<string, string[]>> = {
+  1: {
+    "personal-info": ["firstName", "lastName", "dateOfBirth", "gender", "nickName", "maritalStatus", "anniversary", "bloodGroup"],
+    "contact-info": ["personalEmailId", "personalPhoneNumber", "alternatePhoneNumber", "personalPhoneNumberExtension", "linkedInProfileUrl", "instagramProfileUrl", "facebookProfileUrl"],
+    education: ["educationalInfo"],
+    family: ["familyInfo"],
+    emergency: ["emergencyDetails"],
+    bank: ["bankInfo"],
+    address: ["addressInfo"],
+    meal: ["meal"],
+  },
+  2: {
+    employee_info: ["organizationId", "subOrganizationId", "designationId", "departmentId", "branchId", "teamId", "employeeTypeId", "employeeTypeConfigId", "workingMethodId"],
+    contact_info: ["companyEmailId", "companyPhoneNumber", "companyPhoneExtension"],
+    hiring_info: ["sourceOfHireId", "referredById", "dateOfJoining", "dateOfExit", "rejoinHistory", "employeeStatusId", "employeeStatusConfigId"],
+    work_experience: ["workExpInfo"],
+    leave_settings: ["leaveAllocations"],
+  },
+  3: {
+    reporting: ["reportsToId"],
+    financial: ["ctcInLpa", "professionalFeesEnabled", "professionalFeesType", "professionalFeesAmount", "professionalFeesPercentage", "tds2Enabled", "tds2Type", "tds2Amount", "tds2Percentage", "retentionEnabled", "retentionStartDate", "retentionEndDate", "retentionType", "retentionAmount", "retentionPercentage"],
+    reimbursement: ["reimbursementLimitPerRequest"],
+    access: ["appRole"],
+    privacy: ["isHiddenFromStaff"],
+  },
+};
+
+// Inverted lookup: given a step and a top-level field key, which section owns it? Lets any
+// error-focus/redirect logic land on the right section regardless of which step it's on.
+const FIELD_TO_SECTION: Record<number, Record<string, string>> = Object.fromEntries(
+  Object.entries(SECTION_FIELD_KEYS).map(([step, sections]) => [
+    Number(step),
+    Object.fromEntries(Object.entries(sections).flatMap(([sectionId, keys]) => keys.map((key) => [key, sectionId]))),
+  ])
+);
+
+// Sections with no field-level requirement of their own (e.g. Leave Settings) that must still
+// be opened at least once before the step they belong to can be completed.
+const MUST_VISIT_SECTIONS = new Set(["leave_settings"]);
+
+// The set of top-level field keys that currently FAIL validation for a step — computed
+// SYNCHRONOUSLY from the given values via that step's Yup schema. This is the single source of
+// truth for "can the user leave this section/step?", used by both the Continue button and the
+// sidebar redirect. It deliberately avoids Formik's async `errors` object, which lags behind
+// `enableReinitialize` resets and caused the edit-form freeze. A pure (values, schema) → keys
+// function can't race anything, so the gating is correct on the very first render.
+const computeInvalidKeys = (schema: any, values: any): Set<string> => {
+  const keys = new Set<string>();
+  try {
+    schema.validateSync(values, { abortEarly: false });
+  } catch (err: any) {
+    (err?.inner ?? []).forEach((e: any) => {
+      if (e?.path) keys.add(String(e.path).split(/[.[]/)[0]);
+    });
+  }
+  return keys;
+};
+
+// True when none of the field keys a section owns currently fail validation. Drives the
+// step-1 sidebar green tick so "complete" means schema-valid, not merely non-empty. Defaults
+// to step 1 (the only step whose sidebar tick is completion-gated).
+const isSectionValid = (sectionId: string, invalidKeys: Set<string>, step: number = 1): boolean =>
+  (SECTION_FIELD_KEYS[step]?.[sectionId] ?? []).every((key) => !invalidKeys.has(key));
 
 const getNameInitials = (name: string) => {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -181,26 +291,57 @@ const calculateProfileCompletion = (values: any) => {
   const address = values.addressInfo || {};
   const educationCompletion = getEducationCompletionValues(education);
 
-  const trackedFields = [
-    values.firstName, values.lastName, values.nickName,
-    values.dateOfBirth, values.gender, values.maritalStatus,
-    values.personalEmailId, values.personalPhoneNumber, values.alternatePhoneNumber,
-    ...educationCompletion,
-    family.name, family.relationship, family.mobileNumber, family.dateOfBirth,
-    emergency.emergencyContactName, emergency.emergencyContactNumber,
-    bank.accountNumber, bank.accountName, bank.ifscCode,
-    address.presentAddressLine1, address.presentCountry,
-    address.presentCity, address.presentPostalCode,
-    values.dateOfJoining, values.companyEmailId, values.departmentId,
-    values.designationId, values.branchId, values.appRole,
-    values.documentInfo?.some((doc: any) => doc?.path || doc?.fileName || doc?.identityNumber),
+  // Which top-level keys currently fail validation, gathered across every step's schema.
+  // A tracked field only counts toward "% complete" when it is non-empty AND its owning key
+  // is valid — so the bar can no longer climb on invalid input (e.g. a too-short phone) and
+  // the header % now means "valid progress", not merely "something typed".
+  const invalidKeys = new Set<string>();
+  newEmployeeWizardSchema.forEach((schema) => {
+    computeInvalidKeys(schema, values).forEach((k) => invalidKeys.add(k));
+  });
+
+  // Each tracked field is tagged with the top-level Formik key that owns it, so a validation
+  // failure on that key excludes the field from the "completed" count.
+  const trackedFields: Array<{ value: any; key: string }> = [
+    { value: values.firstName, key: "firstName" },
+    { value: values.lastName, key: "lastName" },
+    { value: values.nickName, key: "nickName" },
+    { value: values.dateOfBirth, key: "dateOfBirth" },
+    { value: values.gender, key: "gender" },
+    { value: values.maritalStatus, key: "maritalStatus" },
+    { value: values.personalEmailId, key: "personalEmailId" },
+    { value: values.personalPhoneNumber, key: "personalPhoneNumber" },
+    { value: values.alternatePhoneNumber, key: "alternatePhoneNumber" },
+    ...educationCompletion.map((value: any) => ({ value, key: "educationalInfo" })),
+    { value: family.name, key: "familyInfo" },
+    { value: family.relationship, key: "familyInfo" },
+    { value: family.mobileNumber, key: "familyInfo" },
+    { value: family.dateOfBirth, key: "familyInfo" },
+    { value: emergency.emergencyContactName, key: "emergencyDetails" },
+    { value: emergency.emergencyContactNumber, key: "emergencyDetails" },
+    { value: bank.accountNumber, key: "bankInfo" },
+    { value: bank.accountName, key: "bankInfo" },
+    { value: bank.ifscCode, key: "bankInfo" },
+    // Both required address lines count (schema requires present AND permanent line 1),
+    // aligning this with the sidebar's permanent-address completion.
+    { value: address.permanentAddressLine1, key: "addressInfo" },
+    { value: address.presentAddressLine1, key: "addressInfo" },
+    { value: address.presentCity, key: "addressInfo" },
+    { value: address.presentPostalCode, key: "addressInfo" },
+    { value: values.dateOfJoining, key: "dateOfJoining" },
+    { value: values.companyEmailId, key: "companyEmailId" },
+    { value: values.departmentId, key: "departmentId" },
+    { value: values.designationId, key: "designationId" },
+    { value: values.branchId, key: "branchId" },
+    { value: values.appRole, key: "appRole" },
+    { value: values.documentInfo?.some((doc: any) => doc?.path || doc?.fileName || doc?.identityNumber), key: "documentInfo" },
   ];
 
-  const completed = trackedFields.filter(hasDraftValue).length;
+  const completed = trackedFields.filter(({ value, key }) => hasDraftValue(value) && !invalidKeys.has(key)).length;
   return Math.round((completed / trackedFields.length) * 100);
 };
 
-const createDefaultWorkExpInfo = () => ({ companyName: "", jobTitle: "", fromDate: "", toDate: "" });
+const createDefaultWorkExpInfo = () => ({ companyName: "", jobTitle: "", fromDate: "", toDate: "", isCurrentEmployer: false });
 
 const hasWorkExpInfo = (workExp: any) =>
   Boolean(workExp?.companyName || workExp?.jobTitle || workExp?.fromDate || workExp?.toDate);
@@ -239,6 +380,9 @@ const newEmployeeWizardSchema = [
       .min(10, "Phone Number must be at least 10 characters")
       .max(20, "Phone Number must be at most 20 characters")
       .matches(employeeOnBardingFormRegexes["alternatePhoneNumber"], "Phone Number can only contain numeric characters"),
+    linkedInProfileUrl: optionalString().label("LinkedIn Profile URL").url("Enter a valid URL (e.g. https://linkedin.com/in/username)"),
+    instagramProfileUrl: optionalString().label("Instagram Profile URL").url("Enter a valid URL (e.g. https://instagram.com/username)"),
+    facebookProfileUrl: optionalString().label("Facebook Profile URL").url("Enter a valid URL (e.g. https://facebook.com/username)"),
     meal: optionalString().label("Meal"),
     educationalInfo: Yup.array().of(
       Yup.object({
@@ -323,12 +467,14 @@ const newEmployeeWizardSchema = [
         // Date of Birth stays optional per requirement.
         dateOfBirth: optionalString().label("Date of Birth"),
       }),
-      // Family info is fully optional during onboarding — a partially filled
-      // member is allowed. Only the per-field format rules above apply.
+      // At least one family member is required: Name, Relation and Phone are mandatory
+      // for each relative row (Date of Birth stays optional). The wizard seeds one blank
+      // row, so the user must complete it before leaving the Family section.
     ).required().label("Family info"),
     emergencyDetails: Yup.object({
       bloodGroup: optionalString().label("Blood Group"),
-      allergies: optionalString().label("Allergies").max(100, "Allergies must be at most 100 characters"),
+      allergies: optionalString().label("Allergies")
+        .test("max-words", "Allergies must be at most 40 words", (value) => !value || value.trim().split(/\s+/).filter(Boolean).length <= 40),
       emergencyContactName: optionalString().label("Emergency Contact Name")
         .min(4, "Emergency Contact name must be at least 4 characters").max(100, "Emergency Contact name must be at most 100 characters")
         .matches(employeeOnBardingFormRegexes["emergencyDetails.emergencyContactName"], "Emergency Contact name can only contain alphabetic characters"),
@@ -345,24 +491,30 @@ const newEmployeeWizardSchema = [
         .matches(employeeOnBardingFormRegexes["bankInfo.accountNumber"], "Account Number can only contain numeric characters"),
       bankName: optionalString().label("Bank Name")
         .min(2, "Bank Name must be at least 2 characters").max(100, "Bank Name must be at most 100 characters"),
-      ifscCode: optionalString().label("IFSC Code"),
+      ifscCode: optionalString().label("IFSC Code")
+        .matches(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Enter a valid 11-character IFSC code (e.g. HDFC0001234)"),
       filePath: optionalString().label("Upload Bank Proof"),
     }).required(),
     addressInfo: Yup.object({
-      permanentAddressLine1: optionalString().label("Address").min(8, "Address must be at least 8 characters"),
-      permanentAddressLine2: optionalString().label("Locality"),
+      // Only the Address line itself is required — Country/State/City/Zip/Address Line 2 can
+      // all stay empty. No minimum on the address line either — a single short word is fine.
+      // Only a max length is enforced, purely as a size guard (not a content-shape rule).
+      permanentAddressLine1: Yup.string().required().label("Address").max(150, "Address must be at most 150 characters"),
+      permanentAddressLine2: optionalString().label("Address Line 2").max(150, "Address Line 2 must be at most 150 characters"),
       permanentCountry: optionalString().label("Country"),
       permanentState: optionalString().label("State"),
       permanentCity: optionalString().label("City"),
       permanentPostalCode: optionalString().label("Zip Code")
         .min(4, "Zip Code must be at least 4 characters").max(16, "Zip Code must be at most 16 characters")
         .matches(employeeOnBardingFormRegexes["addressInfo.permanentPostalCode"], "Zip Code can only contain numeric characters"),
-      presentAddressLine1: optionalString(),
-      presentAddressLine2: optionalString(),
-      presentCountry: optionalString(),
-      presentState: optionalString(),
-      presentCity: optionalString(),
-      presentPostalCode: optionalString(),
+      presentAddressLine1: Yup.string().required().label("Address").max(150, "Address must be at most 150 characters"),
+      presentAddressLine2: optionalString().label("Address Line 2").max(150, "Address Line 2 must be at most 150 characters"),
+      presentCountry: optionalString().label("Country"),
+      presentState: optionalString().label("State"),
+      presentCity: optionalString().label("City"),
+      presentPostalCode: optionalString().label("Zip Code")
+        .min(4, "Zip Code must be at least 4 characters").max(16, "Zip Code must be at most 16 characters")
+        .matches(employeeOnBardingFormRegexes["addressInfo.permanentPostalCode"], "Zip Code can only contain numeric characters"),
     }).required(),
   }),
   Yup.object({
@@ -383,7 +535,7 @@ const newEmployeeWizardSchema = [
     companyPhoneExtension: optionalString().label("Company Phone Extension"),
     sourceOfHireId: optionalString().label("Source Of Hire"),
     referredById: optionalString(),
-    dateOfJoining: optionalString().label("Date Of Joining"),
+    dateOfJoining: Yup.string().required().label("Date Of Joining"),
     dateOfExit: optionalString(),
     rejoinHistory: Yup.array().of(
       Yup.object({ dateOfReJoining: optionalString(), dateOfReExit: optionalString(), reason: optionalString() }),
@@ -392,10 +544,13 @@ const newEmployeeWizardSchema = [
     employeeStatusConfigId: optionalString().label("Employee Status"),
     workExpInfo: Yup.array().of(
       Yup.object({
-        companyName: optionalString().label("Company Name"),
-        jobTitle: optionalString().label("Job Title"),
+        companyName: optionalString().label("Company Name")
+          .min(2, "Company Name must be at least 2 characters").max(100, "Company Name must be at most 100 characters"),
+        jobTitle: optionalString().label("Job Title")
+          .min(2, "Job Title must be at least 2 characters").max(100, "Job Title must be at most 100 characters"),
         fromDate: optionalString().label("From Date"),
         toDate: optionalString().label("To Date"),
+        isCurrentEmployer: Yup.boolean().label("Currently Working Here"),
       }),
       // Work experience is fully optional during onboarding — a partially
       // filled entry is allowed, so starting one field no longer forces the rest.
@@ -403,8 +558,38 @@ const newEmployeeWizardSchema = [
   }),
   Yup.object({
     reportsToId: optionalString().label("Reporting Manager"),
-    ctcInLpa: optionalString().label("CTC In LPA"),
-    appRole: optionalString().label("App Role"),
+    // Marked required in the UI (AppSettings) — enforce it here so the asterisk is honest.
+    // Defaults to "1" in initialState, so this never blocks a real submission.
+    isEmployeeActive: Yup.string().required().label("Is Employee Active"),
+    // Required but "0" is a valid CTC — plain .required() only rejects empty/undefined,
+    // it does not reject the numeric value zero.
+    ctcInLpa: Yup.string().required().label("CTC In LPA"),
+    professionalFeesEnabled: Yup.string().required().label("Employee Type"),
+    professionalFeesType: optionalString().label("Employee Type — Fee Type")
+      .when("professionalFeesEnabled", { is: "true", then: (s) => s.required() }),
+    professionalFeesAmount: optionalString().label("Employee Type — Fee Amount")
+      .when(["professionalFeesEnabled", "professionalFeesType"], { is: (enabled: string, t: string) => enabled === "true" && t !== "PERCENTAGE", then: (s) => s.required() }),
+    professionalFeesPercentage: optionalString().label("Employee Type — Fee Percentage")
+      .when(["professionalFeesEnabled", "professionalFeesType"], { is: (enabled: string, t: string) => enabled === "true" && t === "PERCENTAGE", then: (s) => s.required() }),
+    tds2Enabled: Yup.string().required().label("TDS 2 (Additional)"),
+    tds2Type: optionalString().label("TDS 2 Type")
+      .when("tds2Enabled", { is: "true", then: (s) => s.required() }),
+    tds2Amount: optionalString().label("TDS 2 Amount")
+      .when(["tds2Enabled", "tds2Type"], { is: (enabled: string, t: string) => enabled === "true" && t !== "PERCENTAGE", then: (s) => s.required() }),
+    tds2Percentage: optionalString().label("TDS 2 Percentage")
+      .when(["tds2Enabled", "tds2Type"], { is: (enabled: string, t: string) => enabled === "true" && t === "PERCENTAGE", then: (s) => s.required() }),
+    retentionEnabled: Yup.string().required().label("Retention (Fresher Bond)"),
+    retentionStartDate: optionalString().label("Retention Start Month")
+      .when("retentionEnabled", { is: "true", then: (s) => s.required() }),
+    retentionEndDate: optionalString().label("Retention End Month")
+      .when("retentionEnabled", { is: "true", then: (s) => s.required() }),
+    retentionType: optionalString().label("Retention Type")
+      .when("retentionEnabled", { is: "true", then: (s) => s.required() }),
+    retentionAmount: optionalString().label("Retention Amount")
+      .when(["retentionEnabled", "retentionType"], { is: (enabled: string, t: string) => enabled === "true" && t !== "PERCENTAGE", then: (s) => s.required() }),
+    retentionPercentage: optionalString().label("Retention Percentage")
+      .when(["retentionEnabled", "retentionType"], { is: (enabled: string, t: string) => enabled === "true" && t === "PERCENTAGE", then: (s) => s.required() }),
+    appRole: Yup.string().required().label("App Role"),
   }),
   Yup.object({
     obj: optionalString(),
@@ -650,6 +835,35 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
   } catch (err) { console.log(err); }
 };
 
+// Debounced draft autosave for the create form: writes Formik `values` to sessionStorage as the
+// admin types (only when enabled + dirty, so a pristine form never writes a draft) and FLUSHES the
+// latest values immediately on unmount, so closing/navigating away preserves the newest keystrokes
+// even mid-debounce.
+function DraftAutosave({ enabled }: { enabled: boolean }) {
+  const { values, dirty } = useFormikContext<any>();
+  const timerRef = useRef<number | null>(null);
+  const latestRef = useRef<{ values: any; dirty: boolean }>({ values, dirty });
+  latestRef.current = { values, dirty };
+
+  useEffect(() => {
+    if (!enabled || !dirty) return;
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => saveDraft(values), 600);
+    return () => { if (timerRef.current) window.clearTimeout(timerRef.current); };
+  }, [enabled, dirty, values]);
+
+  // Flush on unmount (form closed / navigated away) so nothing typed is lost.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+      const { values: v, dirty: d } = latestRef.current;
+      if (enabled && d) saveDraft(v);
+    };
+  }, [enabled]);
+
+  return null;
+}
+
 function FormikValidationErrorFocus({ activeStepIndex, setActiveSection }: { activeStepIndex: number; setActiveSection: (id: string) => void }) {
   const { errors, submitCount } = useFormikContext<any>();
 
@@ -677,10 +891,13 @@ function FormikValidationErrorFocus({ activeStepIndex, setActiveSection }: { act
 
       const fieldName = getFirstErrorField(errors);
       if (fieldName) {
-        // Step 1 renders one section at a time, so the offending field may not be in
-        // the DOM. Switch to the section that owns it first, then scroll/focus it.
+        // Every step renders one section at a time, so the offending field may not be in the
+        // DOM. Switch to the section that owns it first, then scroll/focus it. FIELD_TO_SECTION
+        // covers all steps (step 1 also falls back to SECTION_OF_FIELD, which additionally
+        // knows about the step-1-only "meal" completion field it was originally built for).
         const topKey = fieldName.split('.')[0];
-        const targetSection = activeStepIndex === 1 ? SECTION_OF_FIELD[topKey] : undefined;
+        const targetSection = FIELD_TO_SECTION[activeStepIndex]?.[topKey]
+          ?? (activeStepIndex === 1 ? SECTION_OF_FIELD[topKey] : undefined);
         if (targetSection) setActiveSection(targetSection);
 
         const scrollToField = () => {
@@ -722,18 +939,52 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   const [show, setShow] = useState(openModal);
   const [files, setFiles] = useState<{ [key: string]: File }>({});
   const [educationFiles, setEducationFiles] = useState<{ [key: string]: File }>({});
-  const [defaultState, setDefaultState] = useState(initialState);
+  // Session draft restore (create mode only). Read once so the flag stays stable across renders.
+  const initialDraftRef = useRef<any>(editMode ? null : loadDraft());
+  const [defaultState, setDefaultState] = useState(() =>
+    initialDraftRef.current ? { ...initialState, ...initialDraftRef.current } : initialState
+  );
+  const [showDraftNotice, setShowDraftNotice] = useState<boolean>(!!initialDraftRef.current);
   const [activeSection, setActiveSection] = useState("personal-info");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Ordered left-hand sections per top step. The floating "Continue" button walks the sections
-  // of WHATEVER step you're on (not only step 1) before advancing to the next step. Keep these
-  // in sync with each step component's own `sections` list.
-  const STEP_SECTIONS: Record<number, string[]> = {
-    1: ALL_SECTION_IDS,
-    2: ["employee_info", "contact_info", "hiring_info", "work_experience"],
-    3: ["reporting", "financial", "access", "privacy"],
-    4: ["upload_docs"],
+  // Section "required to visit" — sections with no field-level requirement of their own
+  // (e.g. Leave Settings) but that must still be opened at least once before the step
+  // can be completed.
+  const [visitedSections, setVisitedSections] = useState<Set<string>>(new Set(["personal-info", "employee_info", "reporting", "upload_docs"]));
+
+  // Every section change goes through here — sidebar clicks included, not just the floating
+  // Continue button. If the requested section is AHEAD of an earlier section that still has
+  // errors, land on that earlier section instead: this is what makes a missing required field
+  // "redirect you straight to it" rather than silently letting you skip past it via the sidebar
+  // (the Continue button already blocks forward movement one section at a time, but sidebar
+  // navigation bypasses that — this closes the same gap for jumps of more than one section).
+  // Applies in edit mode too — an existing record missing a now-required field must still be
+  // fixed before moving on.
+  const changeSection = (id: string) => {
+    const stepSections = STEP_SECTIONS[activeStepIndex] ?? [];
+    const requestedIdx = stepSections.indexOf(id);
+    const currentIdx = stepSections.indexOf(activeSection);
+    const fp = formikRef.current;
+
+    if (requestedIdx > currentIdx && fp) {
+      // Same synchronous validity check the Continue button uses — never Formik's async errors.
+      const invalidKeys = computeInvalidKeys(currentSchema, fp.values);
+      const firstInvalidIdx = stepSections
+        .slice(0, requestedIdx + 1)
+        .findIndex((sectionId) => (SECTION_FIELD_KEYS[activeStepIndex]?.[sectionId] ?? []).some((key) => invalidKeys.has(key)));
+      if (firstInvalidIdx !== -1 && stepSections[firstInvalidIdx] !== id) {
+        const redirectTo = stepSections[firstInvalidIdx];
+        setActiveSection(redirectTo);
+        setVisitedSections((prev) => (prev.has(redirectTo) ? prev : new Set(prev).add(redirectTo)));
+        // This IS an attempted move — reveal why the user got bounced here.
+        revealSectionErrors(redirectTo);
+        return;
+      }
+    }
+
+    setActiveSection(id);
+    setVisitedSections((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
   };
 
   // When the top step changes, snap to that step's FIRST section (unless we're already on a
@@ -743,14 +994,29 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     setActiveSection((prev) => (sections.includes(prev) ? prev : sections[0]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStepIndex]);
+
+  // Reveal a section's validation errors ON DEMAND — marks its fields touched AND validates so
+  // the red "required" messages appear. Called only when the user actually TRIES to move past an
+  // incomplete section (Continue click / blocked sidebar jump), never on a fresh page load, so an
+  // untouched form never shows red until the user attempts to proceed.
+  const revealSectionErrors = (sectionId: string, stepIdx: number = activeStepIndex) => {
+    const fp = formikRef.current;
+    if (!fp) return;
+    const keys = SECTION_FIELD_KEYS[stepIdx]?.[sectionId] ?? [];
+    const patch = Object.fromEntries(keys.map((key) => [key, touchDeep(fp.values?.[key])]));
+    fp.setTouched({ ...fp.touched, ...patch }, true);
+  };
   const [mobileProfilePhotoPreview, setMobileProfilePhotoPreview] = useState("");
   const [sidebarProfileHasAppeared, setSidebarProfileHasAppeared] = useState(false);
   const [sidebarProfileShouldAnimate, setSidebarProfileShouldAnimate] = useState(false);
 
-  // Clear any stale draft on mount so new employee form starts blank
-  useEffect(() => {
-    if (!editMode) localStorage.removeItem(ONBOARDING_DRAFT_KEY);
-  }, []);
+  // Discard the restored draft and reset the create form back to blank.
+  const discardDraft = () => {
+    clearDraft();
+    setDefaultState(initialState);
+    formikRef.current?.resetForm({ values: initialState });
+    setShowDraftNotice(false);
+  };
 
   // Mobile: modal-body scrolls. Desktop: fixed panels; inner section-body scrolls.
   useEffect(() => {
@@ -788,11 +1054,19 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     };
   }, [show]);
 
-  // Trigger Formik validation when step changes or default state updates
+  // Trigger Formik validation when the step changes or the (edit-mode) data loads.
+  //
+  // Deferred to a macrotask on purpose: when `defaultState` changes, Formik's
+  // `enableReinitialize` resets the form (new values, cleared errors) in an effect that
+  // schedules its own re-render. Validating synchronously here would run against the STALE
+  // pre-reset (empty) values, and its async result would then overwrite the reset's cleared
+  // errors — leaving every required field flagged and the Continue button wrongly disabled
+  // until some later re-validation. `setTimeout(0)` lets the reset commit first, so we
+  // validate the actual loaded data. (This was the "edit form is frozen until you click
+  // Step 2" bug.)
   useEffect(() => {
-    if (formikRef.current) {
-      formikRef.current.validateForm();
-    }
+    const id = window.setTimeout(() => formikRef.current?.validateForm(), 0);
+    return () => window.clearTimeout(id);
   }, [activeStepIndex, defaultState]);
 
   const addFileToState = (documentId: string, file: File) => {
@@ -877,7 +1151,19 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     });
   };
 
+  // Section-aware Back: within a step, Back walks to the PREVIOUS SECTION first (mirroring how
+  // Continue walks forward section-by-section) and only drops to the previous top-level step
+  // once there's no earlier section left in the current one — otherwise Back from e.g. Hiring
+  // Info inside "Company Details" jumped straight to "Personal Details" instead of Contact Info.
   const prevStep = () => {
+    const currentStepSections = STEP_SECTIONS[activeStepIndex] ?? [];
+    const sectionIdx = currentStepSections.indexOf(activeSection);
+    if (sectionIdx > 0) {
+      changeSection(currentStepSections[sectionIdx - 1]);
+      scrollWizardToTop();
+      return;
+    }
+
     if (activeStepIndex <= 1) return;
     let targetStep: number;
     if (stepper) {
@@ -888,8 +1174,29 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     }
     setActiveStepIndex(targetStep);
     setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
-    // Land on the target step's first section (shared activeSection across all steps).
+    // Land on the target step's LAST section, so Back lands exactly where Continue would have
+    // come from.
+    const targetSections = STEP_SECTIONS[targetStep] ?? ["personal-info"];
+    changeSection(targetSections[targetSections.length - 1]);
+    scrollWizardToTop();
+  };
+
+  // Advance to the next top-level step WITHOUT going through Formik's validation gate — used by
+  // the edit-mode Continue buttons, where an existing record may legitimately not satisfy
+  // newly-added requirements and must not be trapped on a step. New-employee onboarding keeps the
+  // validation-gated `type="submit"` path so it stays strictly guided.
+  const advanceToNextStep = () => {
+    let targetStep: number;
+    if (stepper) {
+      stepper.goNext();
+      targetStep = stepper.currentStepIndex;
+    } else {
+      targetStep = activeStepIndex + 1;
+    }
+    setActiveStepIndex(targetStep);
+    setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
     setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
+    formikRef.current?.setTouched({});
     scrollWizardToTop();
   };
 
@@ -1205,7 +1512,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
         await saveEmployeeData(values, savedEmployeeId);
         successConfirmation("Successfully onboarded an employee");
-        localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+        clearDraft();
         stepper?.goto(1);
         setActiveStepIndex(1);
         setActiveSection("personal-info");
@@ -1278,6 +1585,11 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
             stepper.goto(targetStep);
             setActiveStepIndex(targetStep);
             setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
+            // Also land on the new step's first section immediately (the backward-jump branch
+            // above already does this). Without it, activeSection stays on the previous step's
+            // section for a frame, which is exactly the out-of-sync state that made Continue
+            // behave like a step-submit and skip sections.
+            setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
             scrollWizardToTop();
           } else {
             const touchedObj: Record<string, boolean> = {};
@@ -1402,17 +1714,37 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                   }
                   : undefined;
 
-              // Determine if required fields for this step are filled (for CTA styling)
-              const isStepReady = (() => {
-                const v = formikProps.values;
-                if (activeStepIndex === 1) return [v.firstName, v.lastName, v.dateOfBirth, v.gender, v.personalEmailId, v.personalPhoneNumber].every(hasDraftValue);
-                if (activeStepIndex === 2) return [v.designationId, v.departmentId, v.branchId].every(hasDraftValue);
-                return true;
-              })();
+              const stepSections = STEP_SECTIONS[activeStepIndex] ?? [];
+              const sectionIdx = stepSections.indexOf(activeSection);
+              // ONLY the genuine last section is "last". Previously `sectionIdx < 0` (activeSection
+              // momentarily out of sync with the step's section list — e.g. right after a top-stepper
+              // jump, before the snap effect re-aligns it) was ALSO treated as last, turning the
+              // Continue button into a step-submit that skipped the remaining sections and jumped
+              // straight to the next step (the "Privacy Controls is skipped → Documents opens" bug).
+              const isLastSection = sectionIdx >= 0 && sectionIdx === stepSections.length - 1;
+
+              // Which top-level field keys currently FAIL validation — computed SYNCHRONOUSLY from
+              // the values on screen right now, via the step's own Yup schema (single source of
+              // truth, so conditional/`.when` requirements like Financial Config are handled for
+              // free). This deliberately does NOT read Formik's async `errors` object: that lags
+              // behind reinitialize/reset and produced the "edit form is frozen until you touch
+              // another step" bug. A pure sync function of (values, schema) can't race anything.
+              const invalidKeys = computeInvalidKeys(currentSchema, formikProps.values);
+
+              // Is the ACTIVE section (not the whole step) free of validation errors right now?
+              // Drives both the CTA styling and — critically — whether "Continue" may move past
+              // this section at all.
+              const activeSectionKeys = SECTION_FIELD_KEYS[activeStepIndex]?.[activeSection] ?? [];
+              const isStepReady = activeSectionKeys.every((key) => !invalidKeys.has(key));
+
+              // Whole-step validity — every field of the CURRENT step is valid. Drives the
+              // step-terminal Continue/Submit buttons.
+              const isWholeStepValid = invalidKeys.size === 0;
 
               return (
                 <Form className="ob-wizard-root" noValidate id="employee_onboarding_form">
                   <FormikValidationErrorFocus activeStepIndex={activeStepIndex} setActiveSection={setActiveSection} />
+                  <DraftAutosave enabled={!editMode} />
                   <div ref={stepperRef} className="stepper stepper-pills d-flex flex-column flex-row-fluid" id="kt_create_account_stepper">
 
                     {/* ── Header Bar ── */}
@@ -1487,9 +1819,8 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                           const isCurrent = activeStepIndex === stepNum;
                           const isCompleted = activeStepIndex > stepNum;
                           return (
-                            <>
+                            <Fragment key={stepNum}>
                               <div
-                                key={stepNum}
                                 className={`stepper-item ob-step-item ${isCurrent ? "current" : ""} ${isCompleted ? "completed" : ""}`}
                                 data-kt-stepper-element="nav"
                               >
@@ -1502,13 +1833,35 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                                 </div>
                               </div>
                               {i < 3 && (
-                                <div key={`conn-${i}`} className={`ob-step-connector ${isCompleted ? "completed" : ""}`} />
+                                <div className={`ob-step-connector ${isCompleted ? "completed" : ""}`} />
                               )}
-                            </>
+                            </Fragment>
                           );
                         })}
                       </div>
                     </nav>
+
+                    {/* ── Draft-restored notice (create mode only) ── */}
+                    {!editMode && showDraftNotice && (
+                      <div className="ob-draft-notice" role="status">
+                        <i className="bi bi-clock-history ob-draft-notice-icon" aria-hidden></i>
+                        <span className="ob-draft-notice-text">
+                          Restored your unsaved draft — pick up where you left off.
+                          <span className="ob-draft-notice-sub"> Uploaded files aren't saved and may need re-attaching.</span>
+                        </span>
+                        <button type="button" className="ob-draft-notice-discard" onClick={discardDraft}>
+                          Discard &amp; start fresh
+                        </button>
+                        <button
+                          type="button"
+                          className="ob-draft-notice-close"
+                          aria-label="Dismiss"
+                          onClick={() => setShowDraftNotice(false)}
+                        >
+                          <KTIcon iconName="cross" className="fs-5" />
+                        </button>
+                      </div>
+                    )}
 
                     {/* ── Main Content ── */}
                     <main className="ob-main-layout">
@@ -1526,7 +1879,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                                     id: section.id,
                                     label: section.label,
                                     icon: section.icon,
-                                    isComplete: total > 0 && filled >= total,
+                                    // A section earns its green tick only when it is both filled AND
+                                    // schema-valid — so a filled-but-invalid field (e.g. a 5-digit
+                                    // phone) never shows a tick while its border is red.
+                                    isComplete: total > 0 && filled >= total && isSectionValid(section.id, invalidKeys),
                                   };
                                 }),
                                 (() => {
@@ -1541,12 +1897,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                                         <path d="M12 8v4l3 3" />
                                       </svg>
                                     ),
-                                    isComplete: total > 0 && filled >= total,
+                                    isComplete: total > 0 && filled >= total && isSectionValid("meal", invalidKeys),
                                   };
                                 })(),
                               ]}
                               activeSection={activeSection}
-                              onSectionChange={setActiveSection}
+                              onSectionChange={changeSection}
                             />
                             <div className="ob-form-area">
                               <Step2
@@ -1555,16 +1911,17 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                                 removeFile={removeFileFromState}
                                 setEducationFile={addEducationFileToState}
                                 activeSection={activeSection}
-                                onSectionChange={setActiveSection}
+                                onSectionChange={changeSection}
                                 completion={completion}
+                                activeSectionValid={isStepReady}
                               />
                             </div>
                           </div>
                         )}
 
-                        {activeStepIndex === 2 && <Step3 formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={setActiveSection} />}
-                        {activeStepIndex === 3 && <StepAppSettings formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={setActiveSection} />}
-                        {activeStepIndex === 4 && <Step4 formikProps={formikProps} setFile={addFileToState} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={setActiveSection} />}
+                        {activeStepIndex === 2 && <Step3 formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={changeSection} />}
+                        {activeStepIndex === 3 && <StepAppSettings formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={changeSection} />}
+                        {activeStepIndex === 4 && <Step4 formikProps={formikProps} setFile={addFileToState} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={changeSection} />}
                       </div>
                     </main>
 
@@ -1588,11 +1945,11 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                           and only advances to the next top step from the LAST section. Applies to
                           every step, so the button behaves consistently throughout the wizard. */}
                       {(() => {
-                        const stepSections = STEP_SECTIONS[activeStepIndex] ?? [];
-                        const sectionIdx = stepSections.indexOf(activeSection);
-                        const isLastSection = sectionIdx < 0 || sectionIdx >= stepSections.length - 1;
-
-                        // Not on the last section of this step → just move to the next section.
+                        // Not on the last section of this step → advance to the next section only
+                        // once this section's required fields are valid. If not, the click REVEALS
+                        // the red errors (this is the "trying to move" moment) and stays put. The
+                        // button is greyed (is-incomplete) as a hint but stays clickable, so the
+                        // click can surface what's missing — a fresh, untouched form shows no red.
                         if (!isLastSection) {
                           return (
                             <button
@@ -1600,7 +1957,8 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                               className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
                               disabled={isSubmitting}
                               onClick={() => {
-                                setActiveSection(stepSections[sectionIdx + 1]);
+                                if (!isStepReady) { revealSectionErrors(activeSection); return; }
+                                changeSection(stepSections[sectionIdx + 1]);
                                 scrollWizardToTop();
                               }}
                             >
@@ -1611,38 +1969,30 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                         }
 
                         // Last section of step 1 → validate the step, then go to Company Details.
+                        // Clickable even when incomplete: an incomplete click runs submitForm,
+                        // which reveals the red errors and (via FormikValidationErrorFocus) jumps
+                        // to the first missing field's section. Greyed as a hint until valid.
                         if (activeStepIndex === 1) {
                           return (
                             <button
                               type="button"
-                              className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
+                              className={`ob-float-continue-btn ${isWholeStepValid ? "is-ready" : "is-incomplete"}`}
                               disabled={isSubmitting}
                               onClick={() => {
                                 formikProps.validateForm().then((errors) => {
-                                  if (Object.keys(errors).length === 0) {
-                                    if (stepper) {
-                                      stepper.goNext();
-                                      setActiveStepIndex(stepper.currentStepIndex);
-                                      setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
-                                    } else {
-                                      setActiveStepIndex(2);
-                                      setCurrentSchema(newEmployeeWizardSchema[1]);
-                                    }
-                                    formikProps.setTouched({});
-                                    scrollWizardToTop();
-                                  } else {
-                                    formikProps.submitForm();
-                                  }
+                                  if (Object.keys(errors).length === 0) advanceToNextStep();
+                                  else formikProps.submitForm();
                                 });
                               }}
                             >
-                              Continue to Company Details
+                              Continue to {STEP_TITLES[activeStepIndex] ?? "Next"}
                               <KTIcon iconName="arrow-right" className="fs-5" />
                             </button>
                           );
                         }
 
-                        // Last section of the final step → submit the whole form.
+                        // Last section of the final step → submit the whole form. Clickable when
+                        // incomplete so the submit attempt reveals the missing fields.
                         if (isLastStep) {
                           return (
                             <button type="submit" className="ob-float-submit-btn" disabled={isSubmitting}>
@@ -1661,11 +2011,31 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                           );
                         }
 
-                        // Last section of steps 2/3 → submit (the form's onSubmit advances the step).
+                        // Last section of steps 2/3 → submit, UNLESS a "must visit" section for this
+                        // step (e.g. Leave Settings) hasn't been opened yet — send the user there
+                        // first instead of letting them submit straight past it.
+                        const unvisitedRequired = stepSections.find((id) => MUST_VISIT_SECTIONS.has(id) && !visitedSections.has(id));
+                        if (unvisitedRequired) {
+                          return (
+                            <button
+                              type="button"
+                              className="ob-float-continue-btn is-incomplete"
+                              disabled={isSubmitting}
+                              onClick={() => {
+                                changeSection(unvisitedRequired);
+                                scrollWizardToTop();
+                              }}
+                            >
+                              Review {unvisitedRequired.split("_").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ")}
+                              <KTIcon iconName="arrow-right" className="fs-5" />
+                            </button>
+                          );
+                        }
+
                         return (
                           <button
                             type="submit"
-                            className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
+                            className={`ob-float-continue-btn ${isWholeStepValid ? "is-ready" : "is-incomplete"}`}
                             disabled={isSubmitting}
                           >
                             {isSubmitting ? (
@@ -1675,7 +2045,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                               </>
                             ) : (
                               <>
-                                Continue
+                                Continue to {STEP_TITLES[activeStepIndex] ?? "Next"}
                                 <KTIcon iconName="arrow-right" className="fs-5" />
                               </>
                             )}

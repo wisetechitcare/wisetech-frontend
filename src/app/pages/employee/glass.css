@@ -1,0 +1,101 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Glassmorphism accent system (scoped to the onboarding wizard + employee overview).
+
+   Frosted-translucent panels via backdrop-filter over a subtle page gradient. Dense-text
+   surfaces use a HIGH-opacity tint so text stays readable — the blur provides the "frost",
+   not transparency. All effect values are `--gm-*` tokens (fluid-first; no scattered literals).
+   Everything is prefixed `gm-` to avoid colliding with the app's hand-written utilities.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.ob-modal-body,
+.ob-wizard-root,
+.emp-details,
+.gm-scope {
+  /* light theme */
+  --gm-surface: rgba(255, 255, 255, 0.72);
+  --gm-surface-strong: rgba(255, 255, 255, 0.82);
+  --gm-field: rgba(255, 255, 255, 0.55);
+  --gm-blur: clamp(8px, 1.2vw, 16px);
+  --gm-saturate: 1.4;
+  --gm-border: 1px solid rgba(255, 255, 255, 0.55);
+  --gm-border-soft: 1px solid rgba(148, 163, 184, 0.28);
+  --gm-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 42%);
+  --gm-shadow: 0 0.5rem 1.75rem rgba(16, 24, 40, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  --gm-radius: 0.85rem;
+  /* subtle brand-tinted canvas so the frost has something to blur */
+  --gm-page-grad:
+    radial-gradient(60rem 40rem at 12% -10%, rgba(30, 58, 138, 0.10), transparent 60%),
+    radial-gradient(50rem 34rem at 108% 8%, rgba(139, 92, 246, 0.08), transparent 55%),
+    linear-gradient(180deg, #eef1f8 0%, #f5f7fb 42%, #eef2f7 100%);
+}
+
+[data-bs-theme="dark"] .ob-modal-body,
+[data-bs-theme="dark"] .ob-wizard-root,
+[data-bs-theme="dark"] .emp-details,
+[data-bs-theme="dark"] .gm-scope {
+  --gm-surface: rgba(27, 27, 41, 0.68);
+  --gm-surface-strong: rgba(27, 27, 41, 0.8);
+  --gm-field: rgba(43, 43, 64, 0.5);
+  --gm-border: 1px solid rgba(255, 255, 255, 0.1);
+  --gm-border-soft: 1px solid rgba(255, 255, 255, 0.08);
+  --gm-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 42%);
+  --gm-shadow: 0 0.5rem 1.75rem rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --gm-page-grad:
+    radial-gradient(60rem 40rem at 12% -10%, rgba(30, 58, 138, 0.28), transparent 60%),
+    radial-gradient(50rem 34rem at 108% 8%, rgba(139, 92, 246, 0.18), transparent 55%),
+    linear-gradient(180deg, #12121c 0%, #15151f 45%, #101019 100%);
+}
+
+/* ── Reusable frosted surfaces ── */
+.gm-panel,
+.gm-panel-strong {
+  position: relative;
+  background: var(--gm-surface);
+  backdrop-filter: blur(var(--gm-blur)) saturate(var(--gm-saturate));
+  -webkit-backdrop-filter: blur(var(--gm-blur)) saturate(var(--gm-saturate));
+  border: var(--gm-border);
+  border-radius: var(--gm-radius);
+  box-shadow: var(--gm-shadow);
+}
+.gm-panel-strong { background: var(--gm-surface-strong); }
+
+/* Top-edge sheen that sells the "glass" look. */
+.gm-panel::before,
+.gm-panel-strong::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--gm-highlight);
+  pointer-events: none;
+  z-index: 0;
+}
+/* keep real content above the sheen */
+.gm-panel > *,
+.gm-panel-strong > * { position: relative; z-index: 1; }
+
+/* Translucent input/field surface. */
+.gm-field {
+  background: var(--gm-field) !important;
+  backdrop-filter: blur(calc(var(--gm-blur) * 0.5)) saturate(1.2);
+  -webkit-backdrop-filter: blur(calc(var(--gm-blur) * 0.5)) saturate(1.2);
+  border: var(--gm-border-soft) !important;
+}
+
+/* Fallback: no backdrop-filter → opaque soft cards, never see-through boxes. */
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .ob-modal-body, .ob-wizard-root, .emp-details, .gm-scope {
+    --gm-surface: #ffffff;
+    --gm-surface-strong: #ffffff;
+    --gm-field: #ffffff;
+  }
+  [data-bs-theme="dark"] .ob-modal-body,
+  [data-bs-theme="dark"] .ob-wizard-root,
+  [data-bs-theme="dark"] .emp-details,
+  [data-bs-theme="dark"] .gm-scope {
+    --gm-surface: #1b1b29;
+    --gm-surface-strong: #1b1b29;
+    --gm-field: #22222f;
+  }
+  .gm-panel, .gm-panel-strong, .gm-field { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}

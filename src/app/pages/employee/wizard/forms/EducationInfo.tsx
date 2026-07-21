@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -292,7 +293,7 @@ function EducationalInfo({
             aria-label={`Remove education ${index + 1}`}
             onClick={onRemove}
           >
-            X
+            <X size={16} />
           </button>
         ) : (
           <div style={{ width: "20px", height: "20px" }} />

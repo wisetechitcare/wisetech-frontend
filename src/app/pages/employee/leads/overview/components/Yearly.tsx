@@ -40,6 +40,7 @@ import {
   AnalyticsCard,
   AnalyticsHeader,
   RankedBarChart,
+  ClientAnalysisSection,
   buildYearlySeries,
   ChartDatum,
 } from "@pages/dashboard/leadAnalytics";
@@ -587,202 +588,72 @@ const Yearly = ({ startDate, endDate }: Props) => {
     companyTypeRes?.data?.map((item: any) => item.name) || [];
   const topLeadsFilterOptions = getTopLeadsFilterOptions();
 
+  // Period-specific sections injected into the dashboard tabs.
+  const revenueSlot = (
+    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <AnalyticsHeader
+        title="Revenue Intelligence & Forecast"
+        subtitle="Cumulative value vs target, smart forecast and monthly value performance"
+        icon="bi-cash-coin"
+        accent="#8B5CF6"
+      />
+      <div className="row g-3">
+        <div className="col-12 col-xl-6">
+          <YearlyPerformanceAnalytics startDate={startDate} endDate={endDate} />
+        </div>
+        <div className="col-12 col-xl-6">
+          <MonthlyBarWithTarget startDate={startDates} endDate={endDates} />
+        </div>
+      </div>
+    </section>
+  );
+
+  const clientAnalysisSlot = settings?.showLeadsByCompanyType ? (
+    <ClientAnalysisSection startDate={startDates} endDate={endDates} />
+  ) : null;
+
+  const geographySlot = settings?.showLeadsByLocation ? (
+    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <AnalyticsHeader
+        title="Geographic Distribution"
+        subtitle="Where leads came from this year — drill down country → locality"
+        icon="bi-geo-alt"
+        accent="#14B8A6"
+      />
+      <LeadByLocationAndStatus
+        data={locationRes?.data || []}
+        startDate={startDate || undefined}
+        endDate={endDate || undefined}
+      />
+    </section>
+  ) : null;
+
   return (
     <div className="">
-      <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-        {/* ── Sections 1-4: Pipeline / Service / Acquisition / Category ──── */}
-        {/* Reuses the shared dashboard for full consistency with Monthly.    */}
-        <LeadOverviewDashboard
-          statusData={chartData.statusData}
-          serviceData={chartData.serviceData}
-          categoryData={chartData.categoryData}
-          subcategoryRaw={subcategoryRes?.data || []}
-          sourceData={chartData.sourceData}
-          referralSourceData={chartData.referralSourceData}
-          directSourceData={chartData.directSourceData}
-          cancellationReasonData={chartData.cancellationReasonData}
-          settings={settings}
-          showKpis={false}
-          onStatusSelect={handleStatusChartClick}
-          onServiceSelect={handleServiceChartClick}
-          onCategorySelect={handleCategoryNodeClick}
-          onSourceSelect={handleSourceChartClick}
-          onReferralSelect={handleReferralChartClick}
-        />
-
-        {/* ── Section 6: Revenue Intelligence & Forecast ─────────────────── */}
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AnalyticsHeader
-            title="Revenue Intelligence & Forecast"
-            subtitle="Cumulative value vs target, smart forecast and monthly value performance"
-            icon="bi-cash-coin"
-            accent="#8B5CF6"
-          />
-          <div className="row g-3">
-            <div className="col-12 col-xl-6">
-              <YearlyPerformanceAnalytics startDate={startDate} endDate={endDate} />
-            </div>
-            <div className="col-12 col-xl-6">
-              <MonthlyBarWithTarget startDate={startDates} endDate={endDates} />
-            </div>
-          </div>
-        </section>
-
-        {/* ── Section 9: Segment Analysis (company type) ─────────────────── */}
-        {settings?.showLeadsByCompanyType && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AnalyticsHeader
-              title="Segment Analysis"
-              subtitle="Which client segments generated the most leads this year"
-              icon="bi-buildings"
-              accent="#EC4899"
-            />
-            <AnalyticsCard
-              title="Lead by Company Type"
-              subtitle="Ranked by lead volume · revenue in tooltip"
-              isEmpty={
-                !chartData.companyTypeData?.length ||
-                chartData.companyTypeData.every((d: any) => !d.value)
-              }
-              emptyHint="No company-type data for this year."
-              headerRight={
-                <select
-                  className="form-select form-select-sm"
-                  style={{ minWidth: 150 }}
-                  value={filters.companyType || ""}
-                  onChange={(e) => handleFilterChange("companyType", e.target.value)}
-                >
-                  <option value="">All Status</option>
-                  {companyTypeFilterOptions.map((o: string) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              }
-            >
-              <RankedBarChart
-                data={chartData.companyTypeData}
-                onSelect={handleCompanyTypeChartClick}
-                showRevenue
-                height={320}
-              />
-            </AnalyticsCard>
-          </section>
-        )}
-
-        {/* ── Section 11: Top Performers ─────────────────────────────────── */}
-        {settings?.showTopLeads && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AnalyticsHeader
-              title="Top Performers"
-              subtitle="Highest-volume lead groups for the year"
-              icon="bi-trophy"
-              accent="#F59E0B"
-            />
-            <AnalyticsCard
-              title="Top 10 Leads"
-              subtitle="Click a bar to drill into the underlying leads"
-              isEmpty={!chartData.topLeadsData?.length}
-              emptyHint="No lead data for this year."
-              headerRight={
-                <>
-                  <select
-                    className="form-select form-select-sm"
-                    value={filters.topLeadsType || "source"}
-                    onChange={(e) => handleTopLeadsFilterChange("topLeadsType", e.target.value)}
-                    style={{ minWidth: "120px" }}
-                  >
-                    <option value="source">By Source</option>
-                    <option value="category">By Category</option>
-                    <option value="service">By Service</option>
-                  </select>
-
-                  <select
-                    className="form-select form-select-sm"
-                    value={filters.topLeadsStatus || ""}
-                    onChange={(e) => handleTopLeadsFilterChange("topLeadsStatus", e.target.value)}
-                    style={{ minWidth: "120px" }}
-                  >
-                    <option value="">All Status</option>
-                    {topLeadsFilterOptions.statusOptions.map((status: string) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-
-                  {topLeadsFilterOptions.referralTypeOptions.length > 0 && (
-                    <select
-                      className="form-select form-select-sm"
-                      value={filters.topLeadsReferralType || ""}
-                      onChange={(e) =>
-                        handleTopLeadsFilterChange("topLeadsReferralType", e.target.value)
-                      }
-                      style={{ minWidth: "150px" }}
-                    >
-                      <option value="">All Referral Types</option>
-                      {topLeadsFilterOptions.referralTypeOptions.map((type: string) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  {topLeadsFilterOptions.directSourceOptions.length > 0 && (
-                    <select
-                      className="form-select form-select-sm"
-                      value={filters.topLeadsDirectSource || ""}
-                      onChange={(e) =>
-                        handleTopLeadsFilterChange("topLeadsDirectSource", e.target.value)
-                      }
-                      style={{ minWidth: "150px" }}
-                    >
-                      <option value="">All Direct Sources</option>
-                      {topLeadsFilterOptions.directSourceOptions.map((source: string) => (
-                        <option key={source} value={source}>
-                          {source}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </>
-              }
-            >
-              <RankedBarChart
-                data={(chartData.topLeadsData || []).map((d: any) => ({
-                  label: d.label,
-                  value: d.value,
-                  color: d.color,
-                  totalCost: d.budget,
-                }))}
-                onSelect={handleTopLeadsChartClick}
-                showRevenue
-                limit={10}
-                height={400}
-              />
-            </AnalyticsCard>
-          </section>
-        )}
-
-        {/* ── Section 12: Geographic Distribution ────────────────────────── */}
-        {settings?.showLeadsByLocation && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AnalyticsHeader
-              title="Geographic Distribution"
-              subtitle="Where leads came from this year — drill down country → locality"
-              icon="bi-geo-alt"
-              accent="#14B8A6"
-            />
-            <LeadByLocationAndStatus
-              data={locationRes?.data || []}
-              startDate={startDate || undefined}
-              endDate={endDate || undefined}
-            />
-          </section>
-        )}
-      </div>
+      {/* Sections grouped into focused tabs via the shared dashboard. */}
+      <LeadOverviewDashboard
+        statusData={chartData.statusData}
+        serviceData={chartData.serviceData}
+        categoryData={chartData.categoryData}
+        subcategoryRaw={subcategoryRes?.data || []}
+        sourceData={chartData.sourceData}
+        referralSourceData={chartData.referralSourceData}
+        directSourceData={chartData.directSourceData}
+        cancellationReasonData={chartData.cancellationReasonData}
+        settings={settings}
+        showKpis={false}
+        onStatusSelect={handleStatusChartClick}
+        onServiceSelect={handleServiceChartClick}
+        onCategorySelect={handleCategoryNodeClick}
+        onSourceSelect={handleSourceChartClick}
+        onReferralSelect={handleReferralChartClick}
+        tabStorageKey="leadOverviewActiveTab"
+        slots={{
+          summary: revenueSlot,
+          sources: clientAnalysisSlot,
+          geography: geographySlot,
+        }}
+      />
 
       {/* Chart Dialog Modals */}
       <ChartDialogModal

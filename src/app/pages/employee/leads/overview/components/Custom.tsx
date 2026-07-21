@@ -38,6 +38,7 @@ import {
 import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/YearlyStatusCountChart";
 import LocationProjectChart from "@pages/employee/projects/commonComponents/ProjectByLocationChart";
 import LeadByLocationChart from "../commonComponents/LeadByLocationChart";
+import { ClientAnalysisSection } from "@pages/dashboard/leadAnalytics";
 import { ChartDialogModal } from "./ChartDialogModal";
 
 interface Props {
@@ -840,25 +841,6 @@ const Custom = ({ startDate, endDate }: Props) => {
           )}
 
         {/* Lead By Company Type */}
-        {settings?.showLeadsByCompanyType && (
-            <div className="col-6">
-              <CustomPieCharts
-                data={chartData.companyTypeData}
-                title="Lead By Company Type"
-                height={250}
-                showFilter={true}
-                filterOptions={companyTypeFilterOptions}
-                filterValue={filters.companyType || ""}
-                onFilterChange={(value: string) => {
-                  handleFilterChange("companyType", value);
-                }}
-                filterPlaceholder="All Status"
-                key={`company-type-chart`}
-                // isThisProjectToolTip={false}
-                onChartClick={handleCompanyTypeChartClick}
-              />
-            </div>
-          )}
 
         {/* Lead By Subcategory - Enhanced with Category Filtering */}
         {settings?.showLeadsBySubCategory && (
@@ -913,110 +895,14 @@ const Custom = ({ startDate, endDate }: Props) => {
             />
           )}
 
-        {/* Top Leads - Fixed with Dynamic Filtering */}
-        {settings?.showTopLeads && (
+
+        {/* Client Analysis — company type / company / contact */}
+        {settings?.showLeadsByCompanyType && (
           <div className="col-12">
-            <div className="card">
-              <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="card-title mb-0">Top 10 Leads</h5>
-                <div className="d-flex gap-2">
-                  {/* Main Type Filter */}
-                  <select
-                    className="form-select form-select-sm"
-                    value={filters.topLeadsType || "source"}
-                    onChange={(e) =>
-                      handleTopLeadsFilterChange("topLeadsType", e.target.value)
-                    }
-                    style={{ minWidth: "120px" }}
-                  >
-                    <option value="source">By Source</option>
-                    <option value="category">By Category</option>
-                    <option value="service">By Service</option>
-                  </select>
-
-                  {/* Status Filter */}
-                  <select
-                    className="form-select form-select-sm"
-                    value={filters.topLeadsStatus || ""}
-                    onChange={(e) =>
-                      handleTopLeadsFilterChange(
-                        "topLeadsStatus",
-                        e.target.value
-                      )
-                    }
-                    style={{ minWidth: "120px" }}
-                  >
-                    <option value="">All Status</option>
-                    {topLeadsFilterOptions.statusOptions.map(
-                      (status: string) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      )
-                    )}
-                  </select>
-
-                  {/* Conditional Referral Type Filter */}
-                  {topLeadsFilterOptions.referralTypeOptions.length > 0 && (
-                    <select
-                      className="form-select form-select-sm"
-                      value={filters.topLeadsReferralType || ""}
-                      onChange={(e) =>
-                        handleTopLeadsFilterChange(
-                          "topLeadsReferralType",
-                          e.target.value
-                        )
-                      }
-                      style={{ minWidth: "150px" }}
-                    >
-                      <option value="">All Referral Types</option>
-                      {topLeadsFilterOptions.referralTypeOptions.map(
-                        (type: string) => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  )}
-
-                  {/* Conditional Direct Source Filter */}
-                  {topLeadsFilterOptions.directSourceOptions.length > 0 && (
-                    <select
-                      className="form-select form-select-sm"
-                      value={filters.topLeadsDirectSource || ""}
-                      onChange={(e) =>
-                        handleTopLeadsFilterChange(
-                          "topLeadsDirectSource",
-                          e.target.value
-                        )
-                      }
-                      style={{ minWidth: "150px" }}
-                    >
-                      <option value="">All Direct Sources</option>
-                      {topLeadsFilterOptions.directSourceOptions.map(
-                        (source: string) => (
-                          <option key={source} value={source}>
-                            {source}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="card-body">
-              <CustomBarChart
-                data={chartData.topLeadsData}
-                title=""
-                height={400}
-                showFilter={false}
-                key={`top-leads-chart-${filters.topLeadsType}-${filters.topLeadsStatus}-${filters.topLeadsReferralType}-${filters.topLeadsDirectSource}`}
-                isThisProjectToolTip={false}
-                onChartClick={handleTopLeadsChartClick}
-              />
-            </div>
+            <ClientAnalysisSection
+              startDate={startDate.format("YYYY-MM-DD")}
+              endDate={endDate.format("YYYY-MM-DD")}
+            />
           </div>
         )}
 

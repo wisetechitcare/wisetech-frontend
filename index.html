@@ -25,17 +25,7 @@
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <!--begin::Theme mode setup on page load-->
   <script>
-    let themeMode = 'system'
-
-    if (localStorage.getItem('kt_theme_mode_value')) {
-      themeMode = localStorage.getItem('kt_theme_mode_value')
-    }
-
-    if (themeMode === 'system') {
-      themeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-    }
-
-    document.documentElement.setAttribute('data-bs-theme', themeMode)
+    document.documentElement.setAttribute('data-bs-theme', 'light')
   </script>
   <!--end::Theme mode setup on page load-->
 

@@ -1,12 +1,16 @@
 import { Button } from '@mui/material'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import TeamForm from './component/TeamForm'
-import { getAllTeams, getAllTeamsMember } from '@services/projects'
+import { getAllTeams, getAllTeamsMember, moveEmployeeTeam, backfillTeamMemberships } from '@services/projects'
+import { fetchOrganizationTree } from '@services/company'
+import { fetchBranches, fetchDepartments } from '@services/options'
 import axios from 'axios'
 import { LEAD_PROJECT_COMPANY } from '@constants/api-endpoint'
 import { get, set } from 'lodash'
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
+
+interface FilterOption { value: string; label: string }
 
 // Types for team data
 interface TeamMember {
@@ -18,7 +22,16 @@ interface TeamMember {
     department: string
     avatar: string
     employeeLevelId?: string
+    /** The employee this membership belongs to (used to move them between teams). */
+    employeeId?: string
     employee?: {
+        id?: string
+        teamId?: string | null
+        companyId?: string
+        branchId?: string
+        departmentId?: string
+        branches?: { id?: string; name?: string } | null
+        companyOverview?: { id?: string; name?: string } | null
         users?: {
             firstName: string
             lastName: string
@@ -70,7 +83,13 @@ interface Team {
 }
 
 // TeamCard Component
-const TeamCard: React.FC<{ team: Team; onEditTeam: (team: Team) => void }> = ({ team, onEditTeam }) => {
+const TeamCard: React.FC<{
+    team: Team;
+    allTeams: { id: string; name: string }[];
+    movingId: string | null;
+    onEditTeam: (team: Team) => void;
+    onMoveMember: (employeeId: string, teamId: string) => void;
+}> = ({ team, allTeams, movingId, onEditTeam, onMoveMember }) => {
 
 
     return (
@@ -145,6 +164,7 @@ const TeamCard: React.FC<{ team: Team; onEditTeam: (team: Team) => void }> = ({ 
                                 <th scope="col" style={{ width: '120px', border: 'none', padding: '0 12px 12px 0' }}>Level</th>
                                 <th scope="col" style={{ width: '150px', border: 'none', padding: '0 12px 12px 0' }}>Role</th>
                                 <th scope="col" style={{ width: '173px', border: 'none', padding: '0 12px 12px 0' }}>Department</th>
+                                <th scope="col" style={{ width: '170px', border: 'none', padding: '0 0 12px 0' }}>Team</th>
                             </tr>
                         </thead>
                         <tbody style={{ gap: '6px' }}>
@@ -269,12 +289,46 @@ const TeamCard: React.FC<{ team: Team; onEditTeam: (team: Team) => void }> = ({ 
                                         >
                                             {member?.employee?.departments?.name || '-'}
                                         </td>
+
+                                        <td
+                                            style={{
+                                                border: 'none',
+                                                padding: '3px 0',
+                                                verticalAlign: 'middle',
+                                            }}
+                                        >
+                                            <select
+                                                className="form-select form-select-sm"
+                                                value={team.id}
+                                                disabled={!member.employeeId || movingId === String(member.employeeId)}
+                                                onChange={(e) => {
+                                                    if (member.employeeId && e.target.value !== team.id) {
+                                                        onMoveMember(member.employeeId, e.target.value);
+                                                    }
+                                                }}
+                                                title="Change this member's team"
+                                                style={{
+                                                    minWidth: '150px',
+                                                    fontFamily: 'Inter',
+                                                    fontSize: '13px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid #c1c9d6',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                {allTeams.map((t) => (
+                                                    <option key={t.id} value={t.id}>
+                                                        {t.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
                                     <td
-                                        colSpan={6}
+                                        colSpan={7}
                                         style={{
                                             textAlign: 'center',
                                             padding: '12px',
@@ -303,12 +357,17 @@ const TasksMainCalenderPage = () => {
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(5)
     const [searchTerm, setSearchTerm] = useState('')
-    const [pagination, setPagination] = useState({
-        total: 0,
-        totalPages: 0,
-        hasNextPage: false,
-        hasPrevPage: false
-    })
+
+    // Org / branch / department filters (client-side, over each team's members).
+    const [orgOptions, setOrgOptions] = useState<FilterOption[]>([])
+    const [branchOptions, setBranchOptions] = useState<FilterOption[]>([])
+    const [deptOptions, setDeptOptions] = useState<FilterOption[]>([])
+    const [orgFilter, setOrgFilter] = useState('')
+    const [branchFilter, setBranchFilter] = useState('')
+    const [deptFilter, setDeptFilter] = useState('')
+
+    // Employee id currently being moved to another team (disables its row control).
+    const [movingId, setMovingId] = useState<string | null>(null)
 
     const handleAddTeam = () => {
         setSelectedTeam(null)
@@ -320,116 +379,87 @@ const TasksMainCalenderPage = () => {
         setShowTeamForm(true)
     }
 
-    const getAllTeamsData = async (page: number = 1, limit: number = 5) => {
+    const getAllTeamsData = async () => {
         try {
-            console.log("=== FETCHING TEAMS DATA ===")
-            console.log(`Fetching page ${page} with limit ${limit}`)
-
-            // Fetch teams with pagination and team members separately
+            // Load every team (filtering + pagination happen client-side) plus all members.
             const [teamsResponse, membersResponse] = await Promise.all([
-                getAllTeams(page, limit),
-                getAllTeamsMember()
+                getAllTeams(1, 1000),
+                getAllTeamsMember(),
             ]);
 
-            console.log("Teams API response:", teamsResponse.data);
-            console.log("Members API response:", membersResponse.data);
-
-            const teams = teamsResponse.data?.teams || [];
-            const paginationData = teamsResponse.data?.pagination || {
-                total: 0,
-                totalPages: 0,
-                page: 1,
-                limit: 5,
-                hasNextPage: false,
-                hasPrevPage: false
-            };
+            const teamsList = teamsResponse.data?.teams || [];
             const allMembers = membersResponse.data?.teamMembers || [];
 
-            console.log("Pagination data:", paginationData);
-            console.log("Raw teams from API:", teams.length);
-            console.log("Raw members from API:", allMembers.length);
-            console.log("Sample member structure:", allMembers[0]);
-
-            // Update pagination state
-            setPagination({
-                total: paginationData.total,
-                totalPages: paginationData.totalPages,
-                hasNextPage: paginationData.hasNextPage,
-                hasPrevPage: paginationData.hasPrevPage
-            });
-
-            // Debug: Log each member to understand structure
-            allMembers.forEach((member: any, index: number) => {
-                if (index < 3) { // Only log first 3 to avoid spam
-                    console.log(`Member ${index}:`, {
-                        id: member.id,
-                        teamId: member.teamId,
-                        team_id: member.team_id,
-                        employee: member.employee,
-                        structure: Object.keys(member)
-                    });
-                }
-            });
-
-            // Group members by team ID (try multiple possible field names)
-            const membersByTeam = new Map();
+            // Single source of truth = employees.teamId. Only show a membership
+            // while the employee's OWN teamId still agrees with the row, so stale
+            // team_members rows (from older add/remove flows) never appear.
+            const membersByTeam = new Map<string, any[]>();
             allMembers.forEach((member: any) => {
-                // Try different possible field names for team ID
-                let teamId = member.teamId || member.team_id || member.teamID || member.Team_ID;
-
-                // Also check if it's nested in team object
-                if (!teamId && member.team) {
-                    teamId = member.team.id || member.team.ID;
-                }
-
-                console.log(`Processing member ${member.id} with teamId: ${teamId} (full member:`, member, `)`);
-
-                if (teamId) {
-                    // Convert teamId to string to ensure consistent comparison
-                    const teamIdStr = String(teamId);
-                    if (!membersByTeam.has(teamIdStr)) {
-                        membersByTeam.set(teamIdStr, []);
-                    }
-                    membersByTeam.get(teamIdStr).push(member);
-                } else {
-                    console.warn('Member missing team ID:', member);
-                }
+                const rowTeamId = member?.teamId ? String(member.teamId) : '';
+                const empTeamId = member?.employee?.teamId ? String(member.employee.teamId) : '';
+                if (!rowTeamId || rowTeamId !== empTeamId) return;
+                if (!membersByTeam.has(rowTeamId)) membersByTeam.set(rowTeamId, []);
+                membersByTeam.get(rowTeamId)!.push(member);
             });
 
-            console.log("Members grouped by team:", Object.fromEntries(membersByTeam));
+            const teamsWithMembers = teamsList.map((team: any) => ({
+                ...team,
+                members: membersByTeam.get(String(team.id)) || [],
+            }));
 
-            // Combine teams with their members
-            const teamsWithMembers = teams.map((team: any) => {
-                // Convert team ID to string for consistent comparison
-                const teamIdStr = String(team.id);
-                const teamMembers = membersByTeam.get(teamIdStr) || [];
-
-                console.log(`=== TEAM MEMBER MAPPING ===`);
-                console.log(`Team: ${team.name} (ID: ${teamIdStr})`);
-                console.log(`Available team IDs in members:`, Array.from(membersByTeam.keys()));
-                console.log(`Found ${teamMembers.length} members for this team:`, teamMembers);
-
-                return {
-                    ...team,
-                    members: teamMembers
-                };
-            });
-
-            console.log("=== FINAL TEAMS WITH MEMBERS ===");
-            teamsWithMembers.forEach((team: any) => {
-                console.log(`${team.name}: ${team.members.length} members`, team.members);
-            });
-
-            console.log("Calling setTeams with:", teamsWithMembers);
             setTeams(teamsWithMembers);
-            console.log("Teams state updated with", teamsWithMembers.length, "teams")
         } catch (error) {
             console.log("Error fetching teams data:", error);
         }
     }
+
+    const loadFilterOptions = async () => {
+        try {
+            const [orgRes, branchRes, deptRes] = await Promise.all([
+                fetchOrganizationTree(),
+                fetchBranches(),
+                fetchDepartments(),
+            ]);
+
+            // Flatten the org hierarchy (roots + sub-orgs) so any node can match an
+            // employee's companyId — onboarding stores org OR sub-org there.
+            const flatOrgs: FilterOption[] = [];
+            const walk = (nodes: any[]) =>
+                (nodes || []).forEach((n: any) => {
+                    flatOrgs.push({ value: n.id, label: n.name });
+                    walk(n.children || []);
+                });
+            walk(orgRes?.data?.organizations || []);
+            setOrgOptions(flatOrgs);
+
+            setBranchOptions((branchRes?.data?.branches || []).map((b: any) => ({ value: b.id, label: b.name })));
+            setDeptOptions((deptRes?.data?.departments || []).map((d: any) => ({ value: d.id, label: d.name })));
+        } catch (e) {
+            console.error('Failed to load Teams filters', e);
+        }
+    }
+
     useEffect(() => {
-        getAllTeamsData(currentPage, itemsPerPage);
-    }, [currentPage, itemsPerPage]);
+        let cancelled = false;
+        async function init() {
+            // One-time reconcile per session: make team_members exactly mirror the
+            // employees.teamId source of truth (create missing, delete stale rows).
+            if (!sessionStorage.getItem('wt_team_reconcile_v2')) {
+                try { await backfillTeamMemberships(); } catch { /* best-effort */ }
+                sessionStorage.setItem('wt_team_reconcile_v2', '1');
+            }
+            await loadFilterOptions();
+            if (!cancelled) await getAllTeamsData();
+        }
+        init();
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Snap back to the first page whenever the active filters change.
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, orgFilter, branchFilter, deptFilter]);
     // useEffect(() =>{ 
 
     //     getAllTeams().then((data) => {
@@ -446,29 +476,9 @@ const TasksMainCalenderPage = () => {
 
 
 
-    const handleSaveTeam = (teamData: Partial<Team>) => {
-        console.log("=== HANDLE SAVE TEAM ===")
-        console.log("Received teamData:", teamData)
-        console.log("Team ID:", teamData.id)
-        console.log("Team name:", teamData.name)
-        console.log("Team members count:", teamData.members?.length || 0)
-        console.log("Team members data:", teamData.members)
-
-        // For both create and update, the TeamForm already called the respective APIs
-        // Just refresh the teams list to get the latest data from server
-        console.log("Refreshing teams data from server...")
-        getAllTeamsData(currentPage, itemsPerPage).then(() => {
-            console.log("=== TEAMS DATA REFRESH COMPLETE ===")
-
-            // Add a small delay to ensure state is updated, then log final state
-            setTimeout(() => {
-                console.log("=== FINAL STATE CHECK ===")
-                console.log("Total teams in state:", teams.length)
-                teams.forEach((team: any, index: number) => {
-                    console.log(`State[${index}] ${team.name}: ${team.members?.length || 0} members`, team.members);
-                });
-            }, 100);
-
+    const handleSaveTeam = (_teamData?: any) => {
+        // TeamForm already called the create/update APIs; just refresh from server.
+        getAllTeamsData().then(() => {
             setShowTeamForm(false)
             setSelectedTeam(null)
         }).catch(error => {
@@ -476,8 +486,8 @@ const TasksMainCalenderPage = () => {
         })
     }
 
-    const handleDeleteTeam = (teamId: string) => {
-        getAllTeamsData(currentPage, itemsPerPage).then(() => {
+    const handleDeleteTeam = (_teamId: string) => {
+        getAllTeamsData().then(() => {
             setShowTeamForm(false)
             setSelectedTeam(null)
         }).catch(error => {
@@ -485,34 +495,69 @@ const TasksMainCalenderPage = () => {
         })
     }
 
-    // Filter teams based on search term (client-side filtering for now)
-    const filteredTeams = teams.filter(team => {
-        // If no search term, show all teams
-        if (!searchTerm || !searchTerm.trim()) {
-            return true;
+    // Move a member to another team (one team per employee). Flows through the
+    // backend sync so the employee's onboarding team assignment stays consistent.
+    const handleMoveMember = async (employeeId: string, teamId: string) => {
+        try {
+            setMovingId(String(employeeId))
+            await moveEmployeeTeam(employeeId, teamId)
+            await getAllTeamsData()
+        } catch (e) {
+            console.error('Failed to move team member', e)
+        } finally {
+            setMovingId(null)
         }
+    }
 
+    // Team options for the per-member "change team" dropdown.
+    const teamSelectOptions = useMemo(
+        () => teams.map((t) => ({ id: t.id, name: t.name })),
+        [teams]
+    );
+
+    // Filter teams by name (search) and by member org / branch / department.
+    const memberFilterActive = !!(orgFilter || branchFilter || deptFilter);
+    const matchesMemberFilters = (m: any) => {
+        if (orgFilter && m?.employee?.companyId !== orgFilter) return false;
+        if (branchFilter && m?.employee?.branchId !== branchFilter) return false;
+        if (deptFilter && m?.employee?.departmentId !== deptFilter) return false;
+        return true;
+    };
+
+    const filteredTeams = useMemo(() => {
         const searchLower = searchTerm.toLowerCase().trim();
-        const teamName = (team.name || '').toLowerCase();
+        return teams
+            .map((team) => ({
+                ...team,
+                members: memberFilterActive
+                    ? (team.members || []).filter(matchesMemberFilters)
+                    : (team.members || []),
+            }))
+            .filter((team) => {
+                if (searchLower && !(team.name || '').toLowerCase().includes(searchLower)) return false;
+                // Hide teams with no matching members while a member filter is active.
+                if (memberFilterActive && (team.members || []).length === 0) return false;
+                return true;
+            });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [teams, searchTerm, orgFilter, branchFilter, deptFilter]);
 
-        // Only search in team name
-        return teamName.includes(searchLower);
-    });
+    const isFiltering = !!(searchTerm.trim() || orgFilter || branchFilter || deptFilter);
+    const clientTotalPages = Math.max(1, Math.ceil(filteredTeams.length / itemsPerPage));
+    const displayTeams = isFiltering
+        ? filteredTeams
+        : filteredTeams.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     const handlePageChange = (page: number) => {
         setCurrentPage(page)
     }
 
     const handlePrevious = () => {
-        if (pagination.hasPrevPage) {
-            setCurrentPage(prev => prev - 1)
-        }
+        if (currentPage > 1) setCurrentPage(prev => prev - 1)
     }
 
     const handleNext = () => {
-        if (pagination.hasNextPage) {
-            setCurrentPage(prev => prev + 1)
-        }
+        if (currentPage < clientTotalPages) setCurrentPage(prev => prev + 1)
     }
 
     const handleSearch = (value: string) => {
@@ -521,6 +566,13 @@ const TasksMainCalenderPage = () => {
 
     const clearSearch = () => {
         setSearchTerm('')
+    }
+
+    const clearFilters = () => {
+        setSearchTerm('')
+        setOrgFilter('')
+        setBranchFilter('')
+        setDeptFilter('')
     }
 
     return (
@@ -631,20 +683,67 @@ const TasksMainCalenderPage = () => {
                 </div>
             </div>
 
+            {/* Filters: Organization / Branch / Department */}
+            <div className="d-flex flex-wrap align-items-center mb-4" style={{ gap: '12px' }}>
+                <span style={{ fontFamily: 'Inter', fontSize: '13px', fontWeight: 600, color: '#5b6b82' }}>
+                    Filter by
+                </span>
+                <select
+                    className="form-select"
+                    value={orgFilter}
+                    onChange={(e) => setOrgFilter(e.target.value)}
+                    style={{ width: 'auto', minWidth: '190px', border: '1px solid #c1c9d6', borderRadius: '6px', fontFamily: 'Inter', fontSize: '14px', backgroundColor: '#fff' }}
+                >
+                    <option value="">All organizations</option>
+                    {orgOptions.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                </select>
+                <select
+                    className="form-select"
+                    value={branchFilter}
+                    onChange={(e) => setBranchFilter(e.target.value)}
+                    style={{ width: 'auto', minWidth: '170px', border: '1px solid #c1c9d6', borderRadius: '6px', fontFamily: 'Inter', fontSize: '14px', backgroundColor: '#fff' }}
+                >
+                    <option value="">All branches</option>
+                    {branchOptions.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                </select>
+                <select
+                    className="form-select"
+                    value={deptFilter}
+                    onChange={(e) => setDeptFilter(e.target.value)}
+                    style={{ width: 'auto', minWidth: '180px', border: '1px solid #c1c9d6', borderRadius: '6px', fontFamily: 'Inter', fontSize: '14px', backgroundColor: '#fff' }}
+                >
+                    <option value="">All departments</option>
+                    {deptOptions.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                </select>
+                {isFiltering && (
+                    <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={clearFilters}
+                        style={{ color: '#1E3A8A', border: '1px solid #1E3A8A', borderRadius: '6px', fontFamily: 'Inter', fontSize: '13px', fontWeight: 500, padding: '6px 14px', backgroundColor: 'white' }}
+                    >
+                        Clear filters
+                    </button>
+                )}
+            </div>
+
             {/* Teams List */}
             <div className="row">
                 <div className="col-12">
                     <div className="d-flex flex-column" style={{ gap: '12px' }}>
 
 
-                        {filteredTeams.length > 0 ? (
-                            filteredTeams.map((team) => {
-                                // console.log(`=== PASSING TO TEAMCARD: ${team.name} ===`);
-                                // console.log("Team object:", team);
-                                // console.log("Members array:", team.members);
-                                // console.log("Members count:", team.members?.length || 0);
-                                return <TeamCard key={team.id} team={team} onEditTeam={handleEditTeam} />;
-                            })
+                        {displayTeams.length > 0 ? (
+                            displayTeams.map((team) => (
+                                <TeamCard
+                                    key={team.id}
+                                    team={team}
+                                    allTeams={teamSelectOptions}
+                                    movingId={movingId}
+                                    onEditTeam={handleEditTeam}
+                                    onMoveMember={handleMoveMember}
+                                />
+                            ))
                         ) : (
                             <div className="text-center py-5">
                                 <p style={{
@@ -652,16 +751,16 @@ const TasksMainCalenderPage = () => {
                                     fontSize: '16px',
                                     color: '#8998AB'
                                 }}>
-                                    {searchTerm ?
-                                        `No teams found matching "${searchTerm}".` :
+                                    {isFiltering ?
+                                        'No teams match the current filters.' :
                                         'No teams found.'
                                     }
                                 </p>
-                                {searchTerm && (
+                                {isFiltering && (
                                     <button
                                         type="button"
                                         className="btn btn-link"
-                                        onClick={clearSearch}
+                                        onClick={clearFilters}
                                         style={{
                                             color: '#1E3A8A',
                                             textDecoration: 'none',
@@ -670,7 +769,7 @@ const TasksMainCalenderPage = () => {
                                             fontWeight: '500'
                                         }}
                                     >
-                                        Clear search
+                                        Clear filters
                                     </button>
                                 )}
                             </div>
@@ -680,7 +779,7 @@ const TasksMainCalenderPage = () => {
             </div>
 
             {/* Pagination Controls */}
-            {!searchTerm && pagination.totalPages > 1 && (
+            {!isFiltering && clientTotalPages > 1 && (
                 <div className="row mt-4">
                     <div className="col-12">
                         <div className="d-flex justify-content-between align-items-center">
@@ -690,18 +789,18 @@ const TasksMainCalenderPage = () => {
                                 fontSize: '14px',
                                 color: '#8998AB'
                             }}>
-                                Showing page {currentPage} of {pagination.totalPages} ({pagination.total} total teams)
+                                Showing page {currentPage} of {clientTotalPages} ({filteredTeams.length} total teams)
                             </div>
 
                             {/* Pagination Navigation */}
                             <nav aria-label="Teams pagination">
                                 <ul className="pagination mb-0" style={{ gap: '8px' }}>
                                     {/* Previous Button */}
-                                    <li className={`page-item ${!pagination.hasPrevPage ? 'disabled' : ''}`}>
+                                    <li className={`page-item ${currentPage <= 1 ? 'disabled' : ''}`}>
                                         <button
                                             className="btn"
                                             onClick={handlePrevious}
-                                            disabled={!pagination.hasPrevPage}
+                                            disabled={currentPage <= 1}
                                             style={{
                                                 border: '1px solid #c1c9d6',
                                                 borderRadius: '6px',
@@ -709,7 +808,7 @@ const TasksMainCalenderPage = () => {
                                                 fontFamily: 'Inter',
                                                 fontSize: '14px',
                                                 fontWeight: '500',
-                                                color: !pagination.hasPrevPage ? '#c1c9d6' : '#202020',
+                                                color: currentPage <= 1 ? '#c1c9d6' : '#202020',
                                                 backgroundColor: 'white'
                                             }}
                                         >
@@ -718,7 +817,7 @@ const TasksMainCalenderPage = () => {
                                     </li>
 
                                     {/* Page Numbers */}
-                                    {Array.from({ length: pagination.totalPages }, (_, index) => {
+                                    {Array.from({ length: clientTotalPages }, (_, index) => {
                                         const page = index + 1;
                                         const isActive = page === currentPage;
 
@@ -747,11 +846,11 @@ const TasksMainCalenderPage = () => {
                                     })}
 
                                     {/* Next Button */}
-                                    <li className={`page-item ${!pagination.hasNextPage ? 'disabled' : ''}`}>
+                                    <li className={`page-item ${currentPage >= clientTotalPages ? 'disabled' : ''}`}>
                                         <button
                                             className="btn"
                                             onClick={handleNext}
-                                            disabled={!pagination.hasNextPage}
+                                            disabled={currentPage >= clientTotalPages}
                                             style={{
                                                 border: '1px solid #c1c9d6',
                                                 borderRadius: '6px',
@@ -759,7 +858,7 @@ const TasksMainCalenderPage = () => {
                                                 fontFamily: 'Inter',
                                                 fontSize: '14px',
                                                 fontWeight: '500',
-                                                color: !pagination.hasNextPage ? '#c1c9d6' : '#202020',
+                                                color: currentPage >= clientTotalPages ? '#c1c9d6' : '#202020',
                                                 backgroundColor: 'white'
                                             }}
                                         >

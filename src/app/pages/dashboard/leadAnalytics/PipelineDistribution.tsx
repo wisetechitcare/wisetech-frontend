@@ -6,6 +6,8 @@ interface PipelineDistributionProps {
   rows: StatusDistributionRow[];
   /** Fired with the original status label on click / Enter (drill-down). */
   onSelect?: (label: string) => void;
+  /** Context: 'leads' | 'projects' — filters displayed statuses */
+  context?: 'leads' | 'projects';
 }
 
 /**
@@ -20,6 +22,7 @@ interface PipelineDistributionProps {
 const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
   rows,
   onSelect,
+  context = 'leads',
 }) => {
   const [hover, setHover] = useState<string | null>(null);
   const interactive = typeof onSelect === "function";
@@ -28,9 +31,21 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
     if (interactive) onSelect!(row.label);
   };
 
+  // Filter out lead-only statuses when showing projects
+  const displayRows = context === 'projects'
+    ? rows.filter(row => {
+        const label = row.label?.toLowerCase() || '';
+        // Hide lead-specific statuses: Pending, Hold (old lead status), Received, Not Received
+        return !['pending', 'received', 'not received'].includes(label) &&
+               !(label === 'hold' && row.label === 'Hold'); // Hide "Hold" if it's the lead version
+      })
+    : rows;
+
+  const entityType = context === 'projects' ? 'Projects' : 'Leads';
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {rows.map((row, i) => {
+      {displayRows.map((row, i) => {
         const isHover = hover === row.key;
         // Non-zero statuses always keep a sliver of bar so they stay visible
         // and clickable; zero statuses render an empty track.
@@ -42,7 +57,7 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
             key={row.key || i}
             role={interactive ? "button" : "group"}
             tabIndex={interactive ? 0 : -1}
-            aria-label={`${row.label}: ${row.value} leads, ${row.pct}% of total`}
+            aria-label={`${row.label}: ${row.value} ${entityType.toLowerCase()}, ${row.pct}% of total`}
             onClick={() => select(row)}
             onKeyDown={(e) => {
               if (interactive && (e.key === "Enter" || e.key === " ")) {
@@ -188,7 +203,7 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
               >
                 <strong>{row.label}</strong>
                 <br />
-                {row.value} Leads · {row.pct}% of total
+                {row.value} {entityType} · {row.pct}% of total
                 <br />
                 <span style={{ color: groupMeta(row.group).color }}>
                   {groupMeta(row.group).label}
@@ -196,7 +211,7 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
                 {interactive && (
                   <>
                     <br />
-                    <span style={{ opacity: 0.7 }}>Click to view leads →</span>
+                    <span style={{ opacity: 0.7 }}>Click to view {entityType.toLowerCase()} →</span>
                   </>
                 )}
               </motion.div>

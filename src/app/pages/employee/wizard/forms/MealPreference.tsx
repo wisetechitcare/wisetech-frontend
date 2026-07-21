@@ -1,5 +1,6 @@
 import React from "react";
 import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
+import HighlightErrors from "@app/modules/errors/components/HighlightErrors";
 import TextInput from "@app/modules/common/inputs/TextInput";
 
 const mealPreferencesRadioBtns: RadioButton[] = [
@@ -24,10 +25,14 @@ function MealPreferences({ formikProps }: any) {
                   isRequired={false}
                   radioBtns={[btn]} // one per input
                   formikField="meal"
+                  hideError // render one shared error below instead of three duplicates
                 />
               </div>
             ))}
           </div>
+
+          {/* Single error message for the whole "meal" radio group. */}
+          <HighlightErrors isRequired={false} formikField="meal" />
         </div>
       </div>
 

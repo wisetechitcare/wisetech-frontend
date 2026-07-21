@@ -368,6 +368,17 @@ export const getLeadsByCompanyTypeAnalytics = async (startDate: string, endDate:
     }
 }
 
+// Get Leads By External Referral Analytics (Client Analysis: company type / company / contact)
+export const getLeadsByExternalReferralAnalytics = async (startDate: string, endDate: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_EXTERNAL_REFERRAL_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 // Get Monthly Top Leads
 export const getMonthlyTopLeads = async (startDate: string, endDate: string, type: string) => {
     try {

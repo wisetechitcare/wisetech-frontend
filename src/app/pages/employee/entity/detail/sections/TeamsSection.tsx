@@ -1,16 +1,17 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Modal } from 'react-bootstrap';
+import Swal from 'sweetalert2';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
 import {
-  EditableDetailCard, SelectEditor, SearchableSelectEditor, DateEditor, ToggleEditor,
+  EditableDetailCard, SelectEditor, SearchableSelectEditor, DateEditor, ToggleEditor, toDateInputValue,
 } from '@app/modules/detail-page/EditableDetailCard';
 import { updateLeadSection } from '@services/leadService';
 import { getAllCompanyTypes, getAllClientCompanies, getAllClientContacts, getAllSubCompanies } from '@services/companies';
-import { getAllTeams } from '@services/projects';
+import { getAllTeams, getAllTeamsMember } from '@services/projects';
 import { EmptyState } from '../widgets';
 import { employeeNameById, fmtDate, DASH } from '../entityViewModel';
 
@@ -52,6 +53,11 @@ const seedBtn: React.CSSProperties = {
   ...addBtn, borderStyle: 'solid', borderColor: '#1E3A8A33', color: '#1E3A8A', marginLeft: 8,
 };
 
+// Roster ordering: active members first, inactive below (stable within each group).
+// Used for the read-mode table and the Change-Team review list so the split is visible.
+const sortByActive = (arr: any[]) =>
+  [...arr].sort((a, b) => (a.isActive !== false ? 0 : 1) - (b.isActive !== false ? 0 : 1));
+
 const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const allEmployees = useSelector((s: RootState) => s.allEmployees?.list) || [];
 
@@ -61,7 +67,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const team = ex.team || null;
   const teamMembers: any[] = team?.members || [];
   const internal: any[] = lead?.internalMembers || [];
-  const leadTeams: any[] = lead?.leadTeams || [];
+  // External Team roster is DECOUPLED from the lead form's Address To (lead.leadTeams).
+  // It reads its own project_external_teams rows — the lead's single Address To is
+  // mirrored in one-way as a `syncedFromLead` row, and anything edited/added here
+  // never flows back to the lead form.
+  const projectExternalTeams: any[] = lead?.projectExternalTeams || [];
 
   const empName = (id?: string | null) => employeeNameById(allEmployees, id) || id || DASH;
 
@@ -116,33 +126,160 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
     });
 
   // ── Execution team picker (also settable from Summary → Ownership). A button
-  //    opens a dialog with its own explicit Save — nothing is written until the
-  //    user confirms. Writes ONLY leadExecution.teamId via the dedicated
-  //    `executionTeam` section (so PM/status are untouched); the refetch then
-  //    re-seeds the roster from the new team's members. ──────────────────────────
+  //    opens a two-step dialog with its own explicit Save — nothing is written
+  //    until the user confirms.
+  //
+  //    Step 1 picks the team; Step 2 reviews the MERGED roster. "Change Team" no
+  //    longer re-seeds (which dropped the old members) — instead it KEEPS every
+  //    current member and ADDS the new team's members, then lets the user mark
+  //    each active/inactive with start/end dates. Save writes teamId + the merged
+  //    roster together via the `executionTeam` section, so the switch and the
+  //    roster persist in ONE revision (no 409 from two writes). ─────────────────
   const [teams, setTeams] = useState<any[]>([]);
+  // employeeIds grouped by teamId — sourced from getAllTeamsMember() since the
+  // paginated teams list doesn't embed members. Powers the merge in step 1→2.
+  const [membersByTeamId, setMembersByTeamId] = useState<Map<string, string[]>>(new Map());
   const [savingTeam, setSavingTeam] = useState(false);
   const [showTeamModal, setShowTeamModal] = useState(false);
+  const [teamStep, setTeamStep] = useState<1 | 2>(1);
   const [draftTeamId, setDraftTeamId] = useState<string>(ex.teamId || '');
+  const [rosterDraft, setRosterDraft] = useState<any[]>([]);
 
   useEffect(() => {
     getAllTeams(1, 9999).then((r: any) => setTeams(r?.data?.teams || r?.teams || [])).catch(() => {});
+    getAllTeamsMember().then((r: any) => {
+      const list = r?.data?.teamMembers || r?.teamMembers || [];
+      const map = new Map<string, string[]>();
+      list.forEach((tm: any) => {
+        const tId = String(tm.teamId || tm.team?.id || '');
+        const eId = tm.employeeId || tm.employee?.id;
+        if (!tId || !eId) return;
+        if (!map.has(tId)) map.set(tId, []);
+        map.get(tId)!.push(String(eId));
+      });
+      setMembersByTeamId(map);
+    }).catch(() => {});
   }, []);
 
   const teamOptions = useMemo(
     () => (teams || []).map((t: any) => ({ value: t.id, label: t.name || t.teamName || 'Unnamed Team' })),
     [teams],
   );
+  const selectedTeamName = useMemo(
+    () => teamOptions.find(o => String(o.value) === String(draftTeamId))?.label || 'the selected team',
+    [teamOptions, draftTeamId],
+  );
 
   const openTeamModal = () => {
     setDraftTeamId(ex.teamId || '');
+    setRosterDraft([]);
+    setTeamStep(1);
     setShowTeamModal(true);
   };
 
+  // Step 1 → 2: merge the picked team's members INTO the current roster. Existing
+  // members keep their status/dates/source; brand-new members come in Active with
+  // their start date defaulted to today (they're joining now — editable before Save).
+  // Deactivated employees are never auto-added.
+  const continueToRoster = () => {
+    if (!draftTeamId) return;
+    const today = toDateInputValue(new Date());
+    const base = displayMembers
+      .map((m: any) => ({
+        id: m.id,
+        employeeId: m.employeeId || '',
+        startDate: m.startDate || '',
+        endDate: m.endDate || '',
+        isActive: m.isActive !== false,
+        source: m.source || 'team',
+      }))
+      .filter((m: any) => m.employeeId);
+    const present = new Set(base.map((m: any) => String(m.employeeId)));
+    const additions = (membersByTeamId.get(String(draftTeamId)) || [])
+      .filter((id: string) => id && !present.has(String(id)) && isEmployeeActive(id))
+      .map((employeeId: string) => ({ employeeId, startDate: today, endDate: '', isActive: true, source: 'team', _added: true }));
+    setRosterDraft([...base, ...additions]);
+    setTeamStep(2);
+  };
+
+  const updateRosterRow = (i: number, patch: any) =>
+    setRosterDraft(prev => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  const markAllActive = (active: boolean) =>
+    setRosterDraft(prev =>
+      prev.map(m => ({
+        ...m,
+        isActive: active,
+        // Inactive → stamp today's end date (keep an existing one); Active → clear it.
+        endDate: active ? '' : (m.endDate || toDateInputValue(new Date())),
+      }))
+    );
+
+  /**
+   * Status toggle with end-date safety. Inactive stamps today's End date; Active
+   * clears it. When the row ALREADY has an End date, we don't silently overwrite —
+   * we confirm first, then let the user pick the new (today / cleared) value or keep
+   * the existing one. `apply` writes the resolved patch back to the right row.
+   */
+  const applyStatusToggle = async (
+    newActive: boolean,
+    row: any,
+    apply: (patch: { isActive: boolean; endDate: string }) => void,
+  ) => {
+    const today = toDateInputValue(new Date());
+    const autoEnd = newActive ? '' : today; // reactivating clears; inactivating stamps today
+
+    // No existing End date → apply the auto behaviour instantly, no prompt.
+    if (!row?.endDate) {
+      apply({ isActive: newActive, endDate: autoEnd });
+      return;
+    }
+
+    // There's an existing End date — confirm before touching it.
+    const confirm = await Swal.fire({
+      title: 'This will change the End date',
+      html: `This member already has an End date of <b>${fmtDate(row.endDate)}</b>. ${
+        newActive ? 'Reactivating' : 'Marking inactive'
+      } will affect it. Do you want to continue?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Continue',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#1E3A8A',
+    });
+    if (!confirm.isConfirmed) return; // leave status + end date untouched
+
+    // Let the user choose which End date to keep.
+    const choice = await Swal.fire({
+      title: 'Which End date should apply?',
+      icon: 'question',
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: newActive ? 'Clear end date' : `Use today (${fmtDate(today)})`,
+      denyButtonText: `Keep existing (${fmtDate(row.endDate)})`,
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#1E3A8A',
+    });
+    if (choice.isDismissed) return; // cancelled → no change at all
+
+    // Confirm = new/auto value; Deny = keep the existing date.
+    const endDate = choice.isConfirmed ? autoEnd : row.endDate;
+    apply({ isActive: newActive, endDate });
+  };
+
   const confirmTeamChange = () => {
-    if (draftTeamId === (ex.teamId || '') || savingTeam) return;
+    if (savingTeam || !draftTeamId) return;
     setSavingTeam(true);
-    saveSection('executionTeam', { teamId: draftTeamId || null })
+    // Persist active-first so the saved order matches how the roster reads back.
+    const members = sortByActive(rosterDraft)
+      .filter((m: any) => m.employeeId)
+      .map((m: any) => ({
+        employeeId: m.employeeId,
+        startDate: m.startDate || '',
+        endDate: m.endDate || '',
+        isActive: m.isActive !== false,
+        source: m.source === 'adhoc' ? 'adhoc' : 'team',
+      }));
+    saveSection('executionTeam', { teamId: draftTeamId || null, internalMembers: members })
       .then(() => setShowTeamModal(false))
       .catch((e: any) => {
         // eslint-disable-next-line no-alert
@@ -190,21 +327,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const persisted = internal.length > 0;
   const displayMembers: any[] = persisted ? internal : teamRoster;
 
-  // ── External roster = the lead-form company/client connections (leadTeams),
+  // ── External roster = the project's OWN stakeholders (projectExternalTeams),
   //    editable here with the SAME cascading dropdowns the lead form uses:
-  //    Company Type → Company → Sub Company → Contact Person. ──────────────────
-  const stakeholders = useMemo(
-    () => leadTeams.map((t: any) => ({
-      name: t?.company?.companyName || t?.subCompany?.subCompanyName || DASH,
-      companyAvatar: t?.company?.companyLogo || t?.company?.logo || null,
-      type: t?.companyType?.name || '',
-      subCompany: t?.subCompany?.subCompanyName || '',
-      contact: t?.contact?.fullName || '',
-      contactAvatar: t?.contact?.profilePhoto || t?.contact?.avatar || t?.contact?.users?.avatar || null,
-      phone: t?.contact?.phone || t?.company?.phone || '',
-    })),
-    [leadTeams],
-  );
+  //    Company Type → Company → Sub Company → Contact Person. FKs are scalar, so
+  //    display names are resolved from the loaded masters (stakeholders memo,
+  //    defined below the resolver maps). ───────────────────────────────────────
 
   // Cascade option sources (mirrors the lead form's Address To widget). We load
   // the FULL contact + sub-company masters up front (like the lead form) so any
@@ -229,14 +356,64 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const subCompanyById = useMemo(() => new Map(allSubCompanies.map((s: any) => [String(s.id), s])), [allSubCompanies]);
   const contactById = useMemo(() => new Map(allContacts.map((c: any) => [String(c.id), c])), [allContacts]);
   const companyNameById = useMemo(() => new Map(companies.map((c: any) => [String(c.id), c.companyName])), [companies]);
+  const companyTypeById = useMemo(() => new Map(companyTypes.map((t: any) => [String(t.id), t])), [companyTypes]);
+
+  // External roster view model — resolves scalar FKs (companyTypeId/companyId/
+  // subCompanyId/contactId) against the loaded masters. `syncedFromLead` marks the
+  // row mirrored one-way from the lead's Address To.
+  const stakeholders = useMemo(
+    () =>
+      projectExternalTeams
+        .map((t: any) => {
+          const company = companyById.get(String(t.companyId));
+          const subCompany = subCompanyById.get(String(t.subCompanyId));
+          const contact = contactById.get(String(t.contactId));
+          const companyType = companyTypeById.get(String(t.companyTypeId));
+          return {
+            name: company?.companyName || subCompany?.subCompanyName || subCompany?.name || DASH,
+            companyAvatar: company?.companyLogo || company?.logo || null,
+            type: companyType?.name || '',
+            subCompany: subCompany?.subCompanyName || subCompany?.name || '',
+            contact: contact?.fullName || contact?.name || '',
+            contactAvatar: contact?.profilePhoto || contact?.avatar || contact?.users?.avatar || null,
+            designation: contact?.roleInCompany || '',
+            phone: contact?.phone || company?.phone || '',
+            startDate: t?.startDate || '',
+            endDate: t?.endDate || '',
+            isActive: t?.isActive !== false,
+            syncedFromLead: t?.syncedFromLead === true,
+          };
+        })
+        // Active before Inactive, then company/client name A→Z within each group.
+        .sort((a, b) => {
+          const aActive = a.isActive ? 0 : 1;
+          const bActive = b.isActive ? 0 : 1;
+          if (aActive !== bActive) return aActive - bActive;
+          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        }),
+    [projectExternalTeams, companyById, subCompanyById, contactById, companyTypeById],
+  );
 
   const byLabel = (a: { label: string }, b: { label: string }) =>
     a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
 
-  const companyTypeOptions = useMemo(
-    () => companyTypes.map((t: any) => ({ value: t.id, label: t.name })).sort(byLabel),
-    [companyTypes],
-  );
+  // Company Type dropdown — TOP-LEVEL (main) types only, matching the Company
+  // form. A type is a sub-type/service when its parentTypeId points to a valid
+  // top-level parent; those are excluded. Orphans (missing/invalid parent) are
+  // kept so nothing silently disappears.
+  const companyTypeOptions = useMemo(() => {
+    const typeById = new Map(companyTypes.map((t: any) => [t.id, t]));
+    const parentIsTopLevel = (pid: any) => {
+      const p = typeById.get(pid);
+      return !!p && (!p.parentTypeId || !typeById.has(p.parentTypeId));
+    };
+    const isSub = (t: any) =>
+      !!(t.parentTypeId && typeById.has(t.parentTypeId) && parentIsTopLevel(t.parentTypeId));
+    return companyTypes
+      .filter((t: any) => !isSub(t))
+      .map((t: any) => ({ value: t.id, label: t.name }))
+      .sort(byLabel);
+  }, [companyTypes]);
   const companyOptionsFor = (typeId?: string) => companies
     .filter((c: any) => !typeId || c.companyTypeId === typeId)
     .map((c: any) => ({ 
@@ -299,7 +476,8 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             values={{
               // Seed the edit draft from persisted members, or the live team roster
               // when nothing's saved yet — so the first Edit already lists the team.
-              internalMembers: displayMembers.map(m => ({
+              // Active first, inactive below (matches the read table + roster save order).
+              internalMembers: sortByActive(displayMembers).map(m => ({
                 id: m.id,
                 employeeId: m.employeeId || '',
                 startDate: m.startDate || '',
@@ -314,14 +492,17 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
               const rows: any[] = draft.internalMembers || [];
               const update = (i: number, patch: any) => { const next = [...rows]; next[i] = { ...next[i], ...patch }; set({ internalMembers: next }); };
               const remove = (i: number) => set({ internalMembers: rows.filter((_, idx) => idx !== i) });
-              const add = () => set({ internalMembers: [...rows, { employeeId: '', startDate: '', endDate: '', isActive: true, source: 'adhoc' }] });
+              // New rows default their start date to today (member joining now);
+              // the date stays editable before Save.
+              const add = () => set({ internalMembers: [...rows, { employeeId: '', startDate: toDateInputValue(new Date()), endDate: '', isActive: true, source: 'adhoc' }] });
               const seedFromTeam = () => {
+                const today = toDateInputValue(new Date());
                 const present = new Set(rows.map(r => r.employeeId).filter(Boolean));
                 const toAdd = teamMembers
                   .map((tm: any) => tm.employeeId)
                   // Don't seed deactivated employees onto the roster.
                   .filter((id: string) => id && !present.has(id) && isEmployeeActive(id))
-                  .map((employeeId: string) => ({ employeeId, startDate: '', endDate: '', isActive: true, source: 'team' }));
+                  .map((employeeId: string) => ({ employeeId, startDate: today, endDate: '', isActive: true, source: 'team' }));
                 if (toAdd.length) set({ internalMembers: [...rows, ...toAdd] });
               };
 
@@ -388,7 +569,19 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                           <tr>{['Employee', 'Start Date', 'End Date', 'Status', 'Source'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
                         </thead>
                         <tbody>
-                          {displayMembers.map((m, i) => (
+                          {[...displayMembers]
+                            .sort((a, b) => {
+                              // Active before Inactive, then employee name A→Z within each group.
+                              const aActive = a.isActive !== false ? 0 : 1;
+                              const bActive = b.isActive !== false ? 0 : 1;
+                              if (aActive !== bActive) return aActive - bActive;
+                              return empName(a.employeeId).localeCompare(
+                                empName(b.employeeId),
+                                undefined,
+                                { sensitivity: 'base' }
+                              );
+                            })
+                            .map((m, i) => (
                             <tr key={m.id || m.employeeId || i}>
                               <td style={tdName}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -435,7 +628,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <div style={{ flex: 2, minWidth: 160 }}><SearchableSelectEditor value={m.employeeId} options={employeeOptions} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" formatOptionLabel={formatEmployeeOption} /></div>
                         <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.startDate} onChange={v => update(i, { startDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.endDate} onChange={v => update(i, { endDate: v })} /></div>
-                        <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={m.isActive !== false} onChange={v => update(i, { isActive: v })} onLabel="Active" offLabel="Inactive" /></div>
+                        <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={m.isActive !== false} onChange={v => applyStatusToggle(v, m, patch => update(i, patch))} onLabel="Active" offLabel="Inactive" /></div>
                         <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
                       </div>
                     ))}
@@ -454,34 +647,131 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       </div>
 
       {/* Execution-team dialog: opened by the "Assign/Change Team" button above.
-          Nothing is written until Save is clicked. */}
-      <Modal show={showTeamModal} onHide={() => !savingTeam && setShowTeamModal(false)} centered>
+          Two steps — (1) pick the team, (2) review the merged roster & set each
+          member active/inactive. Nothing is written until Save on step 2. */}
+      <Modal show={showTeamModal} onHide={() => !savingTeam && setShowTeamModal(false)} centered scrollable size={teamStep === 2 ? 'lg' : undefined}>
         <Modal.Header closeButton>
-          <Modal.Title style={{ fontSize: 14, fontWeight: 600 }}>Assign Execution Team</Modal.Title>
+          <Modal.Title style={{ fontSize: 14, fontWeight: 600 }}>
+            {teamStep === 1 ? (team?.name ? 'Change Execution Team' : 'Assign Execution Team') : 'Review Team Members'}
+            <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: '#94A3B8' }}>Step {teamStep} of 2</span>
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body style={{ padding: 16 }}>
-          <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            Execution Team
-          </div>
-          <SearchableSelectEditor value={draftTeamId} options={teamOptions} onChange={setDraftTeamId} placeholder="Select execution team" />
-          <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#94A3B8', marginTop: 10 }}>
-            Changing the team re-seeds the Internal Team roster from the new team's members. Project Manager and Status are unaffected.
-          </div>
-        </Modal.Body>
-        <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6' }}>
-          <button type="button" className="btn btn-light btn-sm" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={confirmTeamChange}
-            disabled={savingTeam || draftTeamId === (ex.teamId || '')}
-            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
-          >
-            {savingTeam ? 'Saving...' : 'Save'}
-          </button>
-        </Modal.Footer>
+
+        {teamStep === 1 ? (
+          <>
+            <Modal.Body style={{ padding: 16 }}>
+              <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                Execution Team
+              </div>
+              <SearchableSelectEditor value={draftTeamId} options={teamOptions} onChange={setDraftTeamId} placeholder="Select execution team" />
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, padding: '10px 12px', borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe', fontFamily: 'Inter', fontSize: 12.5, color: '#1e40af' }}>
+                <i className="bi bi-info-circle" style={{ marginTop: 1 }} />
+                <span>
+                  Members already on this project are <strong>kept</strong>. The selected team's members are <strong>added</strong> to the roster.
+                  On the next step you can mark anyone active or inactive. Project Manager and Status are unaffected.
+                </span>
+              </div>
+            </Modal.Body>
+            <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6' }}>
+              <button type="button" className="btn btn-light btn-sm" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={continueToRoster}
+                disabled={!draftTeamId}
+                style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
+              >
+                Continue <i className="bi bi-arrow-right" />
+              </button>
+            </Modal.Footer>
+          </>
+        ) : (
+          <>
+            <Modal.Body style={{ padding: 16 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+                <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#475569' }}>
+                  Roster for <strong style={{ color: '#1E293B' }}>{selectedTeamName}</strong> — mark everyone as active, or inactivate specific members below.
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={() => markAllActive(true)} style={{ ...addBtn, marginTop: 0, borderColor: '#16a34a55', color: '#15803d' }}>
+                    <i className="bi bi-check-all" /> Mark all active
+                  </button>
+                  <button type="button" onClick={() => markAllActive(false)} style={{ ...addBtn, marginTop: 0 }}>
+                    <i className="bi bi-slash-circle" /> Mark all inactive
+                  </button>
+                </div>
+              </div>
+
+              {rosterDraft.length === 0 ? (
+                <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '16px 0' }}>
+                  {selectedTeamName} has no members to add, and this project has no members yet.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ display: 'flex', gap: 8, padding: '0 0 6px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    <div style={{ flex: 2, minWidth: 180 }}>Employee</div>
+                    <div style={{ flex: 1, minWidth: 120 }}>Start</div>
+                    <div style={{ flex: 1, minWidth: 120 }}>End</div>
+                    <div style={{ flex: 1, minWidth: 120 }}>Status</div>
+                  </div>
+                  {(() => {
+                    const sorted = rosterDraft
+                      .map((m, i) => ({ m, i }))
+                      .sort((a, b) => (a.m.isActive !== false ? 0 : 1) - (b.m.isActive !== false ? 0 : 1));
+                    const firstInactive = sorted.findIndex(x => x.m.isActive === false);
+                    return sorted.map((x, pos) => (
+                      <React.Fragment key={x.m.employeeId || x.i}>
+                        {pos === firstInactive && firstInactive > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 4px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            <span>Inactive</span>
+                            <span style={{ flex: 1, height: 1, background: '#EEF2F6' }} />
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9', opacity: x.m.isActive === false ? 0.75 : 1 }}>
+                          <div style={{ flex: 2, minWidth: 180, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <img
+                              src={empAvatar(x.m.employeeId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(empName(x.m.employeeId) === DASH ? '?' : empName(x.m.employeeId))}&background=eeeeee&color=888888&size=20&rounded=true`}
+                              alt=""
+                              style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                            />
+                            <span style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName(x.m.employeeId)}</span>
+                            <span style={{ fontFamily: 'Inter', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, whiteSpace: 'nowrap', ...(x.m._added ? { background: '#dbeafe', color: '#1e40af' } : { background: '#F1F5F9', color: '#64748B' }) }}>
+                              {x.m._added ? 'New' : 'Existing'}
+                            </span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.startDate} onChange={v => updateRosterRow(x.i, { startDate: v })} /></div>
+                          <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.endDate} onChange={v => updateRosterRow(x.i, { endDate: v })} /></div>
+                          <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={x.m.isActive !== false} onChange={v => applyStatusToggle(v, x.m, patch => updateRosterRow(x.i, patch))} onLabel="Active" offLabel="Inactive" /></div>
+                        </div>
+                      </React.Fragment>
+                    ));
+                  })()}
+                </div>
+              )}
+            </Modal.Body>
+            <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6', justifyContent: 'space-between' }}>
+              <button type="button" className="btn btn-light btn-sm" onClick={() => setTeamStep(1)} disabled={savingTeam}>
+                <i className="bi bi-arrow-left" /> Back
+              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn btn-light btn-sm" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={confirmTeamChange}
+                  disabled={savingTeam || !draftTeamId}
+                  style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
+                >
+                  {savingTeam ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </Modal.Footer>
+          </>
+        )}
       </Modal>
 
       {/* Project-manager dialog: opened by the "Assign/Change Manager" button above.
@@ -524,23 +814,37 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             icon="bi bi-buildings"
             accentColor="purple"
             values={{
-              leadTeams: leadTeams.map((t: any) => ({
+              // Active first, inactive below — same ordering as the read table.
+              // Sourced from the project's own rows (scalar FKs), NOT the lead form.
+              leadTeams: sortByActive(projectExternalTeams).map((t: any) => ({
                 id: t.id,
-                companyTypeId: t?.companyType?.id || t?.companyTypeId || '',
-                companyId: t?.company?.id || t?.companyId || '',
-                subCompanyId: t?.subCompany?.id || t?.subCompanyId || '',
-                contactId: t?.contact?.id || t?.contactId || '',
+                companyTypeId: t?.companyTypeId || '',
+                companyId: t?.companyId || '',
+                subCompanyId: t?.subCompanyId || '',
+                contactId: t?.contactId || '',
+                startDate: t?.startDate || '',
+                endDate: t?.endDate || '',
+                isActive: t?.isActive !== false,
+                syncedFromLead: t?.syncedFromLead === true,
               })),
             }}
             onSave={d => saveSection('externalTeam', {
-              leadTeams: (d.leadTeams || []).filter((t: any) => t.companyTypeId || t.companyId || t.subCompanyId || t.contactId),
+              leadTeams: (d.leadTeams || [])
+                .filter((t: any) => t.companyTypeId || t.companyId || t.subCompanyId || t.contactId)
+                .map((t: any) => ({
+                  ...t,
+                  startDate: t.startDate || '',
+                  endDate: t.endDate || '',
+                  isActive: t.isActive !== false,
+                  syncedFromLead: t.syncedFromLead === true,
+                })),
             })}
           >
             {({ editing, draft, set }) => {
               const rows: any[] = draft.leadTeams || [];
               const update = (i: number, patch: any) => { const next = [...rows]; next[i] = { ...next[i], ...patch }; set({ leadTeams: next }); };
               const remove = (i: number) => set({ leadTeams: rows.filter((_, idx) => idx !== i) });
-              const add = () => set({ leadTeams: [...rows, { companyTypeId: '', companyId: '', subCompanyId: '', contactId: '' }] });
+              const add = () => set({ leadTeams: [...rows, { companyTypeId: '', companyId: '', subCompanyId: '', contactId: '', startDate: '', endDate: '', isActive: true, syncedFromLead: false }] });
               // Forward cascade: picking a company back-fills its type and resets dependents.
               const onCompanyChange = (i: number, companyId: string) => {
                 const company = companyById.get(String(companyId));
@@ -582,18 +886,23 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter' }}>
-                      <thead><tr>{['Company / Client', 'Type', 'Sub Company', 'Contact', 'Phone'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
+                      <thead><tr>{['Company / Client', 'Type', 'Sub Company', 'Contact', 'Designation', 'Phone', 'Start Date', 'End Date', 'Status'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
                       <tbody>
                         {stakeholders.map((s, i) => (
                           <tr key={i}>
                             <td style={tdName}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <img 
+                                <img
                                   src={s.companyAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name === DASH ? 'C' : s.name)}&background=eeeeee&color=888888&size=20&rounded=true`}
                                   alt=""
                                   style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
                                 />
                                 {s.name}
+                                {s.syncedFromLead && (
+                                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: '#ede9fe', color: '#6d28d9', whiteSpace: 'nowrap' }}>
+                                    From Lead
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td style={td}>{s.type || DASH}</td>
@@ -601,7 +910,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                             <td style={td}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 {s.contact !== DASH && s.contact !== '' && (
-                                  <img 
+                                  <img
                                     src={s.contactAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.contact)}&background=eeeeee&color=888888&size=20&rounded=true`}
                                     alt=""
                                     style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
@@ -610,7 +919,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                                 {s.contact || DASH}
                               </div>
                             </td>
+                            <td style={td}>{s.designation || DASH}</td>
                             <td style={td}>{s.phone || DASH}</td>
+                            <td style={td}>{s.startDate ? fmtDate(s.startDate) : DASH}</td>
+                            <td style={td}>{s.endDate ? fmtDate(s.endDate) : DASH}</td>
+                            <td style={td}><DetailStatusBadge status={s.isActive ? 'Active' : 'Inactive'} color={s.isActive ? '#16a34a' : '#94A3B8'} /></td>
                           </tr>
                         ))}
                       </tbody>
@@ -628,6 +941,10 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <div style={{ flex: 1, minWidth: 150 }}>Company</div>
                         <div style={{ flex: 1, minWidth: 150 }}>Sub Company</div>
                         <div style={{ flex: 1, minWidth: 150 }}>Contact Person</div>
+                        <div style={{ flex: 1, minWidth: 130 }}>Designation</div>
+                        <div style={{ flex: 1, minWidth: 120 }}>Start</div>
+                        <div style={{ flex: 1, minWidth: 120 }}>End</div>
+                        <div style={{ flex: 1, minWidth: 110 }}>Status</div>
                         <div style={{ width: 32 }} />
                       </div>
                     )}
@@ -635,12 +952,46 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                       <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '8px 0 12px' }}>No client company linked yet — add one below.</div>
                     )}
                     {rows.map((t, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
-                        <div style={{ flex: 1, minWidth: 140 }}><SearchableSelectEditor value={t.companyTypeId} options={companyTypeOptions} onChange={v => update(i, { companyTypeId: v })} placeholder="Select type" /></div>
-                        <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" showColor /></div>
-                        <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => onSubCompanyChange(i, v)} placeholder="Select sub company" /></div>
-                        <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => onContactChange(i, v)} placeholder="Select contact" showColor /></div>
-                        <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
+                      <div key={i} style={{ borderBottom: '1px solid #F4F6F9', padding: '4px 0 8px' }}>
+                        {t.syncedFromLead && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 4px' }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: '#ede9fe', color: '#6d28d9' }}>From Lead</span>
+                            <span style={{ fontFamily: 'Inter', fontSize: 11, color: '#94A3B8' }}>Synced from the lead's Address To · edits here won't change the lead</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <div style={{ flex: 1, minWidth: 140 }}><SearchableSelectEditor value={t.companyTypeId} options={companyTypeOptions} onChange={v => update(i, { companyTypeId: v })} placeholder="Select type" /></div>
+                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" showColor /></div>
+                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => onSubCompanyChange(i, v)} placeholder="Select sub company" /></div>
+                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => onContactChange(i, v)} placeholder="Select contact" showColor /></div>
+                          <div style={{ flex: 1, minWidth: 130 }}>
+                            {/* Auto-fetched from the selected contact's Role in Company. */}
+                            <div
+                              title="Auto-filled from the selected contact"
+                              style={{
+                                minHeight: 38,
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '6px 12px',
+                                borderRadius: 8,
+                                border: '1px solid #EDF1F7',
+                                background: '#F8FAFC',
+                                fontFamily: 'Inter',
+                                fontSize: 13,
+                                color: contactById.get(String(t.contactId))?.roleInCompany ? '#334155' : '#94A3B8',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {contactById.get(String(t.contactId))?.roleInCompany || 'Select a contact'}
+                            </div>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.startDate} onChange={v => update(i, { startDate: v })} /></div>
+                          <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.endDate} onChange={v => update(i, { endDate: v })} /></div>
+                          <div style={{ flex: 1, minWidth: 110 }}><ToggleEditor value={t.isActive !== false} onChange={v => applyStatusToggle(v, t, patch => update(i, patch))} onLabel="Active" offLabel="Inactive" /></div>
+                          <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
+                        </div>
                       </div>
                     ))}
                   </div>

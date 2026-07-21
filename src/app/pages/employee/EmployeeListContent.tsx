@@ -6,7 +6,7 @@ import { fetchAllEmployees } from "@services/employee";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { getAvatar } from "@utils/avatar";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { hasPermission } from "@utils/authAbac";
 import { usePermission } from "@hooks/usePermission";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -45,6 +45,16 @@ const EmployeeListContent = () => {
 
   const navigate = useNavigate();
 
+  // Parse "X Years Y Months" to total months for sorting.
+  const parseExperienceToMonths = (exp: string | null | undefined): number => {
+    if (!exp) return 0;
+    const match = exp.match(/(\d+)\s+Years?\s+(\d+)\s+Months?/i);
+    if (match) {
+      return parseInt(match[1], 10) * 12 + parseInt(match[2], 10);
+    }
+    return 0;
+  };
+
   // Save current page to sessionStorage whenever it changes
   useEffect(() => {
     sessionStorage.setItem('employeeListPage', currentPage.toString());
@@ -76,34 +86,32 @@ const EmployeeListContent = () => {
   // panel; users can still toggle any column, and their choice persists.
   const baseColumns = useMemo(() => [
     {
-      accessorKey: "avatar",
-      header: "Profile Photo",
-      meta: { defaultVisible: false },
-      Cell: ({ row }: any) => (
-        <img
-          src={getAvatar(row.original.avatar, row.original.gender)}
-          alt="Avatar"
-          style={{ width: 50, height: 50, borderRadius: "50%" }}
-        />
-      ),
-    },
-    {
       accessorKey: "users",
       header: "Name",
       Cell: ({ renderedCellValue, row }: any) => (
-        <button
-          className="btn btn-link p-0 text-start text-decoration-none"
-          style={{
-            color: "inherit",
-            fontWeight: "600",
-            fontSize: "14px",
-          }}
-          onClick={() => {
-            navigate(`/employees/${row.original.id}`);
-          }}
-        >
-          {renderedCellValue}
-        </button>
+        <div className="d-flex align-items-center gap-3">
+          <SmartAvatar
+            name={row.original.users}
+            id={row.original.id}
+            imageUrl={row.original.avatar}
+            size={40}
+            imageFit="cover"
+            status={row.original.employeeStatus === "Active" ? "active" : "inactive"}
+          />
+          <button
+            className="btn btn-link p-0 text-start text-decoration-none"
+            style={{
+              color: "inherit",
+              fontWeight: "600",
+              fontSize: "14px",
+            }}
+            onClick={() => {
+              navigate(`/employees/${row.original.id}`);
+            }}
+          >
+            {renderedCellValue}
+          </button>
+        </div>
       ),
     },
     {
@@ -119,6 +127,11 @@ const EmployeeListContent = () => {
     {
       accessorKey: "experience",
       header: "Total Experience",
+      sortingFn: (rowA: any, rowB: any) => {
+        const monthsA = parseExperienceToMonths(rowA.getValue("experience"));
+        const monthsB = parseExperienceToMonths(rowB.getValue("experience"));
+        return monthsA - monthsB;
+      },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
@@ -310,7 +323,7 @@ const EmployeeListContent = () => {
             maritalStatus: obj.maritalStatus ? "Unmarried" : (obj.maritalStatus === 0 ? "Married" : "N/A"),
             referredBy: obj.referredById && referredBy ? `${referredBy.users.firstName} ${referredBy.users.lastName}` : "N/A",
             mealPreference: obj.veganMealPreference ? "Vegan" : obj.nonVegMealPreference ? "Non-Vegetarian" : obj.vegMealPreference ? "Vegetarian" : "N/A",
-            avatar: getAvatar(obj.avatar, obj.gender),
+            avatar: obj.avatar || "",
           };
         });
 
@@ -480,7 +493,7 @@ const EmployeeListContent = () => {
       <MaterialTable
         columns={columns}
         data={displayedEmployees}
-        tableName="EmployeesV2"
+        tableName="EmployeesV5"
         employeeId={employeeId}
         enableColumnSpecificSearch={true}
       />
