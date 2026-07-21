@@ -23,9 +23,17 @@
   border-color: #f1416c !important;
 }
 
-/* Input field – leave room for the 56px flag button */
+/* Input field – leave room for the 56px flag button. padding-left is a few px past the
+   button's own width so the dropdown caret icon at its right edge doesn't visually
+   overlap the "+91" prefix at the start of the typed value.
+   Selector specificity note: the wizard's global Step2.css has
+   `.ob-wizard-root input[type="tel"] { padding: ... !important }`, which — being a
+   class+type+attribute selector — outranks a plain `.phone-input-field` class selector
+   even with !important on both sides (specificity wins ties between !important rules,
+   not source order). `input.phone-input-field` (class+type) still isn't enough on its
+   own, so this repeats the container ancestor to clear it unambiguously. */
 .phone-input-container .form-control,
-.phone-input-field {
+.phone-number-input .phone-input-container input.phone-input-field {
   width: 100% !important;
   height: 44px !important;
   border: none !important;
@@ -36,7 +44,7 @@
   font-family: inherit !important;
   color: inherit !important;
   border-radius: 0 8px 8px 0 !important;
-  padding-left: 60px !important;
+  padding-left: 68px !important;
 }
 
 .phone-input-container .form-control::placeholder,

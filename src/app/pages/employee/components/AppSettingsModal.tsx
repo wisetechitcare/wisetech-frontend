@@ -686,6 +686,24 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     .app-settings-modal-wide .modal-content { border-radius: 0 !important; min-height: 100vh; }
                 }
 
+                /* Frosted-glass modal surface (matches the wizard/overview accent system) */
+                .app-settings-modal-wide .modal-content {
+                    background: rgba(255, 255, 255, 0.82);
+                    backdrop-filter: blur(16px) saturate(1.3);
+                    -webkit-backdrop-filter: blur(16px) saturate(1.3);
+                    border: 1px solid rgba(255, 255, 255, 0.55);
+                }
+                [data-bs-theme="dark"] .app-settings-modal-wide .modal-content {
+                    background: rgba(27, 27, 41, 0.8);
+                    border-color: rgba(255, 255, 255, 0.1);
+                }
+                .app-settings-sidebar { background: rgba(249, 250, 251, 0.55); }
+                [data-bs-theme="dark"] .app-settings-sidebar { background: rgba(43, 43, 64, 0.4); }
+                @supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+                    .app-settings-modal-wide .modal-content { background: #fff; }
+                    [data-bs-theme="dark"] .app-settings-modal-wide .modal-content { background: #1b1b29; }
+                }
+
                 /* Sidebar */
                 .app-settings-sidebar {
                     width: 220px;

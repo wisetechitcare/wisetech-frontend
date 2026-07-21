@@ -35,6 +35,7 @@ function ReportingConfig() {
                     isRequired={false}
                     formikField="reportsToId"
                     inputLabel="Reporting Manager"
+                    placeholder="Select reporting manager"
                     options={managerOptions}
                 />
             </div>
@@ -91,7 +92,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                         onMouseLeave={() => setShowTooltip(false)}
                     >
                         <TextInput
-                            isRequired={false}
+                            isRequired={true}
                             label="CTC"
                             formikField="ctcInLpa"
                             formatter={formatINNumber}
@@ -120,7 +121,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                             { label: "Contract Based", value: "true" },
                             { label: "Salary Based", value: "false" },
                         ]}
-                        isRequired={false}
+                        isRequired={true}
                     />
                 </div>
 
@@ -134,20 +135,20 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                                         { label: "Fixed", value: "FIXED" },
                                         { label: "Percentage", value: "PERCENTAGE" },
                                     ]}
-                                    isRequired={false}
+                                    isRequired={true}
                                 />
                             </div>
 
                             <div className="col-lg-4 col-md-4 col-sm-12">
                                 {pfType === "PERCENTAGE" ? (
                                     <TextInput
-                                        isRequired={false}
+                                        isRequired={true}
                                         label={`${tds1Name} %`}
                                         formikField="professionalFeesPercentage"
                                     />
                                 ) : (
                                     <TextInput
-                                        isRequired={false}
+                                        isRequired={true}
                                         label={`${tds1Name} Amount`}
                                         formikField="professionalFeesAmount"
                                         formatter={formatINNumber}
@@ -170,7 +171,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                             { label: "Enabled", value: "true" },
                             { label: "Disabled", value: "false" },
                         ]}
-                        isRequired={false}
+                        isRequired={true}
                     />
                 </div>
 
@@ -184,19 +185,19 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                                     { label: "Fixed", value: "FIXED" },
                                     { label: "Percentage", value: "PERCENTAGE" },
                                 ]}
-                                isRequired={false}
+                                isRequired={true}
                             />
                         </div>
                         <div className="col-lg-4 col-md-4 col-sm-12">
                             {tds2Type === "PERCENTAGE" ? (
                                 <TextInput
-                                    isRequired={false}
+                                    isRequired={true}
                                     label={`${tds2Name} %`}
                                     formikField="tds2Percentage"
                                 />
                             ) : (
                                 <TextInput
-                                    isRequired={false}
+                                    isRequired={true}
                                     label={`${tds2Name} Amount`}
                                     formikField="tds2Amount"
                                     formatter={formatINNumber}
@@ -219,7 +220,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                             { label: "Enabled", value: "true" },
                             { label: "Disabled", value: "false" },
                         ]}
-                        isRequired={false}
+                        isRequired={true}
                     />
                 </div>
 
@@ -230,7 +231,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                                 formikField="retentionStartDate"
                                 inputLabel="Retention Start Month"
                                 placeHolder="Auto-filled from joining month"
-                                isRequired={false}
+                                isRequired={true}
                                 formikProps={formikProps}
                             />
                         </div>
@@ -239,7 +240,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                                 formikField="retentionEndDate"
                                 inputLabel="Retention End Month"
                                 placeHolder="Retention End Month"
-                                isRequired={false}
+                                isRequired={true}
                                 formikProps={formikProps}
                                 minDateField="retentionStartDate"
                             />
@@ -258,19 +259,19 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                                 { label: "Fixed", value: "FIXED" },
                                 { label: "Percentage", value: "PERCENTAGE" },
                             ]}
-                            isRequired={false}
+                            isRequired={true}
                         />
                     </div>
                     <div className="col-lg-4 col-md-4 col-sm-12">
                         {retentionType === "PERCENTAGE" ? (
                             <TextInput
-                                isRequired={false}
+                                isRequired={true}
                                 label="Retention % (per month)"
                                 formikField="retentionPercentage"
                             />
                         ) : (
                             <TextInput
-                                isRequired={false}
+                                isRequired={true}
                                 label="Retention Amount (per month)"
                                 formikField="retentionAmount"
                                 formatter={formatINNumber}

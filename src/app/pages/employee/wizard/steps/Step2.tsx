@@ -48,7 +48,7 @@ export const NAV_SECTIONS = [
   { id: 'contact-info',  label: 'Contact Information',  icon: <Phone size={15} /> },
   { id: 'education',     label: 'Education Details',    icon: <GraduationCap size={15} /> },
   { id: 'family',        label: 'Family Details',       icon: <Users size={15} /> },
-  { id: 'emergency',     label: 'Emergency Contact',    icon: <ShieldAlert size={15} /> },
+  { id: 'emergency',     label: 'Health & Emergency Info',    icon: <ShieldAlert size={15} /> },
   { id: 'bank',          label: 'Bank Details',         icon: <Landmark size={15} /> },
   { id: 'address',       label: 'Address Details',      icon: <MapPin size={15} /> },
 ];
@@ -61,6 +61,8 @@ export const SECTION_OF_FIELD: Record<string, string> = {
   bloodGroup: 'personal-info', avatar: 'personal-info',
   personalEmailId: 'contact-info', personalPhoneNumber: 'contact-info',
   alternatePhoneNumber: 'contact-info', personalPhoneNumberExtension: 'contact-info',
+  linkedInProfileUrl: 'contact-info', instagramProfileUrl: 'contact-info',
+  facebookProfileUrl: 'contact-info',
   educationalInfo: 'education', familyInfo: 'family', emergencyDetails: 'emergency',
   bankInfo: 'bank', addressInfo: 'address', meal: 'meal',
 };
@@ -82,7 +84,7 @@ const SECTION_LABELS: Record<string, string> = {
   'contact-info':  'Contact Information',
   'education':     'Education Details',
   'family':        'Family Details',
-  'emergency':     'Emergency Contact',
+  'emergency':     'Health & Emergency Info',
   'bank':          'Bank Details',
   'address':       'Address Details',
   'meal':          'Additional Details',
@@ -97,11 +99,14 @@ interface SectionCardProps {
   icon: React.ReactNode;
   filled: number;
   total: number;
+  /** Whether the section passes schema validation. A section is only "complete" (green check)
+   *  when it is both filled AND valid — so a filled-but-invalid field never shows a check. */
+  isValid?: boolean;
   children: React.ReactNode;
 }
 
-function SectionCard({ id, title, icon, filled, total, children }: SectionCardProps) {
-  const isComplete = total > 0 && filled >= total;
+function SectionCard({ id, title, icon, filled, total, isValid = true, children }: SectionCardProps) {
+  const isComplete = total > 0 && filled >= total && isValid;
   const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
 
   return (
@@ -165,12 +170,18 @@ function WelcomeBanner({ firstName, profilePct, onDismiss }: WelcomeBannerProps)
       <div className="ob-welcome-ring">
         <svg width="60" height="60" viewBox="0 0 36 36" aria-label={`${profilePct}% complete`}>
           <circle cx="18" cy="18" r={r} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="2.5" />
+          {/* Progress arc: full-circle dash whose visible length is driven purely by the
+              dashoffset (offset = C·(1 − pct) draws exactly pct%). Rotated −90° so it starts at
+              12 o'clock. The previous version combined a partial-arc dasharray WITH a 0.25·C
+              offset, which ate ~25% of the arc — so the ring rendered ~69% while the label said
+              94%. This keeps the arc and the number in lockstep. */}
           <motion.circle
             cx="18" cy="18" r={r} fill="none"
             stroke="#fff" strokeWidth="2.5" strokeLinecap="round"
-            strokeDashoffset={circumference * 0.25}
-            initial={{ strokeDasharray: `0 ${circumference}` }}
-            animate={{ strokeDasharray: `${(profilePct / 100) * circumference} ${circumference}` }}
+            transform="rotate(-90 18 18)"
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: circumference * (1 - Math.min(Math.max(profilePct, 0), 100) / 100) }}
             transition={{ duration: 0.9, delay: 0.2, ease: 'easeOut' }}
           />
           <text x="18" y="22" textAnchor="middle" fontSize="7" fontWeight="700" fill="#fff">
@@ -198,7 +209,7 @@ function WelcomeBanner({ firstName, profilePct, onDismiss }: WelcomeBannerProps)
 /* ────────────────────────────────────────
    Main Step2
    ──────────────────────────────────────── */
-function Step2({ formikProps, setFile, removeFile, setEducationFile, activeSection, onSectionChange, completion }: any) {
+function Step2({ formikProps, setFile, removeFile, setEducationFile, activeSection, completion, activeSectionValid = true }: any) {
   const { values, setFieldValue } = formikProps;
   const educationRows: any[] = Array.isArray(values.educationalInfo) ? values.educationalInfo : [];
   const familyRows: any[] = Array.isArray(values.familyInfo) ? values.familyInfo : [];
@@ -344,22 +355,6 @@ function Step2({ formikProps, setFile, removeFile, setEducationFile, activeSecti
     'meal':          <User size={17} />,
   };
 
-  const currentSectionIdx = ALL_SECTION_IDS.indexOf(activeSection);
-  const isFirstSection = currentSectionIdx <= 0;
-  const isLastSection = currentSectionIdx >= ALL_SECTION_IDS.length - 1;
-
-  const goNextSection = () => {
-    if (!isLastSection) onSectionChange(ALL_SECTION_IDS[currentSectionIdx + 1]);
-  };
-
-  const goPrevSection = () => {
-    if (!isFirstSection) onSectionChange(ALL_SECTION_IDS[currentSectionIdx - 1]);
-  };
-
-  const nextSectionLabel = !isLastSection
-    ? SECTION_LABELS[ALL_SECTION_IDS[currentSectionIdx + 1]]
-    : '';
-
   const activeCmp = cmp(activeSection);
 
   return (
@@ -391,49 +386,15 @@ function Step2({ formikProps, setFile, removeFile, setEducationFile, activeSecti
             icon={sectionIcons[activeSection]}
             filled={activeCmp.filled}
             total={activeCmp.total}
+            isValid={activeSectionValid}
           >
             {sectionContent[activeSection]}
           </SectionCard>
         </motion.div>
       </AnimatePresence>
 
-      {/* Floating section navigation buttons */}
-      <div className="ob-floating-section-nav">
-        <span className="ob-float-step-hint">
-          {currentSectionIdx + 1} / {ALL_SECTION_IDS.length}
-        </span>
-
-        <button
-          type="button"
-          className="ob-float-btn ob-float-back"
-          onClick={goPrevSection}
-          disabled={isFirstSection}
-        >
-          ← Back
-        </button>
-
-        {isLastSection ? (
-        <button
-          type="button"
-          className="ob-float-btn ob-float-continue"
-          onClick={() => {
-            // directly trigger formik submit which goes to submitStep
-            const form = document.getElementById('employee_onboarding_form') as HTMLFormElement;
-            if (form) form.requestSubmit();
-          }}
-        >
-          Continue to Company Details →
-        </button>
-      ) : (
-          <button
-            type="button"
-            className="ob-float-btn ob-float-continue"
-            onClick={goNextSection}
-          >
-            Next: {nextSectionLabel} →
-          </button>
-        )}
-      </div>
+      {/* Navigation (Back / Continue) is handled by the wizard's single global floating action
+          bar (ob-floating-actions) — Step 2 no longer renders its own duplicate nav. */}
     </div>
   );
 }

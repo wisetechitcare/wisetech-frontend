@@ -77,9 +77,21 @@ function reconcilePrefsWithColumns(
         ? sanitizedSorting
         : (defaultSorting ?? []);
 
+    const prevOrder = prevPrefs.columnOrder || [];
+    // 1. Remove stale columns from the saved order
+    let nextOrder = prevOrder.filter(k => codeKeySet.has(k));
+    // 2. Insert new columns at their default code-defined index
+    codeKeys.forEach((k) => {
+        if (!nextOrder.includes(k)) {
+            const defaultIndex = codeKeys.indexOf(k);
+            nextOrder.splice(defaultIndex, 0, k);
+        }
+    });
+
     return {
         ...prevPrefs,
         columnVisibility: nextVisibility,
+        columnOrder: nextOrder,
         sorting: nextSorting,
     };
 }

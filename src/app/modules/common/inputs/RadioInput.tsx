@@ -57,9 +57,13 @@ interface RadioInputProps {
   radioBtns: RadioButton[];
   formikField: string;
   customCss?: string;
+  /** Suppress this input's own error message — use when several RadioInputs share one
+   *  formikField (e.g. a radio group split across inputs) and the error should render once
+   *  at the group level instead of duplicated per input. */
+  hideError?: boolean;
 }
 
-function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss = "" }: RadioInputProps) {
+function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss = "", hideError = false }: RadioInputProps) {
   return (
     <div className={`d-flex flex-column mb-7 fv-row`}>
       {inputLabel && (
@@ -101,7 +105,7 @@ function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss 
         ))}
       </div>
 
-      <HighlightErrors isRequired={isRequired} formikField={formikField} />
+      {!hideError && <HighlightErrors isRequired={isRequired} formikField={formikField} />}
 
       <style>{`
         .radio-container {

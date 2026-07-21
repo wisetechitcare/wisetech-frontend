@@ -769,7 +769,7 @@
 .ob-wizard-root input[type="number"],
 .ob-wizard-root input[type="tel"],
 .ob-wizard-root textarea {
-  height: var(--ob-input-h); padding: 0 var(--ob-input-px);
+  height: var(--ob-input-h) !important; padding: 0 var(--ob-input-px) !important;
   border: 1.5px solid var(--ob-border); border-radius: var(--ob-r);
   font-size: 0.875rem; font-family: var(--ob-font);
   color: var(--ob-text-1); background: var(--ob-surface);
@@ -849,11 +849,34 @@
   display: flex !important; align-items: center !important;
 }
 .ob-wizard-root .react-select__input-container { margin: 0 !important; padding: 0 !important; color: var(--ob-text-1) !important; font-family: var(--ob-font) !important; }
+/* react-select's own search input is a real <input type="text">, so the wizard's generic
+   `input[type="text"]` styling (border, radius, background, height, and the :focus gradient+shadow
+   when the menu is open) was leaking onto it — rendering as a small grey box inside every
+   dropdown. Reset it back to react-select's intended borderless/transparent auto-size input.
+   Scoped under `.react-select__control` so the selector out-specificities the generic
+   `.ob-wizard-root input[type="text"]` (and its :focus variant) regardless of source order. */
+.ob-wizard-root .react-select__control input.react-select__input,
+.ob-wizard-root .react-select__control input.react-select__input:focus {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  min-width: 2px !important;
+}
 .ob-wizard-root .react-select__single-value    { color: var(--ob-text-1) !important; margin: 0 !important; font-family: var(--ob-font) !important; letter-spacing: -0.01em !important; }
 .ob-wizard-root .react-select__placeholder     { color: var(--ob-text-4) !important; margin: 0 !important; }
 .ob-wizard-root .react-select__indicators      { height: 100% !important; display: flex !important; align-items: center !important; }
-.ob-wizard-root .react-select__indicator       { padding: 0 10px !important; }
+.ob-wizard-root .react-select__indicator       { padding: 0 10px !important; position: static !important; left: auto !important; }
 .ob-wizard-root .react-select__indicator-separator { display: none !important; }
+/* The vendored Metronic react-select theme (src/_metronic/assets/sass/vendors/react-select.scss)
+   hides the real, React-rendered dropdown indicator (`display: none`) in favor of a static
+   chevron baked into the control's own background-image — so it can never animate. Re-enable
+   the real indicator here (scoped to the wizard only) so the shared DropdownChevron component
+   can actually render and rotate on open/close. */
+.ob-wizard-root .react-select__dropdown-indicator { display: flex !important; }
 .ob-wizard-root .react-select__menu {
   z-index: 1050 !important; border-radius: var(--ob-r-md) !important;
   border: 1px solid var(--ob-border) !important; box-shadow: var(--ob-shadow-lg) !important;
@@ -1911,4 +1934,138 @@
   .ob-sidebar-profile.animate-in, .ob-header-mobile-ring-progress {
     animation: none !important; transition: none !important;
   }
-} 
+}
+
+/* ════════════════════════════════════════
+   GLASSMORPHISM ACCENTS  (tokens from ../glass.css)
+   Frosted chrome + translucent input FILL. Input state borders (focus / .is-invalid /
+   disabled) are intentionally left untouched so validation clarity is preserved.
+   ════════════════════════════════════════ */
+
+/* Page canvas the frost sits on */
+.ob-modal-body {
+  background: var(--gm-page-grad) !important;
+}
+
+/* Header + stepper — frosted sticky bars */
+.ob-header-bar,
+.ob-stepper-nav-bar {
+  background: var(--gm-surface-strong);
+  backdrop-filter: blur(var(--gm-blur)) saturate(var(--gm-saturate));
+  -webkit-backdrop-filter: blur(var(--gm-blur)) saturate(var(--gm-saturate));
+}
+
+/* Left sections sidebar + each section card — frosted panels */
+.ob-sections-sidebar,
+.ob-section-card {
+  background: var(--gm-surface);
+  backdrop-filter: blur(var(--gm-blur)) saturate(var(--gm-saturate));
+  -webkit-backdrop-filter: blur(var(--gm-blur)) saturate(var(--gm-saturate));
+  border: var(--gm-border);
+}
+/* Let the frost show through the card header (keep only its divider line) */
+.ob-section-card .ob-section-header {
+  background: transparent;
+}
+
+/* Welcome banner keeps its gradient — add a glassy top sheen */
+.ob-welcome-banner {
+  box-shadow: 0 6px 24px rgba(27, 58, 107, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Mobile sections drawer */
+.ob-mobile-sections-drawer {
+  background: var(--gm-surface-strong);
+  backdrop-filter: blur(var(--gm-blur)) saturate(var(--gm-saturate));
+  -webkit-backdrop-filter: blur(var(--gm-blur)) saturate(var(--gm-saturate));
+}
+
+/* Inputs — translucent FILL only; borders / focus ring / .is-invalid stay as-is.
+   Higher specificity (.ob-wizard-root + class) so the fill wins over the component
+   base rules, WITHOUT touching border-color/box-shadow that carry the state. */
+.ob-wizard-root .form-control,
+.ob-wizard-root .phone-input-container {
+  background-color: var(--gm-field);
+  backdrop-filter: blur(calc(var(--gm-blur) * 0.5)) saturate(1.2);
+  -webkit-backdrop-filter: blur(calc(var(--gm-blur) * 0.5)) saturate(1.2);
+}
+/* Focused/erroring fields go opaque so text contrast is maximal while editing. */
+.ob-wizard-root .form-control:focus,
+.ob-wizard-root .form-control.is-invalid,
+.ob-wizard-root .phone-number-input.focused .phone-input-container,
+.ob-wizard-root .phone-number-input.error .phone-input-container {
+  background-color: var(--gm-surface-strong);
+}
+
+/* ── Draft-restored notice ── */
+.ob-draft-notice {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 0.4rem + 0.5vw, 0.85rem);
+  margin: 0 clamp(0.75rem, 0.4rem + 1.5vw, 1.75rem) clamp(0.5rem, 0.4rem + 0.5vw, 0.85rem);
+  padding: clamp(0.6rem, 0.5rem + 0.5vw, 0.85rem) clamp(0.75rem, 0.6rem + 0.6vw, 1.1rem);
+  border: 1px solid rgba(30, 58, 138, 0.22);
+  border-radius: 0.6rem;
+  background: var(--gm-surface-strong, rgba(238, 242, 249, 0.85));
+  backdrop-filter: blur(var(--gm-blur, 12px)) saturate(var(--gm-saturate, 1.3));
+  -webkit-backdrop-filter: blur(var(--gm-blur, 12px)) saturate(var(--gm-saturate, 1.3));
+  box-shadow: var(--gm-shadow, 0 0.25rem 1rem rgba(16, 24, 40, 0.06));
+  color: #1e3a8a;
+  font-family: "Inter", sans-serif;
+}
+.ob-draft-notice-icon { color: #1e3a8a; flex: 0 0 auto; }
+.ob-draft-notice-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: clamp(0.8rem, 0.74rem + 0.35vw, 0.9rem);
+  font-weight: 500;
+  color: #243b6b;
+}
+.ob-draft-notice-sub {
+  display: block;
+  font-weight: 400;
+  font-size: 0.78em;
+  opacity: 0.75;
+}
+.ob-draft-notice-discard {
+  flex: 0 0 auto;
+  border: 1px solid rgba(30, 58, 138, 0.35);
+  background: transparent;
+  color: #1e3a8a;
+  font-size: clamp(0.75rem, 0.7rem + 0.25vw, 0.83rem);
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.ob-draft-notice-discard:hover { background: #1e3a8a; color: #fff; }
+.ob-draft-notice-close {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  display: inline-flex;
+  padding: 0.15rem;
+  border-radius: 0.35rem;
+}
+.ob-draft-notice-close:hover { color: #1e3a8a; }
+
+@media (max-width: 575.98px) {
+  .ob-draft-notice { flex-wrap: wrap; }
+  .ob-draft-notice-text { flex: 1 1 100%; order: 1; }
+  .ob-draft-notice-discard { order: 2; }
+  .ob-draft-notice-close { order: 3; margin-left: auto; }
+}
+
+[data-bs-theme="dark"] .ob-draft-notice {
+  border-color: rgba(120, 141, 179, 0.35);
+  color: #cdd6ef;
+}
+[data-bs-theme="dark"] .ob-draft-notice-icon,
+[data-bs-theme="dark"] .ob-draft-notice-text,
+[data-bs-theme="dark"] .ob-draft-notice-discard { color: #aebee6; }
+[data-bs-theme="dark"] .ob-draft-notice-discard { border-color: rgba(174, 190, 230, 0.4); }
+[data-bs-theme="dark"] .ob-draft-notice-discard:hover { background: #aebee6; color: #12121c; }

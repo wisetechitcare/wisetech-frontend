@@ -39,6 +39,7 @@ function HiringInfo({ formikProps, rejoinRows = [], onAddRejoin, onRemoveRejoin 
                         isRequired={false}
                         formikField="sourceOfHireId"
                         inputLabel="Source Of Hire"
+                        placeholder="Select source of hire"
                         options={srcOfHireOptions}
                         showAddBtn={true}
                         functionToCallOnModalSubmit={createSourceOfHire}
@@ -52,6 +53,7 @@ function HiringInfo({ formikProps, rejoinRows = [], onAddRejoin, onRemoveRejoin 
                         isRequired={false}
                         formikField="referredById"
                         inputLabel="Referred By"
+                        placeholder="Select referrer"
                         options={referredByOptions}
                     />
                 </div>
@@ -61,7 +63,7 @@ function HiringInfo({ formikProps, rejoinRows = [], onAddRejoin, onRemoveRejoin 
                 <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
                     <DateInput
                         formikField="dateOfJoining"
-                        isRequired={false}
+                        isRequired={true}
                         formikProps={formikProps}
                         inputLabel="Date Of Joining"
                         placeHolder="Date Of Joining"

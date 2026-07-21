@@ -1,5 +1,6 @@
 import { components } from "react-select";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
+import DropdownChevron from "./DropdownChevron";
 
 const getAvatarUrl = (data: any) => {
   if (data.avatar) return data.avatar; // use real avatar
@@ -102,23 +103,5 @@ export const AvatarSingleValue = (props: any) => (
 
 export const DropdownIndicator = (props: any) => {
   const selectedColor = props.selectProps.value?.color;
-  return (
-    <components.DropdownIndicator {...props}>
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 20 20"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M5 7.5L10 12.5L15 7.5"
-          stroke={selectedColor ? "#000000" : "#999"}
-          strokeWidth="1.67"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </components.DropdownIndicator>
-  );
+  return <DropdownChevron {...props} color={selectedColor ? "#000000" : "#999"} />;
 };
