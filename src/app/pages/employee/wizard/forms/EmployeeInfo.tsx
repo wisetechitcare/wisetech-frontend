@@ -201,9 +201,11 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
 
     return (
         <>
-  {/* Row 1: Hierarchy — Organization*, Sub-Organization (if any), Choose Branch* */}
+  {/* Row 1: Hierarchy — Organization*, Sub-Organization, Choose Branch* — always all three
+      fields, never conditionally hidden; Sub-Organization is simply empty/disabled when the
+      selected org has none. */}
   <div className="row mb-4">
-    <div className={`${hasSubOrgs ? 'col-lg-4' : 'col-lg-6'} col-md-6 col-sm-12 mb-3 mb-lg-0`}>
+    <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
       <DropDownInput
         isRequired={true}
         formikField="organizationId"
@@ -213,19 +215,19 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
       />
     </div>
 
-    {hasSubOrgs && (
-      <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
-        <DropDownInput
-          isRequired={false}
-          formikField="subOrganizationId"
-          inputLabel="Sub-Organization"
-          options={subOrgOptions}
-          onChange={handleSubOrgChange}
-        />
-      </div>
-    )}
+    <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
+      <DropDownInput
+        isRequired={false}
+        formikField="subOrganizationId"
+        inputLabel="Sub-Organization"
+        options={subOrgOptions}
+        onChange={handleSubOrgChange}
+        disabled={!hasSubOrgs}
+        placeholder={hasSubOrgs ? undefined : 'No sub-organizations for this organization'}
+      />
+    </div>
 
-    <div className={`${hasSubOrgs ? 'col-lg-4' : 'col-lg-6'} col-md-6 col-sm-12`}>
+    <div className="col-lg-4 col-md-6 col-sm-12">
       <DropDownInput
         isRequired={true}
         formikField="branchId"

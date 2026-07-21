@@ -269,9 +269,10 @@ function AddressInfo({ formikProps }: any) {
     <div className="row g-3">
       <div className="col-12">
         <TextInput
-          isRequired={false}
+          isRequired={true}
           label="Address"
           margin="mb-0"
+          maxLength={150}
           formikField="addressInfo.presentAddressLine1"
         />
       </div>
@@ -360,13 +361,14 @@ function AddressInfo({ formikProps }: any) {
       </div>
     </div>
 
-    {/* Row 3: Locality, Zip Code */}
+    {/* Row 3: Address Line 2, Zip Code */}
     <div className="row g-3">
       <div className="col-lg-6 col-md-6 col-sm-12">
         <TextInput
           isRequired={false}
-          label="Locality"
+          label="Address Line 2"
           margin="mb-0"
+          maxLength={150}
           formikField="addressInfo.presentAddressLine2"
         />
       </div>
@@ -418,9 +420,10 @@ function AddressInfo({ formikProps }: any) {
     <div className="row g-3">
       <div className="col-12">
         <TextInput
-          isRequired={false}
+          isRequired={true}
           label="Address"
           margin="mb-0"
+          maxLength={150}
           formikField="addressInfo.permanentAddressLine1"
         />
       </div>
@@ -507,13 +510,14 @@ function AddressInfo({ formikProps }: any) {
       </div>
     </div>
 
-    {/* Row 3: Locality, Zip Code */}
+    {/* Row 3: Address Line 2, Zip Code */}
     <div className="row g-3">
       <div className="col-lg-6 col-md-6 col-sm-12">
         <TextInput
           isRequired={false}
-          label="Locality"
+          label="Address Line 2"
           margin="mb-0"
+          maxLength={150}
           formikField="addressInfo.permanentAddressLine2"
         />
       </div>

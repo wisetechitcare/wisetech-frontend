@@ -1,8 +1,15 @@
+import { X } from "lucide-react";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 
 function WorkExperience({ formikProps, index, canRemove, onRemove }: any) {
     const element = `workExpInfo[${index}]`;
+    const isCurrentEmployer = Boolean(formikProps.values?.workExpInfo?.[index]?.isCurrentEmployer);
+
+    const toggleCurrentEmployer = () => {
+        formikProps.setFieldValue(`${element}.isCurrentEmployer`, !isCurrentEmployer);
+        if (!isCurrentEmployer) formikProps.setFieldValue(`${element}.toDate`, "");
+    };
 
     return (
         <>
@@ -27,7 +34,7 @@ function WorkExperience({ formikProps, index, canRemove, onRemove }: any) {
                         aria-label={`Remove experience ${index + 1}`}
                         onClick={onRemove}
                     >
-                        X
+                        <X size={16} />
                     </button>
                 ) : (
                     <div style={{ width: "20px", height: "20px" }} />
@@ -39,6 +46,7 @@ function WorkExperience({ formikProps, index, canRemove, onRemove }: any) {
                         isRequired={false}
                         label="Company Name"
                         margin="mb-4"
+                        maxLength={100}
                         formikField={`${element}.companyName`} />
                 </div>
 
@@ -47,6 +55,7 @@ function WorkExperience({ formikProps, index, canRemove, onRemove }: any) {
                         isRequired={false}
                         label="Job Title"
                         margin="mb-4"
+                        maxLength={100}
                         formikField={`${element}.jobTitle`} />
                 </div>
 </div>
@@ -63,13 +72,27 @@ function WorkExperience({ formikProps, index, canRemove, onRemove }: any) {
 
             {/* <div className="row"> */}
                 <div className="col-lg-6 mb-4">
-                    <DateInput
-                        formikField={`${element}.toDate`}
-                        isRequired={false}
-                        formikProps={formikProps}
-                        inputLabel="To Date"
-                        placeHolder="To Date"
-                        maxDate={true}/>
+                    {!isCurrentEmployer && (
+                        <DateInput
+                            formikField={`${element}.toDate`}
+                            isRequired={false}
+                            formikProps={formikProps}
+                            inputLabel="To Date"
+                            placeHolder="To Date"
+                            maxDate={true}/>
+                    )}
+                    <div className={`form-check form-check-custom form-check-solid ${!isCurrentEmployer ? "mt-2" : ""}`}>
+                        <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id={`${element}-currentEmployer`}
+                            checked={isCurrentEmployer}
+                            onChange={toggleCurrentEmployer}
+                        />
+                        <label className="form-check-label" htmlFor={`${element}-currentEmployer`}>
+                            Currently work here
+                        </label>
+                    </div>
                 </div>
                 </div>
             </div>

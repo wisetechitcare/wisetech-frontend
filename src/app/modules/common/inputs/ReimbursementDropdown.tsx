@@ -27,7 +27,7 @@ function ReimbursementDropdown({ formikField, inputLabel, options, isRequired, p
     }, [options]);
 
     return (
-        <>
+        <div className="d-flex flex-column fv-row">
             <label className={`form-label ${isRequired ? 'required' : ''}`}>{inputLabel}</label>
             <Select
                 name={formikField}
@@ -41,7 +41,7 @@ function ReimbursementDropdown({ formikField, inputLabel, options, isRequired, p
                 formatOptionLabel={formatOptionLabel}
             />
             <HighlightErrors isRequired={isRequired} formikField={formikField} />
-        </>
+        </div>
     );
 }
 

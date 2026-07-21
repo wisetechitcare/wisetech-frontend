@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import EmployeeInfo from "../forms/EmployeeInfo";
 import HiringInfo from "../forms/HiringInfo";
 import WorkContactInfo from "../forms/WorkContactInfo";
@@ -13,6 +13,7 @@ const createNewWorkExp = () => ({
     jobTitle: "",
     fromDate: "",
     toDate: "",
+    isCurrentEmployer: false,
 });
 
 const newRejoinEntry = {
@@ -21,33 +22,32 @@ const newRejoinEntry = {
     reason: "",
 };
 
-function Step3({ formikProps, editMode, sidebarProfile }: any) {
+function Step3({ formikProps, editMode, sidebarProfile, activeSection, onSectionChange }: any) {
     const { values, setFieldValue } = formikProps;
     const workExpRows = Array.isArray(values.workExpInfo) ? values.workExpInfo : [];
     const rejoinRows = Array.isArray(values.rejoinHistory) ? values.rejoinHistory : [];
-    const [activeSection, setActiveSection] = useState("employee_info");
 
     useEffect(() => {
         if (!formikProps.submitCount) return;
         const errors = formikProps.errors || {};
         if (errors.organizationId || errors.designationId || errors.departmentId || errors.branchId || errors.teamId || errors.workingMethodId) {
-            setActiveSection("employee_info");
+            onSectionChange("employee_info");
             return;
         }
         if (errors.companyEmailId || errors.companyPhoneNumber) {
-            setActiveSection("contact_info");
+            onSectionChange("contact_info");
             return;
         }
         if (errors.sourceOfHireId || errors.dateOfJoining) {
-            setActiveSection("hiring_info");
+            onSectionChange("hiring_info");
             return;
         }
         if (errors.rejoinHistory) {
-            setActiveSection("hiring_info");
+            onSectionChange("hiring_info");
             return;
         }
         if (errors.workExpInfo) {
-            setActiveSection("work_experience");
+            onSectionChange("work_experience");
             return;
         }
     }, [formikProps.submitCount, formikProps.errors]);
@@ -133,7 +133,7 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
         <WizardSectionLayout
             sections={sections}
             activeSection={activeSection}
-            onSectionChange={setActiveSection}
+            onSectionChange={onSectionChange}
             sidebarProfile={sidebarProfile}
         >
             {sectionContent[activeSection]}

@@ -32,11 +32,13 @@ function NumberInput({
     step,
 }: NumberInputProps) {
     const hasEmptyPlaceholder = placeholder === "-";
+    // DOM-safe id derived from the Formik path so the <label> links to the input.
+    const fieldId = `field-${formikField.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
     return (
         <div className={`d-flex flex-column fv-row ${margin ? margin : ''}`}>
             {label ? (
-                <label className='d-flex align-items-center fs-6 form-label mb-2'>
+                <label htmlFor={fieldId} className='d-flex align-items-center fs-6 form-label mb-2'>
                     <span className={`${isRequired ? 'required' : ''}`}>{label}</span>
                 </label>
             ) : null}
@@ -62,6 +64,7 @@ function NumberInput({
                         return (
                             <input
                                 {...field}
+                                id={fieldId}
                                 type="number"
                                 min={min}
                                 max={max}

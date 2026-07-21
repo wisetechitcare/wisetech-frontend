@@ -26,6 +26,7 @@ function ObFileUpload({
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [rejectionError, setRejectionError] = useState<string | null>(null);
 
   const displayName = selectedName || existingFileName || null;
   // Prefer the freshly-picked file's blob URL; fall back to the saved document URL.
@@ -40,6 +41,21 @@ function ObFileUpload({
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
+
+    // The `accept` attribute is only a picker hint — the OS file dialog still lets a user
+    // choose "All Files" and pick anything (e.g. a .zip). Enforce the same allow-list here
+    // for real, against the actual picked file's extension.
+    if (file) {
+      const allowedExtensions = accept.split(",").map((ext) => ext.trim().toLowerCase()).filter(Boolean);
+      const fileExtension = `.${file.name.split(".").pop()?.toLowerCase() ?? ""}`;
+      if (allowedExtensions.length && !allowedExtensions.includes(fileExtension)) {
+        setRejectionError(`Unsupported file type. Allowed: ${allowedExtensions.join(", ")}`);
+        e.target.value = "";
+        return;
+      }
+    }
+
+    setRejectionError(null);
     setSelectedName(file?.name ?? null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(file ? URL.createObjectURL(file) : null);
@@ -69,6 +85,7 @@ function ObFileUpload({
   };
 
   return (
+    <>
     <div
       className={`ob-file-upload${disabled ? " is-disabled" : ""}${displayName ? " has-file" : ""}`}
       onClick={openPicker}
@@ -130,6 +147,10 @@ function ObFileUpload({
         </button>
       )}
     </div>
+    {rejectionError && (
+      <div className="text-danger mt-1 fs-7">{rejectionError}</div>
+    )}
+    </>
   );
 }
 
