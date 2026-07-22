@@ -52,6 +52,10 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     const [proRatedBalances, setProRatedBalances] = useState<Record<string, number>>({});
     const [leavesTakenCount, setLeavesTakenCount] = useState<Record<string, number>>({});
     const [cumulativeInputs, setCumulativeInputs] = useState<CumulativeInputs>({ totalNonMaternalPaidAllocated: 0, takenIncludingPendingByType: {} });
+    // SINGLE SOURCE OF TRUTH: the backend now computes the Cumulative Leave Allowance and returns it on
+    // the leave-balance API. We display that verbatim; the client-side derivation below is only a
+    // fallback for an older backend that didn't send it.
+    const [backendCumulative, setBackendCumulative] = useState<{ totalPaidAllocated: number; used: number; allowedTillNow: number; remaining: number } | null>(null);
     const [holidays, setHolidays] = useState<number>(0);
     const [weekendCount, setWeekendCount] = useState<number>(0);
     const [totalLeaves, setTotalLeaves] = useState<CustomLeaves[]>([]);
@@ -196,7 +200,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
                 const { data: { leaves } } = leavesResponse;
                 const { data: { publicHolidays } } = holidaysResponse;
-                const { data: { leavesSummary } } = balanceResponse;
+                const { data: { leavesSummary, cumulativeSummary: backendCumulativeSummary } } = balanceResponse;
+                setBackendCumulative(backendCumulativeSummary ?? null);
                 const { data: { leaveOptions } } = leaveOptionsResponse;
 
                 // Compute addon leave allowance (experience-based extra annual leaves)
@@ -368,8 +373,20 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     // and the sub-section so they always show the same numbers. Inputs are built from the
     // authoritative leavesSummary via buildCumulativeInputs (shared with the Apply-Leave modal).
     const cumulativeSummary = useMemo(
-        () => calculateCumulativeSummary(cumulativeInputs.totalNonMaternalPaidAllocated, cumulativeInputs.takenIncludingPendingByType, fiscalStartMonth),
-        [cumulativeInputs, fiscalStartMonth]
+        () => {
+            // Prefer the backend-computed summary (single source of truth). Fall back to the shared
+            // client derivation only if an older backend didn't send it.
+            if (backendCumulative) {
+                return {
+                    total: backendCumulative.totalPaidAllocated ?? 0,
+                    used: backendCumulative.used ?? 0,
+                    allowedTillNow: backendCumulative.allowedTillNow ?? 0,
+                    remaining: backendCumulative.remaining ?? 0,
+                };
+            }
+            return calculateCumulativeSummary(cumulativeInputs.totalNonMaternalPaidAllocated, cumulativeInputs.takenIncludingPendingByType, fiscalStartMonth);
+        },
+        [backendCumulative, cumulativeInputs, fiscalStartMonth]
     );
 
     const res1 = viewOthers && hasPermission(resource, "readOthers", { employeeId: selectedEmployeeId });

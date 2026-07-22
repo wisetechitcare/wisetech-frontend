@@ -26,6 +26,8 @@ interface PolicyState {
     penaltyCutoffTime: string;
     penaltyType: 'halfDaySalaryDeduction' | 'halfPaidLeave' | 'fixedAmountDeduction';
     penaltyFixedAmount: number;
+    // Magnitude of the two day-based penalties: 0.5 (half day) or 1 (full day). Ignored for the fixed-₹ type.
+    penaltyDays: 0.5 | 1;
 }
 
 const DEFAULTS: PolicyState = {
@@ -38,6 +40,7 @@ const DEFAULTS: PolicyState = {
     penaltyCutoffTime: '12:00',
     penaltyType: 'halfDaySalaryDeduction',
     penaltyFixedAmount: 0,
+    penaltyDays: 0.5,
 };
 
 function LeavePolicy() {
@@ -65,11 +68,15 @@ function LeavePolicy() {
                             : DEFAULT_PRIORITY,
                     cumulativeOverflow: cfg.cumulativeOverflow === 'block' ? 'block' : 'spillToUnpaid',
                     penaltyEnabled: !!sp.enabled,
-                    penaltyCutoffTime: sp.cutoffTime ?? '12:00',
+                    // A10: guard the stored value against a malformed cutoffTime so <input type=time>
+                    // never receives junk (mirrors the backend parseLeavePolicy sanitiser).
+                    penaltyCutoffTime: (typeof sp.cutoffTime === 'string' && /^\d{2}:\d{2}$/.test(sp.cutoffTime)) ? sp.cutoffTime : '12:00',
                     penaltyType: sp.penaltyType === 'halfPaidLeave' ? 'halfPaidLeave'
                         : sp.penaltyType === 'fixedAmountDeduction' ? 'fixedAmountDeduction'
                         : 'halfDaySalaryDeduction',
                     penaltyFixedAmount: Number(sp.fixedDeductionAmount) || 0,
+                    // Only a full day (1) is a full-day penalty; anything else falls back to half (mirrors the backend).
+                    penaltyDays: Number(sp.penaltyDays) === 1 ? 1 : 0.5,
                 });
             } catch {
                 // No config yet — keep defaults; first save will create it.
@@ -105,6 +112,7 @@ function LeavePolicy() {
                     cutoffTime: state.penaltyCutoffTime || '12:00',
                     penaltyType: state.penaltyType,
                     fixedDeductionAmount: state.penaltyFixedAmount || 0,
+                    penaltyDays: state.penaltyDays,
                 },
             };
             if (configId) {
@@ -292,12 +300,12 @@ function LeavePolicy() {
                                 }))
                             }
                         >
-                            <option value="halfDaySalaryDeduction">Deduct half-day salary (LOP)</option>
-                            <option value="halfPaidLeave">Deduct half paid leave</option>
-                            <option value="fixedAmountDeduction">Deduct fixed amount (₹)</option>
+                            <option value="halfDaySalaryDeduction">Salary deduction (LOP)</option>
+                            <option value="halfPaidLeave">Paid leave deduction</option>
+                            <option value="fixedAmountDeduction">Fixed amount (₹)</option>
                         </select>
                     </div>
-                    {state.penaltyType === 'fixedAmountDeduction' && (
+                    {state.penaltyType === 'fixedAmountDeduction' ? (
                         <div className="col-md-4">
                             <label className="form-label fs-7 text-muted">Deduction amount (₹)</label>
                             <input
@@ -308,6 +316,19 @@ function LeavePolicy() {
                                 value={state.penaltyFixedAmount}
                                 onChange={(e) => setState((s) => ({ ...s, penaltyFixedAmount: parseInt(e.target.value) || 0 }))}
                             />
+                        </div>
+                    ) : (
+                        <div className="col-md-4">
+                            <label className="form-label fs-7 text-muted">Penalty size</label>
+                            <select
+                                className="form-select"
+                                title="How much to deduct for a late apply"
+                                value={state.penaltyDays}
+                                onChange={(e) => setState((s) => ({ ...s, penaltyDays: Number(e.target.value) === 1 ? 1 : 0.5 }))}
+                            >
+                                <option value={0.5}>Half day (0.5)</option>
+                                <option value={1}>Full day (1.0)</option>
+                            </select>
                         </div>
                     )}
                 </div>

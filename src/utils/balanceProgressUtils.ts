@@ -473,14 +473,17 @@ export const calculateCumulativeSummary = (
     const fiscalMonthIdx = getCurrentFiscalMonthIndex(fiscalStartMonth);
     const allowedTillNow = getCumulativeAllowedLeaves(totalPaidAllocated, fiscalMonthIdx);
 
-    // Maternal leaves are excluded: they carry full allocation from day 1 and are not
-    // subject to monthly pacing. Including them would falsely trigger "Limit Reached"
-    // for any employee who has taken maternity leave.
-    const paidUsed =
-        (leavesTakenIncludingPending[CASUAL_LEAVES] || 0) +
-        (leavesTakenIncludingPending[ANNUAL_LEAVES] || 0) +
-        (leavesTakenIncludingPending[SICK_LEAVES] || 0) +
-        (leavesTakenIncludingPending[FLOATER_LEAVES] || 0);
+    // Sum EVERY paid non-Maternal type that buildCumulativeInputs already collected (name-agnostic) —
+    // NOT a hardcoded {Casual, Annual, Sick, Floater} whitelist. The whitelist silently dropped the
+    // *usage* of any type whose name didn't exactly match (renamed/re-cased type, or an extra paid
+    // type like "Privilege Leaves") while its *allocation* still counted toward allowedTillNow — so
+    // `used` came out too low and "Remaining Allowed" showed phantom capacity even after all paid
+    // leaves were used. Maternal/Unpaid are already excluded upstream in buildCumulativeInputs, and
+    // this now matches the backend pool (leaveAllocationService.resolveLeaveContext) exactly.
+    const paidUsed = Object.values(leavesTakenIncludingPending).reduce(
+        (sum: number, v) => sum + (Number(v) || 0),
+        0,
+    );
 
     const used = Math.round(paidUsed);
     const remaining = Math.max(0, allowedTillNow - used);

@@ -36,7 +36,6 @@ function OpenLeaveRequests() {
     const [unpaidLeaves, setunpaidLeaves] = useState<string[]>([]);
     const [casualLeaves, setCasualLeaves] = useState<string[]>([]);    
     const [allTheFactorDetails, setAllTheFactorDetails] = useState<any>([])
-    const [sandwhichConfiguration, setsandwhichConfiguration] = useState(false)
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const [loading, setLoading] = useState(false);
     const [processingRowId, setProcessingRowId] = useState<string | null>(null);
@@ -122,21 +121,9 @@ function OpenLeaveRequests() {
     });
     
 
-      useEffect(() => {
-          
-          const fetchConfigurations = async () => {
-              try {
-                const configuration = await fetchConfiguration(SANDWICH_LEAVE_KEY);
-                const jsonObjectSandwhich = safeJsonParse(configuration?.data?.configuration?.configuration);
-                const customRules = jsonObjectSandwhich.isSandwichLeaveSixthEnabled===true || jsonObjectSandwhich.isSandwichLeaveFifthEnabled===true
-                setsandwhichConfiguration(customRules);
-              }
-              catch (error ) {
-                console.log("Error fetching configuration", error);
-              }
-          }
-          fetchConfigurations();
-        },[])
+      // (Removed) legacy sandwichLeaveSettings flag read: as of v8.0 the sandwich policy is a
+      // salary-only rule evaluated by the backend engine (Model B); the old isSandwichLeaveFifth/
+      // SixthEnabled booleans no longer drive anything here and the derived value was never used.
 
      useEffect(() => {
             async function fetchAllTheFactorDetails() {

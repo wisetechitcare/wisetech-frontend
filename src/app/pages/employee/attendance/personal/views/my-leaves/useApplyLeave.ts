@@ -19,6 +19,7 @@ import {
     isWithinProbation,
     type AllocationResult,
     type TypeBalance,
+    type HalfDayByDate,
 } from '@utils/leaveAllocation';
 import {
     createEmployeeLeaveRequest,
@@ -47,6 +48,8 @@ export interface SameDayPenaltyConfig {
     cutoffTime: string;
     penaltyType: 'halfDaySalaryDeduction' | 'halfPaidLeave' | 'fixedAmountDeduction';
     fixedDeductionAmount?: number;
+    /** Day-magnitude of the two day-based penalties: 0.5 (half day) or 1 (full day). */
+    penaltyDays?: number;
 }
 
 /** Brand-aligned colour per leave type (matches the v4 design). */
@@ -80,8 +83,12 @@ export interface UseApplyLeaveArgs {
 export interface ApplyLeaveState {
     from: string | null;
     to: string | null;
+    /** Legacy: the WHOLE (single-day) leave is a half-day. */
     isHalfDay: boolean;
     halfDaySession: 'AM' | 'PM' | null;
+    /** Boundary halves on a multi-day leave — a half on the first / last working day of the range. */
+    firstDayHalf?: 'AM' | 'PM' | null;
+    lastDayHalf?: 'AM' | 'PM' | null;
     /** undefined => Auto allocation; otherwise a specific type name. */
     leaveTypeName?: string;
     leaveTypeId?: string;
@@ -270,6 +277,7 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                                   : sp.penaltyType === 'fixedAmountDeduction' ? 'fixedAmountDeduction'
                                   : 'halfDaySalaryDeduction',
                               fixedDeductionAmount: Number(sp.fixedDeductionAmount) || 0,
+                              penaltyDays: Number(sp.penaltyDays) === 1 ? 1 : 0.5,
                           }
                         : null,
                 );
@@ -316,7 +324,19 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
             if (!s.from || !s.to) return null;
             const chargeableDates = expandChargeableDates(s.from, s.to, workingAndOffDays ?? {}, holidaySet);
             if (chargeableDates.length === 0) return null;
-            const unit = s.isHalfDay ? 0.5 : 1;
+            // Build the half-day map over the chargeable working days — legacy single-day half OR
+            // boundary halves (first/last working day of a range). Mirrors backend buildHalfDayByDate.
+            const isSingleDay = s.from === s.to;
+            const halfDayByDate: HalfDayByDate = {};
+            if (isSingleDay) {
+                if (s.isHalfDay && s.halfDaySession) halfDayByDate[chargeableDates[0]] = s.halfDaySession;
+            } else {
+                // A boundary half applies only when the range boundary is a working day (matches the
+                // backend buildHalfDayByDate gate) — otherwise it would relocate onto an interior day.
+                if (s.firstDayHalf && chargeableDates[0] === s.from) halfDayByDate[chargeableDates[0]] = s.firstDayHalf;
+                if (s.lastDayHalf && chargeableDates[chargeableDates.length - 1] === s.to) halfDayByDate[chargeableDates[chargeableDates.length - 1]] = s.lastDayHalf;
+            }
+            const anyHalf = Object.keys(halfDayByDate).length > 0;
             // Credit the edited request back to the pools it currently occupies.
             const creditByType = new Map<string, number>();
             let creditPaidDays = 0;
@@ -336,8 +356,9 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
             const order = s.leaveTypeName
                 ? [s.leaveTypeName]
                 : priority.filter((t) => !(s.excludeSick && /sick/i.test(t)));
-            // Half-day ranges can't sandwich, so ignore any supplied dates for them.
-            const effectiveSandwich = unit === 0.5 ? [] : sandwichDates;
+            // A leave with any half-day date books no interior sandwich rows (Model B) and a half day
+            // can't itself sandwich, so disable the sandwich preview when any half is present.
+            const effectiveSandwich = anyHalf ? [] : sandwichDates;
             // Fiscal month from dateTo — matches the BE (getFiscalMonthIndex(dateTo)) so the preview
             // applies the SAME cumulative cap the server books against (spill-to-unpaid or block).
             const fiscalMonthIndex = calculateFiscalMonth(new Date(s.to + 'T00:00:00').getMonth() + 1, 4);
@@ -348,7 +369,8 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                 priorityOrder: order,
                 probationActive,
                 probationAllowUnpaid: probation.allowUnpaid,
-                unit,
+                unit: 1,
+                halfDayByDate,
                 cumulative: {
                     totalPaidAllocated: cumulativePool.totalPaidAllocated,
                     // Same credit-back as the per-type balances: the edited request's paid days are
@@ -370,7 +392,10 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                 let documents: LeaveDocument[] = [];
                 if (s.files.length) documents = await uploadLeaveDocuments(s.files);
                 const autoAllocate = !s.leaveTypeId;
-                const isHalfDayValid = s.isHalfDay && !!s.halfDaySession;
+                const isSingleDay = s.from === s.to;
+                const isHalfDayValid = isSingleDay && s.isHalfDay && !!s.halfDaySession;
+                const firstDayHalf = !isSingleDay ? (s.firstDayHalf ?? undefined) : undefined;
+                const lastDayHalf = !isSingleDay ? (s.lastDayHalf ?? undefined) : undefined;
                 const payload = {
                     employeeId,
                     dateFrom: s.from!,
@@ -378,6 +403,8 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                     reason: s.reason || undefined,
                     isHalfDay: isHalfDayValid,
                     halfDaySession: isHalfDayValid ? (s.halfDaySession ?? 'AM') : undefined,
+                    ...(firstDayHalf ? { firstDayHalf } : {}),
+                    ...(lastDayHalf ? { lastDayHalf } : {}),
                     autoAllocate,
                     ...(autoAllocate ? {} : { leaveTypeId: s.leaveTypeId }),
                     ...(documents.length ? { documents } : {}),
@@ -402,7 +429,8 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                 let documents: LeaveDocument[] = [];
                 if (s.files.length) documents = await uploadLeaveDocuments(s.files);
                 const autoAllocate = !s.leaveTypeId;
-                const isHalfDayValid = s.isHalfDay && !!s.halfDaySession;
+                const isSingleDay = s.from === s.to;
+                const isHalfDayValid = isSingleDay && s.isHalfDay && !!s.halfDaySession;
                 // NOTE: the PUT handler rejects `employeeId` and `status` as restricted fields — the
                 // owner is derived from the existing leave record, and status is never changed on
                 // edit. Sending either throws BadRequestError, so the update payload omits both
@@ -413,6 +441,10 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                     reason: s.reason || undefined,
                     isHalfDay: isHalfDayValid,
                     halfDaySession: isHalfDayValid ? (s.halfDaySession ?? 'AM') : undefined,
+                    // Send the boundary markers EXPLICITLY (null when off) on a multi-day edit so the
+                    // backend uses them as-is (turning a boundary half off actually clears it) instead
+                    // of falling back to the previously-stored halves.
+                    ...(isSingleDay ? {} : { firstDayHalf: s.firstDayHalf ?? null, lastDayHalf: s.lastDayHalf ?? null }),
                     autoAllocate,
                     ...(autoAllocate ? {} : { leaveTypeId: s.leaveTypeId }),
                     ...(documents.length ? { documents } : {}),

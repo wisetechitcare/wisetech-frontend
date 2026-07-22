@@ -34,9 +34,12 @@ const GREEN    = '#3E8E6E';
 const PJK      = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const BLANK: ApplyLeaveState = {
-    from: null, to: null, isHalfDay: false, halfDaySession: null,
+    from: null, to: null, isHalfDay: false, halfDaySession: null, firstDayHalf: null, lastDayHalf: null,
     leaveTypeId: undefined, leaveTypeName: undefined, excludeSick: false, reason: '', files: [],
 };
+
+/** Clear every half-day marker — used whenever the selected range changes. */
+const HALF_RESET: Partial<ApplyLeaveState> = { isHalfDay: false, halfDaySession: null, firstDayHalf: null, lastDayHalf: null };
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 const pad       = (n: number) => String(n).padStart(2, '0');
@@ -80,6 +83,8 @@ export interface ExistingLeaveSegment {
     isPaid: boolean;
     dateFrom?: string | null;
     dateTo?: string | null;
+    isHalfDay?: boolean;               // this segment is a single-day half row
+    halfDaySession?: 'AM' | 'PM' | null;
     status?: number;   // per-segment bifurcated decision: 0 pending · 1 approved · 2 rejected
 }
 export interface ExistingLeaveView {
@@ -216,7 +221,18 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     // Seed the calendar + form: from an existing request (view/edit), or a pre-selected day (apply).
     useEffect(() => {
         if ((mode === 'view' || mode === 'edit') && existing?.dateFrom) {
-            setS(p => ({ ...p, from: existing.dateFrom, to: existing.dateTo || existing.dateFrom, reason: existing.reason ?? '', isHalfDay: !!existing.isHalfDay, halfDaySession: (existing.halfDaySession as any) ?? null }));
+            // Restore boundary halves from the group's segments so the edit modal shows (and re-books)
+            // the correct total, not a full-day span. A boundary half segment sits on the group's
+            // first (dateFrom) or last (dateTo) day and carries isHalfDay + its session.
+            const segs = existing.segments ?? [];
+            const firstHalfSeg = segs.find(sg => sg.isHalfDay && sg.dateFrom === existing.dateFrom);
+            const lastHalfSeg = segs.find(sg => sg.isHalfDay && (sg.dateTo ?? sg.dateFrom) === (existing.dateTo || existing.dateFrom));
+            setS(p => ({
+                ...p, from: existing.dateFrom, to: existing.dateTo || existing.dateFrom, reason: existing.reason ?? '',
+                isHalfDay: !!existing.isHalfDay, halfDaySession: (existing.halfDaySession as any) ?? null,
+                firstDayHalf: (firstHalfSeg?.halfDaySession as any) ?? null,
+                lastDayHalf: (lastHalfSeg?.halfDaySession as any) ?? null,
+            }));
             const d = new Date(existing.dateFrom + 'T00:00:00');
             setCal({ y: d.getFullYear(), m: d.getMonth() });
         } else if (mode === 'apply' && initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate)) {
@@ -250,12 +266,21 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const tomorrow   = isoOf(new Date(Date.now() + 864e5));
 
     const isPenaltyActive = useMemo(() => {
-        if (!sameDayPenalty?.enabled || s.from !== today || s.isHalfDay) return false;
+        if (!sameDayPenalty?.enabled || s.isHalfDay || !s.from) return false;
+        // Backdated ("missed to apply") leaves are inherently late → penalty always applies.
+        if (s.from < today) return true;
+        // Future dates are never penalised.
+        if (s.from !== today) return false;
+        // Same-day: penalised only past the configured cutoff time. Mirrors the backend
+        // (createLeaveRequest late-apply block).
         const [cutH, cutM] = sameDayPenalty.cutoffTime.split(':').map(Number);
         const now = new Date();
         return now.getHours() > cutH || (now.getHours() === cutH && now.getMinutes() >= cutM);
     }, [sameDayPenalty, s.from, s.isHalfDay, today]);
     useEffect(() => { if (!isPenaltyActive) setPenaltyAck(false); }, [isPenaltyActive]);
+    // Configurable magnitude of the two day-based penalties (0.5 → "half-day", 1 → "full-day"); the
+    // fixed-₹ type ignores it. Drives the acknowledgement notice so the employee sees the real charge.
+    const penaltyDayWord = sameDayPenalty?.penaltyDays === 1 ? 'full-day' : 'half-day';
 
     // Sandwich preview: the BACKEND rule engine is the single source of truth for which interior
     // off-days get docked as Unpaid. Fetch on span change (debounced) and refetch live when the
@@ -351,7 +376,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         !(s.isHalfDay && !s.halfDaySession) && !sickPromptShow && !(unpaidDays > 0 && !lopAck) &&
         (!isPenaltyActive || penaltyAck);
 
-    // Sandwich days: interior off-days the backend rule engine docks as Unpaid (rule-driven).
+    // Sandwich days: interior off-days the backend rule engine excludes from SALARY (Model B —
+    // salary-only, never booked as a leave-balance row; rule-driven, both bracketing leaves unpaid).
     const sandwichDateSet = useMemo(() => new Set(sandwichExcluded), [sandwichExcluded]);
     const sandwichDays = sandwichDateSet.size;
 
@@ -366,20 +392,21 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         setHoverDate(null);
         setS(p => {
             // Idle — first selection → single day (immediately submittable)
-            if (!p.from) return { ...p, from: iso, to: iso, isHalfDay: false, halfDaySession: null };
+            if (!p.from) return { ...p, from: iso, to: iso, ...HALF_RESET };
             // Committed range → reset to a new single day
-            if (p.to && p.to !== p.from) return { ...p, from: iso, to: iso, isHalfDay: false, halfDaySession: null };
-            // Single day phase → tap same = deselect, tap other = extend range
+            if (p.to && p.to !== p.from) return { ...p, from: iso, to: iso, ...HALF_RESET };
+            // Single day phase → tap same = deselect, tap other = extend range. Extending to a
+            // multi-day range clears the single-day half flag (a boundary half is chosen separately).
             if (iso === p.from) return { ...p, from: null, to: null };
-            if (iso < p.from) return { ...p, from: iso, to: p.from };
-            return { ...p, to: iso };
+            if (iso < p.from) return { ...p, from: iso, to: p.from, ...HALF_RESET };
+            return { ...p, to: iso, ...HALF_RESET };
         });
     }, []);
     // Quick-pick: set a single day and navigate to its month
     const pickQuick = useCallback((iso: string) => {
         if (blockedDates.has(iso)) return;
         setSickConfirmed(null); setLopAck(false); setPenaltyAck(false); setHoverDate(null);
-        setS(p => ({ ...p, from: iso, to: iso, isHalfDay: false, halfDaySession: null }));
+        setS(p => ({ ...p, from: iso, to: iso, ...HALF_RESET }));
         const d = new Date(iso + 'T00:00:00');
         setCal({ y: d.getFullYear(), m: d.getMonth() });
     }, [blockedDates]);
@@ -462,8 +489,14 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             const iso      = `${y}-${pad(m + 1)}-${pad(d)}`;
             const beforeDoj = !!dateOfJoining && iso < dateOfJoining;
             const past     = iso < today || beforeDoj;
+            // Backdating is allowed but bounded to the CURRENT calendar month: a past date on/after
+            // the joining date AND on/after the 1st of this month is SELECTABLE so an employee can
+            // record a leave they forgot to apply for (the backend charges the late-apply penalty).
+            // Dates in a prior month, before joining, or already taken stay blocked.
+            const beforeMonth = iso < (today.slice(0, 7) + '-01');
+            const backdated = iso < today && !beforeDoj && !beforeMonth;
             const blocked  = blockedDates.has(iso);
-            const disabled = past || blocked;
+            const disabled = beforeDoj || blocked || beforeMonth;
             const isEp       = iso === s.from || iso === s.to;
             const isHoverEnd = !isEp && !!previewEnd && iso === previewEnd;
             const inRange    = !!(s.from && end && iso > s.from && iso < end);
@@ -473,7 +506,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             const teamOff  = offDay && !weekend;
             const holiday  = holidaySet.has(iso);
             const seg      = segByDate.get(iso), charged = !!seg;
-            // sandwichCharged: interior off-day that is being booked as Unpaid Leave
+            // sandwichCharged: interior off-day excluded from salary (Model B — not booked as leave)
             const sandwichCharged = sandwichDateSet.has(iso);
             const dtColor  = charged ? colorOf(seg!.leaveType) : ACCENT;
 
@@ -564,9 +597,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 st.borderTop    = 'none'; st.borderBottom = 'none';
             }
 
-            const tip = beforeDoj ? 'Before joining date' : past ? 'Past date' : blocked ? 'Already have a leave here'
+            const tip = beforeDoj ? 'Before joining date' : blocked ? 'Already have a leave here' : beforeMonth ? 'Backdating is limited to the current month' : backdated ? 'Backdated — late-apply penalty may apply'
                 : isEp     ? `Selected${seg ? ` · ${seg.leaveType}` : ''}`
-                : sandwichCharged ? 'Sandwich — booked as Unpaid Leave'
+                : sandwichCharged ? 'Sandwich — excluded from salary (not a leave-balance day)'
                 : charged  ? `Leave day — ${seg!.leaveType}`
                 : holiday  ? (holidayNames[iso] ? `${holidayNames[iso]} · ${new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}` : 'Public holiday') : teamOff ? 'Team off — not charged'
                 : weekend  ? (wd === 0 ? 'Sunday' : 'Saturday') + ' — not charged' : 'Available';
@@ -685,28 +718,54 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     // View mode is a read-only review (the approver/employee is inspecting a booked leave, not
     // applying) — the half-day toggle is an applicant input, so it disappears. The persisted
     // half-day state is already reflected in the ViewBreakdown.
+    // Session picker (AM/PM) shared by the single-day toggle and the boundary-half pickers.
+    const SessionButtons = ({ value, onPick }: { value: 'AM' | 'PM' | null; onPick: (v: 'AM' | 'PM') => void }) => (
+        <div style={{ display: 'flex', gap: isMobile ? 7 : 8, marginTop: isMobile ? 9 : 8 }}>
+            {(['AM', 'PM'] as const).map(ss => (
+                <button key={ss} onClick={() => onPick(ss)}
+                    style={{ flex: 1, padding: 9, borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: value === ss ? `1.5px solid ${ACCENT}` : '1px solid #e6e6e8', background: value === ss ? rgba(ACCENT, 0.08) : '#fff', color: value === ss ? ACCENT : '#5f6266' }}>
+                    {ss === 'AM' ? 'First half · AM' : 'Second half · PM'}
+                </button>
+            ))}
+        </div>
+    );
+
+    // A half-day toggle for one boundary day of a multi-day range (first or last).
+    const BoundaryHalf = ({ label, value, onChange }: { label: string; value: 'AM' | 'PM' | null; onChange: (v: 'AM' | 'PM' | null) => void }) => (
+        <div style={{ marginTop: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: '#2b2e30' }}>{label} half <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></span>
+                <Toggle on={!!value} color={ACCENT} onClick={() => onChange(value ? null : 'AM')} />
+            </div>
+            {value && <SessionButtons value={value} onPick={onChange} />}
+        </div>
+    );
+
     const HalfDay = () => (isView || !s.from) ? null : (
         <div style={{ marginTop: isMobile ? 11 : 12, padding: isMobile ? '11px 13px' : '12px 14px', border: '1px solid #e6e6e8', borderRadius: isMobile ? 11 : 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
-                    {isMobile ? 'Half day'
-                        : isSingleDay
-                            ? <>Apply as half day <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></>
-                            : 'Apply as half days'}
-                </span>
-                <Toggle on={s.isHalfDay} color={ACCENT} onClick={() => reshape({ isHalfDay: !s.isHalfDay, halfDaySession: null })} />
-            </div>
-            {s.isHalfDay && (
+            {isSingleDay ? (
                 <>
-                    {!isMobile && <div style={{ fontSize: 11.5, fontWeight: 600, color: '#8b8e91', margin: '11px 0 7px' }}>Which half? <span style={{ color: RED }}>*</span></div>}
-                    <div style={{ display: 'flex', gap: isMobile ? 7 : 8, marginTop: isMobile ? 9 : 0 }}>
-                        {(['AM','PM'] as const).map(ss => (
-                            <button key={ss} onClick={() => setS(p => ({ ...p, halfDaySession: ss }))}
-                                style={{ flex: 1, padding: 9, borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: s.halfDaySession === ss ? `1.5px solid ${ACCENT}` : '1px solid #e6e6e8', background: s.halfDaySession === ss ? rgba(ACCENT, 0.08) : '#fff', color: s.halfDaySession === ss ? ACCENT : '#5f6266' }}>
-                                {ss === 'AM' ? 'First half · AM' : 'Second half · PM'}
-                            </button>
-                        ))}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
+                            {isMobile ? 'Half day' : <>Apply as half day <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></>}
+                        </span>
+                        <Toggle on={s.isHalfDay} color={ACCENT} onClick={() => reshape({ isHalfDay: !s.isHalfDay, halfDaySession: null })} />
                     </div>
+                    {s.isHalfDay && (
+                        <>
+                            {!isMobile && <div style={{ fontSize: 11.5, fontWeight: 600, color: '#8b8e91', margin: '11px 0 7px' }}>Which half? <span style={{ color: RED }}>*</span></div>}
+                            <SessionButtons value={s.halfDaySession} onPick={(ss) => setS(p => ({ ...p, halfDaySession: ss }))} />
+                        </>
+                    )}
+                </>
+            ) : (
+                <>
+                    <div style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
+                        Half-day boundary <span style={{ color: '#8b8e91', fontWeight: 500 }}>· optional</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#8b8e91', marginTop: 3 }}>Take a half-day on the first and/or last day of the range.</div>
+                    <BoundaryHalf label="First day" value={s.firstDayHalf ?? null} onChange={(v) => reshape({ firstDayHalf: v })} />
+                    <BoundaryHalf label="Last day" value={s.lastDayHalf ?? null} onChange={(v) => reshape({ lastDayHalf: v })} />
                 </>
             )}
         </div>
@@ -1038,9 +1097,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                                 As per company policy, a{' '}
                                 <strong>
                                     {sameDayPenalty.penaltyType === 'halfDaySalaryDeduction'
-                                        ? 'half-day salary deduction (Loss of Pay)'
+                                        ? `${penaltyDayWord} salary deduction (Loss of Pay)`
                                         : sameDayPenalty.penaltyType === 'halfPaidLeave'
-                                        ? 'half paid leave deduction'
+                                        ? `${penaltyDayWord} paid leave deduction`
                                         : `₹${(sameDayPenalty.fixedDeductionAmount ?? 0).toLocaleString('en-IN')} salary deduction`}
                                 </strong>{' '}
                                 will be automatically applied to this request.
@@ -1127,9 +1186,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                                 As per company policy, a{' '}
                                 <strong>
                                     {sameDayPenalty.penaltyType === 'halfDaySalaryDeduction'
-                                        ? 'half-day salary deduction (Loss of Pay)'
+                                        ? `${penaltyDayWord} salary deduction (Loss of Pay)`
                                         : sameDayPenalty.penaltyType === 'halfPaidLeave'
-                                        ? 'half paid leave deduction'
+                                        ? `${penaltyDayWord} paid leave deduction`
                                         : `₹${(sameDayPenalty.fixedDeductionAmount ?? 0).toLocaleString('en-IN')} salary deduction`}
                                 </strong>{' '}
                                 will be automatically applied to this request.
@@ -1167,7 +1226,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         {sandwichDays > 0 && (
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 9, paddingTop: 9, borderTop: '1px solid #f0f0f1' }}>
                                 <span style={{ width: 12, height: 12, borderRadius: 3, background: 'repeating-linear-gradient(45deg,#fbf0d9 0 3px,#f6e4be 3px 6px)', flexShrink: 0, marginTop: 1 }} />
-                                <span style={{ fontSize: 11.5, color: '#8a5a1e', fontWeight: 500, lineHeight: 1.4 }}>{daysLabel(sandwichDays)} of weekend/holiday between your dates — booked as Unpaid Leave (sandwich rule)</span>
+                                <span style={{ fontSize: 11.5, color: '#8a5a1e', fontWeight: 500, lineHeight: 1.4 }}>{daysLabel(sandwichDays)} of weekend/holiday between your dates — excluded from salary (sandwich rule). Not added to your leave balance.</span>
                             </div>
                         )}
                     </div>

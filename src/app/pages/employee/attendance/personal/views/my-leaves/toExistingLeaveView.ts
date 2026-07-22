@@ -60,6 +60,8 @@ const mapSegments = (
         isPaid: s.isPaid ?? true,
         dateFrom: s.dateFrom ? iso(s.dateFrom) : null,
         dateTo: s.dateTo ? iso(s.dateTo) : null,
+        isHalfDay: (s as any).isHalfDay ?? false,
+        halfDaySession: ((s as any).halfDaySession as any) ?? null,
         status: s.status,
     }));
 
