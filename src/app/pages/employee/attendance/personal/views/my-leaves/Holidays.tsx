@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
-import { KTCard, KTCardBody } from "@metronic/helpers";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassCard } from "@app/modules/common/components/ui/tw";
 import { fetchPublicHolidays } from "@services/company";
 
 function Holidays() {
@@ -20,25 +21,17 @@ function Holidays() {
     }, []);
 
     return (
-        <>
-            <KTCard>
-                <KTCardBody>
-                    {holidays.map((rule: any, index: number) => (
-                        <>
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-
-                                <div className="fw-bold">{rule.holiday.name}</div>
-
-                                <div>{dayjs(rule.date).format('DD/MM/YYYY')}</div>
-
-                            </div>
-                            {index !== holidays.length - 1 && <hr />}
-                        </>
-
-                    ))}
-                </KTCardBody>
-            </KTCard>
-        </>
+        <GlassCard preset="section">
+            {holidays.map((rule: any, index: number) => (
+                <div key={rule.date ?? index}>
+                    <div className="flex items-center justify-between gap-2 py-2">
+                        <span className="font-semibold text-slate-900">{rule.holiday.name}</span>
+                        <span className="font-semibold text-slate-500 whitespace-nowrap">{dayjs(rule.date).format('DD/MM/YYYY')}</span>
+                    </div>
+                    {index !== holidays.length - 1 && <hr className="m-0 border-t border-slate-200" />}
+                </div>
+            ))}
+        </GlassCard>
     );
 }
 

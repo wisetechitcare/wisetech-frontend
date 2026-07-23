@@ -1,24 +1,22 @@
-import { Button, Dialog, DialogContent, styled } from '@mui/material'
 import { useEffect, useState } from 'react';
 import ApplyLeave from './views/my-leaves/ApplyLeave';
 import BalanceProgress from './views/my-leaves/BalanceProgress';
 import Leaves from './views/my-leaves/Leaves';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
-import dayjs, { Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
-import { toAbsoluteUrl } from '@metronic/helpers';
+import { KTIcon } from '@metronic/helpers';
 import { handleDatesChange } from '@utils/statistics';
 import DateSelector from '@components/DateSelector';
 import MyLeaveManagementRequests from './views/my-leaves/MyLeaveManagementRequests';
-// import SmartInsightsPanel from './views/my-leaves/SmartInsightsPanel';
 import { generateUserInsights } from './views/my-leaves/utils/insightGenerator';
 import { generateMonthlySuggestions } from './views/my-leaves/utils/suggestionEngine';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
-// import LeaveUsageGraph from './views/my-leaves/LeaveUsageGraph';
-// import MonthlyHeatmap from './views/my-leaves/MonthlyHeatmap';
+// Shared UI kit — reusable brand button + section atoms (single source of truth).
+import { WtButton, IconBox, Eyebrow, TRIO } from '@app/modules/common/components/ui/tw';
 
 const PersonalLeaveView = () => {
     const [open, setOpen] = useState(false);
@@ -68,44 +66,29 @@ const PersonalLeaveView = () => {
         setOpen(false);
     };
 
-    const Header = styled('div')({
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingTop: '1.25rem',
-        fontWeight: 'bold',
-    });
-
-    const ApplyLeaveButton = styled(Button)({
-        borderColor: '#1E3A8A',
-        backgroundColor: '#1E3A8A',
-        color: 'white',
-        textTransform: 'none',
-        fontWeight: 'bold',
-        '&:hover': {
-            borderColor: '#1E3A8A',
-            backgroundColor: '#172554',
-        }
-        // 'rgba(30, 58, 138, 0.1)'
-    });
     const res = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.create);
 
     return (
         <>
-
-
-            <div className='d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center pt-0 mb-3 mt-0 gap-2'>
-                <div className="d-flex justify-content-between align-items-center">
-                    <h3 className="fw-bold fs-1 font-barlow">My Leaves</h3>
-                   
+            <div className='d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center pt-0 mb-3 mt-0 gap-3'>
+                <div className="d-flex align-items-center gap-3">
+                    <IconBox icon="calendar" trio={TRIO.blue} size={44} fs="fs-1" />
+                    <div>
+                        <h3 className="fw-bold fs-1 font-barlow mb-0">My Leaves</h3>
+                        <Eyebrow className="mt-0.5">Balance, requests &amp; history</Eyebrow>
+                    </div>
                 </div>
                 <div className='d-flex flex-column flex-sm-row justify-content-center align-items-stretch align-items-sm-center gap-2 gap-sm-4 w-100 w-md-auto'>
-                <DateNavigation fiscalYear={fiscalYear} setYear={setYear} />
-                 {res && <ApplyLeaveButton variant="outlined" onClick={handleClickOpen} >
-                        Apply Leave
-                    </ApplyLeaveButton>}
-
-
+                    <DateNavigation fiscalYear={fiscalYear} setYear={setYear} />
+                    {res && (
+                        <WtButton
+                            onClick={handleClickOpen}
+                            startIcon={<KTIcon iconName="plus" className="fs-4 text-white" />}
+                            className="w-full sm:w-auto"
+                        >
+                            Apply Leave
+                        </WtButton>
+                    )}
                 </div>
             </div>
             {/* Apply-Leave v4 — the component owns its own card/sheet + header; we provide the backdrop. */}
@@ -124,18 +107,7 @@ const PersonalLeaveView = () => {
                     <ApplyLeave onClose={handleClose} />
                 </div>
             )}
-            
-            {/* <SmartInsightsPanel insights={insights} /> */}
-            
-            {/* <div className="row g-4 mb-5">
-                <div className="col-12 col-xl-6">
-                    <MonthlyHeatmap leaves={personalLeaves} holidays={new Set()} />
-                </div>
-                <div className="col-12 col-xl-6">
-                    <LeaveUsageGraph leaves={personalLeaves} holidays={new Set()} />
-                </div>
-            </div> */}
-            
+
             <BalanceProgress resource={resourceNameMapWithCamelCase.leave} fromAdmin={false} viewOwn={true} viewOthers={false} startDateNew={startDateNew} endDateNew={endDateNew} />
             
                 <Leaves resource={resourceNameMapWithCamelCase.leave} viewOwn={true} startDateNew={startDateNew} endDateNew={endDateNew} />

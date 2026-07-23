@@ -1,9 +1,8 @@
 import React from 'react';
-import { Container } from 'react-bootstrap';
 
 const BranchSetupGuide = () => {
     return (
-        <Container className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
+        <div className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
             <div className="text-center" role="alert">
                 <h4 className="alert-heading">Branch Setup Required</h4>
                 <p className="mb-2">To view attendance and statistics, please complete branch and working days setup.</p>
@@ -31,7 +30,7 @@ const BranchSetupGuide = () => {
                 <hr />
                 <small className="text-muted">Once configured, this section will automatically display attendance and statistics.</small>
             </div>
-        </Container>
+        </div>
     );
 };
 

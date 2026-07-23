@@ -1,5 +1,6 @@
 import { safeJsonParse } from '@utils/safeJson';
-import { Row, Col, Card } from "react-bootstrap";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassCard, WtButton, Spinner } from "@app/modules/common/components/ui/tw";
 import { useEffect, useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Rules from "../personal/views/information/Rules";
@@ -217,137 +218,88 @@ const Information = () => {
     }
 
     return (
-        <>
-            <Row>
-                <Col md={12} className="mb-3">
-                    <Card>
-                        <Card.Body>
-                            <div className="d-flex justify-content-between align-items-center">
-                                <label className="form-label mb-0" htmlFor="disable-lunch-deduction">
-                                    Enable Lunch Deduction Time
-                                </label>
-                                <div className="d-flex gap-2 align-items-center">
-                                    <div className="form-check form-switch">
-                                        <input
-                                            type="checkbox"
-                                            className="form-check-input"
-                                            id="disable-lunch-deduction"
-                                            checked={lunchDeductionTimeValue}
-                                            onChange={handleLunchDeductionToggle}
-                                            disabled={isSavingLunchConfig}
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="btn btn-primary btn-sm"
-                                        onClick={handleSaveLunchConfig}
-                                        disabled={isSavingLunchConfig}
-                                        style={{ minWidth: "80px", height: "33px" }}
-                                    >
-                                        {isSavingLunchConfig ? (
-                                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                        ) : (
-                                            "Save"
-                                        )}
-                                    </button>
+        <div className="flex flex-col gap-4">
+            <GlassCard preset="section" className="p-4 sm:p-5">
+                <div className="flex justify-between items-center gap-4 flex-wrap">
+                    <label htmlFor="disable-lunch-deduction" className="font-semibold text-slate-900">
+                        Enable Lunch Deduction Time
+                    </label>
+                    <div className="flex gap-3 items-center">
+                        <div className="form-check form-switch">
+                            <input
+                                type="checkbox"
+                                className="form-check-input"
+                                id="disable-lunch-deduction"
+                                checked={lunchDeductionTimeValue}
+                                onChange={handleLunchDeductionToggle}
+                                disabled={isSavingLunchConfig}
+                            />
+                        </div>
+                        <WtButton onClick={handleSaveLunchConfig} disabled={isSavingLunchConfig}
+                            startIcon={isSavingLunchConfig ? <Spinner size={14} color="#fff" /> : undefined}
+                            className="min-w-[80px]">
+                            Save
+                        </WtButton>
+                    </div>
+                </div>
+            </GlassCard>
+
+            <GlassCard preset="section" className="p-4 sm:p-5">
+                <div className="flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <div className="font-semibold text-slate-900">Restrict Attendance Requests (Days)</div>
+                        <div className="text-[12.5px] text-slate-500">Enter number of calendar days to restrict attendance requests</div>
+                    </div>
+                    <Formik
+                        initialValues={{ restrictDays: restrictToNDaysValue }}
+                        enableReinitialize={true}
+                        validationSchema={Yup.object({
+                            restrictDays: Yup.number()
+                                .min(1, "Value must be 1 or greater")
+                                .max(365, "Value cannot exceed 365 days")
+                                .required("Required")
+                        })}
+                        onSubmit={() => {}}
+                    >
+                        {(formik) => (
+                            <div className="flex flex-wrap gap-3 items-center">
+                                <div className="w-[125px]">
+                                    <TextInput
+                                        isRequired={true}
+                                        formikField="restrictDays"
+                                        type="number"
+                                        inputValidation="numbers"
+                                        onChange={(e) => {
+                                            const value = parseInt(e.target.value) || 0;
+                                            formik.setFieldValue('restrictDays', value);
+                                            handleRestrictDaysChange(value);
+                                        }}
+                                        placeholder="Enter days"
+                                    />
                                 </div>
+                                <WtButton onClick={handleSaveRestrictConfig}
+                                    disabled={isSavingRestrictConfig || formik.values.restrictDays < 1}
+                                    startIcon={isSavingRestrictConfig ? <Spinner size={14} color="#fff" /> : undefined}
+                                    className="min-w-[80px]">
+                                    Save
+                                </WtButton>
                             </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
+                        )}
+                    </Formik>
+                </div>
+            </GlassCard>
 
-            <Row>
-                <Col md={12} className="mb-3">
-                    <Card>
-                        <Card.Body>
-                            <div className="d-flex flex-wrap justify-content-between align-items-center">
-                                <div>
-                                    <div className="form-label mb-0">
-                                        Restrict Attendance Requests (Days)
-                                    </div>
-                                    <div className="text-muted small">
-                                        Enter number of calendar days to restrict attendance requests
-                                    </div>
-                                </div>
-                                <div className="d-flex flex-wrap gap-2 align-items-center">
-                                    <Formik
-                                        initialValues={{ restrictDays: restrictToNDaysValue }}
-                                        enableReinitialize={true}
-                                        validationSchema={Yup.object({
-                                            restrictDays: Yup.number()
-                                                .min(1, "Value must be 1 or greater")
-                                                .max(365, "Value cannot exceed 365 days")
-                                                .required("Required")
-                                        })}
-                                        onSubmit={() => {}}
-                                    >
-                                        {(formik) => (
-                                            <div className="d-flex flex-wrap gap-2 align-items-center">
-                                                <div style={{ width: "125px" }}>
-                                                    <TextInput
-                                                        isRequired={true}
-                                                        formikField="restrictDays"
-                                                        type="number"
-                                                        inputValidation="numbers"
-                                                        onChange={(e) => {
-                                                            const value = parseInt(e.target.value) || 0;
-                                                            formik.setFieldValue('restrictDays', value);
-                                                            handleRestrictDaysChange(value);
-                                                        }}
-                                                        placeholder="Enter days"
-                                                    />
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-primary btn-sm"
-                                                    onClick={handleSaveRestrictConfig}
-                                                    disabled={isSavingRestrictConfig || formik.values.restrictDays < 1}
-                                                    style={{ minWidth: "80px", height: "38px" }}
-                                                >
-                                                    {isSavingRestrictConfig ? (
-                                                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                                    ) : (
-                                                        "Save"
-                                                    )}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </Formik>
-                                </div>
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
-
-            <Row>
-                <Col md={7} className="mb-3">
+            <div className="flex flex-col md:flex-row gap-4 items-stretch">
+                <div className="md:basis-7/12 md:grow min-w-0">
                     <Rules fromAdmin={fromAdmin} />
-                </Col>
+                </div>
+                <div className="md:basis-5/12 md:grow min-w-0">
+                    <Faqs fromAdmin={fromAdmin} typeKey={LEAVE_ATTENDANCE_KEY} />
+                </div>
+            </div>
 
-                <Col md={5} className="mb-3">
-                    <Faqs fromAdmin={fromAdmin} typeKey={LEAVE_ATTENDANCE_KEY}/>
-                </Col>
-            </Row>
-
-               <Row>
-                {/* <Col md={7} className="mb-3">
-                    <Rules fromAdmin={fromAdmin} />
-                </Col> */}
-
-                <Col md={12} className="mb-3">
-                    {/* <Faqs fromAdmin={fromAdmin} typeKey={LEAVE_ATTENDANCE_KEY}/> */}
-                    {/* <FaqsMainPage /> */}
-                </Col>
-            </Row>
-
-            <Row>
-                <Col md={12} className="my-3">
-                    <AddonLeavesAllowanceCard />
-                </Col>
-            </Row>
-        </>
+            <AddonLeavesAllowanceCard />
+        </div>
     );
 }
 

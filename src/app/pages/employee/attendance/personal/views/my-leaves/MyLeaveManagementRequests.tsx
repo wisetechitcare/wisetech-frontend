@@ -3,6 +3,8 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { getAllLeaveManagements } from "@services/employee";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { StatusBadge, IconBox, TRIO, type Trio } from "@app/modules/common/components/ui/tw";
 import { toast } from "react-toastify";
 import dayjs from "dayjs";
 import { useEventBus } from "@hooks/useEventBus";
@@ -92,18 +94,14 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
     }
   };
 
-  const getStatusColor = (status: number) => {
+  // Status → shared TRIO tone (pending amber · approved green · rejected rose · revoked purple).
+  const getStatusTrio = (status: number): Trio => {
     switch (status) {
-      case 0:
-        return "#F39C12"; // warning/pending - orange
-      case 1:
-        return "#2ECC71"; // success/approved - green
-      case 2:
-        return "#E74C3C"; // danger/rejected - red
-      case 3:
-        return "#9B59B6"; // revoked - purple
-      default:
-        return "#95A5A6"; // secondary - gray
+      case 0: return TRIO.amber;
+      case 1: return TRIO.green;
+      case 2: return TRIO.rose;
+      case 3: return TRIO.purple;
+      default: return TRIO.slate;
     }
   };
 
@@ -111,21 +109,10 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
     {
       accessorKey: "managementTypeText",
       header: "Type",
-      Cell: ({ row }: any) => (
-        <span
-          className="badge"
-          style={{
-            backgroundColor: row.original.managementType === LEAVE_MANAGEMENT_TYPE.CASH ? '#3498DB' : '#9B59B6',
-            color: 'white',
-            fontWeight: '500',
-            fontSize: '11px',
-            padding: '5px 8px',
-            borderRadius: '12px',
-          }}
-        >
-          {row.original.managementTypeText || '-NA-'}
-        </span>
-      ),
+      Cell: ({ row }: any) => {
+        const trio = row.original.managementType === LEAVE_MANAGEMENT_TYPE.CASH ? TRIO.blue : TRIO.purple;
+        return <StatusBadge trio={trio} label={row.original.managementTypeText || '-NA-'} />;
+      },
     },
     {
       accessorKey: "leaveCount",
@@ -163,22 +150,7 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
       accessorKey: "status",
       header: "Status",
       Cell: ({ row }: any) => (
-        <span
-          className="badge"
-          style={{
-            backgroundColor: getStatusColor(row.original.status),
-            color: 'white',
-            fontWeight: '500',
-            fontSize: '11px',
-            padding: '5px 8px',
-            borderRadius: '12px',
-            display: 'inline-block',
-            minWidth: '60px',
-            textAlign: 'center'
-          }}
-        >
-          {getStatusText(row.original.status)}
-        </span>
+        <StatusBadge trio={getStatusTrio(row.original.status)} label={getStatusText(row.original.status)} pulse={row.original.status === 0} />
       ),
     },
   ];
@@ -188,10 +160,11 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
   }
 
   return (
-    <div className="mt-10">
-      <h5 className="fw-bold mb-4">
-        My Leave Management Requests
-      </h5>
+    <div className="mt-8">
+      <div className="mb-2.5 flex items-center gap-3">
+        <IconBox icon="dollar" trio={TRIO.purple} size={40} fs="fs-2" />
+        <span className="font-bold text-[17px] text-slate-900">My Leave Management Requests</span>
+      </div>
       <MaterialTable
         columns={columns}
         data={requests}

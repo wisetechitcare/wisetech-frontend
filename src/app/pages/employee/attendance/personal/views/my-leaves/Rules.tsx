@@ -1,4 +1,5 @@
-import { KTCard, KTCardBody } from "@metronic/helpers";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassCard } from "@app/modules/common/components/ui/tw";
 
 interface Rules {
     name: string;
@@ -27,21 +28,17 @@ const rules = [
 function Rules() {
 
     return (
-        <>
-            <KTCard>
-                <KTCardBody>
-                    {rules.map((rule: Rules, index: number) => (
-                        <>
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                                <div className="fw-bold">{rule.name}</div>
-                                <div>{rule.value}</div>
-                            </div>
-                            {index !== rules.length - 1 && <hr />}
-                        </>
-                    ))}
-                </KTCardBody>
-            </KTCard>
-        </>
+        <GlassCard preset="section">
+            {rules.map((rule: Rules, index: number) => (
+                <div key={rule.name}>
+                    <div className="flex items-center justify-between py-2">
+                        <span className="font-semibold text-slate-900">{rule.name}</span>
+                        <span className="font-semibold text-slate-500">{rule.value}</span>
+                    </div>
+                    {index !== rules.length - 1 && <hr className="m-0 border-t border-slate-200" />}
+                </div>
+            ))}
+        </GlassCard>
     );
 }
 

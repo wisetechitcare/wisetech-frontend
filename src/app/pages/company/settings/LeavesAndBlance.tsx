@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSelector } from "react-redux";
 import { createLeaveOption, updateLeaveOptionById } from "@services/employee";
-import { Form, Button, Row, Col } from "react-bootstrap";
+import { KTIcon } from "@metronic/helpers";
+// Shared glass UI kit — single source of truth for the leave-management look.
+import { GlassCard, WtButton, WtIconButton, TRIO } from "@app/modules/common/components/ui/tw";
 import { LeaveTypes } from "@constants/attendance";
 import { RootState } from "@redux/store";
 import { fetchLeaveOptions } from "@services/company";
@@ -127,93 +129,63 @@ function LeavesAndBalance() {
   }, [leavesOptions, branchId, canApprove, fetchOptions]);
 
 
-  return (
-    <div className="p-8 mt-3 bg-white rounded shadow-sm">
-      {/* <h5>Leaves and balance</h5> */}
+  const COLS = "grid grid-cols-1 md:grid-cols-[4fr_3fr_3fr_1.4fr] gap-3 items-center";
 
+  return (
+    <GlassCard preset="section" className="sm:p-6 mt-3">
       {isLoading ? (
-        <div className="text-center my-3">Loading...</div>
+        <div className="text-center my-4 text-slate-500">Loading…</div>
       ) : (
-        <div className="mt-3">
-          <Row className="align-items-center mb-2 text-muted fw-semibold fs-8">
-            <Col md={4}>Leave Type</Col>
-            <Col md={3}>Days / year</Col>
-            <Col md={3}>Carry-forward cap</Col>
-            <Col md={2}></Col>
-          </Row>
+        <div className="mt-2">
+          <div className={`${COLS} mb-2 hidden md:grid`}>
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.04em] m-0">Leave Type</p>
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.04em] m-0">Days / year</p>
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.04em] m-0">Carry-forward cap</p>
+            <div />
+          </div>
           {filteredLeaveOptions.map((leave) => {
             const index = leavesOptions.findIndex((l) => l.id === leave.id);
 
             return (
-              <Row key={leave.id || index} className="align-items-center mb-2">
+              <div key={leave.id || index} className={`${COLS} mb-2.5 py-2 md:py-0 border-b md:border-b-0`} style={{ borderBottomColor: TRIO.slate.bd }}>
                 {leave.isEditing ? (
                   <>
-                    <Col md={4}>
-                      <Form.Control
-                        type="text"
-                        placeholder="Leave Type"
-                        value={leave.leaveType}
-                        disabled
-                        // onChange={(e) => handleChange(index, "leaveType", e.target.value)}
-                      />
-                    </Col>
-                    <Col md={3}>
-                      <Form.Control
-                        type="number"
-                        placeholder="Days / year"
-                        value={leave.numberOfDays}
-                        onChange={(e) => handleChange(index, "numberOfDays", e.target.value)}
-                      />
-                    </Col>
-                    <Col md={3}>
-                      <Form.Control
-                        type="number"
-                        placeholder="Carry-fwd cap"
-                        title="Max days carried to next year. Leave blank for no cap."
-                        value={leave.carryForwardLimit ?? ""}
-                        onChange={(e) => handleChange(index, "carryForwardLimit", e.target.value)}
-                      />
-                    </Col>
+                    <input type="text" placeholder="Leave Type" value={leave.leaveType} disabled
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/15 disabled:bg-slate-50 disabled:text-slate-400" />
+                    <input type="number" placeholder="Days / year" value={leave.numberOfDays}
+                      onChange={(e) => handleChange(index, "numberOfDays", e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/15" />
+                    <input type="number" placeholder="Carry-fwd cap"
+                      title="Max days carried to next year. Leave blank for no cap."
+                      value={leave.carryForwardLimit ?? ""}
+                      onChange={(e) => handleChange(index, "carryForwardLimit", e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/15" />
                   </>
                 ) : (
                   <>
-                    <Col md={4}>
-                      <strong>{leave.leaveType}</strong>
-                    </Col>
-                    <Col md={3}>{leave.numberOfDays}</Col>
-                    <Col md={3}>
-                      {leave.carryForwardLimit ?? <span className="text-muted">No cap</span>}
-                    </Col>
+                    <p className="font-bold text-slate-900 m-0">{leave.leaveType}</p>
+                    <p className="text-slate-900 m-0">{leave.numberOfDays}</p>
+                    <p className="text-slate-900 m-0">
+                      {leave.carryForwardLimit ?? <span className="text-slate-500">No cap</span>}
+                    </p>
                   </>
                 )}
-                <Col md={2}>
-                  <i
-                    className="bi bi-pencil-square text-primary cursor-pointer me-3"
-                    onClick={() => handleEditToggle(index)}
-                  />
-                </Col>
-              </Row>
+                <div className="flex justify-start md:justify-end">
+                  <WtIconButton title={leave.isEditing ? "Done editing" : "Edit"} color={TRIO.blue.c} size={34}
+                    onClick={() => handleEditToggle(index)}>
+                    <KTIcon iconName={leave.isEditing ? "check" : "pencil"} className="fs-4" />
+                  </WtIconButton>
+                </div>
+              </div>
             );
           })}
         </div>
       )}
 
-      {/* <div 
-        className="mt-2 mb-3" 
-        role="button" 
-        onClick={handleAdd} 
-        style={{ color: '#172554' }}
-      >
-        + Add Another
-      </div> */}
-
-      <Button className="mt-3"
-        onClick={handleSubmit} 
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? 'Submitting...' : 'Submit'}
-      </Button>
-    </div>
+      <WtButton className="mt-4 w-full sm:w-auto" onClick={handleSubmit} disabled={isSubmitting}>
+        {isSubmitting ? "Submitting…" : "Submit"}
+      </WtButton>
+    </GlassCard>
   );
 }
 

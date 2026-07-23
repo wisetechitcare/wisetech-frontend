@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal } from 'react-bootstrap';
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassDialog } from '@app/modules/common/components/ui/tw';
 import { createLeaveManagement, getAllEmployeeWithMonthDailyHourlySalary } from '@services/employee';
 import { fetchLeaveOptions } from '@services/company';
 import { toast } from 'react-toastify';
@@ -302,8 +303,8 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
     };
 
     return (
-        <Modal show={show} onHide={onHide} centered size="lg">
-            <Modal.Body style={{ padding: '40px 44px' }}>
+        <GlassDialog open={show} onClose={onHide} maxWidth="md" fullWidth>
+            <div className="px-5 py-6 sm:px-11 sm:py-10">
                 {/* Title */}
                 <div style={{ marginBottom: '32px' }}>
                     <h3 style={{
@@ -868,8 +869,8 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                         'Submit'
                     )}
                 </button>
-            </Modal.Body>
-        </Modal>
+            </div>
+        </GlassDialog>
     );
 };
 

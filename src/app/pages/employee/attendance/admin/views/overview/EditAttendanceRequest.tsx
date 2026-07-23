@@ -9,7 +9,9 @@ import { isValidTime } from "@utils/statistics";
 import dayjs from "dayjs";
 import { Formik } from "formik";
 import { useState, useEffect, useMemo } from "react";
-import { Modal, Form } from "react-bootstrap";
+import { KTIcon } from "@metronic/helpers";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassDialog, GlassHeader, WtButton } from "@app/modules/common/components/ui/tw";
 import { useSelector } from "react-redux";
 import * as Yup from "yup";
 import eventBus from "@utils/EventBus";
@@ -180,12 +182,14 @@ const EditAttendanceRequest = ({
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
-      <Modal.Header closeButton>
-        <Modal.Title>Edit Request (24 hr HH:MM)</Modal.Title>
-      </Modal.Header>
-
-      <Modal.Body>
+    <GlassDialog open={show} onClose={onHide} maxWidth="sm" fullWidth>
+      <GlassHeader
+        title="Edit Request"
+        subtitle="Times in 24-hour HH:MM"
+        icon={<KTIcon iconName="time" className="fs-1 text-white" />}
+        onClose={onHide}
+      />
+      <div className="p-4 sm:p-6">
         <Formik
           initialValues={initialValues}
           validationSchema={validationSchema}
@@ -193,38 +197,25 @@ const EditAttendanceRequest = ({
           onSubmit={handleSubmit}
         >
           {(formikProps) => (
-            <Form
+            <form
               className="d-flex flex-column"
               noValidate
               id="attendance_edit_form"
               onSubmit={formikProps.handleSubmit}
             >
-              <div className="col-lg mb-5">
-                <TimePickerInput
-                  isRequired
-                  label="Check In"
-                  formikField="checkIn"
-                  placeholder="HH MM"
-                />
+              <div className="mb-2.5">
+                <TimePickerInput isRequired label="Check In" formikField="checkIn" placeholder="HH MM" />
               </div>
 
-              <div className="col-lg mb-5">
-                <TimePickerInput
-                  label="Check Out"
-                  formikField="checkOut"
-                  placeholder="HH MM"
-                />
+              <div className="mb-2.5">
+                <TimePickerInput label="Check Out" formikField="checkOut" placeholder="HH MM" />
               </div>
 
-              <div className="col-lg mb-5">
-                <TextInput
-                  isRequired
-                  label="Remarks"
-                  formikField="remarks"
-                />
+              <div className="mb-2.5">
+                <TextInput isRequired label="Remarks" formikField="remarks" />
               </div>
 
-              <div className="col-lg mb-5">
+              <div className="mb-2.5">
                 <DropDownInput
                   isRequired={false}
                   formikField="workingMethodId"
@@ -233,7 +224,7 @@ const EditAttendanceRequest = ({
                 />
               </div>
 
-              <div className="col-lg mb-5">
+              <div className="mb-2.5">
                 <DropDownInput
                   isRequired={false}
                   formikField="status"
@@ -243,25 +234,19 @@ const EditAttendanceRequest = ({
                     { label: "Approved", value: "1" },
                     { label: "Rejected", value: "2" },
                   ]}
-
                 />
               </div>
 
-              <div className="d-flex justify-content-end mt-8">
-                <button
-                  type="submit"
-                  disabled={formikProps.isSubmitting}
-                  className="btn btn-primary"
-                  style={{ backgroundColor: "#1E3A8A", borderColor: "#1E3A8A" }}
-                >
-                  {formikProps.isSubmitting ? "Saving..." : "Save Changes"}
-                </button>
+              <div className="flex justify-stretch sm:justify-end mt-4">
+                <WtButton type="submit" disabled={formikProps.isSubmitting} className="w-full sm:w-auto">
+                  {formikProps.isSubmitting ? "Saving…" : "Save Changes"}
+                </WtButton>
               </div>
-            </Form>
+            </form>
           )}
         </Formik>
-      </Modal.Body>
-    </Modal>
+      </div>
+    </GlassDialog>
   );
 };
 

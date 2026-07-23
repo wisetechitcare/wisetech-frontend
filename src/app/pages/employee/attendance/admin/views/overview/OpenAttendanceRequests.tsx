@@ -4,7 +4,8 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import Loader from "@app/modules/common/utils/Loader";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import { fetchApprovalInstanceByRequest } from "@services/employee";
-import { Modal } from "react-bootstrap";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassDialog, GlassHeader, WtIconButton, StatusBadge, IconBox, TRIO, type Trio, Spinner } from "@app/modules/common/components/ui/tw";
 import { LEAVE_STATUS, LeaveStatus, WORKING_METHOD_TYPE } from "@constants/attendance";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -226,47 +227,22 @@ const OpenAttendanceRequests = () => {
             maxSize: 150,
             Cell: ({ renderedCellValue }: any) => {
                 let statusText = '';
-                let backgroundColor = '';
+                let trio: Trio;
 
                 switch (renderedCellValue) {
                     case LeaveStatus.ApprovalPending:
-                        statusText = LEAVE_STATUS[0];
-                        backgroundColor = '#FFA500';
-                        break;
+                        statusText = LEAVE_STATUS[0]; trio = TRIO.amber; break;
                     case LeaveStatus.Approved:
-                        statusText = LEAVE_STATUS[1];
-                        backgroundColor = '#28a745';
-                        break;
+                        statusText = LEAVE_STATUS[1]; trio = TRIO.green; break;
                     case LeaveStatus.Rejected:
-                        statusText = LEAVE_STATUS[2];
-                        backgroundColor = '#dc3545';
-                        break;
+                        statusText = LEAVE_STATUS[2]; trio = TRIO.rose; break;
                     case LeaveStatus.PendingHR:
-                        statusText = 'Pending HR';
-                        backgroundColor = '#6366f1';
-                        break;
+                        statusText = 'Pending HR'; trio = TRIO.blue; break;
                     default:
                         return renderedCellValue;
                 }
 
-                return (
-                    <span
-                        className="badge"
-                        style={{
-                            backgroundColor: backgroundColor,
-                            color: 'white',
-                            fontWeight: '500',
-                            fontSize: '11px',
-                            padding: '5px 8px',
-                            borderRadius: '12px',
-                            display: 'inline-block',
-                            minWidth: '60px',
-                            textAlign: 'center'
-                        }}
-                    >
-                        {statusText}
-                    </span>
-                );
+                return <StatusBadge trio={trio} label={statusText} pulse={renderedCellValue === LeaveStatus.ApprovalPending} />;
             }
         },
         {
@@ -409,18 +385,20 @@ const OpenAttendanceRequests = () => {
                     ? dayjs(row.original.approvedOrRejectedDate).format('DD MMM YYYY hh:mm A')
                     : null;
 
-                if (!name) return <span className='text-muted fs-7'>-NA-</span>;
+                if (!name) return <span className="text-slate-400 text-[12.5px]">-NA-</span>;
 
+                const trio: Trio = isApproved ? TRIO.green : TRIO.rose;
                 return (
-                    <div className='d-flex align-items-center gap-2'>
-                        <div className='symbol symbol-30px'>
-                            <span className={`symbol-label fw-bold fs-7 ${isApproved ? 'bg-light-success text-success' : 'bg-light-danger text-danger'}`}>
-                                {name.charAt(0).toUpperCase()}
-                            </span>
+                    <div className="flex items-center gap-2">
+                        <div
+                            className="w-[30px] h-[30px] rounded-lg shrink-0 grid place-items-center font-extrabold text-[12.5px]"
+                            style={{ color: trio.c, backgroundColor: trio.bg, borderColor: trio.bd, borderWidth: 1, borderStyle: 'solid' }}
+                        >
+                            {name.charAt(0).toUpperCase()}
                         </div>
-                        <div className='d-flex flex-column'>
-                            <span className='text-dark fw-semibold fs-7'>{name}</span>
-                            {date && <span className='text-muted fs-8'>{date}</span>}
+                        <div className="flex flex-col min-w-0">
+                            <span className="text-slate-900 font-semibold text-[12.5px] leading-[1.3]">{name}</span>
+                            {date && <span className="text-slate-500 text-[11px]">{date}</span>}
                         </div>
                     </div>
                 );
@@ -436,25 +414,18 @@ const OpenAttendanceRequests = () => {
                 const isPending = row.original.status === LeaveStatus.ApprovalPending;
                 const permission = hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.editOthers, row.original);
                 return (
-                    <div className='d-flex align-items-center gap-1'>
+                    <div className="flex items-center gap-1.5">
                         {permission && (
-                            <button
-                                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                                onClick={() => raiseRequest(row?.original)}
-                            >
-                                <KTIcon iconName="pencil" className="fs-3" />
-                            </button>
+                            <WtIconButton title="Edit" color={TRIO.blue.c} onClick={() => raiseRequest(row?.original)} size={34}>
+                                <KTIcon iconName="pencil" className="fs-4" />
+                            </WtIconButton>
                         )}
                         {isPending && row.original.hasApprovalInstance && (
-                            <button
-                                className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
-                                title="Track Approval"
-                                onClick={() => openTracker(row.original.id)}
-                            >
-                                <KTIcon iconName="map" className="fs-3" />
-                            </button>
+                            <WtIconButton title="Track Approval" color={TRIO.cyan.c} onClick={() => openTracker(row.original.id)} size={34}>
+                                <KTIcon iconName="map" className="fs-4" />
+                            </WtIconButton>
                         )}
-                        {!permission && !isPending && 'Not Allowed'}
+                        {!permission && !isPending && <span className="text-slate-400 text-[12px]">Not Allowed</span>}
                     </div>
                 );
             },
@@ -478,7 +449,10 @@ const OpenAttendanceRequests = () => {
 
     return (
         <>
-            <h3 className='pt-10 fw-bold'>All Attendance Requests</h3>
+            <div className="pt-8 mb-2.5 flex items-center gap-3">
+                <IconBox icon="time" trio={TRIO.blue} size={44} fs="fs-1" />
+                <span className="font-bold text-[20px] text-slate-900">All Attendance Requests</span>
+            </div>
             <MaterialTable
                 resource={resourceNameMapWithCamelCase.attendanceRequest}
                 viewOwn={true}
@@ -505,31 +479,33 @@ const OpenAttendanceRequests = () => {
                 />
             )}
 
-            <Modal
-                show={!!trackingRequestId}
-                onHide={() => { setTrackingRequestId(null); setTrackInstanceId(null); }}
-                centered
-                size='lg'
+            <GlassDialog
+                open={!!trackingRequestId}
+                onClose={() => { setTrackingRequestId(null); setTrackInstanceId(null); }}
+                maxWidth="md"
+                fullWidth
             >
-                <Modal.Header closeButton>
-                    <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Approval Status</Modal.Title>
-                </Modal.Header>
-                <Modal.Body style={{ padding: '20px 24px' }}>
+                <GlassHeader
+                    title="Approval Status"
+                    icon={<KTIcon iconName="map" className="fs-1 text-white" />}
+                    onClose={() => { setTrackingRequestId(null); setTrackInstanceId(null); }}
+                />
+                <div className="p-4 sm:p-6">
                     {trackInstanceLoading ? (
-                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                            <span className='spinner-border spinner-border-sm text-primary me-2' />
-                            <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading approval status...</span>
+                        <div className="text-center py-5 flex items-center justify-center gap-2">
+                            <Spinner size={16} />
+                            <p className="text-[13px] text-slate-500 m-0">Loading approval status…</p>
                         </div>
                     ) : trackInstanceId ? (
                         <ApprovalStatusTracker instanceId={trackInstanceId} showAuditLog />
                     ) : (
-                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                        <div className="text-center py-5">
                             <KTIcon iconName='information' className='fs-3x text-muted mb-3' />
-                            <div style={{ fontSize: 13, color: '#a1a5b7' }}>No approval workflow found for this request.</div>
+                            <p className="text-[13px] text-slate-500 m-0">No approval workflow found for this request.</p>
                         </div>
                     )}
-                </Modal.Body>
-            </Modal>
+                </div>
+            </GlassDialog>
         </>
     );
 }

@@ -5,7 +5,9 @@ import { createNewFaq, deleteFaqById, fetchAllFaqs, fetchCompanyOverview, update
 import { Field, Form, Formik, FormikValues } from 'formik';
 import { useEffect, useState } from 'react';
 import * as Yup from 'yup';
-import { Button, Modal } from 'react-bootstrap';
+import { KTIcon } from '@metronic/helpers';
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassDialog, GlassHeader, WtButton, Spinner } from '@app/modules/common/components/ui/tw';
 import { deleteConfirmation, successConfirmation } from '@utils/modal';
 import FaqSection from '../../../../adminFaqs/FaqSection';
 import FaqItem from '../../../../adminFaqs/FaqItem';
@@ -118,35 +120,23 @@ const Faqs = ({ fromAdmin = false, typeKey = '' }: { fromAdmin?: boolean; typeKe
                 )}
 
                 {fromAdmin && (
-                    <div style={{ marginTop: faqs.length > 0 ? '16px' : '0' }}>
-                        <button
-                            type="button"
-                            onClick={() => handleEdit()}
-                            style={{
-                                background: '#1E3A8A',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '7px',
-                                padding: '7px 18px',
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                            }}
-                        >
-                            + Add FAQ
-                        </button>
+                    <div className={faqs.length > 0 ? 'mt-4' : 'mt-0'}>
+                        <WtButton onClick={() => handleEdit()} startIcon={<KTIcon iconName="plus" className="fs-5 text-white" />}
+                            className="py-1.5 px-4 text-[13px]">
+                            Add FAQ
+                        </WtButton>
                     </div>
                 )}
             </FaqSection>
 
             {/* Add / Edit Modal */}
-            <Modal show={show} onHide={handleClose} centered size="lg">
-                <Modal.Header closeButton style={{ borderBottom: '1px solid #f3f4f6', padding: '20px 24px' }}>
-                    <Modal.Title style={{ fontSize: '16px', fontWeight: 700 }}>
-                        {editMode ? 'Edit FAQ' : 'Add FAQ'}
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body style={{ padding: '24px' }}>
+            <GlassDialog open={show} onClose={handleClose} maxWidth="md" fullWidth>
+                <GlassHeader
+                    title={editMode ? 'Edit FAQ' : 'Add FAQ'}
+                    icon={<KTIcon iconName="information-5" className="fs-1 text-white" />}
+                    onClose={handleClose}
+                />
+                <div className="p-4 sm:p-6">
                     <Formik
                         initialValues={initialValues}
                         onSubmit={handleSubmit}
@@ -172,29 +162,24 @@ const Faqs = ({ fromAdmin = false, typeKey = '' }: { fromAdmin?: boolean; typeKe
                                     <HighlightErrors isRequired formikField="answer" />
                                 </div>
 
-                                <div className="d-flex justify-content-end gap-2">
-                                    <button type="button" className="btn btn-light" onClick={handleClose}>
+                                <div className="flex justify-end gap-3 flex-col-reverse sm:flex-row">
+                                    <WtButton ghost type="button" onClick={handleClose} className="w-full sm:w-auto">
                                         Cancel
-                                    </button>
-                                    <button
+                                    </WtButton>
+                                    <WtButton
                                         type="submit"
-                                        className="btn"
-                                        style={{ background: '#1E3A8A', color: '#fff', border: 'none' }}
                                         disabled={loading || !formikProps.isValid || !formikProps.dirty}
+                                        startIcon={loading ? <Spinner size={14} color="#fff" /> : undefined}
+                                        className="w-full sm:w-auto"
                                     >
-                                        {loading ? (
-                                            <span>
-                                                Please wait…{' '}
-                                                <span className="spinner-border spinner-border-sm align-middle ms-2" />
-                                            </span>
-                                        ) : editMode ? 'Update' : 'Save'}
-                                    </button>
+                                        {loading ? 'Please wait…' : editMode ? 'Update' : 'Save'}
+                                    </WtButton>
                                 </div>
                             </Form>
                         )}
                     </Formik>
-                </Modal.Body>
-            </Modal>
+                </div>
+            </GlassDialog>
         </>
     );
 };

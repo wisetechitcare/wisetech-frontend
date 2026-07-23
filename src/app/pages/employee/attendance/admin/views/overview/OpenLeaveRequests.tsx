@@ -3,7 +3,9 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { parseWorkingDays } from "@utils/workingDays";
 import { LeaveStatus, LeaveTypes } from "@constants/attendance";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
-import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
+import { KTIcon } from "@metronic/helpers";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { WtIconButton, StatusBadge, IconBox, TRIO, Spinner } from "@app/modules/common/components/ui/tw";
 import { LeaveOptions } from "@models/employee";
 import { transformLeaveRequests } from "@pages/employee/attendance/admin/OverviewView";
 import { saveLeaveRequests } from "@redux/slices/attendance";
@@ -292,24 +294,17 @@ function OpenLeaveRequests() {
             size: 100,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => (
-                <span
-                    className="badge"
-                    style={{
-                        backgroundColor: getLeaveTypeColor(renderedCellValue),
-                        color: 'white',
-                        fontWeight: '500',
-                        fontSize: '11px',
-                        padding: '5px 8px',
-                        borderRadius: '12px',
-                        display: 'inline-block',
-                        minWidth: '60px',
-                        textAlign: 'center'
-                    }}
-                >
-                    {renderedCellValue}
-                </span>
-            )
+            Cell: ({ renderedCellValue }: any) => {
+                const c = getLeaveTypeColor(renderedCellValue);
+                return (
+                    <span
+                        className="inline-block min-w-[60px] text-center font-bold text-[11px] px-2 py-1 rounded-full border"
+                        style={{ color: c, backgroundColor: `${c}1a`, borderColor: `${c}3d` }}
+                    >
+                        {renderedCellValue}
+                    </span>
+                );
+            }
         },
         {
             accessorKey: "remark",
@@ -329,51 +324,25 @@ function OpenLeaveRequests() {
               const isReportingManager = row.original.reportsToId === employeeId;
 
               if (!isReportingManager) {
-                return (
-                  <span
-                    style={{
-                      backgroundColor: '#FFF3CD',
-                      color: '#856404',
-                      fontWeight: '500',
-                      fontSize: '11px',
-                      padding: '5px 10px',
-                      borderRadius: '12px',
-                      display: 'inline-block',
-                      border: '1px solid #FFEAA7',
-                    }}
-                  >
-                    Awaiting Manager
-                  </span>
-                );
+                return <StatusBadge trio={TRIO.amber} label="Awaiting Manager" pulse title="Pending the reporting manager's review" />;
               }
 
+              const busy = processingRowId === row.original.id;
               return (
-                <>
-                  <button
-                    className='btn btn-icon btn-sm'
-                    onClick={() => approveLeave(row.original)}
-                    title="Approve Leave"
-                    disabled={loading || processingRowId === row.original.id}
-                  >
-                    {processingRowId === row.original.id && processingAction === 'approve' ? (
-                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    ) : (
-                        <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} />
-                    )}
-                  </button>
-                  <button
-                    className='btn btn-icon btn-sm'
-                    onClick={() => rejectLeave(row.original.id)}
-                    title="Reject Leave"
-                    disabled={loading || processingRowId === row.original.id}
-                  >
-                    {processingRowId === row.original.id && processingAction === 'reject' ? (
-                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    ) : (
-                        <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} />
-                    )}
-                  </button>
-                </>
+                <div className="flex gap-1.5">
+                  <WtIconButton title="Approve Leave" color={TRIO.green.c} disabled={loading || busy}
+                    onClick={() => approveLeave(row.original)} size={34}>
+                    {busy && processingAction === 'approve'
+                        ? <Spinner size={16} color={TRIO.green.c} />
+                        : <KTIcon iconName="check" className="fs-4" />}
+                  </WtIconButton>
+                  <WtIconButton title="Reject Leave" color={TRIO.rose.c} disabled={loading || busy}
+                    onClick={() => rejectLeave(row.original.id)} size={34}>
+                    {busy && processingAction === 'reject'
+                        ? <Spinner size={16} color={TRIO.rose.c} />
+                        : <KTIcon iconName="cross" className="fs-4" />}
+                  </WtIconButton>
+                </div>
               );
             }
           })
@@ -422,7 +391,10 @@ function OpenLeaveRequests() {
 
     return (
         <>
-            <h3 className='pt-8 fw-bold'>Open Leave Requests</h3>
+            <div className="pt-6 mb-2.5 flex items-center gap-3">
+                <IconBox icon="document" trio={TRIO.blue} size={44} fs="fs-1" />
+                <span className="font-bold text-[20px] text-slate-900">Open Leave Requests</span>
+            </div>
             <MaterialTable
                 data={openLeaveRequests}
                 columns={columns}

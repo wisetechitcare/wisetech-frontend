@@ -12,7 +12,8 @@ import LeaveSegmentChips, { useLeaveTypeColor } from "@app/modules/common/compon
 import { rgba } from "@utils/leaveTypeColors";
 import ApplyLeave, { type ExistingLeaveView } from "./ApplyLeave";
 import { fromGroupedLeave } from "./toExistingLeaveView";
-import { Modal } from "react-bootstrap";
+// Shared glass UI kit — single source of truth for the leave-management look.
+import { GlassDialog, GlassHeader, WtIconButton, StatusBadge, Spinner, TRIO, type Trio } from "@app/modules/common/components/ui/tw";
 import { deleteConfirmation } from "@utils/modal";
 import { savePersonalLeaves } from "@redux/slices/leaves";
 import { getSocket } from "@utils/socketClient";
@@ -58,11 +59,9 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
                 const g = row.original as GroupedLeaveRequest;
                 if (g.isHalfDay && !g.isGroup) {
                     const session = String(g.halfDaySession || '').toUpperCase();
-                    return <span className='badge badge-light-primary fw-bold fs-8'>½ day{session === 'AM' || session === 'PM' ? ` (${session})` : ''}</span>;
+                    return <StatusBadge trio={TRIO.blue} label={`½ day${session === 'AM' || session === 'PM' ? ` (${session})` : ''}`} />;
                 }
-                return (
-                    <span className='badge badge-light-primary fw-bold fs-8'>{g.totalDays} {g.totalDays === 1 ? 'day' : 'days'}</span>
-                );
+                return <StatusBadge trio={TRIO.blue} label={`${g.totalDays} ${g.totalDays === 1 ? 'day' : 'days'}`} />;
             }
         },
         {
@@ -94,8 +93,8 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
                 const isApproved = g.status === Status.Approved;
                 const isRejected = g.status === Status.Rejected;
                 const label = isApproved ? 'Approved' : isRejected ? 'Rejected' : 'Approval Pending';
-                const badgeClass = isApproved ? 'badge-light-success text-success' : isRejected ? 'badge-light-danger text-danger' : 'badge-light-warning text-warning';
-                return <span className={`badge ${badgeClass} fw-bold fs-7`}>{label}</span>;
+                const trio: Trio = isApproved ? TRIO.green : isRejected ? TRIO.rose : TRIO.amber;
+                return <StatusBadge trio={trio} label={label} pulse={!isApproved && !isRejected} />;
             }
         },
         {
@@ -106,18 +105,18 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
                 const isApproved = g.status === Status.Approved;
                 const isRejected = g.status === Status.Rejected;
                 const name = isApproved ? g.approvedByName : isRejected ? g.rejectedByName : null;
-                if (!name) return <span className='text-muted fs-7'>-NA-</span>;
+                if (!name) return <span className="text-slate-400 text-[12.5px]">-NA-</span>;
+                const trio: Trio = isApproved ? TRIO.green : TRIO.rose;
                 return (
-                    <div className='d-flex align-items-center gap-2'>
-                        <div className='symbol symbol-30px flex-shrink-0'>
-                            <span className={`symbol-label fw-bold fs-7 ${isApproved ? 'bg-light-success text-success' : 'bg-light-danger text-danger'}`}>
-                                {name.charAt(0).toUpperCase()}
-                            </span>
+                    <div className="flex items-center gap-2">
+                        <div className="w-[30px] h-[30px] rounded-lg shrink-0 grid place-items-center font-extrabold text-[12.5px] border"
+                            style={{ color: trio.c, backgroundColor: trio.bg, borderColor: trio.bd }}>
+                            {name.charAt(0).toUpperCase()}
                         </div>
-                        <div className='d-flex flex-column'>
-                            <span className='text-dark fw-semibold fs-7'>{name}</span>
+                        <div className="flex flex-col min-w-0">
+                            <p className="text-slate-900 font-semibold text-[12.5px] leading-tight m-0">{name}</p>
                             {g.actedAt && (
-                                <span className='text-muted fs-8'>{formatDateFromISTString(g.actedAt)}</span>
+                                <p className="text-slate-500 text-[11px] m-0">{formatDateFromISTString(g.actedAt)}</p>
                             )}
                         </div>
                     </div>
@@ -134,33 +133,28 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
                     const deleteRes = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.deleteOwn);
                     const isPending = g.status !== Status.Approved && g.status !== Status.Rejected;
                     return (
-                        <>
+                        <div className="flex items-center gap-1.5">
                             {/* Lifecycle-gated: canEdit/canDelete are false once the 1st approver acts.
                                 Editing a group re-allocates the whole request (backend group-aware). */}
-                            {editRes && g.canEdit && <button
-                                className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
-                                title='Edit'
-                                onClick={(e) => { e.stopPropagation(); setDetailGroup(g); setDetailMode('edit'); }}
-                            >
-                                <KTIcon iconName='pencil' className='fs-3' />
-                            </button>}
-                            {deleteRes && g.canDelete && <button
-                                className='ms-2 btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
-                                title={g.isGroup ? 'Delete whole request' : 'Delete'}
-                                onClick={(e) => { e.stopPropagation(); deleteLeaveRequest(g.segments[0]?.id ?? g.groupId); }}
-                            >
-                                <KTIcon iconName='trash' className='fs-3' />
-                            </button>}
-                            {isPending && g.hasApprovalInstance && (
-                                <button
-                                    className='ms-2 btn btn-icon btn-bg-light btn-active-color-info btn-sm'
-                                    title='Track Approval'
-                                    onClick={(e) => { e.stopPropagation(); openTracker(g); }}
-                                >
-                                    <KTIcon iconName='map' className='fs-3' />
-                                </button>
+                            {editRes && g.canEdit && (
+                                <WtIconButton title='Edit' color={TRIO.blue.c} size={34}
+                                    onClick={(e) => { e.stopPropagation(); setDetailGroup(g); setDetailMode('edit'); }}>
+                                    <KTIcon iconName='pencil' className='fs-4' />
+                                </WtIconButton>
                             )}
-                        </>
+                            {deleteRes && g.canDelete && (
+                                <WtIconButton title={g.isGroup ? 'Delete whole request' : 'Delete'} color={TRIO.rose.c} size={34}
+                                    onClick={(e) => { e.stopPropagation(); deleteLeaveRequest(g.segments[0]?.id ?? g.groupId); }}>
+                                    <KTIcon iconName='trash' className='fs-4' />
+                                </WtIconButton>
+                            )}
+                            {isPending && g.hasApprovalInstance && (
+                                <WtIconButton title='Track Approval' color={TRIO.cyan.c} size={34}
+                                    onClick={(e) => { e.stopPropagation(); openTracker(g); }}>
+                                    <KTIcon iconName='map' className='fs-4' />
+                                </WtIconButton>
+                            )}
+                        </div>
                     );
                 },
             }]
@@ -310,31 +304,33 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
                 }}
             />
 
-            <Modal
-                show={!!trackingLeaveId}
-                onHide={() => { setTrackingLeaveId(null); setTrackInstanceId(null); }}
-                centered
-                size='lg'
+            <GlassDialog
+                open={!!trackingLeaveId}
+                onClose={() => { setTrackingLeaveId(null); setTrackInstanceId(null); }}
+                maxWidth="md"
+                fullWidth
             >
-                <Modal.Header closeButton>
-                    <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Approval Status</Modal.Title>
-                </Modal.Header>
-                <Modal.Body style={{ padding: '20px 24px' }}>
+                <GlassHeader
+                    title="Approval Status"
+                    icon={<KTIcon iconName="map" className="fs-1 text-white" />}
+                    onClose={() => { setTrackingLeaveId(null); setTrackInstanceId(null); }}
+                />
+                <div className="p-4 sm:p-6">
                     {trackInstanceLoading ? (
-                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                            <span className='spinner-border spinner-border-sm text-primary me-2' />
-                            <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading approval status...</span>
+                        <div className="text-center py-5 flex items-center justify-center gap-2">
+                            <Spinner size={16} />
+                            <p className="text-[13px] text-slate-500 m-0">Loading approval status…</p>
                         </div>
                     ) : trackInstanceId ? (
                         <ApprovalStatusTracker instanceId={trackInstanceId} showAuditLog />
                     ) : (
-                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                        <div className="text-center py-5">
                             <KTIcon iconName='information' className='fs-3x text-muted mb-3' />
-                            <div style={{ fontSize: 13, color: '#a1a5b7' }}>No approval workflow found for this request.</div>
+                            <p className="text-[13px] text-slate-500 m-0">No approval workflow found for this request.</p>
                         </div>
                     )}
-                </Modal.Body>
-            </Modal>
+                </div>
+            </GlassDialog>
 
 
             {/* View AND edit both use the SAME canonical Apply-Leave modal (mode-driven). It owns

@@ -11,7 +11,6 @@ import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { barYearlyData, fetchEmpYearlyStatistics, pieAreaData, pieAreaLabels, donutaDataLabel, totalWorkingTime, getWorkingDaysInYear, yearHeatMap, totalProgressPercent, allStreaksIndicator, customLeaves, getWorkingDaysInRange, formatDisplay, getWorkingDaysInRangeForTotalTime } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { Container, Row } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { resourseAndView } from '@models/company';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
@@ -337,7 +336,7 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
 
     return (
         <>
-            <Row className='mt-7'>
+            <div className='row mt-7'>
                 <Donut donutLabels={donutLabels} donutSeries={donutSeries} totalDays={actualTotalWorkingDayInYear} />
                 <MultipleRadialBar multipleRadialBarLabels={multipleRadialBarLabels} multipleRadialBarSeries={multipleRadialBarSeries} totalWorkingDays={actualTotalWorkingDayInYear} />
                 <Polar polarLabels={polarLabels} polarSeries={polarSeries} totalDays={actualTotalWorkingDayInYear} />
@@ -348,7 +347,7 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
                     totalDays={actualTotalWorkingDayInYear} 
                 />
                 <TotalWorkingTime totalWorkingTime={calculateTotalDuration(filteredYearlyStats)} totalAllowedTime={totalAllowedTimeForOutOffValue} />
-            </Row>
+            </div>
 
             <Bar barOption={barOptions} barSeriesData={barSeriesData} height={250} totalWorkingTime={calculateTotalDuration(filteredYearlyStats)} totalAllowedTime={totalAllowedTime} />
             <HeatMap heatMapSeries={heatMapSeries} height={350} totalDays={actualTotalWorkingDayInYear} />

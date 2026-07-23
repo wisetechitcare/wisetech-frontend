@@ -10,6 +10,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { KTIcon } from '@metronic/helpers';
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassCard, WtButton, StatusBadge, IconBox, Spinner, TRIO } from '@app/modules/common/components/ui/tw';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
@@ -68,85 +70,74 @@ function AttendanceSyncConflicts() {
   if (!loading && conflicts.length === 0) return null;
 
   return (
-    <div className="card mb-6 mt-6">
-      <div className="card-header border-0 pt-6">
-        <div className="card-title d-flex align-items-center gap-2">
-          <KTIcon iconName="information-5" className="fs-2 text-warning" />
-          <h3 className="fw-bold m-0">
-            Attendance Sync Conflicts
-            {conflicts.length > 0 && (
-              <span className="badge badge-warning ms-2 fs-7">{conflicts.length}</span>
-            )}
-          </h3>
+    <GlassCard preset="section" className="mt-6 mb-6 p-4 sm:p-6">
+      <div className="flex items-center gap-3 mb-3">
+        <IconBox icon="information-5" trio={TRIO.amber} size={40} fs="fs-2" />
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-[18px] text-slate-900">Attendance Sync Conflicts</span>
+          {conflicts.length > 0 && <StatusBadge trio={TRIO.amber} label={String(conflicts.length)} />}
         </div>
       </div>
-      <div className="card-body pt-3">
-        <p className="text-muted fs-7 mb-5">
-          The biometric device reported a different time for a check-in/out that was already
-          recorded in the app. Nothing was overwritten — review each and choose whether to
-          apply the device's value or keep the existing one.
-        </p>
+      <p className="text-[13px] text-slate-500 mb-5 leading-normal m-0">
+        The biometric device reported a different time for a check-in/out that was already
+        recorded in the app. Nothing was overwritten — review each and choose whether to
+        apply the device's value or keep the existing one.
+      </p>
 
-        {loading && conflicts.length === 0 ? (
-          <div className="text-muted fs-7">Loading…</div>
-        ) : (
-          <div className="table-responsive">
-            <table className="table table-row-dashed align-middle gs-0 gy-3">
-              <thead>
-                <tr className="fw-semibold text-muted fs-7 text-uppercase">
-                  <th className="min-w-150px">Employee</th>
-                  <th className="min-w-120px">Day</th>
-                  <th className="min-w-90px">Field</th>
-                  <th className="min-w-160px">Current (in app)</th>
-                  <th className="min-w-160px">Device says</th>
-                  <th className="min-w-140px text-end">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {conflicts.map((c) => {
-                  const name = `${c.employee?.users?.firstName ?? ''} ${c.employee?.users?.lastName ?? ''}`.trim() || '—';
-                  const busy = processingId === c.id;
-                  return (
-                    <tr key={c.id}>
-                      <td>
-                        <span className="fw-bold text-dark d-block">{name}</span>
-                        <span className="text-muted fs-8">{c.employee?.employeeCode ?? ''}</span>
-                      </td>
-                      <td className="fs-7">{c.attendance?.attendanceDate ? fmtDay(c.attendance.attendanceDate) : fmtDay(c.existingValue)}</td>
-                      <td>
-                        <span className="badge badge-light-primary text-uppercase">
-                          {c.field === 'checkIn' ? 'Check-In' : 'Check-Out'}
-                        </span>
-                      </td>
-                      <td className="fs-7 text-success fw-semibold">{fmt(c.existingValue)}</td>
-                      <td className="fs-7 text-danger fw-semibold">{fmt(c.proposedValue)}</td>
-                      <td className="text-end">
-                        <button
-                          className="btn btn-sm btn-light-success me-2"
-                          disabled={busy}
-                          title="Apply the device's value"
-                          onClick={() => resolve(c.id, 'accept')}
-                        >
-                          {busy ? <span className="spinner-border spinner-border-sm" /> : 'Accept device'}
-                        </button>
-                        <button
-                          className="btn btn-sm btn-light-secondary"
-                          disabled={busy}
-                          title="Keep the value already in the app"
-                          onClick={() => resolve(c.id, 'reject')}
-                        >
+      {loading && conflicts.length === 0 ? (
+        <div className="flex items-center gap-2 text-slate-500 text-[13px]">
+          <Spinner size={16} /> Loading…
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[760px] w-full text-[13px] border-collapse">
+            <thead>
+              <tr className="bg-slate-50 [&>th]:text-[11px] [&>th]:font-bold [&>th]:text-slate-500 [&>th]:uppercase [&>th]:tracking-[0.04em] [&>th]:text-left [&>th]:p-2 [&>th]:border-b [&>th]:border-slate-200">
+                <th>Employee</th>
+                <th>Day</th>
+                <th>Field</th>
+                <th>Current (in app)</th>
+                <th>Device says</th>
+                <th className="!text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="[&>tr>td]:p-2 [&>tr>td]:border-b [&>tr>td]:border-slate-100">
+              {conflicts.map((c) => {
+                const name = `${c.employee?.users?.firstName ?? ''} ${c.employee?.users?.lastName ?? ''}`.trim() || '—';
+                const busy = processingId === c.id;
+                return (
+                  <tr key={c.id}>
+                    <td>
+                      <p className="font-bold text-[13px] text-slate-900 m-0">{name}</p>
+                      <p className="text-[11px] text-slate-500 m-0">{c.employee?.employeeCode ?? ''}</p>
+                    </td>
+                    <td>{c.attendance?.attendanceDate ? fmtDay(c.attendance.attendanceDate) : fmtDay(c.existingValue)}</td>
+                    <td>
+                      <StatusBadge trio={TRIO.blue} label={c.field === 'checkIn' ? 'Check-In' : 'Check-Out'} />
+                    </td>
+                    <td className="font-semibold" style={{ color: TRIO.green.c }}>{fmt(c.existingValue)}</td>
+                    <td className="font-semibold" style={{ color: TRIO.rose.c }}>{fmt(c.proposedValue)}</td>
+                    <td className="!text-right">
+                      <div className="flex gap-1.5 justify-end">
+                        <WtButton tone="success" disabled={busy} title="Apply the device's value" onClick={() => resolve(c.id, 'accept')}
+                          className="text-[12px] py-1 px-2.5 min-w-0"
+                          startIcon={busy ? <Spinner size={13} color="#fff" /> : undefined}>
+                          Accept device
+                        </WtButton>
+                        <WtButton ghost disabled={busy} title="Keep the value already in the app" onClick={() => resolve(c.id, 'reject')}
+                          className="text-[12px] py-1 px-2.5 min-w-0">
                           Keep app
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
+                        </WtButton>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </GlassCard>
   );
 }
 

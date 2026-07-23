@@ -15,6 +15,11 @@ export {
 export type {
   GlassSurfaceProps, GlassDialogProps, GlassHeaderProps, GlassCardProps,
 } from './glass';
+// Shared UI pattern atoms — app-wide primitives (single source of truth; use across every feature).
+export {
+  TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile, Eyebrow, SectionHead,
+} from './patterns';
+export type { Trio } from './patterns';
 export { hoverLiftSx, pressableSx, MOTION_KEYFRAMES } from './motion';
 export { GlassNotification, GlassToastProvider, useGlassToast } from './GlassNotification';
 export type { GlassNotificationProps, GlassToastOptions } from './GlassNotification';

@@ -32,7 +32,6 @@ import {
 } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { Col, Row, Container } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import BranchSetupGuide from './components/BranchSetupGuide';
 import { LeaveStatus } from '@constants/attendance';
@@ -418,29 +417,29 @@ const Weekly = ({
 
     return (
         <>
-            <Row className="mt-7">
+            <div className="row mt-7">
                 <Donut donutLabels={donutLabels} donutSeries={donutSeries} totalDays={actualTotalWorkingDay} />
                 <MultipleRadialBar multipleRadialBarLabels={multipleRadialBarLabels} multipleRadialBarSeries={multipleRadialBarSeries} totalWorkingDays={actualTotalWorkingDay} />
                 <Polar polarLabels={polarLabels} polarSeries={polarSeries} totalDays={actualTotalWorkingDay} />
-                
-                
-                <Col md={4} className="mb-4">
+
+
+                <div className="col-md-4 mb-4">
                     <Dumbell dumbellSeriesData={dumbellSeriesData} cardHeight={true} height={220} totalWorkedDays={totalWorkedDays} totalDays={actualTotalWorkingDay} />
-                </Col>
-                <Col md={4} className="mb-4">
+                </div>
+                <div className="col-md-4 mb-4">
                     <Bar barOption={barOption} barSeriesData={barSeriesData} cardHeight={true} height={220} totalWorkingTime={calculateTotalDuration(filteredWeeklyStats)} totalAllowedTime={totalAllowedTime} />
-                </Col>
+                </div>
                 {/* <StreakIndicator 
                     currentStreak={allStreaksIndicator(filteredWeeklyStats, dayjs().format('MM') === startWeek.format('MM'))[0].toString()} 
                     lastStreak={allStreaksIndicator(filteredWeeklyStats, dayjs().format('MM') === endWeek.format('MM'))[1].toString()}  
                     totalDays={actualTotalWorkingDay}
                 />                 */}
                 <TotalWorkingTime totalWorkingTime={calculateTotalDuration(filteredWeeklyStats)} totalAllowedTime={totalAllowedTimeForOutOffValue} />
-                
-                <Col md={12} className="mb-4">
+
+                <div className="col-md-12 mb-4">
                     <HeatMap heatMapSeries={heatMapSeries} height={135} totalDays={actualTotalWorkingDay} />
-                </Col>
-            </Row>
+                </div>
+            </div>
 
             <LazySection minHeight="300px" rootMargin="200px">
                 <h3 className='pt-4 fw-bold font-barlow'>Open Attendance Request</h3>

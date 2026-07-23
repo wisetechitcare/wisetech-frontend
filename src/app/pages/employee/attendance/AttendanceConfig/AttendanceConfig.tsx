@@ -1,14 +1,12 @@
 import { safeJsonParse } from '@utils/safeJson';
 import React, { useState, useEffect, useCallback } from 'react';
-import { Modal } from 'react-bootstrap';
-import { KTIcon } from '@metronic/helpers';
-import DailyShiftTime from './component/DailyShiftTime';
-import OtherSettings from './component/OtherSettings';
-import LeaveTypesBalance from './component/LeaveTypesBalance';
+import { LeaveTypesBalanceModal } from './component/LeaveTypesBalance';
 import SandwichLeave from '@pages/company/settings/SandwhichLeave';
-import LeavePolicy from '@pages/company/settings/LeavePolicy';
-import Appearance from './component/Appearance';
-import AddonLeavesAllowanceCard from '@app/modules/common/components/AddonLeavesAllowanceCard';
+import { LeavePolicyModal } from '@pages/company/settings/LeavePolicy';
+import AddonLeavesModal from './component/AddonLeavesModal';
+import DailyShiftTimeModal from './component/DailyShiftTimeModal';
+import OtherSettingsModal from './component/OtherSettingsModal';
+import AppearanceModal from './component/AppearanceModal';
 import {
   fetchConfiguration,
   fetchCompanyOverview,
@@ -709,7 +707,25 @@ const AttendanceConfig: React.FC = () => {
                   overflow: 'hidden',
                 }}
               >
-                <Appearance />
+                <button
+                  type="button"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    padding: '20px 24px', border: 'none', background: 'none', cursor: 'pointer',
+                    borderBottom: `1px solid ${C.border}`,
+                    fontFamily: FONT.heading, fontWeight: 700, fontSize: '15px', color: C.textPrimary,
+                  }}
+                  onClick={() => setShowAppearanceModal(true)}
+                >
+                  <i className="bi bi-palette" style={{ fontSize: 18, color: '#7c3aed' }} />
+                  Open Appearance Editor
+                  <i className="bi bi-arrow-right ms-auto" style={{ fontSize: 14, color: '#9ca3af' }} />
+                </button>
+                <div style={{ padding: '16px 24px' }}>
+                  <p style={{ fontFamily: FONT.body, fontSize: 13, color: C.textMuted, margin: 0 }}>
+                    Customize colors for attendance calendar statuses, leave type indicators, working pattern metrics, work location tags, and chart series.
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -718,101 +734,42 @@ const AttendanceConfig: React.FC = () => {
 
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
 
-      {/* Daily Shift Time */}
-      <Modal show={showDailyShiftModal} onHide={() => { setShowDailyShiftModal(false); loadDailyShiftData(); }} size="xl" centered>
-        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
-          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
-            Daily Shift Time
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
-          {/* Scope is chosen via the tabs on the Configure page; shown here read-only so it's
-              always clear which org/branch this modal is editing. */}
-          {(() => {
-            const activeBranch = configScope.branchId ? branchOptions.find(b => b.id === configScope.branchId) : undefined;
-            const scopeLabel = activeBranch
-              ? `Branch override — ${activeBranch.orgName ? `${activeBranch.orgName} › ${activeBranch.name}` : activeBranch.name}`
-              : `${rootOrgName} — default for all branches`;
-            return (
-              <div style={{ padding: '16px 28px 0', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <label style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, margin: 0 }}>Configuring for:</label>
-                <span style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid #e4e6ef', background: '#fff', fontSize: 13, fontWeight: 600, color: '#1E3A8A' }}>
-                  {scopeLabel}
-                </span>
-                {configScope.branchId
-                  ? <span style={{ fontSize: 12, color: '#1E3A8A' }}>Applies to this branch only.</span>
-                  : <span style={{ fontSize: 12, color: '#6c757d' }}>Applies to every sub-org & branch (unless a branch has its own override).</span>}
-                {!canEditConfig && <span style={{ fontSize: 12, color: '#c0392b' }}>You don’t have permission to edit (view only).</span>}
-              </div>
-            );
-          })()}
-          <DailyShiftTime key={`${shiftKey}-${configScope.branchId ?? configScope.companyId ?? 'org'}`} scope={configScope} />
-        </Modal.Body>
-      </Modal>
+      {/* Daily Shift Time — GlassDialog */}
+      <DailyShiftTimeModal
+        open={showDailyShiftModal}
+        onClose={() => { setShowDailyShiftModal(false); loadDailyShiftData(); }}
+        mountKey={shiftKey}
+        scope={configScope}
+        scopeLabel={(() => {
+          const activeBranch = configScope.branchId ? branchOptions.find(b => b.id === configScope.branchId) : undefined;
+          return activeBranch
+            ? `Branch override — ${activeBranch.orgName ? `${activeBranch.orgName} › ${activeBranch.name}` : activeBranch.name}`
+            : `${rootOrgName} — default for all branches`;
+        })()}
+        canEdit={canEditConfig}
+      />
 
-      {/* Other Settings */}
-      <Modal show={showOtherSettingsModal} onHide={() => { setShowOtherSettingsModal(false); loadOtherSettingsData(); }} size="xl" centered>
-        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
-          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
-            Attendance Settings
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
-          <OtherSettings key={otherSettingsKey} />
-        </Modal.Body>
-      </Modal>
+      {/* Other Settings — GlassDialog */}
+      <OtherSettingsModal
+        open={showOtherSettingsModal}
+        onClose={() => { setShowOtherSettingsModal(false); loadOtherSettingsData(); }}
+        mountKey={otherSettingsKey}
+      />
 
-      {/* Sandwich Leave — now a self-contained glass dialog (frosted Paper, dim+blurred backdrop,
-          Apple scale-in, mobile full-screen). No react-bootstrap Modal wrapper needed. */}
+      {/* Sandwich Leave — self-contained GlassDialog */}
       <SandwichLeave open={showSandwichModal} showSandWhichLeaveModal={(v: boolean) => setShowSandwichModal(v)} />
 
-      {/* Appearance */}
-      <Modal show={showAppearanceModal} onHide={() => setShowAppearanceModal(false)} size="xl" centered>
-        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
-          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
-            Appearance Settings
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
-          <Appearance />
-        </Modal.Body>
-      </Modal>
+      {/* Appearance — GlassDialog */}
+      <AppearanceModal open={showAppearanceModal} onClose={() => setShowAppearanceModal(false)} />
 
-      {/* Addon Leaves */}
-      <Modal show={showAddonLeavesModal} onHide={() => setShowAddonLeavesModal(false)} size="xl" centered>
-        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
-          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
-            Addon Leaves Allowance
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: '24px', backgroundColor: C.bgPage }}>
-          <AddonLeavesAllowanceCard />
-        </Modal.Body>
-      </Modal>
+      {/* Addon Leaves — GlassDialog */}
+      <AddonLeavesModal open={showAddonLeavesModal} onClose={() => setShowAddonLeavesModal(false)} />
 
-      {/* Auto-Allocation Policy */}
-      <Modal show={showLeavePolicyModal} onHide={() => setShowLeavePolicyModal(false)} size="lg" centered>
-        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
-          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
-            Auto-Allocation Policy
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
-          <LeavePolicy />
-        </Modal.Body>
-      </Modal>
+      {/* Auto-Allocation Policy — GlassDialog */}
+      <LeavePolicyModal open={showLeavePolicyModal} onClose={() => setShowLeavePolicyModal(false)} />
 
-      {/* Leave Types */}
-      <Modal show={showLeaveTypesModal} onHide={() => setShowLeaveTypesModal(false)} size="xl" centered>
-        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
-          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
-            Leave Types & Balance
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
-          <LeaveTypesBalance />
-        </Modal.Body>
-      </Modal>
+      {/* Leave Types & Balance — GlassDialog */}
+      <LeaveTypesBalanceModal open={showLeaveTypesModal} onClose={() => setShowLeaveTypesModal(false)} />
     </>
   );
 };

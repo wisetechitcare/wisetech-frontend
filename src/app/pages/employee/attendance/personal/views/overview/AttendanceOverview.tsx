@@ -5,8 +5,6 @@ import { fetchEmpAttendanceStatistics } from "@services/employee";
 import { useEffect, useState } from "react";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import dayjs from "dayjs";
-import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
-import Tooltip from 'react-bootstrap/Tooltip';
 import { KTIcon } from "@metronic/helpers";
 
 
@@ -233,14 +231,9 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
               <div className="overflow-hidden flex-grow-1">
                 <span className="text-muted d-block fs-8 fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>Location</span>
                 {data.location ? (
-                  <OverlayTrigger
-                    placement="top"
-                    overlay={<Tooltip id="tooltip-top">{data.location}</Tooltip>}
-                  >
-                    <span className="fw-bolder fs-7 text-gray-800 text-truncate d-block cursor-pointer">
-                      {formattedAddress(data.location)}
-                    </span>
-                  </OverlayTrigger>
+                  <span title={data.location} className="fw-bolder fs-7 text-gray-800 text-truncate d-block cursor-pointer">
+                    {formattedAddress(data.location)}
+                  </span>
                 ) : (
                   <span className="fw-bolder fs-7 text-gray-800">—</span>
                 )}

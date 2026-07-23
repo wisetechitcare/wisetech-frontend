@@ -27,7 +27,6 @@ import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { useDispatch, useSelector } from "react-redux";
 import { WorkingMethod as ModelWorkingMethod } from '@models/employee';
 import { onSiteAndHolidayWeekendSettingsOnOffName, resourceNameMapWithCamelCase } from "@constants/statistics";
-import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import { fetchAddressDetails } from "@services/location";
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration } from "@services/company";
 import { DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from "@constants/configurations-key";
@@ -237,11 +236,9 @@ const LocationCell = ({ latitude, longitude, location }: { latitude?: number, lo
 
     return mapUrl ? (
         <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <OverlayTrigger placement='top' overlay={<Tooltip id={`tooltip-${latitude}-${longitude}`}>{address}</Tooltip>}>
-                <span>
-                    {address.length > 30 ? `${address.substring(0, 30)}...` : address}
-                </span>
-            </OverlayTrigger>
+            <span title={address}>
+                {address.length > 30 ? `${address.substring(0, 30)}...` : address}
+            </span>
         </a>
     ) : (
         <span>{address}</span>
