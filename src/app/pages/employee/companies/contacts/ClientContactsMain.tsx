@@ -216,7 +216,7 @@ const ClientContactsMain = ({
 
   const columns = useMemo<MRT_ColumnDef<any, any>[]>(
     () => {
-      const columnsList = [
+      const columnsList: MRT_ColumnDef<any, any>[] = [
         {
           accessorKey: "profile",
           header: "Profile",
