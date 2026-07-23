@@ -1,4 +1,4 @@
-import { ToggleButton, ToggleButtonGroup, SxProps, Theme } from '@mui/material';
+import { ToggleButton, ToggleButtonGroup, SxProps, Theme, useMediaQuery, useTheme } from '@mui/material';
 
 export interface PeriodTabOption {
     label: string;
@@ -24,7 +24,11 @@ const PeriodTabs = ({
     ariaLabel = 'period selection',
     sx,
     selectedColor = '#1E3A8A',
-}: PeriodTabsProps) => (
+}: PeriodTabsProps) => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+    return (
     <ToggleButtonGroup
         value={value}
         exclusive
@@ -35,7 +39,7 @@ const PeriodTabs = ({
         }}
         aria-label={ariaLabel}
         sx={{
-            display: 'inline-flex',
+            display: 'flex',
             alignItems: 'center',
             gap: 0,
             height: 30,
@@ -43,7 +47,7 @@ const PeriodTabs = ({
             borderRadius: '5px',
             backgroundColor: '#f1f5f9',
             border: '1px solid #eef2f7',
-            width: 'fit-content',
+            width: isMobile ? '100%' : 'fit-content',
             maxWidth: '100%',
             overflowX: 'auto',
             '& .MuiToggleButtonGroup-grouped': {
@@ -51,6 +55,9 @@ const PeriodTabs = ({
                 borderRadius: '4px !important',
                 minWidth: 0,
                 minHeight: 24,
+                // On mobile each tab flexes to an equal share so the group fills
+                // the full width evenly; on desktop they hug their label.
+                flex: isMobile ? 1 : 'none',
                 px: 1.4,
                 py: 0,
                 color: '#475569',
@@ -83,6 +90,7 @@ const PeriodTabs = ({
             </ToggleButton>
         ))}
     </ToggleButtonGroup>
-);
+    );
+};
 
 export default PeriodTabs;

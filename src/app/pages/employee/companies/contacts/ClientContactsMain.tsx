@@ -124,6 +124,30 @@ const ClientContactsMain = ({
     return map;
   }, [allSubCompanies]);
 
+  // ── Drill-down curated columns ────────────────────────────────────────────────
+  // When drilled by contact role (contactByRolesId set), show lean columns.
+  // Context: the role itself is shown since that's what was drilled.
+  const isDrillDown = !!contactByRolesId;
+  const hideNewContactButton = isDrillDown;
+  const drillContextKey: string | null = isDrillDown ? "roleInCompany" : null;
+
+  const drillVisibleKeys = useMemo(
+    () =>
+      new Set<string>([
+        // Lean base: profile, name, company, phone, email
+        "profile",
+        "fullName",
+        "companyName",
+        "phone",
+        "email",
+        ...(drillContextKey ? [drillContextKey] : []),
+      ]),
+    [drillContextKey],
+  );
+
+  // Separate pref bucket so the drill keeps its own lean defaults.
+  const drillTableName = `ContactDrill_${drillContextKey ?? "base"}`;
+
   useEventBus("clientContactUpdated", () => {
     loadAllContacts();
   });
@@ -191,10 +215,11 @@ const ClientContactsMain = ({
   };
 
   const columns = useMemo<MRT_ColumnDef<any, any>[]>(
-    () => [
-      {
-        accessorKey: "profile",
-        header: "Profile",
+    () => {
+      const columnsList = [
+        {
+          accessorKey: "profile",
+          header: "Profile",
         Cell: ({ row }) => (
           <SmartAvatar
             name={row.original.fullName}
@@ -434,12 +459,20 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
             </div>
           );
         },
-      },
-    ],
-    [branchMap, companyMap, subCompanyMap, employeeId, allContacts],
+        },
+      ];
+
+      // Full-page table: every column visible by default. Drill-down: only the
+      // curated base + the role context column are visible by default.
+      if (!isDrillDown) return columnsList;
+      return columnsList.map((col: any) => ({
+        ...col,
+        meta: { ...(col.meta || {}), defaultVisible: drillVisibleKeys.has(col.accessorKey) },
+      }));
+    },
+    [branchMap, companyMap, subCompanyMap, employeeId, allContacts, isDrillDown, drillVisibleKeys],
   );
 
-  const hideNewContactButton = contactByRolesId ? true : false;
   const startDates = useMemo(
     () => (startDate ? dayjs(startDate).startOf("day") : null),
     [startDate],
@@ -489,7 +522,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
       <MaterialTable
         columns={columns}
         data={filterData}
-        tableName="Client-Contacts"
+        tableName={isDrillDown ? drillTableName : "Client-Contacts"}
         resource="CLIENT_CONTACTS"
         viewOwn={true}
         viewOthers={true}

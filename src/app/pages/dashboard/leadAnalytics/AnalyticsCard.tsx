@@ -38,78 +38,106 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
       whileHover={{ y: -4 }}
       style={{
         background: "#fff",
-        borderRadius: 20,
-        boxShadow: "0 8px 30px rgba(0,0,0,0.08)",
-        padding: "22px 24px",
+        borderRadius: 16,
+        boxShadow: "0 4px 12px rgba(15,23,42,0.08), 0 12px 24px rgba(15,23,42,0.06)",
+        padding: "clamp(20px, 4vw, 28px)",
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        transition: "box-shadow 300ms ease",
+        transition: "box-shadow 300ms ease, transform 300ms ease",
+        border: "1px solid #F0F4F8",
       }}
     >
       <div
         style={{
-          marginBottom: 12,
           display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
+          flexDirection: "column",
           gap: 12,
-          flexWrap: "wrap",
+          marginBottom: 18,
         }}
       >
-        <div>
-          <h3
-            style={{
-              fontFamily: "Barlow, sans-serif",
-              fontWeight: 600,
-              fontSize: 18,
-              margin: 0,
-              color: "#0F172A",
-            }}
-          >
-            {title}
-          </h3>
-          {subtitle && (
-            <p
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 12,
+            width: "100%",
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3
               style={{
-                fontFamily: "Inter, sans-serif",
-                fontSize: 12,
-                color: "#94A3B8",
-                margin: "2px 0 0",
+                fontFamily: "Barlow, sans-serif",
+                fontWeight: 600,
+                fontSize: "clamp(16px, 4vw, 19px)",
+                margin: 0,
+                color: "#0F172A",
+                letterSpacing: "-0.3px",
               }}
             >
-              {subtitle}
-            </p>
+              {title}
+            </h3>
+            {subtitle && (
+              <p
+                style={{
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: 13,
+                  color: "#64748B",
+                  margin: "4px 0 0",
+                  lineHeight: "1.4",
+                }}
+              >
+                {subtitle}
+              </p>
+            )}
+          </div>
+          {headerRight && (
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+              {headerRight}
+            </div>
           )}
         </div>
-        {headerRight && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {headerRight}
-          </div>
-        )}
       </div>
 
       {isEmpty ? (
         <div
           style={{
             flex: 1,
-            minHeight: 220,
+            minHeight: 240,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: 10,
-            background: "#F8FAFF",
-            border: "2px solid #EAEEF5",
-            borderRadius: 12,
+            gap: 12,
+            background: "linear-gradient(135deg, #F8FAFC 0%, #F0F4F8 100%)",
+            border: "1px solid #E2E8F0",
+            borderRadius: 14,
             textAlign: "center",
+            padding: "20px",
           }}
         >
-          <i className="bi bi-bar-chart" style={{ fontSize: 32, color: "#9CAFC9" }} />
-          <div style={{ fontFamily: "Barlow", fontWeight: 600, fontSize: 14, color: "#6B7280" }}>
-            No data available
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 12,
+              background: "#EEF2F7",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <i className="bi bi-bar-chart" style={{ fontSize: 28, color: "#94A3B8" }} />
           </div>
-          <div style={{ fontFamily: "Inter", fontSize: 12, color: "#9CAFC9" }}>{emptyHint}</div>
+          <div>
+            <div style={{ fontFamily: "Barlow", fontWeight: 600, fontSize: 15, color: "#0F172A" }}>
+              No data available
+            </div>
+            <div style={{ fontFamily: "Inter", fontSize: 13, color: "#64748B", marginTop: 4 }}>
+              {emptyHint}
+            </div>
+          </div>
         </div>
       ) : (
         <div style={{ flex: 1, minHeight: 240 }}>{children}</div>
@@ -118,12 +146,12 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
       {!isEmpty && insights.length > 0 && (
         <div
           style={{
-            marginTop: 16,
-            paddingTop: 14,
-            borderTop: "1px solid #EEF2F7",
+            marginTop: 18,
+            paddingTop: 16,
+            borderTop: "1px solid #E2E8F0",
             display: "flex",
             flexDirection: "column",
-            gap: 8,
+            gap: 10,
           }}
         >
           {insights.map((text, i) => (
@@ -132,16 +160,16 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
               style={{
                 display: "flex",
                 alignItems: "flex-start",
-                gap: 8,
+                gap: 10,
                 fontFamily: "Inter, sans-serif",
-                fontSize: 12.5,
+                fontSize: 13,
                 color: "#475569",
-                lineHeight: 1.4,
+                lineHeight: 1.5,
               }}
             >
               <i
                 className="bi bi-lightbulb-fill"
-                style={{ color: "#F59E0B", fontSize: 13, marginTop: 1, flexShrink: 0 }}
+                style={{ color: "#F59E0B", fontSize: 14, marginTop: 1, flexShrink: 0 }}
               />
               <span>{text}</span>
             </div>

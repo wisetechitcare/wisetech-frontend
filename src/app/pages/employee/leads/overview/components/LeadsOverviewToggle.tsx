@@ -112,18 +112,18 @@ const LeadsOverviewToggle = ({
 
   return (
     <>
-      <div className="d-flex align-items-center justify-content-between mb-4">
+      <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
         <div
           // className="mb-4"
           style={{
             fontFamily: "Barlow",
-            fontSize: "24px",
+            fontSize: "clamp(1.15rem, 4vw, 24px)",
             fontWeight: "600",
           }}
         >
           Overview
         </div>
-        <div className="d-flex align-items-center gap-3">
+        <div className="d-flex align-items-center gap-2 gap-sm-3 flex-wrap">
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
             width="24" 
@@ -151,8 +151,8 @@ const LeadsOverviewToggle = ({
         </div>
       </div>
 
-      <div className="d-flex flex-row justify-content-between align-items-center mb-6 flex-wrap gap-3">
-        <div className="d-flex align-items-center gap-4 flex-wrap">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center mb-6 gap-3 w-100">
+        <div className="d-flex align-items-center gap-4 flex-wrap" style={{ flex: "1 1 auto", minWidth: 0 }}>
           <PeriodFilter
             onChange={setPeriodRange}
             initialMode="yearly"
@@ -163,7 +163,7 @@ const LeadsOverviewToggle = ({
           />
 
           {periodRange.mode === "custom" && (
-            <div className="d-flex align-items-center gap-4">
+            <div className="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-3 gap-sm-4">
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DatePicker
                   label="Start Date"
@@ -185,10 +185,33 @@ const LeadsOverviewToggle = ({
         </div>
 
         {/* Sub-tabs (Summary / Services / Sources / Insights) portal into here,
-            so they share this row and sit on the right. */}
-        <div id="leadOverviewTabSlot" className="d-flex justify-content-end" />
+            so they share this row and sit on the right. On desktop the slot keeps
+            its natural width (flex-shrink:0) so the tabs never clip; on mobile it
+            stacks full-width and can scroll if the tabs overflow a tiny screen. */}
+        <div
+          id="leadOverviewTabSlot"
+          className="d-flex justify-content-center justify-content-md-end"
+          style={{ flexShrink: 0, minWidth: 0, overflowX: "auto" }}
+        />
       </div>
 
+      {/* Daily & Weekly are range views — reuse the range-based Custom dashboard
+          with the day's / week's start-end. Without these the toggle rendered
+          nothing for those two modes and the page went blank. */}
+      {periodRange.mode === "daily" && periodRange.start && periodRange.end && (
+        <Custom
+          startDate={periodRange.start}
+          endDate={periodRange.end}
+          key={`daily-${periodRange.start.valueOf()}-${refreshTrigger}`}
+        />
+      )}
+      {periodRange.mode === "weekly" && periodRange.start && periodRange.end && (
+        <Custom
+          startDate={periodRange.start}
+          endDate={periodRange.end}
+          key={`weekly-${periodRange.start.valueOf()}-${refreshTrigger}`}
+        />
+      )}
       {periodRange.mode === "monthly" && periodRange.start && periodRange.end && (
         <Monthly month={periodRange.start} endDate={periodRange.end} key={`monthly-${refreshTrigger}`} />
       )}
@@ -255,15 +278,15 @@ const LeadsOverviewToggle = ({
         {/* <Modal.Header closeButton style={{ backgroundColor: '#F3F4F7', borderBottom: '1px solid #e0e0e0' }}>
             
         </Modal.Header> */}
-        <Modal.Body style={{ 
-          backgroundColor: 'white', 
-          padding: '20px', 
+        <Modal.Body style={{
+          backgroundColor: 'white',
+          padding: 'clamp(12px, 3vw, 20px)',
           borderRadius: '8px',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-            <div style={{ 
-                backgroundColor: 'white', 
-                padding: '20px', 
+            <div style={{
+                backgroundColor: 'white',
+                padding: 0,
                 borderRadius: '8px',
             }}>
               <Typography

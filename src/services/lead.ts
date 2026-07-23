@@ -313,9 +313,11 @@ export const getLeadsByProjectCategoryAnalytics = async (startDate: string, endD
 }
 
 // Get Leads By Subcategory Analytics
-export const getLeadsBySubcategoryAnalytics = async (startDate: string, endDate: string) => {
+export const getLeadsBySubcategoryAnalytics = async (startDate: string, endDate: string, receivedOnly: boolean = false) => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_SUBCATEGORY_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
+        const params = new URLSearchParams({ startDate, endDate });
+        if (receivedOnly) params.append('receivedOnly', 'true');
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_SUBCATEGORY_ANALYTICS}?${params.toString()}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useMediaQuery, useTheme } from "@mui/material";
 
 export interface AnalyticsTab {
   id: string;
@@ -32,6 +33,9 @@ const AnalyticsTabs: React.FC<Props> = ({
   storageKey,
   portalTargetId = "leadOverviewTabSlot",
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   const visibleTabs = useMemo(() => tabs.filter((t) => !!t.content), [tabs]);
 
   const initial = (() => {
@@ -76,6 +80,7 @@ const AnalyticsTabs: React.FC<Props> = ({
         padding: 4,
         background: "#EEF2F7",
         borderRadius: 12,
+        width: isMobile ? "100%" : undefined,
         maxWidth: "100%",
       }}
     >
@@ -91,7 +96,9 @@ const AnalyticsTabs: React.FC<Props> = ({
             style={{
               display: "flex",
               alignItems: "center",
+              justifyContent: "center",
               gap: 7,
+              flex: isMobile ? "1 1 0" : "0 0 auto",
               whiteSpace: "nowrap",
               border: "none",
               cursor: "pointer",

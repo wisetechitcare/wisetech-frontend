@@ -844,7 +844,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
               const rows: any[] = draft.leadTeams || [];
               const update = (i: number, patch: any) => { const next = [...rows]; next[i] = { ...next[i], ...patch }; set({ leadTeams: next }); };
               const remove = (i: number) => set({ leadTeams: rows.filter((_, idx) => idx !== i) });
-              const add = () => set({ leadTeams: [...rows, { companyTypeId: '', companyId: '', subCompanyId: '', contactId: '', startDate: '', endDate: '', isActive: true, syncedFromLead: false }] });
+              // New rows default their start date to today (stakeholder joining now),
+              // mirroring the Internal Team's "Add member" — the date stays editable before Save.
+              const add = () => set({ leadTeams: [...rows, { companyTypeId: '', companyId: '', subCompanyId: '', contactId: '', startDate: toDateInputValue(new Date()), endDate: '', isActive: true, syncedFromLead: false }] });
               // Forward cascade: picking a company back-fills its type and resets dependents.
               const onCompanyChange = (i: number, companyId: string) => {
                 const company = companyById.get(String(companyId));

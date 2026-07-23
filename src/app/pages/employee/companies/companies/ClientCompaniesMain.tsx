@@ -222,9 +222,43 @@ const ClientCompaniesMain = ({
     };
   }, []);
 
-  const hideNewCompanyButton = statusId || companyTypeId || serviceId || subServiceId || locationId;
+  const isDrillDown = !!(statusId || companyTypeId || serviceId || subServiceId || locationId);
+  const hideNewCompanyButton = isDrillDown;
+
+  // ── Drill-down curated columns ────────────────────────────────────────────────
+  // When drilled (statusId, companyTypeId, serviceId, subServiceId, locationId set),
+  // show a lean set of columns instead of the full table. The drilled dimension gets
+  // a context column to ensure it's always visible.
+  const drillContextKey: string | null = (() => {
+    if (companyTypeId) return "companyTypeName";
+    if (statusId) return "status";
+    if (serviceId) return "services";
+    if (subServiceId) return "subServices";
+    if (locationId) return "location";
+    return null;
+  })();
+
+  const drillVisibleKeys = useMemo(
+    () =>
+      new Set<string>([
+        // Lean base: company id, name, type, budget, project count
+        "prefix",
+        "companyName",
+        "companyTypeName",
+        "totalBudget",
+        "projectCount",
+        ...(drillContextKey ? [drillContextKey] : []),
+      ]),
+    [drillContextKey],
+  );
+
+  // Separate pref bucket per drilled dimension so each drill keeps its own
+  // lean defaults without colliding with the full-page `Client-Companies` prefs.
+  const drillTableName = `CompanyDrill_${drillContextKey ?? "base"}`;
+
   const columns = useMemo<MRT_ColumnDef<ProcessedCompany, any>[]>(
-    () => [
+    () => {
+      const base: MRT_ColumnDef<ProcessedCompany, any>[] = [
       {
         accessorKey: "prefix",
         header: "Company Id",
@@ -487,8 +521,17 @@ const ClientCompaniesMain = ({
             },
           ]
         : []),
-    ],
-    [navigate],
+      ];
+
+      // Full-page table: every column visible by default. Drill-down: only the
+      // curated base + the drilled dimension's context column are visible by default.
+      if (!isDrillDown) return base;
+      return base.map((col: any) => ({
+        ...col,
+        meta: { ...(col.meta || {}), defaultVisible: drillVisibleKeys.has(col.accessorKey) },
+      }));
+    },
+    [navigate, isDrillDown, drillVisibleKeys],
   );
 
   const handleEditClick = (companyId: string) => {
@@ -648,7 +691,7 @@ const ClientCompaniesMain = ({
       <MaterialTable
         columns={columns}
         data={filteredData}
-        tableName="Client-Companies"
+        tableName={isDrillDown ? drillTableName : "Client-Companies"}
         employeeId={employeeIdCurrent}
         resource="COMPANIES"
         viewOwn={true}

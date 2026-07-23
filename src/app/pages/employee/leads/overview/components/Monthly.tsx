@@ -30,6 +30,7 @@ import {
 import LeadByLocationAndStatus from "../commonComponents/LeadByLocationChart";
 import { ChartDialogModal } from "./ChartDialogModal";
 import MonthlyLeadsChart from "./charts/MonthlyLeadsChart";
+import MonthlyLeadsTrend from "./MonthlyLeadsTrend";
 import {
   LeadOverviewDashboard,
   AnalyticsCard,
@@ -128,13 +129,17 @@ const Monthly = ({ month, endDate }: Props) => {
   };
 
   const handleStatusChartClick = (selectedLabel: string) => {
+    // leadStatusesID is the master status list (real ids) — it never has an "N/A"
+    // row, since the N/A bucket (leads with no status at all) is synthesized by
+    // the analytics endpoint, not a real LeadStatus. Special-case it explicitly
+    // so a miss doesn't fall through to the raw display label.
     const selectedStatus = leadStatusesID.find(
       (status: any) => status.name === selectedLabel
     );
     if (selectedStatus) {
       setStatusId(selectedStatus.id.toString());
     } else {
-      setStatusId(selectedLabel);
+      setStatusId(selectedLabel === "N/A" ? "__NA__" : selectedLabel);
     }
     setOpen(true);
   };
@@ -202,37 +207,20 @@ const Monthly = ({ month, endDate }: Props) => {
   };
 
   const handleSubCategoryChartClick = (selectedLabel: string) => {
-    let selectedSubCategory: any = null;
-    subcategoryRes?.data?.forEach((category: any) => {
-      if (category.subCategories) {
-        const found = category.subCategories.find(
-          (subcat: any) => subcat.name === selectedLabel
-        );
-        if (found) {
-          selectedSubCategory = found;
-        }
-      }
-    });
-
-    if (selectedSubCategory) {
-      setSubCategoryId(selectedSubCategory.id);
-    } else {
-      setSubCategoryId(selectedLabel);
-    }
+    // Flat shape — { subcategoryId, subcategory, category, color, count, budget }[],
+    // including an "N/A" bucket (subcategoryId "__NA__") for no-subcategory leads.
+    const found = subcategoryRes?.data?.find(
+      (subcat: any) => subcat.subcategory === selectedLabel
+    );
+    setSubCategoryId(found ? found.subcategoryId : "__NA__");
     setOpenSubCategory(true);
   };
 
-  // Sunburst emits either a category or a sub-category name — route to the
-  // matching drill-down modal.
+  // ServiceCategoryTabs renders Category and Sub-Category as separate tabs
+  // (no combined sunburst anymore), so onCategorySelect only ever fires for a
+  // genuine category bar — passthrough kept for the prop name callers expect.
   const handleCategoryNodeClick = (selectedLabel: string) => {
-    let isSub = false;
-    subcategoryRes?.data?.forEach((cat: any) =>
-      (cat.subCategories || []).forEach((sc: any) => {
-        if (sc.name === selectedLabel) isSub = true;
-      })
-    );
-    if (isSub) handleSubCategoryChartClick(selectedLabel);
-    else handleCategoryChartClick(selectedLabel);
+    handleCategoryChartClick(selectedLabel);
   };
 
   const handleCompanyTypeChartClick = (selectedLabel: string) => {
@@ -675,6 +663,7 @@ const Monthly = ({ month, endDate }: Props) => {
         accent="#3B82F6"
       />
       <MonthlyLeadsChart startDate={startDate} endDate={endDates} />
+      <MonthlyLeadsTrend startDate={startDate} endDate={endDates} />
     </section>
   );
 
@@ -704,6 +693,7 @@ const Monthly = ({ month, endDate }: Props) => {
         statusData={chartData.statusData}
         serviceData={chartData.serviceData}
         categoryData={chartData.categoryData}
+        subcategoryData={chartData.subcategoryData}
         subcategoryRaw={subcategoryRes?.data || []}
         sourceData={chartData.sourceData}
         referralSourceData={chartData.referralSourceData}
@@ -714,6 +704,7 @@ const Monthly = ({ month, endDate }: Props) => {
         onStatusSelect={handleStatusChartClick}
         onServiceSelect={handleServiceChartClick}
         onCategorySelect={handleCategoryNodeClick}
+        onSubcategorySelect={handleSubCategoryChartClick}
         onSourceSelect={handleSourceChartClick}
         onReferralSelect={handleReferralChartClick}
         tabStorageKey="leadOverviewActiveTab"

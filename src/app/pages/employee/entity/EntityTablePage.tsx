@@ -96,6 +96,24 @@ export type EntityTablePageProps = {
   monthlyStatusName?: any;
   monthlyStatusId?: any;
   teamId?: any;
+  externalCompanyTypeId?: any;
+  externalCompanyId?: any;
+  externalContactId?: any;
+  // Client Analysis drill-down (LeadReferral — referring company/contact on the
+  // lead itself, distinct from externalCompany*Id which is the PROJECT external
+  // team roster).
+  referralCompanyTypeId?: any;
+  referralCompanyId?: any;
+  referralContactId?: any;
+  // Geographic Distribution drill-down (location IDs from getLeadsByLocationAnalytics).
+  locationCountryId?: any;
+  locationCountryName?: any;
+  locationStateId?: any;
+  locationStateName?: any;
+  locationCityId?: any;
+  locationCityName?: any;
+  locationLocalityId?: any;
+  locationLocalityName?: any;
   monthlyCompanyTypeId?: any;
   projectCompanyTypeId?: any;
   projectCompanyTypeName?: any;
@@ -105,6 +123,9 @@ export type EntityTablePageProps = {
   initialView?: EntityView;
   // Project section drill-down: restrict rows to received/project leads (status.isProjectTrigger).
   receivedOnly?: boolean;
+  // Human label for the clicked chart slice, shown as the drill-down heading
+  // (e.g. "Category · Mall"). Falls back to a name resolved from the active id.
+  drillTitle?: string;
 };
 
 // ─── Navigation Buttons ────────────────────────────────────────────────────────
@@ -194,6 +215,20 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   monthlyStatusName,
   monthlyStatusId,
   teamId,
+  externalCompanyTypeId,
+  externalCompanyId,
+  externalContactId,
+  referralCompanyTypeId,
+  referralCompanyId,
+  referralContactId,
+  locationCountryId,
+  locationCountryName,
+  locationStateId,
+  locationStateName,
+  locationCityId,
+  locationCityName,
+  locationLocalityId,
+  locationLocalityName,
   monthlyCompanyTypeId,
   projectCompanyTypeId,
   projectCompanyTypeName,
@@ -202,6 +237,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   entityScope = "lead",
   initialView = "all",
   receivedOnly = false,
+  drillTitle,
 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
@@ -412,13 +448,47 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     loadPreference();
   }, []);
 
+  // Drill-down = the table is embedded in a chart dialog with a slice filter. It
+  // must show EXACTLY the rows the chart counted, so it fetches the FULL lead (all
+  // scalars + relations) rather than the sparse per-visible-column select —
+  // otherwise the filter field (projectServiceId, receivedDate, execution.projectStatus,
+  // company.companyTypeId, …) is missing from the row and the count silently
+  // undershoots the chart (e.g. chart says 142, table showed 83).
+  const isDrillDown = !!(
+    statusId ||
+    serviceId ||
+    categoryId ||
+    referralId ||
+    sourceId ||
+    subCategoryId ||
+    companyTypeId ||
+    topLeadsId ||
+    locationId ||
+    locationCountryId ||
+    locationStateId ||
+    locationCityId ||
+    locationLocalityId ||
+    monthlyStatusId ||
+    teamId ||
+    externalCompanyTypeId ||
+    externalCompanyId ||
+    externalContactId ||
+    referralCompanyTypeId ||
+    referralCompanyId ||
+    referralContactId ||
+    monthlyCompanyTypeId ||
+    projectCompanyTypeId ||
+    receivedOnly
+  );
+
   // ── Data fetch ───────────────────────────────────────────────────────────────
   const fetchAllData = useCallback(async (fields?: string[]) => {
     try {
       setLoading(true);
       // Full set — table filters & paginates client-side; default 50-row page
-      // would otherwise truncate the unified entity list.
-      const leadsResponse = await getAllLeadsComplete(fields);
+      // would otherwise truncate the unified entity list. On a drill-down we force
+      // the FULL (non-sparse) fetch so every filter field is present on each row.
+      const leadsResponse = await getAllLeadsComplete(isDrillDown ? undefined : fields);
       const leadsData = leadsResponse?.data?.data?.leads || [];
       setRawLeadsDatas(leadsData);
 
@@ -528,10 +598,14 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
               lead?.company?.companyName ||
               lead?.leadTeams?.[0]?.company?.companyName ||
               "",
-            service: lead?.projectServiceId || lead?.services?.[0]?.serviceId || "",
-            category: lead?.projectCategoryId || lead?.leadCategories?.[0]?.category?.id || "",
-            subCategory:
-              lead?.projectSubCategoryId || lead?.leadSubCategories?.[0]?.subcategory?.id || "",
+            // Chart drill-downs group by these SCALARS (projectServiceId / projectCategoryId /
+            // projectSubCategoryId — see getLeadsBy*Analytics, which bucket a null scalar as
+            // "NA"). Do NOT fall back to the leadServices/leadCategories relations here: a
+            // relation fallback would misfile null-scalar rows under a real value and desync
+            // the table count from the chart.
+            service: lead?.projectServiceId || "",
+            category: lead?.projectCategoryId || "",
+            subCategory: lead?.projectSubCategoryId || "",
             status: lead?.status || null,
             poStatus: lead?.poStatus || null,
             assignedTo: lead?.assignedToId || "",
@@ -550,6 +624,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             cityId,
             state: statesMap.get(String(stateId))?.name || String(stateId),
             stateId,
+            // Raw locality name (no master table) — drives the Locality drill-down
+            // filter, which matches the chart's raw-name bars 1:1.
+            locality: lead?.additionalDetails?.locality || "",
             // Area home order: summed commercial work-areas first, then the
             // technical-spec areas (project → built-up → plot), so a record with
             // specs but no commercial rows still shows its area instead of blank.
@@ -587,8 +664,13 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             projectEndDate: lead?.endDate || project?.endDate || "",
             projectManagerId: exec?.projectManagerId || project?.projectManagerId || "",
             projectTeamName: exec?.team?.name || project?.team?.name || "",
+            // Internal (execution) team id — drives the "Projects by Internal Team" drill-down.
+            executionTeamId: exec?.teamId || project?.teamId || "",
             projectTeams: project?.projectTeams || [],
             projectCompanyMappings: project?.projectCompanyMappings || [],
+            // External roster (project_external_teams) — drives the "Projects by
+            // External Team" drill-down (company type / company / contact + NA).
+            externalTeams: lead?.projectExternalTeams || [],
             projectCost: parseFloat(exec?.cost ?? project?.cost) || 0,
             projectRate: parseFloat(exec?.rate ?? project?.rate) || 0,
             projectServiceId: project?.serviceId || "",
@@ -610,10 +692,13 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       hasLoadedOnceRef.current = true;
       setLoading(false);
     }
-  }, []);
+  }, [isDrillDown]);
 
   const handleVisibleColumnsChange = useCallback(
     (keys: string[]) => {
+      // Drill-downs never do the per-column sparse refetch — it would drop the
+      // filter fields from the rows and desync the table count from the chart.
+      if (isDrillDown) return;
       visibleColumnsRef.current = keys;
       const key = [...keys].sort().join(",");
 
@@ -634,7 +719,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         fetchAllData(keys);
       }, 500);
     },
-    [fetchAllData],
+    [fetchAllData, isDrillDown],
   );
 
   useEffect(() => {
@@ -652,24 +737,47 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   useEventBus(EVENT_KEYS.projectUpdated, () => fetchAllData());
   useEventBus(EVENT_KEYS.chartSettingsUpdated, () => fetchAllData());
 
-  const isDrillDown = !!(
-    statusId ||
-    serviceId ||
-    categoryId ||
-    referralId ||
-    sourceId ||
-    subCategoryId ||
-    companyTypeId ||
-    topLeadsId ||
-    locationId ||
-    monthlyStatusId ||
-    teamId ||
-    monthlyCompanyTypeId ||
-    projectCompanyTypeId ||
-    receivedOnly
-  );
-
   const projectColumnsActive = isProjectView(view) || (isDrillDown && entityScope === "project");
+
+  // ── Drill-down curated columns ────────────────────────────────────────────────
+  // A chart drill-down shows a LEAN, scope-aware column set (mirrors the Leads /
+  // Projects list tables) instead of the full unified pipeline grid. Two rules:
+  //   1. Base set depends on scope — lead columns for a lead-overview drill, project
+  //      columns for a project-overview drill (entityScope).
+  //   2. The single dimension the user drilled into is surfaced as a "context"
+  //      column so the slice they clicked is always visible (click a Country slice →
+  //      Country column; a status / received slice → Status column; a Service slice →
+  //      Service column, …). Everything else still lives in the show/hide-columns
+  //      menu but is hidden by default.
+  // Implemented via meta.defaultVisible (see the columns memo) + a drill-specific
+  // tableName so these lean defaults never clobber the full-page table's saved prefs.
+  const drillScopeProject = entityScope === "project";
+  const drillContextKey: string | null = (() => {
+    if (serviceId) return "service";
+    if (categoryId) return "category";
+    if (subCategoryId) return "subCategory";
+    if (sourceId) return "leadSource";
+    if (teamId) return "projectTeamName";
+    if (locationCityId) return "city";
+    if (locationStateId) return "state";
+    if (locationCountryId || locationId) return "country";
+    if (statusId || monthlyStatusId || receivedOnly)
+      return drillScopeProject ? "projectStatus" : "status";
+    return null;
+  })();
+  const drillVisibleKeys = useMemo(
+    () =>
+      new Set<string>([
+        ...(drillScopeProject
+          ? ["projectPrefix", "projectName", "client", "projectStatus", "projectStartDate", "projectCost", "projectManagerId"]
+          : ["inquiryDate", "prefix", "projectName", "client", "status", "totalCost", "assignedTo"]),
+        ...(drillContextKey ? [drillContextKey] : []),
+      ]),
+    [drillScopeProject, drillContextKey],
+  );
+  // Distinct pref bucket per (scope, drilled-dimension) so each drill keeps its own
+  // lean defaults and never overwrites the full-page `EntityTable_*` preferences.
+  const drillTableName = `EntityDrill_${entityScope}_${drillContextKey ?? "base"}`;
 
   // ── Columns ──────────────────────────────────────────────────────────────────
   const columns = useMemo(() => {
@@ -710,8 +818,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         },
       },
       // Stage badge only in mixed views — project views are 100% projects and
-      // lead view is 100% leads, so the column would be noise there.
-      ...(view === "all"
+      // lead view is 100% leads, so the column would be noise there. A drill-down is
+      // always single-scope too, so it's excluded there as well.
+      ...(view === "all" && !isDrillDown
         ? [
           {
             accessorKey: "isProject",
@@ -1005,8 +1114,29 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         },
       ];
 
-    return [...base, ...leadOnly, ...projectCols, ...tail, ...actions];
-  }, [view, projectColumnsActive, isDrillDown, projectServices, projectCategories, projectSubcategories, allemployees, rawLeadsDatas]);
+    const assembled = [...base, ...leadOnly, ...projectCols, ...tail, ...actions];
+
+    // Full-page table: every column visible by default (user toggles via the menu).
+    // Drill-down: only the curated base + the drilled dimension's context column are
+    // visible by default; the rest are demoted to defaultVisible:false.
+    if (!isDrillDown) return assembled;
+
+    // For drill-downs, keep only essential columns visible by default
+    const essentialDrillColumns = new Set([
+      "name",
+      "clientId",
+      "status",
+      "assignedTo",
+      "category", // for project drills
+      "subCategory", // for project drills
+      ...drillVisibleKeys,
+    ]);
+
+    return assembled.map((col: any) => ({
+      ...col,
+      meta: { ...(col.meta || {}), defaultVisible: essentialDrillColumns.has(col.accessorKey) },
+    }));
+  }, [view, projectColumnsActive, isDrillDown, drillVisibleKeys, projectServices, projectCategories, projectSubcategories, allemployees, rawLeadsDatas]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleDeleteLead = async (id: string) => {
@@ -1080,8 +1210,24 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   const startDates = startDate ? dayjs(startDate) : null;
   const endDates = endDate ? dayjs(endDate) : null;
 
+  // Match the CHART's date basis so the drill-down count equals the bar it came from.
+  // Lead charts group by inquiryDate; the project STATUS chart groups by receivedDate
+  // (getLeadsByStatusAnalytics vs getReceivedLeadsByProjectStatusAnalytics). Filtering
+  // the table by createdAt instead silently dropped rows created outside the range
+  // (chart said 50, table showed 44).
+  const drillDateField =
+    teamId || externalCompanyTypeId || externalCompanyId || externalContactId
+      ? "createdAt" // the team/external count endpoints group by createdAt
+      : statusId && (entityScope === "project" || receivedOnly)
+        ? "receivedDate"
+        : "inquiryDate";
+
   const propDateFiltered = tableData?.filter((item: any) => {
-    const d = dayjs(item.createdAt);
+    if (!startDates && !endDates) return true;
+    const raw = item[drillDateField];
+    const d = raw ? dayjs(raw) : null;
+    // No value on the chart's date field → it wasn't counted for this bounded range.
+    if (!d || !d.isValid()) return false;
     if (startDates && d.isBefore(startDates.startOf("day"))) return false;
     if (endDates && d.isAfter(endDates.endOf("day"))) return false;
     return true;
@@ -1100,37 +1246,103 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     // while keeping lead-scoped dimension matching (status/service/category ids from lead analytics).
     if (receivedOnly) rows = rows?.filter((item: any) => item.isProject);
 
+    // Dimension matching. Under the lead-as-master model a "project" IS a lead, so
+    // its category / service / sub-category / company-type live on the SAME lead
+    // scalar fields for both scopes (the legacy `project.*` fields are null, which is
+    // why project drill-downs used to return nothing). Only STATUS differs: projects
+    // match the execution project status, leads the lead status.
+    // The "__NA__" sentinel filters to rows where that dimension is empty — so
+    // clicking an "N/A"/uncategorised bar shows ONLY the null-dimension records
+    // instead of falling through and showing everything.
+    const NA = "__NA__";
     if (statusId)
       rows = rows?.filter((item: any) =>
-        scopeProject ? item.projectStatus?.id === statusId : item.status?.id === statusId,
+        statusId === NA
+          ? (scopeProject ? !item.projectStatus?.id : !item.status?.id)
+          : (scopeProject ? item.projectStatus?.id === statusId : item.status?.id === statusId),
       );
     if (serviceId)
       rows = rows?.filter((item: any) =>
-        scopeProject ? item.projectServiceId === serviceId : item.service === serviceId,
+        serviceId === NA ? !item.service : item.service === serviceId,
       );
     if (categoryId)
       rows = rows?.filter((item: any) =>
-        scopeProject ? item.projectCategoryId === categoryId : item.category === categoryId,
+        categoryId === NA ? !item.category : item.category === categoryId,
       );
     if (referralId)
       rows = rows?.filter((item: any) =>
-        item.referrals?.some((r: any) => r.referralTypeId === referralId),
+        referralId === NA
+          ? !(item.referrals?.length)
+          : item.referrals?.some((r: any) => r.referralTypeId === referralId),
       );
     if (sourceId)
-      rows = rows?.filter(
-        (item: any) => item.leadSource?.toLowerCase() === sourceId?.toLowerCase(),
+      rows = rows?.filter((item: any) =>
+        sourceId === NA
+          ? !item.leadSource
+          : item.leadSource?.toLowerCase() === sourceId?.toLowerCase(),
       );
     if (subCategoryId)
-      rows = rows?.filter((item: any) => item.subCategory === subCategoryId);
+      rows = rows?.filter((item: any) =>
+        subCategoryId === NA ? !item.subCategory : item.subCategory === subCategoryId,
+      );
     if (companyTypeId)
       rows = rows?.filter((item: any) =>
-        scopeProject
-          ? item.projectCompanyMappings?.some((m: any) => m.companyTypeId === companyTypeId)
-          : item.companyType === companyTypeId,
+        companyTypeId === NA
+          ? !item.companyType && !(item.projectCompanyMappings?.length)
+          : item.companyType === companyTypeId ||
+            item.projectCompanyMappings?.some((m: any) => m.companyTypeId === companyTypeId),
       );
+    // Internal (execution) team drill-down. NA = projects with no execution team.
     if (teamId)
       rows = rows?.filter((item: any) =>
-        item.projectTeams?.some((t: any) => t.teamId === teamId),
+        teamId === NA ? !item.executionTeamId : item.executionTeamId === teamId,
+      );
+    // External-team drill-downs (company type / company / contact). NA = projects
+    // with NO active external team (matches the endpoint's NA bucket).
+    const hasActiveExternal = (item: any) =>
+      (item.externalTeams || []).some((t: any) => t.isActive !== false);
+    if (externalCompanyTypeId)
+      rows = rows?.filter((item: any) =>
+        externalCompanyTypeId === NA
+          ? !hasActiveExternal(item)
+          : (item.externalTeams || []).some((t: any) => t.isActive !== false && t.companyTypeId === externalCompanyTypeId),
+      );
+    if (externalCompanyId)
+      rows = rows?.filter((item: any) =>
+        externalCompanyId === NA
+          ? !hasActiveExternal(item)
+          : (item.externalTeams || []).some((t: any) => t.isActive !== false && t.companyId === externalCompanyId),
+      );
+    if (externalContactId)
+      rows = rows?.filter((item: any) =>
+        externalContactId === NA
+          ? !hasActiveExternal(item)
+          : (item.externalTeams || []).some((t: any) => t.isActive !== false && t.contactId === externalContactId),
+      );
+    // Client Analysis drill-downs (LeadReferral rows on the lead itself — the
+    // referring company/company-type/contact, NOT the project external-team
+    // roster used above). NA = the lead has NO referral at all — neither
+    // internal nor external — matching getLeadsByExternalReferralAnalytics'
+    // "no referral" bucket (referrals: { none: {} }). A lead with an internal
+    // referral but no external company/contact link is NOT N/A here.
+    const hasAnyReferral = (item: any) => (item.referrals || []).length > 0;
+    if (referralCompanyTypeId)
+      rows = rows?.filter((item: any) =>
+        referralCompanyTypeId === NA
+          ? !hasAnyReferral(item)
+          : (item.referrals || []).some((r: any) => r.referringCompany?.companyTypeId === referralCompanyTypeId),
+      );
+    if (referralCompanyId)
+      rows = rows?.filter((item: any) =>
+        referralCompanyId === NA
+          ? !hasAnyReferral(item)
+          : (item.referrals || []).some((r: any) => r.referringCompanyId === referralCompanyId),
+      );
+    if (referralContactId)
+      rows = rows?.filter((item: any) =>
+        referralContactId === NA
+          ? !hasAnyReferral(item)
+          : (item.referrals || []).some((r: any) => r.referredByContactId === referralContactId),
       );
     if (monthlyCompanyTypeId)
       rows = rows?.filter((item: any) =>
@@ -1141,6 +1353,50 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         topLeadsId.includes(String(item.id).trim()) ||
         (item.projectId && topLeadsId.includes(String(item.projectId).trim())),
       );
+    // Geographic Distribution drill-down. countryId/stateId/cityId are resolved
+    // server-side (name -> master-table id, or "__NA__" when the name is empty or
+    // unmapped — see LeadRepository.getAllLeads) using the EXACT same lookup the
+    // location chart's own N/A bucketing uses, so comparing the id directly (rather
+    // than re-deriving null-ness from the raw name here) keeps chart count and
+    // drill-down row count in lockstep even for legacy/unmapped location names.
+    // Location drill-downs. The chart (getLeadsByLocationAnalytics) groups by
+    // master-table IDs, but every table row only carries the RAW location NAMES
+    // (additionalDetails.country/state/city/locality — stored on the row as
+    // countryId/stateId/cityId/locality despite the *Id naming). So we match on
+    // the raw NAME the chart passes alongside each id (locationXName), and treat
+    // the "__NA__" id as the reliable null signal (empty value on that dimension).
+    // This is identical for leads and projects — both are leads whose location
+    // lives on additionalDetails — so there is no entityScope branch here.
+    const NA_ID = "__NA__";
+    if (locationCountryId) {
+      rows = rows?.filter((item: any) =>
+        locationCountryId === NA_ID
+          ? !item.countryId
+          : item.countryId === (locationCountryName ?? locationCountryId)
+      );
+    }
+    if (locationStateId) {
+      rows = rows?.filter((item: any) =>
+        locationStateId === NA_ID
+          ? !item.stateId
+          : item.stateId === (locationStateName ?? locationStateId)
+      );
+    }
+    if (locationCityId) {
+      rows = rows?.filter((item: any) =>
+        locationCityId === NA_ID
+          ? !item.cityId
+          : item.cityId === (locationCityName ?? locationCityId)
+      );
+    }
+    // Locality has no master table — the chart's id IS the raw name (or "__NA__").
+    if (locationLocalityId) {
+      rows = rows?.filter((item: any) =>
+        locationLocalityId === NA_ID
+          ? !item.locality
+          : item.locality === (locationLocalityName ?? locationLocalityId)
+      );
+    }
     if (locationId) {
       rows = rows?.filter((item: any) => {
         if (locationId.toLowerCase() !== "unknown") {
@@ -1186,8 +1442,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     // 1. View tab
     if (!matchesView(item, view)) return false;
 
-    // 2. Period
+    // 2. Period — skipped on a drill-down: the chart already fixed the date range
+    // via startDate/endDate (applied in propDateFiltered on the chart's own date
+    // field), and the period selector is hidden, so applying the internal alignment
+    // here would double-filter and undercount vs the chart.
     let dateMatch = true;
+    if (!isDrillDown) {
     const d = item.inquiryDate ? dayjs(item.inquiryDate) : null;
     if (alignment === "daily") {
       dateMatch = d ? d.isSame(day, "day") : false;
@@ -1207,6 +1467,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           if (customEndDate && d.isAfter(customEndDate.endOf("day"))) dateMatch = false;
         }
       }
+    }
     }
 
     // 3. Quick selects
@@ -1337,6 +1598,31 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     return statusColor ? `${statusColor}20` : "#F1F5F9";
   };
 
+  // ── Drill-down heading: the clicked slice + a single scope word. A drill-down
+  //    is one domain only, so it reads "Leads" OR "Projects" — never the unified
+  //    "Leads & Projects". The slice label uses the parent-provided drillTitle,
+  //    else a name resolved from whichever id is active (with "__NA__" → "N/A"). ──
+  const scopeIsProject = entityScope === "project";
+  const drillEntityWord = scopeIsProject ? "Projects" : "Leads";
+  const resolveDrillName = (list: any[], id: any) =>
+    list?.find((x: any) => String(x.id) === String(id))?.name;
+  const drillSliceLabel = (() => {
+    if (drillTitle) return drillTitle;
+    const isNa = (v: any) => v === "__NA__";
+    if (statusId)
+      return isNa(statusId)
+        ? "N/A"
+        : (scopeIsProject ? resolveDrillName(projectStatuses, statusId) : resolveDrillName(leadStatuses, statusId)) || String(statusId);
+    if (serviceId) return isNa(serviceId) ? "N/A" : resolveDrillName(projectServices, serviceId) || String(serviceId);
+    if (categoryId) return isNa(categoryId) ? "N/A" : resolveDrillName(projectCategories, categoryId) || String(categoryId);
+    if (subCategoryId) return isNa(subCategoryId) ? "N/A" : resolveDrillName(projectSubcategories, subCategoryId) || String(subCategoryId);
+    if (sourceId) return isNa(sourceId) ? "N/A" : String(sourceId);
+    if (locationId) return String(locationId);
+    if (companyTypeId) return isNa(companyTypeId) ? "N/A" : String(companyTypeId);
+    if (monthlyStatusName && monthlyStatusId) return `${monthlyStatusId} · ${monthlyStatusName}`;
+    return "";
+  })();
+
   return (
     <>
       <Box sx={{ p: { xs: 2, md: 3 }, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
@@ -1352,10 +1638,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <h1 style={{ fontFamily: "Barlow", fontSize: "20px", fontWeight: 700, margin: 0, color: '#1E293B', letterSpacing: '-0.02em', lineHeight: '1.2' }}>
-              Leads & Projects
+              {isDrillDown ? (drillSliceLabel || drillEntityWord) : "Leads & Projects"}
             </h1>
             <p style={{ color: '#64748B', margin: 0, fontSize: '12px', fontWeight: 500 }}>
-              One pipeline — every inquiry, and the projects they become
+              {isDrillDown
+                ? `${quickFilteredData?.length ?? 0} ${drillEntityWord.toLowerCase()}`
+                : "One pipeline — every inquiry, and the projects they become"}
             </p>
           </div>
 
@@ -1412,7 +1700,11 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           )}
         </div>
 
-        {/* --- ROW 2: VIEW TABS --- */}
+        {/* --- ROW 2: VIEW TABS — hidden on a chart drill-down. The clicked slice is
+            already filtered, so the All/Leads/Projects/On Going/Completed/On Hold tabs
+            would only re-slice it and surface project statuses on a lead chart (which
+            is confusing). Full-page usage keeps the tabs. --- */}
+        {!isDrillDown && (
         <div style={{
           display: "flex",
           gap: "4px",
@@ -1459,6 +1751,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             );
           })}
         </div>
+        )}
 
         {/* Custom missing-date hint */}
         {alignment === "custom" && (!customStartDate || !customEndDate) && (
@@ -1926,7 +2219,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       <MaterialTable
         columns={columns}
         data={quickFilteredData}
-        tableName={`EntityTable_${projectColumnsActive ? 'projects' : 'pipeline'}`}
+        tableName={isDrillDown ? drillTableName : `EntityTable_${projectColumnsActive ? 'projects' : 'pipeline'}`}
         defaultSorting={[{ id: "inquiryDate", desc: true }]}
         renderExportActions={() => (
           <ExportButton

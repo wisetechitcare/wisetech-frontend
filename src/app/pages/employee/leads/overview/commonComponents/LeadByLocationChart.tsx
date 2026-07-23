@@ -22,11 +22,19 @@ type Filters = {
 };
 
 const UNKNOWN = "NA"; // display for null/empty
+const NA = "__NA__"; // drill-down sentinel — matches EntityTablePage's NA filter
 
 interface LocationAnalytics {
   statusId: string;
   status: string;
   color: string;
+  // Real master-table ids (or "__NA__" for a null/unmapped value) — see
+  // LeadRepository.getAllLeads / getLeadsByLocationAnalytics. Locality has no
+  // master table, so its "id" is the raw name (or "__NA__").
+  countryId: string;
+  stateId: string;
+  cityId: string;
+  localityId: string;
   country: string | null;
   state: string | null;
   city: string | null;
@@ -46,14 +54,18 @@ const normalize = (v?: string | null) => {
 const uniqueSorted = (arr: string[]) =>
   Array.from(new Set(arr)).sort((a, b) => a.localeCompare(b));
 
-export default function LeadByLocationAndStatus({data, startDate, endDate}: {data: LocationAnalytics[], startDate?: dayjs.Dayjs, endDate?: dayjs.Dayjs}) {
+export default function LeadByLocationAndStatus({data, startDate, endDate, entityScope = "lead", receivedOnly = false}: {data: LocationAnalytics[], startDate?: dayjs.Dayjs, endDate?: dayjs.Dayjs, entityScope?: "lead" | "project", receivedOnly?: boolean}) {
   // console.log("leaddata",data);
 
   // default filters
   const [openLocation, setOpenLocation] = useState(false);
+  // Which dimension was clicked (Country/State/City/Locality) — each maps to a
+  // distinct EntityTablePage/ChartDialogModal prop so drilling into "By City"
+  // never gets confused with "By Country" (see handleLevelClick below).
+  const [drillLevel, setDrillLevel] = useState<"country" | "state" | "city" | "locality" | null>(null);
   const [locationId, setLocationId] = useState<string | null>(null);
+  const [locationLabel, setLocationLabel] = useState<string | null>(null);
 
-   const [sortOption, setSortOption] = useState("");
   
 
   const [filters, setFilters] = useState<Filters>({
@@ -119,22 +131,26 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
 
   // Show all levels separately
 
-  const handleLocationChartClick = (selectedLabel: string) => {
-    const selectedLocation:any = data?.find(
-      (location: any) => location.location === selectedLabel
-    );
-    if (selectedLocation) {
-      setLocationId(selectedLocation.location);
-    } else {
-      setLocationId(selectedLabel);
-    }
+  // One handler per geographic level — clicking a bar in "By Country" must only
+  // ever filter by country (never state/city), and an N/A bar must show exactly
+  // the leads with no value on THAT dimension. Each level's chart data carries
+  // the real backend id (or "__NA__") as ChartDatum.id (see createChartData).
+  const handleLevelClick = (level: "country" | "state" | "city" | "locality") => (selectedLabel: string) => {
+    const grouped = { country: countryGrouped, state: stateGrouped, city: cityGrouped, locality: localityGrouped }[level];
+    const found = grouped.find((g) => g.name === selectedLabel);
+    setDrillLevel(level);
+    setLocationId(found?.id ?? NA);
+    setLocationLabel(selectedLabel);
     setOpenLocation(true);
   };
 
-
-  // Create separate groupings for each geographic level
-  const createGroupedData = (getKey: (item: LocationAnalytics) => string) => {
+  // Create separate groupings for each geographic level, keyed by the real
+  // backend id (or "__NA__") rather than the display name — two different
+  // records that happen to share a display name (rare, but possible for city/
+  // locality) never get merged into one bar.
+  const createGroupedData = (getId: (item: LocationAnalytics) => string, getLabel: (item: LocationAnalytics) => string) => {
     const map: Record<string, {
+      id: string;
       name: string;
       totalBudget: number;
       totalCount: number;
@@ -142,45 +158,33 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
     }> = {};
 
     filteredData.forEach((item) => {
-      const key = getKey(item);
+      const id = getId(item);
+      const label = getLabel(item);
       const color = item.color;
 
-      if (!map[key]) {
-        map[key] = {
-          name: key,
+      if (!map[id]) {
+        map[id] = {
+          id,
+          name: label,
           totalBudget: 0,
           totalCount: 0,
           color: color
         };
       }
 
-      map[key].totalBudget += item.budget;
-      map[key].totalCount += item.count;
+      map[id].totalBudget += item.budget;
+      map[id].totalCount += item.count;
     });
 
-    const result = Object.values(map);
-
-    // Apply sorting based on sortOption
-    if (sortOption === "budget-asc") {
-      result.sort((a, b) => a.totalBudget - b.totalBudget);
-    } else if (sortOption === "budget-desc") {
-      result.sort((a, b) => b.totalBudget - a.totalBudget);
-    } else if (sortOption === "title-asc") {
-      result.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-    } else if (sortOption === "title-desc") {
-      result.sort((a, b) => b.name.toLowerCase().localeCompare(a.name.toLowerCase()));
-    } else {
-      // Default sort by lead count desc
-      result.sort((a, b) => b.totalCount - a.totalCount);
-    }
-
+    // Sort by lead count (descending) — RankedBarChart handles user-triggered sort
+    const result = Object.values(map).sort((a, b) => b.totalCount - a.totalCount);
     return result;
   };
 
-  const countryGrouped = useMemo(() => createGroupedData(item => normalize(item.country)), [filteredData, sortOption]);
-  const stateGrouped = useMemo(() => createGroupedData(item => normalize(item.state)), [filteredData, sortOption]);
-  const cityGrouped = useMemo(() => createGroupedData(item => normalize(item.city)), [filteredData, sortOption]);
-  const localityGrouped = useMemo(() => createGroupedData(item => normalize(item.locality)), [filteredData, sortOption]);
+  const countryGrouped = useMemo(() => createGroupedData(item => item.countryId, item => normalize(item.country)), [filteredData]);
+  const stateGrouped = useMemo(() => createGroupedData(item => item.stateId, item => normalize(item.state)), [filteredData]);
+  const cityGrouped = useMemo(() => createGroupedData(item => item.cityId, item => normalize(item.city)), [filteredData]);
+  const localityGrouped = useMemo(() => createGroupedData(item => item.localityId, item => normalize(item.locality)), [filteredData]);
 
   // Change handlers with cascading resets
   const handleChange = (key: keyof Filters) => (e: SelectChangeEvent<string>) => {
@@ -228,6 +232,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
     label: g.name,
     value: g.totalCount,
     totalCost: Math.round(g.totalBudget),
+    id: g.id,
   }));
 
   const countryChartData: ChartDatum[] = createChartData(countryGrouped);
@@ -261,100 +266,6 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
           </div>
           <Box sx={{ p: 3, borderRadius: 2 }}>
             <Box sx={{ display: "flex", mb: 3, gap: 2, flexWrap: "wrap" }}>
-              {/* <FormControl sx={{ minWidth: 160 }} size="small">
-                <InputLabel id="sort-label">Sort By</InputLabel>
-                <Select
-                  labelId="sort-label"
-                  value={sortOption}
-                  label="Sort By"
-                  onChange={(e: SelectChangeEvent<string>) => {
-                    const value = e.target.value;
-                    setSortOption(value);
-                  
-                    let sortedData = [...items];
-                  
-                    console.log('Original items:', JSON.parse(JSON.stringify(sortedData))); // Log the data before sorting
-                  
-                    if (value === "budget-asc") {
-                      sortedData.sort((a, b) => {
-                        const valA = a.budget;
-                        const valB = b.budget;
-                        return valA - valB;
-                      });
-                    } else if (value === "budget-desc") {
-                      sortedData.sort((a, b) => {
-                        const valA = a.budget;
-                        const valB = b.budget;
-                        return valB - valA;
-                      });
-                    } else if (value === "title-asc") {
-                      sortedData.sort((a, b) =>
-                       (a.status || "").toLowerCase().localeCompare((b.status || "").toLowerCase())
-                      );
-                    } else if (value === "title-desc") {
-                      sortedData.sort((a, b) =>
-                        (b.status || "").toLowerCase().localeCompare((a.status || "").toLowerCase())
-                      );
-                    }
-                  
-                    console.log('Sorted items:', JSON.parse(JSON.stringify(sortedData))); // Log the result after sorting
-                    setItems(sortedData);
-                  }}
-                >
-                  <MenuItem value="">-- Sort By --</MenuItem>
-                  <MenuItem value="budget-asc">Budget (Low → High)</MenuItem>
-                  <MenuItem value="budget-desc">Budget (High → Low)</MenuItem>
-                  <MenuItem value="title-asc">Title (A → Z)</MenuItem>
-                  <MenuItem value="title-desc">Title (Z → A)</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl sx={{ minWidth: 160 }} size="small">
-                <InputLabel id="sort-label">Sort By</InputLabel>
-                <Select
-                  labelId="sort-label"
-                  value={sortOption}
-                  label="Sort By"
-                  onChange={(e: SelectChangeEvent<string>) => {
-                    const value = e.target.value;
-                    setSortOption(value);
-                  
-                    let sortedData = [...items];
-                  
-                    console.log('Original items:', JSON.parse(JSON.stringify(sortedData))); // Log the data before sorting
-                  
-                    if (value === "budget-asc") {
-                      sortedData.sort((a, b) => {
-                        const valA = a.budget;
-                        const valB = b.budget;
-                        return valA - valB;
-                      });
-                    } else if (value === "budget-desc") {
-                      sortedData.sort((a, b) => {
-                        const valA = a.budget;
-                        const valB = b.budget;
-                        return valB - valA;
-                      });
-                    } else if (value === "title-asc") {
-                      sortedData.sort((a, b) =>
-                       (a.status || "").toLowerCase().localeCompare((b.status || "").toLowerCase())
-                      );
-                    } else if (value === "title-desc") {
-                      sortedData.sort((a, b) =>
-                        (b.status || "").toLowerCase().localeCompare((a.status || "").toLowerCase())
-                      );
-                    }
-                  
-                    console.log('Sorted items:', JSON.parse(JSON.stringify(sortedData))); // Log the result after sorting
-                    setItems(sortedData);
-                  }}
-                >
-                  <MenuItem value="">-- Sort By --</MenuItem>
-                  <MenuItem value="budget-asc">Budget (Low → High)</MenuItem>
-                  <MenuItem value="budget-desc">Budget (High → Low)</MenuItem>
-                  <MenuItem value="title-asc">Title (A → Z)</MenuItem>
-                  <MenuItem value="title-desc">Title (Z → A)</MenuItem>
-                </Select>
-              </FormControl> */}
               <FormControl sx={{ minWidth: 160 }} size="small">
                 <InputLabel id="status-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Status</InputLabel>
                 <Select
@@ -504,39 +415,6 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                   ))}
                 </Select>
               </FormControl>
-
-              <FormControl sx={{ minWidth: 160 }} size="small">
-                <InputLabel id="sort-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Sort By</InputLabel>
-                <Select
-                  labelId="sort-label"
-                  value={sortOption}
-                  label="Sort By"
-                  onChange={(e: SelectChangeEvent<string>) => {
-                    const value = e.target.value;
-                    setSortOption(value);
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1E3A8A',
-                    },
-                    '& .MuiSelect-select': {
-                      color: '#1E3A8A',
-                    }
-                  }}
-                >
-                  <MenuItem value="">-- Sort By --</MenuItem>
-                  <MenuItem value="budget-asc">Budget (Low → High)</MenuItem>
-                  <MenuItem value="budget-desc">Budget (High → Low)</MenuItem>
-                  <MenuItem value="title-asc">Title (A → Z)</MenuItem>
-                  <MenuItem value="title-desc">Title (Z → A)</MenuItem>
-                </Select>
-              </FormControl>
             </Box>
 
             <Box sx={{ mt: 3, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
@@ -546,7 +424,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                 {countryChartData.length > 0 ? (
                   <RankedBarChart
                     data={countryChartData}
-                    onSelect={handleLocationChartClick}
+                    onSelect={handleLevelClick("country")}
                     showRevenue
                     lean
                     barColor="#0EA5E9"
@@ -567,7 +445,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                 {stateChartData.length > 0 ? (
                   <RankedBarChart
                     data={stateChartData}
-                    onSelect={handleLocationChartClick}
+                    onSelect={handleLevelClick("state")}
                     showRevenue
                     lean
                     barColor="#10B981"
@@ -588,7 +466,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                 {cityChartData.length > 0 ? (
                   <RankedBarChart
                     data={cityChartData}
-                    onSelect={handleLocationChartClick}
+                    onSelect={handleLevelClick("city")}
                     showRevenue
                     lean
                     barColor="#F59E0B"
@@ -609,7 +487,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                 {localityChartData.length > 0 ? (
                   <RankedBarChart
                     data={localityChartData}
-                    onSelect={handleLocationChartClick}
+                    onSelect={handleLevelClick("locality")}
                     showRevenue
                     lean
                     barColor="#8B5CF6"
@@ -643,13 +521,24 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
         </div>
       </div>
 
-      {/* Location Modal */}
+      {/* Location Modal — routed to the ONE prop matching the clicked level, so
+          "By City" never leaks into a country-wide filter or vice versa. */}
       <ChartDialogModal
         open={openLocation}
         onClose={() => setOpenLocation(false)}
-        locationId={locationId || undefined}
+        title={locationLabel ? `Location · ${locationLabel}` : undefined}
+        locationCountryId={drillLevel === "country" ? locationId || undefined : undefined}
+        locationCountryName={drillLevel === "country" ? locationLabel || undefined : undefined}
+        locationStateId={drillLevel === "state" ? locationId || undefined : undefined}
+        locationStateName={drillLevel === "state" ? locationLabel || undefined : undefined}
+        locationCityId={drillLevel === "city" ? locationId || undefined : undefined}
+        locationCityName={drillLevel === "city" ? locationLabel || undefined : undefined}
+        locationLocalityId={drillLevel === "locality" ? locationId || undefined : undefined}
+        locationLocalityName={drillLevel === "locality" ? locationLabel || undefined : undefined}
         startDate={startDate || undefined}
         endDate={endDate || undefined}
+        receivedOnly={receivedOnly || undefined}
+        entityScope={entityScope}
       />
 
 
