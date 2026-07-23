@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  Dialog, DialogContent, DialogActions,
-  IconButton, Tooltip, Switch, TextField, MenuItem,
-  Checkbox, FormControlLabel, CircularProgress, Paper, Box, Stack, Typography, Chip,
+  DialogContent, DialogActions,
+  Tooltip, Switch, TextField, MenuItem,
+  Checkbox, FormControlLabel, CircularProgress, Box, Stack, Typography, Chip,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
@@ -15,22 +15,26 @@ import {
   createSandwichRule,
   updateSandwichRule,
   deleteSandwichRule,
+  reorderSandwichRules,
   fetchSandwichRuleAuditLog,
   SandwichRule,
   SandwichRulePattern,
   SandwichRuleAuditLogEntry,
 } from "@services/sandwichRule";
+import ReorderableGroup from "@app/modules/common/components/ReorderableGroup";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
 import { getSocket } from "@utils/socketClient";
 import { safeJsonParse } from "@utils/safeJson";
-// Devices-modal tokens for the dialog chrome (navy gradient header, panel bg, Inter-first type).
-import { T } from "@app/modules/common/components/ui/tokens";
-// Shared CTA/ghost button primitives (single source of truth for the calendar-derived button
-// physics: gradient + glass edge + lift/press) — see ui/buttons.tsx.
-import { WtButton, WtIconButton } from "@app/modules/common/components/ui/buttons";
+// Shared UI kit (single import surface): tokens, CTA/icon buttons, and the reusable
+// glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader) — see ui/index.ts.
+import {
+  T, WtButton, WtIconButton, GlassSurface, GlassDialog, GlassHeader,
+} from "@app/modules/common/components/ui";
 
 interface SandwichLeaveProps {
+  /** Controls the (now self-contained) glass dialog's visibility. */
+  open: boolean;
   showSandWhichLeaveModal: (visible: boolean) => void;
   readOnly?: boolean;  // When true, disables all inputs and hides mutating actions
 }
@@ -86,40 +90,68 @@ function IconBox({ icon, trio, size = 40, fs = 'fs-2' }: { icon: string; trio: T
 
 // Soft pill status badge with tone dot (the "7 days" / "Good" pills on the attendance dashboard).
 // `pulse` rings the dot for live "Active" state — transform/opacity only (compositor-friendly).
-function StatusBadge({ trio, label, pulse }: { trio: Trio; label: string; pulse?: boolean }) {
-  return (
-    <Box sx={{
-      display: 'inline-flex', alignItems: 'center', gap: '6px', px: '10px', py: '3px',
-      borderRadius: 999, bgcolor: trio.bg, border: `1px solid ${trio.bd}`, flexShrink: 0,
-    }}>
+// When `onClick` is supplied the badge becomes an interactive toggle (click OR Enter/Space),
+// styled with a pressable affordance and drag-safe (stops pointerdown so it never starts a card
+// drag). Passive callers omit onClick and get the original static chip unchanged.
+function StatusBadge({ trio, label, pulse, onClick, disabled, title }: {
+  trio: Trio; label: string; pulse?: boolean;
+  onClick?: () => void; disabled?: boolean; title?: string;
+}) {
+  const interactive = !!onClick;
+  const badge = (
+    <Box
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive && !disabled ? 0 : undefined}
+      aria-pressed={interactive ? pulse : undefined}
+      aria-disabled={interactive ? disabled : undefined}
+      onClick={interactive && !disabled ? onClick : undefined}
+      onKeyDown={interactive && !disabled ? (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick!(); }
+      } : undefined}
+      onPointerDown={interactive ? (e: React.PointerEvent) => e.stopPropagation() : undefined}
+      sx={{
+        display: 'inline-flex', alignItems: 'center', gap: '6px', px: '10px', py: '3px',
+        borderRadius: 999, bgcolor: trio.bg, border: `1px solid ${trio.bd}`, flexShrink: 0,
+        userSelect: 'none',
+        ...(interactive && {
+          cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.6 : 1, transition: EASE_200,
+          '&:hover': disabled ? {} : { filter: 'brightness(0.96)', boxShadow: SHADOW_REST },
+          '&:active': disabled ? {} : { transform: 'scale(0.95)' },
+          '&:focus-visible': { outline: `2px solid ${trio.c}`, outlineOffset: 2 },
+        }),
+      }}
+    >
       <Box className={pulse ? 'sw-dot-pulse' : undefined} sx={{ width: 7, height: 7, borderRadius: 999, bgcolor: trio.c, color: trio.c }} />
       <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: trio.c, lineHeight: 1, whiteSpace: 'nowrap' }}>{label}</Typography>
     </Box>
   );
+  return interactive && title ? <Tooltip title={title}>{badge}</Tooltip> : badge;
 }
 
 // Salary-meta-tile stat card: small muted label ABOVE the bold value (screenshot anatomy),
 // tinted icon box left, EmployeeDetailsCard hover lift.
 function StatTile({ label, value, trio, icon }: { label: string; value: React.ReactNode; trio: Trio; icon: string }) {
   return (
-    <Paper variant="outlined" sx={{
+    <GlassSurface variant="thin" sx={{
       minWidth: 0, p: 1.5, borderRadius: '14px', display: 'flex', alignItems: 'center', gap: 1.25,
-      borderColor: '#eef0f5', boxShadow: SHADOW_REST, transition: EASE_200,
+      borderColor: 'divider', boxShadow: SHADOW_REST, transition: EASE_200,
       '&:hover': { transform: 'translateY(-2px)', boxShadow: SHADOW_HOVER, borderColor: trio.bd },
     }}>
       <IconBox icon={icon} trio={trio} size={40} fs="fs-2" />
       <Box sx={{ minWidth: 0 }}>
-        <Typography noWrap sx={{ fontSize: 10.5, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>{label}</Typography>
-        <Typography noWrap sx={{ fontSize: 19, fontWeight: 800, lineHeight: 1.2, color: '#0f172a' }}>{value}</Typography>
+        <Typography noWrap sx={{ fontSize: 10.5, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>{label}</Typography>
+        <Typography noWrap sx={{ fontSize: 19, fontWeight: 800, lineHeight: 1.2, color: 'text.primary' }}>{value}</Typography>
       </Box>
-    </Paper>
+    </GlassSurface>
   );
 }
 
-// Rule-row action button — the shared tinted-ghost primitive with the trio hue.
+// Rule-row action button — the shared tinted-ghost primitive with the trio hue. Slightly compact on
+// phones so the trio of controls leaves the rule title more room (and reads as buttons, not boxes).
 function GhostIconButton({ icon, trio, title, onClick }: { icon: string; trio: Trio; title: string; onClick: () => void }) {
   return (
-    <WtIconButton title={title} color={trio.c} onClick={onClick}>
+    <WtIconButton title={title} color={trio.c} onClick={onClick}
+      sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 } }}>
       <KTIcon iconName={icon} className="fs-3" />
     </WtIconButton>
   );
@@ -140,10 +172,13 @@ const STATUS_TRIO: Record<TileStatus, { trio: Trio; label: string }> = {
 
 // 'any' renders as "Any" — "Paid / Unpaid" truncated inside the tiles.
 const condLabel = (c: 'paid' | 'unpaid' | 'any') => (c === 'paid' ? 'Paid' : c === 'unpaid' ? 'Unpaid' : 'Any');
+// Interior off-day tiles always read "OFF-DAY" as the eyebrow with the specific type as the value
+// line, so every tile in the strip carries the same three-line anatomy (eyebrow · value · status)
+// and no tile renders hollow next to its neighbours in the 2-up mobile grid.
 const interiorMeta = (t?: 'holiday' | 'weekend' | 'any') =>
-  t === 'holiday' ? { role: 'Holiday', icon: 'auto-brightness' }
-  : t === 'weekend' ? { role: 'Weekend', icon: 'night-day' }
-  : { role: 'Off-day', icon: 'calendar-2' };
+  t === 'holiday' ? { icon: 'auto-brightness', typeLabel: 'Holiday' }
+  : t === 'weekend' ? { icon: 'night-day', typeLabel: 'Weekend' }
+  : { icon: 'calendar-2', typeLabel: 'Any day' };
 
 // Icon-left tile (per user preference): a miniature of the salary meta-tile anatomy — glyph on
 // the left, eyebrow-over-value text column on the right, status line beneath. Shorter and quicker
@@ -163,18 +198,20 @@ function DayTile({ role, icon, cond, status }: { role: string; icon: string; con
           On desktop the icon+text group centers horizontally and the type scales up a notch so
           the now-wide tiles read filled instead of hollow-left. */}
       <Stack direction="row" alignItems="center" sx={{
-        px: { xs: 1.25, md: 2 }, py: { xs: 1, md: 1.25 }, gap: { xs: 1, md: 1.25 },
+        px: { xs: 1.25, md: 2 }, py: { xs: 1.1, md: 1.25 }, gap: { xs: 1, md: 1.25 },
         minWidth: 0, flex: 1, justifyContent: { xs: 'flex-start', md: 'center' },
       }}>
+        {/* Tile text stays FIXED dark — the chip bg is an opaque light pastel in both themes, so
+            theme-aware (white-in-dark) text would be illegible here. */}
         <Box sx={{ color: trio.c, lineHeight: 0, flexShrink: 0 }}><KTIcon iconName={icon} className="fs-2" /></Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography noWrap sx={{ fontSize: { xs: 10, md: 10.5 }, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#64748b', lineHeight: 1.2 }}>{role}</Typography>
+          <Typography noWrap sx={{ fontSize: { xs: 10.5, md: 11 }, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#64748b', lineHeight: 1.3 }}>{role}</Typography>
           {cond && (
-            <Typography noWrap sx={{ fontSize: { xs: 12.5, md: 13.5 }, fontWeight: 700, color: '#0f172a', lineHeight: 1.25 }}>{cond}</Typography>
+            <Typography noWrap sx={{ fontSize: { xs: 13.5, md: 14.5 }, fontWeight: 800, color: '#0f172a', lineHeight: 1.3 }}>{cond}</Typography>
           )}
-          <Stack direction="row" alignItems="center" spacing={0.6} sx={{ mt: cond ? 0 : 0.25 }}>
+          <Stack direction="row" alignItems="center" spacing={0.6} sx={{ mt: 0.35 }}>
             <Box sx={{ width: 6, height: 6, borderRadius: 999, bgcolor: trio.c, flexShrink: 0 }} />
-            <Typography noWrap sx={{ fontSize: { xs: 10, md: 10.5 }, fontWeight: 700, color: trio.c, textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2 }}>{label}</Typography>
+            <Typography noWrap sx={{ fontSize: { xs: 10.5, md: 11 }, fontWeight: 700, color: trio.c, textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2 }}>{label}</Typography>
           </Stack>
         </Box>
       </Stack>
@@ -205,12 +242,17 @@ function SandwichPatternStrip({ pattern }: { pattern: SandwichRulePattern }) {
     push(<DayTile key="lead" role="Before" icon="minus-circle" cond="Any" status="any" />);
   }
 
-  const n = Math.max(1, pattern.runLength);
-  const shown = Math.min(n, 3);
-  const { role, icon } = interiorMeta(pattern.interiorDayType);
+  const isAny = pattern.runLength === 'any';
+  const n = typeof pattern.runLength === 'number' ? Math.max(1, pattern.runLength) : 2;
+  const shown = isAny ? 2 : Math.min(n, 3);
+  const { icon, typeLabel } = interiorMeta(pattern.interiorDayType);
   for (let i = 0; i < shown; i++) {
-    push(<DayTile key={`int${i}`} role={role} icon={icon}
-      cond={i === shown - 1 && n > shown ? `+${n - shown} more` : undefined}
+    const isLast = i === shown - 1;
+    // The last interior tile carries the run-length note ("any length" / "+N more"); the rest carry
+    // the off-day type — so every interior tile still has a populated value line (no hollow tiles).
+    const runNote = isAny ? (isLast ? 'any length' : undefined) : (isLast && n > shown ? `+${n - shown} more` : undefined);
+    push(<DayTile key={`int${i}`} role="Off-day" icon={icon}
+      cond={runNote ?? typeLabel}
       status={pattern.excludeInteriorDaysFromSalary ? 'excluded' : 'counts'} />);
   }
 
@@ -246,69 +288,75 @@ function SectionCard({ title, description, icon, trio, count, children }: {
   title: string; description: string; icon: string; trio: Trio; count: number; children: React.ReactNode;
 }) {
   return (
-    <Paper variant="outlined" className="sw-fade-up" sx={{ borderRadius: '14px', borderColor: '#eef0f5', overflow: 'hidden', boxShadow: SHADOW_REST }}>
-      <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ p: { xs: 1.5, sm: 2 }, pb: 1.5, borderBottom: `1px solid #eef0f5` }}>
+    <GlassSurface variant="thin" className="sw-fade-up" sx={{ borderRadius: '14px', borderColor: 'divider', overflow: 'hidden', boxShadow: SHADOW_REST }}>
+      <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ p: { xs: 1.5, sm: 2 }, pb: 1.5, borderBottom: 1, borderColor: 'divider' }}>
         <IconBox icon={icon} trio={trio} size={42} fs="fs-2" />
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ rowGap: 0.5 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#0f172a', lineHeight: 1.25 }}>{title}</Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: 15, color: 'text.primary', lineHeight: 1.25 }}>{title}</Typography>
             <Chip size="small" label={count} sx={{ height: 20, fontSize: 11, fontWeight: 700, color: trio.c, bgcolor: trio.bg, border: `1px solid ${trio.bd}`, '& .MuiChip-label': { px: 1 } }} />
           </Stack>
-          <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.25, lineHeight: 1.5 }}>{description}</Typography>
+          <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 0.25, lineHeight: 1.5 }}>{description}</Typography>
         </Box>
       </Stack>
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>{children}</Box>
-    </Paper>
+    </GlassSurface>
   );
 }
 
 // ─── Rule row ───────────────────────────────────────────────────────────────────────────────
 
-function RuleRow({ rule, trio, index, readOnly, busy, onToggle, onEdit, onDelete, onAudit }: {
+function RuleRow({ rule, trio, index, readOnly, busy, draggable, onToggle, onEdit, onDelete, onAudit }: {
   rule: SandwichRule; trio: Trio; index: number; readOnly: boolean; busy: boolean;
+  draggable: boolean;
   onToggle: () => void; onEdit: () => void; onDelete: () => void; onAudit: () => void;
 }) {
+  // When draggable, the whole card is the drag target (like the attendance Overview). We
+  // stopPropagation of pointerdown on the interactive controls so grabbing a button/toggle acts on
+  // it instead of starting a card drag — best of both: drag anywhere, buttons still work.
+  const stopDrag = draggable ? { onPointerDown: (e: React.PointerEvent) => e.stopPropagation() } : {};
   return (
-    <Paper variant="outlined" className="sw-fade-up" style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }} sx={{
-      borderRadius: '12px', p: 1.5, opacity: busy ? 0.5 : 1, borderColor: '#eef0f5',
+    <GlassSurface variant="thin" className="sw-fade-up" style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }} sx={{
+      borderRadius: '12px', p: 1.5, opacity: busy ? 0.5 : 1, borderColor: 'divider',
       borderLeft: `4px solid ${rule.isEnabled ? trio.c : '#e2e8f0'}`,
       transition: EASE_200,
       '&:hover': { transform: 'translateY(-2px)', boxShadow: SHADOW_HOVER, borderColor: trio.bd, borderLeftColor: rule.isEnabled ? trio.c : '#e2e8f0' },
     }}>
-      {/* One anatomy at every width (per user sketch): title + actions on the top row,
-          description full width beneath, then the day-strip owning the entire card width —
-          so on desktop all tiles sit in ONE generous row, and below md they grid 2-up. */}
+      {/* One anatomy at every width (per user sketch): title + description live in the left column
+          so the text block hugs the name, while the action buttons float top-right — the taller
+          button row no longer pushes the description down. Then the day-strip spans the full card. */}
       <Stack spacing={1}>
         <Stack direction="row" alignItems="flex-start" sx={{ gap: 1 }}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ rowGap: 0.5, minWidth: 0, flex: 1 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: '#0f172a', lineHeight: 1.25 }}>{rule.name}</Typography>
-            <StatusBadge
-              trio={rule.isEnabled ? TRIO.green : TRIO.slate}
-              label={rule.isEnabled ? 'Active' : 'Inactive'}
-              pulse={rule.isEnabled}
-            />
-          </Stack>
-          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
-            {!readOnly && (
-              <>
-                <GhostIconButton icon="time" trio={TRIO.slate} title="View audit history" onClick={onAudit} />
-                <GhostIconButton icon="pencil" trio={TRIO.blue} title="Edit rule" onClick={onEdit} />
-                <GhostIconButton icon="trash" trio={TRIO.rose} title="Delete rule" onClick={onDelete} />
-              </>
+          <Stack sx={{ minWidth: 0, flex: 1, rowGap: 0.5 }}>
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ rowGap: 0.5, minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: 'text.primary', lineHeight: 1.25 }}>{rule.name}</Typography>
+              {/* The status badge IS the enable toggle — click Active↔Inactive (drag-safe, keyboard-
+                  accessible). Read-only views get a passive chip (no onClick). */}
+              <StatusBadge
+                trio={rule.isEnabled ? TRIO.green : TRIO.slate}
+                label={rule.isEnabled ? 'Active' : 'Inactive'}
+                pulse={rule.isEnabled}
+                onClick={readOnly ? undefined : onToggle}
+                disabled={busy}
+                title={readOnly ? undefined : rule.isEnabled ? 'Click to disable this scenario' : 'Click to enable this scenario'}
+              />
+            </Stack>
+            {rule.description && (
+              <Typography sx={{ fontSize: 13, color: 'text.secondary', lineHeight: 1.45 }}>{rule.description}</Typography>
             )}
-            <Tooltip title={rule.isEnabled ? 'Disable' : 'Enable'}>
-              <span><Switch checked={rule.isEnabled} onChange={onToggle} disabled={readOnly || busy} /></span>
-            </Tooltip>
           </Stack>
+          {!readOnly && (
+            <Stack direction="row" spacing={{ xs: 0.5, sm: 0.75 }} alignItems="center" sx={{ flexShrink: 0 }} {...stopDrag}>
+              <GhostIconButton icon="time" trio={TRIO.slate} title="View audit history" onClick={onAudit} />
+              <GhostIconButton icon="pencil" trio={TRIO.blue} title="Edit rule" onClick={onEdit} />
+              <GhostIconButton icon="trash" trio={TRIO.rose} title="Delete rule" onClick={onDelete} />
+            </Stack>
+          )}
         </Stack>
-
-        {rule.description && (
-          <Typography sx={{ fontSize: 13, color: '#64748b', lineHeight: 1.45, mt: '-4px' }}>{rule.description}</Typography>
-        )}
 
         <SandwichPatternStrip pattern={rule.pattern} />
       </Stack>
-    </Paper>
+    </GlassSurface>
   );
 }
 
@@ -322,8 +370,8 @@ function EmptyState({ icon, trio, title, description, onAdd }: {
       <Box sx={{ width: 56, height: 56, borderRadius: '16px', display: 'grid', placeItems: 'center', bgcolor: trio.bg, color: trio.c, border: `1px solid ${trio.bd}` }}>
         <KTIcon iconName={icon} className="fs-2x" />
       </Box>
-      <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>{title}</Typography>
-      <Typography sx={{ fontSize: 13, color: '#64748b', maxWidth: 400, lineHeight: 1.5 }}>{description}</Typography>
+      <Typography sx={{ fontWeight: 700, fontSize: 15, color: 'text.primary' }}>{title}</Typography>
+      <Typography sx={{ fontSize: 13, color: 'text.secondary', maxWidth: 400, lineHeight: 1.5 }}>{description}</Typography>
       {onAdd && (
         <WtButton inverted size="small" startIcon={<KTIcon iconName="plus" className="fs-5" />} onClick={onAdd}
           sx={{ mt: 0.5, px: 2, fontSize: 13 }}>
@@ -334,43 +382,22 @@ function EmptyState({ icon, trio, title, description, onAdd }: {
   );
 }
 
-// ─── Dialog header — the Devices modal band, verbatim (navy gradient + red accent stripe) ───
-
+// ─── Dialog header — now the shared GlassHeader (navy gradient + red accent stripe), with this
+// screen's KTIcon glyphs plugged in. Kept as a thin local wrapper so the four call sites (which
+// pass `icon` as a KTIcon name string) stay unchanged. ───────────────────────────────────────
 function DialogHeader({ title, subtitle, icon, onClose, action }: {
   title: string; subtitle?: string; icon: string; onClose?: () => void; action?: React.ReactNode;
 }) {
   return (
-    <Box sx={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
-      px: { xs: 2, sm: 2.75 }, py: { xs: 1.5, sm: 1.75 },
-      background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)',
-      borderBottom: `3px solid ${T.color.accent}`, color: '#fff', flexShrink: 0,
-    }}>
-      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-        <Box sx={{ width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', flexShrink: 0 }}>
-          <KTIcon iconName={icon} className="fs-1" />
-        </Box>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: { xs: 15.5, sm: 17 }, color: '#fff', lineHeight: 1.25 }}>{title}</Typography>
-          {subtitle && (
-            <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{subtitle}</Typography>
-          )}
-        </Box>
-      </Stack>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-        {action}
-        {onClose && (
-          // mrd-navbtn press physics: scale(.92) on click
-          <IconButton onClick={onClose} aria-label="Close" sx={{
-            color: '#fff', bgcolor: 'rgba(255,255,255,0.10)', width: 38, height: 38,
-            transition: 'background-color .15s, transform .12s',
-            '&:hover': { bgcolor: 'rgba(255,255,255,0.20)' }, '&:active': { transform: 'scale(.92)' },
-          }}>
-            <KTIcon iconName="cross" className="fs-3" />
-          </IconButton>
-        )}
-      </Stack>
-    </Box>
+    <GlassHeader
+      variant="gradient"
+      title={title}
+      subtitle={subtitle}
+      onClose={onClose}
+      action={action}
+      icon={<KTIcon iconName={icon} className="fs-1" />}
+      closeIcon={<KTIcon iconName="cross" className="fs-3" />}
+    />
   );
 }
 
@@ -387,7 +414,7 @@ interface RuleFormModalProps {
 // Devices LabeledField eyebrow — names each form group so the dialog scans at a glance.
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <Typography sx={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>{children}</Typography>
+    <Typography sx={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>{children}</Typography>
   );
 }
 
@@ -440,28 +467,29 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
   };
 
   const set = (patch: Partial<SandwichRulePattern>) => setPattern((p) => ({ ...p, ...patch }));
-  const controlLabelSx = { '& .MuiFormControlLabel-label': { fontSize: 13, fontWeight: 600, color: '#0f172a' } } as const;
+  const controlLabelSx = { '& .MuiFormControlLabel-label': { fontSize: 13, fontWeight: 600, color: 'text.primary' } } as const;
 
   return (
-    // disableEnforceFocus: this Dialog portals outside the react-bootstrap host modal — without
-    // it the two focus traps fight over focus (typing breaks + CPU burns). Devices does the same.
-    <Dialog open={show} onClose={onClose} fullWidth maxWidth="md" disableEnforceFocus PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden', fontFamily: T.font.family } }}>
+    // GlassDialog = frosted Paper + dimmed/blurred backdrop; disableEnforceFocus defaults true so
+    // the focus trap survives being portaled outside the react-bootstrap host modal.
+    <GlassDialog open={show} onClose={onClose} maxWidth="md" header={
       <DialogHeader
         title={editingRule ? 'Edit Rule' : 'Add Rule'}
         subtitle={editingRule ? `Editing "${editingRule.name}"` : 'Define a new sandwich day-pattern'}
         icon="pencil"
         onClose={onClose}
       />
-      <DialogContent sx={{ bgcolor: T.color.panel, p: { xs: 1.5, sm: 2 } }}>
+    }>
+      <DialogContent sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Stack spacing={1.5}>
           {/* Live preview — updates as the form below changes */}
-          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: '12px', borderColor: '#eef0f5' }}>
+          <GlassSurface variant="thin" sx={{ p: 1.5, borderRadius: '12px', borderColor: 'divider' }}>
             <Box sx={{ mb: 1 }}><Eyebrow>Live preview</Eyebrow></Box>
             <SandwichPatternStrip pattern={pattern} />
             <Box sx={{ mt: 1 }}><PatternLegend /></Box>
-          </Paper>
+          </GlassSurface>
 
-          <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: '#eef0f5' }}>
+          <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
             <Stack spacing={2}>
               <Eyebrow>Rule details</Eyebrow>
               <TextField label="Rule name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Diwali Bridge" fullWidth size="small" />
@@ -472,8 +500,21 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
                   <MenuItem value="holiday-bridge">Holiday-Bridge</MenuItem>
                   <MenuItem value="weekend-bridge">Weekend-Bridge</MenuItem>
                 </TextField>
-                <TextField type="number" label="Interior off-day run length" value={pattern.runLength} size="small"
-                  inputProps={{ min: 1 }} onChange={(e) => set({ runLength: Math.max(1, parseInt(e.target.value) || 1) })} />
+                {/* Exact run length, OR toggle "Any" to match a bridge of any length (catch-all). */}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <TextField type="number" label="Interior off-day run length" size="small" sx={{ flex: 1 }}
+                    value={pattern.runLength === 'any' ? '' : pattern.runLength}
+                    disabled={pattern.runLength === 'any'}
+                    placeholder={pattern.runLength === 'any' ? 'Any length' : undefined}
+                    inputProps={{ min: 1 }}
+                    onChange={(e) => set({ runLength: Math.max(1, parseInt(e.target.value) || 1) })} />
+                  <Tooltip title="Match a bridge of ANY length (e.g. long weekends, festival breaks)">
+                    <FormControlLabel sx={{ ...controlLabelSx, mr: 0, flexShrink: 0 }}
+                      control={<Switch size="small" checked={pattern.runLength === 'any'}
+                        onChange={(e) => set({ runLength: e.target.checked ? 'any' : 2 })} />}
+                      label="Any" />
+                  </Tooltip>
+                </Box>
               </Box>
               <TextField select label="Interior days must be" value={pattern.interiorDayType ?? 'any'} onChange={(e) => set({ interiorDayType: e.target.value as any })} size="small" fullWidth>
                 <MenuItem value="any">Holiday or Weekend (either)</MenuItem>
@@ -481,9 +522,9 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
                 <MenuItem value="weekend">Weekend only (branch off-day)</MenuItem>
               </TextField>
             </Stack>
-          </Paper>
+          </GlassSurface>
 
-          <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: '#eef0f5' }}>
+          <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
             <Stack spacing={1}>
               <Eyebrow>Leading day (before the off-day run)</Eyebrow>
               <FormControlLabel sx={controlLabelSx} control={<Switch size="small" checked={pattern.leadingRequired} onChange={(e) => set({ leadingRequired: e.target.checked })} />} label="Leading leave day required?" />
@@ -498,9 +539,9 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
                 </Box>
               )}
             </Stack>
-          </Paper>
+          </GlassSurface>
 
-          <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: '#eef0f5' }}>
+          <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
             <Stack spacing={1}>
               <Eyebrow>Trailing day (after the off-day run)</Eyebrow>
               <FormControlLabel sx={controlLabelSx} control={<Switch size="small" checked={pattern.trailingRequired} onChange={(e) => set({ trailingRequired: e.target.checked })} />} label="Trailing leave day required?" />
@@ -515,15 +556,15 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
                 </Box>
               )}
             </Stack>
-          </Paper>
+          </GlassSurface>
 
-          <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: '#eef0f5' }}>
+          <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
             <Stack spacing={0.5}>
               <Eyebrow>Salary counting & activation</Eyebrow>
               <FormControlLabel sx={controlLabelSx} control={<Checkbox size="small" checked={pattern.excludeInteriorDaysFromSalary} onChange={(e) => set({ excludeInteriorDaysFromSalary: e.target.checked })} />} label="Exclude the interior off-day(s) themselves from the salary count" />
               <FormControlLabel sx={controlLabelSx} control={<Switch checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} />} label="Enabled" />
             </Stack>
-          </Paper>
+          </GlassSurface>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: `1px solid ${T.color.line}` }}>
@@ -534,7 +575,7 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
           {editingRule ? 'Save Changes' : 'Create Rule'}
         </WtButton>
       </DialogActions>
-    </Dialog>
+    </GlassDialog>
   );
 }
 
@@ -550,17 +591,30 @@ function AuditLogModal({ ruleId, ruleName, onClose }: { ruleId: string | null; r
 
   useEffect(() => {
     if (!ruleId) return;
-    setLoading(true);
-    fetchSandwichRuleAuditLog(ruleId)
-      .then((res) => setLogs(res.logs))
-      .catch(() => setLogs([]))
-      .finally(() => setLoading(false));
+    let alive = true;
+    // Silent = background refresh (socket-triggered); no spinner flicker on live updates.
+    const load = (silent = false) => {
+      if (!silent) setLoading(true);
+      fetchSandwichRuleAuditLog(ruleId)
+        .then((res) => { if (alive) setLogs(res.logs); })
+        .catch(() => { if (alive) setLogs([]); })
+        .finally(() => { if (alive && !silent) setLoading(false); });
+    };
+    load();
+
+    // Real-time: while this history is open, refetch when any action fires on the rules anywhere
+    // (create/edit/enable/disable/delete/reorder) so a new audit entry appears without reopening.
+    const socket = getSocket();
+    const handler = () => load(true);
+    socket.on('sandwichRules:updated', handler);
+    return () => { alive = false; socket.off('sandwichRules:updated', handler); };
   }, [ruleId]);
 
   return (
-    <Dialog open={!!ruleId} onClose={onClose} fullWidth maxWidth="sm" disableEnforceFocus PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden', fontFamily: T.font.family } }}>
+    <GlassDialog open={!!ruleId} onClose={onClose} maxWidth="sm" header={
       <DialogHeader title="Audit History" subtitle={ruleName} icon="time" onClose={onClose} />
-      <DialogContent sx={{ maxHeight: '62vh', bgcolor: T.color.panel, p: { xs: 1.5, sm: 2 } }}>
+    }>
+      <DialogContent sx={{ maxHeight: '62vh', p: { xs: 1.5, sm: 2 } }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
         ) : logs.length === 0 ? (
@@ -572,25 +626,28 @@ function AuditLogModal({ ruleId, ruleName, onClose }: { ruleId: string | null; r
               const trio = AUDIT_TRIO[log.action] ?? TRIO.slate;
               return (
                 // 3px status-tone left border — the Devices sync-history log-card pattern
-                <Paper key={log.id} variant="outlined" sx={{ borderRadius: '10px', borderColor: '#eef0f5', borderLeft: `3px solid ${trio.c}`, p: 1.5 }}>
+                <GlassSurface key={log.id} variant="thin" sx={{ borderRadius: '10px', borderColor: 'divider', borderLeft: `3px solid ${trio.c}`, p: 1.5 }}>
                   <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" sx={{ gap: 1 }}>
                     <StatusBadge trio={trio} label={log.action} />
-                    <Typography sx={{ fontSize: 11.5, color: '#64748b' }}>{new Date(log.createdAt).toLocaleString()}</Typography>
+                    <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>{new Date(log.createdAt).toLocaleString()}</Typography>
                   </Stack>
-                  {log.actorId && <Typography sx={{ fontSize: 13, color: '#0f172a', mt: 0.75 }}>By: {log.actorId}</Typography>}
-                </Paper>
+                  {/* Show the resolved human name; fall back to a friendly label, never the raw id. */}
+                  <Typography sx={{ fontSize: 13, color: 'text.primary', mt: 0.75 }}>
+                    By: {log.actorName || (log.actorId ? 'Unknown user' : 'System')}
+                  </Typography>
+                </GlassSurface>
               );
             })}
           </Stack>
         )}
       </DialogContent>
-    </Dialog>
+    </GlassDialog>
   );
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────────────────────
 
-function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLeaveProps) {
+function SandwichLeave({ open, showSandWhichLeaveModal, readOnly = false }: SandwichLeaveProps) {
   const [rules, setRules] = useState<SandwichRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -623,16 +680,19 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
     }
   }
 
-  useEffect(() => { loadRules(); }, []);
+  // The component now stays mounted (GlassDialog owns show/hide + exit animation), so only fetch
+  // when the dialog actually opens — not eagerly when the host page mounts.
+  useEffect(() => { if (open) loadRules(); }, [open]);
 
-  // Real-time auto-update: any client with this screen open refetches when a rule is
-  // created/updated/deleted anywhere. Backend broadcasts this on every mutation.
+  // Real-time auto-update: while open, refetch when a rule is created/updated/deleted anywhere
+  // (another admin/tab). Backend broadcasts this on every mutation.
   useEffect(() => {
+    if (!open) return;
     const socket = getSocket();
     const handler = () => loadRules();
     socket.on('sandwichRules:updated', handler);
     return () => { socket.off('sandwichRules:updated', handler); };
-  }, []);
+  }, [open]);
 
   const handleToggle = async (rule: SandwichRule) => {
     if (readOnly) return;
@@ -683,16 +743,8 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
     setFormModalOpen(true);
   };
 
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300, bgcolor: T.color.panel }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   // Grouped by the actual `category` field, not by provenance — every rule is equally
-  // editable/deletable (SANDWICH_RULES.md §13 v6.0).
+  // editable/deletable (SANDWICH_RULES.md §13 v6.0). Safe with rules=[] while loading.
   const holidayBridgeRules = rules.filter((r) => r.category === 'holiday-bridge');
   const weekendBridgeRules = rules.filter((r) => r.category === 'weekend-bridge');
   const customCategoryRules = rules.filter((r) => r.category === 'custom');
@@ -706,6 +758,31 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
   // Add Rule (the form's Category field defaults to Custom).
   const showCustomSection = customCategoryRules.length > 0;
 
+  // Persist a new order: optimistic reorder of the full `rules` array (rebuilt in display order so
+  // the sections re-filter correctly), then one atomic PUT of the global id order. Reverts on
+  // failure. The engine matches in this exact order (first-match-wins), so drag = priority.
+  const persistOrder = async (nextRules: SandwichRule[]) => {
+    const prev = rules;
+    setRules(nextRules);
+    try {
+      await reorderSandwichRules(nextRules.map((r) => r.id));
+    } catch (err: any) {
+      setRules(prev);
+      errorConfirmation(err?.response?.data?.message || 'Failed to reorder rules');
+    }
+  };
+
+  const handleSectionReorder = (category: SandwichRule['category'], newSectionOrder: SandwichRule[]) => {
+    const section = (c: SandwichRule['category'], live: SandwichRule[]) =>
+      category === c ? newSectionOrder : live;
+    // Full display order: holiday-bridge, then weekend-bridge, then custom.
+    persistOrder([
+      ...section('holiday-bridge', holidayBridgeRules),
+      ...section('weekend-bridge', weekendBridgeRules),
+      ...section('custom', customCategoryRules),
+    ]);
+  };
+
   const renderRuleRow = (trio: Trio) => (rule: SandwichRule, index: number) => (
     <RuleRow
       key={rule.id}
@@ -714,6 +791,7 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
       index={index}
       readOnly={readOnly}
       busy={togglingId === rule.id}
+      draggable={!readOnly}
       onToggle={() => handleToggle(rule)}
       onEdit={() => { setEditingRule(rule); setFormModalOpen(true); }}
       onDelete={() => setDeletingRule(rule)}
@@ -721,15 +799,50 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
     />
   );
 
+  // A section's rule list as a drag-to-reorder group. Whole-card drag (like the attendance
+  // Overview); the row's own controls stopPropagation so they stay clickable. Read-only disables it.
+  const renderRuleList = (rulesInSection: SandwichRule[], trio: Trio, category: SandwichRule['category']) => (
+    <ReorderableGroup
+      items={rulesInSection}
+      getItemId={(r) => r.id}
+      axis="y"
+      disabled={readOnly}
+      className="sw-reorder-group"
+      onReorder={(next) => handleSectionReorder(category, next)}
+      renderItem={(rule) => renderRuleRow(trio)(rule, rulesInSection.findIndex((r) => r.id === rule.id))}
+    />
+  );
+
   return (
-    <Box sx={{ fontFamily: T.font.family, display: 'flex', flexDirection: 'column' }}>
-      {/* Shell + motion. The shell rule rounds the react-bootstrap modal that hosts this component
-          (both callers pass contentClassName="sandwich-dialog-content") — same treatment as the
-          Salary payment modal. sw-fade-up gives sections/rows a staggered entrance; sw-dot-pulse
-          rings the Active badge dot via transform/opacity only (animating box-shadow repaints every
-          frame and drags the dialog). Both are disabled under prefers-reduced-motion. */}
+    // Self-contained glass dialog — same GlassDialog the Add Rule dialog uses, so the main modal
+    // and its sub-dialogs share one system: frosted regular-glass Paper, dim+blurred page backdrop,
+    // the Apple scale-in transition, and mobile full-screen. `lg` gives the workspace its room.
+    <GlassDialog
+      open={open}
+      onClose={() => showSandWhichLeaveModal(false)}
+      maxWidth="lg"
+      header={
+        <DialogHeader
+          title="Sandwich Leave Rules"
+          subtitle={`Payroll salary-exclusion rules · ${totalEnabledCount}/${rules.length} enabled${readOnly ? ' · read-only' : ''}`}
+          icon="calendar-8"
+          onClose={() => showSandWhichLeaveModal(false)}
+          action={!readOnly ? (
+            // Header action hides on phones (a full-width Add lives in the body there).
+            <WtButton inverted startIcon={<KTIcon iconName="plus" className="fs-4" />}
+              onClick={() => openAddRule('custom')}
+              sx={{ display: { xs: 'none', sm: 'inline-flex' }, height: 40, px: 2.25, fontSize: 13.5 }}>
+              Add Rule
+            </WtButton>
+          ) : undefined}
+        />
+      }
+    >
+      {/* Motion only — the frosted shell + backdrop are now owned by GlassDialog (no BS host CSS).
+          sw-fade-up: staggered card entrance; sw-dot-pulse: the Active-badge ring (transform/opacity
+          only — compositor-cheap). Both disabled under prefers-reduced-motion. */}
       <style>{`
-        .sandwich-dialog-content { border: 0 !important; border-radius: 14px !important; overflow: hidden; box-shadow: 0 20px 50px rgba(16,24,40,0.18); }
+        .sw-reorder-group { display: flex; flex-direction: column; gap: 10px; }
         @keyframes swFadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .sw-fade-up { animation: swFadeUp .3s cubic-bezier(0.4, 0, 0.2, 1) both; }
         .sw-dot-pulse { position: relative; }
@@ -738,23 +851,13 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
         @media (prefers-reduced-motion: reduce) { .sw-fade-up { animation: none !important; } .sw-dot-pulse::after { animation: none !important; display: none; } }
       `}</style>
 
-      <DialogHeader
-        title="Sandwich Leave Rules"
-        subtitle={`Payroll salary-exclusion rules · ${totalEnabledCount}/${rules.length} enabled${readOnly ? ' · read-only' : ''}`}
-        icon="calendar-8"
-        onClose={() => showSandWhichLeaveModal(false)}
-        action={!readOnly ? (
-          // Header action hides on phones (a full-width Add lives in the body there); sized up
-          // to 40px on desktop per user request.
-          <WtButton inverted startIcon={<KTIcon iconName="plus" className="fs-4" />}
-            onClick={() => openAddRule('custom')}
-            sx={{ display: { xs: 'none', sm: 'inline-flex' }, height: 40, px: 2.25, fontSize: 13.5 }}>
-            Add Rule
-          </WtButton>
-        ) : undefined}
-      />
-
-      <Box sx={{ bgcolor: T.color.panel, p: { xs: 1.5, sm: 2 }, maxHeight: '74vh', overflowY: 'auto' }}>
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 320 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+      // DialogContent scrolls within the fixed glass Paper (same as the Add Rule dialog).
+      <DialogContent sx={{ p: { xs: 1.5, sm: 2 } }}>
         {/* Mobile: primary action lives in the body (header stays uncluttered) — Devices pattern. */}
         {!readOnly && (
           // Full-width phone CTA — navy fill like the Create Rule button (explicit user decision:
@@ -775,18 +878,19 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
           <StatTile label="Custom rules" value={`${customEnabledCount}/${customCategoryRules.length}`} trio={TRIO.amber} icon="medal-star" />
         </Box>
 
-        {/* Info strip + legend — blue trio banner (the "Total Working Days" strip on the dashboard) */}
-        <Paper variant="outlined" sx={{
+        {/* Info strip + legend — frosted blue banner (tone="blue" lays an ~8% blue wash over the
+            translucent glass, so it reads as tinted frost rather than an opaque callout). */}
+        <GlassSurface variant="thin" tone="blue" sx={{
           display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.25, mb: 2, px: 1.75, py: 1.25,
-          bgcolor: TRIO.blue.bg, borderColor: TRIO.blue.bd, borderRadius: '12px',
+          borderColor: TRIO.blue.bd, borderRadius: '12px',
         }}>
           <Box sx={{ color: TRIO.blue.c, lineHeight: 0 }}><KTIcon iconName="information-5" className="fs-3" /></Box>
-          <Typography sx={{ fontSize: 13, color: '#475569', flex: 1, minWidth: 220, lineHeight: 1.5 }}>
+          <Typography sx={{ fontSize: 13, color: 'text.secondary', flex: 1, minWidth: 220, lineHeight: 1.5 }}>
             These rules govern <b>payroll salary exclusion only</b> — they never affect whether a sandwiched day is
             booked as Unpaid Leave on an employee's balance. Toggling a rule takes effect immediately.
           </Typography>
           <PatternLegend />
-        </Paper>
+        </GlassSurface>
 
         <Stack spacing={1.5}>
           <SectionCard title="Holiday-Bridge Rules"
@@ -797,7 +901,7 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
                 description="These rules govern leave placed on both sides of a public holiday. Add one to define this pattern."
                 onAdd={readOnly ? undefined : () => openAddRule('holiday-bridge')} />
             ) : (
-              <Stack spacing={1.25}>{holidayBridgeRules.map(renderRuleRow(TRIO.blue))}</Stack>
+              renderRuleList(holidayBridgeRules, TRIO.blue, 'holiday-bridge')
             )}
           </SectionCard>
 
@@ -809,7 +913,7 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
                 description="These rules govern leave placed against a weekend, with or without a holiday landing on it. Add one to define this pattern."
                 onAdd={readOnly ? undefined : () => openAddRule('weekend-bridge')} />
             ) : (
-              <Stack spacing={1.25}>{weekendBridgeRules.map(renderRuleRow(TRIO.purple))}</Stack>
+              renderRuleList(weekendBridgeRules, TRIO.purple, 'weekend-bridge')
             )}
           </SectionCard>
 
@@ -817,11 +921,12 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
             <SectionCard title="Custom Rules"
               description="Admin-defined sandwich patterns beyond the built-in scenario families. Full add / edit / delete, with a complete audit trail per rule."
               icon="medal-star" trio={TRIO.amber} count={customCategoryRules.length}>
-              <Stack spacing={1.25}>{customCategoryRules.map(renderRuleRow(TRIO.amber))}</Stack>
+              {renderRuleList(customCategoryRules, TRIO.amber, 'custom')}
             </SectionCard>
           )}
         </Stack>
-      </Box>
+      </DialogContent>
+      )}
 
       <RuleFormModal
         show={formModalOpen}
@@ -833,11 +938,12 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
 
       <AuditLogModal ruleId={auditRuleId} ruleName={auditRuleName} onClose={() => setAuditRuleId(null)} />
 
-      <Dialog open={!!deletingRule} onClose={() => setDeletingRule(null)} maxWidth="xs" fullWidth disableEnforceFocus PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden', fontFamily: T.font.family } }}>
+      <GlassDialog open={!!deletingRule} onClose={() => setDeletingRule(null)} maxWidth="xs" header={
         <DialogHeader title="Delete Rule" subtitle={deletingRule?.name} icon="trash" onClose={() => setDeletingRule(null)} />
+      }>
         <DialogContent sx={{ p: { xs: 2, sm: 2.5 } }}>
-          <Typography sx={{ fontSize: 13.5, color: '#475569', lineHeight: 1.55 }}>
-            Are you sure you want to delete <Box component="b" sx={{ color: '#0f172a' }}>{deletingRule?.name}</Box>?
+          <Typography sx={{ fontSize: 13.5, color: 'text.secondary', lineHeight: 1.55 }}>
+            Are you sure you want to delete <Box component="b" sx={{ color: 'text.primary' }}>{deletingRule?.name}</Box>?
             This rule will stop applying immediately. Its audit history will remain viewable.
           </Typography>
         </DialogContent>
@@ -848,8 +954,8 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
             Delete
           </WtButton>
         </DialogActions>
-      </Dialog>
-    </Box>
+      </GlassDialog>
+    </GlassDialog>
   );
 }
 

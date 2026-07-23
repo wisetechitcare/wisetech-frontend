@@ -4,13 +4,12 @@ import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { resourseAndView } from '@models/company';
 import { RootState } from '@redux/store';
 import { fetchConfiguration } from '@services/company';
-import { calculateDuration, convertToTimeZone, formatTime } from '@utils/date';
+import { calculateDuration, convertToTimeZone, formatTime, MUMBAI_TZ as mumbaiTz } from '@utils/date';
 import { shouldShowBranchSetupGuide } from '@utils/shouldShowBranchSetupGuide';
 import { parseWorkingDays } from '@utils/workingDays';
 import { currentDayWorkingHours, fetchEmpDailyStatistics, filterLeavesPublicHolidays, formatDisplay, pieAreaData, pieAreaLabels, todayProgressPercent } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { Row } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import BranchSetupGuide from './components/BranchSetupGuide';
 import { LeaveStatus } from '@constants/attendance';
@@ -68,8 +67,6 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
     });
     const approvedLeaves = filteredLeaves.filter((leave: any) => leave.status === LeaveStatus.Approved);
 
-    const mumbaiTz = 'Asia/Kolkata';
-
     useEffect(() => {
         fetchEmpDailyStatistics(day, fromAdmin);
     }, [selectedEmployeeId, toggleChange, day, fromAdmin]);
@@ -107,8 +104,8 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
 
     return (
         <>
-            <Row className='mt-7' >
-                <ProgessBar 
+            <div className='row mt-7'>
+                <ProgessBar
                     progessBarSeries={progessBarSeries}
                     checkIn={dailyStats && dailyStats.length > 0 ? 
                         formatTime(convertToTimeZone(dailyStats[0]?.checkIn, mumbaiTz)) : 
@@ -121,7 +118,7 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
                 />
                 <TotalWorkingTime totalWorkingTime={totalWorkingTime} totalAllowedTime={totalAllowedTime} />
                 <Polar polarLabels={polarLabels} polarSeries={polarSeries} totalDays={totalWorkingDay} />
-            </Row>
+            </div>
 
             <LazySection minHeight="300px" rootMargin="200px">
                 <h3 className='pt-5 fw-bold font-barlow'>Open Attendance Request</h3>

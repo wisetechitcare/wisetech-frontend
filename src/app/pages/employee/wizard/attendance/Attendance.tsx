@@ -14,7 +14,7 @@ import { usePermission } from '@hooks/usePermission';
 import { KTIcon } from '@metronic/helpers';
 import { checkAttendanceMarked, fetchAllEmployees, fetchAttendanceDetails, getAllKpiFactors, saveCheckIn, saveCheckOut, validateTokenInOut } from '@services/employee';
 import { IAttendance } from '@models/employee';
-import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth } from '@utils/date';
+import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, MUMBAI_TZ as mumbaiTz } from '@utils/date';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle';
 
@@ -41,8 +41,6 @@ interface Location {
     latitude: number;
     longitude: number;
 }
-
-const mumbaiTz = 'Asia/Kolkata';
 
 function Attendance() {
     const { mode } = useThemeMode();

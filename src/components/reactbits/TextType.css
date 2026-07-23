@@ -1,0 +1,26 @@
+.text-type {
+  display: inline-block;
+  white-space: pre-wrap;
+}
+
+.text-type__cursor {
+  margin-left: 0.25rem;
+  display: inline-block;
+  opacity: 1;
+  /* Adapted: cursor blink via CSS (upstream used gsap). Duration set inline. */
+  animation: textTypeBlink 1s step-end infinite;
+}
+
+.text-type__cursor--hidden {
+  display: none;
+}
+
+@keyframes textTypeBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}

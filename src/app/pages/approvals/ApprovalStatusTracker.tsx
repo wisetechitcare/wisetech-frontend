@@ -207,7 +207,11 @@ function ApprovalStatusTracker({ instanceId, compact = false, showAuditLog = fal
       if (payload?.instanceId === instanceId) load();
     };
     socket.on('approval:updated', handler);
-    return () => { socket.off('approval:updated', handler); };
+    socket.on('approval:cancelled', handler);
+    return () => {
+      socket.off('approval:updated', handler);
+      socket.off('approval:cancelled', handler);
+    };
   }, [instanceId, load]);
 
   if (loading) {

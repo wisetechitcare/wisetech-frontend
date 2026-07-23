@@ -1,4 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
+import { MUMBAI_TZ as mumbaiTz } from '@utils/date';
 import { Attendance, AttendanceRequest, CustomLeaves, IAttendance, IAttendanceRequests, IEmployeesAttendance, IReimbursementsFetch, IReimbursementTypeCreate, IReimbursementTypeFetch, Leaves } from "@models/employee";
 import { attendanceStatsSlice, saveDailyRequestTable, saveDailyStatistics, saveDailyTable, saveFilteredLeaves, saveFilteredPublicHolidays, saveMonthlyRequestTable, saveMonthlyStatistics, saveMonthlyTable, saveWeeklyRequestTable, saveWeeklyStatistics, saveWeeklyTable, saveYearlyRequestTable, saveYearlyStatistics, saveYearlyTable } from "@redux/slices/attendanceStats";
 import { RootState, store } from "@redux/store";
@@ -21,7 +22,7 @@ import { fetchBranchById, fetchCompanyOverview, fetchConfiguration, fetchPublicH
 import { DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { fetchCompanySettings } from '@services/options';
 import { generateFiscalYearFromGivenYear } from "./file";
-import { getAllWeekends } from "./sandwhichConfiguration";
+import { getAllWeekends } from "./leaveCount";
 import { errorConfirmation, successConfirmation } from "./modal";
 
 import axios from "axios";
@@ -2756,8 +2757,6 @@ export function leavesBalance(leaves: CustomLeaves[]): Map<string, number> {
 }
 
 export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Attendance[], requests?: any): IAttendance[] => {
-    const mumbaiTz = 'Asia/Kolkata';
-
     const getAllAttnedanceRequest = requests
 
     const branches = store.getState().employee?.currentEmployee.branches?.workingAndOffDays;
@@ -2926,6 +2925,7 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             hasApprovalInstance: attendanceRequest.hasApprovalInstance ?? false,
             isAdminRaised: attendanceRequest.isAdminRaised ?? false,
             raisedById: attendanceRequest.raisedById ?? null,
+            employeeTimezone: attendanceRequest?.employee?.branches?.timezone ?? null,
         }
 
         result.push(request);
@@ -3906,17 +3906,26 @@ export function formatDisplay(input: string): string {
 
 
 export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHolidays: any[]): (any & { isWeekendOrHoliday: boolean })[] => {
-    // Prepare holiday date strings in "YYYY-MM-DD"
-    const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
+    // Prepare holiday date strings in "YYYY-MM-DD". Both `h.date` (a holiday's
+    // stored date) and `entry.date` below (already a formatted calendar-date
+    // string by the time it reaches this function, from an upstream transform —
+    // not a raw instant) are timezone-NEUTRAL pure calendar dates, not instants
+    // needing business-timezone conversion. Extract via explicit `.utc()`, not a
+    // hardcoded `.tz('Asia/Kolkata')` — the old IST shift only ever happened to
+    // be safe because IST is east of UTC; shifting a pure date into a WEST-of-UTC
+    // branch timezone (e.g. America/New_York) would incorrectly roll it back a
+    // day. `?? []` guards a null holiday list (was `allHolidays?.filter(...).map(...)`,
+    // which threw once the optional chain ended before `.map`).
+    const allHolidaysWithoutWeeknd = (allHolidays ?? []).filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
+        allHolidaysWithoutWeeknd.map(h => dayjs.utc(h.date).format("YYYY-MM-DD"))
     );
 
     // const weekndsList = holidayDates?.filter()
 
     const allWeekendsJson = parseWorkingDays(allWeekends);
 
-    const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
+    const alternateWeekends = (allHolidays ?? []).filter(data => data?.isWeekend)
 
     return attendance.map(entry => {
         const dayKey = entry.day?.toLowerCase() || '';
@@ -3926,7 +3935,9 @@ export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHol
 
         const entryDate = entry?.date ? new Date(entry.date) : dayjs().toDate();
 
-        const formattedDate = dayjs(entryDate).format("YYYY-MM-DD");
+        // entry.date is already a formatted calendar-date string (timezone-neutral
+        // pure date) by the time it reaches this function — see the note above.
+        const formattedDate = dayjs.utc(entryDate).format("YYYY-MM-DD");
 
         const isHoliday = holidayDates.has(formattedDate);
 
@@ -3940,17 +3951,26 @@ export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHol
 
 
 export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeekends: any, allHolidays: any[]): (any & { isWeekendOrHoliday: boolean })[] => {
-    // Prepare holiday date strings in "YYYY-MM-DD"
-    const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
+    // Prepare holiday date strings in "YYYY-MM-DD". Both `h.date` (a holiday's
+    // stored date) and `entry.date` below (already a formatted calendar-date
+    // string by the time it reaches this function, from an upstream transform —
+    // not a raw instant) are timezone-NEUTRAL pure calendar dates, not instants
+    // needing business-timezone conversion. Extract via explicit `.utc()`, not a
+    // hardcoded `.tz('Asia/Kolkata')` — the old IST shift only ever happened to
+    // be safe because IST is east of UTC; shifting a pure date into a WEST-of-UTC
+    // branch timezone (e.g. America/New_York) would incorrectly roll it back a
+    // day. `?? []` guards a null holiday list (was `allHolidays?.filter(...).map(...)`,
+    // which threw once the optional chain ended before `.map`).
+    const allHolidaysWithoutWeeknd = (allHolidays ?? []).filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
+        allHolidaysWithoutWeeknd.map(h => dayjs.utc(h.date).format("YYYY-MM-DD"))
     );
 
     // const weekndsList = holidayDates?.filter()
 
     const allWeekendsJson = parseWorkingDays(allWeekends);
 
-    const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
+    const alternateWeekends = (allHolidays ?? []).filter(data => data?.isWeekend)
 
     return attendance.map(entry => {
         const dayKey = entry.day?.toLowerCase() || '';
@@ -3960,7 +3980,9 @@ export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeeken
 
         const entryDate = entry?.date ? new Date(entry.date) : dayjs().toDate();
 
-        const formattedDate = dayjs(entryDate).format("YYYY-MM-DD");
+        // entry.date is already a formatted calendar-date string (timezone-neutral
+        // pure date) by the time it reaches this function — see the note above.
+        const formattedDate = dayjs.utc(entryDate).format("YYYY-MM-DD");
 
         const isHoliday = holidayDates.has(formattedDate);
         //   const entryNew = entry;

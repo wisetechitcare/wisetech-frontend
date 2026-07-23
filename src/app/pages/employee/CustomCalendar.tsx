@@ -23,7 +23,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import PublicHoliday from '@app/pages/company/PublicHoliday';
 import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
-import LeaveRequestForm from './attendance/personal/views/my-leaves/LeaveRequestForm';
+import ApplyLeave from './attendance/personal/views/my-leaves/ApplyLeave';
 import Holiday from '@pages/company/Holiday';
 import './CustomCalendar.premium.css';
 import MeetingsForm from './attendance/personal/views/my-leaves/MeetingsForm';
@@ -1369,15 +1369,20 @@ function CustomCalendar() {
                 </Modal.Body>
             </Modal>
 
-            {/* Leave Request Form Modal */}
-            <Modal show={showLeaveRequestForm} onHide={handleCloseLeaveRequestForm} centered fullscreen="md-down">
-                <Modal.Header closeButton>
-                    <Modal.Title>Create New Leave Request</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                <LeaveRequestForm onClose={handleCloseLeaveRequestForm} selectedDateTimeInfo={selectedDateTimeInfo} />
-                </Modal.Body>
-            </Modal>
+            {/* Create Leave Request — the shared canonical ApplyLeave modal (apply mode), pre-selected
+                to the clicked calendar day. It owns its own card chrome, so we provide the backdrop. */}
+            {showLeaveRequestForm && (
+                <div
+                    onClick={(e) => { if (e.target === e.currentTarget) handleCloseLeaveRequestForm(); }}
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 1050, background: 'rgba(15,23,42,.45)', display: 'flex',
+                        alignItems: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'flex-end' : 'center',
+                        justifyContent: 'center', padding: (typeof window !== 'undefined' && window.innerWidth < 768) ? 0 : 24, overflowY: 'auto',
+                    }}
+                >
+                    <ApplyLeave mode="apply" initialDate={selectedDateTimeInfo?.startStr?.slice(0, 10)} onClose={handleCloseLeaveRequestForm} />
+                </div>
+            )}
 
             {/* Add New Holiday Form Modal */}
             <Modal show={showNewHolidayForm} onHide={handleCloseNewHolidayForm} centered fullscreen="md-down">

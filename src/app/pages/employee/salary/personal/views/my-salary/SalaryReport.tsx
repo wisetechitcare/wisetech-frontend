@@ -30,7 +30,7 @@ import * as Yup from 'yup';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons/index'
 import { LeaveStatus } from '@constants/attendance';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
-import { getAllUnPaidLeavesForCurrentYear, getAllUnPaidLeavesCurrentMonth, getAllPaidLeavesCurrentMonth, getAllPaidLeaveOfYear, getAllPaidLeaveOfYearFilteredByStartAndEndDate } from '@utils/sandwhichConfiguration'
+import { getAllUnPaidLeavesForCurrentYear, getAllUnPaidLeavesCurrentMonth, getAllPaidLeavesCurrentMonth, getAllPaidLeaveOfYearFilteredByStartAndEndDate } from '@utils/leaveCount'
 import DateInput from '@app/modules/common/inputs/DateInput';
 import AddEditIncrementDialog from '@app/modules/employee/salary/AddEditIncrementDialog';
 import { createUpdateGrossPayConfiguration, fetchGrossPayConfiguration, validateGrossPayConfigurationJson } from '@services/employee';
@@ -415,7 +415,6 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const [multiLateCheckinDeductionPercent, setMultiLateCheckinDeductionPercent] = useState(0);
     // how many late checkins to consider for deduction eg: 4
     const [multipleLateCheckinCountLimit, setMultipleLateCheckinCountLimit] = useState(0);
-    const [sandwhichConfiguration, setsandwhichConfiguration] = useState<any>({});
     const [allowances, setAllowancesDeduct] = useState<SalaryStructure>({});
     const [deductionsRule, setDeductionsRule] = useState({});
     const [payments, setPayments] = useState<IPayment[]>([]);
@@ -1617,11 +1616,12 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
             const monthEnd = `${year}-${month.padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
 
-            const [customConfiguration, grossPayConfiguration, deductionsConfiguration, sandwhichConfiguration, leaveConfiguration] = await Promise.all([
+            // (Legacy sandwichLeaveSettings fetch removed — v8.0 sandwich is a salary-only backend
+            // rule; the payslip reflects persisted rows via @utils/leaveCount, not this config.)
+            const [customConfiguration, grossPayConfiguration, deductionsConfiguration, leaveConfiguration] = await Promise.all([
                 fetchConfiguration(CUSTOM_SALARY, monthStart, monthEnd),
                 fetchConfiguration(GROSS_PAY, monthStart, monthEnd),
                 fetchConfiguration(DEDUCTIONS, monthStart, monthEnd),
-                fetchConfiguration(SANDWICH_LEAVE_KEY, monthStart, monthEnd),
                 fetchConfiguration(LEAVE_MANAGEMENT, monthStart, monthEnd)
             ]);
 
@@ -1632,7 +1632,6 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             console.log("jsonObjectCustom:: ", jsonObjectCustom);
             console.log("jsonObjectDeductions:: ", jsonObjectDeductions);
 
-            const jsonObjectSandwhich = safeJsonParse(sandwhichConfiguration?.data?.configuration?.configuration);
             const jsonObjectLeave = safeJsonParse(leaveConfiguration?.data?.configuration?.configuration);
 
             setAllowancesDeduct(jsonObjectGrossPay);
@@ -1641,7 +1640,6 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             setMultiLateCheckinDeductionPercent(Number(jsonObjectCustom["Late Checkin"].deduction_amount) || 0);
             setMultipleLateCheckinCountLimit(Number(jsonObjectCustom["Late Checkin"].period) || 0);
 
-            setsandwhichConfiguration(jsonObjectSandwhich);
             setLeaveConfigurations(jsonObjectLeave);
 
         } catch (error) {
@@ -1756,14 +1754,16 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
             // Log the processing attempt
 
-            // Prepare all promises 
+            // Count the stored leave rows directly (backend rule engine already decided sandwich
+            // days, v7.0). @utils/leaveCount does NOT re-apply legacy sandwich logic — that
+            // client-side re-classification was the old D-7 payslip-vs-payroll divergence.
             const unpaidLeavesPromise = isYearly
-                ? getAllUnPaidLeavesForCurrentYear(baseDate, sandwhichConfiguration, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), sandwhichConfiguration, fromAdmin, [employee]);
+                ? getAllUnPaidLeavesForCurrentYear(baseDate, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), fromAdmin, [employee]);
 
             const paidLeavesPromise = isYearly
-                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, sandwhichConfiguration, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), sandwhichConfiguration, fromAdmin, [employee]);
+                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), fromAdmin, [employee]);
 
             // removed reimbursement from gross pay as per discussion but keeping the commnet just in cases needed in future again
             // const reimbursementsPromise = isYearly

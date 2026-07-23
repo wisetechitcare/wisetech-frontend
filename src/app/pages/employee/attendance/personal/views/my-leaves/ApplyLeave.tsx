@@ -19,9 +19,12 @@ import { createPortal } from 'react-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { useApplyLeave, type ApplyLeaveState } from './useApplyLeave';
-import { expandSandwichDates } from '@utils/leaveAllocation';
+import { fetchSandwichPreview } from '@services/sandwichRule';
+import { getSocket } from '@utils/socketClient';
 import { parseWorkingDays } from '@utils/workingDays';
 import { formatCurrencyDecimal } from '@utils/currency';
+import { rgba, tintOf, borderOf, resolveLeaveTypeColor } from '@utils/leaveTypeColors';
+import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const ACCENT   = '#1E3A8A';
@@ -31,27 +34,23 @@ const GREEN    = '#3E8E6E';
 const PJK      = "'Plus Jakarta Sans', system-ui, sans-serif";
 
 const BLANK: ApplyLeaveState = {
-    from: null, to: null, isHalfDay: false, halfDaySession: null,
+    from: null, to: null, isHalfDay: false, halfDaySession: null, firstDayHalf: null, lastDayHalf: null,
     leaveTypeId: undefined, leaveTypeName: undefined, excludeSick: false, reason: '', files: [],
 };
+
+/** Clear every half-day marker — used whenever the selected range changes. */
+const HALF_RESET: Partial<ApplyLeaveState> = { isHalfDay: false, halfDaySession: null, firstDayHalf: null, lastDayHalf: null };
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 const pad       = (n: number) => String(n).padStart(2, '0');
 const isoOf     = (d: Date)   => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const fmt       = (iso?: string | null) => iso ? new Date(iso + 'T00:00:00').toLocaleString('en-US', { month: 'short', day: 'numeric' }) : '—';
+const fmt       = (iso?: string | null) => iso ? new Date(String(iso).slice(0, 10) + 'T00:00:00').toLocaleString('en-US', { month: 'short', day: 'numeric' }) : '—';
 const daysLabel = (n: number) => n === 1 ? '1 day' : `${n} days`;
-const rgba      = (hex: string, a: number) => {
-    const h = hex.replace('#', '');
-    return `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${a})`;
-};
 const initialsOf = (name: string) =>
     (name || '').split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).slice(0, 2).join('');
 
-// ── Calendar color system — fully config-driven via colorOf ───────────────────
-// tintOf / borderOf derive directly from the configured leave-type color so
-// changing a colour in Settings propagates here automatically.
-const tintOf   = (name: string, colorOf: (n: string) => string) => rgba(colorOf(name), 0.12);
-const borderOf = (name: string, colorOf: (n: string) => string) => rgba(colorOf(name), 0.28);
+// Calendar colour system — the SINGLE source of truth lives in utils/leaveTypeColors.
+// rgba / tintOf / borderOf are imported; colorOf (below) delegates to resolveLeaveTypeColor.
 
 const DAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
 
@@ -74,8 +73,59 @@ const fmtCutoff = (hhmm: string): string => {
     return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
 };
 
+// One modal, three modes: apply (new), view (readonly detail of an existing request), edit
+// (pre-filled + editable). `existing` seeds view/edit; `existing.segments` colours the calendar
+// with what was actually booked (not a fresh preview). onEdit lets the host switch view→edit.
+export interface ExistingLeaveSegment {
+    id?: string;
+    leaveType: string;
+    days: number;
+    isPaid: boolean;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+    isHalfDay?: boolean;               // this segment is a single-day half row
+    halfDaySession?: 'AM' | 'PM' | null;
+    status?: number;   // per-segment bifurcated decision: 0 pending · 1 approved · 2 rejected
+}
+export interface ExistingLeaveView {
+    id?: string;               // a LeaveTracker segment id — used for the group-aware edit PUT
+    requestGroupId?: string;
+    dateFrom: string;   // YYYY-MM-DD
+    dateTo: string;     // YYYY-MM-DD
+    reason?: string | null;
+    isHalfDay?: boolean;
+    halfDaySession?: 'AM' | 'PM' | null;
+    status?: number;    // 0 pending · 1 approved · 2 rejected (only pending is editable)
+    canDelete?: boolean;       // group-level delete gate (lifecycle)
+    segments?: ExistingLeaveSegment[];
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function ApplyLeave({ onClose }: { onClose: () => void }) {
+export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, onDeleteSegment, initialDate, target, reviewActions, approvalInstanceId }: {
+    onClose: () => void;
+    mode?: 'apply' | 'view' | 'edit';
+    existing?: ExistingLeaveView;
+    onEdit?: () => void;
+    onDeleteSegment?: (segmentId: string) => void;
+    /** Pre-select a day when opening in apply mode (e.g. from a calendar cell). YYYY-MM-DD. */
+    initialDate?: string;
+    /** Apply/edit on behalf of another employee (admin). When set, overrides the Redux currentEmployee. */
+    target?: { employeeId: string; branchId?: string; dateOfJoining?: string | Date | null; workingAndOffDays?: string | Record<string, string> | null };
+    /**
+     * Host-supplied action row rendered in the footer in VIEW mode only (above the primary
+     * button). ApplyLeave stays domain-agnostic — the approval queue passes Approve/Reject here so
+     * an approver can review and decide in one place. Empty for the employee's own view.
+     */
+    reviewActions?: React.ReactNode;
+    /**
+     * The REAL approval instance id for an existing request. In view mode this renders the actual
+     * persisted chain (real approvers + who has acted) via ApprovalStatusTracker, instead of the
+     * "who would approve if I applied" preview — which is resolved for the LOGGED-IN user (the
+     * self-readable endpoint), so an approver reviewing someone else's leave would otherwise see
+     * their OWN chain. Omit for apply mode (there's no instance yet → preview is correct).
+     */
+    approvalInstanceId?: string;
+}) {
     // Load Plus Jakarta Sans once — matches the design's Google Fonts import
     useEffect(() => {
         if (!document.getElementById('__pjs-font')) {
@@ -86,11 +136,15 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
         }
     }, []);
 
-    // ── Redux data ────────────────────────────────────────────────────────────
-    const employeeId           = useSelector((s: RootState) => s.employee.currentEmployee?.id) || '';
-    const branchId             = useSelector((s: RootState) => s.employee.currentEmployee?.branchId) || undefined;
-    const dateOfJoiningRaw     = useSelector((s: RootState) => s.employee.currentEmployee?.dateOfJoining) || undefined;
-    const workingAndOffDaysRaw = useSelector((s: RootState) => s.employee.currentEmployee?.branches?.workingAndOffDays);
+    // ── Redux data (overridable by `target` for admin apply-on-behalf) ──────────
+    const ceId                 = useSelector((s: RootState) => s.employee.currentEmployee?.id) || '';
+    const ceBranchId           = useSelector((s: RootState) => s.employee.currentEmployee?.branchId) || undefined;
+    const ceDoj                = useSelector((s: RootState) => s.employee.currentEmployee?.dateOfJoining) || undefined;
+    const ceWod                = useSelector((s: RootState) => s.employee.currentEmployee?.branches?.workingAndOffDays);
+    const employeeId           = target?.employeeId || ceId;
+    const branchId             = target?.branchId ?? ceBranchId;
+    const dateOfJoiningRaw      = target?.dateOfJoining ?? ceDoj;
+    const workingAndOffDaysRaw = target?.workingAndOffDays ?? ceWod;
     const publicHolidays       = useSelector((s: RootState) => s.attendanceStats?.publicHolidays) || [];
     const personalLeaves       = useSelector((s: RootState) => s.leaves.personalLeaves) || [];
     // ── Configurable color palette (single source of truth for all calendar & leave colours) ──
@@ -113,26 +167,15 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
         () => (publicHolidays || []).map((h: any) => String(h?.date ?? '').slice(0, 10)).filter(Boolean),
         [publicHolidays],
     );
-    // Maps a leave type name → its configured colour (reads from customColors Redux slice).
-    const colorOf = useCallback((name: string): string => {
-        const n = (name || '').toLowerCase();
-        if (n.includes('casual'))                                                    return leaveTypeColors?.casualLeaveColor   || '#3498DB';
-        if (n.includes('sick'))                                                      return leaveTypeColors?.sickLeaveColor     || '#E74C3C';
-        if (n.includes('annual') || n.includes('earned') || n.includes('privilege')) return leaveTypeColors?.annualLeaveColor   || '#2ECC71';
-        if (n.includes('floater'))                                                   return leaveTypeColors?.floaterLeaveColor  || '#F39C12';
-        if (n.includes('matern'))                                                    return leaveTypeColors?.maternalLeaveColor || '#9B59B6';
-        if (n.includes('unpaid'))                                                    return leaveTypeColors?.unpaidLeaveColor   || '#95A5A6';
-        if (n.includes('sandwich'))                                                  return leaveTypeColors?.sandwichColor      || '#92400E';
-        if (n.includes('half'))                                                      return leaveTypeColors?.halfDayColor       || '#1D4ED8';
-        return leaveTypeColors?.casualLeaveColor || '#3498DB';
-    }, [leaveTypeColors]);
+    // Maps a leave type name → its configured colour via the shared canonical resolver.
+    const colorOf = useCallback((name: string): string => resolveLeaveTypeColor(name, leaveTypeColors as any), [leaveTypeColors]);
     // Config-derived calendar state colour tokens
     const sandwichCol  = leaveTypeColors?.sandwichColor  || '#92400E';
     const holidayCol   = overviewColors?.holidayColor    || '#9B59B6';
     const weekendCol   = calColors?.weekendColor         || '#9B59B6';
 
     const isMobile  = useIsMobile();
-    const { loading, submitting, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, fetchStatus, lopPerDay, sameDayPenalty } = useApplyLeave({
+    const { loading, submitting, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty } = useApplyLeave({
         employeeId, branchId, dateOfJoining, workingAndOffDays, holidays,
     });
 
@@ -147,8 +190,14 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
             const to   = String(l?.dateTo   ?? l?.toDate   ?? from).slice(0, 10);
             if (/^\d{4}-\d{2}-\d{2}$/.test(from)) expandRange(from, /^\d{4}-\d{2}-\d{2}$/.test(to) ? to : from).forEach(d => s.add(d));
         });
+        // View/edit: the request being viewed/edited must NOT count as a blocking overlap of itself.
+        if (existing?.dateFrom) {
+            const ef = existing.dateFrom.slice(0, 10);
+            const et = (existing.dateTo || existing.dateFrom).slice(0, 10);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(ef)) expandRange(ef, /^\d{4}-\d{2}-\d{2}$/.test(et) ? et : ef).forEach(d => s.delete(d));
+        }
         return s;
-    }, [personalLeaves, myLeaves]);
+    }, [personalLeaves, myLeaves, existing]);
 
     const [s,             setS]             = useState<ApplyLeaveState>(BLANK);
     const [cal,           setCal]           = useState(() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() }; });
@@ -158,12 +207,41 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
     const [hoverDate,     setHoverDate]     = useState<string | null>(null);
     const [hoverTip,      setHoverTip]      = useState<{ x: number; y: number; text: string; color: string | null } | null>(null);
     const [priorityOpen,  setPriorityOpen]  = useState(false);
+    const [editing,       setEditing]       = useState(mode === 'edit');
+    // View = readonly detail; edit = interactive (either opened directly or toggled from view).
+    const isView = mode === 'view' && !editing;
+    const isEdit = mode === 'edit' || editing;
+    const canEditExisting = existing?.status === undefined || existing.status === 0; // pending only
     const [result,        setResult]        = useState<any>(null);
     const [status,        setStatus]        = useState<any>(null);
     const [error,         setError]         = useState<string | null>(null);
     const [pv,            setPv]            = useState<{ url: string; name: string; isImage: boolean } | null>(null);
 
-    const reshape = (patch: Partial<ApplyLeaveState>) => { setS(p => ({ ...p, ...patch })); setSickConfirmed(null); setLopAck(false); setPenaltyAck(false); };
+    const reshape = (patch: Partial<ApplyLeaveState>) => { if (isView) return; setS(p => ({ ...p, ...patch })); setSickConfirmed(null); setLopAck(false); setPenaltyAck(false); };
+    // Seed the calendar + form: from an existing request (view/edit), or a pre-selected day (apply).
+    useEffect(() => {
+        if ((mode === 'view' || mode === 'edit') && existing?.dateFrom) {
+            // Restore boundary halves from the group's segments so the edit modal shows (and re-books)
+            // the correct total, not a full-day span. A boundary half segment sits on the group's
+            // first (dateFrom) or last (dateTo) day and carries isHalfDay + its session.
+            const segs = existing.segments ?? [];
+            const firstHalfSeg = segs.find(sg => sg.isHalfDay && sg.dateFrom === existing.dateFrom);
+            const lastHalfSeg = segs.find(sg => sg.isHalfDay && (sg.dateTo ?? sg.dateFrom) === (existing.dateTo || existing.dateFrom));
+            setS(p => ({
+                ...p, from: existing.dateFrom, to: existing.dateTo || existing.dateFrom, reason: existing.reason ?? '',
+                isHalfDay: !!existing.isHalfDay, halfDaySession: (existing.halfDaySession as any) ?? null,
+                firstDayHalf: (firstHalfSeg?.halfDaySession as any) ?? null,
+                lastDayHalf: (lastHalfSeg?.halfDaySession as any) ?? null,
+            }));
+            const d = new Date(existing.dateFrom + 'T00:00:00');
+            setCal({ y: d.getFullYear(), m: d.getMonth() });
+        } else if (mode === 'apply' && initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate)) {
+            setS(p => ({ ...p, from: initialDate, to: initialDate }));
+            const d = new Date(initialDate + 'T00:00:00');
+            setCal({ y: d.getFullYear(), m: d.getMonth() });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     // Union of Redux-sourced holiday dates and the modal's own fresh fetch, so holidays always
     // mark even if no other screen pre-loaded them. Names come from the fresh fetch.
     const holidaySet  = useMemo(() => new Set([...(holidays || []), ...(holidayInfo?.dates || [])]), [holidays, holidayInfo]);
@@ -188,36 +266,106 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
     const tomorrow   = isoOf(new Date(Date.now() + 864e5));
 
     const isPenaltyActive = useMemo(() => {
-        if (!sameDayPenalty?.enabled || s.from !== today || s.isHalfDay) return false;
+        if (!sameDayPenalty?.enabled || s.isHalfDay || !s.from) return false;
+        // Backdated ("missed to apply") leaves are inherently late → penalty always applies.
+        if (s.from < today) return true;
+        // Future dates are never penalised.
+        if (s.from !== today) return false;
+        // Same-day: penalised only past the configured cutoff time. Mirrors the backend
+        // (createLeaveRequest late-apply block).
         const [cutH, cutM] = sameDayPenalty.cutoffTime.split(':').map(Number);
         const now = new Date();
         return now.getHours() > cutH || (now.getHours() === cutH && now.getMinutes() >= cutM);
     }, [sameDayPenalty, s.from, s.isHalfDay, today]);
     useEffect(() => { if (!isPenaltyActive) setPenaltyAck(false); }, [isPenaltyActive]);
+    // Configurable magnitude of the two day-based penalties (0.5 → "half-day", 1 → "full-day"); the
+    // fixed-₹ type ignores it. Drives the acknowledgement notice so the employee sees the real charge.
+    const penaltyDayWord = sameDayPenalty?.penaltyDays === 1 ? 'full-day' : 'half-day';
 
-    const alloc = useMemo(() => preview({ ...s, excludeSick: sickConfirmed === false }), [s, sickConfirmed, preview]);
+    // Sandwich preview: the BACKEND rule engine is the single source of truth for which interior
+    // off-days get docked as Unpaid. Fetch on span change (debounced) and refetch live when the
+    // rules are edited anywhere (sandwichRules:updated). Empty under the default rule set, so an
+    // interior weekend simply counts (strictly rule-driven).
+    const [sandwichExcluded, setSandwichExcluded] = useState<string[]>([]);
+    useEffect(() => {
+        // View mode is read-only: the persisted segments already encode the sandwich outcome, so
+        // skip the preview fetch entirely (no network round-trip just to re-derive what's booked).
+        if (isView) { setSandwichExcluded([]); return; }
+        const from = s.from, to = s.to || s.from;
+        if (!from || !to) { setSandwichExcluded([]); return; }
+        let alive = true;
+        const load = () => {
+            fetchSandwichPreview({ dateFrom: from, dateTo: to, employeeId: employeeId || undefined, isHalfDay: s.isHalfDay })
+                .then(r => { if (alive) setSandwichExcluded(r.excludedOffDayDates); })
+                .catch(() => { if (alive) setSandwichExcluded([]); });
+        };
+        const t = setTimeout(load, 250);
+        const socket = getSocket();
+        const onRules = () => load();
+        socket.on('sandwichRules:updated', onRules);
+        return () => { alive = false; clearTimeout(t); socket.off('sandwichRules:updated', onRules); };
+    }, [s.from, s.to, s.isHalfDay, employeeId]);
+
+    // When editing, credit the request's own persisted days back into the balance + cumulative pool
+    // before re-allocating — otherwise its still-pending days make its own leave type look
+    // exhausted and the SAME span re-allocates to Unpaid, contradicting the view screen.
+    const creditBack = useMemo(
+        () => (isEdit && existing?.segments?.length
+            ? existing.segments.map(seg => ({ leaveType: seg.leaveType, days: seg.days, isPaid: seg.isPaid }))
+            : []),
+        [isEdit, existing],
+    );
+    // View mode renders from the PERSISTED segments (viewTotals / viewSegByDate / mergedSegments),
+    // so the allocation preview is pure wasted compute there — skip it when we have segments to show.
+    // (Falls through to preview() only in the defensive case of a view with no segments.)
+    const alloc = useMemo(
+        () => (isView && existing?.segments?.length)
+            ? null
+            : preview({ ...s, excludeSick: sickConfirmed === false }, sandwichExcluded, creditBack),
+        [isView, existing, s, sickConfirmed, preview, sandwichExcluded, creditBack],
+    );
     const segByDate = useMemo(() => {
         const map = new Map<string, { leaveType: string; isPaid: boolean }>();
+        // View mode: colour the calendar by what was actually booked (persisted segments).
+        if (isView && existing?.segments) {
+            for (const seg of existing.segments) {
+                const from = String(seg.dateFrom || '').slice(0, 10);
+                const to = String(seg.dateTo || seg.dateFrom || '').slice(0, 10);
+                if (/^\d{4}-\d{2}-\d{2}$/.test(from)) expandRange(from, to || from).forEach(d => map.set(d, { leaveType: seg.leaveType, isPaid: seg.isPaid }));
+            }
+            return map;
+        }
         alloc?.segments.forEach(seg => seg.dates.forEach(d => map.set(d, { leaveType: seg.leaveType, isPaid: seg.isPaid })));
         return map;
-    }, [alloc]);
+    }, [alloc, isView, existing]);
     // Merge segments with the same leaveType (e.g. two Unpaid rows: balance-exhaustion + sandwich).
     const mergedSegments = useMemo(() => {
-        if (!alloc?.segments) return [];
+        const src = (isView && existing?.segments)
+            ? existing.segments.map(seg => ({ leaveType: seg.leaveType, days: seg.days, isPaid: seg.isPaid }))
+            : alloc?.segments;
+        if (!src) return [];
         const map = new Map<string, { leaveType: string; days: number; isPaid: boolean }>();
-        for (const seg of alloc.segments) {
-            const existing = map.get(seg.leaveType);
-            if (existing) existing.days += seg.days;
+        for (const seg of src) {
+            const ex = map.get(seg.leaveType);
+            if (ex) ex.days += seg.days;
             else map.set(seg.leaveType, { leaveType: seg.leaveType, days: seg.days, isPaid: seg.isPaid });
         }
         return [...map.values()];
-    }, [alloc?.segments]);
+    }, [alloc?.segments, isView, existing]);
+
+    // In view mode the totals come from the persisted segments, not a fresh preview.
+    const viewTotals = useMemo(() => {
+        if (!(isView && existing?.segments)) return null;
+        const total = existing.segments.reduce((a, seg) => a + seg.days, 0);
+        const paid = existing.segments.filter(seg => seg.isPaid).reduce((a, seg) => a + seg.days, 0);
+        return { total, paid, unpaid: total - paid };
+    }, [isView, existing]);
 
     const isSingleDay     = !!(s.from && (!s.to || s.to === s.from));
-    const N               = alloc?.totalDays ?? 0;
+    const N               = viewTotals ? viewTotals.total : (alloc?.totalDays ?? 0);
     const sickDays        = alloc?.segments.find(x => /sick/i.test(x.leaveType))?.days ?? 0;
-    const unpaidDays      = alloc?.segments.filter(x => !x.isPaid).reduce((a, b) => a + b.days, 0) ?? 0;
-    const paidDays        = alloc?.paidDays ?? 0;
+    const unpaidDays      = viewTotals ? viewTotals.unpaid : (alloc?.segments.filter(x => !x.isPaid).reduce((a, b) => a + b.days, 0) ?? 0);
+    const paidDays        = viewTotals ? viewTotals.paid : (alloc?.paidDays ?? 0);
     const lopEstimate     = lopPerDay > 0 ? formatCurrencyDecimal(unpaidDays * lopPerDay) : '—';
     const sickPromptShow  = sickDays > 0 && sickConfirmed === null;
     const overlapConflict = useMemo(() => {
@@ -228,11 +376,9 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
         !(s.isHalfDay && !s.halfDaySession) && !sickPromptShow && !(unpaidDays > 0 && !lopAck) &&
         (!isPenaltyActive || penaltyAck);
 
-    // Sandwich days: interior off-days booked as Unpaid Leave (sandwich policy).
-    const sandwichDateSet = useMemo(
-        () => new Set(expandSandwichDates(s.from ?? '', s.to ?? '', workingAndOffDays, holidaySet)),
-        [s.from, s.to, workingAndOffDays, holidaySet],
-    );
+    // Sandwich days: interior off-days the backend rule engine excludes from SALARY (Model B —
+    // salary-only, never booked as a leave-balance row; rule-driven, both bracketing leaves unpaid).
+    const sandwichDateSet = useMemo(() => new Set(sandwichExcluded), [sandwichExcluded]);
     const sandwichDays = sandwichDateSet.size;
 
     // Fiscal year hint (Apr–Mar)
@@ -246,20 +392,21 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
         setHoverDate(null);
         setS(p => {
             // Idle — first selection → single day (immediately submittable)
-            if (!p.from) return { ...p, from: iso, to: iso, isHalfDay: false, halfDaySession: null };
+            if (!p.from) return { ...p, from: iso, to: iso, ...HALF_RESET };
             // Committed range → reset to a new single day
-            if (p.to && p.to !== p.from) return { ...p, from: iso, to: iso, isHalfDay: false, halfDaySession: null };
-            // Single day phase → tap same = deselect, tap other = extend range
+            if (p.to && p.to !== p.from) return { ...p, from: iso, to: iso, ...HALF_RESET };
+            // Single day phase → tap same = deselect, tap other = extend range. Extending to a
+            // multi-day range clears the single-day half flag (a boundary half is chosen separately).
             if (iso === p.from) return { ...p, from: null, to: null };
-            if (iso < p.from) return { ...p, from: iso, to: p.from };
-            return { ...p, to: iso };
+            if (iso < p.from) return { ...p, from: iso, to: p.from, ...HALF_RESET };
+            return { ...p, to: iso, ...HALF_RESET };
         });
     }, []);
     // Quick-pick: set a single day and navigate to its month
     const pickQuick = useCallback((iso: string) => {
         if (blockedDates.has(iso)) return;
         setSickConfirmed(null); setLopAck(false); setPenaltyAck(false); setHoverDate(null);
-        setS(p => ({ ...p, from: iso, to: iso, isHalfDay: false, halfDaySession: null }));
+        setS(p => ({ ...p, from: iso, to: iso, ...HALF_RESET }));
         const d = new Date(iso + 'T00:00:00');
         setCal({ y: d.getFullYear(), m: d.getMonth() });
     }, [blockedDates]);
@@ -268,13 +415,29 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
     const onSubmit = async () => {
         if (!canSubmit) return; setError(null);
         try {
-            const r = await submit({ ...s, excludeSick: sickConfirmed === false });
+            const editId = existing?.id ?? existing?.requestGroupId;
+            const r = (isEdit && editId)
+                ? await update(editId, { ...s, excludeSick: sickConfirmed === false })
+                : await submit({ ...s, excludeSick: sickConfirmed === false });
             setResult(r);
-            const reqId = r?.requestGroupId ?? r?.id;
+            const reqId = r?.requestGroupId ?? r?.id ?? existing?.requestGroupId;
             if (reqId) fetchStatus(reqId).then(setStatus).catch(() => {});
-        } catch (e: any) { setError(e?.message ?? 'Failed to apply for leave'); }
+        } catch (e: any) { setError(e?.message ?? (isEdit ? 'Failed to update leave' : 'Failed to apply for leave')); }
     };
     const applyAnother = () => { setResult(null); setStatus(null); setS(BLANK); setSickConfirmed(null); setLopAck(false); setPenaltyAck(false); setError(null); };
+
+    // Mode-aware header + primary button. View shows an Edit affordance (pending only); edit shows
+    // Update; apply shows Submit. onPrimary routes accordingly (view→edit toggles the same modal).
+    const headerTitle  = isView ? 'Leave Request' : isEdit ? 'Edit Leave Request' : 'Apply for Leave';
+    const primaryLabel = submitting ? (isEdit ? 'Updating…' : 'Submitting…')
+        : isView ? (canEditExisting ? 'Edit Request' : 'Close')
+        : isEdit ? 'Update Request' : 'Submit Request';
+    const primaryDisabled = isView ? false : (!canSubmit || submitting);
+    const primaryActive   = isView ? true : canSubmit;
+    const onPrimary = () => {
+        if (isView) { if (canEditExisting) { onEdit ? onEdit() : setEditing(true); } else { onClose(); } return; }
+        onSubmit();
+    };
 
     // ── Sub-renderers ─────────────────────────────────────────────────────────
 
@@ -312,7 +475,8 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
 
     const Calendar = ({ small }: { small?: boolean }) => {
         const { y, m } = cal;
-        const lead = new Date(y, m, 1).getDay(), dim = new Date(y, m + 1, 0).getDate();
+        // Monday-first week: shift the JS Sun=0 lead so Monday occupies column 0.
+        const lead = (new Date(y, m, 1).getDay() + 6) % 7, dim = new Date(y, m + 1, 0).getDate();
         // Hover preview: only active while a single day is selected (awaiting range extension)
         const isPickingRange = !!(s.from && s.to === s.from);
         const previewEnd = isPickingRange && hoverDate && hoverDate > s.from! ? hoverDate : null;
@@ -325,9 +489,15 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
             const iso      = `${y}-${pad(m + 1)}-${pad(d)}`;
             const beforeDoj = !!dateOfJoining && iso < dateOfJoining;
             const past     = iso < today || beforeDoj;
+            // Backdating is allowed but bounded to the CURRENT calendar month: a past date on/after
+            // the joining date AND on/after the 1st of this month is SELECTABLE so an employee can
+            // record a leave they forgot to apply for (the backend charges the late-apply penalty).
+            // Dates in a prior month, before joining, or already taken stay blocked.
+            const beforeMonth = iso < (today.slice(0, 7) + '-01');
+            const backdated = iso < today && !beforeDoj && !beforeMonth;
             const blocked  = blockedDates.has(iso);
-            const disabled = past || blocked;
-            const isStart    = iso === s.from, isEnd = iso === s.to, isEp = isStart || isEnd;
+            const disabled = beforeDoj || blocked || beforeMonth;
+            const isEp       = iso === s.from || iso === s.to;
             const isHoverEnd = !isEp && !!previewEnd && iso === previewEnd;
             const inRange    = !!(s.from && end && iso > s.from && iso < end);
             const wd         = new Date(iso + 'T00:00:00').getDay();
@@ -336,10 +506,9 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
             const teamOff  = offDay && !weekend;
             const holiday  = holidaySet.has(iso);
             const seg      = segByDate.get(iso), charged = !!seg;
-            // sandwichCharged: interior off-day that is being booked as Unpaid Leave
+            // sandwichCharged: interior off-day excluded from salary (Model B — not booked as leave)
             const sandwichCharged = sandwichDateSet.has(iso);
             const dtColor  = charged ? colorOf(seg!.leaveType) : ACCENT;
-            const hasRange = !!(s.from && end && end !== s.from);
 
             const st: React.CSSProperties = {
                 position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -349,11 +518,11 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
             if (past)  { st.opacity = 0.4; st.color = '#a6a8ab'; }
             if (blocked && !past) { st.background = '#f3eaec'; st.color = RED; st.textDecoration = 'line-through'; }
             // Holiday — colour from customColors.attendanceOverview.holidayColor
-            if (holiday && !isEp && !charged && !blocked) {
+            if (holiday && !charged && !blocked) {
                 st.background = rgba(holidayCol, 0.12); st.color = holidayCol; st.boxShadow = `inset 0 0 0 1px ${rgba(holidayCol, 0.30)}`;
             }
             // Off-days — Sunday=RED (matches column header), Saturday/other=weekendCol from config
-            if (offDay && !isEp && !charged && !blocked && !holiday) {
+            if (offDay && !charged && !blocked && !holiday) {
                 const isSun   = wd === 0;
                 const offCol  = isSun ? RED : weekendCol;
                 const offAlpha = isSun ? 0.07 : 0.10;
@@ -362,44 +531,63 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
                 st.boxShadow  = `inset 0 0 0 1px ${rgba(offCol, isSun ? 0.20 : 0.25)}`;
                 if (teamOff) st.borderBottom = '2px solid #c9ccd1';
             }
-            // In-range uncharged
+            // In-range uncharged — light accent band so the selection reads cohesively.
             if (inRange && !charged && !blocked && !holiday) {
-                st.background = '#eef0f2'; st.color = '#9aa0a6'; st.borderRadius = 0;
-                st.boxShadow  = 'inset 0 0 0 1px #D0D3D8';
+                st.background = rgba(ACCENT, 0.07); st.color = ACCENT; st.borderRadius = 0;
+                st.boxShadow  = `inset 0 0 0 1px ${rgba(ACCENT, 0.16)}`;
             }
-            // Charged by leave type — solid config colour for all types including Unpaid
-            if (charged && !isEp) {
+            // Charged by leave type — solid config colour for all types including Unpaid.
+            // Selected days are shown purely by this allocation colouring (no separate endpoint mark).
+            if (charged) {
                 st.background   = tintOf(seg!.leaveType, colorOf);
                 st.color        = dtColor;
                 st.borderRadius = 0;
                 st.borderTop    = `1px solid ${borderOf(seg!.leaveType, colorOf)}`;
                 st.borderBottom = `1px solid ${borderOf(seg!.leaveType, colorOf)}`;
             }
-            // Sandwich — Unpaid-colour base with diagonal hatch overlay (overrides off-day tint)
-            if (sandwichCharged && !isEp) {
-                const uTint   = tintOf('unpaid', colorOf);
+            // Sandwich — premium: soft Unpaid tint, readable dark numeral, 2px accent underline
+            // (a small corner ribbon marks it in the cell body). Overrides the off-day tint.
+            if (sandwichCharged) {
                 const uBorder = borderOf('unpaid', colorOf);
-                st.background   = `repeating-linear-gradient(45deg, ${rgba(sandwichCol, 0.40)} 0 5px, transparent 5px 10px), ${uTint}`;
-                st.color        = colorOf('unpaid');
+                st.background   = tintOf('unpaid', colorOf);
+                st.color        = sandwichCol;
+                st.fontWeight   = 700;
                 st.borderRadius = 0;
                 st.boxShadow    = 'none';
                 st.borderTop    = `1px solid ${uBorder}`;
-                st.borderBottom = `1px solid ${uBorder}`;
+                st.borderBottom = `2px solid ${sandwichCol}`;
             }
-            // Today — 2px inset ACCENT ring + bold numeral (layers over any tint/weekend/holiday)
-            if (iso === today && !isEp && !past && !blocked) {
-                st.boxShadow = st.boxShadow && st.boxShadow !== 'none'
-                    ? `${st.boxShadow}, inset 0 0 0 2px ${ACCENT}`
-                    : `inset 0 0 0 2px ${ACCENT}`;
-                st.color     = ACCENT;
-                st.fontWeight = 700;
+            // Today — solid ACCENT filled background with white numeral.
+            if (iso === today && !past && !blocked) {
+                st.background   = ACCENT;
+                st.color        = '#fff';
+                st.fontWeight   = 700;
+                st.borderRadius = rad;
+                st.boxShadow    = 'none';
+                st.borderTop    = 'none';
+                st.borderBottom = 'none';
             }
-            // Endpoint
+            // Selection endpoints (Start/End) — CONNECTED caps so the range reads as ONE continuous
+            // band from start to end. Keep the band/charged fill (never a detached white pill),
+            // round only the OUTER edge (left for start, right for end), and mark it with a 2px ring
+            // in the day's leave-type colour (navy when uncharged). A single-day selection is fully
+            // rounded.
             if (isEp) {
-                st.background   = dtColor; st.color = '#fff'; st.fontWeight = 700;
-                st.boxShadow    = `0 2px 8px ${rgba(dtColor, 0.30)}`;
-                st.borderTop    = 'none'; st.borderBottom = 'none';
-                st.borderRadius = !hasRange ? rad : (isStart ? `${rad}px 0 0 ${rad}px` : `0 ${rad}px ${rad}px 0`);
+                const isStartPt = iso === s.from;
+                const isEndPt   = iso === s.to;
+                const singleDay = !!(s.from && s.to && s.from === s.to);
+                if (!charged && !sandwichCharged) {
+                    st.background = rgba(ACCENT, 0.10);
+                    st.color      = dtColor;
+                }
+                st.fontWeight   = 800;
+                st.boxShadow    = `inset 0 0 0 2px ${dtColor}`;
+                st.borderRadius = singleDay ? rad
+                    : isStartPt ? `${rad}px 0 0 ${rad}px`
+                    : isEndPt   ? `0 ${rad}px ${rad}px 0`
+                    : rad;
+                st.borderTop    = 'none';
+                st.borderBottom = 'none';
             }
             // Hover preview end — ghost highlight, indicates where range would end
             if (isHoverEnd) {
@@ -409,32 +597,43 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
                 st.borderTop    = 'none'; st.borderBottom = 'none';
             }
 
-            const tip = beforeDoj ? 'Before joining date' : past ? 'Past date' : blocked ? 'Already have a leave here'
-                : isEp     ? ((isStart && isEnd ? 'Selected day' : isStart ? 'Start' : 'End') + ' of leave' + (seg ? ` · ${seg.leaveType}` : ''))
-                : sandwichCharged ? 'Sandwich — booked as Unpaid Leave'
+            const tip = beforeDoj ? 'Before joining date' : blocked ? 'Already have a leave here' : beforeMonth ? 'Backdating is limited to the current month' : backdated ? 'Backdated — late-apply penalty may apply'
+                : isEp     ? `Selected${seg ? ` · ${seg.leaveType}` : ''}`
+                : sandwichCharged ? 'Sandwich — excluded from salary (not a leave-balance day)'
                 : charged  ? `Leave day — ${seg!.leaveType}`
                 : holiday  ? (holidayNames[iso] ? `${holidayNames[iso]} · ${new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}` : 'Public holiday') : teamOff ? 'Team off — not charged'
                 : weekend  ? (wd === 0 ? 'Sunday' : 'Saturday') + ' — not charged' : 'Available';
 
-            const tipColor = holiday ? (holidayColors[iso] || holidayCol)
+            const tipColor = isEp ? dtColor
                 : charged ? colorOf(seg!.leaveType)
                 : sandwichCharged ? sandwichCol
-                : isEp ? dtColor : null;
+                : holiday ? (holidayColors[iso] || holidayCol)
+                : null;
             cells.push(
                 <button key={iso} title={small ? tip : undefined} style={st}
-                    onClick={() => !disabled && pick(iso)}
+                    onClick={() => {
+                        // In view mode, clicking a date flips the same modal straight into edit (if
+                        // the request is still editable) — no separate button needed.
+                        if (isView) { if (canEditExisting && !past) { onEdit ? onEdit() : setEditing(true); } return; }
+                        if (!disabled) pick(iso);
+                    }}
                     onMouseEnter={(e) => {
                         if (!disabled && isPickingRange) setHoverDate(iso);
                         if (!small) setHoverTip({ x: e.clientX, y: e.clientY, text: tip, color: tipColor });
                     }}
                     onMouseMove={(e) => { if (!small) setHoverTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : t)); }}
                     onMouseLeave={() => { setHoverDate(null); setHoverTip(null); }}
-                >{d}</button>
+                >
+                    {sandwichCharged && (
+                        <span style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: `8px solid ${sandwichCol}`, borderLeft: '8px solid transparent' }} />
+                    )}
+                    {d}
+                </button>
             );
         }
 
         const monthLabel = new Date(y, m, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
-        const labels     = small ? ['S','M','T','W','T','F','S'] : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const labels     = small ? ['M','T','W','T','F','S','S'] : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
         // A day is non-working if it's a holiday or a configured off-day (weekend/team-off).
         const isNonWorkingISO = (i: string): boolean => {
@@ -479,18 +678,17 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
                     <button onClick={() => nav(1)} style={navBtnSt(small)}>›</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: small ? 2 : 4, marginBottom: small ? 2 : 4 }}>
-                    {labels.map((w, i) => <div key={i} style={{ textAlign: 'center', fontSize: small ? 10 : 11, fontWeight: 600, color: i === 0 ? RED : '#727577', textTransform: 'uppercase' }}>{w}</div>)}
+                    {labels.map((w, i) => <div key={i} style={{ textAlign: 'center', fontSize: small ? 10 : 11, fontWeight: 600, color: i === 6 ? RED : '#727577', textTransform: 'uppercase' }}>{w}</div>)}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', columnGap: 0, rowGap: small ? 2 : 4 }}>{cells}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px', marginTop: 13, paddingTop: 11, borderTop: '1px solid #f0f0f1' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 13, height: 13, borderRadius: 4, background: ACCENT, flexShrink: 0 }} />Start/End</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 13, height: 13, borderRadius: 4, border: `1.5px solid ${ACCENT}`, flexShrink: 0 }} />Today</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: tintOf('casual', colorOf), border: `1px solid ${borderOf('casual', colorOf)}`, flexShrink: 0 }} />Charged</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(weekendCol, 0.10), border: `1px solid ${rgba(weekendCol, 0.25)}`, borderBottom: '2px solid #c9ccd1', flexShrink: 0 }} />Team Off</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(holidayCol, 0.12), border: `1px solid ${rgba(holidayCol, 0.30)}`, flexShrink: 0 }} />Holiday</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(weekendCol, 0.10), border: `1px solid ${rgba(weekendCol, 0.25)}`, flexShrink: 0 }} />Saturday</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(RED, 0.07), border: `1px solid ${rgba(RED, 0.20)}`, flexShrink: 0 }} />Sunday</span>
-                    {sandwichDays > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: `repeating-linear-gradient(45deg, ${rgba(sandwichCol, 0.40)} 0 3px, transparent 3px 6px), ${tintOf('unpaid', colorOf)}`, border: `1px solid ${borderOf('unpaid', colorOf)}`, flexShrink: 0 }} />Sandwich · Unpaid</span>}
+                    {sandwichDays > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ position: 'relative', width: 20, height: 12, borderRadius: 3, background: tintOf('unpaid', colorOf), border: `1px solid ${borderOf('unpaid', colorOf)}`, borderBottom: `2px solid ${sandwichCol}`, flexShrink: 0, overflow: 'hidden' }}><span style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: `6px solid ${sandwichCol}`, borderLeft: '6px solid transparent' }} /></span>Sandwich · Unpaid</span>}
                 </div>
                 {small && monthHolidays.length > 0 && (
                     <div style={{ marginTop: 11, paddingTop: 11, borderTop: '1px solid #f0f0f1' }}>
@@ -517,28 +715,57 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
         );
     };
 
-    const HalfDay = () => !s.from ? null : (
-        <div style={{ marginTop: isMobile ? 11 : 12, padding: isMobile ? '11px 13px' : '12px 14px', border: '1px solid #e6e6e8', borderRadius: isMobile ? 11 : 12 }}>
+    // View mode is a read-only review (the approver/employee is inspecting a booked leave, not
+    // applying) — the half-day toggle is an applicant input, so it disappears. The persisted
+    // half-day state is already reflected in the ViewBreakdown.
+    // Session picker (AM/PM) shared by the single-day toggle and the boundary-half pickers.
+    const SessionButtons = ({ value, onPick }: { value: 'AM' | 'PM' | null; onPick: (v: 'AM' | 'PM') => void }) => (
+        <div style={{ display: 'flex', gap: isMobile ? 7 : 8, marginTop: isMobile ? 9 : 8 }}>
+            {(['AM', 'PM'] as const).map(ss => (
+                <button key={ss} onClick={() => onPick(ss)}
+                    style={{ flex: 1, padding: 9, borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: value === ss ? `1.5px solid ${ACCENT}` : '1px solid #e6e6e8', background: value === ss ? rgba(ACCENT, 0.08) : '#fff', color: value === ss ? ACCENT : '#5f6266' }}>
+                    {ss === 'AM' ? 'First half · AM' : 'Second half · PM'}
+                </button>
+            ))}
+        </div>
+    );
+
+    // A half-day toggle for one boundary day of a multi-day range (first or last).
+    const BoundaryHalf = ({ label, value, onChange }: { label: string; value: 'AM' | 'PM' | null; onChange: (v: 'AM' | 'PM' | null) => void }) => (
+        <div style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
-                    {isMobile ? 'Half day'
-                        : isSingleDay
-                            ? <>Apply as half day <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></>
-                            : 'Apply as half days'}
-                </span>
-                <Toggle on={s.isHalfDay} color={ACCENT} onClick={() => reshape({ isHalfDay: !s.isHalfDay, halfDaySession: null })} />
+                <span style={{ fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: '#2b2e30' }}>{label} half <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></span>
+                <Toggle on={!!value} color={ACCENT} onClick={() => onChange(value ? null : 'AM')} />
             </div>
-            {s.isHalfDay && (
+            {value && <SessionButtons value={value} onPick={onChange} />}
+        </div>
+    );
+
+    const HalfDay = () => (isView || !s.from) ? null : (
+        <div style={{ marginTop: isMobile ? 11 : 12, padding: isMobile ? '11px 13px' : '12px 14px', border: '1px solid #e6e6e8', borderRadius: isMobile ? 11 : 12 }}>
+            {isSingleDay ? (
                 <>
-                    {!isMobile && <div style={{ fontSize: 11.5, fontWeight: 600, color: '#8b8e91', margin: '11px 0 7px' }}>Which half? <span style={{ color: RED }}>*</span></div>}
-                    <div style={{ display: 'flex', gap: isMobile ? 7 : 8, marginTop: isMobile ? 9 : 0 }}>
-                        {(['AM','PM'] as const).map(ss => (
-                            <button key={ss} onClick={() => setS(p => ({ ...p, halfDaySession: ss }))}
-                                style={{ flex: 1, padding: 9, borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: s.halfDaySession === ss ? `1.5px solid ${ACCENT}` : '1px solid #e6e6e8', background: s.halfDaySession === ss ? rgba(ACCENT, 0.08) : '#fff', color: s.halfDaySession === ss ? ACCENT : '#5f6266' }}>
-                                {ss === 'AM' ? 'First half · AM' : 'Second half · PM'}
-                            </button>
-                        ))}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
+                            {isMobile ? 'Half day' : <>Apply as half day <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></>}
+                        </span>
+                        <Toggle on={s.isHalfDay} color={ACCENT} onClick={() => reshape({ isHalfDay: !s.isHalfDay, halfDaySession: null })} />
                     </div>
+                    {s.isHalfDay && (
+                        <>
+                            {!isMobile && <div style={{ fontSize: 11.5, fontWeight: 600, color: '#8b8e91', margin: '11px 0 7px' }}>Which half? <span style={{ color: RED }}>*</span></div>}
+                            <SessionButtons value={s.halfDaySession} onPick={(ss) => setS(p => ({ ...p, halfDaySession: ss }))} />
+                        </>
+                    )}
+                </>
+            ) : (
+                <>
+                    <div style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
+                        Half-day boundary <span style={{ color: '#8b8e91', fontWeight: 500 }}>· optional</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#8b8e91', marginTop: 3 }}>Take a half-day on the first and/or last day of the range.</div>
+                    <BoundaryHalf label="First day" value={s.firstDayHalf ?? null} onChange={(v) => reshape({ firstDayHalf: v })} />
+                    <BoundaryHalf label="Last day" value={s.lastDayHalf ?? null} onChange={(v) => reshape({ lastDayHalf: v })} />
                 </>
             )}
         </div>
@@ -601,6 +828,36 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
         boxShadow: '0 1px 2px rgba(16,24,40,0.05)',
     });
 
+    // View-mode per-segment breakdown — what was actually booked, with per-segment bifurcated
+    // status and per-segment delete (migrated from the old detail modal so ApplyLeave view fully
+    // replaces it). Delete/status are gated exactly as the group list gates them.
+    const ViewBreakdown = () => {
+        const segs = existing?.segments ?? [];
+        if (!segs.length) return null;
+        return (
+            <div style={railCardSt()}>
+                <CardHead icon="🧮" title="Allocation breakdown" tint={ACCENT} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {segs.map((seg, i) => (
+                        <div key={seg.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 11px', border: '1px solid #eceef0', borderLeft: `3px solid ${colorOf(seg.leaveType)}`, borderRadius: 9 }}>
+                            <span style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', background: colorOf(seg.leaveType), borderRadius: 8, padding: '3px 9px' }}>{seg.leaveType}</span>
+                            <span style={{ fontSize: 11, color: '#8b8e91' }}>{seg.dateFrom ? fmt(seg.dateFrom) : ''}{seg.dateTo && seg.dateTo !== seg.dateFrom ? ` – ${fmt(seg.dateTo)}` : ''}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT, marginLeft: 'auto' }}>{seg.days} {seg.days === 1 ? 'day' : 'days'}</span>
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: seg.isPaid ? GREEN : RED, background: rgba(seg.isPaid ? GREEN : RED, 0.10), borderRadius: 99, padding: '1px 8px' }}>{seg.isPaid ? 'Paid' : 'Unpaid'}</span>
+                            {seg.status === 1 && <span style={{ fontSize: 10.5, fontWeight: 700, color: GREEN }}>✓ Approved</span>}
+                            {seg.status === 2 && <span style={{ fontSize: 10.5, fontWeight: 700, color: RED }}>✕ Rejected</span>}
+                            {existing?.canDelete && segs.length > 1 && (seg.status === 0 || seg.status === undefined) && seg.id && onDeleteSegment && (
+                                <button onClick={() => onDeleteSegment(seg.id!)} title="Remove this segment"
+                                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: RED, fontSize: 15, lineHeight: 1, padding: '0 2px' }}>×</button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+                {existing?.reason && <div style={{ marginTop: 10, fontSize: 12, color: '#5f6266' }}><span style={{ fontWeight: 700, color: '#8b8e91' }}>Remark: </span>{existing.reason}</div>}
+            </div>
+        );
+    };
+
     const Financial = ({ compact }: { compact?: boolean }) => {
         const hasUnpaid    = unpaidDays > 0;
         const finColor     = hasUnpaid ? RED_DARK : GREEN;
@@ -653,7 +910,7 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
         );
     };
 
-    const Attachments = ({ idSuffix }: { idSuffix: string }) => (
+    const Attachments = ({ idSuffix }: { idSuffix: string }) => isView ? null : (
         <div>
             <input id={`leave-files-${idSuffix}`} type="file" multiple accept=".pdf,.png,.jpg,.jpeg" style={{ display: 'none' }}
                 onChange={e => setS(p => ({ ...p, files: [...p.files, ...Array.from(e.target.files ?? [])] }))} />
@@ -731,6 +988,13 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
         );
     };
 
+    // View mode with a real instance → the actual persisted chain (real approvers + who's acted),
+    // not the self-resolved preview. Apply/edit or no instance → the preview ApprovalChain.
+    const ApprovalFlowView = ({ compact }: { compact?: boolean }) =>
+        (isView && approvalInstanceId)
+            ? <div style={railCardSt()}><ApprovalStatusTracker instanceId={approvalInstanceId} compact /></div>
+            : <ApprovalChain compact={compact} />;
+
     const Lightbox = () => !pv ? null : (
         <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'rgba(20,24,33,.74)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 22 : 30, borderRadius: isMobile ? '24px 24px 0 0' : 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: 560, marginBottom: 12 }}>
@@ -750,7 +1014,7 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
     const Header = () => (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 22px', background: 'linear-gradient(120deg, #16224a 0%, #1E3A8A 100%)', borderBottom: '3px solid #3B82F6' }}>
             <div>
-                <div style={{ color: '#fff', fontSize: 16.5, fontWeight: 700, fontFamily: PJK }}>Apply for Leave</div>
+                <div style={{ color: '#fff', fontSize: 16.5, fontWeight: 700, fontFamily: PJK }}>{headerTitle}</div>
                 <div style={{ color: 'rgba(255,255,255,.72)', fontSize: 12, fontWeight: 500, marginTop: 1 }}>{fiscalHint}</div>
             </div>
             <button onClick={onClose} style={{ width: 31, height: 31, borderRadius: 9, border: 'none', background: 'rgba(255,255,255,.14)', color: '#fff', cursor: 'pointer', fontSize: 17 }}>×</button>
@@ -800,11 +1064,11 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
                 <Lightbox />
                 <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 }}>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>Apply for Leave</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>{headerTitle}</div>
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#727577' }}>{!s.from ? '' : N === 0 ? '0 days' : daysLabel(N)}</span>
                     </div>
-                    <div style={{ marginBottom: 13 }}><TypeSelector /></div>
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                    {!isView && <div style={{ marginBottom: 13 }}><TypeSelector /></div>}
+                    <div style={{ display: isView ? 'none' : 'flex', gap: 8, marginBottom: 10 }}>
                         {[{ label: 'Today', iso: today }, { label: 'Tomorrow', iso: tomorrow }].map(({ label, iso }) => {
                             const active = s.from === iso && s.to === iso;
                             const off = blockedDates.has(iso);
@@ -822,7 +1086,7 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
                         <span style={{ fontSize: 13, fontWeight: 700, color: '#2b2e30' }}>{!s.from ? '—' : N === 0 ? '0 days' : daysLabel(N)}</span>
                     </div>
                     <HalfDay />
-                    <div style={{ marginTop: 11 }}><Allocation compact /></div>
+                    <div style={{ marginTop: 11 }}>{isView ? <ViewBreakdown /> : <Allocation compact />}</div>
                     <div style={{ marginTop: 11 }}><SickConfirm /></div>
                     {isPenaltyActive && sameDayPenalty && (
                         <div style={{ marginTop: 11, padding: '11px 13px', borderRadius: 11, border: '1px solid #f5c518', background: '#fffbea' }}>
@@ -833,9 +1097,9 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
                                 As per company policy, a{' '}
                                 <strong>
                                     {sameDayPenalty.penaltyType === 'halfDaySalaryDeduction'
-                                        ? 'half-day salary deduction (Loss of Pay)'
+                                        ? `${penaltyDayWord} salary deduction (Loss of Pay)`
                                         : sameDayPenalty.penaltyType === 'halfPaidLeave'
-                                        ? 'half paid leave deduction'
+                                        ? `${penaltyDayWord} paid leave deduction`
                                         : `₹${(sameDayPenalty.fixedDeductionAmount ?? 0).toLocaleString('en-IN')} salary deduction`}
                                 </strong>{' '}
                                 will be automatically applied to this request.
@@ -849,17 +1113,20 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
                             </button>
                         </div>
                     )}
-                    <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Reason (optional)…"
-                        style={{ width: '100%', minHeight: 48, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 12px', fontSize: 13, outline: 'none', marginTop: 11, lineHeight: 1.5 }} />
+                    {!isView && (
+                        <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Reason (optional)…"
+                            style={{ width: '100%', minHeight: 48, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 12px', fontSize: 13, outline: 'none', marginTop: 11, lineHeight: 1.5 }} />
+                    )}
                     <div style={{ marginTop: 8 }}><Attachments idSuffix="m" /></div>
-                    <div style={{ marginTop: 12 }}><ApprovalChain compact /></div>
+                    <div style={{ marginTop: 12 }}><ApprovalFlowView compact /></div>
                 </div>
                 <div style={{ flexShrink: 0, padding: '11px 16px 16px', borderTop: '1px solid #eef0f1', background: '#fff' }}>
                     <div style={{ marginBottom: 10 }}><Financial compact /></div>
+                    {isView && reviewActions && <div style={{ marginBottom: 10 }}>{reviewActions}</div>}
                     {error && <div style={errBox}>{error}</div>}
-                    <button disabled={!canSubmit || submitting} onClick={onSubmit}
-                        style={{ width: '100%', padding: 15, borderRadius: 14, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, background: canSubmit ? ACCENT : '#cdd0d4', cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed' }}>
-                        {submitting ? 'Submitting…' : 'Submit Request'}
+                    <button disabled={primaryDisabled} onClick={onPrimary}
+                        style={{ width: '100%', padding: 15, borderRadius: 14, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, background: primaryActive ? ACCENT : '#cdd0d4', cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
+                        {primaryLabel}
                     </button>
                 </div>
             </div>
@@ -884,9 +1151,16 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 332px' }}>
                 {/* Left — form */}
                 <div style={{ padding: '22px 24px', maxHeight: '78vh', overflowY: 'auto' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#8b8e91', marginBottom: 10, fontFamily: PJK }}>Apply using</div>
-                    <TypeSelector />
-                    <div style={{ display: 'flex', gap: 8, marginTop: 16, marginBottom: 4 }}>
+                    {/* "Apply using" is the allocation-strategy chooser for a NEW request. In view
+                        mode there is nothing to allocate — the ViewBreakdown on the right shows what
+                        was actually booked — so it (and the applicant chrome below) is hidden. */}
+                    {!isView && (
+                        <>
+                            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#8b8e91', marginBottom: 10, fontFamily: PJK }}>Apply using</div>
+                            <TypeSelector />
+                        </>
+                    )}
+                    <div style={{ display: isView ? 'none' : 'flex', gap: 8, marginTop: 16, marginBottom: 4 }}>
                         {[{ label: 'Today', iso: today }, { label: 'Tomorrow', iso: tomorrow }].map(({ label, iso }) => {
                             const active = s.from === iso && s.to === iso;
                             const off = blockedDates.has(iso);
@@ -912,9 +1186,9 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
                                 As per company policy, a{' '}
                                 <strong>
                                     {sameDayPenalty.penaltyType === 'halfDaySalaryDeduction'
-                                        ? 'half-day salary deduction (Loss of Pay)'
+                                        ? `${penaltyDayWord} salary deduction (Loss of Pay)`
                                         : sameDayPenalty.penaltyType === 'halfPaidLeave'
-                                        ? 'half paid leave deduction'
+                                        ? `${penaltyDayWord} paid leave deduction`
                                         : `₹${(sameDayPenalty.fixedDeductionAmount ?? 0).toLocaleString('en-IN')} salary deduction`}
                                 </strong>{' '}
                                 will be automatically applied to this request.
@@ -928,12 +1202,15 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
                             </button>
                         </div>
                     )}
-                    {/* Remarks */}
-                    <div style={{ marginTop: 14 }}>
-                        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#5f6266', marginBottom: 6 }}>Remarks</label>
-                        <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Add a note for your manager (optional)…"
-                            style={{ width: '100%', minHeight: 58, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 13px', fontSize: 13.5, color: '#2b2e30', outline: 'none', lineHeight: 1.5 }} />
-                    </div>
+                    {/* Remarks — an applicant input; view mode shows the persisted remark inside
+                        the ViewBreakdown instead. */}
+                    {!isView && (
+                        <div style={{ marginTop: 14 }}>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#5f6266', marginBottom: 6 }}>Remarks</label>
+                            <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Add a note for your manager (optional)…"
+                                style={{ width: '100%', minHeight: 58, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 13px', fontSize: 13.5, color: '#2b2e30', outline: 'none', lineHeight: 1.5 }} />
+                        </div>
+                    )}
                     <div style={{ marginTop: 12 }}><Attachments idSuffix="d" /></div>
                 </div>
 
@@ -949,27 +1226,28 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
                         {sandwichDays > 0 && (
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 9, paddingTop: 9, borderTop: '1px solid #f0f0f1' }}>
                                 <span style={{ width: 12, height: 12, borderRadius: 3, background: 'repeating-linear-gradient(45deg,#fbf0d9 0 3px,#f6e4be 3px 6px)', flexShrink: 0, marginTop: 1 }} />
-                                <span style={{ fontSize: 11.5, color: '#8a5a1e', fontWeight: 500, lineHeight: 1.4 }}>{daysLabel(sandwichDays)} of weekend/holiday between your dates — booked as Unpaid Leave (sandwich rule)</span>
+                                <span style={{ fontSize: 11.5, color: '#8a5a1e', fontWeight: 500, lineHeight: 1.4 }}>{daysLabel(sandwichDays)} of weekend/holiday between your dates — excluded from salary (sandwich rule). Not added to your leave balance.</span>
                             </div>
                         )}
                     </div>
 
                     {/* Allocation */}
-                    <Allocation />
+                    {isView ? <ViewBreakdown /> : <Allocation />}
                     {/* Financial impact */}
                     <Financial />
                     {/* Overlap / block errors */}
                     {overlapConflict && <div style={errBox}>This range overlaps a leave you already have.</div>}
                     {alloc?.blocked && <div style={errBox}>{alloc.blocked.reason}</div>}
                     {/* Approval flow */}
-                    <ApprovalChain />
+                    <ApprovalFlowView />
                     {error && <div style={errBox}>{error}</div>}
 
-                    {/* Submit — no recap text above (matches design) */}
-                    <div style={{ marginTop: 'auto', paddingTop: 6 }}>
-                        <button disabled={!canSubmit || submitting} onClick={onSubmit}
-                            style={{ width: '100%', padding: 13, borderRadius: 11, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, background: canSubmit ? ACCENT : '#cdd0d4', cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed' }}>
-                            {submitting ? 'Submitting…' : 'Submit Request'}
+                    {/* Primary action — sticky so it's always visible without scrolling the rail. */}
+                    <div style={{ position: 'sticky', bottom: 0, zIndex: 2, marginTop: 'auto', paddingTop: 12, paddingBottom: 2, background: '#f6f7f9', borderTop: '1px solid #ececed' }}>
+                        {isView && reviewActions && <div style={{ marginBottom: 10 }}>{reviewActions}</div>}
+                        <button disabled={primaryDisabled} onClick={onPrimary}
+                            style={{ width: '100%', padding: 13, borderRadius: 11, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, background: primaryActive ? ACCENT : '#cdd0d4', cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
+                            {primaryLabel}
                         </button>
                     </div>
                 </div>

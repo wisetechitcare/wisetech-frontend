@@ -10,7 +10,6 @@ import { createPublicHoliday, fetchCompanyOverview } from "@services/company";
 import { fetchAllCountries } from "@services/options";
 import { fetchHolidays } from '@services/company';
 import { errorConfirmation, successConfirmation } from "@utils/modal";
-import { dateFormatter } from "@utils/date";
 import DropdownAdd from "@app/modules/common/utils/DropdownAdd";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -138,8 +137,11 @@ function PublicHolidayForm({ onClose, setShowNewHolidayForm }: { onClose: () => 
                                     value={formik.values.date}
                                     className='form-control form-control-lg form-control-solid'
                                     placeholder='Holiday date'
-                                    onChange={(selectedDates: Date[]) => {
-                                        formik.setFieldValue('date', dateFormatter.format(selectedDates[0]), true);
+                                    onChange={(_selectedDates: Date[], dateStr: string) => {
+                                        // Flatpickr is configured with dateFormat "Y-m-d", so dateStr is
+                                        // already 'YYYY-MM-DD'. Send THAT (not the en-IN DD/MM/YYYY string,
+                                        // which the backend's new Date() would month/day-swap or reject).
+                                        formik.setFieldValue('date', dateStr, true);
                                         formik.setFieldTouched('dateOfBirth', false);
                                     }}
                                     onOpen={() => {

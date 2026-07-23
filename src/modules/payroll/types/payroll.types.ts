@@ -71,7 +71,9 @@ export interface PayrollArrear {
     employee?: { id: string; nickName: string; companyEmailId: string };
 }
 
-export type SalaryStatus = 'DRAFT' | 'APPROVED' | 'LOCKED';
+// 'PAID' = a salary that has received payment; it is immutable (frozen against payroll
+// regeneration) exactly like LOCKED, but was frozen by payment rather than an explicit lock.
+export type SalaryStatus = 'DRAFT' | 'APPROVED' | 'LOCKED' | 'PAID';
 
 export interface SalaryLockInfo {
     salaryStatus: SalaryStatus;

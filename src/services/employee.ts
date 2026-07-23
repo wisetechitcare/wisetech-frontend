@@ -722,6 +722,20 @@ export const deleteLeaveRequestById = async (leaveRequestId: string) => {
     }
 }
 
+/** Delete ONE segment of a grouped leave (the rest of the group survives). Per-segment action. */
+export const deleteLeaveSegment = async (segmentId: string) => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.DELETE_EMPLOYEE_LEAVE_REQUEST}/${segmentId}?scope=segment`;
+    const { data } = await axios.delete(endpoint);
+    return data;
+}
+
+/** Approver decides ONE segment of a grouped leave independently (bifurcation). */
+export const decideLeaveSegment = async (segmentId: string, decision: 'approved' | 'rejected') => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.LEAVE_SEGMENT_DECISION.replace(':segmentId', segmentId)}`;
+    const { data } = await axios.put(endpoint, { decision });
+    return data;
+}
+
 
 export const createLeaveOption = async (payload: any) => {
     try {
@@ -766,6 +780,48 @@ export const fetchEmployeeLeaves = async (employeeId: string) => {
     catch (err) {
         throw err;
     }
+}
+
+/** The employee's leave history GROUPED by requestGroupId — one request per group with a
+ * segment breakdown + lifecycle flags (canEdit/canDelete). Backend is the single source of the
+ * segment/total aggregation (shared with the approvals detail). */
+export interface GroupedLeaveSegment {
+    id: string;
+    leaveType: string | null;
+    isPaid: boolean;
+    days: number;
+    dateFrom: string | null;
+    dateTo: string | null;
+    status: number;
+    isHalfDay: boolean;
+    halfDaySession: string | null;
+}
+export interface GroupedLeaveRequest {
+    groupId: string;
+    isGroup: boolean;
+    status: number;
+    dateFrom: string | null;
+    dateTo: string | null;
+    totalDays: number;
+    paidDays: number;
+    unpaidDays: number;
+    subType: string | null;
+    reason: string | null;
+    isHalfDay: boolean;
+    halfDaySession: string | null;
+    segments: GroupedLeaveSegment[];
+    createdAt: string;
+    approvedByName: string;
+    rejectedByName: string;
+    actedAt: string | null;
+    hasApprovalInstance: boolean;
+    canEdit: boolean;
+    canDelete: boolean;
+}
+export const fetchEmployeeLeavesGrouped = async (employeeId: string): Promise<{ groups: GroupedLeaveRequest[] }> => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.GROUPED_LEAVES}?employeeId=${employeeId}`;
+    const { data } = await axios.get(endpoint);
+    return data.data;
 }
 
 /**

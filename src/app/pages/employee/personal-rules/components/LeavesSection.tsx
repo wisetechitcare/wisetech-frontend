@@ -1,6 +1,6 @@
 import { safeJsonParse } from '@utils/safeJson';
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Modal } from 'react-bootstrap';
+import { Card, Row, Col } from 'react-bootstrap';
 import { fetchConfiguration } from '@services/company';
 import { fetchAllAddonLeavesAllowances, IAddonLeavesAllowance } from '@services/addonLeavesAllowance';
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
@@ -213,20 +213,8 @@ const LeavesSection: React.FC<LeavesSectionProps> = ({ sectionRef }) => {
           </Card.Body>
         </Card>
 
-        {/* Sandwich Leave Modal - Read Only. The component renders its own gradient header
-            (with close button), so no Modal.Header here; contentClassName rounds the shell. */}
-      <Modal
-        show={showSandwichLeaveModal}
-        onHide={() => handleCloseSandwichLeaveModal(false)}
-        size="xl"
-        centered
-        enforceFocus={false}
-        contentClassName="sandwich-dialog-content"
-      >
-        <Modal.Body style={{ padding: '0' }}>
-          <SandwichLeave showSandWhichLeaveModal={handleCloseSandwichLeaveModal} readOnly={true} />
-        </Modal.Body>
-      </Modal>
+        {/* Sandwich Leave (read-only) — self-contained glass dialog; no react-bootstrap wrapper. */}
+      <SandwichLeave open={showSandwichLeaveModal} showSandWhichLeaveModal={handleCloseSandwichLeaveModal} readOnly={true} />
        
       </Card.Body>
     </Card>

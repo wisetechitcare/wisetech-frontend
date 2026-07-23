@@ -186,7 +186,11 @@ function ReimbursementBatchApprovals() {
     const socket = getSocket();
     const handler = () => load();
     socket.on('approval:pending', handler);
-    return () => { socket.off('approval:pending', handler); };
+    socket.on('approval:cancelled', handler);
+    return () => {
+      socket.off('approval:pending', handler);
+      socket.off('approval:cancelled', handler);
+    };
   }, [load]);
 
   // Refresh when any reimbursement changes on any connected client (WebSocket)

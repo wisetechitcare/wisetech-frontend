@@ -471,6 +471,8 @@ export interface IAttendanceRequests {
   isAdminRaised?: boolean,
   /** Employee id of the admin who raised this request (only for admin-raised). */
   raisedById?: string | null,
+  /** The employee's own branch timezone (IANA), used to correctly parse admin-edited wall-clock times to UTC. */
+  employeeTimezone?: string | null,
 }
 
 export interface ApprovedAttendanceRequest {

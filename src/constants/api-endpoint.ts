@@ -137,6 +137,7 @@ export const EMPLOYEE = {
     LEAVE_BALANCE: "api/employee/leave-balance",
     LEAVE_ALLOCATION: "api/employee/leave-allocation",
     LEAVES: "api/employee/leaves",
+    GROUPED_LEAVES: "api/employee/leaves-grouped",
     UPLOAD_LEAVE_DOCUMENTS: "api/employee/leave/documents",
     LEAVE_APPROVAL_CHAIN: "api/employee/leave/approval-chain",
     LEAVE_APPROVAL_STATUS: "api/employee/leave/approval-status",
@@ -144,6 +145,7 @@ export const EMPLOYEE = {
     GET_ADDRESS_DETAILS: "api/employee/address-details?employeeId=",
     CREATE_EMPLOYEE_LEAVE_REQUEST: "api/employee/leave-request",
     DELETE_EMPLOYEE_LEAVE_REQUEST: "api/employee/leave-request",
+    LEAVE_SEGMENT_DECISION: "api/employee/leave-segment/:segmentId/decision",
     GET_EMPLOYEE_LEAVE_REQUEST: "api/employee/leave-request",
     LEAVE_ACTION: "api/employee/leave-action",
     CREATE_LEAVE_OPTION: "api/company/leave-option",
@@ -623,6 +625,8 @@ export const SANDWICH_RULE = {
     CREATE: "api/sandwich-rules",
     UPDATE: "api/sandwich-rules/:id",
     DELETE: "api/sandwich-rules/:id",
+    REORDER: "api/sandwich-rules/reorder",
+    PREVIEW: "api/sandwich-rules/preview",
     AUDIT_LOG: "api/sandwich-rules/:id/audit",
 };
 
@@ -703,4 +707,7 @@ export const BIOMETRIC = {
     TEST_DEVICE:    'api/biometric/devices',
     SYNC_DEVICE:    'api/biometric/devices',
     DEVICE_LOGS:    'api/biometric/devices',
+    CONFLICTS:        'api/biometric/conflicts',
+    CONFLICTS_COUNT:  'api/biometric/conflicts/count',
+    CONFLICTS_RESOLVE:'api/biometric/conflicts',
 };

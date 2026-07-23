@@ -1,6 +1,5 @@
 import { styled, Tab, Tabs, Button, Dialog, DialogContent } from "@mui/material";
 import { useState } from "react";
-import LeaveRequestForm from "./LeaveRequestForm";
 import Leaves from "./Leaves";
 import Balances from "./Balances";
 import Rules from "./Rules";

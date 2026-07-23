@@ -36,34 +36,49 @@ const CTA: Record<WtCtaTone, { from: string; to: string; glow: string }> = {
 export const ctaSx = (tone: WtCtaTone = 'primary'): SxProps<Theme> => {
   const c = CTA[tone];
   return {
-    textTransform: 'none', fontWeight: 650, letterSpacing: '-0.01em', borderRadius: '12px',
+    textTransform: 'none', fontWeight: 700, letterSpacing: '-0.01em', borderRadius: '13px',
+    // Larger, more tappable, more readable — a proper primary CTA.
+    fontSize: 14.5, lineHeight: 1.2, minHeight: 46, px: 2.75, py: 1.1,
     background: `linear-gradient(135deg, ${c.from}, ${c.to})`, color: '#fff',
-    boxShadow: `0 1px 2px ${c.glow}59, 0 10px 22px -10px ${c.glow}a6, inset 0 1px 0 rgba(255,255,255,.14)`,
-    transition: `transform .16s ${MRD_EASE}, box-shadow .2s`,
+    boxShadow: `0 1px 2px ${c.glow}59, 0 12px 26px -10px ${c.glow}b3, inset 0 1px 0 rgba(255,255,255,.16)`,
+    transition: `transform .16s ${MRD_EASE}, box-shadow .2s, filter .15s`,
+    '& .MuiButton-startIcon': { mr: 0.9, '& .fs-2, & .fs-3': { fontSize: '1.15rem' } },
     '&:hover': {
-      background: `linear-gradient(135deg, ${c.from}, ${c.to})`, transform: 'translateY(-1px)',
-      boxShadow: `0 2px 4px ${c.glow}59, 0 14px 26px -10px ${c.glow}bf, inset 0 1px 0 rgba(255,255,255,.14)`,
+      background: `linear-gradient(135deg, ${c.from}, ${c.to})`, transform: 'translateY(-1.5px)', filter: 'brightness(1.04)',
+      boxShadow: `0 3px 6px ${c.glow}59, 0 18px 32px -10px ${c.glow}cc, inset 0 1px 0 rgba(255,255,255,.16)`,
     },
-    '&:active': { transform: 'translateY(0) scale(.98)' },
+    '&:active': { transform: 'translateY(0) scale(.975)' },
+    '&:focus-visible': { outline: `2px solid ${c.glow}`, outlineOffset: 2 },
     '&.Mui-disabled': { background: '#e2e8f0', color: '#94a3b8', boxShadow: 'none' },
   };
 };
 
-/** Quiet text button (mrd-ghost): inset wash on hover, no border — the standard "Cancel". */
+/** Quiet button (mrd-ghost): the standard "Cancel" — now larger + a faint bordered surface so it
+ * reads as a real, tappable secondary action (not just text). */
 export const ghostSx: SxProps<Theme> = {
-  textTransform: 'none', fontWeight: 600, borderRadius: '9px', color: '#5A6573',
-  '&:hover': { bgcolor: '#f1f5f9', color: '#1B2230' },
+  textTransform: 'none', fontWeight: 650, letterSpacing: '-0.01em', borderRadius: '12px', color: '#475569',
+  fontSize: 14.5, lineHeight: 1.2, minHeight: 46, px: 2.5, py: 1.1,
+  bgcolor: '#F8FAFC', border: '1px solid #E2E8F0',
+  transition: `background-color .15s, border-color .15s, transform .16s ${MRD_EASE}, box-shadow .15s`,
+  '& .MuiButton-startIcon': { mr: 0.9 },
+  '&:hover': { bgcolor: '#EEF2F7', borderColor: '#CBD5E1', color: '#1B2230', transform: 'translateY(-1px)', boxShadow: '0 4px 10px rgba(16,24,40,0.06)' },
+  '&:active': { transform: 'translateY(0) scale(.975)' },
+  '&:focus-visible': { outline: '2px solid #94A3B8', outlineOffset: 2 },
+  '&.Mui-disabled': { bgcolor: '#F8FAFC', color: '#CBD5E1', borderColor: '#EEF2F7' },
 };
 
 /** Inverted pill — white background, navy text: the gradient-header "Add" pill generalized so it
  * also works on light surfaces (thin blue-tinted border + soft shadow). Same lift/press physics. */
 export const invertedSx: SxProps<Theme> = {
-  textTransform: 'none', fontWeight: 650, letterSpacing: '-0.01em', borderRadius: '10px',
+  textTransform: 'none', fontWeight: 700, letterSpacing: '-0.01em', borderRadius: '12px',
+  fontSize: 14.5, lineHeight: 1.2, minHeight: 46, px: 2.5, py: 1.1,
   bgcolor: '#fff', color: '#1E3A8A', border: '1px solid #dbeafe',
   boxShadow: '0 1px 2px rgba(16,24,40,0.06)',
   transition: `background-color .15s, border-color .15s, transform .16s ${MRD_EASE}, box-shadow .2s`,
-  '&:hover': { bgcolor: '#EAF0FA', borderColor: '#bfdbfe', transform: 'translateY(-1px)', boxShadow: '0 6px 14px rgba(30,58,138,0.16)' },
-  '&:active': { transform: 'translateY(0) scale(.98)' },
+  '& .MuiButton-startIcon': { mr: 0.9 },
+  '&:hover': { bgcolor: '#EAF0FA', borderColor: '#bfdbfe', transform: 'translateY(-1.5px)', boxShadow: '0 8px 18px rgba(30,58,138,0.18)' },
+  '&:active': { transform: 'translateY(0) scale(.975)' },
+  '&:focus-visible': { outline: '2px solid #1E3A8A', outlineOffset: 2 },
   '&.Mui-disabled': { bgcolor: '#f1f5f9', color: '#94a3b8', borderColor: '#e2e8f0', boxShadow: 'none' },
 };
 
@@ -108,11 +123,14 @@ export const WtIconButton = forwardRef<HTMLButtonElement, WtIconButtonProps>(fun
       ref={ref}
       aria-label={title}
       sx={[{
-        width: 40, height: 40, borderRadius: '10px', color,
+        width: 44, height: 44, borderRadius: '12px', color,
         bgcolor: `${color}14`, border: `1px solid ${color}3D`,
         transition: `background-color .15s, border-color .15s, transform .16s ${MRD_EASE}, box-shadow .15s`,
-        '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66`, transform: 'translateY(-1px)', boxShadow: `0 4px 10px ${color}33` },
-        '&:active': { transform: 'translateY(0) scale(.94)' },
+        '& .fs-2, & .fs-3': { fontSize: '1.2rem' },
+        '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66`, transform: 'translateY(-1.5px)', boxShadow: `0 5px 12px ${color}3D` },
+        '&:active': { transform: 'translateY(0) scale(.93)' },
+        '&:focus-visible': { outline: `2px solid ${color}`, outlineOffset: 2 },
+        '&.Mui-disabled': { opacity: 0.5 },
       }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
       {...rest}
     >

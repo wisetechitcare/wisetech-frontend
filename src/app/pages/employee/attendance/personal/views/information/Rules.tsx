@@ -5,7 +5,8 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { useEffect, useState } from 'react';
 import * as Yup from 'yup';
-import { Button, Card, ListGroup, Modal } from 'react-bootstrap'
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, IconBox, Spinner, TRIO } from '@app/modules/common/components/ui/tw';
 import { Form, Formik, FormikValues } from 'formik';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { successConfirmation } from '@utils/modal';
@@ -200,91 +201,63 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
         fetchLeaveConfiguration();
     }, [effectiveScope.companyId, effectiveScope.branchId]);
 
+    const ruleEntries = Object.entries(configuration).filter(([name]) => {
+        if (hideGeneralSettings) {
+            return name !== 'Number of Annual Leaves allowed per month' && name !== onSiteAndHolidayWeekendSettingsOnOffName;
+        }
+        return true;
+    });
+
     return (
         <>
-            <Card style={{ height: '100%', borderRadius: '12px', border: 'none', boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)' }}>
-                <Card.Body className="d-flex flex-column" style={{ height: '100%', padding: '24px' }}>
-                    <div className="flex-grow-1">
-                        <div className="d-flex align-items-center gap-2 mb-3">
-                            <div style={{
-                                width: '44px',
-                                height: '44px',
-                                borderRadius: '50%',
-                                backgroundColor: '#e9f1fd',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}>
-                                <KTIcon iconName="note-2" className="fs-2 text-primary" />
-                            </div>
-                            <h4 className="fw-bold mb-0" style={{
-                                fontSize: '16px',
-                                fontWeight: 600,
-                                fontFamily: 'Inter, sans-serif'
-                            }}>{title ? title : 'Attendance and Leave Rules'}</h4>
-                        </div>
-                        <ListGroup variant="flush">
-                            {Object.entries(configuration)
-                                .filter(([name, value]) => {
-                                    if (hideGeneralSettings) {
-                                        return name !== 'Number of Annual Leaves allowed per month' &&
-                                               name !== onSiteAndHolidayWeekendSettingsOnOffName;
-                                    }
-                                    return true;
-                                })
-                                .map(([name, value]) =>
-                                <ListGroup.Item key={name}>
-                                    <strong>{name}</strong>
-                                    <span className="float-end">
-                                        {name == onSiteAndHolidayWeekendSettingsOnOffName ? (String(value)=='1' ? 'On': 'Off' ) : String(value)}
-                                        {fromAdmin && !readOnly && <button
-                                            className="btn btn-icon btn-active-color-primary  btn-sm ps-2 pr-0"
-                                            onClick={() => handleEdit({ name, value })}
-                                            style={{ backgroundColor: 'transparent', border: 'none', paddingLeft: '4px' }}>
-                                            <KTIcon iconName="pencil" className="fs-3" />
-                                        </button>}
-                                        {/* {(fromAdmin && !(name == "Check-in time" || name == "Check-out time")) && <button
-                                            className="btn btn-icon btn-active-color-primary btn-sm ps-2 pr-0"
-                                            onClick={() => handleDelete({ name, value })}
-                                            style={{ backgroundColor: 'transparent', border: 'none', paddingLeft: '4px' }}>
-                                            <KTIcon iconName="trash" className="fs-3" />
-                                        </button>} */}
-                                    </span>
-                                </ListGroup.Item>
-                            )}
-                        </ListGroup>
+            <GlassCard preset="section" className="h-full p-4 sm:p-6 flex flex-col">
+                <div className="grow">
+                    <div className="flex items-center gap-3 mb-4">
+                        <IconBox icon="note-2" trio={TRIO.blue} size={44} fs="fs-1" />
+                        <span className="font-bold text-[16px] text-slate-900">{title ? title : 'Attendance and Leave Rules'}</span>
                     </div>
-                    {fromAdmin && <div className="d-flex justify-content-start mt-3">
-                        {/* <Button style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
-                            onClick={() => handleNew()}>Add Configuration</Button> */}
-                    </div>}
-                </Card.Body>
-            </Card >
+                    <div className="flex flex-col">
+                        {ruleEntries.map(([name, value], i) => (
+                            <div key={name}>
+                                {i > 0 && <hr className="m-0 border-t border-slate-200" />}
+                                <div className="flex items-center justify-between gap-2 py-2.5">
+                                    <span className="font-bold text-[13.5px] text-slate-900">{name}</span>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[13.5px] text-slate-500 font-semibold">
+                                            {name == onSiteAndHolidayWeekendSettingsOnOffName ? (String(value) == '1' ? 'On' : 'Off') : String(value)}
+                                        </span>
+                                        {fromAdmin && !readOnly && (
+                                            <WtIconButton title="Edit rule" color={TRIO.blue.c} onClick={() => handleEdit({ name, value })} size={30}>
+                                                <KTIcon iconName="pencil" className="fs-5" />
+                                            </WtIconButton>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </GlassCard>
 
-            <Modal show={show} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>Attendance and Leave Rules</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
+            <GlassDialog open={show} onClose={handleClose} maxWidth="sm" fullWidth>
+                <GlassHeader
+                    title="Attendance and Leave Rules"
+                    icon={<KTIcon iconName="note-2" className="fs-1 text-white" />}
+                    onClose={handleClose}
+                />
+                <div className="p-4 sm:p-6">
                     <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={ruleSchema}>
                         {(formikProps) => {
                             return (
                                 <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
                                     <div className="col-lg">
-                                        <TextInput
-                                            isRequired={true}
-                                            label="Rule"
-                                            margin="mb-7"
-                                            formikField="name" 
-                                            readonly={true}
-                                        />
+                                        <TextInput isRequired={true} label="Rule" margin="mb-7" formikField="name" readonly={true} />
                                     </div>
-                                    {initialState?.name == onSiteAndHolidayWeekendSettingsOnOffName ? 
+                                    {initialState?.name == onSiteAndHolidayWeekendSettingsOnOffName ?
                                     <div className="row px-3 my-3">
                                         <div className="col-lg-12 fv-row">
                                             <RadioInput
                                                 isRequired={true}
-                                                // inputLabel=''
                                                 formikField="value"
                                                 radioBtns={[
                                                     { label: 'On', value: '1' },
@@ -292,35 +265,29 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly
                                                 ]}
                                             />
                                         </div>
-                                    </div> : 
+                                    </div> :
                                     <div className="col-lg">
-                                        <TextInput
-                                            isRequired={true}
-                                            label="To Follow"
-                                            margin="mb-7"
-                                            formikField="value" />
-                                        {editMode && <div className="alert"
-                                            style={{ backgroundColor: "#FCEDDF", color: "#DD700C", borderColor: "#DD700C" }}>Please edit while keeping the same format as of previous input for "To Follow"</div>}
+                                        <TextInput isRequired={true} label="To Follow" margin="mb-7" formikField="value" />
+                                        {editMode && (
+                                            <div className="mt-2 p-2.5 rounded-[10px] text-[12.5px] leading-normal border" style={{ backgroundColor: TRIO.amber.bg, borderColor: TRIO.amber.bd, color: '#8a5a1e' }}>
+                                                Please edit while keeping the same format as the previous input for "To Follow".
+                                            </div>
+                                        )}
                                     </div>}
-                                    
 
-                                    <div className='d-flex justify-content-end'>
-                                        <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || !formikProps.isValid}>
-                                            {!loading && 'Save Changes'}
-                                            {loading && (
-                                                <span className='indicator-progress' style={{ display: 'block' }}>
-                                                    Please wait...{' '}
-                                                    <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-                                                </span>
-                                            )}
-                                        </button>
+                                    <div className="flex justify-end mt-4">
+                                        <WtButton type="submit" disabled={loading || !formikProps.isValid}
+                                            startIcon={loading ? <Spinner size={14} color="#fff" /> : undefined}
+                                            className="w-full sm:w-auto">
+                                            {loading ? 'Please wait…' : 'Save Changes'}
+                                        </WtButton>
                                     </div>
                                 </Form>
                             )
                         }}
                     </Formik>
-                </Modal.Body>
-            </Modal >
+                </div>
+            </GlassDialog>
         </>
     )
 }

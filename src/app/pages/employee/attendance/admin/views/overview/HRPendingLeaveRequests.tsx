@@ -7,7 +7,9 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { LeaveStatus } from "@constants/attendance";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { formatDateFromISTString } from "@utils/statistics";
-import { toAbsoluteUrl } from "@metronic/helpers";
+import { KTIcon } from "@metronic/helpers";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { WtIconButton, StatusBadge, IconBox, Spinner, TRIO } from "@app/modules/common/components/ui/tw";
 import { transformLeaveRequests } from "@pages/employee/attendance/admin/OverviewView";
 import { saveLeaveRequests } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
@@ -127,24 +129,17 @@ function HRPendingLeaveRequests() {
             accessorKey: "type",
             header: "Leave Type",
             size: 130,
-            Cell: ({ renderedCellValue }: any) => (
-                <span
-                    className="badge"
-                    style={{
-                        backgroundColor: getLeaveTypeColor(renderedCellValue),
-                        color: 'white',
-                        fontWeight: '500',
-                        fontSize: '11px',
-                        padding: '5px 8px',
-                        borderRadius: '12px',
-                        display: 'inline-block',
-                        minWidth: '70px',
-                        textAlign: 'center',
-                    }}
-                >
-                    {renderedCellValue}
-                </span>
-            ),
+            Cell: ({ renderedCellValue }: any) => {
+                const c = getLeaveTypeColor(renderedCellValue);
+                return (
+                    <span
+                        className="inline-block min-w-[70px] text-center font-bold text-[11px] px-2 py-1 rounded-full border"
+                        style={{ color: c, backgroundColor: `${c}1a`, borderColor: `${c}3d` }}
+                    >
+                        {renderedCellValue}
+                    </span>
+                );
+            },
         },
         {
             accessorKey: "remark",
@@ -156,51 +151,41 @@ function HRPendingLeaveRequests() {
             accessorKey: "status",
             header: "Stage",
             size: 170,
-            Cell: () => (
-                <span
-                    className="badge"
-                    style={{
-                        backgroundColor: '#F39C12',
-                        color: 'white',
-                        fontSize: '11px',
-                        padding: '5px 10px',
-                        borderRadius: '12px',
-                    }}
-                >
-                    ⏳ Pending HR Approval
-                </span>
-            ),
+            Cell: () => <StatusBadge trio={TRIO.amber} label="Pending HR Approval" pulse title="Awaiting HR final sign-off" />,
         },
         {
             accessorKey: "actions",
             header: "HR Action",
             size: 110,
-            Cell: ({ row }: any) => (
-                <>
-                    <button
-                        className="btn btn-icon btn-sm"
-                        title="HR Final Approve"
-                        disabled={loading || processingRowId === row.original.id}
-                        onClick={() => approveAsHR(row.original)}
-                    >
-                        {processingRowId === row.original.id && processingAction === 'approve'
-                            ? <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                            : <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt="approve" />
-                        }
-                    </button>
-                    <button
-                        className="btn btn-icon btn-sm"
-                        title="HR Reject"
-                        disabled={loading || processingRowId === row.original.id}
-                        onClick={() => rejectAsHR(row.original.id)}
-                    >
-                        {processingRowId === row.original.id && processingAction === 'reject'
-                            ? <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                            : <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt="reject" />
-                        }
-                    </button>
-                </>
-            ),
+            Cell: ({ row }: any) => {
+                const busy = processingRowId === row.original.id;
+                return (
+                    <div className="flex gap-1.5">
+                        <WtIconButton
+                            title="HR Final Approve"
+                            color={TRIO.green.c}
+                            disabled={loading || busy}
+                            onClick={() => approveAsHR(row.original)}
+                            size={34}
+                        >
+                            {busy && processingAction === 'approve'
+                                ? <Spinner size={16} color={TRIO.green.c} />
+                                : <KTIcon iconName="check" className="fs-4" />}
+                        </WtIconButton>
+                        <WtIconButton
+                            title="HR Reject"
+                            color={TRIO.rose.c}
+                            disabled={loading || busy}
+                            onClick={() => rejectAsHR(row.original.id)}
+                            size={34}
+                        >
+                            {busy && processingAction === 'reject'
+                                ? <Spinner size={16} color={TRIO.rose.c} />
+                                : <KTIcon iconName="cross" className="fs-4" />}
+                        </WtIconButton>
+                    </div>
+                );
+            },
         },
     ];
 
@@ -216,18 +201,18 @@ function HRPendingLeaveRequests() {
 
     return (
         <>
-            <h3 className="pt-8 fw-bold">
-                Pending HR Approval
-                <span
-                    className="badge ms-2 fs-7"
-                    style={{ backgroundColor: '#F39C12', color: 'white' }}
-                >
-                    {hrPendingLeaves.length}
-                </span>
-            </h3>
-            <p className="text-muted fs-7 mb-4">
-                These requests cleared Team Lead review and require your final sign-off.
-            </p>
+            <div className="pt-6 mb-2.5 flex items-start gap-3">
+                <IconBox icon="time" trio={TRIO.amber} size={44} fs="fs-1" />
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-[20px] text-slate-900">Pending HR Approval</span>
+                        <StatusBadge trio={TRIO.amber} label={String(hrPendingLeaves.length)} />
+                    </div>
+                    <p className="text-[13px] text-slate-500 mt-0.5 m-0">
+                        These requests cleared Team Lead review and require your final sign-off.
+                    </p>
+                </div>
+            </div>
             <MaterialTable
                 data={hrPendingLeaves}
                 columns={columns}

@@ -12,8 +12,8 @@ import { IdleLogoutGuard } from './components/IdleLogoutGuard';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { Toaster } from 'sonner';
-import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
-import { wisetechTheme } from '@app/theme/wisetechTheme';
+import { ColorModeProvider } from '@app/theme/ColorMode';
+import { GlassToastProvider } from '@app/modules/common/components/ui';
 // import { MaintenancePage } from './modules/errors/MaintenancePage';
 // import { NoInternetPage } from './modules/errors/NoInternetPage';
 
@@ -155,19 +155,22 @@ const App = () => {
         <I18nProvider>
           <LayoutProvider>
             <ThemeModeProvider>
-              {/* Branded MUI theme — one source of truth for all MUI components.
+              {/* Branded MUI theme via the reusable color-mode system (light default, dark-capable
+                  glass). GlassToastProvider makes useGlassToast() available app-wide.
                   No CssBaseline so Metronic/Bootstrap global styles stay intact. */}
-              <MuiThemeProvider theme={wisetechTheme}>
-                <Outlet />
-                <MasterInit />
-                <Toaster richColors position="top-right" />
+              <ColorModeProvider>
+                <GlassToastProvider>
+                  <Outlet />
+                  <MasterInit />
+                  <Toaster richColors position="top-right" />
 
-                {/* Global Timer Modal - only render when authenticated */}
-                {isAuthenticated && <GlobalTimerModal />}
+                  {/* Global Timer Modal - only render when authenticated */}
+                  {isAuthenticated && <GlobalTimerModal />}
 
-                {/* Idle logout guard - monitors inactivity and exit dates */}
-                {isAuthenticated && <IdleLogoutGuard />}
-              </MuiThemeProvider>
+                  {/* Idle logout guard - monitors inactivity and exit dates */}
+                  {isAuthenticated && <IdleLogoutGuard />}
+                </GlassToastProvider>
+              </ColorModeProvider>
             </ThemeModeProvider>
           </LayoutProvider>
         </I18nProvider>

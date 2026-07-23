@@ -1,0 +1,18 @@
+customHeaders:
+  # Hashed, content-addressed build assets (index-abc123.js, *.css, images).
+  # Their name changes whenever content changes, so they are safe to cache
+  # forever at the browser AND the CDN.
+  - pattern: '/assets/**'
+    headers:
+      - key: 'Cache-Control'
+        value: 'public, max-age=31536000, immutable'
+
+  # Everything else — most importantly index.html, the SPA entry point that
+  # names which hashed bundles to load. It MUST NOT be cached at the CDN
+  # (s-maxage=0), otherwise a new deploy's index.html never reaches users and
+  # they keep loading the previous build. max-age=0 + must-revalidate makes the
+  # browser re-check every load.
+  - pattern: '**'
+    headers:
+      - key: 'Cache-Control'
+        value: 'public, max-age=0, s-maxage=0, must-revalidate'

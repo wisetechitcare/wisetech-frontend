@@ -81,7 +81,59 @@ const branchSchema = Yup.object({
   companyId: Yup.string(),
   isActive: Yup.boolean(),
   showDateIn12HourFormat: Yup.string().optional(),
+  timezone: Yup.string().optional().label('Timezone'),
 })
+
+// Curated set of major IANA timezones — one representative per business hub /
+// UTC offset, not the full ~400-zone IANA database (unnecessary for a branch
+// picker). Auto-filled from the selected Country's `defaultTimezone` (attached
+// server-side in location.ts's getCountries, sourced from countryTimezones.ts) the
+// moment Country changes — see the Country dropdown's handleChange below. Picking a
+// value here directly always wins from then on (timezoneManuallyEdited), and the
+// backend re-applies the same country-based default as a last-resort fallback if a
+// blank timezone ever reaches it (createBranches/updateBranchById).
+const TIMEZONE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'Pacific/Midway', label: '(UTC-11:00) Midway Island' },
+  { value: 'Pacific/Honolulu', label: '(UTC-10:00) Hawaii' },
+  { value: 'America/Anchorage', label: '(UTC-09:00) Alaska' },
+  { value: 'America/Los_Angeles', label: '(UTC-08:00) Pacific Time (US & Canada)' },
+  { value: 'America/Denver', label: '(UTC-07:00) Mountain Time (US & Canada)' },
+  { value: 'America/Chicago', label: '(UTC-06:00) Central Time (US & Canada)' },
+  { value: 'America/Mexico_City', label: '(UTC-06:00) Mexico City' },
+  { value: 'America/New_York', label: '(UTC-05:00) Eastern Time (US & Canada)' },
+  { value: 'America/Bogota', label: '(UTC-05:00) Bogota, Lima' },
+  { value: 'America/Caracas', label: '(UTC-04:00) Caracas' },
+  { value: 'America/Santiago', label: '(UTC-04:00) Santiago' },
+  { value: 'America/Sao_Paulo', label: '(UTC-03:00) Sao Paulo' },
+  { value: 'America/Argentina/Buenos_Aires', label: '(UTC-03:00) Buenos Aires' },
+  { value: 'Atlantic/Azores', label: '(UTC-01:00) Azores' },
+  { value: 'Etc/UTC', label: '(UTC+00:00) UTC' },
+  { value: 'Europe/London', label: '(UTC+00:00) London, Dublin' },
+  { value: 'Africa/Casablanca', label: '(UTC+00:00) Casablanca' },
+  { value: 'Europe/Paris', label: '(UTC+01:00) Paris, Berlin, Madrid' },
+  { value: 'Europe/Rome', label: '(UTC+01:00) Rome, Amsterdam' },
+  { value: 'Africa/Lagos', label: '(UTC+01:00) Lagos' },
+  { value: 'Europe/Athens', label: '(UTC+02:00) Athens, Cairo' },
+  { value: 'Africa/Johannesburg', label: '(UTC+02:00) Johannesburg' },
+  { value: 'Europe/Moscow', label: '(UTC+03:00) Moscow' },
+  { value: 'Asia/Riyadh', label: '(UTC+03:00) Riyadh' },
+  { value: 'Africa/Nairobi', label: '(UTC+03:00) Nairobi' },
+  { value: 'Asia/Dubai', label: '(UTC+04:00) Dubai' },
+  { value: 'Asia/Karachi', label: '(UTC+05:00) Karachi' },
+  { value: 'Asia/Kolkata', label: '(UTC+05:30) India (Mumbai, Delhi)' },
+  { value: 'Asia/Kathmandu', label: '(UTC+05:45) Kathmandu' },
+  { value: 'Asia/Dhaka', label: '(UTC+06:00) Dhaka' },
+  { value: 'Asia/Bangkok', label: '(UTC+07:00) Bangkok, Jakarta' },
+  { value: 'Asia/Shanghai', label: '(UTC+08:00) Beijing, Shanghai' },
+  { value: 'Asia/Singapore', label: '(UTC+08:00) Singapore' },
+  { value: 'Asia/Hong_Kong', label: '(UTC+08:00) Hong Kong' },
+  { value: 'Asia/Kuala_Lumpur', label: '(UTC+08:00) Kuala Lumpur' },
+  { value: 'Asia/Manila', label: '(UTC+08:00) Manila' },
+  { value: 'Asia/Tokyo', label: '(UTC+09:00) Tokyo' },
+  { value: 'Asia/Seoul', label: '(UTC+09:00) Seoul' },
+  { value: 'Australia/Sydney', label: '(UTC+10:00) Sydney, Melbourne' },
+  { value: 'Pacific/Auckland', label: '(UTC+12:00) Auckland' },
+]
 
 let initialState = {
   name: '',
@@ -98,6 +150,7 @@ let initialState = {
   companyId: '',
   isActive: false,
   showDateIn12HourFormat: '0',
+  timezone: '',
 }
 
 /** Titled card section for the branch form (MUI). Reused for each field group. */
@@ -136,6 +189,15 @@ function Branches({ companyId, embedded = false, hideHeading = false }: Branches
   const [countriesOption, setCountriesOptions] = useState<{ value: string; label: string }[]>([])
   const [selectedCountry, setSelectedCountry] = useState<Option | null>(null)
   let countryCode = ''
+  // True once the admin has explicitly picked a Timezone in THIS modal session —
+  // stops the country-change auto-fill from overwriting a deliberate choice. Reset
+  // whenever the modal is (re)opened, in handleNew/handleEdit.
+  const [timezoneManuallyEdited, setTimezoneManuallyEdited] = useState(false)
+  // null = no country selected yet → Timezone dropdown falls back to the full
+  // curated TIMEZONE_OPTIONS list. Once a country is picked, scoped to ONLY that
+  // country's real IANA zones (from getCountries' server-side enrichment —
+  // countryTimezones.ts, backed by the countries-and-timezones package).
+  const [countryTimezoneOptions, setCountryTimezoneOptions] = useState<{ value: string; label: string }[] | null>(null)
 
   const [statesOption, setStatesOptions] = useState([])
   const [selectedState, setSelectedState] = useState<Option | null>(null)
@@ -258,10 +320,17 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
 
  
 
+  // Single source of truth for the Country dropdown's options: derived from the RAW
+  // country records in redux (id, iso2, name, defaultTimezone, timezones — see
+  // fetchCountries below, which now dispatches the raw response instead of a
+  // pre-slimmed {value,label} pair so those extra fields survive). `value` MUST be
+  // iso2, not the numeric id — fetchStates/fetchCities and the backend's
+  // countryId-based timezone resolution all key off the ISO2 code (confirmed against
+  // live Branches rows storing e.g. "IN", not a numeric id).
   useEffect(() => {
     if (countries && countries.length > 0) {
       const options = countries.map((country: any) => ({
-        value: country.id,
+        value: country.iso2,
         label: country.name,
       }))
       setCountriesOptions(options)
@@ -273,6 +342,8 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     setSelectedState(null)
     setSelectedCity(null)
     setSelectedTown(null)
+    setTimezoneManuallyEdited(false)
+    setCountryTimezoneOptions(null)
 
     initialState = {
       name: '',
@@ -289,6 +360,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       companyId: '',
       isActive: false,
       showDateIn12HourFormat: '0',
+      timezone: '',
     }
 
     setShow(true)
@@ -302,6 +374,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
 
   const handleEdit = async (id: string) => {
     setBranchId(id)
+    setTimezoneManuallyEdited(false)
     const {
       data: { branch },
     } = await fetchBranchById(id)
@@ -320,6 +393,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       isActive,
       companyId,
       town,
+      timezone,
     } = branch
 
     // Resolve display labels defensively — the geo lookups can fail/return null
@@ -333,6 +407,9 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     setSelectedState(stateId ? { value: stateId, label: stateLabel } : null)
     setSelectedCity(cityId ? { value: cityId, label: cityId } : null)
     setSelectedTown(town ? { value: town.id, label: town.name } : null)
+    // Scope the Timezone dropdown to this branch's existing country's zones —
+    // WITHOUT touching the branch's own already-saved `timezone` value below.
+    setCountryTimezoneOptions(resolveCountryTimezones(countryId).options)
 
     initialState = {
       address,
@@ -349,6 +426,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       longitude,
       postalCode,
       showDateIn12HourFormat: branch.showDateIn12HourFormat ? '1' : '0',
+      timezone: timezone || '',
     }
 
     setShow(true)
@@ -447,7 +525,28 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     }
   }
 
+  /**
+   * Browser-native timezone detection — Intl.DateTimeFormat().resolvedOptions().timeZone
+   * returns the device's OS-configured IANA zone directly, with zero network call, zero
+   * API key, and no external dependency (supported in every modern browser). This is
+   * what "detect timezone" should mean for an admin physically at/near the branch they're
+   * creating: their own device already knows its zone. Does NOT touch the Timezone field
+   * if detection fails or the zone isn't a real IANA name — leaves the admin's existing
+   * selection alone rather than clobbering it with a bad guess.
+   */
+  const detectBrowserTimezone = (formikProps: any) => {
+    try {
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (!zone) return
+      formikProps.setFieldValue('timezone', zone)
+      setTimezoneManuallyEdited(true) // a real detected value — don't let a later country change silently override it
+    } catch (error) {
+      console.error('Browser timezone detection failed:', error)
+    }
+  }
+
   const getLocation = (formikProps: any) => {
+    detectBrowserTimezone(formikProps)
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position: any) => {
@@ -499,19 +598,37 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     setSelectedOptionState(selectedOption)
   }
 
-  const fetchCountries = async () => {
-    if (countries != null) {
-      setCountriesOptions(countries)
-      return
-    }
+  /**
+   * Looks up a country (by ISO2) in the raw redux `countries` list and returns its
+   * timezone dropdown options (sorted by UTC offset) + default zone. Returns null
+   * options when the country has no mapped zones or isn't found — callers fall back
+   * to the global TIMEZONE_OPTIONS in that case, never leaving the field with an
+   * empty dropdown.
+   */
+  const resolveCountryTimezones = (iso2: string | null | undefined): { options: { value: string; label: string }[] | null; defaultZone: string | null } => {
+    if (!iso2 || !countries) return { options: null, defaultZone: null }
+    const country = (countries as any[]).find((c: any) => c.iso2 === iso2)
+    const zones = country?.timezones as { name: string; utcOffsetStr: string }[] | undefined
+    if (!zones || zones.length === 0) return { options: null, defaultZone: null }
 
+    const options = [...zones]
+      .sort((a, b) => a.utcOffsetStr.localeCompare(b.utcOffsetStr))
+      .map((z) => ({ value: z.name, label: `(UTC${z.utcOffsetStr}) ${z.name}` }))
+    const defaultZone: string | null = country?.defaultTimezone || zones[0].name
+    return { options, defaultZone }
+  }
+
+  const fetchCountries = async () => {
+    // Already loaded — the useEffect above (keyed on `countries`) owns deriving
+    // countriesOption from it; nothing to do here.
+    if (countries != null) return
+
+    // Dispatch the RAW records (id, iso2, name, defaultTimezone, timezones, ...) —
+    // NOT a pre-slimmed {value,label} pair — so the Timezone auto-fill/scoping logic
+    // below can still read a selected country's defaultTimezone/timezones straight
+    // out of redux, without a second API round-trip.
     const countriesResponse = await fetchAllCountries()
-    const countriesOptions = countriesResponse.map((country: any) => ({
-      value: country.iso2,
-      label: country.name,
-    }))
-    dispatch(saveCountries(countriesOptions))
-    setCountriesOptions(countriesOptions)
+    dispatch(saveCountries(countriesResponse))
   }
 
   const fetchStates = async () => {
@@ -808,6 +925,16 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
 
                           setStatesOptions([])
                           setCitiesOptions([])
+
+                          // Scope the Timezone dropdown to ONLY this country's real
+                          // zones, and prefill its default — never overwriting a
+                          // timezone the admin already picked explicitly in this
+                          // session (see TIMEZONE_OPTIONS comment).
+                          const { options: tzOptions, defaultZone } = resolveCountryTimezones(option?.value)
+                          setCountryTimezoneOptions(tzOptions)
+                          if (!timezoneManuallyEdited && defaultZone) {
+                            formikProps.setFieldValue('timezone', defaultZone)
+                          }
                         }}
                         formikField='countryId'
                         inputLabel='Country'
@@ -926,6 +1053,28 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                   </FormSection>
 
                   <FormSection title="Preferences" icon={<KTIcon iconName="setting-2" className="fs-5" />}>
+                    <div className='row'>
+                      <div className='col-lg-12 mb-7'>
+                        <DropDownInput
+                          isRequired={false}
+                          formikField='timezone'
+                          inputLabel='Timezone'
+                          options={countryTimezoneOptions ?? TIMEZONE_OPTIONS}
+                          onChange={(option: any) => {
+                            setTimezoneManuallyEdited(true)
+                            formikProps.setFieldValue('timezone', option?.value || '')
+                          }}
+                        />
+                        <Typography
+                          component="span"
+                          onClick={() => detectBrowserTimezone(formikProps)}
+                          title="Use this device's own timezone — instant, no location permission needed"
+                          sx={{ cursor: 'pointer', color: 'primary.main', fontWeight: 600, fontSize: 12.5, display: 'inline-block', mt: 0.5 }}
+                        >
+                          🕒 Detect my timezone
+                        </Typography>
+                      </div>
+                    </div>
                     <RadioInput
                       isRequired={false}
                       inputLabel='Show Time In 12 Hour Format'

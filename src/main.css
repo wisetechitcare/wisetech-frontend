@@ -1,3 +1,28 @@
+/* Tailwind v4 entry — pulls in theme + Preflight (base reset) + utilities.
+   Everything Tailwind emits is wrapped in @layer, so the Metronic/Bootstrap
+   SCSS that loads AFTER this file (see main.tsx) keeps winning specificity
+   ties on the existing admin UI. Utilities apply on new/unstyled elements. */
+@import "tailwindcss";
+
+/* ============================================================
+   TAILWIND UI KIT (tw/) — dynamic bits Tailwind utilities can't express
+   ============================================================ */
+
+/* WtIconButton: tint deepens on hover, derived from the per-instance --wt hex. */
+.wt-iconbtn:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--wt) 30%, transparent) !important;
+  border-color: color-mix(in srgb, var(--wt) 66%, transparent) !important;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--wt) 33%, transparent);
+}
+
+/* StatusBadge live pulse dot. */
+@keyframes wt-dot-pulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  70%  { box-shadow: 0 0 0 5px transparent; opacity: 0.85; }
+  100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+}
+.wt-dot-pulse { animation: wt-dot-pulse 1.8s ease-in-out infinite; }
+
  .no-scrollbar::-webkit-scrollbar {
      display: none;
  }

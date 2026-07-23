@@ -15,12 +15,12 @@ import {
     getTotalDaysInYear
 } from '@utils/statistics';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
-import { 
-    getAllUnPaidLeavesForCurrentYear, 
-    getAllUnPaidLeavesCurrentMonth, 
-    getAllPaidLeavesCurrentMonth, 
-    getAllPaidLeaveOfYearFilteredByStartAndEndDate 
-} from '@utils/sandwhichConfiguration';
+import {
+    getAllUnPaidLeavesForCurrentYear,
+    getAllUnPaidLeavesCurrentMonth,
+    getAllPaidLeavesCurrentMonth,
+    getAllPaidLeaveOfYearFilteredByStartAndEndDate
+} from '@utils/leaveCount';
 import { saveToggleChange } from '@redux/slices/attendanceStats';
 
 export const usePayrollData = (
@@ -39,7 +39,6 @@ export const usePayrollData = (
     const [deductionsRule, setDeductionsRule] = useState<any>({});
     const [multiLateCheckinDeductionPercent, setMultiLateCheckinDeductionPercent] = useState(0);
     const [multipleLateCheckinCountLimit, setMultipleLateCheckinCountLimit] = useState(0);
-    const [sandwhichConfiguration, setSandwhichConfiguration] = useState<any>({});
     const [leaveConfigurations, setLeaveConfigurations] = useState<any>({});
     
     // State for stats
@@ -64,11 +63,12 @@ export const usePayrollData = (
             const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
             const monthEnd = `${year}-${month.padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
 
-            const [customRes, grossRes, deductRes, sandwichRes, leaveRes] = await Promise.all([
+            // (Legacy sandwichLeaveSettings fetch removed — v8.0 sandwich is a salary-only backend
+            // rule; leave counts come from persisted rows via @utils/leaveCount, not this config.)
+            const [customRes, grossRes, deductRes, leaveRes] = await Promise.all([
                 PayrollService.fetchGlobalConfig(CONFIG_KEYS.CUSTOM_SALARY, monthStart, monthEnd),
                 PayrollService.fetchGlobalConfig(CONFIG_KEYS.GROSS_PAY, monthStart, monthEnd),
                 PayrollService.fetchGlobalConfig(CONFIG_KEYS.DEDUCTIONS, monthStart, monthEnd),
-                PayrollService.fetchGlobalConfig(CONFIG_KEYS.SANDWICH_LEAVE_KEY, monthStart, monthEnd),
                 PayrollService.fetchGlobalConfig(CONFIG_KEYS.LEAVE_MANAGEMENT, monthStart, monthEnd)
             ]);
 
@@ -79,7 +79,6 @@ export const usePayrollData = (
             setMultiLateCheckinDeductionPercent(Number(customJson["Late Checkin"]?.deduction_amount) || 0);
             setMultipleLateCheckinCountLimit(Number(customJson["Late Checkin"]?.period) || 0);
 
-            setSandwhichConfiguration(safeJsonParse(sandwichRes.data.configuration.configuration));
             setLeaveConfigurations(safeJsonParse(leaveRes.data.configuration.configuration));
         } catch (error) {
             console.error("Error fetching configurations:", error);
@@ -93,13 +92,16 @@ export const usePayrollData = (
             setIsLoading(true);
             const baseDate = dayjs(`${year}-${month}-01`);
             
+            // Count the stored leave rows directly (backend rule engine already decided sandwich
+            // days, v7.0). @utils/leaveCount does NOT re-apply legacy sandwich logic — that
+            // client-side re-classification was the old D-7 payslip-vs-payroll divergence.
             const unpaidLeavesPromise = isYearly
-                ? getAllUnPaidLeavesForCurrentYear(baseDate, sandwhichConfiguration, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), sandwhichConfiguration, fromAdmin, [employee]);
+                ? getAllUnPaidLeavesForCurrentYear(baseDate, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllUnPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), fromAdmin, [employee]);
 
             const paidLeavesPromise = isYearly
-                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, sandwhichConfiguration, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
-                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), sandwhichConfiguration, fromAdmin, [employee]);
+                ? getAllPaidLeaveOfYearFilteredByStartAndEndDate(baseDate, fromAdmin, [employee], dayjs(startDateOfMonthOrYear))
+                : getAllPaidLeavesCurrentMonth(baseDate, dayjs(startDateOfMonthOrYear), fromAdmin, [employee]);
 
             const [unpaid, paid] = await Promise.all([unpaidLeavesPromise, paidLeavesPromise]);
 
@@ -110,7 +112,7 @@ export const usePayrollData = (
         } finally {
             setIsLoading(false);
         }
-    }, [year, month, employeeId, startDateOfMonthOrYear, fiscalEndDate, isYearly, sandwhichConfiguration, fromAdmin, employee]);
+    }, [year, month, employeeId, startDateOfMonthOrYear, fiscalEndDate, isYearly, fromAdmin, employee]);
 
     const fetchPayments = useCallback(async () => {
         if (!employeeId) return;

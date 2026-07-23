@@ -1,9 +1,11 @@
 import { Status } from "@constants/statistics";
-import { toAbsoluteUrl } from "@metronic/helpers";
+import { KTIcon } from "@metronic/helpers";
 import { CustomLeaves, Leaves } from "@models/employee";
 import { saveLeaves } from "@redux/slices/attendanceStats";
 import { RootState, store } from "@redux/store";
-import { fetchPublicHolidays, fetchLeaveOptions } from "@services/company";
+import { fetchPublicHolidays, fetchLeaveOptions, fetchConfiguration } from "@services/company";
+import { isWithinProbation } from "@utils/leaveAllocation";
+import { LEAVE_POLICY_KEY } from "@constants/configurations-key";
 import { fetchEmployeeLeaveBalance, fetchEmployeeLeaves, getAllLeaveManagements } from "@services/employee";
 import { fetchAllAddonLeavesAllowances } from "@services/addonLeavesAllowance";
 import { hasPermission } from "@utils/authAbac";
@@ -12,7 +14,8 @@ import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { customLeaves, filterLeavesPublicHolidays, handleDatesChange, leavesBalance } from "@utils/statistics";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Card } from "react-bootstrap";
+// Shared glass UI kit — single source of truth for the leave-management look.
+import { GlassCard, WtButton, IconBox, SectionHead, BRAND, TRIO } from "@app/modules/common/components/ui/tw";
 import { useDispatch, useSelector } from "react-redux";
 import ConvertLeavesModal from "./ConvertLeavesModal";
 import EncashTransferLeavesModal from "./EncashTransferLeavesModal";
@@ -50,6 +53,10 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     const [proRatedBalances, setProRatedBalances] = useState<Record<string, number>>({});
     const [leavesTakenCount, setLeavesTakenCount] = useState<Record<string, number>>({});
     const [cumulativeInputs, setCumulativeInputs] = useState<CumulativeInputs>({ totalNonMaternalPaidAllocated: 0, takenIncludingPendingByType: {} });
+    // SINGLE SOURCE OF TRUTH: the backend now computes the Cumulative Leave Allowance and returns it on
+    // the leave-balance API. We display that verbatim; the client-side derivation below is only a
+    // fallback for an older backend that didn't send it.
+    const [backendCumulative, setBackendCumulative] = useState<{ totalPaidAllocated: number; used: number; allowedTillNow: number; remaining: number } | null>(null);
     const [holidays, setHolidays] = useState<number>(0);
     const [weekendCount, setWeekendCount] = useState<number>(0);
     const [totalLeaves, setTotalLeaves] = useState<CustomLeaves[]>([]);
@@ -62,6 +69,31 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
     const dateOfJoining = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.dateOfJoining : state.employee.currentEmployee?.dateOfJoining);
     const employeeBranchId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.branchId : state.employee.currentEmployee?.branchId);
+
+    // New-Joiner Probation: paid leave is blocked during the probation window. Fetch the policy
+    // so the balance card can signal it (the paid allocation is still shown — it's entitlement —
+    // but the banner makes clear it isn't usable until probation ends).
+    const [probationCfg, setProbationCfg] = useState<{ enabled: boolean; durationDays: number; allowUnpaid: boolean }>({ enabled: false, durationDays: 90, allowUnpaid: true });
+    useEffect(() => {
+        (async () => {
+            try {
+                const { data: { configuration } } = await fetchConfiguration(LEAVE_POLICY_KEY);
+                const raw = configuration?.configuration;
+                const cfg = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+                const p = cfg?.probation ?? {};
+                setProbationCfg({
+                    enabled: !!p.enabled,
+                    durationDays: Number(p.durationDays) > 0 ? Number(p.durationDays) : 90,
+                    allowUnpaid: p.allowUnpaidDuringProbation !== false,
+                });
+            } catch { /* keep defaults — no banner */ }
+        })();
+    }, []);
+    const probationActive = probationCfg.enabled && isWithinProbation(dateOfJoining as any, probationCfg.durationDays);
+    const probationEndLabel = useMemo(
+        () => (dateOfJoining ? dayjs(dateOfJoining).add(probationCfg.durationDays, 'day').format('DD MMM, YYYY') : ''),
+        [dateOfJoining, probationCfg.durationDays],
+    );
 
     const isInFiscalEndMonth = useMemo(() => {
         if (!endDateNew) return false;
@@ -169,7 +201,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
                 const { data: { leaves } } = leavesResponse;
                 const { data: { publicHolidays } } = holidaysResponse;
-                const { data: { leavesSummary } } = balanceResponse;
+                const { data: { leavesSummary, cumulativeSummary: backendCumulativeSummary } } = balanceResponse;
+                setBackendCumulative(backendCumulativeSummary ?? null);
                 const { data: { leaveOptions } } = leaveOptionsResponse;
 
                 // Compute addon leave allowance (experience-based extra annual leaves)
@@ -341,8 +374,20 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     // and the sub-section so they always show the same numbers. Inputs are built from the
     // authoritative leavesSummary via buildCumulativeInputs (shared with the Apply-Leave modal).
     const cumulativeSummary = useMemo(
-        () => calculateCumulativeSummary(cumulativeInputs.totalNonMaternalPaidAllocated, cumulativeInputs.takenIncludingPendingByType, fiscalStartMonth),
-        [cumulativeInputs, fiscalStartMonth]
+        () => {
+            // Prefer the backend-computed summary (single source of truth). Fall back to the shared
+            // client derivation only if an older backend didn't send it.
+            if (backendCumulative) {
+                return {
+                    total: backendCumulative.totalPaidAllocated ?? 0,
+                    used: backendCumulative.used ?? 0,
+                    allowedTillNow: backendCumulative.allowedTillNow ?? 0,
+                    remaining: backendCumulative.remaining ?? 0,
+                };
+            }
+            return calculateCumulativeSummary(cumulativeInputs.totalNonMaternalPaidAllocated, cumulativeInputs.takenIncludingPendingByType, fiscalStartMonth);
+        },
+        [backendCumulative, cumulativeInputs, fiscalStartMonth]
     );
 
     const res1 = viewOthers && hasPermission(resource, "readOthers", { employeeId: selectedEmployeeId });
@@ -361,313 +406,148 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
     return (
         <>
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: window.innerWidth < 576 ? "center" : "flex-end",
-                }}
-            >
-            </div>
-
             {approvedRequestInfo && (
-                <div className="mt-4 mb-0">
+                <div className="flex flex-col gap-2.5 mt-6">
                     {approvedRequestInfo.transfer && (
-                        <div className="alert alert-info py-2 px-3 mb-2" style={{ fontSize: '13px', borderLeft: '3px solid #0dcaf0' }}>
-                            <i className="bi bi-info-circle me-2"></i>
-                            <span>
+                        <GlassCard preset="row" accentEdge="cyan" className="flex items-start gap-2.5">
+                            <IconBox icon="information-5" trio={TRIO.cyan} size={34} fs="fs-4" />
+                            <p className="text-[13px] text-slate-500 leading-normal m-0">
                                 Your leave transfer request has been approved.
                                 {approvedRequestInfo.transfer.leaveTypeIds && Array.isArray(approvedRequestInfo.transfer.leaveTypeIds) && approvedRequestInfo.transfer.leaveTypeIds.length > 0 && (
                                     <> {approvedRequestInfo.transfer.leaveTypeIds.map((item: any, idx: number) => (
                                         <span key={idx}>
                                             {idx > 0 && ', '}
-                                            {item.count} {item.leaveType}
+                                            <strong>{item.count} {item.leaveType}</strong>
                                         </span>
                                     ))} have been carried forward to the next fiscal year.</>
                                 )}
-                            </span>
-                        </div>
+                            </p>
+                        </GlassCard>
                     )}
                     {approvedRequestInfo.encash && (
-                        <div className="alert alert-success py-2 px-3 mb-0" style={{ fontSize: '13px', borderLeft: '3px solid #198754' }}>
-                            <i className="bi bi-cash-coin me-2"></i>
-                            <span>
+                        <GlassCard preset="row" accentEdge="green" className="flex items-start gap-2.5">
+                            <IconBox icon="dollar" trio={TRIO.green} size={34} fs="fs-4" />
+                            <p className="text-[13px] text-slate-500 leading-normal m-0">
                                 Your leave encashment request has been approved.
                                 {approvedRequestInfo.encash.leaveTypeIds && Array.isArray(approvedRequestInfo.encash.leaveTypeIds) && approvedRequestInfo.encash.leaveTypeIds.length > 0 && (
                                     <> {approvedRequestInfo.encash.leaveTypeIds.map((item: any, idx: number) => (
                                         <span key={idx}>
                                             {idx > 0 && ', '}
-                                            {item.count} {item.leaveType}
+                                            <strong>{item.count} {item.leaveType}</strong>
                                         </span>
                                     ))} will be processed in your next salary.</>
                                 )}
-                            </span>
-                        </div>
+                            </p>
+                        </GlassCard>
                     )}
                 </div>
             )}
 
-            <Card className="mt-4" style={{
-                padding: '24px',
-                borderRadius: '8px',
-                backgroundColor: '#fff',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                border: '1px solid #e5e7eb'
-            }}>
-                <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center" style={{
-                    flexWrap: 'wrap',
-                    gap: '16px'
-                }}>
-                    <div style={{ flex: '1 1 auto', minWidth: '0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                            <i className="bi bi-calendar-check" style={{ fontSize: '20px', color: '#0d6efd' }}></i>
-                            <h5 className="mb-0" style={{
-                                fontFamily: 'Inter, sans-serif',
-                                fontWeight: '600',
-                                fontSize: '18px',
-                                color: '#1a1a1a'
-                            }}>Cumulative Leave Allowance</h5>
-                        </div>
-                        <p className="mb-0" style={{
-                            fontFamily: 'Inter, sans-serif',
-                            fontSize: '14px',
-                            color: '#6b7280',
-                            lineHeight: '1.6',
-                            paddingLeft: '32px'
-                        }}>
-                            Leaves are distributed across the fiscal year. Allowed usage grows each month — you can use what is allowed till the current period.
+            {/* Cumulative Leave Allowance */}
+            <GlassCard preset="section" className="mt-6 sm:p-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center flex-wrap gap-4">
+                    <div className="flex-auto min-w-0">
+                        <SectionHead tone={TRIO.blue} icon="calendar-tick" title="Cumulative Leave Allowance"
+                            desc="Leaves are distributed across the fiscal year. Allowed usage grows each month — you can use what is allowed till the current period." />
+                    </div>
+
+                    {(() => {
+                        const { allowedTillNow, used, remaining } = cumulativeSummary;
+                        const ok = remaining > 0;
+                        return (
+                            <div className="flex flex-row gap-4 items-center shrink-0 self-stretch md:self-center">
+                                <div className="text-center flex-1 md:flex-none">
+                                    <p className="text-[28px] sm:text-[32px] font-extrabold text-slate-900 leading-none m-0">
+                                        {used}<span className="text-[20px] sm:text-[24px] text-slate-400"> / {allowedTillNow}</span>
+                                    </p>
+                                    <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-[0.05em] font-bold m-0">Used Till Date</p>
+                                </div>
+                                <div className="px-5 py-3 rounded-[10px] min-w-[140px] text-center flex-1 md:flex-none border"
+                                    style={{ backgroundColor: ok ? TRIO.green.bg : TRIO.rose.bg, borderColor: ok ? TRIO.green.bd : TRIO.rose.bd }}>
+                                    <p className="text-[20px] font-extrabold leading-none m-0" style={{ color: ok ? TRIO.green.c : TRIO.rose.c }}>{remaining}</p>
+                                    <p className="text-[11.5px] mt-1 font-semibold m-0" style={{ color: ok ? TRIO.green.c : TRIO.rose.c }}>{ok ? 'Remaining Allowed' : 'Limit Reached'}</p>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
+            </GlassCard>
+
+            {/* New-Joiner Probation banner — paid leave is blocked until the probation window ends */}
+            {probationActive && (
+                <GlassCard preset="row" accentEdge="amber" className="mt-6 flex items-start gap-3" style={{ backgroundColor: TRIO.amber.bg }}>
+                    <IconBox icon="lock" trio={TRIO.amber} size={38} fs="fs-3" />
+                    <div>
+                        <p className="font-bold text-[15px] m-0" style={{ color: '#8a5a1e' }}>You're in your probation period</p>
+                        <p className="text-[13.5px] mt-0.5 leading-normal m-0" style={{ color: '#9a6a2e' }}>
+                            {probationCfg.allowUnpaid
+                                ? <>Paid leave is not available yet — during probation you can only apply for <strong>Unpaid leave</strong>. Your paid balances below are your yearly entitlement and unlock {probationEndLabel ? <>on <strong>{probationEndLabel}</strong></> : 'after probation ends'}.</>
+                                : <>Leave is not available during probation. Your paid balances below are your yearly entitlement and unlock {probationEndLabel ? <>on <strong>{probationEndLabel}</strong></> : 'after probation ends'}.</>}
                         </p>
                     </div>
-
-                    <div className="d-flex flex-column flex-sm-row align-items-center" style={{
-                        gap: '16px',
-                        flex: '0 1 auto'
-                    }}>
-                        {(() => {
-                            const { allowedTillNow, used, remaining } = cumulativeSummary;
-                            return (
-                                <>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{
-                                            fontFamily: 'Inter, sans-serif',
-                                            fontSize: '32px',
-                                            fontWeight: '700',
-                                            color: '#1a1a1a',
-                                            lineHeight: '1'
-                                        }}>
-                                            {used}<span style={{ fontSize: '24px', color: '#9ca3af' }}> / {allowedTillNow}</span>
-                                        </div>
-                                        <div style={{
-                                            fontFamily: 'Inter, sans-serif',
-                                            fontSize: '12px',
-                                            color: '#6b7280',
-                                            marginTop: '4px',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.5px'
-                                        }}>
-                                            Used Till Date
-                                        </div>
-                                    </div>
-
-                                    <div style={{
-                                        padding: '12px 20px',
-                                        borderRadius: '8px',
-                                        backgroundColor: remaining > 0 ? '#f0fdf4' : '#fef2f2',
-                                        border: `1px solid ${remaining > 0 ? '#86efac' : '#fecaca'}`,
-                                        minWidth: '140px',
-                                        textAlign: 'center'
-                                    }}>
-                                        <div style={{
-                                            fontFamily: 'Inter, sans-serif',
-                                            fontSize: '20px',
-                                            fontWeight: '700',
-                                            color: remaining > 0 ? '#059669' : '#dc2626',
-                                            lineHeight: '1'
-                                        }}>
-                                            {remaining}
-                                        </div>
-                                        <div style={{
-                                            fontFamily: 'Inter, sans-serif',
-                                            fontSize: '12px',
-                                            color: remaining > 0 ? '#059669' : '#dc2626',
-                                            marginTop: '4px',
-                                            fontWeight: '500'
-                                        }}>
-                                            {remaining > 0 ? 'Remaining Allowed' : 'Limit Reached'}
-                                        </div>
-                                    </div>
-                                </>
-                            );
-                        })()}
-                    </div>
-                </div>
-            </Card>
+                </GlassCard>
+            )}
 
             {/* Paid & Unpaid Leave Balance Cards */}
-            <div className='d-flex flex-column flex-md-row' style={{ gap: '12px' }}>
+            <div className={`flex flex-col md:flex-row gap-3 mt-6 ${probationActive ? 'opacity-[0.85]' : ''}`}>
 
                 {/* LEFT CARD - Paid Leaves Balance */}
-                <Card className="mt-4" style={{ flex: 1, padding: '20px', borderRadius: '12px' }}>
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', marginBottom: '20px' }}>
-                        <div style={{ flex: 1 }}>
-                            <h5 className="mb-0" style={{
-                                fontFamily: 'Barlow, sans-serif',
-                                fontWeight: '600',
-                                fontSize: '18px',
-                                letterSpacing: '0.18px',
-                                color: '#000'
-                            }}>Paid Leaves Balance</h5>
-                            <p className="mb-0" style={{
-                                fontFamily: 'Inter, sans-serif',
-                                fontSize: '14px',
-                                color: '#7a8597',
-                                marginTop: '4px',
-                                lineHeight: '1.56'
-                            }}>Your yearly pending leave balance</p>
+                <GlassCard preset="section" className="flex-1">
+                    <div className="flex gap-4 items-start mb-5 flex-wrap">
+                        <div className="flex-1 min-w-0">
+                            <p className="font-bold text-[18px] tracking-[0.01em] text-slate-900 m-0">Paid Leaves Balance</p>
+                            <p className="text-[14px] text-slate-500 mt-1 leading-[1.55] m-0">Your yearly pending leave balance</p>
                         </div>
                         {!fromAdmin && isFiscalYearCurrentOrFuture && (
-                            <button
-                                type="button"
-                                className="btn"
-                                onClick={() => setShowConvertModal(true)}
-                                style={{
-                                    borderColor: '#1E3A8A',
-                                    color: '#1E3A8A',
-                                    fontFamily: 'Inter, sans-serif',
-                                    fontSize: '14px',
-                                    fontWeight: '500',
-                                    borderRadius: '6px',
-                                    border: '1px solid #1E3A8A',
-                                    padding: '10px 16px',
-                                    height: '44px',
-                                    whiteSpace: 'nowrap',
-                                    backgroundColor: 'transparent'
-                                }}
-                            >Convert Leaves</button>
+                            <WtButton inverted onClick={() => setShowConvertModal(true)}
+                                startIcon={<KTIcon iconName="arrow-two-diagonals" className="fs-5" />}
+                                className="h-11 whitespace-nowrap w-full sm:w-auto">
+                                Convert Leaves
+                            </WtButton>
                         )}
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="flex flex-col gap-3">
                         {paidLeaves.map((leave: any, index: any) => (
-                            <LeaveBalanceItem
-                                key={index}
-                                label={leave.label}
-                                used={leave.used}
-                                total={leave.total}
-                                color={leave.color}
-                            />
+                            <LeaveBalanceItem key={index} label={leave.label} used={leave.used} total={leave.total} color={leave.color} />
                         ))}
                     </div>
 
                     {/* Total Paid Leaves */}
-                    <div style={{
-                        marginTop: '16px',
-                        paddingTop: '12px',
-                        borderTop: '2px solid #1E3A8A',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}>
-                        <span style={{
-                            fontFamily: 'Inter, sans-serif',
-                            fontWeight: '600',
-                            fontSize: '14px',
-                            color: '#000'
-                        }}>Total Paid Leaves</span>
-                        <span style={{
-                            fontFamily: 'Inter, sans-serif',
-                            fontWeight: '600',
-                            fontSize: '14px',
-                            color: '#000'
-                        }}>{totalPaidUsed}/{totalPaidAssigned}</span>
+                    <div className="mt-4 pt-3 border-t-2 flex justify-between items-center" style={{ borderTopColor: BRAND.navy }}>
+                        <p className="font-bold text-[14px] text-slate-900 m-0">Total Paid Leaves</p>
+                        <p className="font-bold text-[14px] text-slate-900 m-0">{totalPaidUsed}/{totalPaidAssigned}</p>
                     </div>
-
-                </Card>
+                </GlassCard>
 
                 {/* RIGHT CARD - Unpaid Leaves Balance */}
-                <Card className="mt-4" style={{ flex: 1, padding: '20px', borderRadius: '12px' }}>
-                    <div style={{ marginBottom: '20px' }}>
-                        <h5 className="mb-0" style={{
-                            fontFamily: 'Barlow, sans-serif',
-                            fontWeight: '600',
-                            fontSize: '18px',
-                            letterSpacing: '0.18px',
-                            color: '#000'
-                        }}>Unpaid Leaves Balance</h5>
-                        <p className="mb-0" style={{
-                            fontFamily: 'Inter, sans-serif',
-                            fontSize: '14px',
-                            color: '#7a8597',
-                            marginTop: '4px',
-                            lineHeight: '1.56'
-                        }}>Your yearly unpaid leave usage</p>
+                <GlassCard preset="section" className="flex-1">
+                    <div className="mb-5">
+                        <p className="font-bold text-[18px] tracking-[0.01em] text-slate-900 m-0">Unpaid Leaves Balance</p>
+                        <p className="text-[14px] text-slate-500 mt-1 leading-[1.55] m-0">Your yearly unpaid leave usage</p>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="flex flex-col gap-3">
                         {unpaidLeaves.map((leave: any, index: any) => (
-                            <LeaveBalanceItem
-                                key={index}
-                                label={leave.label}
-                                used={leave.used}
-                                total={leave.total}
-                                color={leave.color}
-                            />
+                            <LeaveBalanceItem key={index} label={leave.label} used={leave.used} total={leave.total} color={leave.color} />
                         ))}
                     </div>
 
                     {/* Total Unpaid Leaves */}
                     {unpaidLeaves.length > 0 && (
-                        <div style={{
-                            marginTop: '16px',
-                            paddingTop: '12px',
-                            borderTop: '2px solid #1E3A8A',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                        }}>
-                            <span style={{
-                                fontFamily: 'Inter, sans-serif',
-                                fontWeight: '600',
-                                fontSize: '14px',
-                                color: '#000'
-                            }}>Total Unpaid Leaves</span>
-                            <span style={{
-                                fontFamily: 'Inter, sans-serif',
-                                fontWeight: '600',
-                                fontSize: '14px',
-                                color: '#000'
-                            }}>{totalUnpaidUsed}/{totalUnpaidAssigned}</span>
+                        <div className="mt-4 pt-3 border-t-2 flex justify-between items-center" style={{ borderTopColor: BRAND.navy }}>
+                            <p className="font-bold text-[14px] text-slate-900 m-0">Total Unpaid Leaves</p>
+                            <p className="font-bold text-[14px] text-slate-900 m-0">{totalUnpaidUsed}/{totalUnpaidAssigned}</p>
                         </div>
                     )}
-                </Card>
+                </GlassCard>
             </div>
 
             {/* Grand Total - Paid + Unpaid */}
-            <Card className="mt-3" style={{
-                padding: '16px 20px',
-                borderRadius: '12px',
-                backgroundColor: '#fff',
-                border: '2px solid #1E3A8A'
-            }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                }}>
-                    <span style={{
-                        fontFamily: 'Barlow, sans-serif',
-                        fontWeight: '700',
-                        fontSize: '16px',
-                        letterSpacing: '0.16px',
-                        color: '#1E3A8A'
-                    }}>Total Leaves (Paid + Unpaid)</span>
-                    <span style={{
-                        fontFamily: 'Inter, sans-serif',
-                        fontWeight: '700',
-                        fontSize: '16px',
-                        color: '#1E3A8A'
-                    }}>{grandTotalUsed}/{grandTotalAssigned}</span>
-                </div>
-            </Card>
+            <GlassCard preset="row" className="mt-3 px-5 py-4 border-2 flex justify-between items-center gap-2" style={{ borderColor: BRAND.navy }}>
+                <p className="font-extrabold text-[16px] tracking-[0.01em] m-0" style={{ color: BRAND.navy }}>Total Leaves (Paid + Unpaid)</p>
+                <p className="font-extrabold text-[16px] m-0" style={{ color: BRAND.navy }}>{grandTotalUsed}/{grandTotalAssigned}</p>
+            </GlassCard>
 
             <ConvertLeavesModal
                 show={showConvertModal}

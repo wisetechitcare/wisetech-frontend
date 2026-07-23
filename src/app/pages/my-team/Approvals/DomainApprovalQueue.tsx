@@ -2,8 +2,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { MRT_ColumnDef, MRT_Row } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { usePermission } from '@hooks/usePermission';
-import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
-import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction, fetchReimbursementBatchById } from '@services/employee';
+import { KTIcon } from '@metronic/helpers';
+import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction, fetchReimbursementBatchById, decideLeaveSegment } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -11,14 +11,23 @@ import { Modal } from 'react-bootstrap';
 import { getSocket } from '@utils/socketClient';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
+import { getApprovalDomain } from './domains/registry';
+// Direct module import (not the ui/ barrel) — the barrel drags Swal/glass/notifications into this
+// file's type+bundle graph for one chip.
+import { ToneChip } from '@app/modules/common/components/ui/chips';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
+import { tonePair, type SemanticTone } from '@app/theme/tokens';
+import { CircularProgress } from '@mui/material';
 
 // A single leave segment within a multi-segment (sandwich) group request — one LeaveTracker row.
 type LeaveSegment = {
+  id?: string;
   leaveType?: string | null;
   isPaid?: boolean;
   days?: number;
   dateFrom?: string | null;
   dateTo?: string | null;
+  status?: number; // 0=pending, 1=approved, 2=rejected — per-segment (bifurcation)
 };
 
 type RequestDetails = {
@@ -63,6 +72,11 @@ type ApprovalStep = {
     createdAt: string;
     employee: {
       id: string;
+      // Sent by approvalService.APPROVAL_EMPLOYEE_SELECT so a domain detail can open the request
+      // in the REQUESTER's context (ApplyLeave `target`) instead of falling back to the approver's
+      // own branch/DOJ.
+      branchId?: string;
+      dateOfJoining?: string | Date | null;
       users: { firstName: string; lastName: string };
     };
   };
@@ -88,7 +102,9 @@ type DisplayStep = ApprovalStep & {
   _splitAmount?: number;
 };
 
-const REIMBURSEMENT_BADGE_COLOR = '#50cd89';
+// Semantic, not a pinned hex — reimbursement reads as a "money/positive" identity, so it tracks
+// the success tone from the canonical tokens rather than drifting on its own.
+const REIMBURSEMENT_BADGE_COLOR = tonePair('success').fg;
 
 const MIN_REASON_LENGTH = 10;
 
@@ -173,7 +189,7 @@ function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps)
             {/* Rejection reason */}
             <div>
               <label style={{ fontWeight: 600, fontSize: 13, color: '#181c32', display: 'block', marginBottom: 6 }}>
-                Reason for Rejection <span style={{ color: '#f1416c' }}>*</span>
+                Reason for Rejection <span style={{ color: tonePair('danger').fg }}>*</span>
               </label>
               <textarea
                 rows={3}
@@ -236,8 +252,8 @@ function AttendancePunchStack({ checkIn, checkOut }: { checkIn?: string | null; 
   );
   return (
     <div className='d-flex flex-column' style={{ gap: 5, paddingBlock: 2 }}>
-      <Row label='Check-In' time={checkIn} color='#17c653' />
-      <Row label='Check-Out' time={checkOut} color='#f1416c' />
+      <Row label='Check-In' time={checkIn} color={tonePair('success').fg} />
+      <Row label='Check-Out' time={checkOut} color={tonePair('danger').fg} />
     </div>
   );
 }
@@ -281,11 +297,7 @@ function AttendanceDetailCard({ details }: { details: RequestDetails }) {
         <span style={{ fontSize: 13, fontWeight: 700, color: '#181c32' }}>
           Attendance Request — {kindLabel}
         </span>
-        {worked ? (
-          <span className='badge' style={{ backgroundColor: '#e8f5e9', color: '#1b5e20', fontWeight: 600, fontSize: 11, padding: '5px 10px', borderRadius: 12 }}>
-            Worked {worked}
-          </span>
-        ) : null}
+        {worked ? <ToneChip dense tone='success' label={`Worked ${worked}`} /> : null}
       </div>
 
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -311,15 +323,53 @@ function ExpandedDetail({
   splitStatus,
   workflowType,
   details,
+  canDecide,
+  onDecide,
 }: {
   instanceId: string;
   splitStatus?: 1 | 2;
   workflowType?: string;
   details?: RequestDetails | null;
+  canDecide?: boolean;
+  onDecide?: (segmentId: string, decision: 'approved' | 'rejected') => void;
 }) {
+  const segments = details?.segments ?? [];
+  const isGroupLeave = workflowType === 'leave' && segments.length > 1;
   return (
     <div style={{ padding: '16px 20px', background: '#fafafa', borderTop: '1px solid #eff2f5' }}>
       {workflowType === 'attendance' && details ? <AttendanceDetailCard details={details} /> : null}
+
+      {/* Per-segment decisions (bifurcation): an approver may approve/reject each segment of a
+          grouped leave independently; the whole-group Approve/Reject still acts on what's left pending. */}
+      {isGroupLeave && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase', color: '#a1a5b7', marginBottom: 8 }}>Segments</div>
+          <div className='d-flex flex-column gap-2'>
+            {segments.map((s, i) => {
+              const pending = (s.status ?? 0) === 0;
+              return (
+                <div key={s.id ?? i} className='d-flex align-items-center gap-2 flex-wrap' style={{ padding: '8px 12px', border: '1px solid #eceef0', borderRadius: 9, background: '#fff' }}>
+                  <span className='fw-semibold fs-8'>{s.leaveType ?? 'Leave'}</span>
+                  <span className='fs-8 text-muted'>{typeof s.days === 'number' ? `${s.days}d` : ''}</span>
+                  <span className={`badge fs-8 ${s.isPaid ? 'badge-light-success text-success' : 'badge-light-danger text-danger'}`}>{s.isPaid ? 'Paid' : 'Unpaid'}</span>
+                  <span className='ms-auto'>
+                    {s.status === 1 && <span className='badge badge-light-success text-success fs-8'>✓ Approved</span>}
+                    {s.status === 2 && <span className='badge badge-light-danger text-danger fs-8'>✕ Rejected</span>}
+                    {pending && canDecide && s.id && onDecide && (
+                      <span className='d-inline-flex gap-2'>
+                        <button className='btn btn-sm btn-light-success py-1 px-3 fs-8' onClick={() => onDecide(s.id!, 'approved')}>Approve</button>
+                        <button className='btn btn-sm btn-light-danger py-1 px-3 fs-8' onClick={() => onDecide(s.id!, 'rejected')}>Reject</button>
+                      </span>
+                    )}
+                    {pending && !canDecide && <span className='badge badge-light-warning text-warning fs-8'>Pending</span>}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <ApprovalStatusTracker
         instanceId={instanceId}
         showAuditLog
@@ -340,6 +390,8 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<ApprovalStep | null>(null);
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
+  /** Row-click detail — the registry resolves WHICH component renders it. */
+  const [detailStep, setDetailStep] = useState<DisplayStep | null>(null);
   const [batchDetailId, setBatchDetailId] = useState<string | null>(null);
   const [batchDetailInstanceId, setBatchDetailInstanceId] = useState<string | null>(null);
   const [batchDetailsMap, setBatchDetailsMap] = useState<Record<string, BatchStatusSummary>>({});
@@ -416,12 +468,17 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
 
   useEffect(() => { load(activeTab); }, [activeTab]);
 
-  // Auto-refresh when a new approval is pending for this approver
+  // Auto-refresh when a new approval is pending for this approver, or when a request is
+  // withdrawn/cancelled by the requester (so orphaned rows disappear live).
   useEffect(() => {
     const socket = getSocket();
     const handler = () => load();
     socket.on('approval:pending', handler);
-    return () => { socket.off('approval:pending', handler); };
+    socket.on('approval:cancelled', handler);
+    return () => {
+      socket.off('approval:pending', handler);
+      socket.off('approval:cancelled', handler);
+    };
   }, [load]);
 
   const approve = async (step: ApprovalStep) => {
@@ -524,7 +581,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         const segments = row.original.requestDetails?.segments;
 
         let label: string;
-        let color: string;
+        let color: string | undefined;
 
         // Attendance: a clean, labelled punch stack (Check-In / Check-Out + times) reads far
         // better than a generic "Regularization" badge and tells the approver exactly what's
@@ -541,16 +598,22 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           return (
             <div className='d-flex flex-wrap gap-1'>
               {segments.map((seg, i) => (
-                <span key={`${seg.leaveType}-${i}`} className='badge' style={{
-                  backgroundColor: getLeaveTypeColor(seg.leaveType ?? ''), color: 'white', fontWeight: 500,
-                  fontSize: 10, padding: '4px 7px', borderRadius: 10,
-                }}>
-                  {seg.leaveType ?? 'Leave'}{typeof seg.days === 'number' ? ` (${seg.days}d)` : ''}
-                </span>
+                <ToneChip
+                  key={`${seg.leaveType}-${i}`}
+                  dense
+                  color={getLeaveTypeColor(seg.leaveType ?? '')}
+                  label={`${seg.leaveType ?? 'Leave'}${typeof seg.days === 'number' ? ` (${seg.days}d)` : ''}`}
+                />
               ))}
             </div>
           );
         }
+
+        // Identity colour (admin-configured leave type) vs semantic tone (approved/rejected).
+        // Anything unregistered falls back to the domain registry's own label/tone — so a new
+        // workflow type renders correctly without touching this cell.
+        const domain = getApprovalDomain(type);
+        let tone: SemanticTone | undefined;
 
         if (type === 'leave' && subType) {
           label = subType;
@@ -561,25 +624,17 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             label = ds._splitStatus === 1
               ? `Approved (${ds._splitCount ?? 0})`
               : `Rejected (${ds._splitCount ?? 0})`;
-            color = ds._splitStatus === 1 ? '#10b981' : '#ef4444';
+            tone = ds._splitStatus === 1 ? 'success' : 'danger';
           } else {
             label = subType ?? 'Reimbursement';
             color = REIMBURSEMENT_BADGE_COLOR;
           }
         } else {
-          label = subType ?? type;
-          color = '#a1a5b7';
+          label = subType ?? domain?.label ?? type;
+          tone = domain?.tone ?? 'neutral';
         }
 
-        return (
-          <span className='badge' style={{
-            backgroundColor: color, color: 'white', fontWeight: 500,
-            fontSize: 11, padding: '5px 8px', borderRadius: 12,
-            display: 'inline-block', minWidth: 60, textAlign: 'center',
-          }}>
-            {label}
-          </span>
-        );
+        return <ToneChip label={label} color={color} tone={tone} sx={{ minWidth: 60 }} />;
       },
     },
     {
@@ -679,50 +734,50 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
 
         // Awaiting others or completed — read-only
         if (activeTab === 'awaiting') {
-          return (
-            <span className='badge badge-light-warning fw-semibold fs-8'>
-              Awaiting L{step.instance.currentLevel}
-            </span>
-          );
+          return <ToneChip dense tone='warning' label={`Awaiting L${step.instance.currentLevel}`} />;
         }
         if (activeTab === 'completed') {
           const ds = step as DisplayStep;
           const isApproved = ds._splitStatus === 1 || (ds._splitStatus == null && step.instance.status === 'approved');
           return (
-            <span className={`badge ${isApproved ? 'badge-light-success' : 'badge-light-danger'} fw-semibold fs-8`}>
-              {isApproved ? 'Approved' : 'Rejected'}
-            </span>
+            <ToneChip
+              dense
+              tone={isApproved ? 'success' : 'danger'}
+              label={isApproved ? 'Approved' : 'Rejected'}
+            />
           );
         }
 
-        // Pending tab — show delegation badge if applicable
+        // Pending tab — show delegation chip if applicable
         return (
           <div className='d-flex align-items-center gap-1 flex-wrap'>
             {step.delegatedFrom && (
-              <span className='badge badge-light-info fw-semibold fs-9 mb-1 w-100' title={`Delegated from ${step.delegatedFrom}`}>
-                🔄 {step.delegatedFrom}
-              </span>
+              <ToneChip
+                dense
+                tone='cyan'
+                label={step.delegatedFrom}
+                title={`Delegated from ${step.delegatedFrom}`}
+                sx={{ width: '100%', mb: 0.5 }}
+              />
             )}
-            <button
-              className='btn btn-icon btn-sm'
+            <WtIconButton
+              color={tonePair('success').fg}
               title='Approve'
               disabled={isProcessing}
-              onClick={(e) => { e.stopPropagation(); approve(step); }}
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); approve(step); }}
             >
-              {isProcessing ? (
-                <span className='spinner-border spinner-border-sm text-success' />
-              ) : (
-                <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='' />
-              )}
-            </button>
-            <button
-              className='btn btn-icon btn-sm'
+              {isProcessing
+                ? <CircularProgress size={14} sx={{ color: tonePair('success').fg }} />
+                : <KTIcon iconName='check' className='fs-4' />}
+            </WtIconButton>
+            <WtIconButton
+              color={tonePair('danger').fg}
               title='Reject'
               disabled={isProcessing}
-              onClick={(e) => { e.stopPropagation(); setRejectTarget(step); }}
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); setRejectTarget(step); }}
             >
-              <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='' />
-            </button>
+              <KTIcon iconName='cross' className='fs-4' />
+            </WtIconButton>
           </div>
         );
       },
@@ -816,15 +871,29 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             splitStatus={(row.original as DisplayStep)._splitStatus}
             workflowType={row.original.instance.workflowType}
             details={row.original.requestDetails}
+            canDecide={canApprove && activeTab === 'pending' && !(row.original as DisplayStep)._splitStatus}
+            onDecide={async (segmentId, decision) => {
+              try {
+                await decideLeaveSegment(segmentId, decision);
+                await load();
+              } catch (err) {
+                console.error('Per-segment decision failed', err);
+              }
+            }}
           />
         )}
         muiTableProps={{
           muiTableBodyRowProps: ({ row }: any) => ({
             onClick: () => {
               const ds = row.original as DisplayStep;
-              setBatchDetailId(ds.instance.requestId);
-              setBatchDetailInstanceId(ds.instance.id);
-              setBatchDetailFilterStatus(ds._splitStatus ?? null);
+              // Each workflow opens its OWN canonical detail (registry) — leave → ApplyLeave,
+              // reimbursement → BatchDetailModal. A domain with no registered Detail (attendance,
+              // task, …) carries its detail in the expandable panel, so click toggles that.
+              if (getApprovalDomain(ds.instance.workflowType)?.Detail) {
+                setDetailStep(ds);
+                return;
+              }
+              row.toggleExpanded?.();
             },
             sx: { cursor: 'pointer' },
           }),
@@ -838,6 +907,28 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         submitting={rejectSubmitting}
       />
 
+      {/* Domain-resolved detail: each workflow renders its own canonical component. */}
+      {detailStep && (() => {
+        const Detail = getApprovalDomain(detailStep.instance.workflowType)?.Detail;
+        if (!Detail) return null;
+        return (
+          <Detail
+            step={detailStep}
+            canEdit={canApprove}
+            // Decide-in-modal only where the row's own ✓/✕ would act: the Pending tab, with the
+            // permission. Approve reuses the queue handler then closes; Reject closes then opens the
+            // existing reason modal (which owns the reject API call) — no z-index fight, one path.
+            canDecide={canApprove && activeTab === 'pending' && !detailStep._splitStatus}
+            onApprove={() => { const s = detailStep; setDetailStep(null); approve(s); }}
+            onReject={() => { const s = detailStep; setDetailStep(null); setRejectTarget(s); }}
+            onClose={() => setDetailStep(null)}
+            onDone={() => load(activeTab)}
+          />
+        );
+      })()}
+
+      {/* The reimbursement "Total Requests" cell opens the batch modal directly (drill-in to a
+          split sub-set), independent of the row-click detail above. */}
       <BatchDetailModal
         batchId={batchDetailId}
         onClose={() => { setBatchDetailId(null); setBatchDetailInstanceId(null); setBatchDetailFilterStatus(null); }}

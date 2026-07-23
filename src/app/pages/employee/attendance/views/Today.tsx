@@ -1,6 +1,7 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import Identifiers from "@app/modules/common/utils/Identifiers";
 import { KTIcon } from "@metronic/helpers";
+import { WtIconButton, TRIO } from "@app/modules/common/components/ui/tw";
 import { ITodayAttendance } from "@models/employee";
 import { MRT_ColumnDef } from "material-react-table";
 import { useMemo, useState } from "react";
@@ -79,14 +80,9 @@ function Today() {
             accessorKey: "actions",
             header: "Actions",
             Cell: ({ row }: any) =>
-                <div>
-                    <button
-                        className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
-                        onClick={() => {}}
-                    >
-                        <KTIcon iconName='pencil' className='fs-3' />
-                    </button>
-                </div>
+                <WtIconButton title="Edit" color={TRIO.blue.c} onClick={() => {}} size={34}>
+                    <KTIcon iconName='pencil' className='fs-4' />
+                </WtIconButton>
         }
     ], []);
 

@@ -6,7 +6,8 @@ import { resourseAndView } from '@models/company';
 import { fetchConfiguration } from '@services/company';
 import { DATE_SETTINGS_KEY, DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { useEffect, useState } from 'react';
-import { Container } from 'react-bootstrap';
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { IconBox, TRIO, Spinner } from '@app/modules/common/components/ui/tw';
 import { setFeatureConfiguration } from '@redux/slices/featureConfiguration';
 import { useDispatch } from 'react-redux';
 
@@ -99,16 +100,17 @@ const MyAttendanceView = ({ fromAdmin = false, resourseAndView, checkOwnWithOthe
     };
 
     if (isLoading) {
-        return <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
-                    <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                    </div>
-                </Container>
+        return <div className="my-4 w-full flex justify-center items-center min-h-[300px]">
+                    <Spinner size={40} />
+                </div>
     }
 
     return (
         <>
-            <h3 className="fw-bold fs-1 mb-6 font-barlow">My Attendance</h3>
+            <div className="flex items-center gap-3 mb-6">
+                <IconBox icon="time" trio={TRIO.blue} size={44} fs="fs-1" />
+                <h3 className="fw-bold fs-1 mb-0 font-barlow">My Attendance</h3>
+            </div>
             <AttendanceGraphicalToggle 
                 toggleItemsActions={toggleItemsActions} 
                 fromAdmin={fromAdmin} 

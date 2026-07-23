@@ -6,9 +6,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { ATTENDANCE_STATUS, LEAVE_STATUS, LeaveStatus } from "@constants/attendance";
 import { RootState, store } from "@redux/store";
 import { Attendance, IAttendance, ILeaves } from "@models/employee";
-import { KTCard, KTCardBody } from "@metronic/helpers";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassCard, Spinner } from "@app/modules/common/components/ui/tw";
 import { fetchAttendanceDetails, fetchEmployeeLeaves, getAttendanceRequest } from "@services/employee";
-import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, getWeekDay, isDateAfterOrSameAsEmployeeOnboardingDate, isDateBeforeOrSameAsCurrDate } from "@utils/date";
+import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, getWeekDay, isDateAfterOrSameAsEmployeeOnboardingDate, isDateBeforeOrSameAsCurrDate, MUMBAI_TZ as mumbaiTz } from "@utils/date";
 import { saveCoordinates, savePersonalAttendance, toggleLocationPermission } from "@redux/slices/attendance";
 import { savePersonalLeaves } from "@redux/slices/leaves";
 import AttendanceCalendar from "./views/overview/AttendanceCalendar";
@@ -58,9 +59,6 @@ interface LeaveResponse {
         };
     };
 }
-
-//TODO: Pull timezone and date format settings from db
-const mumbaiTz = 'Asia/Kolkata';
 
 export const transformAttendance = (dates: FormattedDate[], attendance: Attendance[], leaves: any[] = [], publicHolidays: any[] = []): IAttendance[] => {
     
@@ -331,7 +329,15 @@ function OverviewView() {
             dispatch(saveToggleChange(!store.getState().attendanceStats.toggleChange));
         };
         socket.on('approval:updated', handler);
-        return () => { socket.off('approval:updated', handler); };
+        socket.on('approval:cancelled', handler);
+        // Also refresh on a leave apply/edit/delete anywhere (admin or another session) so the
+        // attendance calendar's leave-derived days stay live even without an approval decision.
+        socket.on('leaveRequests:updated', handler);
+        return () => {
+            socket.off('approval:updated', handler);
+            socket.off('approval:cancelled', handler);
+            socket.off('leaveRequests:updated', handler);
+        };
     }, []);
 
     const checkInCheckOut = useSelector((state: RootState) => state.attendance.openModal);
@@ -386,18 +392,14 @@ function OverviewView() {
                 </div>
                 
                 <div className="col-lg-5">
-                    <KTCard className="h-100">
-                        <KTCardBody>
-                            <MarkAttendance />
-                        </KTCardBody>
-                    </KTCard>
+                    <GlassCard preset="section" className="h-full p-3 sm:p-4">
+                        <MarkAttendance />
+                    </GlassCard>
                 </div>
             </div>
             <Suspense fallback={
                 <div className="d-flex justify-content-center align-items-center mt-8" style={{ minHeight: '200px' }}>
-                    <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Loading statistics...</span>
-                    </div>
+                    <Spinner size={40} />
                 </div>
             }>
                 <AttendanceGraphicalOverview />

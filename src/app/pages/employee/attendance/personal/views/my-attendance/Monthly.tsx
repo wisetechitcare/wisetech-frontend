@@ -19,7 +19,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
-import { Container, Row } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { resourseAndView } from '@models/company';
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
@@ -397,7 +396,7 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
 
     return (
         <>
-            <Row className="mt-7">
+            <div className="row mt-7">
                 <Donut donutLabels={donutLabels} donutSeries={donutSeries} totalDays={actualTotalWorkingDay} />
                 <MultipleRadialBar multipleRadialBarLabels={multipleRadialBarLabels} multipleRadialBarSeries={multipleRadialBarSeries} totalWorkingDays={actualTotalWorkingDay} />
                 <Polar polarLabels={polarLabels} polarSeries={polarSeries} totalDays={actualTotalWorkingDay} />
@@ -407,7 +406,7 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
                     lastStreak={allStreaksIndicator(filteredMonthlyStats, isCurrentMonth)[1].toString()} 
                     totalDays={actualTotalWorkingDay} />
                 <TotalWorkingTime totalWorkingTime={calculateTotalDuration(filteredMonthlyStats)} totalAllowedTime={totalAllowedTimeForOutOffValue} />
-            </Row>
+            </div>
 
             <Dumbell dumbellSeriesData={dumbellSeriesData} height={250} totalWorkedDays={totalWorkedDays} totalDays={actualTotalWorkingDay} />
             <Bar barOption={barOption} barSeriesData={barSeriesData} height={250} totalWorkingTime={calculateTotalDuration(filteredMonthlyStats)} totalAllowedTime={totalAllowedTime} />

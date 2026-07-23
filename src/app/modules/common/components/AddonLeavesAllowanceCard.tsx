@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { KTCard, KTCardBody } from '@metronic/helpers';
-import { 
+import { KTIcon } from '@metronic/helpers';
+// Shared glass UI kit — single source of truth for the leave-management look.
+import { GlassCard, WtButton, IconBox, StatusBadge, Spinner, TRIO } from "@app/modules/common/components/ui/tw";
+import {
     fetchAllAddonLeavesAllowances,
-    IAddonLeavesAllowance 
+    IAddonLeavesAllowance
 } from "@services/addonLeavesAllowance";
-import { Modal } from "react-bootstrap";
-import AddonLeavesAllowanceForm from "./AddonLeavesAllowanceForm";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import AddonLeavesModal from "@app/pages/employee/attendance/AttendanceConfig/component/AddonLeavesModal";
 
 interface AddonLeavesAllowanceCardProps {
     onCardClick?: () => void;
@@ -43,7 +44,7 @@ function AddonLeavesAllowanceCard({ onCardClick }: AddonLeavesAllowanceCardProps
 
     const handleConfigClose = () => {
         setShowConfigModal(false);
-        loadAllowances(); // Refresh data after closing modal
+        loadAllowances();
     };
 
     const getAllowanceByExperience = (experience: number) => {
@@ -52,138 +53,78 @@ function AddonLeavesAllowanceCard({ onCardClick }: AddonLeavesAllowanceCardProps
 
     return (
         <>
-            <KTCard>
-                <KTCardBody className='py-8'>
-                    <div className="d-flex justify-content-between align-items-center mb-4">
-                        <div>
-                            <h3 className="fw-bolder text-dark mb-1">Addon Leaves Allowance</h3>
-                            <div className="text-muted fw-bold fs-6">
+            <GlassCard preset="section" className="sm:p-6">
+                <div className="flex justify-between items-start sm:items-center gap-4 mb-5 flex-wrap">
+                    <div className="flex items-start gap-3 min-w-0">
+                        <IconBox icon="calendar-add" trio={TRIO.blue} size={44} fs="fs-1" />
+                        <div className="min-w-0">
+                            <p className="font-bold text-[18px] text-slate-900 m-0">Addon Leaves Allowance</p>
+                            <p className="text-[14px] text-slate-500 mt-0.5 m-0">
                                 Configure additional leave days based on employee experience
-                            </div>
-                        </div>
-                        <button
-                            className="btn btn-sm btn-primary"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setShowConfigModal(true);
-                            }}
-                        >
-                            <i className="ki-duotone ki-setting-2 fs-2">
-                                <span className="path1"></span>
-                                <span className="path2"></span>
-                            </i>
-                            Configure
-                        </button>
-                    </div>
-
-                    {loading ? (
-                        <div className="text-center py-5">
-                            <div className="spinner-border spinner-border-lg text-primary" role="status">
-                                <span className="visually-hidden">Loading...</span>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="row g-3">
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((experience) => {
-                                const addonLeaves = getAllowanceByExperience(experience);
-                                const isConfigured = allowances.some(a => a.experienceInCompany === experience);
-                                
-                                return (
-                                    <div key={experience} className="col-md-6 col-lg-4">
-                                        <div className={`card card-custom card-stretch ${
-                                            isConfigured ? 'border-success' : 'border-warning'
-                                        }`}>
-                                            <div className="card-body text-center py-4">
-                                                <div className={`symbol symbol-50px symbol-circle mb-3 ${
-                                                    isConfigured ? 'bg-light-success' : 'bg-light-warning'
-                                                }`}>
-                                                    <span className={`fw-bolder fs-2 ${
-                                                        isConfigured ? 'text-success' : 'text-warning'
-                                                    }`}>
-                                                        {experience === 11 ? '10+' : experience}
-                                                    </span>
-                                                </div>
-                                                
-                                                <div className="fw-bolder text-dark fs-6 mb-1">
-                                                    {experience === 11 ? '10+ Years Experience' : `${experience} Year${experience > 1 ? 's' : ''} Experience`}
-                                                </div>
-                                                
-                                                <div className={`fw-bold fs-4 ${
-                                                    isConfigured ? 'text-success' : 'text-muted'
-                                                }`}>
-                                                    {addonLeaves} 
-                                                    <span className="fs-6 text-muted ms-1">
-                                                        addon leave{addonLeaves !== 1 ? 's' : ''}
-                                                    </span>
-                                                </div>
-                                                
-                                                <div className={`badge ${
-                                                    isConfigured ? 'badge-light-success' : 'badge-light-warning'
-                                                } mt-2`}>
-                                                    {isConfigured ? 'Configured' : 'Not Configured'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {!loading && allowances.length === 0 && (
-                        <div className="text-center py-5">
-                            <div className="symbol symbol-100px symbol-circle bg-light-warning mb-4">
-                                <i className="ki-duotone ki-information-5 fs-2hx text-warning">
-                                    <span className="path1"></span>
-                                    <span className="path2"></span>
-                                    <span className="path3"></span>
-                                </i>
-                            </div>
-                            <h4 className="fw-bolder text-dark mb-2">No Configuration Found</h4>
-                            <p className="text-muted mb-4">
-                                No addon leaves allowance has been configured yet. 
-                                Click the "Configure" button to set up addon leaves for different experience levels.
                             </p>
-                            <button
-                                className="btn btn-primary"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowConfigModal(true);
-                                }}
-                            >
-                                Configure Now
-                            </button>
                         </div>
-                    )}
+                    </div>
+                    <WtButton
+                        onClick={(e) => { e.stopPropagation(); setShowConfigModal(true); }}
+                        startIcon={<KTIcon iconName="setting-2" className="fs-5 text-white" />}
+                        className="w-full sm:w-auto"
+                    >
+                        Configure
+                    </WtButton>
+                </div>
 
-                    {!loading && allowances.length > 0 && (
-                        <div className="alert alert-primary d-flex align-items-center mt-4">
-                            <i className="ki-duotone ki-information-5 fs-2hx text-primary me-4">
-                                <span className="path1"></span>
-                                <span className="path2"></span>
-                                <span className="path3"></span>
-                            </i>
-                            <div className="d-flex flex-column">
-                                <h4 className="mb-1 text-dark">How Addon Leaves Work</h4>
-                                <span>
-                                    Employees receive additional leave days based on their years of experience in the company. 
-                                    These addon leaves are calculated automatically and added to their base leave allowance.
-                                </span>
-                            </div>
+                {loading ? (
+                    <div className="text-center py-10">
+                        <Spinner size={40} />
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((experience) => {
+                            const addonLeaves = getAllowanceByExperience(experience);
+                            const isConfigured = allowances.some(a => a.experienceInCompany === experience && a.addonLeavesCount > 0);
+                            const trio = isConfigured ? TRIO.green : TRIO.slate;
+
+                            return (
+                                <GlassCard key={experience} preset="tile" accentEdge={isConfigured ? "green" : false}
+                                    className="text-center py-5 px-3">
+                                    <div className="w-[50px] h-[50px] rounded-full mx-auto mb-3 grid place-items-center border font-extrabold text-[20px]"
+                                        style={{ backgroundColor: trio.bg, borderColor: trio.bd, color: trio.c }}>
+                                        {experience === 11 ? "10+" : experience}
+                                    </div>
+                                    <p className="font-bold text-[13.5px] text-slate-900 mb-1 m-0">
+                                        {experience === 11 ? "10+ Years Experience" : `${experience} Year${experience > 1 ? "s" : ""} Experience`}
+                                    </p>
+                                    <p className="font-bold text-[18px] text-slate-500 m-0" style={isConfigured ? { color: TRIO.green.c } : undefined}>
+                                        {addonLeaves}
+                                        <span className="text-[13px] text-slate-500 ml-1">
+                                            addon leave{addonLeaves !== 1 ? "s" : ""}
+                                        </span>
+                                    </p>
+                                    <div className="mt-2 flex justify-center">
+                                        <StatusBadge trio={trio} label={isConfigured ? "Configured" : "Default (0)"} />
+                                    </div>
+                                </GlassCard>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {!loading && allowances.length > 0 && (
+                    <GlassCard preset="row" accentEdge="blue" className="mt-5 flex items-start gap-3">
+                        <IconBox icon="information-5" trio={TRIO.blue} size={38} fs="fs-3" />
+                        <div>
+                            <p className="font-bold text-[14px] text-slate-900 mb-0.5 m-0">How Addon Leaves Work</p>
+                            <p className="text-[13px] text-slate-500 leading-normal m-0">
+                                Employees receive additional leave days based on their years of experience in the company.
+                                These addon leaves are calculated automatically and added to their base leave allowance.
+                            </p>
                         </div>
-                    )}
-                </KTCardBody>
-            </KTCard>
+                    </GlassCard>
+                )}
+            </GlassCard>
 
-            {/* Configuration Modal */}
-            <Modal show={showConfigModal} onHide={handleConfigClose} size="lg" centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>Configure Addon Leaves Allowance</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <AddonLeavesAllowanceForm onClose={handleConfigClose} />
-                </Modal.Body>
-            </Modal>
+            {/* Self-contained Glass Dialog */}
+            <AddonLeavesModal open={showConfigModal} onClose={handleConfigClose} />
         </>
     );
 }

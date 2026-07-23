@@ -210,13 +210,56 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
   const handleSync = async (d: IBiometricDevice) => {
     setAction(d.id, 'sync');
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const res = await syncDeviceById(d.id, { fromDate: today, toDate: today });
+      // No fromDate/toDate — the backend already resolves "today" in THIS device's
+      // own branch timezone (syncDevice handler). Computing "today" here from the
+      // browser's UTC clock could pick the WRONG calendar day for a branch far from
+      // the admin's own timezone; let the one already-correct source of truth own it.
+      const res = await syncDeviceById(d.id);
       await reload();
       toast({ icon: 'success', title: 'Sync Complete', text: `${res.count} record(s) synced`, timer: 2500 });
     } catch (err: any) {
       alertDialog({ icon: 'error', title: 'Sync Failed', text: err?.response?.data?.message ?? err?.message });
     } finally { setAction(d.id, null); }
+  };
+
+  // Backfill a past date range from the ESSL bio-server — the automated cron and
+  // the quick "Sync" button above both only ever pull TODAY (by design, for
+  // near-real-time backfill of missed live punches). A punch that's correct on the
+  // device but missing from the app because push AND the daily pull both missed it
+  // on some earlier day needs an explicit past-date re-pull — this is that path,
+  // wired to the SAME already-correct backend endpoint (POST .../sync accepts
+  // fromDate/toDate; the automated paths just never passed anything but today).
+  const [backfillTarget, setBackfillTarget] = useState<IBiometricDevice | null>(null);
+  const [backfillDates, setBackfillDates] = useState({ fromDate: '', toDate: '' });
+  const [backfillSubmitting, setBackfillSubmitting] = useState(false);
+
+  const openBackfill = (d: IBiometricDevice) => {
+    const today = new Date().toISOString().split('T')[0];
+    setBackfillDates({ fromDate: today, toDate: today });
+    setBackfillTarget(d);
+  };
+  const closeBackfill = () => { setBackfillTarget(null); setBackfillDates({ fromDate: '', toDate: '' }); };
+
+  const handleBackfill = async () => {
+    if (!backfillTarget) return;
+    const { fromDate, toDate } = backfillDates;
+    if (!fromDate || !toDate) {
+      alertDialog({ icon: 'error', title: 'Pick both dates', text: 'A from and to date are both required.' });
+      return;
+    }
+    if (fromDate > toDate) {
+      alertDialog({ icon: 'error', title: 'Invalid range', text: 'From date must be on or before the to date.' });
+      return;
+    }
+    setBackfillSubmitting(true);
+    try {
+      const res = await syncDeviceById(backfillTarget.id, { fromDate, toDate });
+      await reload();
+      toast({ icon: 'success', title: 'Backfill Complete', text: `${res.count} record(s) synced for ${fromDate} → ${toDate}`, timer: 3000 });
+      closeBackfill();
+    } catch (err: any) {
+      alertDialog({ icon: 'error', title: 'Backfill Failed', text: err?.response?.data?.message ?? err?.message });
+    } finally { setBackfillSubmitting(false); }
   };
 
   const handleToggle = async (d: IBiometricDevice) => {
@@ -276,6 +319,13 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
           <Tooltip title="Pull today's logs">
             <span><IconButton sx={btnSx(T.color.success)} disabled={busy(d.id)} onClick={() => handleSync(d)}>
               {actionLoading[d.id] === 'sync' ? <CircularProgress size={18} /> : <KTIcon iconName="arrows-circle" className="fs-3" />}
+            </IconButton></span>
+          </Tooltip>
+        )}
+        {d.connectionMode !== 'PUSH' && (
+          <Tooltip title="Backfill a past date — pull logs the device already has for a date the app missed">
+            <span><IconButton sx={btnSx(T.color.cyan)} disabled={busy(d.id)} onClick={() => openBackfill(d)}>
+              <KTIcon iconName="calendar" className="fs-3" />
             </IconButton></span>
           </Tooltip>
         )}
@@ -585,6 +635,68 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
         )}
       </Box>
     </Drawer>
+
+    {/* Backfill dialog — sits ABOVE the device Dialog, same reasoning as the
+        sync-history Drawer above. */}
+    <Dialog
+      open={!!backfillTarget}
+      onClose={backfillSubmitting ? undefined : closeBackfill}
+      maxWidth="xs"
+      fullWidth
+      sx={{ zIndex: (theme) => theme.zIndex.modal + 2 }}
+      PaperProps={{ sx: { borderRadius: '14px' } }}
+    >
+      <Box sx={{ px: 2.25, py: 1.75, background: 'linear-gradient(135deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)', borderBottom: '3px solid #3B82F6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 750, fontSize: 15, color: '#fff' }}>Backfill Past Punches</Typography>
+          <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{backfillTarget?.name}</Typography>
+        </Box>
+        <IconButton onClick={closeBackfill} disabled={backfillSubmitting} size="small" aria-label="Close" sx={{ color: '#fff' }}><KTIcon iconName="cross" className="fs-3" /></IconButton>
+      </Box>
+      <Box sx={{ p: 2.25 }}>
+        <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mb: 2 }}>
+          Re-pulls attendance logs the device already has for the date range below —
+          use this when a punch is correct on the biometric device but never made it
+          into the app (the automated sync only ever checks today).
+        </Typography>
+        <Stack direction="row" spacing={1.5} sx={{ mb: 1 }}>
+          <TextField
+            label="From date"
+            type="date"
+            size="small"
+            fullWidth
+            value={backfillDates.fromDate}
+            onChange={(e) => setBackfillDates(prev => ({ ...prev, fromDate: e.target.value }))}
+            InputLabelProps={{ shrink: true }}
+            disabled={backfillSubmitting}
+            inputProps={{ max: new Date().toISOString().split('T')[0] }}
+          />
+          <TextField
+            label="To date"
+            type="date"
+            size="small"
+            fullWidth
+            value={backfillDates.toDate}
+            onChange={(e) => setBackfillDates(prev => ({ ...prev, toDate: e.target.value }))}
+            InputLabelProps={{ shrink: true }}
+            disabled={backfillSubmitting}
+            inputProps={{ max: new Date().toISOString().split('T')[0] }}
+          />
+        </Stack>
+        <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2.5 }}>
+          <Button onClick={closeBackfill} disabled={backfillSubmitting} sx={{ textTransform: 'none' }}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleBackfill}
+            disabled={backfillSubmitting}
+            startIcon={backfillSubmitting ? <CircularProgress size={16} color="inherit" /> : undefined}
+            sx={{ textTransform: 'none' }}
+          >
+            {backfillSubmitting ? 'Backfilling…' : 'Backfill'}
+          </Button>
+        </Stack>
+      </Box>
+    </Dialog>
     </>
   );
 }

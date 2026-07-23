@@ -17,8 +17,9 @@ import { formatDateFromISTString } from "@utils/statistics";
 import { pageSize, useServerPagination } from "@hooks/useServerPagination";
 import Loader from "@app/modules/common/utils/Loader";
 import { fetchColorAndStoreInSlice, generateFiscalYearFromGivenYear } from "@utils/file";
-import { Modal } from "react-bootstrap";
-import LeaveRequestForm from "@pages/employee/attendance/personal/views/my-leaves/LeaveRequestForm";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassDialog, GlassHeader, WtIconButton, IconBox, TRIO, Spinner } from "@app/modules/common/components/ui/tw";
+import ApplyLeave from "@pages/employee/attendance/personal/views/my-leaves/ApplyLeave";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import dayjs from "dayjs";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
@@ -164,24 +165,17 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
         {
             accessorKey: "type",
             header: "Leave Type",
-            Cell: ({ renderedCellValue }: any) => (
-                <span
-                    className="badge"
-                    style={{
-                        backgroundColor: getLeaveTypeColor(renderedCellValue),
-                        color: 'white',
-                        fontWeight: '500',
-                        fontSize: '11px',
-                        padding: '5px 8px',
-                        borderRadius: '12px',
-                        display: 'inline-block',
-                        minWidth: '60px',
-                        textAlign: 'center'
-                    }}
-                >
-                    {renderedCellValue}
-                </span>
-            )
+            Cell: ({ renderedCellValue }: any) => {
+                const c = getLeaveTypeColor(renderedCellValue);
+                return (
+                    <span
+                        className="inline-block min-w-[60px] text-center font-bold text-[11px] px-2 py-1 rounded-full border"
+                        style={{ color: c, backgroundColor: `${c}1a`, borderColor: `${c}3d` }}
+                    >
+                        {renderedCellValue}
+                    </span>
+                );
+            }
         },
         {
             accessorKey: "remark",
@@ -203,18 +197,20 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
                 const name = isApproved ? approvedByName : isRejected ? rejectedByName : null;
                 const date = updatedAt ? dayjs(updatedAt).format('DD MMM YYYY, hh:mm A') : null;
 
-                if (!name) return <span className='text-muted fs-7'>-NA-</span>;
+                if (!name) return <span className="text-slate-400 text-[12.5px]">-NA-</span>;
 
+                const trio = isApproved ? TRIO.green : TRIO.rose;
                 return (
-                    <div className='d-flex align-items-center gap-2'>
-                        <div className='symbol symbol-30px'>
-                            <span className={`symbol-label fw-bold fs-7 ${isApproved ? 'bg-light-success text-success' : 'bg-light-danger text-danger'}`}>
-                                {name.charAt(0).toUpperCase()}
-                            </span>
+                    <div className="flex items-center gap-2">
+                        <div
+                            className="w-[30px] h-[30px] rounded-lg shrink-0 grid place-items-center font-extrabold text-[12.5px]"
+                            style={{ color: trio.c, backgroundColor: trio.bg, borderColor: trio.bd, borderWidth: 1, borderStyle: 'solid' }}
+                        >
+                            {name.charAt(0).toUpperCase()}
                         </div>
-                        <div className='d-flex flex-column'>
-                            <span className='text-dark fw-semibold fs-7'>{name}</span>
-                            {date && <span className='text-muted fs-8'>{date}</span>}
+                        <div className="flex flex-col min-w-0">
+                            <span className="text-slate-900 font-semibold text-[12.5px] leading-[1.3]">{name}</span>
+                            {date && <span className="text-slate-500 text-[11px]">{date}</span>}
                         </div>
                     </div>
                 );
@@ -233,33 +229,21 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
                 const isFutureOrToday = dateTo >= new Date(today.setHours(0, 0, 0, 0));
 
                 return (
-                    <div className='d-flex align-items-center gap-1'>
+                    <div className="flex items-center gap-1.5">
                         {editRes && (
-                            <button
-                                title="Edit Leave"
-                                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                                onClick={() => handleEditClick(row)}
-                            >
-                                <KTIcon iconName="pencil" className="fs-3" />
-                            </button>
+                            <WtIconButton title="Edit Leave" color={TRIO.blue.c} onClick={() => handleEditClick(row)} size={34}>
+                                <KTIcon iconName="pencil" className="fs-4" />
+                            </WtIconButton>
                         )}
                         {deleteRes && isApproved && isFutureOrToday && (
-                            <button
-                                title="Revoke Leave"
-                                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                                onClick={() => deleteLeaveRequest(row.original.id)}
-                            >
-                                <KTIcon iconName="trash" className="fs-3" />
-                            </button>
+                            <WtIconButton title="Revoke Leave" color={TRIO.rose.c} onClick={() => deleteLeaveRequest(row.original.id)} size={34}>
+                                <KTIcon iconName="trash" className="fs-4" />
+                            </WtIconButton>
                         )}
                         {pending && row.original.hasApprovalInstance && (
-                            <button
-                                title="Track Approval"
-                                className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
-                                onClick={() => openTracker(row.original.id)}
-                            >
-                                <KTIcon iconName="map" className="fs-3" />
-                            </button>
+                            <WtIconButton title="Track Approval" color={TRIO.cyan.c} onClick={() => openTracker(row.original.id)} size={34}>
+                                <KTIcon iconName="map" className="fs-4" />
+                            </WtIconButton>
                         )}
                     </div>
                 );
@@ -281,7 +265,10 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
 
     return (
         <>
-            <h3 className='pt-8 fw-bold'>All Leave Requests</h3>
+            <div className="pt-6 mb-2.5 flex items-center gap-3">
+                <IconBox icon="document" trio={TRIO.blue} size={44} fs="fs-1" />
+                <span className="font-bold text-[20px] text-slate-900">All Leave Requests</span>
+            </div>
             <MaterialTable
                 data={visibleLeaveRequests}
                 columns={columns}
@@ -297,50 +284,66 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
                 isLoading={isLoading}
             />
 
-            {/* Edit Leave Modal */}
-            <Modal
-                show={!!trackingLeaveId}
-                onHide={() => { setTrackingLeaveId(null); setTrackInstanceId(null); }}
-                centered
-                size='lg'
+            {/* Approval-status tracker */}
+            <GlassDialog
+                open={!!trackingLeaveId}
+                onClose={() => { setTrackingLeaveId(null); setTrackInstanceId(null); }}
+                maxWidth="md"
+                fullWidth
             >
-                <Modal.Header closeButton>
-                    <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Approval Status</Modal.Title>
-                </Modal.Header>
-                <Modal.Body style={{ padding: '20px 24px' }}>
+                <GlassHeader
+                    title="Approval Status"
+                    icon={<KTIcon iconName="map" className="fs-1 text-white" />}
+                    onClose={() => { setTrackingLeaveId(null); setTrackInstanceId(null); }}
+                />
+                <div className="p-4 sm:p-6">
                     {trackInstanceLoading ? (
-                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                            <span className='spinner-border spinner-border-sm text-primary me-2' />
-                            <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading approval status...</span>
+                        <div className="text-center py-5 flex items-center justify-center gap-2">
+                            <Spinner size={16} />
+                            <p className="text-[13px] text-slate-500 m-0">Loading approval status…</p>
                         </div>
                     ) : trackInstanceId ? (
                         <ApprovalStatusTracker instanceId={trackInstanceId} showAuditLog />
                     ) : (
-                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                            <KTIcon iconName='information' className='fs-3x text-muted mb-3' />
-                            <div style={{ fontSize: 13, color: '#a1a5b7' }}>No approval workflow found for this request.</div>
+                        <div className="text-center py-5">
+                            <KTIcon iconName="information" className="fs-3x text-muted mb-3" />
+                            <p className="text-[13px] text-slate-500 m-0">No approval workflow found for this request.</p>
                         </div>
                     )}
-                </Modal.Body>
-            </Modal>
+                </div>
+            </GlassDialog>
 
-            <Modal show={showEditModal} onHide={handleCloseEditModal} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>Edit Leave Request</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <LeaveRequestForm
+            {/* Admin edit — the shared canonical ApplyLeave modal (edit mode) on behalf of the
+                employee via `target`. Owns its own card chrome, so we provide the backdrop. */}
+            {showEditModal && selectedLeave && (
+                <div
+                    onClick={(e) => { if (e.target === e.currentTarget) handleCloseEditModal(); }}
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 1050, background: 'rgba(15,23,42,.45)', display: 'flex',
+                        alignItems: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'flex-end' : 'center',
+                        justifyContent: 'center', padding: (typeof window !== 'undefined' && window.innerWidth < 768) ? 0 : 24, overflowY: 'auto',
+                    }}
+                >
+                    <ApplyLeave
+                        mode="edit"
                         onClose={handleCloseEditModal}
-                        leave={selectedLeave}
-                        isAdmin={true}
-                        employeeIdProp={selectedLeave?.employeeId}
-                        employeeBranchIdProp={selectedLeave?.branchId}
-                        dateOfJoiningProp={selectedLeave?.dateOfJoining}
-                        startDateNew={fiscalYearStart}
-                        endDateNew={fiscalYearEnd}
+                        existing={{
+                            id: (selectedLeave as any)?.id,
+                            dateFrom: (selectedLeave as any)?.dateFrom ? dayjs((selectedLeave as any).dateFrom).format('YYYY-MM-DD') : '',
+                            dateTo: (selectedLeave as any)?.dateTo ? dayjs((selectedLeave as any).dateTo).format('YYYY-MM-DD') : '',
+                            reason: (selectedLeave as any)?.reason ?? '',
+                            isHalfDay: (selectedLeave as any)?.isHalfDay,
+                            halfDaySession: (selectedLeave as any)?.halfDaySession ?? null,
+                            status: (selectedLeave as any)?.statusNumber ?? (selectedLeave as any)?.status,
+                        }}
+                        target={{
+                            employeeId: (selectedLeave as any)?.employeeId,
+                            branchId: (selectedLeave as any)?.branchId,
+                            dateOfJoining: (selectedLeave as any)?.dateOfJoining,
+                        }}
                     />
-                </Modal.Body>
-            </Modal>
+                </div>
+            )}
         </>
     );
 }

@@ -70,9 +70,13 @@ export const updatePublicHolidayById = async (id : string, payload: IPublicHolid
     }
 }
 
-export const fetchAllPublicHolidays = async (observedIn: string, companyId: string) => {
+export const fetchAllPublicHolidays = async (observedIn: string | undefined, companyId: string) => {
     try {
-        const endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_PUBLIC_HOLIDAYS_BY_COMPANY}?observedIn=${observedIn}&companyId=${companyId}`;
+        // observedIn is optional. Omit it to fetch the full company holiday set the
+        // server books against (mirrors the backend booking/balance path, which does
+        // not filter by region) — used by the Apply preview to stay in lock-step.
+        const observedInParam = observedIn ? `observedIn=${observedIn}&` : '';
+        const endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_PUBLIC_HOLIDAYS_BY_COMPANY}?${observedInParam}companyId=${companyId}`;
         const { data } = await axios.get(endpoint);
         return data;
     }

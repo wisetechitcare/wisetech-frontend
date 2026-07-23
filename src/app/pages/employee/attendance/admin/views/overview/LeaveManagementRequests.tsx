@@ -9,9 +9,10 @@ import {
 } from "@services/employee";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import dayjs from "dayjs";
-import { toAbsoluteUrl } from "@metronic/helpers";
+import { KTIcon } from "@metronic/helpers";
 import { successConfirmation } from "@utils/modal";
-import { Modal } from "react-bootstrap";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { GlassDialog, GlassHeader, WtButton, WtIconButton, StatusBadge, IconBox, TRIO, type Trio, Spinner } from "@app/modules/common/components/ui/tw";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
@@ -178,18 +179,14 @@ function LeaveManagementRequests() {
     }
   };
 
-  const getStatusColor = (status: number) => {
+  // Status → shared TRIO tone (pending amber · approved green · rejected rose · revoked purple).
+  const getStatusTrio = (status: number): Trio => {
     switch (status) {
-      case 0:
-        return "#F39C12"; // warning/pending - orange
-      case 1:
-        return "#2ECC71"; // success/approved - green
-      case 2:
-        return "#E74C3C"; // danger/rejected - red
-      case 3:
-        return "#9B59B6"; // revoked - purple
-      default:
-        return "#95A5A6"; // secondary - gray
+      case 0: return TRIO.amber;
+      case 1: return TRIO.green;
+      case 2: return TRIO.rose;
+      case 3: return TRIO.purple;
+      default: return TRIO.slate;
     }
   };
 
@@ -209,21 +206,10 @@ function LeaveManagementRequests() {
     {
       accessorKey: "managementTypeText",
       header: "Type",
-      Cell: ({ row }: any) => (
-        <span
-          className="badge"
-          style={{
-            backgroundColor: row.original.managementType === LEAVE_MANAGEMENT_TYPE.CASH ? '#3498DB' : '#9B59B6',
-            color: 'white',
-            fontWeight: '500',
-            fontSize: '11px',
-            padding: '5px 8px',
-            borderRadius: '12px',
-          }}
-        >
-          {row.original.managementTypeText || '-NA-'}
-        </span>
-      ),
+      Cell: ({ row }: any) => {
+        const trio = row.original.managementType === LEAVE_MANAGEMENT_TYPE.CASH ? TRIO.blue : TRIO.purple;
+        return <StatusBadge trio={trio} label={row.original.managementTypeText || '-NA-'} />;
+      },
     },
     {
       accessorKey: "leaveCount",
@@ -261,22 +247,7 @@ function LeaveManagementRequests() {
       accessorKey: "status",
       header: "Status",
       Cell: ({ row }: any) => (
-        <span
-          className="badge"
-          style={{
-            backgroundColor: getStatusColor(row.original.status),
-            color: 'white',
-            fontWeight: '500',
-            fontSize: '11px',
-            padding: '5px 8px',
-            borderRadius: '12px',
-            display: 'inline-block',
-            minWidth: '60px',
-            textAlign: 'center'
-          }}
-        >
-          {getStatusText(row.original.status)}
-        </span>
+        <StatusBadge trio={getStatusTrio(row.original.status)} label={getStatusText(row.original.status)} pulse={row.original.status === 0} />
       ),
     },
     {
@@ -290,61 +261,37 @@ function LeaveManagementRequests() {
           permissionConstToUseWithHasPermission.editOthers,
       );
 
+      const busy = processingRowId === row.original.id;
       return (
-        <div className="d-flex gap-2">
+        <div className="flex gap-1.5">
         {permission ? (
           <>
             {row.original.status === 0 && (
               <>
-                <button
-                  className="btn btn-icon btn-sm"
-                  onClick={() => handleApprove(row.original)}
-                  title="Approve"
-                  disabled={loading || processingRowId === row.original.id}
-                >
-                  {processingRowId === row.original.id && processingAction === "approve" ? (
-                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                  ) : (
-                    <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} alt="Approve" />
-                  )}
-                </button>
+                <WtIconButton title="Approve" color={TRIO.green.c} onClick={() => handleApprove(row.original)} disabled={loading || busy} size={34}>
+                  {busy && processingAction === "approve"
+                    ? <Spinner size={16} color={TRIO.green.c} />
+                    : <KTIcon iconName="check" className="fs-4" />}
+                </WtIconButton>
 
-                <button
-                  className="btn btn-icon btn-sm"
-                  onClick={() => handleReject(row.original.id)}
-                  title="Reject"
-                  disabled={loading || processingRowId === row.original.id}
-                >
-                  {processingRowId === row.original.id && processingAction === "reject" ? (
-                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                  ) : (
-                    <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} alt="Reject" />
-                  )}
-                </button>
+                <WtIconButton title="Reject" color={TRIO.rose.c} onClick={() => handleReject(row.original.id)} disabled={loading || busy} size={34}>
+                  {busy && processingAction === "reject"
+                    ? <Spinner size={16} color={TRIO.rose.c} />
+                    : <KTIcon iconName="cross" className="fs-4" />}
+                </WtIconButton>
               </>
             )}
 
             {(row.original.status === 1 || row.original.status === 2) && (
-              <button
-                className="btn btn-icon btn-sm"
-                onClick={() => handleRevokeClick(row.original.id)}
-                title="Revoke"
-                disabled={loading || processingRowId === row.original.id}
-              >
-                {processingRowId === row.original.id && processingAction === "revoke" ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                ) : (
-                  <img
-                    src={toAbsoluteUrl("media/svg/misc/refresh.svg")}
-                    width={23}
-                    height={23}
-                  />
-                )}
-              </button>
+              <WtIconButton title="Revoke" color={TRIO.purple.c} onClick={() => handleRevokeClick(row.original.id)} disabled={loading || busy} size={34}>
+                {busy && processingAction === "revoke"
+                  ? <Spinner size={16} color={TRIO.purple.c} />
+                  : <KTIcon iconName="arrows-circle" className="fs-4" />}
+              </WtIconButton>
             )}
           </>
         ) : (
-          <span className="text-muted" style={{ fontSize: "12px" }}>
+          <span className="text-slate-400 text-[12px]">
             Not Allowed
           </span>
         )}
@@ -359,10 +306,11 @@ function LeaveManagementRequests() {
 
   return (
     <>
-      <div className="mt-10">
-        <h3 className="fw-bold">
-          Pending Leave Management Requests
-        </h3>
+      <div className="mt-8">
+        <div className="mb-2.5 flex items-center gap-3">
+          <IconBox icon="dollar" trio={TRIO.purple} size={44} fs="fs-1" />
+          <span className="font-bold text-[20px] text-slate-900">Pending Leave Management Requests</span>
+        </div>
         <MaterialTable
           columns={columns}
           data={filterIds ? requests.filter((r) => filterIds.includes(r.employeeId)) : requests}
@@ -375,40 +323,30 @@ function LeaveManagementRequests() {
       </div>
 
       {/* Revoke Reason Modal */}
-      <Modal show={showRevokeModal} onHide={() => setShowRevokeModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Revoke Leave Request</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <div className="mb-3">
-            <label className="form-label">Reason for Revoke (Optional)</label>
-            <textarea
-              className="form-control"
-              rows={4}
-              value={revokeReason}
-              onChange={(e) => setRevokeReason(e.target.value)}
-              placeholder="Enter reason for revoking this request..."
-            />
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setShowRevokeModal(false)}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn"
-            style={{ backgroundColor: '#9B59B6', color: 'white' }}
-            onClick={handleRevokeConfirm}
-          >
-            Confirm Revoke
-          </button>
-        </Modal.Footer>
-      </Modal>
+      <GlassDialog open={showRevokeModal} onClose={() => setShowRevokeModal(false)} maxWidth="sm" fullWidth>
+        <GlassHeader
+          title="Revoke Leave Request"
+          icon={<KTIcon iconName="arrows-circle" className="fs-1 text-white" />}
+          onClose={() => setShowRevokeModal(false)}
+        />
+        <div className="p-4 sm:p-6">
+          <p className="text-[13px] font-semibold text-slate-900 mb-2 m-0">Reason for Revoke (Optional)</p>
+          <textarea
+            className="w-full min-h-[92px] rounded-lg border border-slate-200 px-3 py-2 text-[13px] text-slate-900 outline-none focus:border-slate-400 resize-y"
+            rows={4}
+            value={revokeReason}
+            onChange={(e) => setRevokeReason(e.target.value)}
+            placeholder="Enter reason for revoking this request…"
+          />
+        </div>
+        <div
+          className="px-4 sm:px-6 py-4 flex justify-end gap-2.5 flex-col-reverse sm:flex-row"
+          style={{ borderTop: `1px solid ${TRIO.slate.bd}` }}
+        >
+          <WtButton ghost onClick={() => setShowRevokeModal(false)} className="w-full sm:w-auto">Cancel</WtButton>
+          <WtButton tone="accent" onClick={handleRevokeConfirm} className="w-full sm:w-auto">Confirm Revoke</WtButton>
+        </div>
+      </GlassDialog>
     </>
   );
 }

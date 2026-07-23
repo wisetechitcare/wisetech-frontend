@@ -1306,45 +1306,47 @@ function MaterialTable({
           }}
           layoutMode={layoutMode}
           {...muiTableProps}
-          muiTableBodyRowProps={
-            muiTableProps?.muiTableBodyRowProps
-              ? muiTableProps.muiTableBodyRowProps
-              : ({ row }: any) => {
-                  // Status-based row color coding
-                  let rowStatus: 'approved' | 'rejected' | 'pending' | null = null;
-                  if (enableStatusColorCoding) {
-                    const sn = row.original?.statusNumber;
-                    const statusStr = String(row.original?.status || '').toLowerCase();
-                    if (sn !== undefined && sn !== null) {
-                      if (sn === Status.Approved) rowStatus = 'approved';
-                      else if (sn === Status.Rejected) rowStatus = 'rejected';
-                      else if (sn === Status.ApprovalNeeded) rowStatus = 'pending';
-                    } else if (statusStr) {
-                      if (statusStr === 'approved' || statusStr === 'active') rowStatus = 'approved';
-                      else if (statusStr === 'rejected' || statusStr === 'declined' || statusStr === 'inactive') rowStatus = 'rejected';
-                      else if (statusStr === 'pending' || statusStr === 'waiting' || statusStr === 'under review') rowStatus = 'pending';
-                    }
-                  }
+          muiTableBodyRowProps={(rowArgs: any) => {
+            const { row } = rowArgs;
+            // Status-based row color coding — computed here so it ALWAYS applies, even when the
+            // caller supplies custom row props (e.g. an onClick). The two are merged below.
+            let rowStatus: 'approved' | 'rejected' | 'pending' | null = null;
+            if (enableStatusColorCoding) {
+              // Accept a numeric `status` (e.g. grouped leave rows use status: 0|1|2) as the status
+              // number too — otherwise it stringifies to "1" and never matches the labels below.
+              const sn = row.original?.statusNumber ?? (typeof row.original?.status === 'number' ? row.original.status : undefined);
+              const statusStr = String(row.original?.status || '').toLowerCase();
+              if (sn !== undefined && sn !== null) {
+                if (sn === Status.Approved) rowStatus = 'approved';
+                else if (sn === Status.Rejected) rowStatus = 'rejected';
+                else if (sn === Status.ApprovalNeeded) rowStatus = 'pending';
+              } else if (statusStr) {
+                if (statusStr === 'approved' || statusStr === 'active') rowStatus = 'approved';
+                else if (statusStr === 'rejected' || statusStr === 'declined' || statusStr === 'inactive') rowStatus = 'rejected';
+                else if (statusStr === 'pending' || statusStr === 'waiting' || statusStr === 'under review') rowStatus = 'pending';
+              }
+            }
 
-                  const colorMap = {
-                    approved: { bg: 'rgba(16, 185, 129, 0.04)', border: '#10b981', hover: 'rgba(16, 185, 129, 0.08)' },
-                    rejected: { bg: 'rgba(239, 68, 68, 0.04)', border: '#ef4444', hover: 'rgba(239, 68, 68, 0.08)' },
-                    pending:  { bg: 'rgba(245, 158, 11, 0.04)', border: '#f59e0b', hover: 'rgba(245, 158, 11, 0.08)' },
-                  };
-                  const c = rowStatus ? colorMap[rowStatus] : null;
+            const colorMap = {
+              approved: { bg: 'rgba(16, 185, 129, 0.04)', border: '#10b981', hover: 'rgba(16, 185, 129, 0.08)' },
+              rejected: { bg: 'rgba(239, 68, 68, 0.04)', border: '#ef4444', hover: 'rgba(239, 68, 68, 0.08)' },
+              pending:  { bg: 'rgba(245, 158, 11, 0.04)', border: '#f59e0b', hover: 'rgba(245, 158, 11, 0.08)' },
+            };
+            const c = rowStatus ? colorMap[rowStatus] : null;
+            const statusSx = {
+              backgroundColor: c ? c.bg : undefined,
+              '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
+              transition: 'background-color 0.12s ease',
+              '&:hover td': {
+                backgroundColor: c ? `${c.hover} !important` : '#F8FAFC',
+              },
+            };
 
-                  return {
-                    sx: {
-                      backgroundColor: c ? c.bg : undefined,
-                      '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
-                      transition: 'background-color 0.12s ease',
-                      '&:hover td': {
-                        backgroundColor: c ? `${c.hover} !important` : '#F8FAFC',
-                      },
-                    },
-                  };
-                }
-          }
+            // Merge caller-supplied row props (onClick, cursor, etc.) ON TOP of the status styling.
+            const custom = muiTableProps?.muiTableBodyRowProps ? (muiTableProps.muiTableBodyRowProps(rowArgs) as any) : {};
+            const { sx: customSx, ...customRest } = custom || {};
+            return { ...customRest, sx: { ...statusSx, ...(customSx || {}) } };
+          }}
           renderEmptyRowsFallback={() => (
             <div
               style={{

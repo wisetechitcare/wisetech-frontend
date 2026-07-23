@@ -19,7 +19,7 @@ import { IEmployeesAttendance } from "@models/employee";
 import { saveEmployeesAttendance } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
 import { fetchAllEmployeesAttendance, fetchEmployeeLeaves, fetchEmployeesOnLeaveToday } from "@services/employee";
-import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, convertTo12HourFormat } from "@utils/date";
+import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, convertTo12HourFormat, MUMBAI_TZ } from "@utils/date";
 import dayjs, { Dayjs } from "dayjs";
 import { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -27,7 +27,6 @@ import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { useDispatch, useSelector } from "react-redux";
 import { WorkingMethod as ModelWorkingMethod } from '@models/employee';
 import { onSiteAndHolidayWeekendSettingsOnOffName, resourceNameMapWithCamelCase } from "@constants/statistics";
-import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import { fetchAddressDetails } from "@services/location";
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration } from "@services/company";
 import { DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from "@constants/configurations-key";
@@ -38,9 +37,6 @@ import { saveFilteredLeaves, saveLeaves, savePublicHolidays } from "@redux/slice
 import { setFeatureConfiguration } from "@redux/slices/featureConfiguration";
 import { fetchColorAndStoreInSlice } from "@utils/file";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
-// TODO: Pull timezone and date format settings from db
-
-const MUMBAI_TZ = 'Asia/Kolkata';
 
 interface IEmployeesAttendanceResponse {
     id: string;
@@ -60,6 +56,11 @@ interface IEmployeesAttendanceResponse {
         employeeCode: string;
         userId: string;
         name: string;
+        // The employee's own branch timezone — business day/weekday classification
+        // for this row must use THIS, not a hardcoded constant, so admins viewing
+        // from a different timezone (or a company with branches across timezones)
+        // see the correct calendar day/status.
+        branches?: { timezone: string | null } | null;
     }
     checkoutWorkingMethod?: ModelWorkingMethod;
 }
@@ -117,21 +118,29 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
 
     return attendance.map((empAttendance: IEmployeesAttendanceResponse) => {
         const { checkIn, checkOut, workingMethod, employeeId } = empAttendance;
-        const weekDay = getWeekDay(checkIn);
+        // Business weekday/date must be derived in THIS employee's own branch
+        // timezone, not a hardcoded constant or the browser's local zone — a
+        // check-in near local midnight is a different UTC calendar day, so an
+        // admin viewing from another timezone (or a company with branches across
+        // timezones) previously saw the wrong weekday/status and wrong date.
+        const employeeTimezone = empAttendance.employee?.branches?.timezone || MUMBAI_TZ;
+        const checkInBusinessTz = checkIn ? convertToTimeZone(checkIn, employeeTimezone) : null;
+        const weekDay = checkInBusinessTz ? checkInBusinessTz.format('dddd') : getWeekDay(checkIn, employeeTimezone);
 
         // Check if the day is a weekend based on the weekDay
         const isWeekend = weekends && typeof weekends === 'object' && weekends[weekDay.toLowerCase()] === "0";
 
         // Format times for display (respects 12/24 hour setting)
-        const formattedCheckIn = checkIn ? formatTime(convertToTimeZone(checkIn, MUMBAI_TZ)) : '-NA-';
-        const formattedCheckOut = checkOut ? formatTime(convertToTimeZone(checkOut, MUMBAI_TZ)) : '-NA-';
+        const formattedCheckIn = checkIn ? formatTime(convertToTimeZone(checkIn, employeeTimezone)) : '-NA-';
+        const formattedCheckOut = checkOut ? formatTime(convertToTimeZone(checkOut, employeeTimezone)) : '-NA-';
 
         // Get 24-hour format times for duration calculation
-        const checkIn24Hour = checkIn ? formatTime24Hour(convertToTimeZone(checkIn, MUMBAI_TZ)) : '-NA-';
-        const checkOut24Hour = checkOut ? formatTime24Hour(convertToTimeZone(checkOut, MUMBAI_TZ)) : '-NA-';
+        const checkIn24Hour = checkIn ? formatTime24Hour(convertToTimeZone(checkIn, employeeTimezone)) : '-NA-';
+        const checkOut24Hour = checkOut ? formatTime24Hour(convertToTimeZone(checkOut, employeeTimezone)) : '-NA-';
 
-        const date = new Date(checkIn);
-        const formattedDate = date.toISOString().split("T")[0];
+        const formattedDate = checkInBusinessTz
+            ? checkInBusinessTz.format('YYYY-MM-DD')
+            : new Date(checkIn).toISOString().split("T")[0];
 
         // Use 24-hour format for accurate duration calculation
         const getTimeDifferenceInMinutes = getTimeDifference(checkIn24Hour, checkOut24Hour);
@@ -180,9 +189,10 @@ interface DailyAttendanceProps {
     date: any; // dayjs object from parent
 }
 
-// Module-scope component (was a useCallback inside DailyAttendance): hooks may
-// not be called inside a plain callback, and hoisting keeps its identity stable
-// so rows don't remount on every parent render.
+// Module-scope component (was a useCallback inside DailyAttendance): hooks may not be
+// called inside a plain callback, and hoisting keeps its identity stable so rows don't
+// remount on every parent render. Currently unused (its one call site, the "location"
+// column below, is commented out) but kept for when that column is re-enabled.
 const LocationCell = ({ latitude, longitude, location }: { latitude?: number, longitude?: number, location?: string }) => {
     const [address, setAddress] = useState("Fetching...");
 
@@ -226,11 +236,9 @@ const LocationCell = ({ latitude, longitude, location }: { latitude?: number, lo
 
     return mapUrl ? (
         <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <OverlayTrigger placement='top' overlay={<Tooltip id={`tooltip-${latitude}-${longitude}`}>{address}</Tooltip>}>
-                <span>
-                    {address.length > 30 ? `${address.substring(0, 30)}...` : address}
-                </span>
-            </OverlayTrigger>
+            <span title={address}>
+                {address.length > 30 ? `${address.substring(0, 30)}...` : address}
+            </span>
         </a>
     ) : (
         <span>{address}</span>

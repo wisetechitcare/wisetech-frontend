@@ -13,7 +13,6 @@ import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { allStreaksIndicator, barYearlyData, customHeatMap, customLeaves, donutaDataLabel, fetchEmpMonthlyStatistics, fetchEmpYearlyStatistics, formatDisplay, getWorkingDaysInRange, getWorkingDaysInRangeForTotalTime, multipleRadialBarData, pieAreaData, pieAreaLabels, totalProgressPercent, totalWorkingTime, yearHeatMap } from "@utils/statistics";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { EXTRA_DAYS, HOLIDAYS, months } from "@constants/statistics";
-import { Container, Row } from "react-bootstrap";
 import { Bar, Donut, HeatMap, MultipleRadialBar, Polar, ReportsTable, StatisticsTable, StokedCircle, StreakIndicator, TotalWorkingTime } from "@app/modules/common/components/Graphs";
 import { shouldShowBranchSetupGuide } from "@utils/shouldShowBranchSetupGuide";
 import BranchSetupGuide from "./components/BranchSetupGuide";
@@ -297,12 +296,12 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     if (!startDate || !endDate) {
         console.warn("Missing dates - showing warning");
         return (
-            <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
+            <div className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
                 <div className="alert alert-warning text-center" role="alert">
                     <h4 className="alert-heading">Missing Date Range</h4>
                     <p className="mb-0">Please provide both start date and end date to view the statistics.</p>
                 </div>
-            </Container>
+            </div>
         );
     }
 
@@ -312,7 +311,7 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
 
     return (
         <div>
-            <Row className='mt-7'>
+            <div className='row mt-7'>
                             <Donut donutLabels={donutLabels} donutSeries={donutSeries} totalDays={actualTotalWorkingDay} />
                             <MultipleRadialBar multipleRadialBarLabels={multipleRadialBarLabels} multipleRadialBarSeries={multipleRadialBarSeries} totalWorkingDays={actualTotalWorkingDay} />
                             <Polar polarLabels={polarLabels} polarSeries={polarSeries} totalDays={actualTotalWorkingDay} />
@@ -323,7 +322,7 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
                                 totalDays={actualTotalWorkingDay} 
                             />
                             <TotalWorkingTime totalWorkingTime={calculateTotalDuration(yearlyStats)} totalAllowedTime={totalAllowedTimeForOutOffValue} />
-                        </Row>
+                        </div>
             
                         <Bar barOption={barOptions} barSeriesData={barSeriesData} height={250} totalWorkingTime={calculateTotalDuration(yearlyStats)} totalAllowedTime={totalAllowedTime} />
                         <HeatMap heatMapSeries={heatMapSeries} height={190} totalDays={actualTotalWorkingDay} />
