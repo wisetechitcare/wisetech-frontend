@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { KTIcon } from '@metronic/helpers';
+import { Box, CircularProgress, Grid, Stack, TextField, Tooltip, Typography, useMediaQuery } from '@mui/material';
 import {
   fetchAllAddonLeavesAllowances,
   upsertAddonLeavesAllowances,
@@ -9,10 +10,11 @@ import {
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+// Same MUI glass kit as the Sandwich Leave benchmark — single source of truth for the look.
 import {
   WtButton, WtIconButton, GlassSurface, GlassDialog, GlassHeader,
-  TRIO, IconBox, StatusBadge, StatTile, Spinner, BRAND,
-} from '@app/modules/common/components/ui/tw';
+  TRIO, IconBox, StatTile, T,
+} from '@app/modules/common/components/ui';
 
 interface AddonLeavesModalProps {
   open: boolean;
@@ -20,11 +22,14 @@ interface AddonLeavesModalProps {
   readOnly?: boolean;
 }
 
-// TRIO, IconBox, StatusBadge, StatTile now come from the shared app-wide Tailwind
-// UI kit (@app/modules/common/components/ui/tw) — single source of truth, no duplication.
-
 // 1..10 experience years, 11 = 10+ years
 const EXP_TIERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
+const PRESETS: Array<{ key: 'standard' | 'linear' | 'clear'; label: string; icon: string; hint: string }> = [
+  { key: 'standard', label: 'Standard', icon: 'text-align-left', hint: 'Graduated tiers: 2, 4, 6, 8, then 10+ days' },
+  { key: 'linear', label: 'Linear', icon: 'chart-line-up', hint: 'Add +1 day per completed year (capped at 10)' },
+  { key: 'clear', label: 'Clear', icon: 'trash', hint: 'Reset every tier back to 0 days' },
+];
 
 export function AddonLeavesModal({ open, onClose, readOnly }: AddonLeavesModalProps) {
   const [loading, setLoading] = useState(true);
@@ -111,6 +116,32 @@ export function AddonLeavesModal({ open, onClose, readOnly }: AddonLeavesModalPr
     }
   };
 
+  const reduce = useMediaQuery('(prefers-reduced-motion: reduce)');
+  // Staggered entrance identical to the Sandwich benchmark (swFadeUp), reduced-motion safe.
+  const riseSx = (i: number) => (reduce ? {} : {
+    animation: 'wtFadeUp .32s cubic-bezier(0.16, 1, 0.3, 1) both',
+    animationDelay: `${Math.min(i, 10) * 40}ms`,
+    '@keyframes wtFadeUp': { from: { opacity: 0, transform: 'translateY(10px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
+  });
+
+  // Live "breathing" halo for the engine-status dot — self-contained (the shared `.sw-dot-pulse`
+  // keyframe lives only in SandwhichLeave's local <style>, so we drive it here via sx instead).
+  const g = TRIO.green;
+  const liveDotSx = {
+    width: 9, height: 9, borderRadius: 999, bgcolor: g.c, flexShrink: 0, position: 'relative',
+    ...(reduce ? {} : {
+      '&::after': {
+        content: '""', position: 'absolute', inset: 0, borderRadius: 999,
+        boxShadow: `0 0 0 0 ${g.c}66`, animation: 'wtLivePing 2.1s cubic-bezier(0, 0, 0.2, 1) infinite',
+      },
+      '@keyframes wtLivePing': {
+        '0%': { boxShadow: `0 0 0 0 ${g.c}59` },
+        '70%': { boxShadow: `0 0 0 7px ${g.c}00` },
+        '100%': { boxShadow: `0 0 0 0 ${g.c}00` },
+      },
+    }),
+  } as const;
+
   return (
     <GlassDialog
       open={open}
@@ -126,191 +157,190 @@ export function AddonLeavesModal({ open, onClose, readOnly }: AddonLeavesModalPr
         />
       )}
     >
-      <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-5">
-        {/* Metric Summary Bar */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 sm:col-span-6 md:col-span-3">
-            <StatTile
-              label="Configured Tiers"
-              value={`${stats.configuredCount} / ${EXP_TIERS.length}`}
-              trio={TRIO.purple}
-              icon="element-11"
-            />
-          </div>
-          <div className="col-span-12 sm:col-span-6 md:col-span-3">
-            <StatTile
-              label="Max Addon Days"
-              value={`+${stats.maxDays} Days`}
-              trio={TRIO.green}
-              icon="calendar-add"
-            />
-          </div>
-          <div className="col-span-12 sm:col-span-6 md:col-span-3">
-            <StatTile
-              label="Avg Addon / Tier"
-              value={`${stats.avgDays} Days`}
-              trio={TRIO.blue}
-              icon="graph-up"
-            />
-          </div>
-          <div className="col-span-12 sm:col-span-6 md:col-span-3">
-            <GlassSurface variant="thin" radius={14} className="p-3 h-full flex items-center justify-between">
-              <div>
-                <p className="text-[10.5px] text-slate-500 uppercase tracking-[0.04em] font-bold m-0">Engine Status</p>
-                <StatusBadge trio={TRIO.green} label="Active & Enforced" pulse />
-              </div>
-              <IconBox icon="shield-tick" trio={TRIO.green} size={40} />
+      <Box sx={{ p: { xs: 1.75, sm: 3 }, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 2.5 } }}>
+        {/* Metric Summary Bar — 2-up on phones, 4-up on desktop */}
+        <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+          <Grid item xs={6} md={3} sx={riseSx(0)}>
+            <StatTile label="Configured Tiers" value={`${stats.configuredCount} / ${EXP_TIERS.length}`} trio={TRIO.purple} icon="element-11" />
+          </Grid>
+          <Grid item xs={6} md={3} sx={riseSx(1)}>
+            <StatTile label="Max Addon Days" value={`+${stats.maxDays} Days`} trio={TRIO.green} icon="calendar-add" />
+          </Grid>
+          <Grid item xs={6} md={3} sx={riseSx(2)}>
+            <StatTile label="Avg Addon / Tier" value={`${stats.avgDays} Days`} trio={TRIO.blue} icon="graph-up" />
+          </Grid>
+          <Grid item xs={6} md={3} sx={riseSx(3)}>
+            <GlassSurface variant="thin" sx={{
+              minWidth: 0, p: 1.5, height: '100%', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: 1.25,
+              boxShadow: T.shadow.card, transition: 'transform .2s cubic-bezier(0.4,0,0.2,1), box-shadow .2s',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: T.shadow.cardHover, borderColor: g.bd },
+            }}>
+              <IconBox icon="shield-tick" trio={TRIO.green} size={40} fs="fs-2" />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography noWrap sx={{ fontSize: 11, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
+                  Engine Status
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25 }}>
+                  <Box sx={liveDotSx} />
+                  <Typography sx={{ fontSize: { xs: 12.5, sm: 13.5 }, fontWeight: 800, lineHeight: 1.2, color: g.c }}>
+                    Active &amp; Enforced
+                  </Typography>
+                </Box>
+              </Box>
             </GlassSurface>
-          </div>
-        </div>
+          </Grid>
+        </Grid>
 
         {/* Guidance Callout */}
-        <GlassSurface
-          variant="thin"
-          radius={14}
-          className="p-4 flex items-start gap-3.5"
-          style={{ border: `1px solid ${TRIO.blue.bd}` }}
-        >
-          <IconBox icon="information-5" trio={TRIO.blue} size={36} fs="fs-3" />
-          <div className="flex-1">
-            <p className="text-[13px] font-bold text-slate-900 mb-0.5">
-              How Addon Leaves Work
-            </p>
-            <p className="text-[12px] text-slate-500 leading-normal m-0">
+        <GlassSurface variant="thin" radius={14} sx={{ p: { xs: 1.75, sm: 2 }, display: 'flex', alignItems: 'flex-start', gap: { xs: 1.5, sm: 1.75 }, border: `1px solid ${TRIO.blue.bd}`, ...riseSx(4) }}>
+          <IconBox icon="information-5" trio={TRIO.blue} size={40} fs="fs-2" />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontSize: { xs: 14, sm: 14.5 }, fontWeight: 800, color: 'text.primary', mb: 0.4 }}>How Addon Leaves Work</Typography>
+            <Typography sx={{ fontSize: { xs: 12.5, sm: 13 }, color: 'text.secondary', lineHeight: 1.6 }}>
               Employees receive additional leave days based on their completed years of experience in the company. These addon leave days are calculated automatically by the backend Leave Allocation Engine and added directly onto their base annual allowance.
-            </p>
-          </div>
+            </Typography>
+          </Box>
         </GlassSurface>
 
         {/* Preset Toolbar */}
         {!readOnly && (
-          <GlassSurface variant="thin" radius={14} className="p-3 flex items-center justify-between flex-wrap gap-3">
-            <p className="text-[12.5px] font-semibold text-slate-500 flex items-center gap-2 m-0">
+          <GlassSurface variant="thin" radius={14} sx={{
+            p: 1.5, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between', gap: 1.5, ...riseSx(5),
+          }}>
+            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
               <KTIcon iconName="magic-star" className="fs-3 text-primary" />
-              Quick Presets:
-            </p>
-            <div className="flex flex-row gap-2 flex-wrap">
-              <WtButton
-                ghost
-                onClick={() => applyPreset('standard')}
-                startIcon={<KTIcon iconName="text-align-left" className="fs-3" />}
-              >
-                Standard Tier Preset
-              </WtButton>
-              <WtButton
-                ghost
-                onClick={() => applyPreset('linear')}
-                startIcon={<KTIcon iconName="chart-line-up" className="fs-3" />}
-              >
-                Linear (+1/yr)
-              </WtButton>
-              <WtButton
-                ghost
-                onClick={() => applyPreset('clear')}
-                startIcon={<KTIcon iconName="trash" className="fs-3" />}
-              >
-                Clear All
-              </WtButton>
-            </div>
+              Quick Presets
+            </Typography>
+            <Stack direction="row" spacing={1} useFlexGap sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              {PRESETS.map((p) => (
+                <Tooltip key={p.key} title={p.hint} arrow>
+                  <WtButton
+                    ghost
+                    onClick={() => applyPreset(p.key)}
+                    startIcon={<KTIcon iconName={p.icon} className="fs-4" />}
+                    sx={{ flex: { xs: 1, sm: 'initial' }, minWidth: 0, px: { xs: 1, sm: 1.5 } }}
+                  >
+                    {p.label}
+                  </WtButton>
+                </Tooltip>
+              ))}
+            </Stack>
           </GlassSurface>
         )}
 
         {/* Tiers Grid */}
         {loading ? (
-          <div className="grid place-items-center min-h-[220px]">
-            <Spinner size={36} color={BRAND.navy} />
-          </div>
+          <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 260, gap: 1.5 }}>
+            <CircularProgress size={38} sx={{ color: T.color.brand }} />
+            <Typography sx={{ fontSize: 12.5, color: 'text.secondary', fontWeight: 600 }}>Loading tier configuration…</Typography>
+          </Box>
         ) : (
-          <div className="grid grid-cols-12 gap-4">
-            {EXP_TIERS.map((exp) => {
+          <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+            {EXP_TIERS.map((exp, tIdx) => {
               const val = values[exp] ?? 0;
               const isConfigured = val > 0;
               const isPlus = exp === 11;
-              const labelText = isPlus ? '10+ Years Experience' : `${exp} Year${exp > 1 ? 's' : ''} Experience`;
+              const labelText = isPlus ? '10+ Years' : `${exp} Year${exp > 1 ? 's' : ''}`;
               const expBadge = isPlus ? '10+' : `${exp}`;
               const trio = isConfigured ? (isPlus ? TRIO.purple : TRIO.green) : TRIO.slate;
 
               return (
-                <div className="col-span-12 sm:col-span-6 md:col-span-4 lg:col-span-3" key={exp}>
+                <Grid item xs={6} sm={4} md={3} lg={2.4} key={exp}>
                   <GlassSurface
                     variant="thin"
-                    className="p-4 flex flex-col gap-3 transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgba(15,23,42,0.04),0_14px_22px_rgba(15,23,42,0.055)]"
-                    style={{ border: `1px solid ${trio.bd}`, borderTop: `3.5px solid ${trio.c}` }}
+                    sx={{
+                      p: { xs: 1.5, sm: 2 }, height: '100%', display: 'flex', flexDirection: 'column', gap: { xs: 1.25, sm: 1.5 },
+                      border: `1px solid ${trio.bd}`, borderTop: `3.5px solid ${trio.c}`,
+                      transition: 'transform .18s cubic-bezier(0.16,1,0.3,1), box-shadow .18s, border-color .18s',
+                      '&:hover': { transform: 'translateY(-3px)', boxShadow: T.shadow.cardHover, borderColor: trio.c },
+                      ...riseSx(6 + tIdx),
+                    }}
                   >
-                    <div className="flex items-center justify-between">
-                      <div
-                        className="grid place-items-center w-9 h-9 rounded-[10px] border font-extrabold text-[13px]"
-                        style={{ backgroundColor: trio.bg, color: trio.c, borderColor: trio.bd }}
-                      >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
+                      <Box sx={{ display: 'grid', placeItems: 'center', width: 36, height: 36, borderRadius: '11px', border: `1px solid ${trio.bd}`, backgroundColor: trio.bg, color: trio.c, fontWeight: 800, fontSize: 13.5, flexShrink: 0 }}>
                         {expBadge}
-                      </div>
-                      <StatusBadge
-                        trio={trio}
-                        label={isConfigured ? 'Configured' : 'Default'}
-                      />
-                    </div>
+                      </Box>
+                      <Box sx={{
+                        display: 'inline-flex', alignItems: 'center', gap: '5px', px: '8px', py: '3px', borderRadius: 999,
+                        bgcolor: trio.bg, border: `1px solid ${trio.bd}`,
+                      }}>
+                        <Box sx={{ width: 6, height: 6, borderRadius: 999, bgcolor: trio.c }} />
+                        <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: trio.c, lineHeight: 1, whiteSpace: 'nowrap' }}>
+                          {isConfigured ? 'Set' : 'Off'}
+                        </Typography>
+                      </Box>
+                    </Box>
 
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-bold text-slate-900 m-0">
-                        {labelText}
-                      </p>
-                      <p className="text-[11px] text-slate-500 m-0">
-                        Addon leave days added
-                      </p>
-                    </div>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography noWrap sx={{ fontSize: { xs: 13.5, sm: 14.5 }, fontWeight: 700, color: 'text.primary', lineHeight: 1.3 }}>{labelText}</Typography>
+                      <Typography noWrap sx={{ fontSize: 11.5, color: 'text.secondary' }}>Addon leave days</Typography>
+                    </Box>
 
-                    <div className="flex flex-row gap-2 items-center">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 'auto' }}>
                       <WtIconButton
+                        color={trio.c}
                         disabled={readOnly || val <= 0}
                         onClick={() => handleChange(exp, val - 1)}
                         title="Decrease"
+                        sx={{ width: 34, height: 34, flexShrink: 0 }}
                       >
-                        <KTIcon iconName="minus" className="fs-3" />
+                        <KTIcon iconName="minus" className="fs-5" />
                       </WtIconButton>
-                      <input
-                        type="number"
-                        className="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-[15px] text-center font-extrabold outline-none focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/15"
+                      <TextField
+                        type="number" size="small" fullWidth disabled={readOnly}
                         value={val}
-                        disabled={readOnly}
                         onChange={(e) => handleChange(exp, parseInt(e.target.value, 10))}
-                        min={0}
-                        max={50}
+                        inputProps={{ min: 0, max: 50, 'aria-label': `${labelText} addon days`, style: { textAlign: 'center', fontWeight: 800, fontSize: 15, padding: '6px 4px' } }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: '10px',
+                            transition: 'box-shadow .15s',
+                            '&.Mui-focused': { boxShadow: `0 0 0 3px ${trio.c}26` },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: trio.c },
+                          },
+                        }}
                       />
                       <WtIconButton
+                        color={trio.c}
                         disabled={readOnly || val >= 50}
                         onClick={() => handleChange(exp, val + 1)}
                         title="Increase"
+                        sx={{ width: 34, height: 34, flexShrink: 0 }}
                       >
-                        <KTIcon iconName="plus" className="fs-3" />
+                        <KTIcon iconName="plus" className="fs-5" />
                       </WtIconButton>
-                    </div>
+                    </Box>
                   </GlassSurface>
-                </div>
+                </Grid>
               );
             })}
-          </div>
+          </Grid>
         )}
-      </div>
+      </Box>
 
       {/* Footer Actions */}
-      <div
-        className="px-6 py-4 flex items-center justify-end gap-3 shrink-0"
-        style={{ borderTop: `1px solid ${BRAND.line}`, backgroundColor: 'rgba(255,255,255,0.4)' }}
-      >
-        <WtButton ghost onClick={onClose} disabled={saving}>
-          Cancel
-        </WtButton>
-        {!readOnly && (
-          <WtButton
-            tone="primary"
-            onClick={handleSave}
-            disabled={saving}
-            startIcon={saving ? <Spinner size={16} color="#fff" /> : <KTIcon iconName="check-circle" className="fs-2" />}
-          >
-            {saving ? 'Saving Changes...' : 'Save Allowance Policy'}
+      <Box sx={{
+        px: { xs: 1.75, sm: 3 }, py: { xs: 1.5, sm: 2 }, display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' },
+        alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
+        flexShrink: 0, borderTop: `1px solid ${T.color.line}`, backgroundColor: 'rgba(255,255,255,0.55)',
+      }}>
+        <Typography sx={{ fontSize: 12.5, color: 'text.secondary', fontWeight: 600, textAlign: { xs: 'center', sm: 'left' }, display: { xs: 'none', sm: 'block' } }}>
+          <Box component="span" sx={{ color: T.color.brand, fontWeight: 800 }}>{stats.configuredCount}</Box> of {EXP_TIERS.length} tiers configured
+        </Typography>
+        <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.5} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+          <WtButton ghost onClick={onClose} disabled={saving} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+            Cancel
           </WtButton>
-        )}
-      </div>
+          {!readOnly && (
+            <WtButton tone="primary" onClick={handleSave} disabled={saving}
+              startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <KTIcon iconName="check-circle" className="fs-2" />}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              {saving ? 'Saving Changes…' : 'Save Allowance Policy'}
+            </WtButton>
+          )}
+        </Stack>
+      </Box>
     </GlassDialog>
   );
 }

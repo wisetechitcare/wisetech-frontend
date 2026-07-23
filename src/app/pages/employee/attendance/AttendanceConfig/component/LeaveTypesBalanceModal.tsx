@@ -1,22 +1,21 @@
 import { useEffect, useState, useMemo } from 'react';
 import { KTIcon } from '@metronic/helpers';
+import { Box, CircularProgress, Grid, Stack, TextField, Typography, useMediaQuery } from '@mui/material';
 import { fetchLeaveOptions, updateLeaveOptionsById } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+// Same MUI glass kit as the Sandwich Leave benchmark — single source of truth for the look.
 import {
   WtButton, GlassSurface, GlassDialog, GlassHeader, WtIconButton,
-  TRIO, IconBox, StatusBadge, StatTile, Spinner, BRAND, cn, type Trio,
-} from '@app/modules/common/components/ui/tw';
+  TRIO, IconBox, StatusBadge, StatTile, T, MRD_EASE, EASE_200, SHADOW_REST, SHADOW_HOVER, type Trio,
+} from '@app/modules/common/components/ui';
 
 interface LeaveTypesBalanceModalProps {
   open: boolean;
   onClose: () => void;
   readOnly?: boolean;
 }
-
-// TRIO, IconBox, StatusBadge, StatTile now come from the shared app-wide Tailwind
-// UI kit (@app/modules/common/components/ui/tw) — single source of truth, no duplication.
 
 /** Config map for leave type specific icons, color trios, and UI/UX descriptive hints. */
 function getLeaveTypeMeta(leaveType: string): { icon: string; trio: Trio; desc: string } {
@@ -156,6 +155,26 @@ export function LeaveTypesBalanceModal({ open, onClose, readOnly }: LeaveTypesBa
     }
   };
 
+  const reduce = useMediaQuery('(prefers-reduced-motion: reduce)');
+  // Staggered entrance identical to the Sandwich benchmark (swFadeUp), reduced-motion safe.
+  const riseSx = (i: number) => (reduce ? {} : {
+    animation: 'wtFadeUp .3s cubic-bezier(0.4, 0, 0.2, 1) both',
+    animationDelay: `${Math.min(i, 8) * 45}ms`,
+    '@keyframes wtFadeUp': { from: { opacity: 0, transform: 'translateY(8px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
+  });
+
+  // Segmented switcher chip style (selected = navy fill).
+  const segSx = (active: boolean) => ({
+    px: { xs: 1.5, sm: 2 }, py: 0.75, borderRadius: 999, fontSize: { xs: 11.5, sm: 12 }, fontWeight: 700, cursor: 'pointer',
+    userSelect: 'none', border: 'none', whiteSpace: 'nowrap', flexShrink: 0, lineHeight: 1.2,
+    transition: `background-color .15s, color .15s, transform .16s ${MRD_EASE}, box-shadow .2s`,
+    '&:focus-visible': { outline: `2px solid ${T.color.brand}`, outlineOffset: 2 },
+    '&:active': { transform: 'scale(.96)' },
+    ...(active
+      ? { color: '#fff', backgroundColor: T.color.brand, boxShadow: '0 2px 6px rgba(30,58,138,0.25)' }
+      : { color: 'text.secondary', backgroundColor: 'transparent', '&:hover': { backgroundColor: 'rgba(0,0,0,0.05)', color: 'text.primary' } }),
+  } as const);
+
   return (
     <GlassDialog
       open={open}
@@ -171,100 +190,95 @@ export function LeaveTypesBalanceModal({ open, onClose, readOnly }: LeaveTypesBa
         />
       )}
     >
-      <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-5">
+      <Box sx={{ p: { xs: 2, sm: 3 }, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 2.5 } }}>
         {/* Metric Summary Bar */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 sm:col-span-6 md:col-span-3">
-            <StatTile
-              label="Configured Branches"
-              value={`${stats.totalBranches} ${stats.totalBranches === 1 ? 'Branch' : 'Branches'}`}
-              trio={TRIO.blue}
-              icon="geolocation"
-            />
-          </div>
-          <div className="col-span-12 sm:col-span-6 md:col-span-3">
-            <StatTile
-              label="Total Paid Allowance"
-              value={`${stats.avgPaidPerBranch} Days / Yr`}
-              trio={TRIO.green}
-              icon="calendar-tick"
-            />
-          </div>
-          <div className="col-span-12 sm:col-span-6 md:col-span-3">
-            <StatTile
-              label="Derived Unpaid Remainder"
-              value={`${stats.unpaidDays} Days / Yr`}
-              trio={TRIO.rose}
-              icon="calendar-remove"
-            />
-          </div>
-          <div className="col-span-12 sm:col-span-6 md:col-span-3">
-            <GlassSurface variant="thin" radius={14} className="p-3 h-full flex items-center justify-between">
-              <div>
-                <p className="text-[10.5px] text-slate-500 uppercase tracking-[0.04em] font-bold m-0">Engine Mode</p>
-                <StatusBadge trio={TRIO.amber} label="365-Day Pacing" pulse />
-              </div>
+        <Grid container spacing={{ xs: 1, sm: 1.5, md: 2 }}>
+          <Grid item xs={6} md={3}>
+            <StatTile label="Configured Branches" value={`${stats.totalBranches} ${stats.totalBranches === 1 ? 'Branch' : 'Branches'}`} trio={TRIO.blue} icon="geolocation" />
+          </Grid>
+          <Grid item xs={6} md={3}>
+            <StatTile label="Total Paid Allowance" value={`${stats.avgPaidPerBranch} Days/yr`} trio={TRIO.green} icon="calendar-tick" />
+          </Grid>
+          <Grid item xs={6} md={3}>
+            <StatTile label="Derived Unpaid Remainder" value={`${stats.unpaidDays} Days/yr`} trio={TRIO.rose} icon="calendar-remove" />
+          </Grid>
+          <Grid item xs={6} md={3}>
+            <GlassSurface variant="thin" radius={14} sx={{
+              p: 1.5, height: '100%', display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0,
+              boxShadow: SHADOW_REST, transition: EASE_200,
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: SHADOW_HOVER, borderColor: TRIO.amber.bd },
+              '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } },
+            }}>
               <IconBox icon="calculator" trio={TRIO.amber} size={40} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography noWrap sx={{ fontSize: 10.5, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>Engine Mode</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                  <Box className="sw-dot-pulse" sx={{ width: 7, height: 7, borderRadius: 999, bgcolor: TRIO.amber.c, flexShrink: 0 }} />
+                  <Typography noWrap sx={{ fontSize: { xs: 16, sm: 19 }, fontWeight: 800, lineHeight: 1.2, color: 'text.primary' }}>365-Day</Typography>
+                </Box>
+              </Box>
             </GlassSurface>
-          </div>
-        </div>
+          </Grid>
+        </Grid>
 
         {/* Segmented Branch Switcher Bar */}
         {branchKeys.length > 1 && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-[12px] font-bold text-slate-500 uppercase tracking-[0.04em] mr-1 m-0">
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 0.75, sm: 1 }, minWidth: 0 }}>
+            <Typography sx={{ fontSize: { xs: 11, sm: 12 }, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em', mr: 0.5, flexShrink: 0 }}>
               Select Scope:
-            </p>
+            </Typography>
 
-            <GlassSurface variant="thin" radius={999} className="p-1 inline-flex gap-1 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setSelectedBranchId('ALL')}
-                className={cn(
-                  'px-4 py-1.5 rounded-full text-[12px] font-bold cursor-pointer select-none transition-colors',
-                  selectedBranchId === 'ALL'
-                    ? 'text-white shadow-[0_2px_6px_rgba(30,58,138,0.25)]'
-                    : 'text-slate-500 hover:bg-black/5 hover:text-slate-900',
-                )}
-                style={selectedBranchId === 'ALL' ? { backgroundColor: BRAND.navy } : undefined}
-              >
+            <GlassSurface
+              variant="thin"
+              radius={999}
+              role="tablist"
+              aria-label="Select branch scope"
+              sx={{
+                p: 0.5, display: 'flex', flexWrap: 'nowrap', gap: 0.5,
+                width: { xs: '100%', sm: 'auto' }, maxWidth: '100%', minWidth: 0, overflowX: 'auto',
+                scrollSnapType: 'x proximity', WebkitOverflowScrolling: 'touch',
+                // Hide the scrollbar chrome while keeping swipe/scroll on mobile.
+                scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' },
+                // Fade the trailing edge to hint that the strip scrolls.
+                maskImage: { xs: 'linear-gradient(to right, #000 92%, transparent)', sm: 'none' },
+                WebkitMaskImage: { xs: 'linear-gradient(to right, #000 92%, transparent)', sm: 'none' },
+              }}
+            >
+              <Box component="button" type="button" role="tab" aria-selected={selectedBranchId === 'ALL'} onClick={() => setSelectedBranchId('ALL')} sx={{ ...segSx(selectedBranchId === 'ALL'), scrollSnapAlign: 'start' }}>
                 All Branches ({branchKeys.length})
-              </button>
+              </Box>
 
               {branchKeys.map((bId) => {
                 const bName = groupedByBranch[bId].branchName;
-                const isSelected = selectedBranchId === bId;
                 return (
-                  <button
-                    key={bId}
-                    type="button"
-                    onClick={() => setSelectedBranchId(bId)}
-                    className={cn(
-                      'px-4 py-1.5 rounded-full text-[12px] font-bold cursor-pointer select-none transition-colors',
-                      isSelected
-                        ? 'text-white shadow-[0_2px_6px_rgba(30,58,138,0.25)]'
-                        : 'text-slate-500 hover:bg-black/5 hover:text-slate-900',
-                    )}
-                    style={isSelected ? { backgroundColor: BRAND.navy } : undefined}
-                  >
+                  <Box component="button" key={bId} type="button" role="tab" aria-selected={selectedBranchId === bId} onClick={() => setSelectedBranchId(bId)} sx={{ ...segSx(selectedBranchId === bId), scrollSnapAlign: 'start' }}>
                     Branch: {bName}
-                  </button>
+                  </Box>
                 );
               })}
             </GlassSurface>
-          </div>
+          </Box>
         )}
 
         {/* Loading State */}
         {loading ? (
-          <div className="grid place-items-center min-h-[220px]">
-            <Spinner size={36} color={BRAND.navy} />
-          </div>
+          <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 220, gap: 1.5 }}>
+            <CircularProgress size={36} sx={{ color: T.color.brand }} />
+            <Typography sx={{ fontSize: 12.5, color: 'text.secondary', fontWeight: 500 }}>Loading leave configuration…</Typography>
+          </Box>
+        ) : branchKeys.length === 0 ? (
+          <GlassSurface variant="thin" radius={20} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 1.25, py: { xs: 5, sm: 7 }, px: 3 }}>
+            <IconBox icon="calendar-remove" trio={TRIO.slate} size={52} fs="fs-1" />
+            <Typography sx={{ fontSize: 15.5, fontWeight: 800, color: 'text.primary' }}>No leave types configured</Typography>
+            <Typography sx={{ fontSize: 12.5, color: 'text.secondary', fontWeight: 500, maxWidth: 360, lineHeight: 1.5 }}>
+              There are no branch leave balances to display yet. Add leave options to a branch to configure paid allowances here.
+            </Typography>
+          </GlassSurface>
         ) : (
-          <div className="flex flex-col gap-6">
+          <Stack spacing={{ xs: 2, sm: 3 }}>
             {branchKeys
               .filter((bId) => selectedBranchId === 'ALL' || selectedBranchId === bId)
-              .map((bId) => {
+              .map((bId, bIdx) => {
                 const group = groupedByBranch[bId];
                 const paidOptions = group.options.filter((lo) => !lo.leaveType.toLowerCase().includes('unpaid'));
 
@@ -276,158 +290,155 @@ export function LeaveTypesBalanceModal({ open, onClose, readOnly }: LeaveTypesBa
                 const branchUnpaidDays = Math.max(0, 365 - branchTotalPaid);
 
                 return (
-                  <GlassSurface
-                    key={bId}
-                    variant="thin"
-                    radius={20}
-                    className="p-4 sm:p-[22px] flex flex-col gap-[18px]"
-                  >
+                  <GlassSurface key={bId} variant="thin" radius={20} sx={{ p: { xs: 2, sm: '22px' }, display: 'flex', flexDirection: 'column', gap: { xs: '14px', sm: '18px' }, ...riseSx(bIdx) }}>
                     {/* Branch Header Bar */}
-                    <div className="flex items-center justify-between flex-wrap gap-3 pb-3.5" style={{ borderBottom: `1px solid ${BRAND.line}` }}>
-                      <div className="flex flex-row gap-3 items-center">
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, pb: { xs: 1.5, sm: 1.75 }, borderBottom: `1px solid ${T.color.line}` }}>
+                      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0, flex: { xs: '1 1 100%', md: '1 1 auto' } }}>
                         <IconBox icon="bank" trio={TRIO.blue} size={42} fs="fs-2" />
-                        <div>
-                          <p className="text-[11px] font-extrabold uppercase tracking-[0.06em] m-0" style={{ color: TRIO.blue.c }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography noWrap sx={{ fontSize: { xs: 10, sm: 11 }, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: TRIO.blue.c }}>
                             Branch Specific Configuration
-                          </p>
-                          <p className="text-[17px] font-extrabold text-slate-900 tracking-[-0.01em] m-0">
+                          </Typography>
+                          <Typography sx={{ fontSize: { xs: 15, sm: 17 }, fontWeight: 800, color: 'text.primary', letterSpacing: '-0.01em', lineHeight: 1.25, wordBreak: 'break-word' }}>
                             BRANCH: {group.branchName.toUpperCase()}
-                          </p>
-                        </div>
-                      </div>
+                          </Typography>
+                        </Box>
+                      </Stack>
 
-                      <div className="flex flex-row gap-2.5 items-center">
-                        <div className="px-3.5 py-1.5 rounded-full flex items-center gap-2 border" style={{ backgroundColor: TRIO.green.bg, borderColor: TRIO.green.bd }}>
-                          <span className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: TRIO.green.c }} />
-                          <span className="text-[12.5px] font-extrabold" style={{ color: TRIO.green.c }}>
-                            PAID LEAVES: {branchTotalPaid} DAYS
-                          </span>
-                        </div>
-                        <div className="px-3.5 py-1.5 rounded-full flex items-center gap-2 border" style={{ backgroundColor: TRIO.rose.bg, borderColor: TRIO.rose.bd }}>
-                          <span className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: TRIO.rose.c }} />
-                          <span className="text-[12.5px] font-extrabold" style={{ color: TRIO.rose.c }}>
-                            UNPAID: {branchUnpaidDays} DAYS
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ flexShrink: 0 }}>
+                        <Box sx={{ px: { xs: 1.25, sm: 1.75 }, py: 0.75, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 0.75, border: `1px solid ${TRIO.green.bd}`, backgroundColor: TRIO.green.bg }}>
+                          <Box sx={{ width: 7, height: 7, borderRadius: 999, backgroundColor: TRIO.green.c, flexShrink: 0 }} />
+                          <Box component="span" sx={{ fontSize: { xs: 11.5, sm: 12.5 }, fontWeight: 800, color: TRIO.green.c, whiteSpace: 'nowrap' }}>PAID: {branchTotalPaid} DAYS</Box>
+                        </Box>
+                        <Box sx={{ px: { xs: 1.25, sm: 1.75 }, py: 0.75, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 0.75, border: `1px solid ${TRIO.rose.bd}`, backgroundColor: TRIO.rose.bg }}>
+                          <Box sx={{ width: 7, height: 7, borderRadius: 999, backgroundColor: TRIO.rose.c, flexShrink: 0 }} />
+                          <Box component="span" sx={{ fontSize: { xs: 11.5, sm: 12.5 }, fontWeight: 800, color: TRIO.rose.c, whiteSpace: 'nowrap' }}>UNPAID: {branchUnpaidDays} DAYS</Box>
+                        </Box>
+                      </Stack>
+                    </Box>
 
                     {/* Paid Leave Types Grid with Relative Icons */}
-                    <div className="grid grid-cols-12 gap-[18px]">
-                      {paidOptions.map((lo) => {
+                    <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.25 }}>
+                      {paidOptions.map((lo, loIdx) => {
                         const val = formValues[lo.id] ?? 0;
                         const meta = getLeaveTypeMeta(lo.leaveType);
 
                         return (
-                          <div className="col-span-12 sm:col-span-6 md:col-span-4" key={lo.id}>
+                          <Grid item xs={12} sm={6} md={4} key={lo.id}>
                             <GlassSurface
                               variant="thin"
-                              className="p-4 flex flex-col justify-between gap-3.5 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgba(15,23,42,0.04),0_14px_22px_rgba(15,23,42,0.055)]"
-                              style={{ border: `1px solid ${meta.trio.bd}`, borderTop: `3.5px solid ${meta.trio.c}` }}
+                              sx={{
+                                p: { xs: 1.75, sm: 2 }, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 1.75,
+                                border: `1px solid ${meta.trio.bd}`, borderTop: `3.5px solid ${meta.trio.c}`,
+                                transition: 'transform .2s, box-shadow .2s, border-color .2s',
+                                '&:hover': { transform: 'translateY(-3px)', boxShadow: T.shadow.cardHover, borderColor: meta.trio.c },
+                                '&:hover .lt-icon': { transform: 'scale(1.06)' },
+                                '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' }, '&:hover .lt-icon': { transform: 'none' } },
+                                ...riseSx(loIdx),
+                              }}
                             >
                               {/* Header with relative icon & badge */}
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex flex-row gap-2.5 items-center min-w-0">
-                                  <IconBox icon={meta.icon} trio={meta.trio} size={38} fs="fs-3" />
-                                  <div className="min-w-0">
-                                    <p className="truncate text-[14px] font-extrabold text-slate-900 m-0">
-                                      {lo.leaveType}
-                                    </p>
-                                    <p className="truncate text-[11px] text-slate-500 font-medium m-0">
-                                      {meta.desc}
-                                    </p>
-                                  </div>
-                                </div>
+                              <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+                                <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+                                  <Box className="lt-icon" sx={{ transition: `transform .2s ${MRD_EASE}`, flexShrink: 0 }}>
+                                    <IconBox icon={meta.icon} trio={meta.trio} size={40} fs="fs-2" />
+                                  </Box>
+                                  <Box sx={{ minWidth: 0 }}>
+                                    <Typography noWrap title={lo.leaveType} sx={{ fontSize: { xs: 14.5, sm: 15 }, fontWeight: 800, color: 'text.primary', lineHeight: 1.3 }}>{lo.leaveType}</Typography>
+                                    <Typography noWrap title={meta.desc} sx={{ fontSize: 12.5, color: 'text.secondary', fontWeight: 500 }}>{meta.desc}</Typography>
+                                  </Box>
+                                </Stack>
                                 <StatusBadge trio={meta.trio} label={`${val} Days`} />
-                              </div>
+                              </Box>
 
                               {/* Interactive Stepper Control */}
-                              <div className="flex items-center gap-2 pt-1">
-                                <WtIconButton
-                                  size={36}
-                                  disabled={readOnly || val <= 0}
-                                  onClick={() => handleInputChange(lo.id, val - 1)}
-                                  title="Decrease"
-                                >
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pt: 0.5 }}>
+                                <WtIconButton disabled={readOnly || val <= 0} color={meta.trio.c} onClick={() => handleInputChange(lo.id, Math.max(0, val - 1))} title="Decrease by one day" sx={{ width: { xs: 42, sm: 38 }, height: { xs: 42, sm: 38 }, flexShrink: 0 }}>
                                   <KTIcon iconName="minus" className="fs-2" />
                                 </WtIconButton>
 
-                                <div className="flex-1 relative">
-                                  <input
-                                    type="number"
-                                    className="w-full rounded-lg border px-3 py-2 text-base text-center font-extrabold bg-white/70 outline-none focus:ring-2 focus:ring-[#1E3A8A]/15"
-                                    style={{ borderColor: meta.trio.bd }}
-                                    value={val}
-                                    disabled={readOnly}
-                                    onChange={(e) => handleInputChange(lo.id, parseInt(e.target.value, 10))}
-                                    min={0}
-                                    max={365}
-                                  />
-                                </div>
+                                <TextField
+                                  type="number" size="small" fullWidth disabled={readOnly}
+                                  value={val}
+                                  onChange={(e) => handleInputChange(lo.id, parseInt(e.target.value, 10))}
+                                  onFocus={(e) => e.target.select()}
+                                  inputProps={{ min: 0, max: 365, 'aria-label': `${lo.leaveType} days`, style: { textAlign: 'center', fontWeight: 800, fontSize: 16 } }}
+                                  sx={{
+                                    '& .MuiOutlinedInput-root': { borderRadius: '10px', transition: 'box-shadow .15s' },
+                                    '& .MuiOutlinedInput-notchedOutline': { borderColor: meta.trio.bd },
+                                    '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: `${meta.trio.c} !important`, borderWidth: '1.5px' },
+                                    '& .MuiOutlinedInput-root.Mui-focused': { boxShadow: `0 0 0 3px ${meta.trio.bg}` },
+                                  }}
+                                />
 
-                                <WtIconButton
-                                  size={36}
-                                  disabled={readOnly || val >= 365}
-                                  onClick={() => handleInputChange(lo.id, val + 1)}
-                                  title="Increase"
-                                >
+                                <WtIconButton disabled={readOnly || val >= 365} color={meta.trio.c} onClick={() => handleInputChange(lo.id, Math.min(365, val + 1))} title="Increase by one day" sx={{ width: { xs: 42, sm: 38 }, height: { xs: 42, sm: 38 }, flexShrink: 0 }}>
                                   <KTIcon iconName="plus" className="fs-2" />
                                 </WtIconButton>
-                              </div>
+                              </Box>
                             </GlassSurface>
-                          </div>
+                          </Grid>
                         );
                       })}
-                    </div>
+                    </Grid>
 
                     {/* Derived Unpaid Remainder Engine Formula Banner */}
-                    <GlassSurface
-                      variant="thin"
-                      radius={14}
-                      className="p-4 flex items-center justify-between flex-wrap gap-3"
-                      style={{ backgroundColor: TRIO.rose.bg, border: `1px solid ${TRIO.rose.bd}` }}
-                    >
-                      <div className="flex flex-row gap-3 items-center min-w-0 flex-1">
+                    <GlassSurface variant="thin" radius={14} sx={{ p: { xs: 1.75, sm: 2.25 }, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: { xs: 1.5, sm: 2 }, backgroundColor: TRIO.rose.bg, border: `1px solid ${TRIO.rose.bd}` }}>
+                      <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ minWidth: 0, flex: 1 }}>
                         <IconBox icon="calculator" trio={TRIO.rose} size={40} fs="fs-2" />
-                        <div className="min-w-0">
-                          <p className="text-[13px] font-extrabold m-0" style={{ color: TRIO.rose.c }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: TRIO.rose.c, letterSpacing: '-0.01em', lineHeight: 1.3, mb: 0.5 }}>
                             Unpaid Leave Remainder Engine
-                          </p>
-                          <p className="text-[12px] text-slate-500 font-medium leading-[1.4] m-0">
-                            Formula: <strong>365 Calendar Days</strong> − <strong>{branchTotalPaid} Paid Days</strong> = <strong style={{ color: TRIO.rose.c }}>{branchUnpaidDays} Unpaid Days</strong>. Unpaid days are automatically derived to maintain full-year attendance pacing and cannot be directly edited.
-                          </p>
-                        </div>
-                      </div>
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+                            <Box component="span" sx={{ fontSize: 12, fontWeight: 700, color: 'text.primary' }}>365 Calendar Days</Box>
+                            <Box component="span" sx={{ fontSize: 13, fontWeight: 800, color: TRIO.rose.c, lineHeight: 1 }}>−</Box>
+                            <Box component="span" sx={{ fontSize: 12, fontWeight: 700, color: 'text.primary' }}>{branchTotalPaid} Paid Days</Box>
+                            <Box component="span" sx={{ fontSize: 13, fontWeight: 800, color: TRIO.rose.c, lineHeight: 1 }}>=</Box>
+                            <Box component="span" sx={{ fontSize: 12, fontWeight: 800, color: TRIO.rose.c }}>{branchUnpaidDays} Unpaid Days</Box>
+                          </Box>
+                          <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontWeight: 500, lineHeight: 1.5 }}>
+                            Automatically derived to maintain full-year attendance pacing — cannot be edited directly.
+                          </Typography>
+                        </Box>
+                      </Stack>
 
-                      <StatusBadge trio={TRIO.rose} label={`${branchUnpaidDays} Unpaid Days`} pulse title="Derived 365-day remainder" />
+                      <Box sx={{ flexShrink: 0, alignSelf: { xs: 'flex-end', sm: 'center' } }}>
+                        <StatusBadge trio={TRIO.rose} label={`${branchUnpaidDays} Unpaid Days`} pulse title="Derived 365-day remainder" />
+                      </Box>
                     </GlassSurface>
                   </GlassSurface>
                 );
               })}
-          </div>
+          </Stack>
         )}
-      </div>
+      </Box>
 
       {/* Footer Actions */}
-      <div
-        className="px-4 sm:px-6 py-4 flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 shrink-0"
-        style={{ borderTop: `1px solid ${BRAND.line}`, backgroundColor: 'rgba(255,255,255,0.4)' }}
-      >
-        <WtButton ghost onClick={onClose} disabled={saving} className="w-full sm:w-auto">
+      <Box sx={{
+        px: { xs: 2, sm: 3 }, py: 2, display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' }, alignItems: 'center', justifyContent: 'space-between', gap: 1.25,
+        flexShrink: 0, borderTop: `1px solid ${T.color.line}`, backgroundColor: 'rgba(255,255,255,0.4)',
+      }}>
+        {!readOnly && (
+          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ display: { xs: 'none', sm: 'flex' }, minWidth: 0, color: '#94a3b8' }}>
+            <KTIcon iconName="information-5" className="fs-4" />
+            <Typography noWrap sx={{ fontSize: 12, color: 'text.secondary', fontWeight: 500 }}>
+              Unpaid days recalculate automatically from paid allowances.
+            </Typography>
+          </Stack>
+        )}
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' }, alignItems: 'center', gap: 1.25, width: { xs: '100%', sm: 'auto' }, ml: { sm: 'auto' } }}>
+        <WtButton ghost onClick={onClose} disabled={saving} sx={{ width: { xs: '100%', sm: 'auto' } }}>
           Cancel
         </WtButton>
         {!readOnly && (
-          <WtButton
-            tone="primary"
-            onClick={handleSave}
-            disabled={saving}
-            startIcon={saving ? <Spinner size={16} color="#fff" /> : <KTIcon iconName="check-circle" className="fs-2" />}
-            className="w-full sm:w-auto"
-          >
+          <WtButton tone="primary" onClick={handleSave} disabled={saving}
+            startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <KTIcon iconName="check-circle" className="fs-2" />}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}>
             {saving ? 'Saving Settings...' : 'Save Branch Balances'}
           </WtButton>
         )}
-      </div>
+        </Box>
+      </Box>
     </GlassDialog>
   );
 }

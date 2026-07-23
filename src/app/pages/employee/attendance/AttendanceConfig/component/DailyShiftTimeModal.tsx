@@ -5,7 +5,9 @@
  * matches the premium GlassDialog pattern used across the Leave engines.
  */
 import { KTIcon } from '@metronic/helpers';
-import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui/tw';
+import { Box } from '@mui/material';
+// Same MUI glass kit as the Sandwich Leave benchmark.
+import { GlassDialog, GlassHeader, T } from '@app/modules/common/components/ui';
 import DailyShiftTime from './DailyShiftTime';
 
 interface DailyShiftTimeModalProps {
@@ -43,22 +45,22 @@ export function DailyShiftTimeModal({
 
       {/* Scope context banner */}
       {scopeLabel && (
-        <div className="px-3 py-[5px] border-b border-[#E6E9EE] bg-[rgba(30,58,138,0.04)] flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-bold text-slate-500">Configuring for:</span>
-          <span className="px-1.5 py-0.5 rounded-lg border border-[#dbeafe] bg-[#eff6ff] text-[13px] font-bold text-[#2563eb]">
+        <Box sx={{ px: 1.5, py: '5px', borderBottom: `1px solid ${T.color.line}`, bgcolor: 'rgba(30,58,138,0.04)', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
+          <Box component="span" sx={{ fontSize: 12, fontWeight: 700, color: 'text.secondary' }}>Configuring for:</Box>
+          <Box component="span" sx={{ px: 1, py: 0.25, borderRadius: '8px', border: '1px solid #dbeafe', bgcolor: '#eff6ff', fontSize: 13, fontWeight: 700, color: '#2563eb' }}>
             {scopeLabel}
-          </span>
+          </Box>
           {!canEdit && (
-            <span className="text-xs text-[#e11d48] font-semibold">
+            <Box component="span" sx={{ fontSize: 12, color: '#e11d48', fontWeight: 600 }}>
               You don't have permission to edit (view only).
-            </span>
+            </Box>
           )}
-        </div>
+        </Box>
       )}
 
-      <div className="overflow-y-auto flex-1">
+      <Box sx={{ overflowY: 'auto', flex: 1 }}>
         <DailyShiftTime key={`${mountKey}-${scope.branchId ?? scope.companyId ?? 'org'}`} scope={scope} />
-      </div>
+      </Box>
     </GlassDialog>
   );
 }

@@ -4,7 +4,9 @@
  * Replaces the plain Bootstrap <Modal> in AttendanceConfig.
  */
 import { KTIcon } from '@metronic/helpers';
-import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui/tw';
+import { Box } from '@mui/material';
+// Same MUI glass kit as the Sandwich Leave benchmark.
+import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
 import Appearance from './Appearance';
 
 interface AppearanceModalProps {
@@ -27,9 +29,9 @@ export function AppearanceModal({ open, onClose }: AppearanceModalProps) {
         onClose={onClose}
       />
 
-      <div className="overflow-y-auto flex-1">
+      <Box sx={{ overflowY: 'auto', flex: 1 }}>
         <Appearance showAppearanceModal={(v) => { if (!v) onClose(); }} />
-      </div>
+      </Box>
     </GlassDialog>
   );
 }

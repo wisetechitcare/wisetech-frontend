@@ -146,10 +146,12 @@ function StatTile({ label, value, trio, icon }: { label: string; value: React.Re
   );
 }
 
-// Rule-row action button — the shared tinted-ghost primitive with the trio hue.
+// Rule-row action button — the shared tinted-ghost primitive with the trio hue. Slightly compact on
+// phones so the trio of controls leaves the rule title more room (and reads as buttons, not boxes).
 function GhostIconButton({ icon, trio, title, onClick }: { icon: string; trio: Trio; title: string; onClick: () => void }) {
   return (
-    <WtIconButton title={title} color={trio.c} onClick={onClick}>
+    <WtIconButton title={title} color={trio.c} onClick={onClick}
+      sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 } }}>
       <KTIcon iconName={icon} className="fs-3" />
     </WtIconButton>
   );
@@ -170,10 +172,13 @@ const STATUS_TRIO: Record<TileStatus, { trio: Trio; label: string }> = {
 
 // 'any' renders as "Any" — "Paid / Unpaid" truncated inside the tiles.
 const condLabel = (c: 'paid' | 'unpaid' | 'any') => (c === 'paid' ? 'Paid' : c === 'unpaid' ? 'Unpaid' : 'Any');
+// Interior off-day tiles always read "OFF-DAY" as the eyebrow with the specific type as the value
+// line, so every tile in the strip carries the same three-line anatomy (eyebrow · value · status)
+// and no tile renders hollow next to its neighbours in the 2-up mobile grid.
 const interiorMeta = (t?: 'holiday' | 'weekend' | 'any') =>
-  t === 'holiday' ? { role: 'Holiday', icon: 'auto-brightness' }
-  : t === 'weekend' ? { role: 'Weekend', icon: 'night-day' }
-  : { role: 'Off-day', icon: 'calendar-2' };
+  t === 'holiday' ? { icon: 'auto-brightness', typeLabel: 'Holiday' }
+  : t === 'weekend' ? { icon: 'night-day', typeLabel: 'Weekend' }
+  : { icon: 'calendar-2', typeLabel: 'Any day' };
 
 // Icon-left tile (per user preference): a miniature of the salary meta-tile anatomy — glyph on
 // the left, eyebrow-over-value text column on the right, status line beneath. Shorter and quicker
@@ -193,20 +198,20 @@ function DayTile({ role, icon, cond, status }: { role: string; icon: string; con
           On desktop the icon+text group centers horizontally and the type scales up a notch so
           the now-wide tiles read filled instead of hollow-left. */}
       <Stack direction="row" alignItems="center" sx={{
-        px: { xs: 1.25, md: 2 }, py: { xs: 1, md: 1.25 }, gap: { xs: 1, md: 1.25 },
+        px: { xs: 1.25, md: 2 }, py: { xs: 1.1, md: 1.25 }, gap: { xs: 1, md: 1.25 },
         minWidth: 0, flex: 1, justifyContent: { xs: 'flex-start', md: 'center' },
       }}>
         {/* Tile text stays FIXED dark — the chip bg is an opaque light pastel in both themes, so
             theme-aware (white-in-dark) text would be illegible here. */}
         <Box sx={{ color: trio.c, lineHeight: 0, flexShrink: 0 }}><KTIcon iconName={icon} className="fs-2" /></Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography noWrap sx={{ fontSize: { xs: 10, md: 10.5 }, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#475569', lineHeight: 1.2 }}>{role}</Typography>
+          <Typography noWrap sx={{ fontSize: { xs: 10.5, md: 11 }, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#64748b', lineHeight: 1.3 }}>{role}</Typography>
           {cond && (
-            <Typography noWrap sx={{ fontSize: { xs: 12.5, md: 13.5 }, fontWeight: 700, color: '#0f172a', lineHeight: 1.25 }}>{cond}</Typography>
+            <Typography noWrap sx={{ fontSize: { xs: 13.5, md: 14.5 }, fontWeight: 800, color: '#0f172a', lineHeight: 1.3 }}>{cond}</Typography>
           )}
-          <Stack direction="row" alignItems="center" spacing={0.6} sx={{ mt: cond ? 0 : 0.25 }}>
+          <Stack direction="row" alignItems="center" spacing={0.6} sx={{ mt: 0.35 }}>
             <Box sx={{ width: 6, height: 6, borderRadius: 999, bgcolor: trio.c, flexShrink: 0 }} />
-            <Typography noWrap sx={{ fontSize: { xs: 10, md: 10.5 }, fontWeight: 700, color: trio.c, textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2 }}>{label}</Typography>
+            <Typography noWrap sx={{ fontSize: { xs: 10.5, md: 11 }, fontWeight: 700, color: trio.c, textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2 }}>{label}</Typography>
           </Stack>
         </Box>
       </Stack>
@@ -240,10 +245,14 @@ function SandwichPatternStrip({ pattern }: { pattern: SandwichRulePattern }) {
   const isAny = pattern.runLength === 'any';
   const n = typeof pattern.runLength === 'number' ? Math.max(1, pattern.runLength) : 2;
   const shown = isAny ? 2 : Math.min(n, 3);
-  const { role, icon } = interiorMeta(pattern.interiorDayType);
+  const { icon, typeLabel } = interiorMeta(pattern.interiorDayType);
   for (let i = 0; i < shown; i++) {
-    push(<DayTile key={`int${i}`} role={role} icon={icon}
-      cond={isAny ? (i === shown - 1 ? 'any length' : undefined) : (i === shown - 1 && n > shown ? `+${n - shown} more` : undefined)}
+    const isLast = i === shown - 1;
+    // The last interior tile carries the run-length note ("any length" / "+N more"); the rest carry
+    // the off-day type — so every interior tile still has a populated value line (no hollow tiles).
+    const runNote = isAny ? (isLast ? 'any length' : undefined) : (isLast && n > shown ? `+${n - shown} more` : undefined);
+    push(<DayTile key={`int${i}`} role="Off-day" icon={icon}
+      cond={runNote ?? typeLabel}
       status={pattern.excludeInteriorDaysFromSalary ? 'excluded' : 'counts'} />);
   }
 
@@ -337,7 +346,7 @@ function RuleRow({ rule, trio, index, readOnly, busy, draggable, onToggle, onEdi
             )}
           </Stack>
           {!readOnly && (
-            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }} {...stopDrag}>
+            <Stack direction="row" spacing={{ xs: 0.5, sm: 0.75 }} alignItems="center" sx={{ flexShrink: 0 }} {...stopDrag}>
               <GhostIconButton icon="time" trio={TRIO.slate} title="View audit history" onClick={onAudit} />
               <GhostIconButton icon="pencil" trio={TRIO.blue} title="Edit rule" onClick={onEdit} />
               <GhostIconButton icon="trash" trio={TRIO.rose} title="Delete rule" onClick={onDelete} />

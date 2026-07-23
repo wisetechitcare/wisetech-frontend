@@ -4,7 +4,9 @@
  * Replaces the plain Bootstrap <Modal> in AttendanceConfig.
  */
 import { KTIcon } from '@metronic/helpers';
-import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui/tw';
+import { Box } from '@mui/material';
+// Same MUI glass kit as the Sandwich Leave benchmark.
+import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
 import OtherSettings from './OtherSettings';
 
 interface OtherSettingsModalProps {
@@ -28,9 +30,9 @@ export function OtherSettingsModal({ open, onClose, mountKey }: OtherSettingsMod
         onClose={onClose}
       />
 
-      <div className="overflow-y-auto flex-1">
+      <Box sx={{ overflowY: 'auto', flex: 1 }}>
         <OtherSettings key={mountKey} />
-      </div>
+      </Box>
     </GlassDialog>
   );
 }
