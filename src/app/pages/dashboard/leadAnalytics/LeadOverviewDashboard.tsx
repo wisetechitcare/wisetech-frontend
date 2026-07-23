@@ -4,8 +4,8 @@ import AnalyticsCard from "./AnalyticsCard";
 import AnalyticsHeader from "./AnalyticsHeader";
 import AnalyticsTabs, { AnalyticsTab } from "./AnalyticsTabs";
 import PipelinePerformance from "./PipelinePerformance";
-import LeadServiceTreemap from "./LeadServiceTreemap";
 import RankedBarChart from "./RankedBarChart";
+import ServiceCategoryTabs, { BreakdownTab } from "./ServiceCategoryTabs";
 import AcquisitionGauge from "./AcquisitionGauge";
 import {
   ChartDatum,
@@ -35,6 +35,7 @@ export interface LeadOverviewDashboardProps {
   statusData: ChartDatum[];
   serviceData: ChartDatum[];
   categoryData: ChartDatum[];
+  subcategoryData?: ChartDatum[];
   /** Raw subcategory analytics payload (categories with subCategories[].leads[]). */
   subcategoryRaw: any[];
   sourceData: ChartDatum[];
@@ -52,6 +53,7 @@ export interface LeadOverviewDashboardProps {
   onStatusSelect?: (label: string) => void;
   onServiceSelect?: (label: string) => void;
   onCategorySelect?: (label: string) => void;
+  onSubcategorySelect?: (label: string) => void;
   onSourceSelect?: (label: string) => void;
   onReferralSelect?: (label: string) => void;
   onDirectSelect?: (label: string) => void;
@@ -80,6 +82,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   statusData,
   serviceData,
   categoryData,
+  subcategoryData,
   subcategoryRaw,
   sourceData,
   referralSourceData,
@@ -90,6 +93,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   onStatusSelect,
   onServiceSelect,
   onCategorySelect,
+  onSubcategorySelect,
   onSourceSelect,
   onReferralSelect,
   onDirectSelect,
@@ -162,36 +166,53 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
     <PipelinePerformance statusData={statusData} onSelect={onStatusSelect} />
   ) : null;
 
-  const serviceSection = showService ? (
+  // Service / Category / Sub-Category folded into ONE ranked-bar card with a tab
+  // switcher (replaces the old donut + the two separate category cards). Each tab
+  // is gated by the same chartSettings toggles the individual cards used before.
+  const breakdownTabs: BreakdownTab[] = [];
+  if (showService) {
+    breakdownTabs.push({
+      id: "services",
+      label: "Services",
+      cardTitle: "Service Mix",
+      cardSubtitle: "Distribution by lead volume · revenue in tooltip",
+      data: serviceData,
+      onSelect: onServiceSelect,
+      emptyHint: "Add services to see the distribution.",
+    });
+  }
+  if (showCategory) {
+    breakdownTabs.push({
+      id: "categories",
+      label: "Categories",
+      cardTitle: "Top Categories",
+      cardSubtitle: "Ranked by lead volume · revenue in tooltip",
+      data: categoryData,
+      onSelect: onCategorySelect,
+      emptyHint: "Create project categories to view the ranking.",
+    });
+    breakdownTabs.push({
+      id: "subcategories",
+      label: "Sub-Categories",
+      cardTitle: "Top Sub Categories",
+      cardSubtitle: "Ranked by lead volume · revenue in tooltip",
+      data: subcategoryData || [],
+      onSelect: onSubcategorySelect,
+      emptyHint: "Create sub categories to view the ranking.",
+    });
+  }
+
+  const serviceSection = breakdownTabs.length ? (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <AnalyticsHeader
-        title="Service Performance"
-        subtitle="Where the business is concentrated"
+        title="Service & Category Mix"
+        subtitle="Lead volume by service, category and sub-category"
         icon="bi-grid-1x2"
         accent="#22C55E"
       />
       <div className="row g-3">
-        <div className="col-12 col-lg-6">
-          <AnalyticsCard
-            title="Service Mix"
-            subtitle="Distribution by lead volume"
-            index={0}
-            isEmpty={isEmpty(serviceData)}
-            emptyHint="Add services to see the distribution."
-          >
-            <LeadServiceTreemap data={serviceData} onSelect={onServiceSelect} />
-          </AnalyticsCard>
-        </div>
-        <div className="col-12 col-lg-6">
-          <AnalyticsCard
-            title="Service Value"
-            subtitle="Ranked by revenue · lead count in tooltip"
-            index={1}
-            isEmpty={isEmpty(serviceDataByRevenue)}
-            emptyHint="Add services to see the ranking."
-          >
-            <RankedBarChart data={serviceDataByRevenue} onSelect={onServiceSelect} showRevenue />
-          </AnalyticsCard>
+        <div className="col-12">
+          <ServiceCategoryTabs tabs={breakdownTabs} />
         </div>
       </div>
     </section>
@@ -231,25 +252,8 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
     </section>
   ) : null;
 
-  const categorySection = showCategory ? (
-    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <AnalyticsHeader
-        title="Category Intelligence"
-        subtitle="Top project categories ranked by lead volume"
-        icon="bi-diagram-3"
-        accent="#8B5CF6"
-      />
-      <AnalyticsCard
-        title="Top Categories"
-        subtitle="Ranked by lead volume · revenue in tooltip"
-        index={0}
-        isEmpty={isEmpty(categoryData)}
-        emptyHint="Create project categories to view the ranking."
-      >
-        <RankedBarChart data={categoryData} onSelect={onCategorySelect} showRevenue valueLabel title="Top Categories" />
-      </AnalyticsCard>
-    </section>
-  ) : null;
+  // Category & Sub-Category are now tabs inside the Service & Category Mix card
+  // above (see breakdownTabs), so there is no separate Category section anymore.
 
   const cancellationSection = showCancellation ? (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -273,7 +277,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
 
   // ── Group the fragments into focused sub-tabs ───────────────────────────────
   const summaryHasContent = !!(kpiSection || pipelineSection || slots?.summary);
-  const servicesHasContent = !!(serviceSection || categorySection || slots?.services);
+  const servicesHasContent = !!(serviceSection || slots?.services);
   const sourcesHasContent = !!(acquisitionSection || slots?.sources);
   const insightsHasContent = !!(slots?.geography || cancellationSection || slots?.insights);
 
@@ -293,14 +297,16 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
     },
     {
       id: "services",
-      label: "Services",
+      label: "Services & Insights",
       icon: "bi-grid-1x2",
       accent: "#22C55E",
-      content: servicesHasContent ? (
+      content: (servicesHasContent || insightsHasContent) ? (
         <>
           {serviceSection}
-          {categorySection}
           {slots?.services}
+          {slots?.geography}
+          {cancellationSection}
+          {slots?.insights}
         </>
       ) : null,
     },
@@ -316,19 +322,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
         </>
       ) : null,
     },
-    {
-      id: "insights",
-      label: "Insights",
-      icon: "bi-geo-alt",
-      accent: "#14B8A6",
-      content: insightsHasContent ? (
-        <>
-          {slots?.geography}
-          {cancellationSection}
-          {slots?.insights}
-        </>
-      ) : null,
-    },
+
   ];
 
   return <AnalyticsTabs tabs={tabs} storageKey={tabStorageKey} />;

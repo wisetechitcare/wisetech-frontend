@@ -35,11 +35,12 @@ const PeriodNavigator = ({
     return (
         <Box
             sx={{
-                display: 'inline-flex',
+                display: isMobile ? 'flex' : 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 height: isMobile ? 32 : 36,
-                minWidth,
+                width: isMobile ? '100%' : minWidth,
+                minWidth: isMobile ? undefined : minWidth,
                 maxWidth: '100%',
                 backgroundColor: '#ffffff',
                 border: `1.5px solid ${labelColor}12`,

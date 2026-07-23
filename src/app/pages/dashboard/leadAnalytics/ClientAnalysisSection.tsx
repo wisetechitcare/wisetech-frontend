@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
+import dayjs from "dayjs";
 import AnalyticsCard from "./AnalyticsCard";
 import AnalyticsHeader from "./AnalyticsHeader";
 import RankedBarChart from "./RankedBarChart";
 import { ChartDatum } from "./leadAnalyticsUtils";
 import { getLeadsByExternalReferralAnalytics } from "@services/lead";
 import { convertToChartData } from "@utils/leadsProjectCompaniesStatistics";
+import { ChartDialogModal } from "@pages/employee/leads/overview/components/ChartDialogModal";
 
 interface Props {
   /** Formatted range (YYYY-MM-DD) — must match the other analytics calls on the page. */
@@ -15,6 +17,7 @@ interface Props {
 const isEmpty = (d?: ChartDatum[]) =>
   !d || d.length === 0 || d.every((x) => !x.value || x.value <= 0);
 
+const NA = "__NA__";
 type ViewKey = "companyType" | "company" | "contact";
 
 /**
@@ -106,6 +109,28 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate }) => {
   const activeView = views.find((v) => v.key === view) || views[0];
   const totalLeads = activeView.data.reduce((sum, d) => sum + (d.value || 0), 0);
 
+  // Drill-down: each bar's ChartDatum already carries the real backend id (the
+  // companyTypeId / referringCompanyId / referredByContactId, or the "__NA__"
+  // sentinel — see getLeadsByExternalReferralAnalytics), so we look it up by the
+  // clicked label instead of re-fetching or matching on name alone.
+  const [drill, setDrill] = useState<{ open: boolean; mode: ViewKey; id?: string; title?: string }>({
+    open: false,
+    mode: "companyType",
+  });
+
+  const handleSelect = (label: string) => {
+    const found = activeView.data.find((d) => d.label === label);
+    setDrill({
+      open: true,
+      mode: view,
+      id: found?.id || NA,
+      title: `${activeView.title} · ${label}`,
+    });
+  };
+
+  const drillStart = startDate ? dayjs(startDate) : undefined;
+  const drillEnd = endDate ? dayjs(endDate) : undefined;
+
   const segmentedToggle = (
     <div
       style={{
@@ -173,12 +198,24 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate }) => {
         <RankedBarChart
           key={activeView.key}
           data={activeView.data}
+          onSelect={handleSelect}
           valueLabel
           height={400}
           barColor={activeView.barColor}
           title={activeView.title}
         />
       </AnalyticsCard>
+
+      <ChartDialogModal
+        open={drill.open}
+        onClose={() => setDrill((s) => ({ ...s, open: false }))}
+        title={drill.title}
+        referralCompanyTypeId={drill.mode === "companyType" ? drill.id : undefined}
+        referralCompanyId={drill.mode === "company" ? drill.id : undefined}
+        referralContactId={drill.mode === "contact" ? drill.id : undefined}
+        startDate={drillStart}
+        endDate={drillEnd}
+      />
     </section>
   );
 };

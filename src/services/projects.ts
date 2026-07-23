@@ -293,6 +293,24 @@ export const getProjectTeamCount = async (startDate: string, endDate: string) =>
     }
 }
 
+// Projects grouped by EXTERNAL TEAM. groupBy = 'companyType' | 'company' | 'contact'.
+// Returns { projectCountByExternalTeam: [{ id, name, color, projectsCount }] } incl. NA.
+export const getProjectExternalTeamCount = async (
+    startDate: string,
+    endDate: string,
+    groupBy: "companyType" | "company" | "contact"
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECT_COUNT_BY_EXTERNAL_TEAM}`;
+        const { data } = await axios.get(endpoint, {
+            params: { startDate, endDate, groupBy },
+        });
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
 // Get Project category count
 export const getProjectCategoryCount = async (startDate: string, endDate: string) => {
     try {

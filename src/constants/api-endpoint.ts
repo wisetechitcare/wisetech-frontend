@@ -374,6 +374,7 @@ export const LEAD_PROJECT_COMPANY = {
     GET_PROJECT_COUNT_BY_STATUS: "api/lead-project-companies/projects/overview/status-count",
     GET_PROJECT_COUNT_BY_SERVICES: "api/lead-project-companies/projects/overview/services-count",
     GET_PROJECT_COUNT_BY_TEAM: "api/lead-project-companies/projects/overview/teams-count",
+    GET_PROJECT_COUNT_BY_EXTERNAL_TEAM: "api/lead-project-companies/projects/overview/external-team-count",
     GET_PROJECT_COUNT_BY_CATEGORY: "api/lead-project-companies/projects/overview/category-count",
     GET_PROJECT_COUNT_BY_SUBCATEGORY: "api/lead-project-companies/projects/overview/subcategory-count",
     GET_PROJECT_COUNT_BY_STATUS_YEARLY: "api/lead-project-companies/projects/overview/status-yearly-count",

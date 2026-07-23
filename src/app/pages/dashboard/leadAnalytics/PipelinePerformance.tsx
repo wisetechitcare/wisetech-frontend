@@ -426,7 +426,9 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
               <div
                 style={{
                   flex: "2 1 360px",
-                  minWidth: 300,
+                  // minWidth:0 lets this column shrink below its content on very
+                  // narrow phones instead of forcing a horizontal page scroll.
+                  minWidth: 0,
                   display: "flex",
                   flexDirection: "column",
                   gap: 18,

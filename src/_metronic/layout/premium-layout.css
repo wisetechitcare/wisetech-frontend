@@ -38,6 +38,38 @@ body[data-aside-collapsed='true'] {
   --wt-aside-eff: var(--wt-aside-collapsed);
 }
 
+/* =============================================================================
+   GLOBAL HORIZONTAL-OVERFLOW GUARD
+   The app must never scroll horizontally on any device. The usual culprit is the
+   flex `min-width: auto` default: `.wrapper` is a flex child of `.page`, so a wide
+   child (chart, data table, long row) refuses to shrink and pushes the whole
+   layout past the viewport — which is why the page (and the fixed bottom nav,
+   pinned to the layout viewport) appeared to scroll sideways on every screen.
+   Fix: let the entire Metronic layout chain shrink (min-width: 0) and clip any
+   residual horizontal overflow. `overflow-x: clip` (not `hidden`) is used so it
+   does NOT create a scroll container — `position: sticky` keeps working and
+   nested scrollers (data tables) keep their own horizontal scroll.
+   ========================================================================== */
+html,
+body {
+  overflow-x: clip !important;
+  max-width: 100% !important;
+}
+
+.page,
+.wrapper,
+#kt_wrapper,
+#kt_content,
+#kt_post,
+#kt_content_container {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+#kt_content_container {
+  overflow-x: clip !important;
+}
+
 /* -----------------------------------------------------------------------------
    Desktop widths — aside, logo cell and content offset all follow one variable
    -------------------------------------------------------------------------- */
