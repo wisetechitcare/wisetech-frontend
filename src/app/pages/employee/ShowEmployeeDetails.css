@@ -1,0 +1,233 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Employee overview — fluid, container-driven card layout.
+
+   Fluid-first: every size derives from a token (rem / clamp / %). There are NO fixed
+   device breakpoints deciding the layout — the card grid reflows from available width
+   via `auto-fit` + `minmax`, and each card's interior reflows from its OWN width via a
+   container query (so a narrow card stacks its rows even on a wide screen).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.emp-details {
+  /* spacing / shape */
+  --emp-gap: clamp(0.75rem, 0.5rem + 1vw, 1rem);
+  --emp-card-pad: clamp(0.9rem, 0.6rem + 1.2vw, 1.35rem);
+  --emp-radius: 0.75rem;
+  --emp-shadow: 0 0.25rem 1.25rem rgba(16, 24, 40, 0.05);
+  /* typography (fluid) */
+  --emp-title-fs: clamp(1rem, 0.9rem + 0.5vw, 1.15rem);
+  --emp-row-fs: clamp(0.8rem, 0.75rem + 0.35vw, 0.9rem);
+  --emp-icon-size: clamp(2.25rem, 2rem + 1vw, 2.75rem);
+  /* palette */
+  --emp-surface: #ffffff;
+  --emp-border-color: #eceef3;
+  --emp-label-color: #5b6472;
+  --emp-value-color: #1a1f2b;
+  --emp-accent: #1e3a8a;
+  --emp-muted: #8a94a6;
+  --emp-icon-bg: #eef2f9;
+
+  width: 100%;
+  container-type: inline-size;
+  /* Subtle gradient canvas so the frosted cards have something to blur. */
+  background: var(--gm-page-grad);
+  padding: clamp(0.5rem, 0.3rem + 0.8vw, 1rem);
+  border-radius: var(--gm-radius, 0.85rem);
+}
+
+/* Container-driven card grid — column count keys off the panel's OWN width (not the device),
+   so short cards sit 1-up → 2-up → 3-up as space allows and stay compact/readable rather than
+   stretching too wide. */
+.emp-grid {
+  display: grid;
+  gap: var(--emp-gap);
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+@container (min-width: 40rem) {
+  .emp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (min-width: 62rem) {
+  .emp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Long-content cards (e.g. Address) get extra width so their text reads on fewer lines:
+   full-width at 1-2 columns, two-thirds at 3 columns. */
+.emp-card--wide { grid-column: 1 / -1; }
+@container (min-width: 62rem) {
+  .emp-card--wide { grid-column: span 2; }
+}
+
+.emp-card {
+  container-type: inline-size;
+  /* Frosted glass surface — high-opacity tint keeps the dense label/value text readable. */
+  background: var(--gm-surface, var(--emp-surface));
+  backdrop-filter: blur(var(--gm-blur, 12px)) saturate(var(--gm-saturate, 1.4));
+  -webkit-backdrop-filter: blur(var(--gm-blur, 12px)) saturate(var(--gm-saturate, 1.4));
+  border: var(--gm-border, 1px solid var(--emp-border-color));
+  border-radius: var(--emp-radius);
+  box-shadow: var(--gm-shadow, var(--emp-shadow));
+  padding: var(--emp-card-pad);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.75rem, 0.5rem + 0.8vw, 1rem);
+  min-width: 0;
+  height: 100%;
+}
+
+.emp-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.emp-card-icon {
+  flex: 0 0 auto;
+  width: var(--emp-icon-size);
+  height: var(--emp-icon-size);
+  border-radius: 50%;
+  background: var(--emp-icon-bg);
+  color: var(--emp-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--emp-icon-size) * 0.5);
+}
+.emp-card-icon--warn { color: #b54708; background: #fef3e6; }
+.emp-card-icon--success { color: #067647; background: #e7f5ee; }
+
+.emp-card-title {
+  margin: 0;
+  font-family: "Barlow", sans-serif;
+  font-weight: 600;
+  font-size: var(--emp-title-fs);
+  color: #0b1220;
+  letter-spacing: 0.01em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.emp-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* Label / value row */
+.emp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: var(--emp-row-fs);
+  min-width: 0;
+}
+.emp-row-label {
+  flex: 0 0 auto;
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+  color: var(--emp-label-color);
+}
+.emp-row-value {
+  min-width: 0;
+  font-family: "Inter", sans-serif;
+  font-weight: 400;
+  color: var(--emp-value-color);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.emp-row-value--link { color: var(--emp-accent); }
+
+/* When the CARD itself is narrow, stack label over value (container-driven, not viewport). */
+@container (max-width: 20rem) {
+  .emp-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+  }
+  .emp-row-value { text-align: left; }
+}
+
+/* Address blocks — Current, then Permanent stacked below it (keeps the card compact). */
+.emp-address-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.emp-address-block { display: flex; flex-direction: column; gap: 0.375rem; }
+.emp-subhead {
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: var(--emp-row-fs);
+  color: var(--emp-value-color);
+}
+.emp-address-text {
+  font-family: "Inter", sans-serif;
+  font-size: var(--emp-row-fs);
+  color: var(--emp-value-color);
+  overflow-wrap: anywhere;
+}
+
+/* Scrollable repeating lists (work exp, education, family, rejoin) */
+.emp-scroll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  max-height: min(12.5rem, 40dvh);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.emp-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.emp-list-item + .emp-list-item {
+  border-top: 1px solid var(--emp-border-color);
+  padding-top: 0.875rem;
+}
+
+.emp-empty {
+  text-align: center;
+  padding: clamp(1rem, 0.5rem + 2vw, 1.5rem) 0;
+  color: var(--emp-muted);
+  font-family: "Inter", sans-serif;
+  font-size: var(--emp-row-fs);
+}
+
+/* Header actions (share / app settings) */
+.emp-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: var(--emp-gap);
+}
+.emp-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.emp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem clamp(0.75rem, 0.5rem + 1vw, 1rem);
+  font-family: "Inter", sans-serif;
+  font-size: clamp(0.75rem, 0.7rem + 0.3vw, 0.875rem);
+  border-radius: 0.4rem;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+}
+.emp-btn i { font-size: 1em; }
+.emp-btn-whatsapp { background: #25d366; }
+.emp-btn-settings { background: var(--emp-accent); }
+
+/* Minimal dark-mode support (Metronic toggles data-bs-theme). */
+[data-bs-theme="dark"] .emp-details {
+  --emp-surface: #1b1b29;
+  --emp-border-color: #2b2b40;
+  --emp-label-color: #9aa2b4;
+  --emp-value-color: #e6e9f0;
+  --emp-icon-bg: #2b2b40;
+}
+[data-bs-theme="dark"] .emp-card-title { color: #ffffff; }

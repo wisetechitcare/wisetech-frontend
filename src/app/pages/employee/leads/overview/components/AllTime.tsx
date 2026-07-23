@@ -27,11 +27,13 @@ import {
 } from "@utils/leadsProjectCompaniesStatistics";
 import LeadByLocationAndStatus from "../commonComponents/LeadByLocationChart";
 import { ChartDialogModal } from "./ChartDialogModal";
+import MonthlyLeadsTrend from "./MonthlyLeadsTrend";
 import {
   LeadOverviewDashboard,
   AnalyticsCard,
   AnalyticsHeader,
   RankedBarChart,
+  ClientAnalysisSection,
 } from "@pages/dashboard/leadAnalytics";
 
 /**
@@ -127,13 +129,17 @@ const AllTime = () => {
   };
 
   const handleStatusChartClick = (selectedLabel: string) => {
+    // leadStatusesID is the master status list (real ids) — it never has an "N/A"
+    // row, since the N/A bucket (leads with no status at all) is synthesized by
+    // the analytics endpoint, not a real LeadStatus. Special-case it explicitly
+    // so a miss doesn't fall through to the raw display label.
     const selectedStatus = leadStatusesID.find(
       (status: any) => status.name === selectedLabel
     );
     if (selectedStatus) {
       setStatusId(selectedStatus.id.toString());
     } else {
-      setStatusId(selectedLabel);
+      setStatusId(selectedLabel === "N/A" ? "__NA__" : selectedLabel);
     }
     setOpen(true);
   };
@@ -162,34 +168,24 @@ const AllTime = () => {
     setOpenCategory(true);
   };
 
+  // ServiceCategoryTabs renders Category and Sub-Category as separate tabs
+  // (no combined sunburst anymore), so onCategorySelect only ever fires for a
+  // genuine category bar — passthrough kept for the prop name callers expect.
   const handleCategoryNodeClick = (selectedLabel: string) => {
-    let isSub = false;
-    subcategoryRes?.data?.forEach((cat: any) =>
-      (cat.subCategories || []).forEach((sc: any) => {
-        if (sc.name === selectedLabel) isSub = true;
-      })
-    );
-    if (isSub) handleSubCategoryChartClick(selectedLabel);
-    else handleCategoryChartClick(selectedLabel);
+    handleCategoryChartClick(selectedLabel);
   };
 
   const handleSubCategoryChartClick = (selectedLabel: string) => {
-    let selectedSubCategory: any = null;
-    subcategoryRes?.data?.forEach((category: any) => {
-      if (category.subCategories) {
-        const found = category.subCategories.find(
-          (subcat: any) => subcat.name === selectedLabel
-        );
-        if (found) {
-          selectedSubCategory = found;
-        }
-      }
-    });
+    // Flat shape — { subcategoryId, subcategory, category, color, count, budget }[],
+    // including an "N/A" bucket (subcategoryId "__NA__") for no-subcategory leads.
+    const selectedSubCategory = subcategoryRes?.data?.find(
+      (subcat: any) => subcat.subcategory === selectedLabel
+    );
 
     if (selectedSubCategory) {
-      setSubCategoryId(selectedSubCategory.id);
+      setSubCategoryId(selectedSubCategory.subcategoryId);
     } else {
-      setSubCategoryId(selectedLabel);
+      setSubCategoryId("__NA__");
     }
     setOpenSubCategory(true);
   };
@@ -499,6 +495,7 @@ const AllTime = () => {
           statusData={chartData.statusData}
           serviceData={chartData.serviceData}
           categoryData={chartData.categoryData}
+          subcategoryData={chartData.subcategoryData}
           subcategoryRaw={subcategoryRes?.data || []}
           sourceData={chartData.sourceData}
           referralSourceData={chartData.referralSourceData}
@@ -509,63 +506,28 @@ const AllTime = () => {
           onStatusSelect={handleStatusChartClick}
           onServiceSelect={handleServiceChartClick}
           onCategorySelect={handleCategoryNodeClick}
+          onSubcategorySelect={handleSubCategoryChartClick}
           onSourceSelect={handleSourceChartClick}
           onReferralSelect={handleReferralChartClick}
+          tabStorageKey="leadOverviewActiveTab"
+          slots={{
+            summary: <MonthlyLeadsTrend startDate="2000-01-01" endDate="2099-12-31" />,
+            sources: settings?.showLeadsByCompanyType ? (
+              <ClientAnalysisSection startDate="2000-01-01" endDate="2099-12-31" />
+            ) : null,
+            geography: settings?.showLeadsByLocation ? (
+              <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <AnalyticsHeader
+                  title="Geographic Distribution"
+                  subtitle="Where leads have come from historically"
+                  icon="bi-geo-alt"
+                  accent="#14B8A6"
+                />
+                <LeadByLocationAndStatus data={locationRes?.data || []} />
+              </section>
+            ) : null,
+          }}
         />
-
-        {settings?.showLeadsByCompanyType && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AnalyticsHeader
-              title="Segment Analysis"
-              subtitle="Client segment performance over all time"
-              icon="bi-buildings"
-              accent="#EC4899"
-            />
-            <AnalyticsCard
-              title="Lead by Company Type"
-              subtitle="Ranked by lead volume · revenue in tooltip"
-              isEmpty={
-                !chartData.companyTypeData?.length ||
-                chartData.companyTypeData.every((d: any) => !d.value)
-              }
-              emptyHint="No company-type data available."
-              headerRight={
-                <select
-                  className="form-select form-select-sm"
-                  style={{ minWidth: 150 }}
-                  value={filters.companyType || ""}
-                  onChange={(e) => handleFilterChange("companyType", e.target.value)}
-                >
-                  <option value="">All Status</option>
-                  {companyTypeFilterOptions.map((o: string) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              }
-            >
-              <RankedBarChart
-                data={chartData.companyTypeData}
-                onSelect={handleCompanyTypeChartClick}
-                showRevenue
-                height={320}
-              />
-            </AnalyticsCard>
-          </section>
-        )}
-
-        {settings?.showLeadsByLocation && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AnalyticsHeader
-              title="Geographic Distribution"
-              subtitle="Where leads have come from historically"
-              icon="bi-geo-alt"
-              accent="#14B8A6"
-            />
-            <LeadByLocationAndStatus data={locationRes?.data || []} />
-          </section>
-        )}
       </div>
 
       <ChartDialogModal

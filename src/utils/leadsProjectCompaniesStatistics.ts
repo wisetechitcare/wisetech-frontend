@@ -9,7 +9,7 @@ export const convertToChartData = (
 ): ChartData[] => {
   // console.log("apiData", apiData);
   return apiData.map((item, index) => ({
-    label: item[labelKey],
+    label: item[labelKey] || "N/A",
     value: item[countKey],
     color: item.color || "#3B82F6",
     totalCost: item[totalCostKey] || 0,
@@ -373,45 +373,36 @@ export const convertCompanyTypeData = (
 };
 
 // Helper function to convert subcategory data with filtering
+// Backend shape (LeadRepository.getLeadsBySubcategoryAnalytics): a FLAT array —
+// { subcategoryId, subcategory, category, color, count, budget }[] — including
+// an N/A bucket (subcategoryId: "__NA__") for leads with no sub-category at all.
 export const convertSubcategoryData = (
   rawData: any[],
   selectedCategory?: string
-) => {
+): ChartData[] => {
+  if (!rawData || rawData.length === 0) return [];
+
   let filteredData = rawData;
 
-  // If a category is selected, filter to only show that category's subcategories
+  // If a category is selected, filter to only show that category's subcategories.
+  // The N/A bucket has no category, so it only shows in the unfiltered ("all") view.
   if (
     selectedCategory &&
     selectedCategory !== "all" &&
     selectedCategory !== ""
   ) {
-    filteredData = rawData.filter(
-      (category) => category.name === selectedCategory
-    );
+    filteredData = rawData.filter((sub: any) => sub.category === selectedCategory);
   }
 
-  // Flatten subcategories and calculate totals
-  const subcategoriesWithTotals = filteredData.flatMap((category: any) =>
-    (category.subCategories || []).map((subcat: any) => {
-      const totalBudget =
-        subcat.leads?.reduce(
-          (sum: number, lead: any) => sum + (parseFloat(lead.budget) || 0),
-          0
-        ) || 0;
-      const leadCount = subcat.leads?.length || 0;
-
-      return {
-        label: subcat.name,
-        value: leadCount,
-        totalCost: totalBudget,
-        count: leadCount,
-        categoryName: category.name,
-        color: subcat.color || category.color,
-      };
-    })
-  );
-
-  return subcategoriesWithTotals;
+  return filteredData
+    .map((sub: any) => ({
+      label: sub.subcategory || "N/A",
+      value: sub.count || 0,
+      totalCost: sub.budget || 0,
+      color: sub.color || "#8a2be2",
+      id: sub.subcategoryId,
+    }))
+    .filter((item) => item.value > 0);
 };
 
 // Transform monthly data for yearly chart

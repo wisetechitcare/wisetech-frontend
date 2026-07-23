@@ -2,9 +2,10 @@ import React, { useMemo } from "react";
 import KpiStatCard from "./KpiStatCard";
 import AnalyticsCard from "./AnalyticsCard";
 import AnalyticsHeader from "./AnalyticsHeader";
+import AnalyticsTabs, { AnalyticsTab } from "./AnalyticsTabs";
 import PipelinePerformance from "./PipelinePerformance";
-import LeadServiceTreemap from "./LeadServiceTreemap";
 import RankedBarChart from "./RankedBarChart";
+import ServiceCategoryTabs, { BreakdownTab } from "./ServiceCategoryTabs";
 import AcquisitionGauge from "./AcquisitionGauge";
 import {
   ChartDatum,
@@ -12,10 +13,29 @@ import {
   generateServiceInsights,
 } from "./leadAnalyticsUtils";
 
+/**
+ * Period-specific sections the wrapper pages (Monthly / Yearly / All Time) inject
+ * into the right tab. Pass an already-gated node (or null when a chart is toggled
+ * off) so empty tabs auto-hide.
+ */
+export interface LeadOverviewSlots {
+  /** Extra Summary-tab content (e.g. Daily Inquiry Trend, Revenue Intelligence). */
+  summary?: React.ReactNode;
+  /** Extra Services-tab content. */
+  services?: React.ReactNode;
+  /** Extra Sources-tab content (e.g. Client Analysis). */
+  sources?: React.ReactNode;
+  /** Insights-tab content (e.g. Geographic Distribution). */
+  geography?: React.ReactNode;
+  /** Any additional Insights-tab content. */
+  insights?: React.ReactNode;
+}
+
 export interface LeadOverviewDashboardProps {
   statusData: ChartDatum[];
   serviceData: ChartDatum[];
   categoryData: ChartDatum[];
+  subcategoryData?: ChartDatum[];
   /** Raw subcategory analytics payload (categories with subCategories[].leads[]). */
   subcategoryRaw: any[];
   sourceData: ChartDatum[];
@@ -33,10 +53,15 @@ export interface LeadOverviewDashboardProps {
   onStatusSelect?: (label: string) => void;
   onServiceSelect?: (label: string) => void;
   onCategorySelect?: (label: string) => void;
+  onSubcategorySelect?: (label: string) => void;
   onSourceSelect?: (label: string) => void;
   onReferralSelect?: (label: string) => void;
   onDirectSelect?: (label: string) => void;
   onCancellationReasonSelect?: (label: string) => void;
+  /** Period-specific sections injected into the matching tab. */
+  slots?: LeadOverviewSlots;
+  /** Persist the active tab per period view. */
+  tabStorageKey?: string;
 }
 
 const isEmpty = (d?: ChartDatum[]) =>
@@ -57,6 +82,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   statusData,
   serviceData,
   categoryData,
+  subcategoryData,
   subcategoryRaw,
   sourceData,
   referralSourceData,
@@ -67,10 +93,13 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   onStatusSelect,
   onServiceSelect,
   onCategorySelect,
+  onSubcategorySelect,
   onSourceSelect,
   onReferralSelect,
   onDirectSelect,
   onCancellationReasonSelect,
+  slots,
+  tabStorageKey = "leadOverviewActiveTab",
 }) => {
   const kpis = useMemo(
     () => computeExecutiveKpis(statusData, serviceData),
@@ -110,150 +139,193 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   const showAcquisition = showSource || showReferral || showDirect;
   const showCancellation = settings?.showLeadsByCancellationReason !== false; // Default to true if undefined
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-      {/* ── Section 1: Executive Overview ──────────────────────────────── */}
-      {showKpis && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AnalyticsHeader
-            title="Executive Overview"
-            subtitle="Complete business snapshot for the selected period"
-            icon="bi-speedometer2"
-            accent="#6366F1"
-          />
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-              gap: 16,
-            }}
-          >
-            {kpiCards.map((c, i) => (
-              <KpiStatCard key={c.label} {...c} index={i} />
-            ))}
+  // ── Section fragments (charts unchanged — only regrouped into tabs) ──────────
+  const kpiSection = showKpis ? (
+    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <AnalyticsHeader
+        title="Executive Overview"
+        subtitle="Complete business snapshot for the selected period"
+        icon="bi-speedometer2"
+        accent="#6366F1"
+      />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: 16,
+        }}
+      >
+        {kpiCards.map((c, i) => (
+          <KpiStatCard key={c.label} {...c} index={i} />
+        ))}
+      </div>
+    </section>
+  ) : null;
+
+  const pipelineSection = showStatus ? (
+    <PipelinePerformance statusData={statusData} onSelect={onStatusSelect} />
+  ) : null;
+
+  // Service / Category / Sub-Category folded into ONE ranked-bar card with a tab
+  // switcher (replaces the old donut + the two separate category cards). Each tab
+  // is gated by the same chartSettings toggles the individual cards used before.
+  const breakdownTabs: BreakdownTab[] = [];
+  if (showService) {
+    breakdownTabs.push({
+      id: "services",
+      label: "Services",
+      cardTitle: "Service Mix",
+      cardSubtitle: "Distribution by lead volume · revenue in tooltip",
+      data: serviceData,
+      onSelect: onServiceSelect,
+      emptyHint: "Add services to see the distribution.",
+    });
+  }
+  if (showCategory) {
+    breakdownTabs.push({
+      id: "categories",
+      label: "Categories",
+      cardTitle: "Top Categories",
+      cardSubtitle: "Ranked by lead volume · revenue in tooltip",
+      data: categoryData,
+      onSelect: onCategorySelect,
+      emptyHint: "Create project categories to view the ranking.",
+    });
+    breakdownTabs.push({
+      id: "subcategories",
+      label: "Sub-Categories",
+      cardTitle: "Top Sub Categories",
+      cardSubtitle: "Ranked by lead volume · revenue in tooltip",
+      data: subcategoryData || [],
+      onSelect: onSubcategorySelect,
+      emptyHint: "Create sub categories to view the ranking.",
+    });
+  }
+
+  const serviceSection = breakdownTabs.length ? (
+    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <AnalyticsHeader
+        title="Service & Category Mix"
+        subtitle="Lead volume by service, category and sub-category"
+        icon="bi-grid-1x2"
+        accent="#22C55E"
+      />
+      <div className="row g-3">
+        <div className="col-12">
+          <ServiceCategoryTabs tabs={breakdownTabs} />
+        </div>
+      </div>
+    </section>
+  ) : null;
+
+  const acquisitionSection = showAcquisition ? (
+    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <AnalyticsHeader
+        title="Lead Acquisition"
+        subtitle="Where leads are coming from"
+        icon="bi-broadcast"
+        accent="#0EA5E9"
+      />
+      <div className="row g-3">
+        {showSource && (
+          <div className="col-12 col-lg-4">
+            <AnalyticsCard title="By Source" index={0} isEmpty={isEmpty(sourceData)} emptyHint="No source data.">
+              <AcquisitionGauge data={sourceData} onSelect={onSourceSelect} limit={8} height={260} />
+            </AnalyticsCard>
           </div>
-        </section>
-      )}
-
-      {/* ── Section 2: Pipeline Performance ────────────────────────────── */}
-      {showStatus && (
-        <PipelinePerformance statusData={statusData} onSelect={onStatusSelect} />
-      )}
-
-      {/* ── Section 3: Service Performance ─────────────────────────────── */}
-      {showService && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AnalyticsHeader
-            title="Service Performance"
-            subtitle="Where the business is concentrated"
-            icon="bi-grid-1x2"
-            accent="#22C55E"
-          />
-          <div className="row g-3">
-            <div className="col-12 col-lg-6">
-              <AnalyticsCard
-                title="Service Mix"
-                subtitle="Distribution by lead volume"
-                index={0}
-                isEmpty={isEmpty(serviceData)}
-                emptyHint="Add services to see the distribution."
-              >
-                <LeadServiceTreemap data={serviceData} onSelect={onServiceSelect} />
-              </AnalyticsCard>
-            </div>
-            <div className="col-12 col-lg-6">
-              <AnalyticsCard
-                title="Service Value"
-                subtitle="Ranked by revenue · lead count in tooltip"
-                index={1}
-                isEmpty={isEmpty(serviceDataByRevenue)}
-                emptyHint="Add services to see the ranking."
-              >
-                <RankedBarChart data={serviceDataByRevenue} onSelect={onServiceSelect} showRevenue />
-              </AnalyticsCard>
-            </div>
+        )}
+        {showReferral && (
+          <div className="col-12 col-lg-4">
+            <AnalyticsCard title="By Referral Source" index={1} isEmpty={isEmpty(referralSourceData)} emptyHint="No referral data.">
+              <AcquisitionGauge data={referralSourceData} onSelect={onReferralSelect} limit={8} height={260} />
+            </AnalyticsCard>
           </div>
-        </section>
-      )}
-
-      {/* ── Section 4: Lead Acquisition ────────────────────────────────── */}
-      {showAcquisition && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AnalyticsHeader
-            title="Lead Acquisition"
-            subtitle="Where leads are coming from"
-            icon="bi-broadcast"
-            accent="#0EA5E9"
-          />
-          <div className="row g-3">
-            {showSource && (
-              <div className="col-12 col-lg-4">
-                <AnalyticsCard title="By Source" index={0} isEmpty={isEmpty(sourceData)} emptyHint="No source data.">
-                  <AcquisitionGauge data={sourceData} onSelect={onSourceSelect} limit={8} height={260} />
-                </AnalyticsCard>
-              </div>
-            )}
-            {showReferral && (
-              <div className="col-12 col-lg-4">
-                <AnalyticsCard title="By Referral Source" index={1} isEmpty={isEmpty(referralSourceData)} emptyHint="No referral data.">
-                  <AcquisitionGauge data={referralSourceData} onSelect={onReferralSelect} limit={8} height={260} />
-                </AnalyticsCard>
-              </div>
-            )}
-            {showDirect && (
-              <div className="col-12 col-lg-4">
-                <AnalyticsCard title="By Direct Source" index={2} isEmpty={isEmpty(directSourceData)} emptyHint="No direct-source data.">
-                  <AcquisitionGauge data={directSourceData} onSelect={onDirectSelect} limit={8} height={260} />
-                </AnalyticsCard>
-              </div>
-            )}
+        )}
+        {showDirect && (
+          <div className="col-12 col-lg-4">
+            <AnalyticsCard title="By Direct Source" index={2} isEmpty={isEmpty(directSourceData)} emptyHint="No direct-source data.">
+              <AcquisitionGauge data={directSourceData} onSelect={onDirectSelect} limit={8} height={260} />
+            </AnalyticsCard>
           </div>
-        </section>
-      )}
+        )}
+      </div>
+    </section>
+  ) : null;
 
-      {/* ── Section 5: Category Intelligence ───────────────────────────── */}
-      {showCategory && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AnalyticsHeader
-            title="Category Intelligence"
-            subtitle="Top project categories ranked by lead volume"
-            icon="bi-diagram-3"
-            accent="#8B5CF6"
-          />
-          <AnalyticsCard
-            title="Top Categories"
-            subtitle="Ranked by lead volume · revenue in tooltip"
-            index={0}
-            isEmpty={isEmpty(categoryData)}
-            emptyHint="Create project categories to view the ranking."
-          >
-            <RankedBarChart data={categoryData} onSelect={onCategorySelect} limit={10} showRevenue />
-          </AnalyticsCard>
-        </section>
-      )}
+  // Category & Sub-Category are now tabs inside the Service & Category Mix card
+  // above (see breakdownTabs), so there is no separate Category section anymore.
 
-      {/* ── Section 6: Lead Cancellation Analytics ──────────────────────────────────────────────── */}
-      {showCancellation && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AnalyticsHeader
-            title="Cancellation Intelligence"
-            subtitle="Why leads are being cancelled"
-            icon="bi-x-octagon"
-            accent="#EF4444"
-          />
-          <AnalyticsCard
-            title="Cancellation Reasons"
-            subtitle="Ranked by volume"
-            index={0}
-            isEmpty={isEmpty(cancellationReasonData)}
-            emptyHint="No cancelled leads in this period."
-          >
-            <RankedBarChart data={cancellationReasonData} onSelect={onCancellationReasonSelect} limit={10} />
-          </AnalyticsCard>
-        </section>
-      )}
-    </div>
-  );
+  const cancellationSection = showCancellation ? (
+    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <AnalyticsHeader
+        title="Cancellation Intelligence"
+        subtitle="Why leads are being cancelled"
+        icon="bi-x-octagon"
+        accent="#EF4444"
+      />
+      <AnalyticsCard
+        title="Cancellation Reasons"
+        subtitle="Ranked by volume"
+        index={0}
+        isEmpty={isEmpty(cancellationReasonData)}
+        emptyHint="No cancelled leads in this period."
+      >
+        <RankedBarChart data={cancellationReasonData} onSelect={onCancellationReasonSelect} valueLabel title="Cancellation Reasons" />
+      </AnalyticsCard>
+    </section>
+  ) : null;
+
+  // ── Group the fragments into focused sub-tabs ───────────────────────────────
+  const summaryHasContent = !!(kpiSection || pipelineSection || slots?.summary);
+  const servicesHasContent = !!(serviceSection || slots?.services);
+  const sourcesHasContent = !!(acquisitionSection || slots?.sources);
+  const insightsHasContent = !!(slots?.geography || cancellationSection || slots?.insights);
+
+  const tabs: AnalyticsTab[] = [
+    {
+      id: "summary",
+      label: "Summary",
+      icon: "bi-speedometer2",
+      accent: "#6366F1",
+      content: summaryHasContent ? (
+        <>
+          {kpiSection}
+          {pipelineSection}
+          {slots?.summary}
+        </>
+      ) : null,
+    },
+    {
+      id: "services",
+      label: "Services & Insights",
+      icon: "bi-grid-1x2",
+      accent: "#22C55E",
+      content: (servicesHasContent || insightsHasContent) ? (
+        <>
+          {serviceSection}
+          {slots?.services}
+          {slots?.geography}
+          {cancellationSection}
+          {slots?.insights}
+        </>
+      ) : null,
+    },
+    {
+      id: "sources",
+      label: "Sources",
+      icon: "bi-broadcast",
+      accent: "#0EA5E9",
+      content: sourcesHasContent ? (
+        <>
+          {acquisitionSection}
+          {slots?.sources}
+        </>
+      ) : null,
+    },
+
+  ];
+
+  return <AnalyticsTabs tabs={tabs} storageKey={tabStorageKey} />;
 };
 
 export default React.memo(LeadOverviewDashboard);

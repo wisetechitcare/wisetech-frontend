@@ -136,7 +136,7 @@ const YearlyGrowthChart: React.FC<YearlyGrowthChartProps> = ({ series, periodLab
         </div>
       }
     >
-      <div style={{ width: "100%", height: 360 }}>
+      <div style={{ width: "100%", height: "clamp(240px, 45vh, 360px)" }}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={series} margin={{ top: 16, right: 16, left: 6, bottom: 20 }}>
             <defs>

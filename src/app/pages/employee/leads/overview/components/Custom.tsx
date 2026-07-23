@@ -38,6 +38,7 @@ import {
 import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/YearlyStatusCountChart";
 import LocationProjectChart from "@pages/employee/projects/commonComponents/ProjectByLocationChart";
 import LeadByLocationChart from "../commonComponents/LeadByLocationChart";
+import { ClientAnalysisSection } from "@pages/dashboard/leadAnalytics";
 import { ChartDialogModal } from "./ChartDialogModal";
 
 interface Props {
@@ -172,6 +173,10 @@ const Custom = ({ startDate, endDate }: Props) => {
   };
 
   const handleStatusChartClick = (selectedLabel: string) => {
+    // leadStatusesID is the master status list (real ids) — it never has an "N/A"
+    // row, since the N/A bucket (leads with no status at all) is synthesized by
+    // the analytics endpoint, not a real LeadStatus. Special-case it explicitly
+    // so a miss doesn't fall through to the raw display label.
     const selectedStatus = leadStatusesID.find(
       (status: any) => status.name === selectedLabel
     );
@@ -179,7 +184,7 @@ const Custom = ({ startDate, endDate }: Props) => {
     if (selectedStatus) {
       setStatusId(selectedStatus.id.toString());
     } else {
-      setStatusId(selectedLabel);
+      setStatusId(selectedLabel === "N/A" ? "__NA__" : selectedLabel);
     }
     setOpen(true);
   };
@@ -249,23 +254,12 @@ const Custom = ({ startDate, endDate }: Props) => {
   };
 
   const handleSubCategoryChartClick = (selectedLabel: string) => {
-    let selectedSubCategory: any = null;
-    subcategoryRes?.data?.forEach((category: any) => {
-      if (category.subCategories) {
-        const found = category.subCategories.find(
-          (subcat: any) => subcat.name === selectedLabel
-        );
-        if (found) {
-          selectedSubCategory = found;
-        }
-      }
-    });
-
-    if (selectedSubCategory) {
-      setSubCategoryId(selectedSubCategory.id);
-    } else {
-      setSubCategoryId(selectedLabel);
-    }
+    // Flat shape — { subcategoryId, subcategory, category, color, count, budget }[],
+    // including an "N/A" bucket (subcategoryId "__NA__") for no-subcategory leads.
+    const found = subcategoryRes?.data?.find(
+      (subcat: any) => subcat.subcategory === selectedLabel
+    );
+    setSubCategoryId(found ? found.subcategoryId : "__NA__");
     setOpenSubCategory(true);
   };
 
@@ -669,9 +663,16 @@ const Custom = ({ startDate, endDate }: Props) => {
   const companyTypeFilterOptions =
     companyTypeRes?.data?.map((item: any) => item.name) || [];
 
-  // Create category filter options for subcategory chart
-  const categoryFilterOptions =
-    subcategoryRes?.data?.map((item: any) => item.name) || [];
+  // Create category filter options for subcategory chart — unique parent
+  // category names from the flat subcategory list (item.category; the N/A
+  // bucket has category: null and is dropped from the dropdown).
+  const categoryFilterOptions: string[] = Array.from(
+    new Set(
+      (subcategoryRes?.data || [])
+        .map((item: any) => item.category)
+        .filter((name: any): name is string => !!name)
+    )
+  );
   const topLeadsFilterOptions = getTopLeadsFilterOptions();
 
   // console.log("subcategoryData", chartData.subcategoryData);
@@ -726,16 +727,22 @@ const Custom = ({ startDate, endDate }: Props) => {
             </div>
           )}
 
-        {/* Leads by Monthly chart */}
-        {/* {settings?.showLeadsMonthlyByStatus &&
-          chartData.yearlyData.length > 0 && <div className="col-12">
-          <YearlyStatusCountChart
-            data={chartData.yearlyData}
-            title="Monthly Leads By Status"
-            height={400}
-            stacked={true}
-          />
-        </div>} */}
+        {/* Monthly Leads Trend — leads per month by LEAD status. */}
+        {settings?.showLeadsMonthlyByStatus !== false &&
+          chartData.yearlyData.length > 0 && (
+            <div className="col-12">
+              <YearlyStatusCountChart
+                data={chartData.yearlyData}
+                title="Monthly Leads Trend"
+                height={400}
+                stacked={true}
+                isThisBelongsToLead
+                entityScope="lead"
+                startDate={startDate}
+                endDate={endDate}
+              />
+            </div>
+          )}
 
         {/* Lead By Project Category */}
         {settings?.showLeadsByProjectCategory && (
@@ -840,25 +847,6 @@ const Custom = ({ startDate, endDate }: Props) => {
           )}
 
         {/* Lead By Company Type */}
-        {settings?.showLeadsByCompanyType && (
-            <div className="col-6">
-              <CustomPieCharts
-                data={chartData.companyTypeData}
-                title="Lead By Company Type"
-                height={250}
-                showFilter={true}
-                filterOptions={companyTypeFilterOptions}
-                filterValue={filters.companyType || ""}
-                onFilterChange={(value: string) => {
-                  handleFilterChange("companyType", value);
-                }}
-                filterPlaceholder="All Status"
-                key={`company-type-chart`}
-                // isThisProjectToolTip={false}
-                onChartClick={handleCompanyTypeChartClick}
-              />
-            </div>
-          )}
 
         {/* Lead By Subcategory - Enhanced with Category Filtering */}
         {settings?.showLeadsBySubCategory && (
@@ -913,110 +901,14 @@ const Custom = ({ startDate, endDate }: Props) => {
             />
           )}
 
-        {/* Top Leads - Fixed with Dynamic Filtering */}
-        {settings?.showTopLeads && (
+
+        {/* Client Analysis — company type / company / contact */}
+        {settings?.showLeadsByCompanyType && (
           <div className="col-12">
-            <div className="card">
-              <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="card-title mb-0">Top 10 Leads</h5>
-                <div className="d-flex gap-2">
-                  {/* Main Type Filter */}
-                  <select
-                    className="form-select form-select-sm"
-                    value={filters.topLeadsType || "source"}
-                    onChange={(e) =>
-                      handleTopLeadsFilterChange("topLeadsType", e.target.value)
-                    }
-                    style={{ minWidth: "120px" }}
-                  >
-                    <option value="source">By Source</option>
-                    <option value="category">By Category</option>
-                    <option value="service">By Service</option>
-                  </select>
-
-                  {/* Status Filter */}
-                  <select
-                    className="form-select form-select-sm"
-                    value={filters.topLeadsStatus || ""}
-                    onChange={(e) =>
-                      handleTopLeadsFilterChange(
-                        "topLeadsStatus",
-                        e.target.value
-                      )
-                    }
-                    style={{ minWidth: "120px" }}
-                  >
-                    <option value="">All Status</option>
-                    {topLeadsFilterOptions.statusOptions.map(
-                      (status: string) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      )
-                    )}
-                  </select>
-
-                  {/* Conditional Referral Type Filter */}
-                  {topLeadsFilterOptions.referralTypeOptions.length > 0 && (
-                    <select
-                      className="form-select form-select-sm"
-                      value={filters.topLeadsReferralType || ""}
-                      onChange={(e) =>
-                        handleTopLeadsFilterChange(
-                          "topLeadsReferralType",
-                          e.target.value
-                        )
-                      }
-                      style={{ minWidth: "150px" }}
-                    >
-                      <option value="">All Referral Types</option>
-                      {topLeadsFilterOptions.referralTypeOptions.map(
-                        (type: string) => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  )}
-
-                  {/* Conditional Direct Source Filter */}
-                  {topLeadsFilterOptions.directSourceOptions.length > 0 && (
-                    <select
-                      className="form-select form-select-sm"
-                      value={filters.topLeadsDirectSource || ""}
-                      onChange={(e) =>
-                        handleTopLeadsFilterChange(
-                          "topLeadsDirectSource",
-                          e.target.value
-                        )
-                      }
-                      style={{ minWidth: "150px" }}
-                    >
-                      <option value="">All Direct Sources</option>
-                      {topLeadsFilterOptions.directSourceOptions.map(
-                        (source: string) => (
-                          <option key={source} value={source}>
-                            {source}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="card-body">
-              <CustomBarChart
-                data={chartData.topLeadsData}
-                title=""
-                height={400}
-                showFilter={false}
-                key={`top-leads-chart-${filters.topLeadsType}-${filters.topLeadsStatus}-${filters.topLeadsReferralType}-${filters.topLeadsDirectSource}`}
-                isThisProjectToolTip={false}
-                onChartClick={handleTopLeadsChartClick}
-              />
-            </div>
+            <ClientAnalysisSection
+              startDate={startDate.format("YYYY-MM-DD")}
+              endDate={endDate.format("YYYY-MM-DD")}
+            />
           </div>
         )}
 

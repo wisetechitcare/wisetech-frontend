@@ -5,7 +5,8 @@ import { useState, useMemo } from "react";
 import { FixedSizeList as List } from "react-window";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
-import { ColourOption, SingleValue, DropdownIndicator, AvatarOption, AvatarSingleValue } from "./ColorInDropdwon";
+import { ColourOption, SingleValue, AvatarOption, AvatarSingleValue } from "./ColorInDropdwon";
+import DropdownChevron from "./DropdownChevron";
 
 // Plain react-select renders EVERY option to the DOM, so menus with thousands of
 // options (e.g. the full contacts list) are slow to open and scroll. For large lists
@@ -194,11 +195,14 @@ function DropDownInput({
         }),
     });
 
-    
+    const DropdownIndicator = (indicatorProps: any) => (
+        <DropdownChevron {...indicatorProps} color={showColor ? selectedValue?.color : undefined} />
+    );
+
     return (
-        <>
-            <div className="d-flex flex-row justify-content-between">
-                <label className={`form-label ${isRequired ? 'required' : ''}`}>{inputLabel}</label>
+        <div className="d-flex flex-column fv-row">
+            <div className="d-flex flex-row justify-content-between align-items-center mb-2">
+                <label className={`d-flex align-items-center fs-6 form-label mb-0 ${isRequired ? 'required' : ''}`}>{inputLabel}</label>
                 {showAddBtn && <button className="btn btn-sm btn-outline-dark border-dark"
                 onClick={(e)=>{e.preventDefault(); handleShow();}}
                 >+ Add</button>}
@@ -221,10 +225,10 @@ function DropDownInput({
             isDisabled={disabled}
             components={{
                 ...(sortedOptions.length > VIRTUALIZE_THRESHOLD ? { MenuList: VirtualizedMenuList } : {}),
+                DropdownIndicator,
                 ...(showColor ? {
                     Option: ColourOption,
                     SingleValue,
-                    DropdownIndicator,
                 } : {}),
                 ...(showAvatar ? {
                     Option: AvatarOption,
@@ -240,7 +244,7 @@ function DropDownInput({
 
             <HighlightErrors isRequired={isRequired} formikField={formikField} />
             <CommonModal functionToCallOnModalSubmit={functionToCallOnModalSubmit} show={show} setShow={setShow} fieldName={fieldName} functionToSetFieldOptions={functionToSetFieldOptions}/>
-        </>
+        </div>
     )
 }
 

@@ -54,9 +54,48 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
     ? `${extensionValue}${normalizedFieldValue}`
     : `${defaultCountry}${normalizedFieldValue}`;
 
+  const currentDialCode = extensionField ? extensionValue : defaultCountry;
+
+  // Blocks any edit that would touch the dial code BEFORE it reaches the DOM at all — the
+  // onChange-level guard below only protects the *stored* value; by the time onChange fires,
+  // react-phone-input-2 has already applied the edit to its own internal input display, and a
+  // controlled `value` prop that happens to equal the previous one isn't guaranteed to force a
+  // resync. So the dial code has to be made physically undeletable at the keystroke itself.
+  const guardDialCodeEdit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const target = e.currentTarget;
+    const { selectionStart, selectionEnd } = target;
+    if (selectionStart === null || selectionEnd === null) return;
+    // Displayed value starts with "+" then the dial code digits (e.g. "+91") before any
+    // formatting separator — this is the exact boundary of the protected zone.
+    const boundary = 1 + currentDialCode.length;
+
+    if (e.key === 'Backspace') {
+      const wouldDeleteFrom = selectionStart === selectionEnd ? selectionStart - 1 : selectionStart;
+      if (wouldDeleteFrom < boundary) e.preventDefault();
+      return;
+    }
+    if (e.key === 'Delete') {
+      if (selectionStart < boundary) e.preventDefault();
+      return;
+    }
+    // A single printable character (not a shortcut like Ctrl+A/Ctrl+V) landing inside the
+    // protected zone would also corrupt it — e.g. typing a digit in the middle of "+91".
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && selectionStart < boundary) {
+      e.preventDefault();
+    }
+  };
+
   const resolvedError = error;
+  // Gate the red border on `touched` (mirroring TextInput's `meta.touched && meta.error`) so a
+  // required-but-empty phone doesn't paint red on first load. The wizard runs validateForm() on
+  // mount, so without this the error border shows before the user has touched anything. onBlur
+  // (below) and the wizard's revealSectionErrors both set touched, so the border still appears at
+  // the right moments — after blur or on a Continue attempt.
+  const isTouched = formikField
+    ? !!getIn(resolvedFormikProps?.touched || {}, normalizePath(formikField) || formikField)
+    : false;
   const hasFormikError = formikField
-    ? !!getIn(resolvedFormikProps?.errors || {}, normalizePath(formikField) || formikField)
+    ? isTouched && !!getIn(resolvedFormikProps?.errors || {}, normalizePath(formikField) || formikField)
     : false;
   const resolvedName = name || formikField || 'phone';
 
@@ -72,7 +111,15 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
         value={combinedValue}
         onChange={(phoneValue: string, countryData: any) => {
           const dialCode = countryData?.dialCode || defaultCountry;
-          const formattedValue = phoneValue.startsWith(dialCode) ? phoneValue.slice(dialCode.length) : phoneValue;
+
+          // Backspacing on an empty number used to eat into the dial code itself (91 → 9),
+          // corrupting the stored value with a stray leading digit. react-phone-input-2 always
+          // keeps the dial code as a prefix of `phoneValue` on a valid edit — if it's gone
+          // missing, the edit ate into it, so reject it outright. The controlled `value` prop
+          // above then re-renders the field back to its last good state.
+          if (!phoneValue.startsWith(dialCode)) return;
+
+          const formattedValue = phoneValue.slice(dialCode.length);
           const digits = getDigits(formattedValue);
 
           if (formikField && resolvedFormikProps?.setFieldValue) {
@@ -103,6 +150,12 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
           autoFocus: false,
           disabled,
           placeholder,
+          onKeyDown: guardDialCodeEdit,
+          onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => {
+            const target = e.currentTarget;
+            const boundary = 1 + currentDialCode.length;
+            if (target.selectionStart !== null && target.selectionStart < boundary) e.preventDefault();
+          },
         }}
       />
       {resolvedError && <div className="phone-number-error">{resolvedError}</div>}

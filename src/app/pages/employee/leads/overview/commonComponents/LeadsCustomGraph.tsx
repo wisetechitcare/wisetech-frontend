@@ -1,5 +1,6 @@
 ﻿import { FilterDropdown } from "@pages/employee/projects/commonComponents/FilterDropdown";
 import React, { useMemo, useState } from "react";
+import { useIsMobile } from "@components/navigation/BottomNavigation/useIsMobile";
 import ReactApexChart from "react-apexcharts";
 import Chart from "react-apexcharts";
 import { Col, Card, Form } from "react-bootstrap";
@@ -88,6 +89,13 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
   filterMode = "auto",
   onChartClick,
 }) => {
+  // On phones/tablets the chart+legend stack, so reduce the chart width from
+  // its fixed desktop value to a mobile-friendly size that fits in the card.
+  // ApexCharts requires a number in pixels, not a "100%" string.
+  const isMobile = useIsMobile();
+  // Mobile chart width: responsive but fits common phone widths (280–360px).
+  // Desktop: use the provided `width` prop (typically 380).
+  const chartWidth = isMobile ? Math.min(360, width) : width;
   // if (!data || data.length === 0) {
   //   return (
   //     <Card className="shadow-sm h-100 w-100">
@@ -689,15 +697,15 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
               </div>
             </div>
           ) : (
-            <div className="d-flex flex-column flex-md-row align-items-start justify-content-between justify-content-lg-between pe-4 align-items-lg-center justify-content-xxl-between gap-3">
+            <div className="d-flex flex-column flex-md-row align-items-stretch align-items-lg-center justify-content-between justify-content-lg-between pe-4 justify-content-xxl-between gap-3">
               {/* Chart */}
 
-              <div>
+              <div className={isMobile ? "w-100" : ""} style={{ flex: isMobile ? "1 1 auto" : "0 0 auto", maxWidth: "100%", overflow: "hidden", minWidth: 0 }}>
                 <ReactApexChart
                   options={{ ...options, legend: { show: false } }}
                   series={series}
                   type={chartType === "histogram" ? "bar" : chartType}
-                  width={width}
+                  width={chartWidth}
                   height={height}
                 />
               </div>

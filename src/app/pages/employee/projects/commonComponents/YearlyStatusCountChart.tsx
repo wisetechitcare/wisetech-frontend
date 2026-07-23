@@ -27,6 +27,8 @@ interface YearlyStatusCountChartProps {
   endDate?: Dayjs;
   // Project section (Received Leads): restrict drill-down table to received/project leads.
   receivedOnly?: boolean;
+  // Which entity the drill-down status matches against (project status vs lead status).
+  entityScope?: "lead" | "project";
 }
 
 const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
@@ -42,6 +44,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
   startDate,
   endDate,
   receivedOnly = false,
+  entityScope = "lead",
 }) => {
   
   // Transform data for ApexCharts
@@ -412,9 +415,11 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
         <ChartDialogModal
           open={openMonthlyLeadByStatus}
           onClose={() => setOpenMonthlyLeadByStatus(false)}
+          title={monthlyStatusName && monthlyStatusId ? `${monthlyStatusId} · ${monthlyStatusName}` : undefined}
           monthlyStatusName={monthlyStatusName || undefined}
           monthlyStatusId={monthlyStatusId || undefined}
           receivedOnly={receivedOnly || undefined}
+          entityScope={entityScope}
         />
       )}
 

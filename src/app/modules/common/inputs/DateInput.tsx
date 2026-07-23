@@ -7,18 +7,21 @@ import { DatePicker, MobileDatePicker } from "@mui/x-date-pickers";
 import dayjs, { Dayjs } from "dayjs";
 import { useMediaQuery } from "@mui/material";
 
+// One source of truth for the date format so the input mask and the placeholder always match.
+const DATE_FORMAT = "DD/MM/YYYY";
+
 interface DateInputProps{
     isRequired: boolean;
     inputLabel: string;
     formikProps?: any;
     formikField: string;
-    placeHolder: string;
+    placeHolder?: string; // kept for API compat; the placeholder now always shows the date format
     maxDate?: boolean;
     minDateField?: string; // Field name to compare against for minimum date validation
 }
 
-function DateInput({ formikProps, formikField, inputLabel, isRequired, placeHolder, maxDate, minDateField }: DateInputProps) {
-  const { values, setFieldValue, setFieldTouched, errors, touched } = formikProps;
+function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, minDateField }: DateInputProps) {
+  const { values, setFieldValue, setFieldTouched, setFieldError, errors, touched } = formikProps;
   const [validationError, setValidationError] = React.useState<string>('');
 
   // Checking if the screen is small (mobile)
@@ -56,6 +59,12 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, placeHold
       setValidationError('');
 
       setFieldValue(formikField, isoDate, true);
+      // A valid date is now stored, so the "required" error can no longer apply. Clear it
+      // SYNCHRONOUSLY — `setFieldValue`'s own validation is async, so without this there's a
+      // window where the field still shows "required" even though it's filled. (This was the
+      // "date is filled but still shows required" bug.) If the new date genuinely violates a
+      // real rule, the async validation re-sets the correct error a tick later.
+      setFieldError(formikField, undefined);
     } else {
       setFieldValue(formikField, '', true);
     }
@@ -67,9 +76,12 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, placeHold
 
       const hasError = !!(get(touched, formikField) && get(errors, formikField)) || !!validationError;
 
+      // DOM-safe id derived from the Formik path so the <label> links to the date input.
+      const fieldId = `field-${formikField.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+
       return (
     <>
-      <label className={`fs-6 form-label ${isRequired ? "required" : ""}`}>{inputLabel}</label>
+      <label htmlFor={fieldId} className={`fs-6 form-label ${isRequired ? "required" : ""}`}>{inputLabel}</label>
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         {isMobile ? (
           <MobileDatePicker
@@ -82,14 +94,15 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, placeHold
               console.log('Date picker error:', error);
             }}
             reduceAnimations={true} 
-            format="DD/MM/YYYY"
+            format={DATE_FORMAT}
             maxDate={maxDate ? dayjs() : undefined}
             // Disable keyboard input parsing to prevent issues
             disableOpenPicker={false}
             slotProps={{
               textField: {
+                id: fieldId,
                 fullWidth: true,
-                placeholder: placeHolder,
+                placeholder: DATE_FORMAT,
                 error: hasError,
                 onBlur: (event) => {
                   // Validate on blur
@@ -129,11 +142,12 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, placeHold
             }}
             reduceAnimations={true} 
             maxDate={maxDate ? dayjs() : undefined}
-            format="DD/MM/YYYY"
+            format={DATE_FORMAT}
             slotProps={{
               textField: {
+                id: fieldId,
                 fullWidth: true,
-                placeholder: placeHolder,
+                placeholder: DATE_FORMAT,
                 error: hasError,
                 onBlur: (event) => {
                   // Validate on blur instead of during typing

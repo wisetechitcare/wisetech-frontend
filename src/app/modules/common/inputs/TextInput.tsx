@@ -48,6 +48,10 @@ interface TextInputProps {
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   inputValidation?: SimpleInputType;
   type?: string;
+  maxLength?: number;
+  /** Caps input to this many words, truncating extra words as the user types (not just
+   *  characters) — e.g. "30 to 40 words" style limits. */
+  maxWords?: number;
 }
 
 function TextInput({
@@ -66,13 +70,19 @@ function TextInput({
   inputValidation,
   type = "text",
   onChange,
+  maxLength,
+  maxWords,
 }: TextInputProps) {
   const [validationError, setValidationError] = useState<string>("");
+
+  // DOM-safe id derived from the Formik path (which may contain dots/brackets like
+  // "familyInfo[0].mobileNumber") so the <label> can be programmatically linked to the input.
+  const fieldId = `field-${formikField.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
   return (
     <div className={`d-flex flex-column fv-row ${margin ?? ""}`}>
       {label && (
-        <label className="d-flex align-items-center fs-6 form-label mb-2">
+        <label htmlFor={fieldId} className="d-flex align-items-center fs-6 form-label mb-2">
           <span className={isRequired ? "required" : ""}>{label}</span>
         </label>
       )}
@@ -91,7 +101,16 @@ function TextInput({
               // Neutralize newlines/tabs (e.g. pasted content) only. Trimming and
               // space-collapsing are deferred to blur so spaces can be typed
               // normally — trimming on every keystroke eats trailing spaces.
-              const raw = e.target.value.replace(/[\n\r\t]/g, ' ');
+              // `<`/`>` are stripped unconditionally (not just for fields with a specific
+              // regex) so no field — typed or pasted — can ever form an HTML/script tag.
+              let raw = e.target.value.replace(/[\n\r\t]/g, ' ').replace(/[<>]/g, '');
+
+              if (maxWords) {
+                const words = raw.split(/\s+/).filter(Boolean);
+                if (words.length > maxWords) {
+                  raw = words.slice(0, maxWords).join(' ') + (/\s$/.test(raw) ? ' ' : '');
+                }
+              }
 
               const parsedValue = parser ? parser(raw) : raw;
 
@@ -142,6 +161,7 @@ function TextInput({
             return (
               <input
                 {...field}
+                id={fieldId}
                 type={type}
                 value={displayValue ?? ""}
                 onChange={handleChange}
@@ -149,6 +169,7 @@ function TextInput({
                 placeholder={placeholder ?? ""}
                 readOnly={readonly}
                 disabled={readonly}
+                maxLength={maxLength}
                 defaultValue={defaultValue}
                 className={`form-control${isInvalid ? " is-invalid" : ""}`}
                 style={{ height: 44 }}

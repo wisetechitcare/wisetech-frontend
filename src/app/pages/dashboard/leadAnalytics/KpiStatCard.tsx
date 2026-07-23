@@ -113,7 +113,7 @@ const KpiStatCard: React.FC<KpiStatCardProps> = ({
         background: "#fff",
         borderRadius: 20,
         boxShadow: "0 8px 30px rgba(0,0,0,0.08)",
-        padding: "18px 20px",
+        padding: "clamp(14px, 3.5vw, 20px)",
         height: "100%",
         position: "relative",
         overflow: "hidden",
@@ -135,7 +135,10 @@ const KpiStatCard: React.FC<KpiStatCardProps> = ({
           fontWeight: 500,
           color: "#64748B",
           marginBottom: 6,
+          // Ellipsize instead of clipping mid-word when the card is narrow.
           whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
           paddingRight: 22,
         }}
       >
@@ -144,7 +147,7 @@ const KpiStatCard: React.FC<KpiStatCardProps> = ({
       <div
         style={{
           fontFamily: "Barlow, sans-serif",
-          fontSize: 28,
+          fontSize: "clamp(22px, 6vw, 28px)",
           fontWeight: 700,
           lineHeight: 1.1,
           color: accent,

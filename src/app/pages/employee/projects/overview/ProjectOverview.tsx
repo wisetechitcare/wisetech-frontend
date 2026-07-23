@@ -12,20 +12,23 @@ import {
   getProjectsByStatusAnalytics,
   getLeadsByServiceAnalytics,
   getLeadsByProjectCategoryAnalytics,
+  getLeadsBySubcategoryAnalytics,
   getLeadsBySourceAnalytics,
   getLeadsByCompanyTypeAnalytics,
   getLeadsByLocationAnalytics,
-  getMonthlyLeadAnalytics,
 } from "@services/lead";
+import { getProjectStatusCountYearly } from "@services/projects";
 import {
   convertToChartData,
   convertCompanyTypeData,
-  transformYearlyDatas,
+  convertSubcategoryData,
+  transformYearlyData,
 } from "@utils/leadsProjectCompaniesStatistics";
 import LeadByLocationChart from "@pages/employee/leads/overview/commonComponents/LeadByLocationChart";
 import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/YearlyStatusCountChart";
 import { ChartDialogModal } from "@pages/employee/leads/overview/components/ChartDialogModal";
 import { ProjectLeadAnalyticsDashboard } from "@pages/dashboard/projectAnalytics";
+import ProjectTeamsSection from "./ProjectTeamsSection";
 import Loader from "@app/modules/common/utils/Loader";
 import { Modal } from "react-bootstrap";
 import { Typography } from "@mui/material";
@@ -131,18 +134,17 @@ const ProjectOverview = () => {
     statusData: [],
     serviceData: [],
     categoryData: [],
+    subcategoryData: [],
     sourceData: [],
     companyTypeData: [],
-    yearlyData: [],
     locationData: [],
+    yearlyData: [],
   });
 
-  // Raw responses kept for click -> id resolution
   const [statusRes, setStatusRes] = useState<any>(null);
   const [serviceRes, setServiceRes] = useState<any>(null);
   const [categoryRes, setCategoryRes] = useState<any>(null);
-  const [sourceRes, setSourceRes] = useState<any>(null);
-  const [companyTypeRes, setCompanyTypeRes] = useState<any>(null);
+  const [subcategoryRes, setSubcategoryRes] = useState<any>(null);
 
   // Drill-down state
   const [openStatus, setOpenStatus] = useState(false);
@@ -151,13 +153,13 @@ const ProjectOverview = () => {
   const [serviceId, setServiceId] = useState("");
   const [openCategory, setOpenCategory] = useState(false);
   const [categoryId, setCategoryId] = useState("");
-  const [openSource, setOpenSource] = useState(false);
-  const [sourceId, setSourceId] = useState("");
-  const [openCompanyType, setOpenCompanyType] = useState(false);
-  const [companyTypeId, setCompanyTypeId] = useState("");
+  const [openSubcategory, setOpenSubcategory] = useState(false);
+  const [subcategoryId, setSubcategoryId] = useState("");
 
   const [showChartSettingsModal, setShowChartSettingsModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // Human label for the clicked chart slice, shown as the drill-down dialog heading.
+  const [drillTitle, setDrillTitle] = useState("");
 
   const settings = useSelector((state: any) => state.chartSettings);
 
@@ -187,41 +189,54 @@ const ProjectOverview = () => {
     };
   }, []);
 
+  // "__NA__" tells EntityTablePage to show only rows whose dimension is empty (the
+  // clicked "N/A"/uncategorised bar) instead of falling through to every record.
+  const NA = "__NA__";
+
   const handleStatusChartClick = (label: string) => {
     const found = (statusRes?.data || []).find((s: any) => s.status === label);
-    setStatusId(found ? found.statusId : label);
+    setStatusId(found ? found.statusId || NA : label || NA);
+    setDrillTitle(`Project Status · ${label}`);
     setOpenStatus(true);
   };
 
   const handleServiceChartClick = (label: string) => {
     const found = (serviceRes?.data || []).find((s: any) => s.service === label);
-    setServiceId(found ? found.serviceId : label);
+    setServiceId(found ? found.serviceId || NA : label || NA);
+    setDrillTitle(`Service · ${label}`);
     setOpenService(true);
   };
 
   const handleCategoryChartClick = (label: string) => {
     const found = (categoryRes?.data || []).find((c: any) => c.category === label);
-    setCategoryId(found ? found.categoryId : label);
+    setCategoryId(found ? found.categoryId || NA : label || NA);
+    setDrillTitle(`Category · ${label}`);
     setOpenCategory(true);
   };
 
-  const handleSourceChartClick = (label: string) => {
-    const found = (sourceRes?.data || []).find((s: any) => s.source === label);
-    setSourceId(found ? found.source : label);
-    setOpenSource(true);
+  const handleSubcategoryChartClick = (label: string) => {
+    let selectedSubCategory: any = null;
+    subcategoryRes?.data?.forEach((category: any) => {
+      if (category.subCategories) {
+        const found = category.subCategories.find(
+          (subcat: any) => subcat.name === label
+        );
+        if (found) {
+          selectedSubCategory = found;
+        }
+      }
+    });
+
+    if (selectedSubCategory) {
+      setSubcategoryId(selectedSubCategory.id);
+    } else {
+      setSubcategoryId(label || NA);
+    }
+    setDrillTitle(`Sub-Category · ${label}`);
+    setOpenSubcategory(true);
   };
 
-  const handleCompanyTypeChartClick = (label: string) => {
-    let found: any = null;
-    (companyTypeRes?.data || []).forEach((statusGroup: any) => {
-      const match = (statusGroup.allLeadsByAllCompanyType || []).find(
-        (ct: any) => ct.name === label
-      );
-      if (match) found = match;
-    });
-    setCompanyTypeId(found ? found.id : label);
-    setOpenCompanyType(true);
-  };
+
 
   useEffect(() => {
     if (!startStr || !endStr) return;
@@ -230,29 +245,39 @@ const ProjectOverview = () => {
         setLoading(true);
         setError("");
 
+        // The Monthly Projects Trend is computed month-by-month server-side, so a
+        // wide range (All Time = 2000–2099) would fan out into hundreds of
+        // month×status count queries. Clamp the trend to the active fiscal year then.
+        const trendWide = dayjs(endStr).diff(dayjs(startStr), "month") > 24;
+        const trendStartStr = trendWide
+          ? (yearStart ?? dayjs().startOf("month").subtract(11, "month")).format("YYYY-MM-DD")
+          : startStr;
+        const trendEndStr = trendWide
+          ? (yearEnd ?? dayjs().endOf("month")).format("YYYY-MM-DD")
+          : endStr;
+
         const [
           statusResData,
           serviceResData,
           categoryResData,
-          sourceResData,
-          companyTypeResData,
+          subcategoryResData,
           locationResData,
           monthlyResData,
         ] = await Promise.all([
           getProjectsByStatusAnalytics(startStr, endStr),
           getLeadsByServiceAnalytics(startStr, endStr, true),
           getLeadsByProjectCategoryAnalytics(startStr, endStr, "", true),
-          getLeadsBySourceAnalytics(startStr, endStr, true),
-          getLeadsByCompanyTypeAnalytics(startStr, endStr, true),
+          getLeadsBySubcategoryAnalytics(startStr, endStr, true),
           getLeadsByLocationAnalytics(startStr, endStr, true),
-          getMonthlyLeadAnalytics(startStr, endStr, true),
+          // Project-status-by-month (On Ongoing / Completed / On Hold …) — NOT the
+          // lead-status monthly analytics, which only ever shows "Received" here.
+          getProjectStatusCountYearly(trendStartStr, trendEndStr),
         ]);
 
         setStatusRes(statusResData);
         setServiceRes(serviceResData);
         setCategoryRes(categoryResData);
-        setSourceRes(sourceResData);
-        setCompanyTypeRes(companyTypeResData);
+        setSubcategoryRes(subcategoryResData);
 
         setChartData({
           statusData: convertToChartData(
@@ -273,17 +298,12 @@ const ProjectOverview = () => {
             "category",
             "totalBudget"
           ),
-          sourceData: convertToChartData(
-            sourceResData?.data || [],
-            "count",
-            "source",
-            "budget"
-          ),
-          companyTypeData: convertCompanyTypeData(
-            companyTypeResData?.data || [],
+          subcategoryData: convertSubcategoryData(
+            subcategoryResData?.data || [],
             ""
           ),
-          yearlyData: transformYearlyDatas(monthlyResData?.data || []),
+
+          yearlyData: transformYearlyData(monthlyResData?.projectCountBySubcategoryMonthWise || []),
           locationData: locationResData?.data || [],
         });
       } catch (err) {
@@ -295,7 +315,7 @@ const ProjectOverview = () => {
     };
 
     fetchData();
-  }, [startStr, endStr]);
+  }, [startStr, endStr, yearStart, yearEnd]);
 
   if (loading) return <Loader />;
 
@@ -311,11 +331,11 @@ const ProjectOverview = () => {
 
   return (
     <div>
-      <div className="d-flex align-items-center justify-content-between mb-4">
+      <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
         <div
           style={{
             fontFamily: "Barlow",
-            fontSize: "24px",
+            fontSize: "clamp(1.15rem, 4vw, 24px)",
             fontWeight: "600",
           }}
         >
@@ -336,68 +356,87 @@ const ProjectOverview = () => {
         </div>
       </div>
 
-      <div className="d-flex flex-row justify-content-between align-items-center mb-6">
-        <PeriodTabs
-          value={alignment}
-          options={[
-            { label: "Monthly", value: "monthly" },
-            { label: "Yearly", value: "yearly" },
-            { label: "All Time", value: "alltime" },
-            { label: "Custom", value: "custom" },
-          ]}
-          onChange={(val) => setAlignment(val)}
-          ariaLabel="view selection"
-        />
-        <div>
-          {alignment === "monthly" && (
-            <PeriodNavigator
-              label={`${monthStart.format("DD MMM")} - ${monthEnd.format(
-                "DD MMM"
-              )}`}
-              onPrevious={() => navigateMonth("prev")}
-              onNext={() => navigateMonth("next")}
-            />
-          )}
+      <div className="d-flex flex-column flex-lg-row justify-content-between align-items-stretch align-items-lg-center gap-3 w-100 mb-6" style={{ rowGap: "12px" }}>
+        {/* Left: period tabs + navigator. Shrinks (minWidth:0) so the sub-tabs on
+            the right keep room and everything stays on one row in desktop view. */}
+        <div
+          className="d-flex flex-column flex-md-row align-items-stretch align-items-md-center gap-3"
+          style={{ flex: "1 1 auto", minWidth: 0 }}
+        >
+          <PeriodTabs
+            value={alignment}
+            options={[
+              { label: "Monthly", value: "monthly" },
+              { label: "Yearly", value: "yearly" },
+              { label: "All Time", value: "alltime" },
+              { label: "Custom", value: "custom" },
+            ]}
+            onChange={(val) => setAlignment(val)}
+            ariaLabel="view selection"
+          />
+          {/* Compact navigator (fit-content on desktop, full-width on mobile via
+              the parent's align-items-stretch) — mirrors the Leads PeriodFilter. */}
+          <div style={{ minWidth: 0, display: "flex" }}>
+            {alignment === "monthly" && (
+              <PeriodNavigator
+                label={`${monthStart.format("DD MMM")} - ${monthEnd.format(
+                  "DD MMM"
+                )}`}
+                onPrevious={() => navigateMonth("prev")}
+                onNext={() => navigateMonth("next")}
+              />
+            )}
 
-          {alignment === "yearly" && yearStart && yearEnd && (
-            <PeriodNavigator
-              label={fiscalYearDisplay}
-              onPrevious={() => navigateYear("prev")}
-              onNext={() => navigateYear("next")}
-            />
-          )}
+            {alignment === "yearly" && yearStart && yearEnd && (
+              <PeriodNavigator
+                label={fiscalYearDisplay}
+                onPrevious={() => navigateYear("prev")}
+                onNext={() => navigateYear("next")}
+              />
+            )}
 
-          {alignment === "alltime" && (
-            <div style={{ textAlign: "center", opacity: 0.7, fontSize: "14px" }}>
-              All-Time Summary
-            </div>
-          )}
+            {alignment === "alltime" && (
+              <div style={{ textAlign: "center", opacity: 0.7, fontSize: "14px", whiteSpace: "nowrap", alignSelf: "center" }}>
+                All-Time Summary
+              </div>
+            )}
 
-          {alignment === "custom" && (
-            <div className="d-flex align-items-center gap-4">
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker
-                  label="Start Date"
-                  value={customStartDate}
-                  onChange={(newValue) =>
-                    setCustomStartDate(newValue ?? undefined)
-                  }
-                  maxDate={customEndDate}
-                  format="DD MMM, YYYY"
-                />
-                <DatePicker
-                  label="End Date"
-                  value={customEndDate}
-                  onChange={(newValue) =>
-                    setCustomEndDate(newValue ?? undefined)
-                  }
-                  minDate={customStartDate}
-                  format="DD MMM, YYYY"
-                />
-              </LocalizationProvider>
-            </div>
-          )}
+            {alignment === "custom" && (
+              <div className="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-3 gap-sm-4 w-100">
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    label="Start Date"
+                    value={customStartDate}
+                    onChange={(newValue) =>
+                      setCustomStartDate(newValue ?? undefined)
+                    }
+                    maxDate={customEndDate}
+                    format="DD MMM, YYYY"
+                  />
+                  <DatePicker
+                    label="End Date"
+                    value={customEndDate}
+                    onChange={(newValue) =>
+                      setCustomEndDate(newValue ?? undefined)
+                    }
+                    minDate={customStartDate}
+                    format="DD MMM, YYYY"
+                  />
+                </LocalizationProvider>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Sub-tabs (Summary / Services & Insights / Teams) portal into here,
+            sharing the same row and sitting on the right — mirrors the Leads Overview.
+            flexShrink:0 keeps the tabs at natural width so they never clip on desktop;
+            on mobile the row stacks and the slot can scroll on tiny screens. */}
+        <div
+          id="projectOverviewTabSlot"
+          className="d-flex justify-content-center justify-content-lg-end"
+          style={{ flexShrink: 0, minWidth: 0, overflowX: "auto" }}
+        />
       </div>
 
       {!rangeReady ? (
@@ -425,55 +464,58 @@ const ProjectOverview = () => {
         )
       ) : (
         <>
-      {/* ── Unified Lead Analytics Dashboard (Project-scoped with receivedOnly=true) ── */}
+      {/* ── Project Analytics Dashboard (project-scoped, receivedOnly) with sub-tabs.
+          The Monthly Projects Trend and Projects By Location charts are injected
+          into the Summary and Insights sub-tabs via slots. ── */}
       <div style={{ marginBottom: 40 }}>
         <ProjectLeadAnalyticsDashboard
           statusData={chartData.statusData}
           serviceData={chartData.serviceData}
           categoryData={chartData.categoryData}
-          sourceData={chartData.sourceData}
-          companyTypeData={chartData.companyTypeData}
+          subcategoryData={chartData.subcategoryData}
+          subcategoryRaw={subcategoryRes?.data || []}
           locationData={chartData.locationData}
           settings={settings}
           showKpis={false}
           onStatusSelect={handleStatusChartClick}
           onServiceSelect={handleServiceChartClick}
           onCategorySelect={handleCategoryChartClick}
-          onSourceSelect={handleSourceChartClick}
-          onCompanyTypeSelect={handleCompanyTypeChartClick}
+          onSubcategorySelect={handleSubcategoryChartClick}
+          slots={{
+            summary:
+              settings?.showProjectsMonthlyStatus !== false ? (
+                <YearlyStatusCountChart
+                  data={chartData.yearlyData}
+                  title="Monthly Projects Trend"
+                  height={400}
+                  stacked={true}
+                  isThisBelongsToLead={true}
+                  receivedOnly={true}
+                  entityScope="project"
+                  startDate={startDate}
+                  endDate={endDate}
+                />
+              ) : null,
+            geography:
+              settings?.showProjectsByLocation !== false ? (
+                <LeadByLocationChart
+                  data={chartData.locationData}
+                  startDate={startDate}
+                  endDate={endDate}
+                  entityScope="project"
+                  receivedOnly
+                />
+              ) : null,
+            teams: <ProjectTeamsSection startDate={startDate} endDate={endDate} />,
+          }}
         />
-      </div>
-
-      {/* ── Project Trend & Location ── */}
-      <div className="row g-3">
-        {/* Monthly Projects Trend (by status) */}
-        {settings?.showProjectsMonthlyStatus !== false && (
-          <div className="col-12">
-            <YearlyStatusCountChart
-              data={chartData.yearlyData}
-              title="Monthly Projects Trend"
-              height={400}
-              stacked={true}
-              isThisBelongsToLead={true}
-              receivedOnly={true}
-              startDate={startDate}
-              endDate={endDate}
-            />
-          </div>
-        )}
-
-        {/* Projects By Location */}
-        {settings?.showProjectsByLocation !== false && (
-          <div className="col-12">
-            <LeadByLocationChart data={chartData.locationData} />
-          </div>
-        )}
       </div>
 
       {/* Drill-down dialogs — received/project leads only */}
       <ChartDialogModal
         open={openStatus}
         onClose={() => setOpenStatus(false)}
+        title={drillTitle}
         statusId={statusId || undefined}
         startDate={startDate}
         endDate={endDate}
@@ -483,6 +525,7 @@ const ProjectOverview = () => {
       <ChartDialogModal
         open={openService}
         onClose={() => setOpenService(false)}
+        title={drillTitle}
         serviceId={serviceId || undefined}
         startDate={startDate}
         endDate={endDate}
@@ -492,6 +535,7 @@ const ProjectOverview = () => {
       <ChartDialogModal
         open={openCategory}
         onClose={() => setOpenCategory(false)}
+        title={drillTitle}
         categoryId={categoryId || undefined}
         startDate={startDate}
         endDate={endDate}
@@ -499,23 +543,16 @@ const ProjectOverview = () => {
         entityScope="project"
       />
       <ChartDialogModal
-        open={openSource}
-        onClose={() => setOpenSource(false)}
-        sourceId={sourceId || undefined}
+        open={openSubcategory}
+        onClose={() => setOpenSubcategory(false)}
+        title={drillTitle}
+        subCategoryId={subcategoryId || undefined}
         startDate={startDate}
         endDate={endDate}
         receivedOnly
         entityScope="project"
       />
-      <ChartDialogModal
-        open={openCompanyType}
-        onClose={() => setOpenCompanyType(false)}
-        companyTypeId={companyTypeId || undefined}
-        startDate={startDate}
-        endDate={endDate}
-        receivedOnly
-        entityScope="project"
-      />
+
 
       <Modal
         show={showChartSettingsModal}
@@ -524,15 +561,15 @@ const ProjectOverview = () => {
         centered
         className="responsive-modal"
       >
-        <Modal.Body style={{ 
-          backgroundColor: 'white', 
-          padding: '20px', 
+        <Modal.Body style={{
+          backgroundColor: 'white',
+          padding: 'clamp(12px, 3vw, 20px)',
           borderRadius: '8px',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-            <div style={{ 
-                backgroundColor: 'white', 
-                padding: '20px', 
+            <div style={{
+                backgroundColor: 'white',
+                padding: 0,
                 borderRadius: '8px',
             }}>
               <Typography

@@ -293,6 +293,24 @@ export const getProjectTeamCount = async (startDate: string, endDate: string) =>
     }
 }
 
+// Projects grouped by EXTERNAL TEAM. groupBy = 'companyType' | 'company' | 'contact'.
+// Returns { projectCountByExternalTeam: [{ id, name, color, projectsCount }] } incl. NA.
+export const getProjectExternalTeamCount = async (
+    startDate: string,
+    endDate: string,
+    groupBy: "companyType" | "company" | "contact"
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECT_COUNT_BY_EXTERNAL_TEAM}`;
+        const { data } = await axios.get(endpoint, {
+            params: { startDate, endDate, groupBy },
+        });
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
 // Get Project category count
 export const getProjectCategoryCount = async (startDate: string, endDate: string) => {
     try {
@@ -526,6 +544,31 @@ export const createMultipleTeamMembers = async (payload: any) => {
         return data;
     } catch (err) {
         console.log("create multiple team members error", err);
+        throw err;
+    }
+}
+
+// Move an employee to another team (one team per employee). Keeps the Teams page
+// and the employee's onboarding team assignment in sync. Pass teamId=null to detach.
+export const moveEmployeeTeam = async (employeeId: string, teamId: string | null) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.MOVE_TEAM_MEMBER}`;
+        const { data } = await axios.put(endpoint, { employeeId, teamId });
+        return data;
+    } catch (err) {
+        console.log("move employee team error", err);
+        throw err;
+    }
+}
+
+// One-time backfill so employees onboarded before the sync appear on the Teams page.
+export const backfillTeamMemberships = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.BACKFILL_TEAM_MEMBERSHIPS}`;
+        const { data } = await axios.post(endpoint, {});
+        return data;
+    } catch (err) {
+        console.log("backfill team memberships error", err);
         throw err;
     }
 }

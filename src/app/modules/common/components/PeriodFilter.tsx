@@ -170,10 +170,10 @@ const PeriodFilter: React.FC<Props> = ({
       )}
 
       {mode === "custom" && (
-        <div className="d-flex align-items-center" style={{ gap: 6 }}>
-          <input type="date" className="form-control form-control-sm" style={{ width: 150, fontSize: 12 }} value={customStart} max={customEnd || undefined} onChange={(e) => setCustomStart(e.target.value)} />
-          <span style={{ color: "#aab2bd" }}>–</span>
-          <input type="date" className="form-control form-control-sm" style={{ width: 150, fontSize: 12 }} value={customEnd} min={customStart || undefined} onChange={(e) => setCustomEnd(e.target.value)} />
+        <div className="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 gap-sm-2">
+          <input type="date" className="form-control form-control-sm" style={{ fontSize: 12, minWidth: 0, flex: "1 1 140px" }} value={customStart} max={customEnd || undefined} onChange={(e) => setCustomStart(e.target.value)} />
+          <span style={{ color: "#aab2bd", textAlign: "center" }}>–</span>
+          <input type="date" className="form-control form-control-sm" style={{ fontSize: 12, minWidth: 0, flex: "1 1 140px" }} value={customEnd} min={customStart || undefined} onChange={(e) => setCustomEnd(e.target.value)} />
         </div>
       )}
     </div>

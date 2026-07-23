@@ -575,56 +575,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
             </ResponsiveContainer>
           </div>
         </Card.Body>
-        <div className="px-4 pb-4">
-          <div className="pt-3 border-top">
-            <p
-              className="m-0 text-muted"
-              style={{ fontSize: "11px", lineHeight: "1.6" }}
-            >
-              For {currentDate.format("MMMM")}, you have realized{" "}
-              <span className="fw-bold text-dark">
-                {formatIndianNumber(
-                  transformedData[transformedData.length - 1]
-                    ?.cumulativeValue || 0,
-                )}
-              </span>
-              {currentTarget > 0 ? (
-                <>
-                  {" "}
-                  (
-                  {Math.round(
-                    ((transformedData[transformedData.length - 1]
-                      ?.cumulativeValue || 0) /
-                      currentTarget) *
-                      100,
-                  )}
-                  % of monthly target) out of{" "}
-                  <span className="fw-bold text-dark">
-                    {formatIndianNumber(currentTarget)}
-                  </span>{" "}
-                  {viewMode} goal.
-                  {(transformedData[transformedData.length - 1]
-                    ?.cumulativeValue || 0) < currentTarget && (
-                    <>
-                      {" "}
-                      You need{" "}
-                      <span className="fw-bold text-danger">
-                        {formatIndianNumber(
-                          currentTarget -
-                            (transformedData[transformedData.length - 1]
-                              ?.cumulativeValue || 0),
-                        )}
-                      </span>{" "}
-                      more to achieve this month's objective.
-                    </>
-                  )}
-                </>
-              ) : (
-                <> against the current {viewMode} landscape.</>
-              )}
-            </p>
-          </div>
-        </div>
+
       </Card>
 
       <ManageTargetModal
