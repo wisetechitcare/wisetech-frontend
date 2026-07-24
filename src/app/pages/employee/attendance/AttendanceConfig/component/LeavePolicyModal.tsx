@@ -1,12 +1,12 @@
 import { useEffect, useState, useMemo, useRef, type ReactNode } from 'react';
 import { KTIcon } from '@metronic/helpers';
-import { Box, ButtonBase, CircularProgress, Grid, MenuItem, Popover, Stack, Switch, TextField, Typography } from '@mui/material';
+import { Box, ButtonBase, CircularProgress, Grid, MenuItem, Popover, Stack, TextField, Typography } from '@mui/material';
 import { createNewConfiguration, fetchConfiguration, updateConfigurationById } from '@services/company';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { LEAVE_POLICY_KEY } from '@constants/configurations-key';
 // Same MUI glass kit as the Sandwich Leave benchmark — single source of truth for the look.
 import {
-  WtButton, WtIconButton, GlassSurface, GlassDialog, GlassHeader,
+  WtButton, WtIconButton, WtSwitch, GlassSurface, GlassDialog, GlassHeader,
   TRIO, IconBox, StatTile, T,
 } from '@app/modules/common/components/ui';
 
@@ -145,46 +145,11 @@ function TimeWheelField({ value, onChange, disabled, tone }: {
   );
 }
 
-// Polished pill toggle — tinted gradient track + shadowed thumb when on, soft grey when off.
-const tintedSwitch = (c: string) => ({
-  width: 46,
-  height: 26,
-  padding: 0,
-  flexShrink: 0,
-  '& .MuiSwitch-switchBase': {
-    padding: 0,
-    margin: '3px',
-    transitionDuration: '220ms',
-    '&.Mui-checked': {
-      transform: 'translateX(20px)',
-      color: '#fff',
-      '& + .MuiSwitch-track': {
-        backgroundColor: c,
-        backgroundImage: `linear-gradient(135deg, ${c} 0%, ${c}cc 100%)`,
-        opacity: 1,
-        border: 0,
-      },
-    },
-    '&.Mui-disabled + .MuiSwitch-track': { opacity: 0.4 },
-  },
-  '& .MuiSwitch-thumb': {
-    boxSizing: 'border-box',
-    width: 20,
-    height: 20,
-    boxShadow: '0 2px 5px rgba(15,23,42,0.28)',
-  },
-  '& .MuiSwitch-track': {
-    borderRadius: 13,
-    backgroundColor: '#e4e8ee',
-    opacity: 1,
-    transition: 'background-color .3s',
-  },
-});
-
 interface PolicyState {
   probationEnabled: boolean;
   probationDurationDays: number;
   allowUnpaidDuringProbation: boolean;
+  exemptProbationFromSandwich: boolean;
   allocationPriority: string[];
   cumulativeOverflow: 'spillToUnpaid' | 'block';
   penaltyEnabled: boolean;
@@ -198,6 +163,7 @@ const DEFAULTS: PolicyState = {
   probationEnabled: false,
   probationDurationDays: 90,
   allowUnpaidDuringProbation: true,
+  exemptProbationFromSandwich: false,
   allocationPriority: DEFAULT_PRIORITY,
   cumulativeOverflow: 'spillToUnpaid',
   penaltyEnabled: false,
@@ -228,6 +194,7 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
           probationEnabled: !!p.enabled,
           probationDurationDays: Number(p.durationDays) > 0 ? Number(p.durationDays) : 90,
           allowUnpaidDuringProbation: p.allowUnpaidDuringProbation !== false,
+          exemptProbationFromSandwich: !!p.exemptFromSandwich,
           allocationPriority:
             Array.isArray(cfg.allocationPriority) && cfg.allocationPriority.length > 0
               ? cfg.allocationPriority.map(String)
@@ -267,6 +234,7 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
           enabled: state.probationEnabled,
           durationDays: Number(state.probationDurationDays) || 90,
           allowUnpaidDuringProbation: state.allowUnpaidDuringProbation,
+          exemptFromSandwich: state.exemptProbationFromSandwich,
         },
         allocationPriority: state.allocationPriority,
         cumulativeOverflow: state.cumulativeOverflow,
@@ -302,17 +270,19 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
     return { probationText, priorityCount, overflowText, penaltyText };
   }, [state]);
 
-  // Type scale mirrors the Sandwich Leave benchmark: 15.5 titles, 13 body/labels, 14 input text.
-  const titleSx = { fontSize: 15.5, fontWeight: 800, color: 'text.primary', lineHeight: 1.3 } as const;
-  const descSx = { fontSize: 13, color: 'text.secondary', mt: 0.4, lineHeight: 1.5 } as const;
+  // Type scale mirrors the Sandwich Leave benchmark, nudged up for readability: 16 titles,
+  // 13.5 body with a darker secondary for stronger contrast, 14.5 input text.
+  const titleSx = { fontSize: 16, fontWeight: 800, color: 'text.primary', lineHeight: 1.3, letterSpacing: '-0.01em' } as const;
+  const descSx = { fontSize: 13.5, color: '#55606F', mt: 0.5, lineHeight: 1.6 } as const;
   // Shared input sizing — nudges MUI's small inputs/menu items to a comfortable reading size.
   // The select value wraps instead of truncating so long option text stays fully readable.
   const inputSx = {
-    '& .MuiInputBase-input': { fontSize: 14 },
+    '& .MuiInputBase-input': { fontSize: 14.5, fontWeight: 500 },
     '& .MuiSelect-select': {
-      fontSize: 14,
+      fontSize: 14.5,
+      fontWeight: 500,
       whiteSpace: 'normal !important',
-      lineHeight: 1.35,
+      lineHeight: 1.4,
       minHeight: 'unset',
       py: 1,
     },
@@ -330,7 +300,7 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
         bgcolor: tone.bg, border: `1px solid ${tone.bd}`, color: tone.c, flexShrink: 0, lineHeight: 0 }}>
         <KTIcon iconName={icon} className="fs-5" />
       </Box>
-      <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>{children}</Typography>
+      <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: 'text.primary', letterSpacing: '0.01em' }}>{children}</Typography>
     </Stack>
   );
 
@@ -382,9 +352,8 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
                     <Typography sx={descSx}>During probation, paid leave is blocked — new joiners can only request Unpaid leave.</Typography>
                   </Box>
                 </Stack>
-                <Switch checked={state.probationEnabled} disabled={readOnly}
-                  onChange={(e) => setState((s) => ({ ...s, probationEnabled: e.target.checked }))}
-                  sx={tintedSwitch(TRIO.purple.c)} />
+                <WtSwitch tone={TRIO.purple.c} checked={state.probationEnabled} disabled={readOnly}
+                  onChange={(e) => setState((s) => ({ ...s, probationEnabled: e.target.checked }))} />
               </Box>
 
               {state.probationEnabled && (
@@ -398,13 +367,36 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
                   </Grid>
                   <Grid item xs={12} sm={7} sx={{ display: 'flex', alignItems: 'center' }}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
-                      <Switch checked={state.allowUnpaidDuringProbation} disabled={readOnly}
-                        onChange={(e) => setState((s) => ({ ...s, allowUnpaidDuringProbation: e.target.checked }))}
-                        sx={tintedSwitch(TRIO.purple.c)} />
-                      <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: 'text.primary', lineHeight: 1.4 }}>
+                      <WtSwitch tone={TRIO.purple.c} checked={state.allowUnpaidDuringProbation} disabled={readOnly}
+                        onChange={(e) => setState((s) => ({ ...s, allowUnpaidDuringProbation: e.target.checked }))} />
+                      <Typography sx={{ fontSize: 14, fontWeight: 600, color: 'text.primary', lineHeight: 1.5 }}>
                         Allow Unpaid leave requests during probation window
                       </Typography>
                     </Stack>
+                  </Grid>
+
+                  {/* Sandwich-rule exemption — fairness for new joiners with no accrued paid balance */}
+                  <Grid item xs={12}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.75,
+                      p: 1.75, borderRadius: '12px', bgcolor: TRIO.purple.bg, border: `1px solid ${TRIO.purple.bd}` }}>
+                      <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ minWidth: 0 }}>
+                        <Box sx={{ display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: '9px',
+                          bgcolor: '#fff', border: `1px solid ${TRIO.purple.bd}`, color: TRIO.purple.c, flexShrink: 0, mt: 0.2, lineHeight: 0 }}>
+                          <KTIcon iconName="shield-tick" className="fs-4" />
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography sx={{ fontSize: 14.5, fontWeight: 700, color: 'text.primary', lineHeight: 1.4, letterSpacing: '-0.01em' }}>
+                            Exempt probation joiners from the sandwich rule
+                          </Typography>
+                          <Typography sx={{ fontSize: 13.5, color: '#55606F', mt: 0.5, lineHeight: 1.6 }}>
+                            While in probation, an employee's leave never triggers a sandwich salary deduction for the
+                            bridging weekend/holiday — fair for new joiners who have not yet accrued paid leave.
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <WtSwitch tone={TRIO.purple.c} checked={state.exemptProbationFromSandwich} disabled={readOnly}
+                        onChange={(e) => setState((s) => ({ ...s, exemptProbationFromSandwich: e.target.checked }))} />
+                    </Box>
                   </Grid>
                 </Grid>
               )}
@@ -430,10 +422,10 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
                     }}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                       <Box sx={{ display: 'grid', placeItems: 'center', borderRadius: '50%', width: 30, height: 30,
-                        border: `1px solid ${TRIO.blue.bd}`, bgcolor: TRIO.blue.bg, color: TRIO.blue.c, fontWeight: 800, fontSize: 13.5, flexShrink: 0 }}>
+                        border: `1px solid ${TRIO.blue.bd}`, bgcolor: TRIO.blue.bg, color: TRIO.blue.c, fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
                         {idx + 1}
                       </Box>
-                      <Typography sx={{ fontSize: 14.5, fontWeight: 700, color: 'text.primary' }}>{type}</Typography>
+                      <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', letterSpacing: '-0.01em' }}>{type}</Typography>
                     </Stack>
 
                     {!readOnly && (
@@ -464,8 +456,8 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
               <TextField select size="small" fullWidth disabled={readOnly} sx={inputSx} SelectProps={selectMenuProps}
                 value={state.cumulativeOverflow}
                 onChange={(e) => setState((s) => ({ ...s, cumulativeOverflow: e.target.value as any }))}>
-                <MenuItem value="spillToUnpaid" sx={{ fontSize: 14, whiteSpace: 'normal', lineHeight: 1.35, py: 1 }}>Book the excess days automatically as Unpaid leave (Spillover)</MenuItem>
-                <MenuItem value="block" sx={{ fontSize: 14, whiteSpace: 'normal', lineHeight: 1.35, py: 1 }}>Block the request completely and require manager override</MenuItem>
+                <MenuItem value="spillToUnpaid" sx={{ fontSize: 14.5, whiteSpace: 'normal', lineHeight: 1.4, py: 1 }}>Book the excess days automatically as Unpaid leave (Spillover)</MenuItem>
+                <MenuItem value="block" sx={{ fontSize: 14.5, whiteSpace: 'normal', lineHeight: 1.4, py: 1 }}>Block the request completely and require manager override</MenuItem>
               </TextField>
             </GlassSurface>
 
@@ -479,9 +471,8 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
                     <Typography sx={descSx}>Applies a penalty when an employee submits same-day leave after the configured daily cutoff time.</Typography>
                   </Box>
                 </Stack>
-                <Switch checked={state.penaltyEnabled} disabled={readOnly}
-                  onChange={(e) => setState((s) => ({ ...s, penaltyEnabled: e.target.checked }))}
-                  sx={tintedSwitch(TRIO.amber.c)} />
+                <WtSwitch tone={TRIO.amber.c} checked={state.penaltyEnabled} disabled={readOnly}
+                  onChange={(e) => setState((s) => ({ ...s, penaltyEnabled: e.target.checked }))} />
               </Box>
 
               {state.penaltyEnabled && (
@@ -501,9 +492,9 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
                     <TextField select size="small" fullWidth disabled={readOnly} sx={inputSx} SelectProps={selectMenuProps}
                       value={state.penaltyType}
                       onChange={(e) => setState((s) => ({ ...s, penaltyType: e.target.value as any }))}>
-                      <MenuItem value="halfDaySalaryDeduction" sx={{ fontSize: 14, whiteSpace: 'normal', lineHeight: 1.35, py: 1 }}>Salary deduction (LOP)</MenuItem>
-                      <MenuItem value="halfPaidLeave" sx={{ fontSize: 14, whiteSpace: 'normal', lineHeight: 1.35, py: 1 }}>Paid leave deduction</MenuItem>
-                      <MenuItem value="fixedAmountDeduction" sx={{ fontSize: 14, whiteSpace: 'normal', lineHeight: 1.35, py: 1 }}>Fixed Amount (₹)</MenuItem>
+                      <MenuItem value="halfDaySalaryDeduction" sx={{ fontSize: 14.5, whiteSpace: 'normal', lineHeight: 1.4, py: 1 }}>Salary deduction (LOP)</MenuItem>
+                      <MenuItem value="halfPaidLeave" sx={{ fontSize: 14.5, whiteSpace: 'normal', lineHeight: 1.4, py: 1 }}>Paid leave deduction</MenuItem>
+                      <MenuItem value="fixedAmountDeduction" sx={{ fontSize: 14.5, whiteSpace: 'normal', lineHeight: 1.4, py: 1 }}>Fixed Amount (₹)</MenuItem>
                     </TextField>
                   </Grid>
 
@@ -521,8 +512,8 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
                         <TextField select size="small" fullWidth disabled={readOnly} sx={inputSx} SelectProps={selectMenuProps}
                           value={state.penaltyDays}
                           onChange={(e) => setState((s) => ({ ...s, penaltyDays: Number(e.target.value) as any }))}>
-                          <MenuItem value={0.5} sx={{ fontSize: 14, whiteSpace: 'normal', lineHeight: 1.35, py: 1 }}>0.5 Days (Half-day penalty)</MenuItem>
-                          <MenuItem value={1} sx={{ fontSize: 14, whiteSpace: 'normal', lineHeight: 1.35, py: 1 }}>1.0 Day (Full-day penalty)</MenuItem>
+                          <MenuItem value={0.5} sx={{ fontSize: 14.5, whiteSpace: 'normal', lineHeight: 1.4, py: 1 }}>0.5 Days (Half-day penalty)</MenuItem>
+                          <MenuItem value={1} sx={{ fontSize: 14.5, whiteSpace: 'normal', lineHeight: 1.4, py: 1 }}>1.0 Day (Full-day penalty)</MenuItem>
                         </TextField>
                       </>
                     )}

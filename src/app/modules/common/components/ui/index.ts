@@ -7,6 +7,10 @@
 export { T, tonePair, label, glassTokens } from './tokens';
 export type { SemanticTone, VividTone, GlassVariant, ThemeMode, LabelTier } from './tokens';
 export * from './buttons';
+// Canonical app-wide toggle — the single source of truth for switches (replaces per-file
+// tintedSwitch sx, raw <Switch>, and Bootstrap form-switch).
+export { WtSwitch, WtSwitchField, wtSwitchSx } from './switch';
+export type { WtSwitchProps, WtSwitchFieldProps, WtSwitchSize } from './switch';
 export { ToneChip } from './chips';
 export type { ToneChipProps } from './chips';
 export {

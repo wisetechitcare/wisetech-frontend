@@ -3424,7 +3424,10 @@ const fetchKpiBase = async (
         yourPoints: Number(data?.yourPoints || 0),
         rank: data?.rank || 0,
         remark: data?.remark || "",
-        maxTotal: Number(data?.maxTotal || 100)
+        maxTotal: Number(data?.maxTotal || 100),
+        // Employee sub-object carries the late-policy flag ('custom-deadline' | 'late-exempt'
+        // | 'standard') for the KPI badge.
+        employee: data?.employee ?? null,
     };
 };
 

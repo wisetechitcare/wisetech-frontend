@@ -264,13 +264,13 @@ export function LeaveTypesBalanceModal({ open, onClose, readOnly }: LeaveTypesBa
         {loading ? (
           <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 220, gap: 1.5 }}>
             <CircularProgress size={36} sx={{ color: T.color.brand }} />
-            <Typography sx={{ fontSize: 12.5, color: 'text.secondary', fontWeight: 500 }}>Loading leave configuration…</Typography>
+            <Typography sx={{ fontSize: 13.5, color: '#55606F', fontWeight: 500, lineHeight: 1.6 }}>Loading leave configuration…</Typography>
           </Box>
         ) : branchKeys.length === 0 ? (
-          <GlassSurface variant="thin" radius={20} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 1.25, py: { xs: 5, sm: 7 }, px: 3 }}>
+          <GlassSurface variant="thin" radius={20} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 1.25, py: { xs: 5, sm: 7 }, px: { xs: 2.5, sm: 3 } }}>
             <IconBox icon="calendar-remove" trio={TRIO.slate} size={52} fs="fs-1" />
-            <Typography sx={{ fontSize: 15.5, fontWeight: 800, color: 'text.primary' }}>No leave types configured</Typography>
-            <Typography sx={{ fontSize: 12.5, color: 'text.secondary', fontWeight: 500, maxWidth: 360, lineHeight: 1.5 }}>
+            <Typography sx={{ fontSize: 16, fontWeight: 800, color: 'text.primary', letterSpacing: '-0.01em' }}>No leave types configured</Typography>
+            <Typography sx={{ fontSize: 13.5, color: '#55606F', fontWeight: 500, maxWidth: 360, lineHeight: 1.6 }}>
               There are no branch leave balances to display yet. Add leave options to a branch to configure paid allowances here.
             </Typography>
           </GlassSurface>
@@ -299,7 +299,7 @@ export function LeaveTypesBalanceModal({ open, onClose, readOnly }: LeaveTypesBa
                           <Typography noWrap sx={{ fontSize: { xs: 10, sm: 11 }, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: TRIO.blue.c }}>
                             Branch Specific Configuration
                           </Typography>
-                          <Typography sx={{ fontSize: { xs: 15, sm: 17 }, fontWeight: 800, color: 'text.primary', letterSpacing: '-0.01em', lineHeight: 1.25, wordBreak: 'break-word' }}>
+                          <Typography sx={{ fontSize: { xs: 16, sm: 17 }, fontWeight: 800, color: 'text.primary', letterSpacing: '-0.01em', lineHeight: 1.25, wordBreak: 'break-word' }}>
                             BRANCH: {group.branchName.toUpperCase()}
                           </Typography>
                         </Box>
@@ -328,7 +328,7 @@ export function LeaveTypesBalanceModal({ open, onClose, readOnly }: LeaveTypesBa
                             <GlassSurface
                               variant="thin"
                               sx={{
-                                p: { xs: 1.75, sm: 2 }, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 1.75,
+                                p: { xs: 1.75, sm: 2.25 }, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 1.75,
                                 border: `1px solid ${meta.trio.bd}`, borderTop: `3.5px solid ${meta.trio.c}`,
                                 transition: 'transform .2s, box-shadow .2s, border-color .2s',
                                 '&:hover': { transform: 'translateY(-3px)', boxShadow: T.shadow.cardHover, borderColor: meta.trio.c },
@@ -344,8 +344,8 @@ export function LeaveTypesBalanceModal({ open, onClose, readOnly }: LeaveTypesBa
                                     <IconBox icon={meta.icon} trio={meta.trio} size={40} fs="fs-2" />
                                   </Box>
                                   <Box sx={{ minWidth: 0 }}>
-                                    <Typography noWrap title={lo.leaveType} sx={{ fontSize: { xs: 14.5, sm: 15 }, fontWeight: 800, color: 'text.primary', lineHeight: 1.3 }}>{lo.leaveType}</Typography>
-                                    <Typography noWrap title={meta.desc} sx={{ fontSize: 12.5, color: 'text.secondary', fontWeight: 500 }}>{meta.desc}</Typography>
+                                    <Typography noWrap title={lo.leaveType} sx={{ fontSize: 15, fontWeight: 800, color: 'text.primary', lineHeight: 1.3, letterSpacing: '-0.01em' }}>{lo.leaveType}</Typography>
+                                    <Typography noWrap title={meta.desc} sx={{ fontSize: 13, color: '#55606F', fontWeight: 500, mt: 0.25 }}>{meta.desc}</Typography>
                                   </Box>
                                 </Stack>
                                 <StatusBadge trio={meta.trio} label={`${val} Days`} />
@@ -396,7 +396,7 @@ export function LeaveTypesBalanceModal({ open, onClose, readOnly }: LeaveTypesBa
                             <Box component="span" sx={{ fontSize: 13, fontWeight: 800, color: TRIO.rose.c, lineHeight: 1 }}>=</Box>
                             <Box component="span" sx={{ fontSize: 12, fontWeight: 800, color: TRIO.rose.c }}>{branchUnpaidDays} Unpaid Days</Box>
                           </Box>
-                          <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontWeight: 500, lineHeight: 1.5 }}>
+                          <Typography sx={{ fontSize: 12.5, color: '#55606F', fontWeight: 500, lineHeight: 1.55 }}>
                             Automatically derived to maintain full-year attendance pacing — cannot be edited directly.
                           </Typography>
                         </Box>
@@ -421,7 +421,7 @@ export function LeaveTypesBalanceModal({ open, onClose, readOnly }: LeaveTypesBa
         {!readOnly && (
           <Stack direction="row" spacing={0.75} alignItems="center" sx={{ display: { xs: 'none', sm: 'flex' }, minWidth: 0, color: '#94a3b8' }}>
             <KTIcon iconName="information-5" className="fs-4" />
-            <Typography noWrap sx={{ fontSize: 12, color: 'text.secondary', fontWeight: 500 }}>
+            <Typography noWrap sx={{ fontSize: 12.5, color: '#55606F', fontWeight: 500 }}>
               Unpaid days recalculate automatically from paid allowances.
             </Typography>
           </Stack>

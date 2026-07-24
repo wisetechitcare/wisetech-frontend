@@ -166,6 +166,7 @@ const Monthly: React.FC<MonthlyProps> = ({
           rank={rank}
           yourPoints={yourPoints}
           maxTotal={maxTotal}
+          policyFlag={data?.employee?.policyFlag}
           fromAdmin={fromAdmin}
         />
       )}

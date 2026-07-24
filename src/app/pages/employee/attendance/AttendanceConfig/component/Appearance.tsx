@@ -7,6 +7,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setCustomColors } from '@redux/slices/customColors';
 import { updateColorsById } from '@services/options';
 import { fetchColorAndStoreInSlice } from '@utils/file';
+import { KTIcon } from '@metronic/helpers';
+import { Box, CircularProgress } from '@mui/material';
+// Same MUI glass kit as the Sandwich Leave benchmark — for the primary action button.
+import { WtButton } from '@app/modules/common/components/ui';
 
 let initialValues = {
   id: "",
@@ -113,70 +117,76 @@ const ColorRow: React.FC<ColorRowProps> = ({ label, fieldName, value, onClick })
     <div style={{
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      gap: '10px',
       width: '100%',
-      flexWrap: 'wrap',
-      gap: '8px'
+      boxSizing: 'border-box',
+      border: '1px solid #e8ebf0',
+      borderRadius: '12px',
+      padding: '10px 12px',
+      backgroundColor: '#ffffff',
     }}>
-      <p style={{
-        fontFamily: 'Inter, sans-serif',
-        fontWeight: 500,
-        fontSize: '14px',
-        lineHeight: 'normal',
-        color: '#000000',
-        margin: 0,
-        flex: '1 1 auto',
-        minWidth: '100px'
-      }}>
-        {label}
-      </p>
+      {/* Colour swatch — larger, rounded, with an inset ring so light colours stay visible */}
       <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        flex: '0 0 auto'
-      }}>
-        <div style={{
-          width: '14px',
-          height: '14px',
-          borderRadius: '50%',
-          backgroundColor: value || '#000000',
-          flexShrink: 0
-        }} />
+        width: '24px',
+        height: '24px',
+        borderRadius: '8px',
+        backgroundColor: value || '#000000',
+        flexShrink: 0,
+        border: '1px solid rgba(15,23,42,0.10)',
+        boxShadow: 'inset 0 0 0 2px #ffffff',
+      }} />
+      <div style={{ minWidth: 0, flex: '1 1 auto' }}>
         <p style={{
           fontFamily: 'Inter, sans-serif',
-          fontWeight: 400,
-          fontSize: '14px',
-          lineHeight: 'normal',
-          color: '#000000',
+          fontWeight: 600,
+          fontSize: '13.5px',
+          lineHeight: 1.3,
+          color: '#0f172a',
           margin: 0,
-          width: '70px',
-          textAlign: 'left'
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }} title={label}>
+          {label}
+        </p>
+        <p style={{
+          fontFamily: 'Inter, sans-serif',
+          fontWeight: 500,
+          fontSize: '12px',
+          lineHeight: 1.4,
+          color: '#64748b',
+          margin: 0,
+          fontVariantNumeric: 'tabular-nums',
+          textTransform: 'uppercase',
         }}>
           {value || '#000000'}
         </p>
-        <button
-          type="button"
-          onClick={onClick}
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '18px',
-            height: '18px',
-            flexShrink: 0
-          }}
-        >
-          <i className="ki-duotone ki-pencil fs-5" style={{ color: '#6B7280' }}>
-            <span className="path1"></span>
-            <span className="path2"></span>
-          </i>
-        </button>
       </div>
+      <button
+        type="button"
+        onClick={onClick}
+        title={`Edit ${label} color`}
+        aria-label={`Edit ${label} color`}
+        style={{
+          background: '#f1f5f9',
+          border: '1px solid #e2e8f0',
+          borderRadius: '9px',
+          padding: 0,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '32px',
+          height: '32px',
+          flexShrink: 0,
+          transition: 'background-color .15s, border-color .15s',
+        }}
+      >
+        <i className="ki-duotone ki-pencil fs-5" style={{ color: '#475569' }}>
+          <span className="path1"></span>
+          <span className="path2"></span>
+        </i>
+      </button>
     </div>
   );
 };
@@ -207,10 +217,11 @@ const ColorSection: React.FC<ColorSectionProps> = ({ title, subtitle, children, 
         }}>
           <p style={{
             fontFamily: 'Inter, sans-serif',
-            fontWeight: 600,
+            fontWeight: 700,
             fontSize: '16px',
+            letterSpacing: '-0.01em',
             lineHeight: 'normal',
-            color: '#000000',
+            color: '#0f172a',
             margin: 0
           }}>
             {title}
@@ -219,20 +230,22 @@ const ColorSection: React.FC<ColorSectionProps> = ({ title, subtitle, children, 
             <p style={{
               fontFamily: 'Inter, sans-serif',
               fontWeight: 400,
-              fontSize: '12px',
-              lineHeight: 'normal',
-              color: '#8696ad',
+              fontSize: '13px',
+              lineHeight: 1.55,
+              color: '#55606F',
               margin: 0
             }}>
               {subtitle}
             </p>
           )}
         </div>
+        {/* Responsive auto-fill grid: 1 column on phones, 2–3 on wider screens — no wasted width,
+            no cramped single column. minmax floor keeps each chip readable; it never shrinks below it. */}
         <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          alignItems: 'flex-start',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+          gap: '10px',
+          alignItems: 'stretch',
           width: '100%'
         }}>
           {children}
@@ -452,14 +465,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
   };
 
   return (
-    <div style={{
-      backgroundColor: '#f7f9fc',
-      padding: '24px 20px',
-      borderRadius: '12px',
-      overflow: 'auto',
-      height: '100%',
-      width: '100%'
-    }}>
+    <div style={{ width: '100%' }}>
       <form onSubmit={formik.handleSubmit} noValidate>
         {/* Title */}
         <p style={{
@@ -594,34 +600,15 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
           </div>
 
           {/* Save Button */}
-          <button
-            type="submit"
-            disabled={loading || !formik.isValid}
-            style={{
-              backgroundColor: '#1E3A8A',
-              border: '1px solid #1E3A8A',
-              borderRadius: '6px',
-              height: '40px',
-              display: 'flex',
-              gap: '8px',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 20px',
-              cursor: loading || !formik.isValid ? 'not-allowed' : 'pointer',
-              opacity: loading || !formik.isValid ? 0.6 : 1,
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 500,
-              fontSize: '14px',
-              lineHeight: 'normal',
-              color: '#ffffff',
-              whiteSpace: 'pre'
-            }}
-          >
-            {!loading && 'Save'}
-            {loading && (
-              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            )}
-          </button>
+          <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, width: '100%' }}>
+            <WtButton
+              type="submit" tone="primary" disabled={loading || !formik.isValid}
+              startIcon={loading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <KTIcon iconName="check-circle" className="fs-3" />}
+              sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 200 } }}
+            >
+              {loading ? 'Saving…' : 'Save Appearance'}
+            </WtButton>
+          </Box>
         </div>
       </form>
 
