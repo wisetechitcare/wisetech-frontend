@@ -1625,8 +1625,18 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
 
   return (
     <>
-      <Box sx={{ p: { xs: 2, md: 3 }, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
+      <Box sx={{ p: isDrillDown ? '16px' : { xs: 2, md: 3 }, background: '#fff', borderBottom: isDrillDown ? '1px solid #E5E7EB' : '1px solid #F1F5F9' }}>
         {/* --- ROW 1: PRIMARY TOOLBAR --- */}
+        {isDrillDown ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
+            <h2 style={{ fontFamily: "Inter", fontSize: "15px", fontWeight: 600, margin: 0, color: '#1E293B', lineHeight: '1.4' }}>
+              {drillSliceLabel || drillEntityWord}
+            </h2>
+            <p style={{ color: '#64748B', margin: 0, fontSize: '11px', fontWeight: 400 }}>
+              {quickFilteredData?.length ?? 0} {drillEntityWord.toLowerCase()}
+            </p>
+          </div>
+        ) : (
         <div style={{
           display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
@@ -1638,67 +1648,63 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <h1 style={{ fontFamily: "Barlow", fontSize: "20px", fontWeight: 700, margin: 0, color: '#1E293B', letterSpacing: '-0.02em', lineHeight: '1.2' }}>
-              {isDrillDown ? (drillSliceLabel || drillEntityWord) : "Leads & Projects"}
+              Leads & Projects
             </h1>
             <p style={{ color: '#64748B', margin: 0, fontSize: '12px', fontWeight: 500 }}>
-              {isDrillDown
-                ? `${quickFilteredData?.length ?? 0} ${drillEntityWord.toLowerCase()}`
-                : "One pipeline — every inquiry, and the projects they become"}
+              One pipeline — every inquiry, and the projects they become
             </p>
           </div>
-
-          {!isDrillDown && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              width: isMobile ? '100%' : 'auto',
-              marginLeft: isMobile ? '0' : 'auto',
-            }}>
-              <button
-                className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
-                onClick={() => setShowBulkImport(true)}
-                style={{
-                  backgroundColor: "#fff",
-                  color: "#1E3A8A",
-                  border: "1px solid #E2E8F0",
-                  boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                  borderRadius: "6px",
-                  padding: "0 12px",
-                  fontSize: "12px",
-                  height: "32px",
-                  display: 'flex',
-                  alignItems: 'center',
-                  flex: isMobile ? 1 : 'none',
-                  justifyContent: 'center'
-                }}
-              >
-                <KTIcon iconName="cloud-download" className="fs-6 me-1" />
-                Bulk Import
-              </button>
-              <button
-                className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
-                onClick={() => setFormValues({ leadTemplateId: "blank" })}
-                style={{
-                  backgroundColor: "#1E3A8A",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "0 12px",
-                  fontSize: "12px",
-                  height: "32px",
-                  display: 'flex',
-                  alignItems: 'center',
-                  boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                  flex: isMobile ? 1 : 'none',
-                  justifyContent: 'center'
-                }}
-              >
-                + New Lead
-              </button>
-            </div>
-          )}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            width: isMobile ? '100%' : 'auto',
+            marginLeft: isMobile ? '0' : 'auto',
+          }}>
+            <button
+              className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+              onClick={() => setShowBulkImport(true)}
+              style={{
+                backgroundColor: "#fff",
+                color: "#1E3A8A",
+                border: "1px solid #E2E8F0",
+                boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                borderRadius: "6px",
+                padding: "0 12px",
+                fontSize: "12px",
+                height: "32px",
+                display: 'flex',
+                alignItems: 'center',
+                flex: isMobile ? 1 : 'none',
+                justifyContent: 'center'
+              }}
+            >
+              <KTIcon iconName="cloud-download" className="fs-6 me-1" />
+              Bulk Import
+            </button>
+            <button
+              className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+              onClick={() => setFormValues({ leadTemplateId: "blank" })}
+              style={{
+                backgroundColor: "#1E3A8A",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                padding: "0 12px",
+                fontSize: "12px",
+                height: "32px",
+                display: 'flex',
+                alignItems: 'center',
+                boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                flex: isMobile ? 1 : 'none',
+                justifyContent: 'center'
+              }}
+            >
+              + New Lead
+            </button>
+          </div>
         </div>
+        )}
 
         {/* --- ROW 2: VIEW TABS — hidden on a chart drill-down. The clicked slice is
             already filtered, so the All/Leads/Projects/On Going/Completed/On Hold tabs
@@ -1777,7 +1783,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '10px',
-            marginTop: '4px',
+            marginTop: isDrillDown ? '0px' : '4px',
             flexWrap: 'wrap'
           }}>
             <div style={{
@@ -2248,52 +2254,80 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         muiTableProps={{
           sx: {
             borderCollapse: "separate",
-            borderSpacing: "0 4px !important",
-            minWidth: "1600px",
+            borderSpacing: isDrillDown ? "0 0 !important" : "0 4px !important",
+            minWidth: isDrillDown ? "100%" : "1600px",
+            width: isDrillDown ? "100%" : undefined,
+            tableLayout: isDrillDown ? "auto" : undefined,
           },
-          muiTableBodyRowProps: ({ row }: any) => ({
+          muiTableBodyRowProps: ({ row }: any) => {
+            // Status color drives the drill-down row: a light tint background + a solid
+            // left accent, so "Received" (green) / "Not Received" (red) / "Pending"
+            // (yellow) read at a glance, matching the colored status badges.
+            const drillStatusColor = isDrillDown
+              ? (row.original?.isProject ? row.original?.projectStatus?.color : row.original?.status?.color) || null
+              : null;
+            return {
             sx: {
               cursor: "pointer",
-              backgroundColor: rowBackground(row.original),
-              transition: "all 0.2s ease",
+              backgroundColor: isDrillDown
+                ? (drillStatusColor ? `${drillStatusColor}14` : "#ffffff")
+                : rowBackground(row.original),
+              transition: "background-color 0.15s ease",
+              borderBottom: isDrillDown ? "1px solid #EEF1F5" : "none",
               "& .MuiTableCell-root": {
-                fontSize: "15.5px",
+                fontSize: isDrillDown ? "13px" : "15.5px",
                 fontFamily: "Inter",
-                fontWeight: "500",
-                padding: "4px 8px !important",
+                fontWeight: isDrillDown ? "400" : "500",
+                padding: isDrillDown ? "12px 14px !important" : "4px 8px !important",
                 border: "none",
-                color: "#333",
+                color: "#374151",
                 whiteSpace: "nowrap",
+                backgroundColor: "transparent",
               },
-              "& .MuiTableCell-root:first-of-type": {
-                borderTopLeftRadius: "12px",
-                borderBottomLeftRadius: "12px",
-                borderLeft: row.original?.isProject
-                  ? `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`
-                  : "3px solid transparent !important",
-                transition: "border-color 0.2s ease-in-out !important",
-              },
-              "& .MuiTableCell-root:last-of-type": {
-                borderTopRightRadius: "12px",
-                borderBottomRightRadius: "12px",
-              },
-              "&:hover": {
-                backgroundColor: "#F8FAFC !important",
-                transform: "translateY(-2px)",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                "& .MuiTableCell-root": {
-                  backgroundColor: "#F8FAFC !important",
-                },
+              ...(isDrillDown ? {
                 "& .MuiTableCell-root:first-of-type": {
-                  borderLeftColor: `${row.original?.status?.color || "#1E3A8A"} !important`,
+                  borderLeft: drillStatusColor
+                    ? `3px solid ${drillStatusColor} !important`
+                    : "3px solid transparent !important",
                 },
+              } : {
+                "& .MuiTableCell-root:first-of-type": {
+                  borderTopLeftRadius: "12px",
+                  borderBottomLeftRadius: "12px",
+                  borderLeft: row.original?.isProject
+                    ? `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`
+                    : "3px solid transparent !important",
+                  transition: "border-color 0.2s ease-in-out !important",
+                },
+                "& .MuiTableCell-root:last-of-type": {
+                  borderTopRightRadius: "12px",
+                  borderBottomRightRadius: "12px",
+                },
+              }),
+              "&:hover": {
+                backgroundColor: isDrillDown
+                  ? `${drillStatusColor ? `${drillStatusColor}26` : "#F3F4F6"} !important`
+                  : "#F8FAFC !important",
+                ...(isDrillDown ? {} : {
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                }),
+                "& .MuiTableCell-root": {
+                  backgroundColor: "transparent !important",
+                },
+                ...(isDrillDown ? {} : {
+                  "& .MuiTableCell-root:first-of-type": {
+                    borderLeftColor: `${row.original?.status?.color || "#1E3A8A"} !important`,
+                  },
+                }),
               },
             },
             onClick: () =>
               navigate(`/employee/lead/${row.original.id}`, {
                 state: { leadData: row.original.id },
               }),
-          }),
+            };
+          },
         }}
       />
 

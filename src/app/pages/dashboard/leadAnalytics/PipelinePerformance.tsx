@@ -306,8 +306,6 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
     subtitle: 'Project status overview and what needs attention',
     cardTitle: 'Where Your Projects Stand',
   } : {
-    main: 'How Your Leads Are Doing',
-    subtitle: 'A simple look at where your leads stand and what needs attention',
     cardTitle: 'Where Your Leads Stand',
   };
 
@@ -361,12 +359,6 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
 
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <AnalyticsHeader
-        title={titles.main}
-        subtitle={titles.subtitle}
-        icon="bi-bar-chart-steps"
-        accent="#F59E0B"
-      />
 
       <AnalyticsCard
         title={titles.cardTitle}

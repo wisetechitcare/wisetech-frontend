@@ -7,12 +7,14 @@ import {
   deleteProjectStatus,
   getAllProjectServices,
   getAllProjectStatuses,
+  updateProjectStatus,
   getAllStakeholders,
   deleteStakeholderService,
 } from "@services/projects";
 import React, { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
 import ProjectConfigForm from "./components/ProjectConfigForm";
 import { ProjectItem } from "@models/clientProject";
@@ -98,6 +100,118 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
   );
 };
 
+// ─── StatusFlowRow ──────────────────────────────────────────────────────────
+// The project status list needs to read as a deliberate FLOW (this stage leads
+// to that stage), not an alphabetical/arbitrary bag of chips — so it's a
+// horizontal, numbered pipeline of connected stage pills that wrap across the
+// full card width (instead of ChipGrid's arbitrary grid or a narrow, tall
+// column). Each pill reveals its reorder / edit / delete controls in a floating
+// toolbar on hover, keeping the resting row tight.
+
+interface StatusFlowRowProps {
+  index: number;
+  total: number;
+  name: string;
+  color: string;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  disabled?: boolean;
+}
+
+interface DropdownState {
+  open: boolean;
+  ref: React.RefObject<HTMLDivElement>;
+}
+
+const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
+  index, total, name, color, onMoveUp, onMoveDown, onEdit, onDelete, disabled,
+}) => {
+  const [hov, setHov] = useState(false);
+  const isFirst = index === 0;
+  const isLast = index === total - 1;
+  const dotColor = color || '#cccccc';
+
+  const iconBtn = (tone: string, handler: () => void, icon: string, title: string, enabled = true): React.CSSProperties => ({
+    background: 'none', border: 'none', width: '14px', height: '14px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: enabled ? 'pointer' : 'default',
+    color: hov ? tone : '#ddd', padding: 0, flexShrink: 0,
+    transition: 'color 0.15s ease', fontSize: '9px',
+  });
+
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', margin: 0 }}>
+      {/* Stage pill — ultra-compact */}
+      <div
+        onMouseEnter={() => setHov(true)}
+        onMouseLeave={() => setHov(false)}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '5px',
+          backgroundColor: hov ? '#fafbfc' : '#f7f8fa',
+          border: `1px solid ${hov ? '#d1d5e0' : '#eaecf0'}`,
+          borderRadius: RADIUS.full,
+          padding: '4px 8px',
+          flexShrink: 0,
+          margin: 0,
+          transition: 'all 0.15s ease',
+        }}
+      >
+        {/* Position badge — small circle */}
+        <div style={{
+          width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backgroundColor: `${dotColor}25`, color: C.textSecondary,
+          fontFamily: FONT.body, fontWeight: 700, fontSize: '9px',
+        }}>
+          {index + 1}
+        </div>
+
+        {/* Color dot */}
+        <div style={{
+          width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+          backgroundColor: dotColor,
+        }} />
+
+        {/* Status name — very short truncation */}
+        <span title={name} style={{
+          fontFamily: FONT.body, fontWeight: 500, fontSize: '12px',
+          color: C.textPrimary, maxWidth: '100px',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {name}
+        </span>
+
+        {/* Reorder arrows */}
+        <button type="button" title="Move earlier" onClick={onMoveUp} disabled={disabled || isFirst} style={iconBtn(!disabled && !isFirst ? C.textSecondary : '#ddd', onMoveUp, 'bi-chevron-left', 'Move earlier', !disabled && !isFirst)}>
+          <i className="bi bi-chevron-left" style={{ fontSize: '9px' }} />
+        </button>
+        <button type="button" title="Move later" onClick={onMoveDown} disabled={disabled || isLast} style={iconBtn(!disabled && !isLast ? C.textSecondary : '#ddd', onMoveDown, 'bi-chevron-right', 'Move later', !disabled && !isLast)}>
+          <i className="bi bi-chevron-right" style={{ fontSize: '9px' }} />
+        </button>
+
+        {/* Edit button */}
+        <button type="button" title="Edit" onClick={onEdit} style={iconBtn('#4f82c4', onEdit, 'bi-pencil', 'Edit', true)}>
+          <i className="bi bi-pencil" style={{ fontSize: '9px' }} />
+        </button>
+
+        {/* Delete button */}
+        <button type="button" title="Delete" onClick={onDelete} style={iconBtn(C.danger, onDelete, 'bi-trash', 'Delete', true)}>
+          <i className="bi bi-trash" style={{ fontSize: '9px' }} />
+        </button>
+      </div>
+
+      {/* Connector arrow */}
+      {!isLast && (
+        <i className="bi bi-chevron-right" style={{ fontSize: '11px', color: '#D1D5E0', margin: '0 3px', flexShrink: 0 }} />
+      )}
+    </div>
+  );
+};
+
 const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: SP.sm, marginTop: SP.md }}>
     {children}
@@ -126,6 +240,7 @@ const ProjectConfiguration = () => {
   const [projectStatuses, setProjectStatuses] = useState<ProjectItem[]>([]);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [editingStatus, setEditingStatus] = useState<ProjectItem | null>(null);
+  const [reorderingStatus, setReorderingStatus] = useState(false);
 
   const [stakeholders, setStakeholders] = useState<ProjectItem[]>([]);
   const [showStakeholderModal, setShowStakeholderModal] = useState(false);
@@ -148,6 +263,33 @@ const ProjectConfiguration = () => {
   const handleStatusModalOpen = () => setShowStatusModal(true);
   const handleStatusModalClose = () => { setShowStatusModal(false); setEditingStatus(null); };
   const handleStatusEdit = (s: ProjectItem) => { setEditingStatus(s); setShowStatusModal(true); };
+
+  // Next status appends to the END of the flow (max existing sortOrder + 1),
+  // so a freshly created status never jumps ahead of the ones already ordered.
+  const nextStatusSortOrder = projectStatuses.length
+    ? Math.max(...projectStatuses.map((s) => s.sortOrder ?? 0)) + 1
+    : 0;
+
+  // Swap two adjacent statuses in the flow and persist the WHOLE list's positions
+  // (not just the two touched) so legacy rows still sharing the default
+  // sortOrder of 0 get normalized to distinct positions on the first reorder.
+  const moveStatus = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= projectStatuses.length || reorderingStatus) return;
+    const reordered = [...projectStatuses];
+    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+    setProjectStatuses(reordered); // optimistic
+    setReorderingStatus(true);
+    try {
+      await Promise.all(reordered.map((s, i) => updateProjectStatus(s.id, { sortOrder: i })));
+      eventBus.emit(EVENT_KEYS.projectStatusUpdated, { id: 'reordered' });
+    } catch (error) {
+      console.error('Error reordering project statuses:', error);
+      fetchProjectStatuses(); // revert to server truth on failure
+    } finally {
+      setReorderingStatus(false);
+    }
+  };
 
   const handleStakeholderModalOpen = () => setShowStakeholderModal(true);
   const handleStakeholderModalClose = () => { setShowStakeholderModal(false); setEditingStakeholder(null); };
@@ -172,7 +314,12 @@ const ProjectConfiguration = () => {
       setLoading(true);
       const response = await getAllProjectStatuses();
       if (response?.projectStatuses) {
-        const sorted = [...response.projectStatuses].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+        // Configured flow position first (what the reorder controls write); name
+        // as a tiebreaker for statuses still sharing the default sortOrder of 0.
+        const sorted = [...response.projectStatuses].sort((a: any, b: any) => {
+          const byOrder = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+          return byOrder !== 0 ? byOrder : (a.name || '').localeCompare(b.name || '');
+        });
         setProjectStatuses(sorted);
       }
     } catch (error) { console.error('Error fetching project statuses:', error); }
@@ -298,7 +445,7 @@ const ProjectConfiguration = () => {
             {/* Project Status */}
             <ConfigSectionCard
               title="Project Status"
-              description="Define the lifecycle stages a project moves through."
+              description="Define the order a project moves through — use the arrows to set the flow."
               icon="bi-flag"
               iconColor="primary"
               primaryAction={{ label: 'New Status', icon: 'bi-plus-lg', onClick: handleStatusModalOpen, variant: 'primary' }}
@@ -307,15 +454,22 @@ const ProjectConfiguration = () => {
               {projectStatuses.length === 0
                 ? <EmptyState label="project statuses" />
                 : (
-                  <ChipGrid>
-                    {projectStatuses.map((s) => (
-                      <ColorChip
-                        key={s.id} name={s.name} color={s.color}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginTop: SP.md }}>
+                    {projectStatuses.map((s, i) => (
+                      <StatusFlowRow
+                        key={s.id}
+                        index={i}
+                        total={projectStatuses.length}
+                        name={s.name}
+                        color={s.color}
+                        disabled={reorderingStatus}
+                        onMoveUp={() => moveStatus(i, 'up')}
+                        onMoveDown={() => moveStatus(i, 'down')}
                         onEdit={() => handleStatusEdit(s)}
                         onDelete={() => handleDelete(s.id, 'status')}
                       />
                     ))}
-                  </ChipGrid>
+                  </div>
                 )
               }
             </ConfigSectionCard>
@@ -368,6 +522,7 @@ const ProjectConfiguration = () => {
         title="Status"
         isEditing={!!editingStatus}
         initialData={editingStatus}
+        defaultSortOrder={nextStatusSortOrder}
       />
       <ProjectConfigForm
         show={showStakeholderModal}

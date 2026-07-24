@@ -12,6 +12,7 @@ export { default as RankedBarChart } from "./RankedBarChart";
 export { default as ClientAnalysisSection } from "./ClientAnalysisSection";
 export { default as AnalyticsTabs } from "./AnalyticsTabs";
 export { default as CategorySunburst } from "./CategorySunburst";
+export { default as LocationBubbleChart } from "./LocationBubbleChart";
 export { default as YearlyGrowthChart } from "./YearlyGrowthChart";
 export { default as YearlyInsightsPanel } from "./YearlyInsightsPanel";
 export * from "./leadAnalyticsUtils";

@@ -27,7 +27,17 @@ const ProjectStatusControl: React.FC<{
 
   useEffect(() => {
     getAllProjectStatuses()
-      .then((r: any) => setStatuses(r?.projectStatuses || r?.data || []))
+      .then((r: any) => {
+        const list = r?.projectStatuses || r?.data || [];
+        // API already orders by the configured flow (sortOrder, then name) —
+        // re-sort defensively here too so this picker never regresses to
+        // insertion order if a caller/cache ever hands back an unsorted list.
+        const sorted = [...list].sort((a: any, b: any) => {
+          const byOrder = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+          return byOrder !== 0 ? byOrder : (a.name || '').localeCompare(b.name || '');
+        });
+        setStatuses(sorted);
+      })
       .catch(() => {});
   }, []);
 
