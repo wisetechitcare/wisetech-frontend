@@ -6,99 +6,145 @@ import { fetchAllEmployeesSelectedData } from '@services/employee';
 import { getAllTasks } from '@services/tasks';
 
 /**
- * Intelligent Search Filter for Material React Table.
- * Implements AND logic between keywords across all searchable fields: every keyword in the
- * query must appear somewhere in the row. A multi-word query (e.g. "d mart") must narrow the
- * result set, not widen it — OR logic here made "d mart" match any row containing a word with
- * "d" OR "mart", returning hundreds of false positives.
+ * Compact a string to alphanumeric-only (drops spaces, punctuation, @, dashes,
+ * underscores). Used for space/punctuation-insensitive matching so that a query
+ * typed without spaces still matches a spaced value: "dmart" ↔ "D Mart".
+ */
+const compact = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * Intelligent Search Filter for Material React Table (used when the built-in
+ * global filter is active, i.e. enableColumnSpecificSearch=false).
+ *
+ * Matching is robust but predictable — every query keyword must be found in the
+ * row (AND logic), each keyword matching either as a plain substring OR, space-
+ * and punctuation-insensitively, in the row's compacted form. This makes
+ * "dmart", "d mart", "d-mart" and "d_mart" all match "D Mart @ Cancer Hospital",
+ * while a multi-word query still narrows the result set instead of widening it.
  */
 export const intelligentSearchFilterFn = (row: any, columnId: string, filterValue: any): boolean => {
-  if (!filterValue || filterValue.trim() === '') return true;
+  if (!filterValue || String(filterValue).trim() === '') return true;
 
-  const queryInfo = processSearchQuery(filterValue);
-  const keywords = queryInfo.tokens;
-  if (keywords.length === 0) return true;
+  // Keep spaces here so multi-word queries stay multi-keyword (AND). Treat
+  // dashes/underscores as spaces so "d-mart" → keywords ["d", "mart"].
+  const normalizedQuery = String(filterValue).toLowerCase().trim().replace(/[-_]/g, ' ').replace(/\s+/g, ' ');
+  const queryKeywords = normalizedQuery.split(' ').filter(Boolean);
+  if (queryKeywords.length === 0) return true;
 
   const rowData = row.original || row;
   const searchableValues: string[] = [];
 
-  const extractValues = (obj: any) => {
-    if (!obj || typeof obj !== 'object') return;
-    
-    Object.entries(obj).forEach(([key, value]) => {
+  const extractValues = (obj: any, depth = 0) => {
+    if (depth > 10 || !obj || typeof obj !== 'object') return; // prevent infinite recursion
+    Object.values(obj).forEach((value) => {
       if (value === null || value === undefined) return;
-      
-      if (typeof value === 'object') {
-        // Recursively extract from nested objects (limit depth to avoid loops)
-        extractValues(value);
-      } else {
-        searchableValues.push(String(value).toLowerCase());
-      }
+      if (typeof value === 'object') extractValues(value, depth + 1);
+      else searchableValues.push(String(value).toLowerCase());
     });
   };
-
   extractValues(rowData);
 
-  // AND logic: every keyword must be found in at least one of the row's values.
-  // Ranking in the caller still surfaces exact/phrase matches at the top.
-  return keywords.every((keyword: string) =>
-    searchableValues.some((val: string) => val.includes(keyword))
-  );
+  // Whole-row text (spaced) + its compacted form, computed once.
+  const rowText = searchableValues.join(' ');
+  const rowTextCompact = compact(rowText);
+
+  // AND logic: every keyword must match — plain substring, or compacted (no-space) substring.
+  return queryKeywords.every((keyword) => {
+    if (rowText.includes(keyword)) return true;
+    const k = compact(keyword);
+    return k.length > 0 && rowTextCompact.includes(k);
+  });
 };
 
 
 
 /**
- * HighlightMatch component for highlighting search terms in text (Phase 5)
+ * HighlightMatch — highlights the parts of `text` that match `query`.
+ *
+ * Matching is space/punctuation-insensitive to mirror the search filter: typing
+ * "dmart" highlights the whole "D Mart" span in "D Mart @ Cancer Hospital". It
+ * works on a compacted (alphanumeric-only) view of the text and maps matches
+ * back to the original characters, so the spaces/punctuation inside a matched
+ * run stay highlighted too. Whole-phrase matches get a stronger emphasis than
+ * individual word matches.
  */
 export const HighlightMatch: React.FC<{ text: string; query: string }> = ({ text, query }) => {
-  if (!query || !query.trim() || !text) return <>{text || ''}</>;
+  const raw = String(text ?? '');
+  if (!query || !query.trim() || !raw) return <>{raw}</>;
 
-  const queryInfo = processSearchQuery(query);
-  const fullPhrase = queryInfo.fullPhrase;
-  const tokens = queryInfo.tokens;
+  const toCompact = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  if (tokens.length === 0) return <>{text}</>;
-
-  // Escape special characters for regex
-  const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  
-  // Patterns for phrase vs tokens
-  const phrasePattern = escapeRegExp(fullPhrase);
-  const tokenPatterns = tokens.map(token => {
-    const escaped = escapeRegExp(token);
-    if (token.length <= 2) {
-      return `\\b${escaped}`;
+  // Compacted text + a map from each compacted index back to the original index.
+  const lower = raw.toLowerCase();
+  let compactText = '';
+  const mapToOrig: number[] = [];
+  for (let i = 0; i < lower.length; i++) {
+    const ch = lower[i];
+    if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) {
+      compactText += ch;
+      mapToOrig.push(i);
     }
-    return escaped;
-  });
-  const uniqueTokens = Array.from(new Set(tokenPatterns)).filter(p => p !== phrasePattern && p !== `\\b${phrasePattern}`);
-  
-  const allPatterns = [phrasePattern, ...uniqueTokens];
-  const regex = new RegExp(`(${allPatterns.join('|')})`, 'gi');
-  const parts = String(text).split(regex);
+  }
+  if (!compactText) return <>{raw}</>;
+
+  // Highlight level per original char: 0 = none, 1 = word match, 2 = full phrase.
+  const levels = new Array(raw.length).fill(0);
+  const mark = (needle: string, level: number) => {
+    if (!needle) return;
+    let from = 0;
+    let idx = compactText.indexOf(needle, from);
+    while (idx !== -1) {
+      const origStart = mapToOrig[idx];
+      const origEnd = mapToOrig[idx + needle.length - 1]; // inclusive
+      for (let j = origStart; j <= origEnd; j++) {
+        if (levels[j] < level) levels[j] = level;
+      }
+      from = idx + needle.length;
+      idx = compactText.indexOf(needle, from);
+    }
+  };
+
+  const normalizedQuery = query.toLowerCase().trim().replace(/[-_]/g, ' ').replace(/\s+/g, ' ');
+  const words = normalizedQuery.split(' ').filter(Boolean);
+  words.forEach((w) => mark(toCompact(w), 1));
+  if (words.length > 1) mark(toCompact(normalizedQuery), 2); // whole phrase = stronger
+
+  if (levels.every((l) => l === 0)) return <>{raw}</>;
+
+  // Group consecutive characters of the same level into runs.
+  const runs: { text: string; level: number }[] = [];
+  let cur = raw[0];
+  let curLevel = levels[0];
+  for (let i = 1; i < raw.length; i++) {
+    if (levels[i] === curLevel) {
+      cur += raw[i];
+    } else {
+      runs.push({ text: cur, level: curLevel });
+      cur = raw[i];
+      curLevel = levels[i];
+    }
+  }
+  runs.push({ text: cur, level: curLevel });
 
   return (
     <>
-      {parts.map((part, i) => {
-        if (!regex.test(part)) return part;
-        
-        const isFullPhrase = part.toLowerCase() === fullPhrase.toLowerCase();
-        
+      {runs.map((run, i) => {
+        if (run.level === 0) return <React.Fragment key={i}>{run.text}</React.Fragment>;
+        const isPhrase = run.level === 2;
         return (
-          <mark 
-            key={i} 
-            style={{ 
-              backgroundColor: isFullPhrase ? '#ffe066' : '#fff3cd', 
+          <mark
+            key={i}
+            style={{
+              backgroundColor: isPhrase ? '#ffe066' : '#fff3cd',
               color: 'inherit',
-              padding: '0 1px', 
+              padding: '0 1px',
               borderRadius: '2px',
-              borderBottom: isFullPhrase ? '2px solid #fab005' : '1px solid #ffd33d',
-              fontWeight: isFullPhrase ? 'bold' : 'normal',
-              boxShadow: isFullPhrase ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              borderBottom: isPhrase ? '2px solid #fab005' : '1px solid #ffd33d',
+              fontWeight: isPhrase ? 'bold' : 'normal',
+              boxShadow: isPhrase ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
             }}
           >
-            {part}
+            {run.text}
           </mark>
         );
       })}
