@@ -33,6 +33,10 @@ export interface ProjectItem {
   createdAt?: string;
   updatedAt?: string;
   subCategories?: number;
+  // Lifecycle-flow position (project statuses only) — drives display order
+  // everywhere the status list/picker is shown. Set via the reorder controls
+  // in Project Configuration, not hand-typed.
+  sortOrder?: number;
 }
 
 
@@ -53,4 +57,5 @@ export interface ConfigItem {
   categoryId?: string; // For subcategory
   createdAt?: string;
   updatedAt?: string;
+  sortOrder?: number;
 }

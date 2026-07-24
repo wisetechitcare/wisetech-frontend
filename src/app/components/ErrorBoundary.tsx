@@ -44,6 +44,11 @@ class ErrorBoundary extends React.Component<Props, State> {
   render() {
     if (!this.state.hasError) return this.props.children;
 
+    // Production: swallow the crash silently — render nothing in place of the
+    // crashed page. The detailed fallback dialog (error message + stack trace)
+    // is a dev-only debugging aid and must never reach end users.
+    if (!import.meta.env.DEV) return null;
+
     const { error, componentStack, showStack } = this.state;
     const stackLines = componentStack.split('\n').filter(Boolean).slice(0, 6);
 

@@ -251,22 +251,35 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
         }}
       >
         <div>
-          <div style={{ marginBottom: 12 }}>
-            <h2
-              style={{
-                fontFamily: "Barlow, sans-serif",
-                fontWeight: 600,
-                fontSize: 18,
-                margin: 0,
-                color: "#0F172A",
-              }}
-            >
-              Leads by Geographic Location
-            </h2>
-          </div>
-          <Box sx={{ p: 3, borderRadius: 2 }}>
-            <Box sx={{ display: "flex", mb: 3, gap: 2, flexWrap: "wrap" }}>
-              <FormControl sx={{ minWidth: 160 }} size="small">
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 3 }}>
+            <div>
+              <h2
+                style={{
+                  fontFamily: "Barlow, sans-serif",
+                  fontWeight: 600,
+                  fontSize: 18,
+                  margin: 0,
+                  color: "#0F172A",
+                }}
+              >
+                Geographic Distribution
+              </h2>
+              <span
+                style={{
+                  fontFamily: "Barlow, sans-serif",
+                  fontWeight: 400,
+                  fontSize: 14,
+                  margin: 0,
+                  color: "#64748B",
+                  display: "block",
+                  marginTop: 4,
+                }}
+              >
+                View leads by location
+              </span>
+            </div>
+            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "nowrap", justifyContent: "flex-end", minWidth: "fit-content" }}>
+              <FormControl sx={{ minWidth: 140 }} size="small">
                 <InputLabel id="status-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Status</InputLabel>
                 <Select
                   labelId="status-label"
@@ -296,7 +309,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
                 </Select>
               </FormControl>
 
-              <FormControl sx={{ minWidth: 160 }} size="small">
+              <FormControl sx={{ minWidth: 140 }} size="small">
                 <InputLabel id="country-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Country</InputLabel>
                 <Select
                   labelId="country-label"
@@ -326,7 +339,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
                 </Select>
               </FormControl>
 
-              <FormControl sx={{ minWidth: 160 }} size="small">
+              <FormControl sx={{ minWidth: 140 }} size="small">
                 <InputLabel id="state-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>State</InputLabel>
                 <Select
                   labelId="state-label"
@@ -356,7 +369,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
                 </Select>
               </FormControl>
 
-              <FormControl sx={{ minWidth: 160 }} size="small">
+              <FormControl sx={{ minWidth: 140 }} size="small">
                 <InputLabel id="city-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>City</InputLabel>
                 <Select
                   labelId="city-label"
@@ -386,7 +399,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
                 </Select>
               </FormControl>
 
-              <FormControl sx={{ minWidth: 160 }} size="small">
+              <FormControl sx={{ minWidth: 140 }} size="small">
                 <InputLabel id="locality-label" sx={{ color: '#1E3A8A', '&.Mui-focused': { color: '#1E3A8A' } }}>Locality</InputLabel>
                 <Select
                   labelId="locality-label"
@@ -416,91 +429,86 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
                 </Select>
               </FormControl>
             </Box>
+          </Box>
 
-            <Box sx={{ mt: 3, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
-              {/* Country Chart */}
-              <Box>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "#0F172A" }}>By Country</h3>
-                {countryChartData.length > 0 ? (
-                  <RankedBarChart
-                    data={countryChartData}
-                    onSelect={handleLevelClick("country")}
-                    showRevenue
-                    lean
-                    barColor="#0EA5E9"
-                    height={Math.max(220, Math.min(countryChartData.length, 10) * 34)}
-                    valueLabel
-                    title="Leads by Country"
-                  />
-                ) : (
-                  <div style={{ backgroundColor: "#f8faff", padding: "20px", borderRadius: "8px", textAlign: "center", color: "#9CAFC9", fontSize: "13px" }}>
-                    No data available
-                  </div>
-                )}
-              </Box>
+          <Box sx={{ borderRadius: 2 }}>
+            {/* Location Rankings — Compact Full Width Bar Charts */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {/* Country Ranking */}
+              <AnalyticsCard
+                title="By Country"
+                subtitle="Top locations by lead volume · revenue in tooltip"
+                index={0}
+                isEmpty={countryChartData.length === 0}
+                emptyHint="No country data."
+              >
+                <RankedBarChart
+                  data={countryChartData}
+                  onSelect={handleLevelClick("country")}
+                  showRevenue
+                  barColor="#0EA5E9"
+                  height={380}
+                  valueLabel
+                  title="Leads by Country"
+                />
+              </AnalyticsCard>
 
-              {/* State Chart */}
-              <Box>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "#0F172A" }}>By State</h3>
-                {stateChartData.length > 0 ? (
-                  <RankedBarChart
-                    data={stateChartData}
-                    onSelect={handleLevelClick("state")}
-                    showRevenue
-                    lean
-                    barColor="#10B981"
-                    height={Math.max(220, Math.min(stateChartData.length, 10) * 34)}
-                    valueLabel
-                    title="Leads by State"
-                  />
-                ) : (
-                  <div style={{ backgroundColor: "#f8faff", padding: "20px", borderRadius: "8px", textAlign: "center", color: "#9CAFC9", fontSize: "13px" }}>
-                    No data available
-                  </div>
-                )}
-              </Box>
+              {/* State Ranking */}
+              <AnalyticsCard
+                title="By State"
+                subtitle="Top locations by lead volume · revenue in tooltip"
+                index={1}
+                isEmpty={stateChartData.length === 0}
+                emptyHint="No state data."
+              >
+                <RankedBarChart
+                  data={stateChartData}
+                  onSelect={handleLevelClick("state")}
+                  showRevenue
+                  barColor="#10B981"
+                  height={380}
+                  valueLabel
+                  title="Leads by State"
+                />
+              </AnalyticsCard>
 
-              {/* City Chart */}
-              <Box>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "#0F172A" }}>By City</h3>
-                {cityChartData.length > 0 ? (
-                  <RankedBarChart
-                    data={cityChartData}
-                    onSelect={handleLevelClick("city")}
-                    showRevenue
-                    lean
-                    barColor="#F59E0B"
-                    height={Math.max(220, Math.min(cityChartData.length, 10) * 34)}
-                    valueLabel
-                    title="Leads by City"
-                  />
-                ) : (
-                  <div style={{ backgroundColor: "#f8faff", padding: "20px", borderRadius: "8px", textAlign: "center", color: "#9CAFC9", fontSize: "13px" }}>
-                    No data available
-                  </div>
-                )}
-              </Box>
+              {/* City Ranking */}
+              <AnalyticsCard
+                title="By City"
+                subtitle="Top locations by lead volume · revenue in tooltip"
+                index={2}
+                isEmpty={cityChartData.length === 0}
+                emptyHint="No city data."
+              >
+                <RankedBarChart
+                  data={cityChartData}
+                  onSelect={handleLevelClick("city")}
+                  showRevenue
+                  barColor="#F59E0B"
+                  height={380}
+                  valueLabel
+                  title="Leads by City"
+                />
+              </AnalyticsCard>
 
-              {/* Locality Chart */}
-              <Box>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "#0F172A" }}>By Locality</h3>
-                {localityChartData.length > 0 ? (
-                  <RankedBarChart
-                    data={localityChartData}
-                    onSelect={handleLevelClick("locality")}
-                    showRevenue
-                    lean
-                    barColor="#8B5CF6"
-                    height={Math.max(220, Math.min(localityChartData.length, 10) * 34)}
-                    valueLabel
-                    title="Leads by Locality"
-                  />
-                ) : (
-                  <div style={{ backgroundColor: "#f8faff", padding: "20px", borderRadius: "8px", textAlign: "center", color: "#9CAFC9", fontSize: "13px" }}>
-                    No data available
-                  </div>
-                )}
-              </Box>
+              {/* Locality Ranking */}
+              <AnalyticsCard
+                title="By Locality"
+                subtitle="Top neighborhoods by lead volume · revenue in tooltip"
+                index={3}
+                isEmpty={localityChartData.length === 0}
+                emptyHint="No locality data."
+              >
+                <RankedBarChart
+                  data={localityChartData}
+                  onSelect={handleLevelClick("locality")}
+                  showRevenue
+                  barColor="#8B5CF6"
+                  height={380}
+                  valueLabel
+                  title="Leads by Locality"
+                />
+              </AnalyticsCard>
             </Box>
             {filteredData.length > 0 && (
               <Box

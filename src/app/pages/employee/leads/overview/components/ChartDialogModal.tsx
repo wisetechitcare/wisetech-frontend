@@ -112,8 +112,8 @@ export const ChartDialogModal = ({
         </IconButton>
       </DialogTitle>
       <DialogContent className="!p-0 !shadow-none">
-        <div className="flex flex-col w-full max-w-4xl mx-auto p-0 bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
-          <div className="overflow-y-auto max-h-[50vh]">
+        <div className="flex flex-col w-full p-0 bg-white">
+          <div className="overflow-y-auto max-h-[68vh]">
             <EntityTablePage
               entityScope={entityScope}
               drillTitle={title || undefined}

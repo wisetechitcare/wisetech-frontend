@@ -29,6 +29,11 @@ interface ConfigFormProps {
   isEditing?: boolean;
   type: "category" | "subcategory" | "service" | "status" | "stakeholder";
   title: string;
+  // Status only: sortOrder to stamp on a brand-new status so it appends to the
+  // END of the configured flow instead of jumping to the front (the model's
+  // default is 0). Reordering afterwards happens via the flow list's up/down
+  // controls, not by hand-typing a number here.
+  defaultSortOrder?: number;
 }
 
 const validationSchema = (type: string) => {
@@ -57,7 +62,8 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
   initialData,
   isEditing = false,
   type,
-  title
+  title,
+  defaultSortOrder
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -158,7 +164,10 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
         color: values.color,
         isActive: values.isActive,
         ...(type === 'subcategory' && values.categoryId ? { categoryId: values.categoryId } : {}),
-        ...(type === 'status' && 'isDefault' in values ? { isDefault: (values as any).isDefault } : {})
+        ...(type === 'status' && 'isDefault' in values ? { isDefault: (values as any).isDefault } : {}),
+        // Only stamped on CREATE — editing an existing status must never move it
+        // in the flow as a side effect of an unrelated edit (name/color/default).
+        ...(type === 'status' && !isEditing && typeof defaultSortOrder === 'number' ? { sortOrder: defaultSortOrder } : {}),
       };
 
       if (isEditing && initialData?.id) {
