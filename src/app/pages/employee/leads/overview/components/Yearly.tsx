@@ -610,12 +610,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
 
   const geographySlot = settings?.showLeadsByLocation ? (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <AnalyticsHeader
-        title="Geographic Distribution"
-        subtitle="Where leads came from this year — drill down country → locality"
-        icon="bi-geo-alt"
-        accent="#14B8A6"
-      />
       <LeadByLocationAndStatus
         data={locationRes?.data || []}
         startDate={startDate || undefined}

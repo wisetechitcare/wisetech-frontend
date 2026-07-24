@@ -143,12 +143,6 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
 
   const serviceSection = breakdownTabs.length ? (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <AnalyticsHeader
-        title="Service & Category Mix"
-        subtitle="Project volume by service and category"
-        icon="bi-grid-1x2"
-        accent="#22C55E"
-      />
       <div className="row g-3">
         <div className="col-12">
           <ServiceCategoryTabs tabs={breakdownTabs} />
@@ -156,15 +150,10 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
       </div>
     </section>
   ) : null;
-
-
-
-
-
   // ── Group the fragments into focused sub-tabs (mirrors LeadOverviewDashboard) ──
   const summaryHasContent = !!(pipelineSection || slots?.summary);
   const servicesHasContent = !!(serviceSection || slots?.services);
-  const insightsHasContent = !!(slots?.geography || slots?.insights);
+  const locationHasContent = !!(slots?.geography);
 
   const tabs: AnalyticsTab[] = [
     {
@@ -184,12 +173,10 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
       label: "Services & Insights",
       icon: "bi-grid-1x2",
       accent: "#22C55E",
-      content: (servicesHasContent || insightsHasContent) ? (
+      content: servicesHasContent ? (
         <>
           {serviceSection}
           {slots?.services}
-          {slots?.geography}
-          {slots?.insights}
         </>
       ) : null,
     },
@@ -202,6 +189,18 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
       content: slots?.teams ?? null,
     },
 
+    {
+      id: "location",
+      label: "Location",
+      icon: "bi-geo-alt",
+      accent: "#14B8A6",
+      content: locationHasContent ? (
+        <>
+          {slots?.geography}
+          {slots?.insights}
+        </>
+      ) : null,
+    },
   ];
 
   return <AnalyticsTabs tabs={tabs} storageKey={tabStorageKey} portalTargetId={portalTargetId} />;

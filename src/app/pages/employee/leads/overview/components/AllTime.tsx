@@ -482,14 +482,7 @@ const AllTime = () => {
   return (
     <div className="">
       <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AnalyticsHeader
-            title="All Time Summary"
-            subtitle="Lifetime cumulative performance across the entire history"
-            icon="bi-clock-history"
-            accent="#0EA5E9"
-          />
-        </section>
+
 
         <LeadOverviewDashboard
           statusData={chartData.statusData}

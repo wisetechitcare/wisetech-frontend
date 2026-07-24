@@ -204,28 +204,36 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
 
   const serviceSection = breakdownTabs.length ? (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <AnalyticsHeader
-        title="Service & Category Mix"
-        subtitle="Lead volume by service, category and sub-category"
-        icon="bi-grid-1x2"
-        accent="#22C55E"
-      />
       <div className="row g-3">
         <div className="col-12">
           <ServiceCategoryTabs tabs={breakdownTabs} />
         </div>
       </div>
+      {showCancellation && (
+        <>
+          <AnalyticsHeader
+            title="Cancellation Intelligence"
+            subtitle="Why leads are being cancelled"
+            icon="bi-x-octagon"
+            accent="#EF4444"
+          />
+          <AnalyticsCard
+            title="Cancellation Reasons"
+            subtitle="Ranked by volume"
+            index={0}
+            isEmpty={isEmpty(cancellationReasonData)}
+            emptyHint="No cancelled leads in this period."
+          >
+            <RankedBarChart data={cancellationReasonData} onSelect={onCancellationReasonSelect} valueLabel title="Cancellation Reasons" />
+          </AnalyticsCard>
+        </>
+      )}
     </section>
   ) : null;
 
   const acquisitionSection = showAcquisition ? (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <AnalyticsHeader
-        title="Lead Acquisition"
-        subtitle="Where leads are coming from"
-        icon="bi-broadcast"
-        accent="#0EA5E9"
-      />
+
       <div className="row g-3">
         {showSource && (
           <div className="col-12 col-lg-4">
@@ -252,34 +260,12 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
     </section>
   ) : null;
 
-  // Category & Sub-Category are now tabs inside the Service & Category Mix card
-  // above (see breakdownTabs), so there is no separate Category section anymore.
-
-  const cancellationSection = showCancellation ? (
-    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <AnalyticsHeader
-        title="Cancellation Intelligence"
-        subtitle="Why leads are being cancelled"
-        icon="bi-x-octagon"
-        accent="#EF4444"
-      />
-      <AnalyticsCard
-        title="Cancellation Reasons"
-        subtitle="Ranked by volume"
-        index={0}
-        isEmpty={isEmpty(cancellationReasonData)}
-        emptyHint="No cancelled leads in this period."
-      >
-        <RankedBarChart data={cancellationReasonData} onSelect={onCancellationReasonSelect} valueLabel title="Cancellation Reasons" />
-      </AnalyticsCard>
-    </section>
-  ) : null;
 
   // ── Group the fragments into focused sub-tabs ───────────────────────────────
   const summaryHasContent = !!(kpiSection || pipelineSection || slots?.summary);
   const servicesHasContent = !!(serviceSection || slots?.services);
   const sourcesHasContent = !!(acquisitionSection || slots?.sources);
-  const insightsHasContent = !!(slots?.geography || cancellationSection || slots?.insights);
+  const locationHasContent = !!(slots?.geography);
 
   const tabs: AnalyticsTab[] = [
     {
@@ -300,13 +286,10 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
       label: "Services & Insights",
       icon: "bi-grid-1x2",
       accent: "#22C55E",
-      content: (servicesHasContent || insightsHasContent) ? (
+      content: (servicesHasContent) ? (
         <>
           {serviceSection}
           {slots?.services}
-          {slots?.geography}
-          {cancellationSection}
-          {slots?.insights}
         </>
       ) : null,
     },
@@ -322,7 +305,18 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
         </>
       ) : null,
     },
-
+    {
+      id: "location",
+      label: "Location",
+      icon: "bi-geo-alt",
+      accent: "#14B8A6",
+      content: locationHasContent ? (
+        <>
+          {slots?.geography}
+          {slots?.insights}
+        </>
+      ) : null,
+    },
   ];
 
   return <AnalyticsTabs tabs={tabs} storageKey={tabStorageKey} />;

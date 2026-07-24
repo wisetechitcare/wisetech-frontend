@@ -19,14 +19,6 @@ const MODE_LABEL: Record<ExternalMode, string> = {
 const isEmpty = (d?: ChartDatum[]) =>
   !d || d.length === 0 || d.every((x) => !x.value || x.value <= 0);
 
-/**
- * Team Analysis — two drill-down project charts, each with an NA bucket:
- *   • Projects by Internal Team — execution team; NA = no team assigned.
- *   • Projects by External Team — toggle Company Type / Company / Contact
- *     (mirrors the Client Analysis toggle); NA = no external team.
- * Sourced from getProjectTeamCount + getProjectExternalTeamCount (received/project
- * scope). Clicking a bar (incl. NA) opens the filtered project list.
- */
 const ProjectTeamsSection = ({
   startDate,
   endDate,
@@ -159,12 +151,7 @@ const ProjectTeamsSection = ({
 
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <AnalyticsHeader
-        title="Team Analysis"
-        subtitle="Projects by internal execution team and external stakeholders — NA = none assigned"
-        icon="bi-people"
-        accent="#F59E0B"
-      />
+
       <div className="row g-3">
         <div className="col-12 col-lg-6">
           <AnalyticsCard
