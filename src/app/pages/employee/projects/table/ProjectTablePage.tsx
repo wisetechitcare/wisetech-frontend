@@ -15,6 +15,8 @@ import { getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTableFilters } from "@app/hooks/useTableFilters";
+import { flexibleTextMatch, searchAcrossFields } from "@app/utils/robustSearch";
 import Loader from "@app/modules/common/utils/Loader";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
@@ -85,12 +87,18 @@ const ProjectTablePage = () => {
   }, []);
 
   const [alignment, setAlignment] = useState<DateMode>("monthly");
-  const [searchText, setSearchText] = useState("");
-  const [projectStatusFilter, setProjectStatusFilter] = useState("");
-  const [projectManagerFilter, setProjectManagerFilter] = useState("");
-  // When on, the table shows ONLY projects missing address (lat/long) — in place,
-  // no modal. Toggled by the "Missing Address" count button in the toolbar.
-  const [showMissingAddress, setShowMissingAddress] = useState(false);
+  // Filters sync with URL params — persist across navigation without page reload
+  const {
+    searchText,
+    projectStatusFilter,
+    projectManagerFilter,
+    showMissingAddress,
+    updateSearchText,
+    updateStatusFilter,
+    updateManagerFilter,
+    updateMissingAddress,
+    clearAllFilters: clearFiltersURL,
+  } = useTableFilters();
 
   const [day, setDay] = useState<Dayjs>(today);
   const [weekStart, setWeekStart] = useState<Dayjs>(() => {
@@ -276,7 +284,12 @@ const ProjectTablePage = () => {
           const project = lead?.project || null;
           const exec = lead?.execution || null;
           const startVal = lead?.startDate || project?.startDate || null;
-          const endVal = lead?.endDate || project?.endDate || null;
+          // actualEndDate is the REAL completion date set via the Project Status
+          // control when a project is marked Completed; endDate is only the
+          // planned/expected closure. Prefer the real date once it exists so
+          // "End Date"/Timeline reflect reality instead of staying N/A forever
+          // after completion.
+          const endVal = lead?.actualEndDate || lead?.endDate || project?.endDate || null;
           const s = startVal ? new Date(startVal) : null;
           const e = endVal ? new Date(endVal) : null;
           const duration =
@@ -733,20 +746,21 @@ const ProjectTablePage = () => {
 
     let searchMatch = true;
     if (searchText) {
-      const q = searchText.toLowerCase();
       const pmName = allemployees?.find((e: any) => e.employeeId === item.projectManagerId)?.employeeName || "";
       const serviceName = projectServices?.find((s: any) => s.id === item.service)?.name || "";
       const categoryName = projectCategories?.find((c: any) => c.id === item.category)?.name || "";
 
-      searchMatch =
-        String(item.projectName || "").toLowerCase().includes(q) ||
-        String(item.projectPrefix || "").toLowerCase().includes(q) ||
-        String(item.client || "").toLowerCase().includes(q) ||
-        String(item.contact || "").toLowerCase().includes(q) ||
-        String(item.projectStatus?.name || "").toLowerCase().includes(q) ||
-        String(pmName).toLowerCase().includes(q) ||
-        String(serviceName).toLowerCase().includes(q) ||
-        String(categoryName).toLowerCase().includes(q);
+      // Robust search: "dmart" matches "D Mart", "D-Mart", "D_Mart", etc.
+      searchMatch = searchAcrossFields(searchText, [
+        item.projectName,
+        item.projectPrefix,
+        item.client,
+        item.contact,
+        item.projectStatus?.name,
+        pmName,
+        serviceName,
+        categoryName,
+      ]);
     }
 
     return dateMatch && projectStatusMatch && projectManagerMatch && searchMatch;
@@ -764,12 +778,7 @@ const ProjectTablePage = () => {
   // toggle button turns it off, so surfacing a separate "Clear filters" chip for it
   // would only shift the toolbar layout when the button is clicked.
   const hasAnyFilter = projectStatusFilter || projectManagerFilter || searchText;
-  const clearAllFilters = () => {
-    setProjectStatusFilter("");
-    setProjectManagerFilter("");
-    setSearchText("");
-    setShowMissingAddress(false);
-  };
+  const clearAllFilters = clearFiltersURL;
 
   const totalFilteredCost = (quickFilteredData ?? []).reduce(
     (acc: number, item: any) => acc + (item.projectCost || 0),
@@ -948,7 +957,7 @@ const ProjectTablePage = () => {
               size="small"
               placeholder="Search…"
               value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
+              onChange={(e) => updateSearchText(e.target.value)}
               sx={{
                 minWidth: isMobile ? "100%" : 180,
                 "& .MuiOutlinedInput-root": {
@@ -975,7 +984,7 @@ const ProjectTablePage = () => {
               <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 150 }}>
                 <Select
                   value={projectStatusFilter}
-                  onChange={(e) => setProjectStatusFilter(e.target.value)}
+                  onChange={(e) => updateStatusFilter(e.target.value)}
                   displayEmpty
                   sx={pillSelectSx(!!projectStatusFilter)}
                   renderValue={(val) => {
@@ -1015,7 +1024,7 @@ const ProjectTablePage = () => {
               <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 160 }}>
                 <Select
                   value={projectManagerFilter}
-                  onChange={(e) => setProjectManagerFilter(e.target.value)}
+                  onChange={(e) => updateManagerFilter(e.target.value)}
                   displayEmpty
                   sx={pillSelectSx(!!projectManagerFilter)}
                   renderValue={(val) => {
@@ -1102,7 +1111,7 @@ const ProjectTablePage = () => {
               projects without lat/long in place — no modal. */}
             <button
               type="button"
-              onClick={() => setShowMissingAddress((v) => !v)}
+              onClick={() => updateMissingAddress(!showMissingAddress)}
               title={showMissingAddress
                 ? 'Showing projects with no address (latitude/longitude). Click to show all.'
                 : 'Show only projects missing address (latitude/longitude)'}

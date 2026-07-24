@@ -573,7 +573,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           const exec = lead?.execution || null;
           const isProject = isProjectEntity(lead);
           const s = (lead?.startDate || project?.startDate) ? new Date(lead?.startDate || project.startDate) : null;
-          const e = (lead?.endDate || project?.endDate) ? new Date(lead?.endDate || project.endDate) : null;
+          // Timeline should reflect the REAL span once a project is done, so it
+          // prefers actualEndDate (set via Project Status → Completed) over the
+          // planned endDate — unlike the "Expected Closure" column below, which
+          // intentionally stays the planned date.
+          const durationEnd = lead?.actualEndDate || lead?.endDate || project?.endDate;
+          const e = durationEnd ? new Date(durationEnd) : null;
           const duration =
             s && e
               ? `${Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24))} days`
