@@ -436,11 +436,15 @@ export function tonePair(tone: SemanticTone): { fg: string; soft: string } {
 // ─── Configuration (`ConfigDesignSystem.ts`) ────────────────────────────────
 
 export const LEGACY_CONFIG_C = {
-  primary: '#9d4141',
-  primaryLight: '#fdf3f4',
-  primaryMid: '#b85555',
-  primaryShadow: 'rgba(157, 65, 65, 0.15)',
-  primaryShadowMd: 'rgba(157, 65, 65, 0.22)',
+  // Phase 2 (DESIGN_SYSTEM.md): config-page primary unified from the legacy burgundy (#9d4141) to
+  // the brand navy so every configuration page matches the glass kit (WtButton/GlassDialog) and the
+  // rest of the app. Contained: LEGACY_CONFIG_* feeds ONLY the configuration engine, so this recolours
+  // config pages alone. Revertible in one line.
+  primary: '#1E3A8A',
+  primaryLight: '#eef3fb',
+  primaryMid: '#2563EB',
+  primaryShadow: 'rgba(30, 58, 138, 0.15)',
+  primaryShadowMd: 'rgba(30, 58, 138, 0.22)',
 
   success: '#17c964',
   successLight: '#f0fdf4',
@@ -469,7 +473,7 @@ export const LEGACY_CONFIG_C = {
   bgHover: '#f9f9f9',
 
   border: '#E1E3EA',
-  borderFocus: '#9d4141',
+  borderFocus: '#1E3A8A',
   borderDark: '#d1d3e2',
 
   shadowSm: '0 1px 3px rgba(0,0,0,0.06)',
@@ -565,17 +569,21 @@ export const LEGACY_CONFIG_RADIUS = {
 
 export const LEGACY_CONFIG_BTN = {
   primary: {
-    backgroundColor: LEGACY_CONFIG_C.primary,
+    // Glass-kit CTA physics (matches WtButton ctaSx): 135deg navy gradient, triple shadow
+    // (crisp edge + long colored glow + inset top highlight), spring easing. Consumers layer a
+    // -1px lift + brightness on hover.
+    background: `linear-gradient(135deg, ${LEGACY_CONFIG_C.primary}, #172554)`,
     color: LEGACY_CONFIG_C.textInverse,
     border: 'none',
-    borderRadius: LEGACY_CONFIG_RADIUS.md,
+    borderRadius: LEGACY_CONFIG_RADIUS.lg,
     padding: '10px 20px',
     fontFamily: LEGACY_CONFIG_FONT.body,
-    fontWeight: 600,
+    fontWeight: 700,
     fontSize: '14px',
+    letterSpacing: '-0.01em',
     cursor: 'pointer',
-    boxShadow: `0 4px 12px ${LEGACY_CONFIG_C.primaryShadow}`,
-    transition: 'all 0.2s ease',
+    boxShadow: `0 1px 2px ${LEGACY_CONFIG_C.primaryShadow}, 0 12px 26px -10px ${LEGACY_CONFIG_C.primaryShadowMd}, inset 0 1px 0 rgba(255,255,255,0.16)`,
+    transition: 'transform .16s cubic-bezier(.22,.61,.36,1), box-shadow .2s, filter .15s',
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
@@ -585,7 +593,7 @@ export const LEGACY_CONFIG_BTN = {
     backgroundColor: LEGACY_CONFIG_C.bgCard,
     color: LEGACY_CONFIG_C.textPrimary,
     border: `1px solid ${LEGACY_CONFIG_C.border}`,
-    borderRadius: LEGACY_CONFIG_RADIUS.md,
+    borderRadius: LEGACY_CONFIG_RADIUS.lg,
     padding: '10px 20px',
     fontFamily: LEGACY_CONFIG_FONT.body,
     fontWeight: 600,
@@ -601,10 +609,10 @@ export const LEGACY_CONFIG_BTN = {
     backgroundColor: 'transparent',
     color: LEGACY_CONFIG_C.primary,
     border: `1px solid ${LEGACY_CONFIG_C.primary}`,
-    borderRadius: LEGACY_CONFIG_RADIUS.md,
+    borderRadius: LEGACY_CONFIG_RADIUS.lg,
     padding: '8px 18px',
     fontFamily: LEGACY_CONFIG_FONT.body,
-    fontWeight: 500,
+    fontWeight: 600,
     fontSize: '13px',
     cursor: 'pointer',
     transition: 'all 0.2s ease',

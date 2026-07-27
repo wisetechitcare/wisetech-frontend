@@ -2288,6 +2288,11 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         viewOthers={true}
         checkOwnWithOthers={true}
         onVisibleColumnsChange={handleVisibleColumnsChange}
+        // Drill-down modals are ephemeral, curated views: never persist their column
+        // prefs, so each open renders the meta.defaultVisible set instead of a stale,
+        // per-slice EntityDrill_* bucket that could hide most columns. The full-page
+        // table keeps persistence (default true).
+        persistPreferences={!isDrillDown}
         enableColumnResizing={true}
         layoutMode="semantic"
         muiTableContainerProps={{

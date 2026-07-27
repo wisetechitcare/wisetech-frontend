@@ -1,11 +1,29 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { fetchAllEmployeesSelectedData, updateEmployee } from '@services/employee';
 import React, { useState, useEffect } from 'react';
-import { Modal } from 'react-bootstrap';
+import { EmployeeSelectionDialog } from '@app/modules/common/components/EmployeeSelectionDialog';
+import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
+import { TRIO } from '@app/modules/common/components/ui/tw';
 import { getAvatar } from '@utils/avatar';
 import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
 import { EXCLUDE_FROM_LATE_ATTENDANCE, PAYMENT_MODE } from '@constants/configurations-key';
 import { successConfirmation } from '@utils/modal';
+import { fetchCheckinDeadlineOverrides, saveCheckinDeadlineOverrides, ICheckinDeadlineSaveItem } from '@services/employee';
+
+const HHMM_24H = /^([01]\d|2[0-3]):([0-5]\d)$/;
+/** Convert a company "Check-in time" (e.g. "10:00 AM" or "10:00") to 24h "HH:MM", else "". */
+const to24hDefault = (t?: string | null): string => {
+  if (!t) return '';
+  const s = String(t).trim();
+  if (HHMM_24H.test(s)) return s;
+  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(s);
+  if (!m) return '';
+  let h = Number(m[1]);
+  const ap = m[3].toUpperCase();
+  if (ap === 'PM' && h < 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${m[2]}`;
+};
 
 // Employee Interface
 interface IEmployee {
@@ -36,212 +54,6 @@ const transformEmployeeData = (apiData: any): IEmployee[] => {
     }));
 };
 
-interface EmployeeSelectionModalProps {
-  show: boolean;
-  handleClose: () => void;
-  onSave: (selectedIds: string[]) => void;
-  employees: IEmployee[];
-  initialSelection: string[];
-  title: string;
-}
-
-const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
-  show,
-  handleClose,
-  onSave,
-  employees,
-  initialSelection,
-  title,
-}) => {
-  const [tempSelection, setTempSelection] = useState<string[]>(initialSelection);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    setTempSelection(initialSelection);
-    setSearchTerm('');
-  }, [initialSelection, show]);
-
-  const toggleSelection = (id: string) => {
-    setTempSelection((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  const filteredEmployees = employees
-    .filter(emp => 
-      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      emp.designation.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-      const aSelected = tempSelection.includes(a.id);
-      const bSelected = tempSelection.includes(b.id);
-      if (aSelected && !bSelected) return -1;
-      if (!aSelected && bSelected) return 1;
-      return a.name.localeCompare(b.name);
-    });
-
-  const modalStyles = {
-    header: {
-      borderBottom: 'none',
-      padding: '24px 32px 16px 32px',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    title: {
-      fontFamily: 'Barlow, sans-serif',
-      fontWeight: 600,
-      fontSize: '22px',
-      color: '#000000',
-      letterSpacing: '0.24px',
-      margin: 0,
-    },
-    searchInput: {
-      padding: '10px 16px',
-      borderRadius: '8px',
-      border: '1px solid #E1E3EA',
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
-      width: '100%',
-      maxWidth: '400px',
-      outline: 'none',
-    },
-    body: {
-      padding: '0 32px 24px 32px',
-      maxHeight: '70vh',
-      overflowY: 'auto' as const,
-    },
-    footer: {
-      borderTop: 'none',
-      padding: '0 32px 24px 32px',
-      display: 'flex',
-      justifyContent: 'flex-end',
-    },
-    employeeCard: (isSelected: boolean) => ({
-      display: 'flex',
-      alignItems: 'center',
-      gap: '16px',
-      padding: '16px',
-      cursor: 'pointer',
-      borderRadius: '8px',
-      border: isSelected ? '1px solid #1E3A8A' : '1px solid #E1E3EA',
-      backgroundColor: isSelected ? '#EEF3FC' : '#ffffff',
-      transition: 'all 0.2s ease',
-      height: '100%',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-    }),
-    avatar: {
-      width: '50px',
-      height: '50px',
-      borderRadius: '50%',
-      objectFit: 'cover' as const,
-    },
-    infoContainer: {
-      display: 'flex',
-      flexDirection: 'column' as const,
-      flex: 1,
-      overflow: 'hidden',
-    },
-    name: {
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 600,
-      fontSize: '15px',
-      color: '#181C32',
-      marginBottom: '2px',
-      whiteSpace: 'nowrap' as const,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-    },
-    designation: {
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 500,
-      fontSize: '12px',
-      color: '#A1A5B7',
-      whiteSpace: 'nowrap' as const,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-    },
-    checkbox: (checked: boolean) => ({
-      width: '24px',
-      height: '24px',
-      borderRadius: '6px', // Slightly squared for card design
-      border: checked ? 'none' : '1.5px solid #E1E3EA',
-      backgroundColor: checked ? '#1E3A8A' : 'transparent',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
-      transition: 'all 0.2s ease',
-    }),
-    saveBtn: {
-      backgroundColor: '#1E3A8A',
-      color: '#ffffff',
-      border: 'none',
-      borderRadius: '6px',
-      padding: '12px 24px',
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 500,
-      fontSize: '14px',
-      cursor: 'pointer',
-      transition: 'background-color 0.2s',
-    },
-  };
-
-  return (
-    <Modal show={show} onHide={handleClose} centered size="xl">
-      <Modal.Header closeButton style={modalStyles.header}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
-          <Modal.Title style={modalStyles.title} className="sc-modal-title">
-            {title}
-          </Modal.Title>
-          <input
-            type="text"
-            placeholder="Search by name or designation..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={modalStyles.searchInput}
-          />
-        </div>
-      </Modal.Header>
-      <Modal.Body className="sc-modal-body" style={modalStyles.body}>
-        <div className="row g-4">
-          {filteredEmployees.length > 0 ? filteredEmployees.map((emp) => {
-            const isSelected = tempSelection.includes(emp.id);
-            return (
-              <div key={emp.id} className="col-lg-4 col-md-6 col-sm-12">
-                <div
-                  style={modalStyles.employeeCard(isSelected)}
-                  onClick={() => toggleSelection(emp.id)}
-                >
-                  <img src={emp.avatar} alt={emp.name} style={modalStyles.avatar} />
-                  <div style={modalStyles.infoContainer}>
-                    <span style={modalStyles.name} title={emp.name}>{emp.name}</span>
-                    <span style={modalStyles.designation} title={emp.designation}>{emp.designation}</span>
-                  </div>
-                  <div style={modalStyles.checkbox(isSelected)}>
-                    {isSelected && (
-                      <i className="bi bi-check text-white" style={{ fontSize: '18px', fontWeight: 'bold' }}></i>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          }) : (
-            <div className="col-12 text-center text-muted py-5">
-              No employees found matching "{searchTerm}"
-            </div>
-          )}
-        </div>
-      </Modal.Body>
-      <Modal.Footer className="sc-modal-body" style={modalStyles.footer}>
-        <button style={modalStyles.saveBtn} onClick={() => onSave(tempSelection)}>
-          Save Selection ({tempSelection.length})
-        </button>
-      </Modal.Footer>
-    </Modal>
-  );
-};
-
 function GeneralSettings() {
   const [paymentMode, setPaymentMode] = useState<'Hour Based' | 'Day Based'>('Hour Based');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
@@ -250,6 +62,13 @@ function GeneralSettings() {
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [configurationId, setConfigurationId] = useState<string>('');
   const [paymentModeConfigurationId, setPaymentModeConfigurationId] = useState<string>('');
+  // Custom check-in deadlines (bulk): { employeeId: "HH:MM" }.
+  const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+  const [deadlines, setDeadlines] = useState<Record<string, string>>({});
+  const [companyCheckinTime, setCompanyCheckinTime] = useState<string | null>(null);
+  // Draft selections while a dialog is open (committed on Save, discarded on close).
+  const [tempExcludeIds, setTempExcludeIds] = useState<string[]>([]);
+  const [tempDeadlines, setTempDeadlines] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function fetchAllData() {
@@ -257,11 +76,20 @@ function GeneralSettings() {
         setLoadingEmployees(true);
 
         // Fetch both in parallel for better performance
-        const [employeesResponse, configResponse, paymentModeResponse] = await Promise.all([
+        const [employeesResponse, configResponse, paymentModeResponse, deadlineResponse] = await Promise.all([
           fetchAllEmployeesSelectedData().catch(err => ({ statusCode: 500, data: { employees: [] } })),
           fetchConfiguration(EXCLUDE_FROM_LATE_ATTENDANCE).catch(err => null),
           fetchConfiguration(PAYMENT_MODE).catch(err => null),
+          fetchCheckinDeadlineOverrides().catch(() => null),
         ]);
+
+        // Custom check-in deadlines → { employeeId: "HH:MM" }
+        if (deadlineResponse) {
+          setCompanyCheckinTime(deadlineResponse.companyCheckinTime ?? null);
+          const map: Record<string, string> = {};
+          (deadlineResponse.overrides || []).forEach((o) => { map[o.employeeId] = o.deadline; });
+          setDeadlines(map);
+        }
 
         // Process employees
         if (employeesResponse.statusCode === 200) {
@@ -323,6 +151,20 @@ function GeneralSettings() {
     successConfirmation("Excluded from late attendance deduction updated successfully");
     fetchConfiguration(EXCLUDE_FROM_LATE_ATTENDANCE)
     setShowModal(false);
+  };
+
+  const handleSaveDeadlines = async (next: Record<string, string>) => {
+    // Diff against the loaded state: present → upsert (enabled), removed → clear (disabled).
+    const items: ICheckinDeadlineSaveItem[] = [];
+    Object.entries(next).forEach(([employeeId, deadline]) =>
+      items.push({ employeeId, enabled: true, deadline }));
+    Object.keys(deadlines).forEach((employeeId) => {
+      if (!(employeeId in next)) items.push({ employeeId, enabled: false, deadline: null });
+    });
+    if (items.length > 0) await saveCheckinDeadlineOverrides(items);
+    setDeadlines(next);
+    successConfirmation("Custom check-in deadlines updated successfully");
+    setShowDeadlineModal(false);
   };
 
 
@@ -557,7 +399,7 @@ function GeneralSettings() {
             </div>
           )}
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => { setTempExcludeIds(selectedEmployeeIds); setShowModal(true); }}
             style={{
               backgroundColor: '#fff',
               border: '1px solid #E1E3EA',
@@ -583,13 +425,131 @@ function GeneralSettings() {
         </div>
       </div>
 
-      <EmployeeSelectionModal
-        show={showModal}
-        handleClose={() => setShowModal(false)}
-        onSave={handleSaveEmployees}
+      {/* Custom check-in deadlines row */}
+      <div
+        className="sc-settings-row"
+        style={rowBase}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 24px rgba(24,28,50,0.09)';
+          (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5e0';
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(24,28,50,0.05)';
+          (e.currentTarget as HTMLDivElement).style.borderColor = '#E8EAF0';
+        }}
+      >
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '3px', background: 'linear-gradient(to bottom, #7239EA, #9B6FF0)', borderRadius: '14px 0 0 14px' }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', paddingLeft: '6px', minWidth: 0, flex: 1 }}>
+          <div style={{
+            width: '44px', height: '44px', borderRadius: '12px',
+            background: 'linear-gradient(135deg, #f0e9fc 0%, #e3d5f8 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#7239EA', fontSize: '19px',
+            boxShadow: '0 2px 10px rgba(114,57,234,0.12)', flexShrink: 0,
+            border: '1px solid rgba(114,57,234,0.08)',
+          }}>
+            <i className="bi bi-clock-history"></i>
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14.5px', color: '#181C32', margin: 0 }}>
+                Custom Check-in Deadlines
+              </h3>
+              <span style={{
+                fontFamily: 'Inter, sans-serif', fontSize: '10px', fontWeight: 700,
+                backgroundColor: '#f0e9fc', color: '#7239EA',
+                border: '1px solid rgba(114,57,234,0.15)',
+                borderRadius: '99px', padding: '2px 8px', letterSpacing: '0.3px',
+              }}>
+                ATTENDANCE
+              </span>
+            </div>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '12px', color: '#A1A5B7', margin: '3px 0 0 0', lineHeight: 1.5 }}>
+              Give selected employees a personal on-time cutoff (applies to attendance, salary &amp; KPI)
+            </p>
+          </div>
+        </div>
+
+        <div className="sc-row-right" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          {Object.keys(deadlines).length > 0 && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              backgroundColor: '#f0e9fc',
+              border: '1px solid rgba(114,57,234,0.18)',
+              color: '#7239EA',
+              borderRadius: '9px', padding: '7px 13px',
+              fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 700,
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: '15px', lineHeight: 1 }}>{Object.keys(deadlines).length}</span>
+              <span style={{ fontSize: '11.5px', fontWeight: 500, color: '#9B6FF0' }}>Custom</span>
+            </div>
+          )}
+          <button
+            onClick={() => { setTempDeadlines(deadlines); setShowDeadlineModal(true); }}
+            style={{
+              backgroundColor: '#fff', border: '1px solid #E1E3EA', borderRadius: '9px', cursor: 'pointer',
+              padding: '9px 18px', display: 'inline-flex', alignItems: 'center', gap: '6px',
+              fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: '#374151',
+              transition: 'all 0.15s ease', boxShadow: '0 1px 4px rgba(24,28,50,0.05)', whiteSpace: 'nowrap' as const,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#7239EA'; e.currentTarget.style.color = '#7239EA'; e.currentTarget.style.backgroundColor = '#f7f3fe'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.backgroundColor = '#fff'; }}
+          >
+            Configure <i className="bi bi-arrow-right" style={{ fontSize: '13px' }}></i>
+          </button>
+        </div>
+      </div>
+
+      {/* Exclude-from-late — plain multi-select */}
+      <EmployeeSelectionDialog
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title="Exclude from late attendance deduction"
+        subtitle="Selected employees are exempt from the late-attendance salary deduction"
+        icon="profile-circle"
+        tone="cyan"
         employees={employees}
-        initialSelection={selectedEmployeeIds}
-        title="Choose Employees to exclude from late attendance deduction"
+        selectedIds={tempExcludeIds}
+        onToggle={(id) =>
+          setTempExcludeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+        }
+        onSave={() => handleSaveEmployees(tempExcludeIds)}
+        footerNote="Excluded employees are never marked late in payroll."
+      />
+
+      {/* Custom check-in deadlines — per-employee time value */}
+      <EmployeeSelectionDialog
+        open={showDeadlineModal}
+        onClose={() => setShowDeadlineModal(false)}
+        title="Custom check-in deadlines"
+        subtitle="Give selected employees a personal on-time cutoff"
+        icon="time"
+        tone="purple"
+        employees={employees}
+        selectedIds={Object.keys(tempDeadlines)}
+        onToggle={(id) =>
+          setTempDeadlines((prev) => {
+            if (id in prev) { const { [id]: _omit, ...rest } = prev; return rest; }
+            return { ...prev, [id]: to24hDefault(companyCheckinTime) };
+          })
+        }
+        renderTrailing={(emp) => {
+          const val = tempDeadlines[emp.id] || '';
+          return (
+            <TimeWheelField
+              value={val}
+              onChange={(v) => setTempDeadlines((prev) => ({ ...prev, [emp.id]: v }))}
+              tone={TRIO.purple}
+              invalid={!HHMM_24H.test(val)}
+              fullWidth={false}
+            />
+          );
+        }}
+        saveDisabled={Object.keys(tempDeadlines).some((id) => !HHMM_24H.test(tempDeadlines[id] || ''))}
+        onSave={() => handleSaveDeadlines(tempDeadlines)}
+        footerNote="Check-in at/before the time = on-time; after = late."
       />
     </div>
   );

@@ -1,5 +1,6 @@
 import { safeJsonParse } from '@utils/safeJson';
 import React, { useState, useEffect, useCallback } from 'react';
+import { Box, Grid } from '@mui/material';
 import { LeaveTypesBalanceModal } from './component/LeaveTypesBalance';
 import SandwichLeave from '@pages/company/settings/SandwhichLeave';
 import { LeavePolicyModal } from '@pages/company/settings/LeavePolicy';
@@ -395,9 +396,9 @@ const AttendanceConfig: React.FC = () => {
     <>
       <style>{KEYFRAMES}</style>
 
-      <div
-        className="container-fluid py-6 px-0 cfg-fade-in"
-        style={{ maxWidth: '100%', backgroundColor: C.bgPage }}
+      <Box
+        className="cfg-fade-in"
+        sx={{ py: 3, px: 0, maxWidth: '100%', backgroundColor: C.bgPage }}
       >
         <ConfigPageLayout
           title="Attendance Configuration"
@@ -481,9 +482,9 @@ const AttendanceConfig: React.FC = () => {
                 </div>
               )}
 
-              <div className="row g-4">
+              <Grid container spacing={3}>
                 {/* ── Daily Shift Time card ────────────────────── */}
-                <div className="col-12 col-lg-7">
+                <Grid item xs={12} lg={7}>
                   <ConfigSectionCard
                     title="Daily Shift Time"
                     description="Manage check-in, check-out, and total shift hours per day"
@@ -552,10 +553,10 @@ const AttendanceConfig: React.FC = () => {
                       </div>
                     </div>
                   </ConfigSectionCard>
-                </div>
+                </Grid>
 
                 {/* ── Other Settings card ──────────────────────── */}
-                <div className="col-12 col-lg-5">
+                <Grid item xs={12} lg={5}>
                   <ConfigSectionCard
                     title="Attendance Settings"
                     description="Control policies, distance limits, and request windows"
@@ -596,8 +597,8 @@ const AttendanceConfig: React.FC = () => {
                       value={otherSettingsData.monthlyAnnualLeaveLimit}
                     />
                   </ConfigSectionCard>
-                </div>
-              </div>
+                </Grid>
+              </Grid>
 
               {/* Default Shift Rules */}
               <div style={{ marginTop: SP.xl }}>
@@ -636,8 +637,8 @@ const AttendanceConfig: React.FC = () => {
                 </p>
               </div>
 
-              <div className="row g-4">
-                <div className="col-12 col-md-6">
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
                   <ConfigSettingsRow
                     label="Leave Types & Balance"
                     description="Configure leave types and their balance for each branch"
@@ -647,8 +648,8 @@ const AttendanceConfig: React.FC = () => {
                     actionIcon="bi-arrow-right"
                     onAction={() => setShowLeaveTypesModal(true)}
                   />
-                </div>
-                <div className="col-12 col-md-6">
+                </Grid>
+                <Grid item xs={12} md={6}>
                   <ConfigSettingsRow
                     label="Sandwich Leave Rules"
                     description="Configure sandwich leave scenarios for payroll deductions"
@@ -658,8 +659,8 @@ const AttendanceConfig: React.FC = () => {
                     actionIcon="bi-arrow-right"
                     onAction={() => setShowSandwichModal(true)}
                   />
-                </div>
-                <div className="col-12 col-md-6">
+                </Grid>
+                <Grid item xs={12} md={6}>
                   <ConfigSettingsRow
                     label="Addon Leaves Allowance"
                     description="Extra leave days based on employee tenure and experience"
@@ -669,8 +670,8 @@ const AttendanceConfig: React.FC = () => {
                     actionIcon="bi-arrow-right"
                     onAction={() => setShowAddonLeavesModal(true)}
                   />
-                </div>
-                <div className="col-12 col-md-6">
+                </Grid>
+                <Grid item xs={12} md={6}>
                   <ConfigSettingsRow
                     label="Auto-Allocation Policy"
                     description="Probation restriction, paid-type consumption priority, and cumulative overflow"
@@ -680,8 +681,8 @@ const AttendanceConfig: React.FC = () => {
                     actionIcon="bi-arrow-right"
                     onAction={() => setShowLeavePolicyModal(true)}
                   />
-                </div>
-              </div>
+                </Grid>
+              </Grid>
             </div>
           )}
 
@@ -730,7 +731,7 @@ const AttendanceConfig: React.FC = () => {
             </div>
           )}
         </ConfigPageLayout>
-      </div>
+      </Box>
 
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
 

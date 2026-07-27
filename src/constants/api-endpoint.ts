@@ -92,6 +92,7 @@ export const COMPANY = {
 
 export const EMPLOYEE = {
     CREATE_EMPLOYEE: "api/employee",
+    CHECKIN_DEADLINE_OVERRIDES_BULK: "api/employee/checkin-deadline-overrides",
     GET_ALL_EMPLOYEE: "api/employee/all",
     GET_EMPLOYEES_BY_BRANCH: "api/employee/by-branch",
     GET_ALL_EMPLOYEE_SELECTED_DATA: "api/employee/all-employees-selected-data",

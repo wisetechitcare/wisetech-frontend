@@ -432,6 +432,34 @@ export const updateEmployee = async (id: string, payload: any) => {
     }
 }
 
+// ── Check-in cutoff overrides (bulk manage modal) ────────────────────────────
+export interface ICheckinDeadlineItem {
+    employeeId: string;
+    deadline: string; // 24h "HH:MM" (branch timezone)
+}
+export interface ICheckinDeadlineBulkResponse {
+    overrides: ICheckinDeadlineItem[];
+    companyCheckinTime: string | null;
+}
+/** One item for the bulk save; enabled:false clears the employee's override. */
+export interface ICheckinDeadlineSaveItem {
+    employeeId: string;
+    enabled: boolean;
+    deadline: string | null;
+}
+
+const checkinDeadlineOverridesUrl = `${API_BASE_URL}/${EMPLOYEE.CHECKIN_DEADLINE_OVERRIDES_BULK}`;
+
+export const fetchCheckinDeadlineOverrides = async (): Promise<ICheckinDeadlineBulkResponse> => {
+    const { data } = await axios.get(checkinDeadlineOverridesUrl);
+    return data?.data as ICheckinDeadlineBulkResponse;
+};
+
+export const saveCheckinDeadlineOverrides = async (items: ICheckinDeadlineSaveItem[]) => {
+    const { data } = await axios.put(checkinDeadlineOverridesUrl, { items });
+    return data;
+};
+
 export const updateEmergencyContact = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_EMERGENCY_CONTACT_BY_ID}?id=${id}`;

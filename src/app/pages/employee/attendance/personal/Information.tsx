@@ -1,4 +1,4 @@
-import { Row, Col } from "react-bootstrap";
+import { Grid } from "@mui/material";
 import Rules from "./views/information/Rules";
 import Faqs from "./views/information/Faqs";
 import { LEAVE_ATTENDANCE_KEY } from "@constants/configurations-key";
@@ -6,15 +6,15 @@ import { LEAVE_ATTENDANCE_KEY } from "@constants/configurations-key";
 const Information = () => {
     return (
         <div>
-            <Row>
-                <Col md={7} className="mb-3">
+            <Grid container>
+                <Grid item xs={12} md={7} className="mb-3">
                     <Rules />
-                </Col>
+                </Grid>
 
-                <Col md={5} className="mb-3">
+                <Grid item xs={12} md={5} className="mb-3">
                 <Faqs typeKey={LEAVE_ATTENDANCE_KEY} />
-                </Col>
-            </Row>
+                </Grid>
+            </Grid>
         </div>
     );
 }

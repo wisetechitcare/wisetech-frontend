@@ -1,6 +1,6 @@
 ﻿import { IFaqs } from '@models/company';
 import { Field, Form, Formik, FormikValues } from 'formik';
-import { Modal } from 'react-bootstrap';
+import { Dialog, DialogContent } from '@mui/material';
 import * as Yup from 'yup';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import DropDownInput from '@app/modules/common/inputs/DropdownInput';
@@ -42,8 +42,8 @@ const faqSchema = Yup.object({
 
 const FaqModal = ({ show, editMode, initialValues, loading, onClose, onSubmit }: FaqModalProps) => {
     return (
-        <Modal show={show} onHide={onClose} centered size="lg">
-            <Modal.Body style={{ padding: '40px 44px' }}>
+        <Dialog open={show} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
+            <DialogContent sx={{ p: { xs: '28px 24px', sm: '40px 44px' } }}>
                 <Formik
                     initialValues={initialValues}
                     onSubmit={onSubmit}
@@ -144,8 +144,8 @@ const FaqModal = ({ show, editMode, initialValues, loading, onClose, onSubmit }:
                         </Form>
                     )}
                 </Formik>
-            </Modal.Body>
-        </Modal>
+            </DialogContent>
+        </Dialog>
     );
 };
 

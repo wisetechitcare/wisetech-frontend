@@ -142,6 +142,7 @@ const AllTime: React.FC<AllTimeProps> = ({
           rank={rank}
           yourPoints={yourPoints}
           maxTotal={maxTotal}
+          policyFlag={data?.employee?.policyFlag}
           fromAdmin={fromAdmin}
         />
       )}

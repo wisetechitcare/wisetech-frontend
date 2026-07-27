@@ -45,13 +45,13 @@ export function DailyShiftTimeModal({
 
       {/* Scope context banner */}
       {scopeLabel && (
-        <Box sx={{ px: 1.5, py: '5px', borderBottom: `1px solid ${T.color.line}`, bgcolor: 'rgba(30,58,138,0.04)', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
-          <Box component="span" sx={{ fontSize: 12, fontWeight: 700, color: 'text.secondary' }}>Configuring for:</Box>
-          <Box component="span" sx={{ px: 1, py: 0.25, borderRadius: '8px', border: '1px solid #dbeafe', bgcolor: '#eff6ff', fontSize: 13, fontWeight: 700, color: '#2563eb' }}>
+        <Box sx={{ px: { xs: 1.25, sm: 1.5 }, py: { xs: 0.75, sm: '6px' }, borderBottom: `1px solid ${T.color.line}`, bgcolor: 'rgba(30,58,138,0.04)', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
+          <Box component="span" sx={{ fontSize: 13.5, fontWeight: 700, color: '#55606F', lineHeight: 1.5 }}>Configuring for:</Box>
+          <Box component="span" sx={{ px: 1, py: 0.25, borderRadius: '8px', border: '1px solid #dbeafe', bgcolor: '#eff6ff', fontSize: 13.5, fontWeight: 700, color: '#2563eb', lineHeight: 1.5 }}>
             {scopeLabel}
           </Box>
           {!canEdit && (
-            <Box component="span" sx={{ fontSize: 12, color: '#e11d48', fontWeight: 600 }}>
+            <Box component="span" sx={{ fontSize: 13.5, color: '#e11d48', fontWeight: 600, lineHeight: 1.5 }}>
               You don't have permission to edit (view only).
             </Box>
           )}

@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { useDispatch, useSelector } from "react-redux";
-import { Modal } from "react-bootstrap";
+import { Dialog, DialogTitle, DialogContent, IconButton } from "@mui/material";
 import GoogleMaps from './GoogleMaps';
 import { saveCoordinates, saveCurrentAddress, saveWorkingMethodOptions, toggleLocationPermission, toggleOpenModal } from "@redux/slices/attendance";
 import { fetchAddressDetails } from "@services/location";
@@ -1058,9 +1058,20 @@ const getBlockingMessage = async () => {
                 }
             `}</style>
 
-            <Modal show={show} onHide={handleClose} centered className='rounded-3 attendance-modal'>
-                <Modal.Header closeButton></Modal.Header>
-                <Modal.Body>
+            <Dialog
+                open={show}
+                onClose={handleClose}
+                maxWidth="md"
+                fullWidth
+                className='rounded-3 attendance-modal'
+                PaperProps={{ sx: { borderRadius: 2 } }}
+            >
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
+                    <IconButton onClick={handleClose} aria-label="close">
+                        <i className="bi bi-x-lg" />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent>
                     <div className="row">
                         <div className="col-lg-4">
                             <GoogleMaps />
@@ -1070,8 +1081,8 @@ const getBlockingMessage = async () => {
                             <WorkingMethodOptions sendNotification={handleNotification}/>
                         </div>
                     </div>
-                </Modal.Body>
-            </Modal>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

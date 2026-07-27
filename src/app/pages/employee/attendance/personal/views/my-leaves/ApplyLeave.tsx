@@ -24,6 +24,8 @@ import { getSocket } from '@utils/socketClient';
 import { parseWorkingDays } from '@utils/workingDays';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { rgba, tintOf, borderOf, resolveLeaveTypeColor } from '@utils/leaveTypeColors';
+import { getCumulativeAllowedLeaves } from '@utils/balanceProgressUtils';
+import { calculateFiscalMonth } from '@utils/fiscalYearHelper';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
@@ -175,7 +177,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const weekendCol   = calColors?.weekendColor         || '#9B59B6';
 
     const isMobile  = useIsMobile();
-    const { loading, submitting, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty } = useApplyLeave({
+    const { loading, submitting, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated, usedPaidLeaves } = useApplyLeave({
         employeeId, branchId, dateOfJoining, workingAndOffDays, holidays,
     });
 
@@ -252,16 +254,25 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         () => (priority.length ? [...priority, unpaidLabel] : ['Unpaid']).join(' → '),
         [priority, unpaidLabel],
     );
-    // Ordered fill chain for the expandable selector: paid priority types then Unpaid, each with
-    // its live available balance (matched by name against the employee's balances).
-    const priorityChips = useMemo(() => {
-        const byName = new Map(balances.map((b) => [b.leaveType, b]));
-        return [...priority, unpaidLabel].map((name, i) => {
-            const b = byName.get(name);
-            const isPaid = b ? b.isPaid : !/unpaid/i.test(name);
-            return { name, order: i + 1, available: b?.available ?? 0, isPaid, known: !!b };
-        });
-    }, [balances, priority, unpaidLabel]);
+    // Cumulative paid-leave pacing allowance ("allowed till now"), date-aware. The engine caps the
+    // PAID portion at floor(totalPaidAllocated / 12 × fiscalMonthIndex) where the month index comes
+    // from the request's dateTo — so applying for a later month unlocks a higher allowance. Mirrors
+    // leaveAllocation.getCumulativeAllowedLeaves (the same formula the backend books against). The FY
+    // starts in April here (matches the modal's "Apr–Mar" header hint).
+    const allowedThrough = useMemo(() => {
+        const effIso = s.to || s.from; // ISO 'YYYY-MM-DD' of the leave's last day, if picked
+        const d = effIso ? new Date(effIso + 'T00:00:00') : new Date();
+        const fiscalMonthIndex = calculateFiscalMonth(d.getMonth() + 1, 4);
+        const days = getCumulativeAllowedLeaves(totalPaidAllocated, fiscalMonthIndex); // allowedTillNow
+        return {
+            days,                                    // cumulative cap allowed through this month
+            used: usedPaidLeaves,                    // paid days already used + pending
+            remaining: Math.max(0, days - usedPaidLeaves),
+            monthLabel: d.toLocaleString('en-US', { month: 'short' }),
+            monthLong: d.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+            dated: !!effIso,
+        };
+    }, [s.from, s.to, totalPaidAllocated, usedPaidLeaves]);
     const today      = isoOf(new Date());
     const tomorrow   = isoOf(new Date(Date.now() + 864e5));
 
@@ -455,21 +466,50 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: '#2b2e30' }}>Auto · paid first</span>
                     <span style={{ display: 'block', fontSize: 12, color: '#8b8e91', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Fills {allocSubtitle}</span>
                 </span>
+                {(() => {
+                    const ok = allowedThrough.remaining > 0;
+                    const tone = ok ? GREEN : RED;
+                    return (
+                        <span title={`Remaining paid leave allowed through ${allowedThrough.monthLabel}`}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: rgba(tone, 0.10), border: `1px solid ${rgba(tone, 0.28)}`, flexShrink: 0 }}>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: tone, fontFamily: PJK, lineHeight: 1 }}>{allowedThrough.remaining}</span>
+                            <span style={{ fontSize: 10.5, fontWeight: 600, color: rgba(tone, 0.9), whiteSpace: 'nowrap' }}>{ok ? 'remaining' : 'limit reached'}</span>
+                        </span>
+                    );
+                })()}
                 <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, transition: 'transform .2s ease', transform: priorityOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }}>▾</span>
             </button>
-            {priorityOpen && (
-                <div style={{ padding: '2px 14px 13px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {priorityChips.map((c) => (
-                        <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 10px', borderRadius: 9, background: '#fff', border: '1px solid #eceef0' }}>
-                            <span style={{ width: 19, height: 19, borderRadius: '50%', background: rgba(colorOf(c.name), 0.15), color: colorOf(c.name), display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>{c.order}</span>
-                            <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: '#3a3d40' }}>{c.name}</span>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: !c.isPaid ? '#9aa0a6' : c.available > 0 ? GREEN : '#c0563f' }}>
-                                {!c.isPaid ? 'Fallback' : c.known ? `${c.available} left` : '—'}
-                            </span>
+            {priorityOpen && (() => {
+                const ok = allowedThrough.remaining > 0;
+                return (
+                    <div style={{ padding: '2px 14px 14px' }}>
+                        <div style={{ padding: '13px 14px', borderRadius: 11, background: '#fff', border: '1px solid #eceef0' }}>
+                            {/* Heading + explainer (mirrors the My Leaves "Cumulative Leave Allowance" card) */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: ACCENT, flexShrink: 0 }} />
+                                <span style={{ fontSize: 13.5, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>Cumulative Leave Allowance</span>
+                            </div>
+                            <p style={{ margin: '0 0 12px', fontSize: 12, color: '#7c8085', lineHeight: 1.5 }}>
+                                Leaves are distributed across the fiscal year. Allowed usage grows each month — you can use what is allowed till the {allowedThrough.dated ? 'selected' : 'current'} period ({allowedThrough.monthLong}).
+                            </p>
+
+                            {/* Stat pair: Used-till-date / allowed, and Remaining */}
+                            <div style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}>
+                                <div style={{ flex: 1, textAlign: 'center', padding: '11px 8px', borderRadius: 10, background: rgba(ACCENT, 0.05), border: `1px solid ${rgba(ACCENT, 0.12)}` }}>
+                                    <p style={{ margin: 0, fontSize: 24, fontWeight: 800, fontFamily: PJK, color: '#2b2e30', lineHeight: 1 }}>
+                                        {allowedThrough.used}<span style={{ fontSize: 16, color: '#9aa0a6', fontWeight: 700 }}> / {allowedThrough.days}</span>
+                                    </p>
+                                    <p style={{ margin: '6px 0 0', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#8b8e91' }}>Used till {allowedThrough.monthLabel}</p>
+                                </div>
+                                <div style={{ flex: 1, textAlign: 'center', padding: '11px 8px', borderRadius: 10, background: rgba(ok ? GREEN : RED, 0.09), border: `1px solid ${rgba(ok ? GREEN : RED, 0.28)}` }}>
+                                    <p style={{ margin: 0, fontSize: 24, fontWeight: 800, fontFamily: PJK, color: ok ? GREEN : RED, lineHeight: 1 }}>{allowedThrough.remaining}</p>
+                                    <p style={{ margin: '6px 0 0', fontSize: 10.5, fontWeight: 700, color: ok ? GREEN : RED }}>{ok ? 'Remaining Allowed' : 'Limit Reached'}</p>
+                                </div>
+                            </div>
                         </div>
-                    ))}
-                </div>
-            )}
+                    </div>
+                );
+            })()}
         </div>
     );
 

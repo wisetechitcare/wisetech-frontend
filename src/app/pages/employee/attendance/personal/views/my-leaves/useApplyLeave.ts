@@ -476,5 +476,5 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
         [],
     );
 
-    return { loading, submitting, types, balances, priority, overflow, probation, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty };
+    return { loading, submitting, types, balances, priority, overflow, probation, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated: cumulativePool.totalPaidAllocated, usedPaidLeaves: cumulativePool.usedPlusPendingPaid };
 }

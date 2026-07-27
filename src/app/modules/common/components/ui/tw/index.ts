@@ -11,6 +11,8 @@ export { BRAND, SHADOW, TRIO, EASE } from './tokens';
 export type { Trio, ToneName } from './tokens';
 export { WtButton, WtIconButton } from './Buttons';
 export type { WtButtonProps, WtIconButtonProps, WtCtaTone } from './Buttons';
+export { WtCloseButton } from './WtCloseButton';
+export type { WtCloseButtonProps } from './WtCloseButton';
 export { IconBox, StatusBadge, StatTile, Eyebrow, SectionHead } from './Patterns';
 export { Spinner } from './Spinner';
 export { GlassSurface, GlassCard, GlassHeader, GlassDialog } from './Glass';

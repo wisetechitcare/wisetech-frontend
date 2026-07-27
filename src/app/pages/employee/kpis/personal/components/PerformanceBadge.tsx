@@ -30,6 +30,8 @@ interface PerformanceBadgeProps {
   maxTotal: number;
   yourPoints: number;
   fromAdmin?: boolean;
+  /** Late-attendance policy flag from the KPI response (badge). */
+  policyFlag?: "custom-deadline" | "late-exempt" | "standard" | null;
 }
 
 const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
@@ -38,6 +40,7 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
   yourPoints,
   maxTotal,
   fromAdmin = false,
+  policyFlag,
 }) => {
   const employee = useSelector((state: RootState) =>
     fromAdmin ? state.employee?.selectedEmployee : state.employee.currentEmployee
@@ -223,6 +226,16 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
                 <div className="d-flex align-items-center gap-2 flex-wrap">
                   <span className="badge badge-light-secondary fw-bold fs-9 px-2 py-1">{employee?.employeeCode}</span>
                   <span className="text-muted fs-9 fw-bold">Active</span>
+                  {policyFlag === "custom-deadline" && (
+                    <span className="badge badge-light-primary fw-bold fs-9 px-2 py-1" title="Has a personal on-time cutoff">
+                      Custom Deadline
+                    </span>
+                  )}
+                  {policyFlag === "late-exempt" && (
+                    <span className="badge badge-light-warning fw-bold fs-9 px-2 py-1" title="Exempt from late-attendance deduction">
+                      Late-Exempt
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

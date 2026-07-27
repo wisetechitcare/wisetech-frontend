@@ -182,7 +182,7 @@ export function AddonLeavesModal({ open, onClose, readOnly }: AddonLeavesModalPr
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25 }}>
                   <Box sx={liveDotSx} />
-                  <Typography sx={{ fontSize: { xs: 12.5, sm: 13.5 }, fontWeight: 800, lineHeight: 1.2, color: g.c }}>
+                  <Typography sx={{ fontSize: 13.5, fontWeight: 800, lineHeight: 1.2, color: g.c }}>
                     Active &amp; Enforced
                   </Typography>
                 </Box>
@@ -192,11 +192,11 @@ export function AddonLeavesModal({ open, onClose, readOnly }: AddonLeavesModalPr
         </Grid>
 
         {/* Guidance Callout */}
-        <GlassSurface variant="thin" radius={14} sx={{ p: { xs: 1.75, sm: 2 }, display: 'flex', alignItems: 'flex-start', gap: { xs: 1.5, sm: 1.75 }, border: `1px solid ${TRIO.blue.bd}`, ...riseSx(4) }}>
+        <GlassSurface variant="thin" radius={14} sx={{ p: { xs: 1.75, sm: 2.25 }, display: 'flex', alignItems: 'flex-start', gap: { xs: 1.5, sm: 1.75 }, border: `1px solid ${TRIO.blue.bd}`, ...riseSx(4) }}>
           <IconBox icon="information-5" trio={TRIO.blue} size={40} fs="fs-2" />
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontSize: { xs: 14, sm: 14.5 }, fontWeight: 800, color: 'text.primary', mb: 0.4 }}>How Addon Leaves Work</Typography>
-            <Typography sx={{ fontSize: { xs: 12.5, sm: 13 }, color: 'text.secondary', lineHeight: 1.6 }}>
+            <Typography sx={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em', color: 'text.primary', mb: 0.4 }}>How Addon Leaves Work</Typography>
+            <Typography sx={{ fontSize: 13.5, color: '#55606F', lineHeight: 1.6 }}>
               Employees receive additional leave days based on their completed years of experience in the company. These addon leave days are calculated automatically by the backend Leave Allocation Engine and added directly onto their base annual allowance.
             </Typography>
           </Box>
@@ -273,8 +273,8 @@ export function AddonLeavesModal({ open, onClose, readOnly }: AddonLeavesModalPr
                     </Box>
 
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography noWrap sx={{ fontSize: { xs: 13.5, sm: 14.5 }, fontWeight: 700, color: 'text.primary', lineHeight: 1.3 }}>{labelText}</Typography>
-                      <Typography noWrap sx={{ fontSize: 11.5, color: 'text.secondary' }}>Addon leave days</Typography>
+                      <Typography noWrap sx={{ fontSize: { xs: 14, sm: 15 }, fontWeight: 700, color: 'text.primary', lineHeight: 1.3, letterSpacing: '-0.01em' }}>{labelText}</Typography>
+                      <Typography noWrap sx={{ fontSize: 12, color: '#55606F' }}>Addon leave days</Typography>
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 'auto' }}>

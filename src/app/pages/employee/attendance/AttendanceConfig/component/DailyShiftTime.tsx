@@ -1,11 +1,13 @@
 import { safeJsonParse } from '@utils/safeJson';
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Button, Form } from 'react-bootstrap';
+import { KTIcon } from '@metronic/helpers';
+import { Box, CircularProgress, Grid, Stack, Typography } from '@mui/material';
+// Same MUI glass kit as the Sandwich Leave benchmark — layout primitives, buttons, canonical toggle.
+import { WtButton, WtSwitch, GlassSurface, IconBox, TRIO, T } from '@app/modules/common/components/ui';
 import { Formik, Form as FormikForm } from 'formik';
 import * as Yup from 'yup';
 import TimePickerInput from '@app/modules/common/inputs/TimeInput';
 import TextInput from '@app/modules/common/inputs/TextInput';
-import RadioInput, { RadioButton } from '@app/modules/common/inputs/RadioInput';
 import { fetchDayWiseShifts, createDayWiseShift, updateDayWiseShiftById } from '@services/dayWiseShift';
 import { fetchConfiguration, createNewConfiguration } from '@services/company';
 import {
@@ -106,6 +108,28 @@ interface DailyShiftTimeProps {
   scope?: { companyId?: string; branchId?: string };
 }
 
+// ── Presentational atoms (module-scope; no state) ──────────────────────────
+const pickerLabelSx = { fontSize: 12, fontWeight: 600, color: '#55606F', mb: 0.4, display: 'block' } as const;
+const settingLabelSx = { fontSize: 14, fontWeight: 700, color: 'text.primary', letterSpacing: '-0.01em' } as const;
+const bulkPickerSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: '8px', fontSize: 13.5, backgroundColor: '#fff',
+    '& fieldset': { borderColor: '#d9dee6' },
+    '&:hover fieldset': { borderColor: '#1E3A8A' },
+    '&.Mui-focused fieldset': { borderColor: '#1E3A8A' },
+  },
+} as const;
+
+/** A compact computed-time readout (Working / Shift / Deduction). */
+function TimeStat({ label, value }: { label: string; value: string }) {
+  return (
+    <Box sx={{ borderRadius: '10px', backgroundColor: '#f6f8fb', border: '1px solid #eceff3', px: 1, py: 0.85, textAlign: 'center' }}>
+      <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#8a94a6', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1.2 }}>{label}</Typography>
+      <Typography sx={{ fontSize: 15, fontWeight: 800, color: 'text.primary', fontVariantNumeric: 'tabular-nums', lineHeight: 1.3 }}>{value}</Typography>
+    </Box>
+  );
+}
+
 const DailyShiftTime: React.FC<DailyShiftTimeProps> = ({ scope }) => {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
@@ -116,11 +140,6 @@ const DailyShiftTime: React.FC<DailyShiftTimeProps> = ({ scope }) => {
   const [leaveManagementConfigId, setLeaveManagementConfigId] = useState<string | null>(null);
   const [bulkCheckIn, setBulkCheckIn] = useState<Dayjs | null>(null);
   const [bulkCheckOut, setBulkCheckOut] = useState<Dayjs | null>(null);
-
-  const holidayOptions: RadioButton[] = [
-    { label: 'No', value: 'no' },
-    { label: 'Yes', value: 'yes' }
-  ];
 
   const validationSchema = Yup.object().shape({
     lunchTimeStart: Yup.string().required('Lunch start time is required'),
@@ -417,22 +436,6 @@ const handleSubmit = async (values: ShiftValues) => {
 
   return (
     <>
-    <style>{`
-      .daily-shift-onsite-toggle .form-check-input {
-        width: 2rem;
-        height: 1.125rem;
-        margin-top: 0;
-        cursor: pointer;
-      }
-      .daily-shift-onsite-toggle .form-check-input:checked {
-        background-color: #1E3A8A;
-        border-color: #1E3A8A;
-      }
-      .daily-shift-onsite-toggle .form-check-input:focus {
-        box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.25);
-        border-color: #1E3A8A;
-      }
-    `}</style>
     <Formik
       enableReinitialize
       initialValues={initialValues}
@@ -441,181 +444,55 @@ const handleSubmit = async (values: ShiftValues) => {
     >
       {({ values, setFieldValue, resetForm }) => (
         <FormikForm>
-          <div style={{
-            // backgroundColor: '#f7f9fc',
-            padding: '24px 20px',
-            // borderRadius: '12px'
-          }}>
-            {/* <Row className="mb-4">
-              <Col>
-                <h4 style={{
-                  fontFamily: 'Barlow, sans-serif',
-                  fontWeight: 600,
-                  fontSize: '24px',
-                  letterSpacing: '0.24px',
-                  marginBottom: 0
+          <Box sx={{ p: { xs: 1.75, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 2.5 } }}>
+
+                {/* Bulk Apply — set check-in/out once and push to weekdays or all days */}
+                <GlassSurface variant="thin" radius={14} sx={{
+                  p: { xs: 1.5, sm: 1.75 }, display: 'flex', flexDirection: { xs: 'column', lg: 'row' },
+                  alignItems: { xs: 'stretch', lg: 'center' }, gap: { xs: 1.5, lg: 2 },
+                  border: `1px dashed ${TRIO.blue.bd}`, backgroundColor: TRIO.blue.bg,
                 }}>
-                  Daily Shift Time
-                </h4>
-              </Col>
-            </Row> */}
+                  <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flexShrink: 0 }}>
+                    <IconBox icon="magic-star" trio={TRIO.blue} size={34} fs="fs-4" />
+                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', letterSpacing: '-0.01em' }}>Apply to all</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={1} sx={{ flex: 1, minWidth: 0, width: { xs: '100%', lg: 'auto' } }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <MobileTimePicker
+                          value={bulkCheckIn}
+                          onChange={(val) => setBulkCheckIn(val)}
+                          slotProps={{ textField: { placeholder: 'Check-in', size: 'small', fullWidth: true, sx: bulkPickerSx } }}
+                        />
+                      </LocalizationProvider>
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <MobileTimePicker
+                          value={bulkCheckOut}
+                          onChange={(val) => setBulkCheckOut(val)}
+                          slotProps={{ textField: { placeholder: 'Check-out', size: 'small', fullWidth: true, sx: bulkPickerSx } }}
+                        />
+                      </LocalizationProvider>
+                    </Box>
+                  </Stack>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ flexShrink: 0 }}>
+                    <WtButton ghost onClick={() => {
+                      const ci = bulkCheckIn?.format('HH:mm');
+                      const co = bulkCheckOut?.format('HH:mm');
+                      weekdays.forEach(d => { if (ci) setFieldValue(`${d}_checkIn`, ci); if (co) setFieldValue(`${d}_checkOut`, co); });
+                    }} sx={{ minHeight: 38, fontSize: 13, px: 1.75 }}>Weekdays</WtButton>
+                    <WtButton ghost onClick={() => {
+                      const ci = bulkCheckIn?.format('HH:mm');
+                      const co = bulkCheckOut?.format('HH:mm');
+                      allDays.forEach(d => { if (ci) setFieldValue(`${d}_checkIn`, ci); if (co) setFieldValue(`${d}_checkOut`, co); });
+                    }} sx={{ minHeight: 38, fontSize: 13, px: 1.75 }}>All days</WtButton>
+                    <WtButton ghost onClick={() => resetForm()} sx={{ minHeight: 38, fontSize: 13, px: 1.75 }}>Reset</WtButton>
+                  </Stack>
+                </GlassSurface>
 
-            <Card style={{ borderRadius: '12px', border: 'none' }}>
-              <Card.Body style={{ padding: '20px 25px' }}>
-                {/* Table Header - Only visible on larger screens */}
-                <Row className="mb-3 d-none d-lg-flex">
-                  <Col lg={2}>
-                    <span style={{
-                      fontSize: '12px',
-                      color: '#8696ad',
-                      fontFamily: 'Inter, sans-serif'
-                    }}>
-                      Day
-                    </span>
-                  </Col>
-                  <Col lg={4}>
-                    <Row>
-                      <Col lg={6}>
-                        <span style={{
-                          fontSize: '12px',
-                          color: '#8696ad',
-                          fontFamily: 'Inter, sans-serif'
-                        }}>
-                          Check-in
-                        </span>
-                      </Col>
-                      <Col lg={6}>
-                        <span style={{
-                          fontSize: '12px',
-                          color: '#8696ad',
-                          fontFamily: 'Inter, sans-serif'
-                        }}>
-                          Check-out
-                        </span>
-                      </Col>
-                    </Row>
-                  </Col>
-                  <Col lg={3}>
-                    <Row>
-                      <Col lg={6}>
-                        <span style={{
-                          fontSize: '12px',
-                          color: '#8696ad',
-                          fontFamily: 'Inter, sans-serif'
-                        }}>
-                          Total Working Time
-                        </span>
-                      </Col>
-                      <Col lg={6}>
-                        <span style={{
-                          fontSize: '12px',
-                          color: '#8696ad',
-                          fontFamily: 'Inter, sans-serif'
-                        }}>
-                          Total Shift Time
-                        </span>
-                      </Col>
-                    </Row>
-                  </Col>
-                </Row>
-
-                {/* Bulk Apply Row — set check-in/out once and push to all weekdays or all 7 days */}
-                <Row className="mb-3 align-items-center" style={{ background: '#f7f9fc', borderRadius: 8, padding: '10px 4px', border: '1px dashed #d9dee6' }}>
-                  <Col lg={2}>
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#495057', fontFamily: 'Inter, sans-serif' }}>Apply to all</span>
-                  </Col>
-                  <Col lg={4}>
-                    <Row>
-                      <Col lg={6}>
-                        <LocalizationProvider dateAdapter={AdapterDayjs}>
-                          <MobileTimePicker
-                            value={bulkCheckIn}
-                            onChange={(val) => setBulkCheckIn(val)}
-                            slotProps={{
-                              textField: {
-                                placeholder: 'Check-in',
-                                size: 'small',
-                                fullWidth: true,
-                                sx: {
-                                  '& .MuiOutlinedInput-root': {
-                                    borderRadius: '6px',
-                                    fontSize: '13px',
-                                    '& fieldset': { borderColor: '#d9dee6' },
-                                    '&:hover fieldset': { borderColor: '#1E3A8A' },
-                                    '&.Mui-focused fieldset': { borderColor: '#1E3A8A' },
-                                  },
-                                },
-                              },
-                            }}
-                          />
-                        </LocalizationProvider>
-                      </Col>
-                      <Col lg={6}>
-                        <LocalizationProvider dateAdapter={AdapterDayjs}>
-                          <MobileTimePicker
-                            value={bulkCheckOut}
-                            onChange={(val) => setBulkCheckOut(val)}
-                            slotProps={{
-                              textField: {
-                                placeholder: 'Check-out',
-                                size: 'small',
-                                fullWidth: true,
-                                sx: {
-                                  '& .MuiOutlinedInput-root': {
-                                    borderRadius: '6px',
-                                    fontSize: '13px',
-                                    '& fieldset': { borderColor: '#d9dee6' },
-                                    '&:hover fieldset': { borderColor: '#1E3A8A' },
-                                    '&.Mui-focused fieldset': { borderColor: '#1E3A8A' },
-                                  },
-                                },
-                              },
-                            }}
-                          />
-                        </LocalizationProvider>
-                      </Col>
-                    </Row>
-                  </Col>
-                  <Col lg={6} className="d-flex gap-2 mt-2 mt-lg-0 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const ci = bulkCheckIn?.format('HH:mm');
-                        const co = bulkCheckOut?.format('HH:mm');
-                        weekdays.forEach(d => {
-                          if (ci)  setFieldValue(`${d}_checkIn`,  ci);
-                          if (co) setFieldValue(`${d}_checkOut`, co);
-                        });
-                      }}
-                      style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #1E3A8A', background: '#fff', color: '#1E3A8A', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      Weekdays (Mon–Fri)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const ci = bulkCheckIn?.format('HH:mm');
-                        const co = bulkCheckOut?.format('HH:mm');
-                        allDays.forEach(d => {
-                          if (ci)  setFieldValue(`${d}_checkIn`,  ci);
-                          if (co) setFieldValue(`${d}_checkOut`, co);
-                        });
-                      }}
-                      style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #6c757d', background: '#fff', color: '#6c757d', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      All days
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => resetForm()}
-                      style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #198754', background: '#fff', color: '#198754', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      Back to Default
-                    </button>
-                  </Col>
-                </Row>
-
-                {/* Days Rows */}
+                {/* Per-day schedule — responsive card grid (replaces the old dual desktop-table / mobile-card views) */}
+                <Grid container spacing={{ xs: 1.5, sm: 2 }}>
                 {days.map((day) => {
                   const dayKey = day.toLowerCase() as WeekdayKey;
                   const checkInKey = `${dayKey}_checkIn` as `${WeekdayKey}_checkIn`;
@@ -671,221 +548,57 @@ const handleSubmit = async (values: ShiftValues) => {
 
                   const { shiftTime, workingTime } = calculateTimes();
 
-                  return (
-                    <div key={day} style={{ opacity: isHoliday ? 0.4 : 1 }}>
-                      {/* Desktop View */}
-                      <Row className="mb-3 align-items-center d-none d-lg-flex">
-                        <Col lg={2}>
-                          <span style={{
-                            fontSize: '14px',
-                            fontWeight: 500,
-                            fontFamily: 'Inter, sans-serif'
-                          }}>
-                            {day}
-                          </span>
-                        </Col>
-                        <Col lg={4}>
-                          <Row>
-                            <Col lg={6}>
-                              <TimePickerInput
-                                formikField={`${dayKey}_checkIn`}
-                                label=""
-                                isRequired={false}
-                                placeholder="Check-in"
-                              />
-                            </Col>
-                            <Col lg={6}>
-                              <TimePickerInput
-                                formikField={`${dayKey}_checkOut`}
-                                label=""
-                                isRequired={false}
-                                placeholder="Check-out"
-                              />
-                            </Col>
-                          </Row>
-                        </Col>
-                        <Col lg={3}>
-                          <Row>
-                            <Col lg={6}>
-                              <div style={{
-                                fontSize: '14px',
-                                fontFamily: 'Inter, sans-serif',
-                                padding: '10px',
-                                backgroundColor: '#f8f9fa',
-                                borderRadius: '4px',
-                                textAlign: 'center'
-                              }}>
-                                {workingTime}
-                              </div>
-                            </Col>
-                            <Col lg={6}>
-                              <div style={{
-                                fontSize: '14px',
-                                fontFamily: 'Inter, sans-serif',
-                                padding: '10px',
-                                backgroundColor: '#f8f9fa',
-                                borderRadius: '4px',
-                                textAlign: 'center'
-                              }}>
-                                {shiftTime}
-                              </div>
-                            </Col>
-                          </Row>
-                        </Col>
-                      </Row>
+                  const trio = isHoliday ? TRIO.slate : TRIO.blue;
 
-                      {/* Mobile/Tablet View */}
-                      <div className="d-lg-none mb-4" style={{ borderBottom: '1px solid #e4e6ef', paddingBottom: '16px' }}>
-                        <div style={{
-                          fontSize: '14px',
-                          fontWeight: 600,
-                          fontFamily: 'Inter, sans-serif',
-                          marginBottom: '12px'
-                        }}>
-                          {day}
-                        </div>
-                        <Row className="gy-2">
-                          <Col xs={12} sm={6}>
-                            <label style={{
-                              fontSize: '12px',
-                              color: '#8696ad',
-                              fontFamily: 'Inter, sans-serif',
-                              marginBottom: '4px',
-                              display: 'block'
-                            }}>
-                              Check-in
-                            </label>
-                            <TimePickerInput
-                              formikField={`${dayKey}_checkIn`}
-                              label=""
-                              isRequired={false}
-                              placeholder="Check-in"
-                            />
-                          </Col>
-                          <Col xs={12} sm={6}>
-                            <label style={{
-                              fontSize: '12px',
-                              color: '#8696ad',
-                              fontFamily: 'Inter, sans-serif',
-                              marginBottom: '4px',
-                              display: 'block'
-                            }}>
-                              Check-out
-                            </label>
-                            <TimePickerInput
-                              formikField={`${dayKey}_checkOut`}
-                              label=""
-                              isRequired={false}
-                              placeholder="Check-out"
-                            />
-                          </Col>
-                          <Col xs={6}>
-                            <label style={{
-                              fontSize: '12px',
-                              color: '#8696ad',
-                              fontFamily: 'Inter, sans-serif',
-                              marginBottom: '4px',
-                              display: 'block'
-                            }}>
-                              Total Working Time
-                            </label>
-                            <div style={{
-                              fontSize: '14px',
-                              fontFamily: 'Inter, sans-serif',
-                              padding: '10px',
-                              backgroundColor: '#f8f9fa',
-                              borderRadius: '4px',
-                              textAlign: 'center'
-                            }}>
-                              {workingTime}
-                            </div>
-                          </Col>
-                          <Col xs={6}>
-                            <label style={{
-                              fontSize: '12px',
-                              color: '#8696ad',
-                              fontFamily: 'Inter, sans-serif',
-                              marginBottom: '4px',
-                              display: 'block'
-                            }}>
-                              Total Shift Time
-                            </label>
-                            <div style={{
-                              fontSize: '14px',
-                              fontFamily: 'Inter, sans-serif',
-                              padding: '10px',
-                              backgroundColor: '#f8f9fa',
-                              borderRadius: '4px',
-                              textAlign: 'center'
-                            }}>
-                              {shiftTime}
-                            </div>
-                          </Col>
-                        </Row>
-                      </div>
-                    </div>
+                  return (
+                    <Grid item xs={12} sm={6} lg={4} key={day}>
+                      <GlassSurface variant="thin" sx={{
+                        p: { xs: 1.5, sm: 1.75 }, height: '100%', display: 'flex', flexDirection: 'column', gap: 1.25,
+                        borderTop: `3.5px solid ${trio.c}`, opacity: isHoliday ? 0.6 : 1,
+                        transition: 'opacity .2s, box-shadow .2s, transform .2s',
+                        '&:hover': { boxShadow: T.shadow.cardHover, transform: 'translateY(-2px)' },
+                        '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } },
+                      }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                          <Typography sx={{ fontSize: 15, fontWeight: 800, color: 'text.primary', letterSpacing: '-0.01em' }}>{day}</Typography>
+                          {isHoliday && (
+                            <Box component="span" sx={{ fontSize: 10.5, fontWeight: 700, color: TRIO.slate.c, backgroundColor: TRIO.slate.bg, border: `1px solid ${TRIO.slate.bd}`, px: 1, py: '2px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Off day</Box>
+                          )}
+                        </Box>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography component="label" sx={pickerLabelSx}>Check-in</Typography>
+                            <TimePickerInput formikField={`${dayKey}_checkIn`} label="" isRequired={false} placeholder="Check-in" />
+                          </Box>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography component="label" sx={pickerLabelSx}>Check-out</Typography>
+                            <TimePickerInput formikField={`${dayKey}_checkOut`} label="" isRequired={false} placeholder="Check-out" />
+                          </Box>
+                        </Box>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mt: 'auto' }}>
+                          <TimeStat label="Working" value={workingTime} />
+                          <TimeStat label="Shift" value={shiftTime} />
+                        </Box>
+                      </GlassSurface>
+                    </Grid>
                   );
                 })}
+                </Grid>
 
-                {/* Divider */}
-                <div style={{
-                  height: '1px',
-                  backgroundColor: '#d2d8e2',
-                  margin: '20px 0'
-                }} />
-
-                {/* Additional Settings */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {/* Lunch Time */}
-                  <Row className="align-items-center gy-2">
-                    <Col xs={12} lg={2}>
-                      <span style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}>
-                        Lunch Time
-                      </span>
-                    </Col>
-                    <Col xs={12} lg={4}>
-                      <Row className="gy-2">
-                        <Col xs={12} sm={6}>
-                          <TimePickerInput
-                            formikField="lunchTimeStart"
-                            label=""
-                            isRequired={true}
-                            placeholder="Start time"
-                          />
-                        </Col>
-                        <Col xs={12} sm={6}>
-                          <TimePickerInput
-                            formikField="lunchTimeEnd"
-                            label=""
-                            isRequired={true}
-                            placeholder="End time"
-                          />
-                        </Col>
-                      </Row>
-                    </Col>
-                    <Col xs={12} lg={2}>
-                      <span style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}>
-                        Deduction Time
-                      </span>
-                    </Col>
-                    <Col xs={12} lg={4}>
-                      <div style={{
-                        fontSize: '14px',
-                        fontFamily: 'Inter, sans-serif',
-                        padding: '10px',
-                        backgroundColor: '#f8f9fa',
-                        borderRadius: '4px',
-                        textAlign: 'center'
-                      }}>
-                        {(() => {
+                {/* Lunch, deduction & grace settings */}
+                <GlassSurface variant="thin" radius={16} sx={{ p: { xs: 1.75, sm: 2.25 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Grid container spacing={2} alignItems="flex-end">
+                    <Grid item xs={12} md={7}>
+                      <Typography sx={settingLabelSx}>Lunch Time</Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1, mt: 0.75 }}>
+                        <TimePickerInput formikField="lunchTimeStart" label="" isRequired={true} placeholder="Start time" />
+                        <TimePickerInput formikField="lunchTimeEnd" label="" isRequired={true} placeholder="End time" />
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} md={5}>
+                      <Typography sx={settingLabelSx}>Deduction Time</Typography>
+                      <Box sx={{ mt: 0.75 }}>
+                        <TimeStat label="Auto-derived" value={(() => {
                           try {
                             const lunchStart = values.lunchTimeStart;
                             const lunchEnd = values.lunchTimeEnd;
@@ -899,111 +612,50 @@ const handleSubmit = async (values: ShiftValues) => {
                           } catch {
                             return '0:00 Hrs';
                           }
-                        })()}
-                      </div>
-                    </Col>
-                  </Row>
+                        })()} />
+                      </Box>
+                    </Grid>
+                  </Grid>
 
-                  {/* Grace Time - Office */}
-                  <Row className="align-items-center gy-2">
-                    <Col xs={12} lg={2}>
-                      <span style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}>
-                        Grace Time - Office
-                      </span>
-                    </Col>
-                    <Col xs={12} sm={6} lg={4}>
-                      <Row>
-                        <Col xs={12} sm={12} lg={6}>
-                          <TextInput
-                            formikField="graceTimeOffice"
-                            isRequired={true}
-                            placeholder="00:30"
-                          />
-                        </Col>
-                      </Row>
-                    </Col>
-                  </Row>
+                  <Box sx={{ height: '1px', backgroundColor: T.color.line }} />
 
-                  {/* Grace Time - On Site */}
-                  <Row className="align-items-center gy-2">
-                    <Col xs={12} lg={2}>
-                      <span style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}>
-                        Grace Time - On Site
-                      </span>
-                    </Col>
-                    <Col xs="auto" className="d-flex align-items-center pe-0">
-                      <div className="form-check form-switch m-0 daily-shift-onsite-toggle">
-                        <Form.Check
-                          type="switch"
-                          id="enforceOnsiteDeadline"
-                          checked={values.enforceOnsiteDeadline}
-                          onChange={(e) => {
-                            setFieldValue('enforceOnsiteDeadline', e.target.checked);
-                          }}
-                          label=""
-                          title={
-                            values.enforceOnsiteDeadline
-                              ? 'On-site check-ins use the deadline below'
-                              : 'Off: on-site check-ins are always on time'
-                          }
-                        />
-                      </div>
-                    </Col>
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={5} md={4}>
+                      <Typography sx={settingLabelSx}>Grace Time — Office</Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={7} md={4}>
+                      <TextInput formikField="graceTimeOffice" isRequired={true} placeholder="00:30" />
+                    </Grid>
+                  </Grid>
+
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={5} md={4} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <WtSwitch
+                        checked={values.enforceOnsiteDeadline}
+                        onChange={(e) => setFieldValue('enforceOnsiteDeadline', e.target.checked)}
+                        title={values.enforceOnsiteDeadline ? 'On-site check-ins use the deadline below' : 'Off: on-site check-ins are always on time'}
+                      />
+                      <Typography sx={settingLabelSx}>Grace Time — On Site</Typography>
+                    </Grid>
                     {values.enforceOnsiteDeadline && (
-                      <Col xs={12} sm={6} lg={4}>
-                        <Row>
-                          <Col xs={12} sm={12} lg={6}>
-                            <TextInput
-                              formikField="graceTimeOnSite"
-                              isRequired={true}
-                              placeholder="11:00"
-                            />
-                          </Col>
-                        </Row>
-                      </Col>
+                      <Grid item xs={12} sm={7} md={4}>
+                        <TextInput formikField="graceTimeOnSite" isRequired={true} placeholder="11:00" />
+                      </Grid>
                     )}
-                  </Row>
-                </div>
-              </Card.Body>
-            </Card>
+                  </Grid>
+                </GlassSurface>
 
             {/* Save Button */}
-            <Row className="mt-7">
-              <Col xs={12}>
-                <Button
-                  type="submit"
-                  disabled={isSaving}
-                  className="w-100 w-sm-auto"
-                  style={{
-                    backgroundColor: '#1E3A8A',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '10px 20px',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    fontFamily: 'Inter, sans-serif'
-                  }}
-                >
-                  {isSaving ? (
-                    <>
-                      Saving...
-                      <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>
-                    </>
-                  ) : (
-                    'Save'
-                  )}
-                </Button>
-              </Col>
-            </Row>
-          </div>
+            <Box sx={{ mt: 3.5, display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
+              <WtButton
+                type="submit" tone="primary" disabled={isSaving}
+                startIcon={isSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <KTIcon iconName="check-circle" className="fs-3" />}
+                sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 220 } }}
+              >
+                {isSaving ? 'Saving…' : 'Save Shift Configuration'}
+              </WtButton>
+            </Box>
+          </Box>
         </FormikForm>
       )}
     </Formik>

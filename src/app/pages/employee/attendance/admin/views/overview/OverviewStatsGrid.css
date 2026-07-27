@@ -1,13 +1,27 @@
 .overview-stats-container {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 16px;
   align-items: stretch;
   width: 100%;
 }
 
-.overview-stat-card {
-  flex: 1 1 0;
+/* The drag-reorder wrapper is the actual flex child of the container, so the
+   wrap behaviour (how many cards per row) is controlled here — inline styles on
+   the wrapper can't be media-queried. */
+.overview-stat-card-slot {
+  flex: 1 1 160px;
+  min-width: 150px;
+  display: flex;
+}
+
+/* Card rules are scoped under the container so they reliably win over MUI's
+   MuiPaper base styles (border-radius / box-shadow) regardless of stylesheet
+   injection order — the stat card is now an MUI <Card>. */
+.overview-stats-container .overview-stat-card {
+  /* Fill the reorder slot; the slot owns the wrap width. */
+  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
   border-radius: 12px;
   cursor: pointer;
@@ -18,7 +32,7 @@
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.overview-stat-card:hover {
+.overview-stats-container .overview-stat-card:hover {
   transform: translateY(-1px);
 }
 
@@ -71,48 +85,93 @@
   white-space: nowrap;
 }
 
-/* Tinted shadows matched to card category */
-.overview-stat-card--working {
+/* Tinted shadows matched to card category (scoped for specificity over MUI). */
+.overview-stats-container .overview-stat-card--working {
   box-shadow: 0 4px 14px 0 rgba(40, 167, 69, 0.14);
 }
 
-.overview-stat-card--leave {
+.overview-stats-container .overview-stat-card--leave {
   box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.16);
 }
 
-.overview-stat-card--late {
+.overview-stats-container .overview-stat-card--late {
   box-shadow: 0 4px 14px 0 rgba(236, 72, 153, 0.14);
 }
 
-.overview-stat-card--checkout-missing {
+.overview-stats-container .overview-stat-card--checkout-missing {
   box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.18);
 }
 
-.overview-stat-card--early {
+.overview-stats-container .overview-stat-card--early {
   box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.14);
 }
 
-.overview-stat-card--extra {
+.overview-stats-container .overview-stat-card--extra {
   box-shadow: 0 4px 14px 0 rgba(139, 92, 246, 0.14);
 }
 
-.overview-stat-card--absent {
+.overview-stats-container .overview-stat-card--absent {
   box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.14);
 }
 
-@media (max-width: 575px) {
+/* Tablets / small laptops: tighten padding and gap so more cards fit per row
+   before wrapping, and let the labels wrap instead of clipping. */
+@media (max-width: 991px) {
   .overview-stats-container {
-    flex-wrap: wrap;
-    flex-direction: column;
-    align-items: stretch;
+    gap: 12px;
   }
 
-  .overview-stat-card {
-    flex: 1 1 100%;
+  .overview-stats-container .overview-stat-card {
+    padding: 14px 16px;
+  }
+
+  .overview-stat-card-label {
+    white-space: normal;
+  }
+}
+
+/* Phones: two cards per row, compact spacing. */
+@media (max-width: 575px) {
+  .overview-stats-container {
+    gap: 10px;
+  }
+
+  .overview-stat-card-slot {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0;
+  }
+
+  .overview-stats-container .overview-stat-card {
+    padding: 12px 14px;
   }
 
   .overview-stat-card-value,
   .overview-stat-card-label {
     white-space: normal;
+  }
+
+  .overview-stat-card-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .overview-stat-card-icon img {
+    width: 18px;
+    height: 18px;
+  }
+
+  .overview-stat-card-value {
+    font-size: 1.125rem;
+  }
+
+  .overview-stat-card-label {
+    font-size: 0.8125rem;
+  }
+}
+
+/* Very small phones: single column. */
+@media (max-width: 359px) {
+  .overview-stat-card-slot {
+    flex: 1 1 100%;
   }
 }

@@ -166,6 +166,7 @@ const Weekly: React.FC<WeeklyProps> = ({
           rank={rank}
           yourPoints={yourPoints}
           maxTotal={maxTotal}
+          policyFlag={data?.employee?.policyFlag}
           fromAdmin={fromAdmin}
         />
       )}
