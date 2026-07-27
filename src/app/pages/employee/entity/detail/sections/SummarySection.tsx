@@ -121,9 +121,10 @@ const SummarySection: React.FC<{
   const execEnd = lead?.endDate || p?.endDate;
   const progress = getTimelineProgress(execStart, execEnd);
   const delayed = isDelayedProject(lead);
-  const execManager = exec?.projectManager
-    ? employeeUserName(exec.projectManager)
-    : employeeNameById(allEmployees, exec?.projectManagerId);
+  // All managers, primary first — projectManagerName joins them. Falls back to the
+  // single execution relation, then to the legacy project row.
+  const execManager = projectManagerName(lead, allEmployees)
+    || (exec?.projectManager ? employeeUserName(exec.projectManager) : null);
   const pmName = execManager || projectManagerName(p, allEmployees) || DASH;
   const execStatus = exec?.projectStatus || p?.status || null;
   // Most specific first: a referral traces back to an actual person (contact or

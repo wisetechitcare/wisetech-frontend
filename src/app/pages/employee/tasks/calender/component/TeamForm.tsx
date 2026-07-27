@@ -200,33 +200,25 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
         if (confirmed) {
             try {
                 if (isEditMode) {
-                    // For existing teams, call API to delete member
+                    // For existing teams, hard-delete the member row from the DB.
                     await deleteMember(String(memberId))
+                }
 
-                    // Refetch the updated team members from the server
-                    const response = await getAllTeamsMember()
-                    const allTeamMembers = response.data.teamMembers || []
-                    setEmployees(allTeamMembers)
-
-                    // Filter to only get members for the current team
-                    const currentTeamMembers = allTeamMembers.filter((member: any) => {
-                        const memberTeamId = member.teamId || member.team_id || member.teamID || member.Team_ID || member.team?.id || member.team?.ID;
-                        return String(memberTeamId) === String(team!.id);
-                    });
-
-                    // Update form data with only the current team's members
-                    setFormData(prev => ({
-                        ...prev,
-                        members: currentTeamMembers
-                    }))
-                } else {
-                    // For new teams, just remove from local state
-                    const updatedMembers = formData.members.filter(member => member.id !== memberId)
-                    setFormData(prev => ({
-                        ...prev,
-                        members: updatedMembers
-                    }))
-                    console.log("Member removed from new team locally");
+                // Remove the deleted member from local state directly instead of
+                // refetching + filtering the full member list. Each delete click
+                // kicks off its own async chain (confirm -> API call -> refetch),
+                // and those chains can overlap and resolve out of order — a refetch
+                // from an earlier, in-flight click can land after a later one and
+                // overwrite the list with a stale (pre-deletion) snapshot, making
+                // already-deleted members reappear. Filtering the known memberId
+                // out of local state is order-independent and immune to that race.
+                const updatedMembers = formData.members.filter(member => member.id !== memberId)
+                setFormData(prev => ({
+                    ...prev,
+                    members: updatedMembers
+                }))
+                if (isEditMode) {
+                    setEmployees(prev => prev.filter((member: any) => member.id !== memberId))
                 }
             } catch (error: any) {
                 console.error("Error deleting member:", error)

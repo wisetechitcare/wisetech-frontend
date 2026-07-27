@@ -16,6 +16,7 @@ import { getRowBackgroundColor } from "@app/modules/common/design-tokens";
 import { deleteLead, getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
@@ -337,9 +338,31 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     [hasUnassignedLeads, assignedEmployeesFromLeads],
   );
 
+  // Every manager id on a row (roster first, primary-only as fallback).
+  const rowManagerIds = useCallback(
+    (row: any): string[] =>
+      (row?.projectManagerIds?.length ? row.projectManagerIds : [row?.projectManagerId]).filter(Boolean),
+    [],
+  );
+
+  // All manager names for a row, primary first, comma-separated for display.
+  const pmNames = useCallback(
+    (row: any): string =>
+      rowManagerIds(row)
+        .map((id: string) => allemployees?.find((e: any) => e.employeeId === id)?.employeeName)
+        .filter(Boolean)
+        .join(", "),
+    [allemployees, rowManagerIds],
+  );
+
   const projectManagerOptions = useMemo(() => {
-    const pmIds = new Set(
-      tableData.filter((l: any) => l.isProject && l.projectManagerId).map((l: any) => l.projectManagerId),
+    // Every manager on every project, not just the primaries — otherwise a
+    // secondary manager could never be picked from the filter.
+    const pmIds = new Set<string>(
+      tableData
+        .filter((l: any) => l.isProject)
+        .flatMap((l: any) => (l.projectManagerIds?.length ? l.projectManagerIds : [l.projectManagerId]))
+        .filter(Boolean),
     );
     return (allemployees || [])
       .filter((e: any) => pmIds.has(e.employeeId))
@@ -667,6 +690,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             projectStatus: exec?.projectStatus || project?.status || null,
             projectStartDate: lead?.startDate || project?.startDate || "",
             projectEndDate: lead?.endDate || project?.endDate || "",
+            // A project can have several managers. `projectManagerIds` is the full
+            // roster (primary first); `projectManagerId` stays as the primary alone
+            // so anything still reading a single id keeps working.
+            projectManagerIds: projectManagerIds(lead).length
+              ? projectManagerIds(lead)
+              : (project?.projectManagerId ? [String(project.projectManagerId)] : []),
             projectManagerId: exec?.projectManagerId || project?.projectManagerId || "",
             projectTeamName: exec?.team?.name || project?.team?.name || "",
             // Internal (execution) team id — drives the "Projects by Internal Team" drill-down.
@@ -1012,8 +1041,10 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorKey: "projectManagerId",
           header: "Project Manager",
           size: 160,
-          Cell: ({ cell }: { cell: any }) =>
-            allemployees?.find((e: any) => e.employeeId === cell.getValue())?.employeeName || "N/A",
+          // Sort/group on the resolved names so the column orders alphabetically
+          // rather than by the raw manager UUIDs.
+          accessorFn: (row: any) => pmNames(row) || "",
+          Cell: ({ row }: { row: any }) => pmNames(row.original) || "N/A",
         },
         {
           accessorKey: "projectTeamName",
@@ -1190,6 +1221,11 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         { meta: { defaultVisible: false }, key: 'projectEndDate', header: 'Expected Closure', type: 'text' as const },
         { meta: { defaultVisible: false }, key: 'projectCost', header: 'Project Cost', type: 'currency' as const, showTotal: true },
         { meta: { defaultVisible: false }, key: 'projectRate', header: 'Rate', type: 'currency' as const },
+        // Export the resolved manager names (all of them), not the raw ids.
+        {
+          meta: { defaultVisible: false }, key: 'projectManagerIds', header: 'Project Manager', type: 'text' as const,
+          format: (_val: any, row: any) => pmNames(row),
+        },
         { meta: { defaultVisible: false }, key: 'projectTeamName', header: 'Team', type: 'text' as const },
       ]
       : [
@@ -1487,8 +1523,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     const projectStatusMatch = projectStatusFilter
       ? item.projectStatus?.id === projectStatusFilter
       : true;
+    // Matches if the picked person is ANY of the project's managers, not just the primary.
     const projectManagerMatch = projectManagerFilter
-      ? item.projectManagerId === projectManagerFilter
+      ? rowManagerIds(item).includes(projectManagerFilter)
       : true;
 
     // 4. Search
@@ -1496,7 +1533,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     if (searchText) {
       const q = searchText.toLowerCase();
       const employeeName = allemployees?.find((e: any) => e.employeeId === item.assignedTo)?.employeeName || "";
-      const pmName = allemployees?.find((e: any) => e.employeeId === item.projectManagerId)?.employeeName || "";
+      const pmName = pmNames(item);
       const serviceName = projectServices?.find((s: any) => s.id === item.service)?.name || "";
       const categoryName = projectCategories?.find((c: any) => c.id === item.category)?.name || "";
       const subCategoryName = projectSubcategories?.find((s: any) => s.id === item.subCategory)?.name || "";

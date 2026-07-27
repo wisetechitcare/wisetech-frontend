@@ -16,6 +16,7 @@ import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/use
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTableFilters } from "@app/hooks/useTableFilters";
+import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
 import { flexibleTextMatch, searchAcrossFields } from "@app/utils/robustSearch";
 import Loader from "@app/modules/common/utils/Loader";
 import dayjs, { Dayjs } from "dayjs";
@@ -123,14 +124,33 @@ const ProjectTablePage = () => {
     (state: RootState) => state.employee?.currentEmployee?.id,
   );
 
+  // Every manager id on a row (roster first, primary-only as fallback). "N/A" is
+  // the row builder's empty placeholder, not a real id.
+  const rowManagerIds = useCallback(
+    (row: any): string[] =>
+      (row?.projectManagerIds?.length ? row.projectManagerIds : [row?.projectManagerId])
+        .filter((id: any) => id && id !== "N/A"),
+    [],
+  );
+
+  // All manager names for a row, primary first, comma-separated for display.
+  const pmNames = useCallback(
+    (row: any): string =>
+      rowManagerIds(row)
+        .map((id: string) => allemployees?.find((e: any) => e.employeeId === id)?.employeeName)
+        .filter(Boolean)
+        .join(", "),
+    [allemployees, rowManagerIds],
+  );
+
   const projectManagerOptions = useMemo(() => {
-    const pmIds = new Set(
-      tableData.filter((p: any) => p.projectManagerId).map((p: any) => p.projectManagerId),
-    );
+    // Every manager on every project, not just the primaries — otherwise a
+    // secondary manager could never be picked from the filter.
+    const pmIds = new Set<string>(tableData.flatMap((p: any) => rowManagerIds(p)));
     return (allemployees || [])
       .filter((e: any) => pmIds.has(e.employeeId))
       .sort((a: any, b: any) => a.employeeName.localeCompare(b.employeeName));
-  }, [tableData, allemployees]);
+  }, [tableData, allemployees, rowManagerIds]);
 
   useEffect(() => {
     async function initFiscalYear() {
@@ -358,6 +378,11 @@ const ProjectTablePage = () => {
             projectStatus: exec?.projectStatus || project?.status || null,
             projectStartDate: startVal || "N/A",
             projectEndDate: endVal || "N/A",
+            // A project can have several managers. `projectManagerIds` is the full
+            // roster (primary first); `projectManagerId` stays as the primary alone.
+            projectManagerIds: projectManagerIds(lead).length
+              ? projectManagerIds(lead)
+              : (project?.projectManagerId ? [String(project.projectManagerId)] : []),
             projectManagerId: exec?.projectManagerId || project?.projectManagerId || "N/A",
             projectTeamName: exec?.team?.name || project?.team?.name || "N/A",
             projectTeams: project?.projectTeams || [],
@@ -623,8 +648,9 @@ const ProjectTablePage = () => {
         header: "Project Manager",
         meta: { defaultVisible: false },
         size: 160,
-        Cell: ({ cell }: { cell: any }) =>
-          allemployees?.find((e: any) => e.employeeId === cell.getValue())?.employeeName || "N/A",
+        // Sort/group on the resolved names rather than the raw manager UUIDs.
+        accessorFn: (row: any) => pmNames(row) || "",
+        Cell: ({ row }: { row: any }) => pmNames(row.original) || "N/A",
       },
       {
         accessorKey: "projectTeamName",
@@ -696,7 +722,11 @@ const ProjectTablePage = () => {
       { key: 'totalCost', header: 'Cost', type: 'currency' as const, showTotal: true },
       { key: 'projectArea', header: 'Area (SFT)', type: 'number' as const, showTotal: true },
       { key: 'projectRate', header: 'Rate', type: 'currency' as const },
-      { key: 'projectManagerId', header: 'Project Manager', type: 'text' as const },
+      // Export the resolved manager names (all of them), not the raw ids.
+      {
+        key: 'projectManagerId', header: 'Project Manager', type: 'text' as const,
+        format: (_val: any, row: any) => pmNames(row),
+      },
       { key: 'projectTeamName', header: 'Team', type: 'text' as const },
       {
         key: 'assignedTo', header: 'Assigned To', type: 'text' as const,
@@ -740,13 +770,14 @@ const ProjectTablePage = () => {
     const projectStatusMatch = projectStatusFilter
       ? item.projectStatus?.id === projectStatusFilter
       : true;
+    // Matches if the picked person is ANY of the project's managers, not just the primary.
     const projectManagerMatch = projectManagerFilter
-      ? item.projectManagerId === projectManagerFilter
+      ? rowManagerIds(item).includes(projectManagerFilter)
       : true;
 
     let searchMatch = true;
     if (searchText) {
-      const pmName = allemployees?.find((e: any) => e.employeeId === item.projectManagerId)?.employeeName || "";
+      const pmName = pmNames(item);
       const serviceName = projectServices?.find((s: any) => s.id === item.service)?.name || "";
       const categoryName = projectCategories?.find((c: any) => c.id === item.category)?.name || "";
 

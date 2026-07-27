@@ -20,7 +20,7 @@ import {
 } from '@pages/employee/entity/entityUtils';
 import { buildEntityVM } from '@pages/employee/entity/detail/facets';
 import { DensityProvider } from '@pages/employee/entity/detail/density';
-import { employeeNameById, employeeUserName, fmtDate, DASH } from '@pages/employee/entity/detail/entityViewModel';
+import { employeeNameById, employeeUserName, fmtDate, DASH, projectManagerName, projectManagerIds } from '@pages/employee/entity/detail/entityViewModel';
 import { TasksTab, TimesheetTab, ReimbursementTab } from '@pages/employee/entity/detail/sections/ProjectModuleTabs';
 import DocumentsTab from '@pages/employee/entity/detail/sections/DocumentsTab';
 import AuditSection from '@pages/employee/entity/detail/sections/AuditSection';
@@ -73,9 +73,11 @@ const ExecutionOverview: React.FC<{ lead: any; onOpenLead: () => void }> = ({ le
   const exec = lead?.execution || {};
   const progress = getTimelineProgress(lead?.startDate, lead?.endDate);
 
+  // All managers, primary first.
+  const pmIds = projectManagerIds(lead);
   const pmName =
+    projectManagerName(lead, allEmployees) ||
     (exec?.projectManager && employeeUserName(exec.projectManager)) ||
-    employeeNameById(allEmployees, exec?.projectManagerId) ||
     DASH;
 
   return (
@@ -86,8 +88,10 @@ const ExecutionOverview: React.FC<{ lead: any; onOpenLead: () => void }> = ({ le
             <div style={{ padding: '8px 0 4px' }}>
               <DetailProfileBlock
                 name={pmName}
-                subtitle="Project Manager"
-                href={exec?.projectManagerId ? `/employees/${exec.projectManagerId}` : undefined}
+                subtitle={pmIds.length > 1 ? `Project Managers (${pmIds.length})` : 'Project Manager'}
+                // Only deep-link when there's exactly one manager — the block shows
+                // a single link, and pointing it at just the primary would be wrong.
+                href={pmIds.length === 1 ? `/employees/${pmIds[0]}` : undefined}
                 accentColor="teal"
               />
             </div>
@@ -202,9 +206,10 @@ const ProjectWorkspacePage: React.FC = () => {
   const progress = getTimelineProgress(lead?.startDate, lead?.endDate);
   const delayed = isDelayedProject(lead);
   const { totalCost } = useMemo(() => sumCommercials(lead), [lead]);
+  // All managers, primary first.
   const pmName =
+    projectManagerName(lead, allEmployees) ||
     (exec?.projectManager && employeeUserName(exec.projectManager)) ||
-    employeeNameById(allEmployees, exec?.projectManagerId) ||
     DASH;
 
   const refetchLead = () => {
@@ -300,7 +305,7 @@ const ProjectWorkspacePage: React.FC = () => {
               { label: 'Progress', value: progress != null ? `${progress}%` : DASH, icon: 'bi bi-hourglass-split', accentColor: 'amber' },
               { label: 'Due', value: fmtDate(lead?.endDate), icon: 'bi bi-calendar-check', accentColor: delayed ? 'danger' : 'green' },
               { label: 'Contract Value', value: totalCost ? formatCompactCurrency(totalCost) : DASH, icon: 'bi bi-currency-rupee', accentColor: 'green' },
-              { label: 'Project Manager', value: pmName, icon: 'bi bi-person-workspace', accentColor: 'blue' },
+              { label: projectManagerIds(lead).length > 1 ? 'Project Managers' : 'Project Manager', value: pmName, icon: 'bi bi-person-workspace', accentColor: 'blue' },
               { label: 'Team', value: exec?.team?.name || DASH, icon: 'bi bi-people', accentColor: 'purple' },
             ]}
           />
