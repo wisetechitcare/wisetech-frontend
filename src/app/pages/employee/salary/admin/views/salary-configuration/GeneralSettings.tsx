@@ -1,7 +1,9 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { fetchAllEmployeesSelectedData, updateEmployee } from '@services/employee';
 import React, { useState, useEffect } from 'react';
-import { Modal } from 'react-bootstrap';
+import { EmployeeSelectionDialog } from '@app/modules/common/components/EmployeeSelectionDialog';
+import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
+import { TRIO } from '@app/modules/common/components/ui/tw';
 import { getAvatar } from '@utils/avatar';
 import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
 import { EXCLUDE_FROM_LATE_ATTENDANCE, PAYMENT_MODE } from '@constants/configurations-key';
@@ -52,347 +54,6 @@ const transformEmployeeData = (apiData: any): IEmployee[] => {
     }));
 };
 
-interface EmployeeSelectionModalProps {
-  show: boolean;
-  handleClose: () => void;
-  onSave: (selectedIds: string[]) => void;
-  employees: IEmployee[];
-  initialSelection: string[];
-  title: string;
-}
-
-const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
-  show,
-  handleClose,
-  onSave,
-  employees,
-  initialSelection,
-  title,
-}) => {
-  const [tempSelection, setTempSelection] = useState<string[]>(initialSelection);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    setTempSelection(initialSelection);
-    setSearchTerm('');
-  }, [initialSelection, show]);
-
-  const toggleSelection = (id: string) => {
-    setTempSelection((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  const filteredEmployees = employees
-    .filter(emp => 
-      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      emp.designation.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-      const aSelected = tempSelection.includes(a.id);
-      const bSelected = tempSelection.includes(b.id);
-      if (aSelected && !bSelected) return -1;
-      if (!aSelected && bSelected) return 1;
-      return a.name.localeCompare(b.name);
-    });
-
-  const modalStyles = {
-    header: {
-      borderBottom: 'none',
-      padding: '24px 32px 16px 32px',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    title: {
-      fontFamily: 'Barlow, sans-serif',
-      fontWeight: 600,
-      fontSize: '22px',
-      color: '#000000',
-      letterSpacing: '0.24px',
-      margin: 0,
-    },
-    searchInput: {
-      padding: '10px 16px',
-      borderRadius: '8px',
-      border: '1px solid #E1E3EA',
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
-      width: '100%',
-      maxWidth: '400px',
-      outline: 'none',
-    },
-    body: {
-      padding: '0 32px 24px 32px',
-      maxHeight: '70vh',
-      overflowY: 'auto' as const,
-    },
-    footer: {
-      borderTop: 'none',
-      padding: '0 32px 24px 32px',
-      display: 'flex',
-      justifyContent: 'flex-end',
-    },
-    employeeCard: (isSelected: boolean) => ({
-      display: 'flex',
-      alignItems: 'center',
-      gap: '16px',
-      padding: '16px',
-      cursor: 'pointer',
-      borderRadius: '8px',
-      border: isSelected ? '1px solid #1E3A8A' : '1px solid #E1E3EA',
-      backgroundColor: isSelected ? '#EEF3FC' : '#ffffff',
-      transition: 'all 0.2s ease',
-      height: '100%',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-    }),
-    avatar: {
-      width: '50px',
-      height: '50px',
-      borderRadius: '50%',
-      objectFit: 'cover' as const,
-    },
-    infoContainer: {
-      display: 'flex',
-      flexDirection: 'column' as const,
-      flex: 1,
-      overflow: 'hidden',
-    },
-    name: {
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 600,
-      fontSize: '15px',
-      color: '#181C32',
-      marginBottom: '2px',
-      whiteSpace: 'nowrap' as const,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-    },
-    designation: {
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 500,
-      fontSize: '12px',
-      color: '#A1A5B7',
-      whiteSpace: 'nowrap' as const,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-    },
-    checkbox: (checked: boolean) => ({
-      width: '24px',
-      height: '24px',
-      borderRadius: '6px', // Slightly squared for card design
-      border: checked ? 'none' : '1.5px solid #E1E3EA',
-      backgroundColor: checked ? '#1E3A8A' : 'transparent',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
-      transition: 'all 0.2s ease',
-    }),
-    saveBtn: {
-      backgroundColor: '#1E3A8A',
-      color: '#ffffff',
-      border: 'none',
-      borderRadius: '6px',
-      padding: '12px 24px',
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 500,
-      fontSize: '14px',
-      cursor: 'pointer',
-      transition: 'background-color 0.2s',
-    },
-  };
-
-  return (
-    <Modal show={show} onHide={handleClose} centered size="xl">
-      <Modal.Header closeButton style={modalStyles.header}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
-          <Modal.Title style={modalStyles.title} className="sc-modal-title">
-            {title}
-          </Modal.Title>
-          <input
-            type="text"
-            placeholder="Search by name or designation..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={modalStyles.searchInput}
-          />
-        </div>
-      </Modal.Header>
-      <Modal.Body className="sc-modal-body" style={modalStyles.body}>
-        <div className="row g-4">
-          {filteredEmployees.length > 0 ? filteredEmployees.map((emp) => {
-            const isSelected = tempSelection.includes(emp.id);
-            return (
-              <div key={emp.id} className="col-lg-4 col-md-6 col-sm-12">
-                <div
-                  style={modalStyles.employeeCard(isSelected)}
-                  onClick={() => toggleSelection(emp.id)}
-                >
-                  <img src={emp.avatar} alt={emp.name} style={modalStyles.avatar} />
-                  <div style={modalStyles.infoContainer}>
-                    <span style={modalStyles.name} title={emp.name}>{emp.name}</span>
-                    <span style={modalStyles.designation} title={emp.designation}>{emp.designation}</span>
-                  </div>
-                  <div style={modalStyles.checkbox(isSelected)}>
-                    {isSelected && (
-                      <i className="bi bi-check text-white" style={{ fontSize: '18px', fontWeight: 'bold' }}></i>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          }) : (
-            <div className="col-12 text-center text-muted py-5">
-              No employees found matching "{searchTerm}"
-            </div>
-          )}
-        </div>
-      </Modal.Body>
-      <Modal.Footer className="sc-modal-body" style={modalStyles.footer}>
-        <button style={modalStyles.saveBtn} onClick={() => onSave(tempSelection)}>
-          Save Selection ({tempSelection.length})
-        </button>
-      </Modal.Footer>
-    </Modal>
-  );
-};
-
-// ── Bulk "custom check-in deadline" modal ────────────────────────────────────
-// Mirrors EmployeeSelectionModal, but each selected employee also carries a time
-// (HH:MM) — so selection state is a Record<employeeId, deadline> rather than an id[].
-interface DeadlineSelectionModalProps {
-  show: boolean;
-  handleClose: () => void;
-  onSave: (deadlines: Record<string, string>) => void;
-  employees: IEmployee[];
-  initialDeadlines: Record<string, string>;
-  companyCheckinTime: string | null;
-  title: string;
-}
-
-const DeadlineSelectionModal: React.FC<DeadlineSelectionModalProps> = ({
-  show, handleClose, onSave, employees, initialDeadlines, companyCheckinTime, title,
-}) => {
-  const [tempDeadlines, setTempDeadlines] = useState<Record<string, string>>(initialDeadlines);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    setTempDeadlines(initialDeadlines);
-    setSearchTerm('');
-  }, [initialDeadlines, show]);
-
-  const isSelected = (id: string) => Object.prototype.hasOwnProperty.call(tempDeadlines, id);
-
-  const toggleSelection = (id: string) => {
-    setTempDeadlines((prev) => {
-      if (Object.prototype.hasOwnProperty.call(prev, id)) {
-        const { [id]: _removed, ...rest } = prev;
-        return rest;
-      }
-      return { ...prev, [id]: to24hDefault(companyCheckinTime) };
-    });
-  };
-
-  const setDeadline = (id: string, value: string) =>
-    setTempDeadlines((prev) => ({ ...prev, [id]: value }));
-
-  const filteredEmployees = employees
-    .filter((emp) =>
-      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.designation.toLowerCase().includes(searchTerm.toLowerCase()),
-    )
-    .sort((a, b) => {
-      const aSel = isSelected(a.id);
-      const bSel = isSelected(b.id);
-      if (aSel && !bSel) return -1;
-      if (!aSel && bSel) return 1;
-      return a.name.localeCompare(b.name);
-    });
-
-  const selectedIds = Object.keys(tempDeadlines);
-  const invalidCount = selectedIds.filter((id) => !HHMM_24H.test(tempDeadlines[id] || '')).length;
-
-  const s = {
-    header: { borderBottom: 'none', padding: '24px 32px 16px 32px' } as React.CSSProperties,
-    title: { fontFamily: 'Barlow, sans-serif', fontWeight: 600, fontSize: '22px', color: '#000', margin: 0 } as React.CSSProperties,
-    searchInput: { padding: '10px 16px', borderRadius: '8px', border: '1px solid #E1E3EA', fontSize: '14px', width: '100%', maxWidth: '400px', outline: 'none' } as React.CSSProperties,
-    body: { padding: '0 32px 24px 32px', maxHeight: '70vh', overflowY: 'auto' as const },
-    footer: { borderTop: 'none', padding: '0 32px 24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } as React.CSSProperties,
-    card: (sel: boolean) => ({
-      display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', cursor: 'pointer',
-      borderRadius: '8px', border: sel ? '1px solid #1E3A8A' : '1px solid #E1E3EA',
-      backgroundColor: sel ? '#EEF3FC' : '#fff', height: '100%',
-    }) as React.CSSProperties,
-    avatar: { width: '46px', height: '46px', borderRadius: '50%', objectFit: 'cover' as const, flexShrink: 0 },
-    name: { fontWeight: 600, fontSize: '14px', color: '#181C32', whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' },
-    designation: { fontWeight: 500, fontSize: '11px', color: '#A1A5B7', whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' },
-    timeInput: (invalid: boolean) => ({
-      padding: '6px 8px', borderRadius: '6px', border: `1px solid ${invalid ? '#F1416C' : '#1E3A8A'}`,
-      fontSize: '13px', width: '104px', outline: 'none', flexShrink: 0,
-    }) as React.CSSProperties,
-    saveBtn: (disabled: boolean) => ({
-      backgroundColor: disabled ? '#A1A5B7' : '#1E3A8A', color: '#fff', border: 'none', borderRadius: '6px',
-      padding: '12px 24px', fontWeight: 500, fontSize: '14px', cursor: disabled ? 'not-allowed' : 'pointer',
-    }) as React.CSSProperties,
-  };
-
-  return (
-    <Modal show={show} onHide={handleClose} centered size="xl">
-      <Modal.Header closeButton style={s.header}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
-          <Modal.Title style={s.title}>{title}</Modal.Title>
-          <input type="text" placeholder="Search by name or designation..." value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)} style={s.searchInput} />
-        </div>
-      </Modal.Header>
-      <Modal.Body style={s.body}>
-        <div className="row g-4">
-          {filteredEmployees.length > 0 ? filteredEmployees.map((emp) => {
-            const sel = isSelected(emp.id);
-            const invalid = sel && !HHMM_24H.test(tempDeadlines[emp.id] || '');
-            return (
-              <div key={emp.id} className="col-lg-6 col-md-6 col-sm-12">
-                <div style={s.card(sel)} onClick={() => toggleSelection(emp.id)}>
-                  <img src={emp.avatar} alt={emp.name} style={s.avatar} />
-                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                    <span style={s.name} title={emp.name}>{emp.name}</span>
-                    <span style={s.designation} title={emp.designation}>{emp.designation}</span>
-                  </div>
-                  {sel && (
-                    <input
-                      type="time"
-                      value={tempDeadlines[emp.id] || ''}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => setDeadline(emp.id, e.target.value)}
-                      style={s.timeInput(invalid)}
-                      title="On-time until (24-hour)"
-                    />
-                  )}
-                </div>
-              </div>
-            );
-          }) : (
-            <div className="col-12 text-center text-muted py-5">No employees found matching "{searchTerm}"</div>
-          )}
-        </div>
-      </Modal.Body>
-      <Modal.Footer style={s.footer}>
-        <span style={{ fontSize: '12px', color: invalidCount ? '#F1416C' : '#A1A5B7' }}>
-          {invalidCount ? `${invalidCount} selected employee(s) need a valid time` : 'Check-in at/before the time = on-time; after = late'}
-        </span>
-        <button
-          style={s.saveBtn(invalidCount > 0)}
-          disabled={invalidCount > 0}
-          onClick={() => invalidCount === 0 && onSave(tempDeadlines)}
-        >
-          Save Selection ({selectedIds.length})
-        </button>
-      </Modal.Footer>
-    </Modal>
-  );
-};
-
 function GeneralSettings() {
   const [paymentMode, setPaymentMode] = useState<'Hour Based' | 'Day Based'>('Hour Based');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
@@ -405,6 +66,9 @@ function GeneralSettings() {
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [deadlines, setDeadlines] = useState<Record<string, string>>({});
   const [companyCheckinTime, setCompanyCheckinTime] = useState<string | null>(null);
+  // Draft selections while a dialog is open (committed on Save, discarded on close).
+  const [tempExcludeIds, setTempExcludeIds] = useState<string[]>([]);
+  const [tempDeadlines, setTempDeadlines] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function fetchAllData() {
@@ -735,7 +399,7 @@ function GeneralSettings() {
             </div>
           )}
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => { setTempExcludeIds(selectedEmployeeIds); setShowModal(true); }}
             style={{
               backgroundColor: '#fff',
               border: '1px solid #E1E3EA',
@@ -823,7 +487,7 @@ function GeneralSettings() {
             </div>
           )}
           <button
-            onClick={() => setShowDeadlineModal(true)}
+            onClick={() => { setTempDeadlines(deadlines); setShowDeadlineModal(true); }}
             style={{
               backgroundColor: '#fff', border: '1px solid #E1E3EA', borderRadius: '9px', cursor: 'pointer',
               padding: '9px 18px', display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -838,23 +502,54 @@ function GeneralSettings() {
         </div>
       </div>
 
-      <EmployeeSelectionModal
-        show={showModal}
-        handleClose={() => setShowModal(false)}
-        onSave={handleSaveEmployees}
+      {/* Exclude-from-late — plain multi-select */}
+      <EmployeeSelectionDialog
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title="Exclude from late attendance deduction"
+        subtitle="Selected employees are exempt from the late-attendance salary deduction"
+        icon="profile-circle"
+        tone="cyan"
         employees={employees}
-        initialSelection={selectedEmployeeIds}
-        title="Choose Employees to exclude from late attendance deduction"
+        selectedIds={tempExcludeIds}
+        onToggle={(id) =>
+          setTempExcludeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+        }
+        onSave={() => handleSaveEmployees(tempExcludeIds)}
+        footerNote="Excluded employees are never marked late in payroll."
       />
 
-      <DeadlineSelectionModal
-        show={showDeadlineModal}
-        handleClose={() => setShowDeadlineModal(false)}
-        onSave={handleSaveDeadlines}
+      {/* Custom check-in deadlines — per-employee time value */}
+      <EmployeeSelectionDialog
+        open={showDeadlineModal}
+        onClose={() => setShowDeadlineModal(false)}
+        title="Custom check-in deadlines"
+        subtitle="Give selected employees a personal on-time cutoff"
+        icon="time"
+        tone="purple"
         employees={employees}
-        initialDeadlines={deadlines}
-        companyCheckinTime={companyCheckinTime}
-        title="Set custom check-in deadlines"
+        selectedIds={Object.keys(tempDeadlines)}
+        onToggle={(id) =>
+          setTempDeadlines((prev) => {
+            if (id in prev) { const { [id]: _omit, ...rest } = prev; return rest; }
+            return { ...prev, [id]: to24hDefault(companyCheckinTime) };
+          })
+        }
+        renderTrailing={(emp) => {
+          const val = tempDeadlines[emp.id] || '';
+          return (
+            <TimeWheelField
+              value={val}
+              onChange={(v) => setTempDeadlines((prev) => ({ ...prev, [emp.id]: v }))}
+              tone={TRIO.purple}
+              invalid={!HHMM_24H.test(val)}
+              fullWidth={false}
+            />
+          );
+        }}
+        saveDisabled={Object.keys(tempDeadlines).some((id) => !HHMM_24H.test(tempDeadlines[id] || ''))}
+        onSave={() => handleSaveDeadlines(tempDeadlines)}
+        footerNote="Check-in at/before the time = on-time; after = late."
       />
     </div>
   );

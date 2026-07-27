@@ -9,7 +9,6 @@
 // import dayjs from "dayjs";
 // import { Formik, useField } from "formik";
 // import { useState, useEffect, useMemo } from "react";
-// import { Modal, Form } from "react-bootstrap";
 // import { useSelector } from "react-redux";
 // import * as Yup from "yup";
 // import eventBus from "@utils/EventBus";
@@ -453,7 +452,7 @@ import { isValidTime } from "@utils/statistics";
 import dayjs from "dayjs";
 import { Formik, useField } from "formik";
 import { useState, useEffect, useMemo } from "react";
-import { Modal, Form } from "react-bootstrap";
+import { Dialog, DialogTitle, DialogContent, Box, IconButton, Typography } from "@mui/material";
 import { useSelector } from "react-redux";
 import * as Yup from "yup";
 import eventBus from "@utils/EventBus";
@@ -749,12 +748,25 @@ const RaiseRequestForEmployee = ({
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
-      <Modal.Header closeButton>
-        <Modal.Title>Raise Attendance Request for Employee</Modal.Title>
-      </Modal.Header>
+    <Dialog
+      open={show}
+      onClose={onHide}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 2 } }}
+    >
+      <DialogTitle
+        sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+      >
+        <Typography component="span" variant="h6">
+          Raise Attendance Request for Employee
+        </Typography>
+        <IconButton aria-label="close" onClick={onHide} size="small">
+          <i className="bi bi-x-lg" />
+        </IconButton>
+      </DialogTitle>
 
-      <Modal.Body>
+      <DialogContent>
         {loadingEmployees ? (
           <div className="d-flex justify-content-center align-items-center py-5">
             <div className="spinner-border text-primary" role="status">
@@ -769,7 +781,8 @@ const RaiseRequestForEmployee = ({
             onSubmit={handleSubmit}
           >
             {(formikProps) => (
-              <Form
+              <Box
+                component="form"
                 className="d-flex flex-column"
                 noValidate
                 id="raise_request_for_employee_form"
@@ -881,12 +894,12 @@ const RaiseRequestForEmployee = ({
                     {formikProps.isSubmitting ? "Saving..." : "Raise Request"}
                   </button>
                 </div>
-              </Form>
+              </Box>
             )}
           </Formik>
         )}
-      </Modal.Body>
-    </Modal>
+      </DialogContent>
+    </Dialog>
   );
 };
 

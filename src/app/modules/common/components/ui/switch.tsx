@@ -49,6 +49,11 @@ export const wtSwitchSx = (tone: string = T.color.brand, size: WtSwitchSize = 'm
       borderRadius: s.radius, backgroundColor: '#e4e8ee', opacity: 1,
       transition: 'background-color .3s',
     },
+    // Dark mode: lift the OFF track to a translucent light so the toggle isn't a pale block on dark.
+    // Scoped to :not(.Mui-checked) so the ON tone gradient is untouched. Uses the app-wide signal.
+    'html[data-theme="dark"] & .MuiSwitch-switchBase:not(.Mui-checked) + .MuiSwitch-track': {
+      backgroundColor: 'rgba(255,255,255,0.22)',
+    },
     '@media (prefers-reduced-motion: reduce)': {
       '& .MuiSwitch-switchBase': { transitionDuration: '0ms' },
       '& .MuiSwitch-track': { transition: 'none' },
@@ -108,7 +113,7 @@ export const WtSwitchField = forwardRef<HTMLButtonElement, WtSwitchFieldProps>(f
         {icon && trio && <IconBox icon={icon} trio={trio} size={36} fs="fs-3" />}
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.35, letterSpacing: '-0.01em' }}>{title}</Typography>
-          {description && <Typography sx={{ fontSize: 13.5, color: '#55606F', mt: 0.4, lineHeight: 1.55 }}>{description}</Typography>}
+          {description && <Typography sx={{ fontSize: 13.5, color: 'text.secondary', mt: 0.4, lineHeight: 1.55 }}>{description}</Typography>}
         </Box>
       </Stack>
       <Box sx={{ flexShrink: 0, display: 'flex', justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}>

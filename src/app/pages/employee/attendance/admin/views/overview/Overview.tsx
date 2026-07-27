@@ -12,7 +12,26 @@ import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
-import { Card, Col, Row, Image, Spinner, Alert, Modal, Button, Form, InputGroup, Dropdown, OverlayTrigger, Tooltip } from "react-bootstrap";
+import {
+    Card,
+    CardContent,
+    Grid,
+    Avatar,
+    Alert,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    Button,
+    IconButton,
+    TextField,
+    InputAdornment,
+    Menu,
+    MenuItem,
+    Divider,
+    Tooltip,
+    Box,
+    Typography,
+} from "@mui/material";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchEmpsAttendance } from "./DailyAttendance";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
@@ -48,6 +67,9 @@ const CustomModal: React.FC<CustomModalProps> = ({
     sortOption = 'none',
     onSortChange
 }) => {
+    const [sortAnchor, setSortAnchor] = useState<null | HTMLElement>(null);
+    const sortMenuOpen = Boolean(sortAnchor);
+
     const getSortLabel = () => {
         switch (sortOption) {
             case 'name-asc': return 'Name (A-Z)';
@@ -57,148 +79,140 @@ const CustomModal: React.FC<CustomModalProps> = ({
             default: return 'Sort By';
         }
     };
+
+    const handleSort = (option: SortOption) => {
+        onSortChange?.(option);
+        setSortAnchor(null);
+    };
+
+    // Map the old react-bootstrap modal sizes to MUI Dialog maxWidth breakpoints.
+    const maxWidthMap = { sm: 'sm', lg: 'md', xl: 'lg' } as const;
+
     return (
-        <Modal
-            show={show}
-            onHide={onHide}
-            size={size}
-            centered
-            backdrop={true}
-            keyboard={true}
-            className="fade"
+        <Dialog
+            open={show}
+            onClose={onHide}
+            maxWidth={maxWidthMap[size]}
+            fullWidth
+            scroll="paper"
+            PaperProps={{ sx: { borderRadius: 2 } }}
         >
-            <Modal.Header closeButton className="border-0 pb-2">
-                <div className="w-100 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
-                    <Modal.Title className="fw-bold fs-3 mb-0">{title}</Modal.Title>
-                    <div className="d-flex gap-2 flex-grow-1 flex-md-grow-0" style={{ minWidth: '250px', maxWidth: '500px', width: '100%' }}>
+            <DialogTitle sx={{ pb: 1 }}>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        flexDirection: { xs: 'column', md: 'row' },
+                        alignItems: { xs: 'stretch', md: 'center' },
+                        justifyContent: 'space-between',
+                        gap: 2,
+                    }}
+                >
+                    <Typography component="span" sx={{ fontWeight: 700, fontSize: '1.35rem', flexShrink: 0 }}>
+                        {title}
+                    </Typography>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            width: { xs: '100%', md: 'auto' },
+                            minWidth: { md: 250 },
+                            maxWidth: { md: 500 },
+                            flexGrow: { xs: 1, md: 0 },
+                        }}
+                    >
                         {onSortChange && (
-                            <Dropdown>
-                                <Dropdown.Toggle
-                                    size="sm"
-                                    style={{
-                                        backgroundColor: '#1E3A8A',
-                                        borderColor: '#1E3A8A',
+                            <>
+                                <Button
+                                    size="small"
+                                    variant="contained"
+                                    onClick={(e) => setSortAnchor(e.currentTarget)}
+                                    startIcon={<i className="bi bi-filter" />}
+                                    sx={{
+                                        bgcolor: '#1E3A8A',
+                                        '&:hover': { bgcolor: '#152a63' },
                                         color: 'white',
+                                        textTransform: 'none',
                                         whiteSpace: 'nowrap',
-                                        height: '35px',
-                                        display: 'flex',
-                                        alignItems: 'center'
+                                        height: 35,
+                                        flexShrink: 0,
                                     }}
                                 >
-                                    <i className="bi bi-filter me-2"></i>
                                     {getSortLabel()}
-                                </Dropdown.Toggle>
-                                <Dropdown.Menu>
-                                    <Dropdown.Item onClick={() => onSortChange('name-asc')}>
-                                        <i className="bi bi-sort-alpha-down me-2"></i>
+                                </Button>
+                                <Menu anchorEl={sortAnchor} open={sortMenuOpen} onClose={() => setSortAnchor(null)}>
+                                    <MenuItem onClick={() => handleSort('name-asc')}>
+                                        <i className="bi bi-sort-alpha-down me-2" />
                                         Name (A-Z)
-                                    </Dropdown.Item>
-                                    <Dropdown.Item onClick={() => onSortChange('name-desc')}>
-                                        <i className="bi bi-sort-alpha-up me-2"></i>
+                                    </MenuItem>
+                                    <MenuItem onClick={() => handleSort('name-desc')}>
+                                        <i className="bi bi-sort-alpha-up me-2" />
                                         Name (Z-A)
-                                    </Dropdown.Item>
-                                    <Dropdown.Divider />
-                                    <Dropdown.Item onClick={() => onSortChange('checkin-asc')}>
-                                        <i className="bi bi-clock me-2"></i>
+                                    </MenuItem>
+                                    <Divider />
+                                    <MenuItem onClick={() => handleSort('checkin-asc')}>
+                                        <i className="bi bi-clock me-2" />
                                         Check-in (Earliest)
-                                    </Dropdown.Item>
-                                    <Dropdown.Item onClick={() => onSortChange('checkin-desc')}>
-                                        <i className="bi bi-clock-fill me-2"></i>
+                                    </MenuItem>
+                                    <MenuItem onClick={() => handleSort('checkin-desc')}>
+                                        <i className="bi bi-clock-fill me-2" />
                                         Check-in (Latest)
-                                    </Dropdown.Item>
-                                    {sortOption !== 'none' && (
-                                        <>
-                                            <Dropdown.Divider />
-                                            <Dropdown.Item onClick={() => onSortChange('none')}>
-                                                <i className="bi bi-x-circle me-2"></i>
-                                                Clear Sort
-                                            </Dropdown.Item>
-                                        </>
-                                    )}
-                                </Dropdown.Menu>
-                            </Dropdown>
+                                    </MenuItem>
+                                    {sortOption !== 'none' && [
+                                        <Divider key="clear-divider" />,
+                                        <MenuItem key="clear" onClick={() => handleSort('none')}>
+                                            <i className="bi bi-x-circle me-2" />
+                                            Clear Sort
+                                        </MenuItem>,
+                                    ]}
+                                </Menu>
+                            </>
                         )}
                         {onSearchChange && (
-                            <div style={{ position: 'relative', flex: 1 }}>
-                                <Form.Control
-                                    type="text"
-                                    placeholder="Search by name..."
-                                    value={searchQuery}
-                                    onChange={(e) => onSearchChange(e.target.value)}
-                                    size="sm"
-                                    style={{
-                                        borderColor: '#1E3A8A',
-                                        outline: 'none',
-                                        boxShadow: 'none',
-                                        paddingRight: searchQuery ? '35px' : '12px'
-                                    }}
-                                    onFocus={(e) => {
-                                        e.target.style.borderColor = '#1E3A8A';
-                                        e.target.style.boxShadow = '0 0 0 0.2rem rgba(30, 58, 138, 0.25)';
-                                    }}
-                                    onBlur={(e) => {
-                                        e.target.style.boxShadow = 'none';
-                                    }}
-                                />
-                                {searchQuery && (
-                                    <Button
-                                        size="sm"
-                                        onClick={() => onSearchChange('')}
-                                        title="Clear search"
-                                        style={{
-                                            position: 'absolute',
-                                            right: '5px',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            backgroundColor: 'transparent',
-                                            border: 'none',
-                                            color: '#1E3A8A',
-                                            padding: '2px 6px',
-                                            fontSize: '14px',
-                                            cursor: 'pointer'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.color = '#7d3434';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.color = '#1E3A8A';
-                                        }}
-                                    >
-                                        <i className="bi bi-x-lg"></i>
-                                    </Button>
-                                )}
-                            </div>
+                            <TextField
+                                size="small"
+                                fullWidth
+                                type="text"
+                                placeholder="Search by name..."
+                                value={searchQuery}
+                                onChange={(e) => onSearchChange(e.target.value)}
+                                InputProps={{
+                                    endAdornment: searchQuery ? (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => onSearchChange('')}
+                                                title="Clear search"
+                                                sx={{ color: '#1E3A8A' }}
+                                            >
+                                                <i className="bi bi-x-lg" style={{ fontSize: 14 }} />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : undefined,
+                                }}
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
+                                        '& fieldset': { borderColor: '#1E3A8A' },
+                                        '&:hover fieldset': { borderColor: '#1E3A8A' },
+                                        '&.Mui-focused fieldset': { borderColor: '#1E3A8A' },
+                                    },
+                                }}
+                            />
                         )}
-                    </div>
-                </div>
-            </Modal.Header>
-            <Modal.Body className="" style={{
-                maxHeight: '80vh',
-                overflowY: 'auto',
-                scrollbarWidth: 'thin',
-                scrollbarColor: '#1E3A8A #f1f1f1'
-            }}>
-                <style>
-                    {`
-                        .modal-body::-webkit-scrollbar {
-                            width: 6px;
-                        }
-                        .modal-body::-webkit-scrollbar-track {
-                            background: #f1f1f1;
-                            border-radius: 10px;
-                        }
-                        .modal-body::-webkit-scrollbar-thumb {
-                            background: #888;
-                            border-radius: 10px;
-                        }
-                        .modal-body::-webkit-scrollbar-thumb:hover {
-                            background: #555;
-                        }
-                    `}
-                </style>
+                        <IconButton
+                            onClick={onHide}
+                            aria-label="close"
+                            sx={{ flexShrink: 0, color: (t) => t.palette.grey[600] }}
+                        >
+                            <i className="bi bi-x-lg" />
+                        </IconButton>
+                    </Box>
+                </Box>
+            </DialogTitle>
+            <DialogContent dividers>
                 {children}
-            </Modal.Body>
-        </Modal>
+            </DialogContent>
+        </Dialog>
     );
 };
 
@@ -662,16 +676,16 @@ function Overview({ date }: OverviewProps) {
                                             <tr key={emp.id}>
                                                 <td>
                                                     <div className="d-flex align-items-center">
-                                                        <Image
+                                                        <Avatar
                                                             src={avatarSrc}
-                                                            roundedCircle
-                                                            width="40"
-                                                            height="40"
-                                                            className="me-3"
                                                             alt={fullName}
-                                                            onError={(e) => {
-                                                                const target = e.target as HTMLImageElement;
-                                                                target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                                                            className="me-3"
+                                                            sx={{ width: 40, height: 40 }}
+                                                            imgProps={{
+                                                                onError: (e) => {
+                                                                    const target = e.target as HTMLImageElement;
+                                                                    target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                                                                },
                                                             }}
                                                         />
                                                         <div>
@@ -946,16 +960,16 @@ function Overview({ date }: OverviewProps) {
                                                 <td>{emp.employeeCode || '—'}</td>
                                                 <td>
                                                     <div className="d-flex align-items-center">
-                                                        <Image
+                                                        <Avatar
                                                             src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
-                                                            roundedCircle
-                                                            width="36"
-                                                            height="36"
-                                                            className="me-2"
                                                             alt={`${emp.firstName} ${emp.lastName}`}
-                                                            onError={(e) => {
-                                                                const target = e.target as HTMLImageElement;
-                                                                target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                                                            className="me-2"
+                                                            sx={{ width: 36, height: 36 }}
+                                                            imgProps={{
+                                                                onError: (e) => {
+                                                                    const target = e.target as HTMLImageElement;
+                                                                    target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                                                                },
                                                             }}
                                                         />
                                                         <span className="fw-semibold">
@@ -976,14 +990,7 @@ function Overview({ date }: OverviewProps) {
                                                 <td>
                                                     {att?.checkInLocation ? (
                                                         att.latitude && att.longitude ? (
-                                                            <OverlayTrigger
-                                                                placement="top"
-                                                                overlay={
-                                                                    <Tooltip id={`loc-${emp._id}`}>
-                                                                        {att.checkInLocation}
-                                                                    </Tooltip>
-                                                                }
-                                                            >
+                                                            <Tooltip title={att.checkInLocation} placement="top">
                                                                 <a
                                                                     href={`https://www.google.com/maps?q=${att.latitude},${att.longitude}`}
                                                                     target="_blank"
@@ -1000,7 +1007,7 @@ function Overview({ date }: OverviewProps) {
                                                                         {att.checkInLocation}
                                                                     </span>
                                                                 </a>
-                                                            </OverlayTrigger>
+                                                            </Tooltip>
                                                         ) : (
                                                             <span className="text-truncate d-inline-block" style={{ maxWidth: 220 }}>
                                                                 {att.checkInLocation}
@@ -1033,22 +1040,22 @@ function Overview({ date }: OverviewProps) {
                 </div>;
             }
 
-            // All modals use 3-column layout
+            // All modals use a responsive 1 / 2 / 3-column layout
             return (
-                <Row className="g-3">
+                <Grid container spacing={2}>
                     {sortedEmployees.map(emp => (
-                        <Col md={4} key={emp._id}>
+                        <Grid item xs={12} sm={6} md={4} key={emp._id}>
                             <div className="d-flex align-items-center p-3 rounded" style={{ transition: 'all 0.2s', border: '1px solid #1E3A8A' }}>
-                                <Image
+                                <Avatar
                                     src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
-                                    roundedCircle
-                                    width={45}
-                                    height={45}
                                     className="me-3"
                                     alt={`${emp.firstName || ''} ${emp.lastName || ''}`}
-                                    onError={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                                    sx={{ width: 45, height: 45 }}
+                                    imgProps={{
+                                        onError: (e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                                        },
                                     }}
                                 />
                                 <div className="flex-grow-1">
@@ -1177,14 +1184,7 @@ function Overview({ date }: OverviewProps) {
                                                 >
                                                     {emp.attendance.workingMethod.type}
                                                     {emp.attendance.workingMethod.type === 'On-site' && emp.attendance.checkInLocation && emp.attendance.latitude && emp.attendance.longitude && (
-                                                        <OverlayTrigger
-                                                            placement="top"
-                                                            overlay={
-                                                                <Tooltip id={`tooltip-${emp._id}`}>
-                                                                    {emp.attendance.checkInLocation}
-                                                                </Tooltip>
-                                                            }
-                                                        >
+                                                        <Tooltip title={emp.attendance.checkInLocation} placement="top">
                                                             <a
                                                                 href={`https://www.google.com/maps?q=${emp.attendance.latitude},${emp.attendance.longitude}`}
                                                                 target="_blank"
@@ -1210,7 +1210,7 @@ function Overview({ date }: OverviewProps) {
                                                                     }}
                                                                 />
                                                             </a>
-                                                        </OverlayTrigger>
+                                                        </Tooltip>
                                                     )}
                                                 </span>
                                             )}
@@ -1218,9 +1218,9 @@ function Overview({ date }: OverviewProps) {
                                     )}
                                 </div>
                             </div>
-                        </Col>
+                        </Grid>
                     ))}
-                </Row>
+                </Grid>
             );
 
         } catch (err) {
@@ -1387,7 +1387,7 @@ function Overview({ date }: OverviewProps) {
 
     if (error) {
         return (
-            <Alert variant="danger" className="mt-3">
+            <Alert severity="error" sx={{ mt: 3 }}>
                 {error}
             </Alert>
         );
@@ -1395,10 +1395,11 @@ function Overview({ date }: OverviewProps) {
     const renderStatCard = (card: StatCardConfig) => (
         <Card
             key={card.type}
+            elevation={0}
             className={`overview-stat-card overview-stat-card--${card.accent}`}
             onClick={() => handleCardClick(card.type)}
         >
-            <Card.Body>
+            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
                 <div className="overview-stat-card-content">
                     <div className="overview-stat-card-metric">
                         {card.iconClass ? (
@@ -1417,7 +1418,7 @@ function Overview({ date }: OverviewProps) {
                     </div>
                     <p className="overview-stat-card-label">{card.label}</p>
                 </div>
-            </Card.Body>
+            </CardContent>
         </Card>
     );
 
@@ -1430,7 +1431,7 @@ function Overview({ date }: OverviewProps) {
                 renderItem={(card) => renderStatCard(card)}
                 axis="x"
                 className="overview-stats-container mt-3"
-                itemStyle={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}
+                itemClassName="overview-stat-card-slot"
             />
 
             <CustomModal

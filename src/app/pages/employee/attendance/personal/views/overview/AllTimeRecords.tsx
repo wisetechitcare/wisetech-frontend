@@ -5,7 +5,7 @@ import { calculateTotalDuration } from '@utils/calculateTotalDuration';
 import { convertDaysToYearsMonthsDays, convertMinutesIntoHrMinFormat, parseFlexibleTime } from '@utils/statistics';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
-import { Card, Col, Row } from 'react-bootstrap';
+import { Card, Grid } from '@mui/material';
 import { useSelector } from 'react-redux';
 
 const AllTimeRecords: React.FC = () => {
@@ -109,14 +109,14 @@ const AllTimeRecords: React.FC = () => {
     ];
 
     return (
-        <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '20px 24px' }}>
+        <Card elevation={0} sx={{ border: '1px solid #f0f0f0', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '20px 24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                 <span style={{ width: 4, height: 20, background: 'linear-gradient(180deg,#6366f1,#8b5cf6)', borderRadius: 99, display: 'inline-block' }} />
                 <h5 style={{ margin: 0, fontWeight: 700, fontSize: 16, color: '#111827', letterSpacing: '-0.01em' }}>All Time Records</h5>
             </div>
-            <Row>
+            <Grid container>
                 {statCards.map(({ icon, accent, bg, value, label, sub }) => (
-                    <Col md={3} sm={6} className="mb-3" key={label}>
+                    <Grid item xs={12} sm={6} md={3} className="mb-3" key={label}>
                         <div style={{
                             border: `1px solid ${accent}22`,
                             borderRadius: 14,
@@ -137,9 +137,9 @@ const AllTimeRecords: React.FC = () => {
                                 {sub && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>{sub}</div>}
                             </div>
                         </div>
-                    </Col>
+                    </Grid>
                 ))}
-            </Row>
+            </Grid>
         </Card>
     );
 };

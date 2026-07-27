@@ -3388,6 +3388,7 @@ export async function fetchEmpDailyKpiStatistics(day: Dayjs, fromAdmin = false, 
             rank: data.rank,
             remark: data.remark,
             maxTotal: data.maxTotal,
+            employee: data.employee, // carry the late-policy flag through to PerformanceBadge
         };
     } catch (error: any) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
@@ -3495,6 +3496,7 @@ export async function fetchEmpWeeklyKpiStatistics(
             rank: data.rank,
             remark: data.remark,
             maxTotal: data.maxTotal,
+            employee: data.employee, // carry the late-policy flag through to PerformanceBadge
         };
     } catch (error: any) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
@@ -3542,6 +3544,7 @@ export async function fetchEmpMonthlyKpiStatistics(
             rank: data.rank,
             remark: data.remark,
             maxTotal: data.maxTotal,
+            employee: data.employee, // carry the late-policy flag through to PerformanceBadge
         };
     } catch (error: any) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
@@ -3564,6 +3567,7 @@ export async function fetchEmpYearlyKpiStatistics(
     rank?: number;
     remark?: string;
     maxTotal?: number;
+    employee?: any;
 } | undefined> {
     try {
         const state = store.getState().employee;
@@ -3599,6 +3603,7 @@ export async function fetchEmpYearlyKpiStatistics(
             rank: data.rank,
             remark: data.remark,
             maxTotal: data.maxTotal,
+            employee: data.employee, // carry the late-policy flag through to PerformanceBadge
         };
     } catch (error: any) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {

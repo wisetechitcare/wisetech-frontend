@@ -29,6 +29,26 @@ export const SHADOW = {
   dialog: '0 24px 64px -12px rgba(16,24,40,0.28), 0 8px 20px -8px rgba(16,24,40,0.18)',
 } as const;
 
+/**
+ * DARK — the app-wide dark-mode benchmark surface/text palette.
+ *
+ * The reference any surface should match when it renders dark via inline styles or Bootstrap
+ * (i.e. outside the MUI palette). Values track `wisetechTheme`'s dark palette (paper #1E222C,
+ * text rgba-white .92/.62) so hand-styled modals, the glass kit, and MUI screens read identically
+ * in dark. Pair with `toneSurface(trio, true)` for accent tiles/pills.
+ */
+export const DARK = {
+  surface: '#1E222C',        // primary card / modal background (matches MUI paper)
+  surfaceAlt: '#252A35',     // elevated inner surface (wells, headers)
+  rowBg: 'rgba(255,255,255,0.045)',   // unselected list/option row on a dark surface
+  rowHover: 'rgba(255,255,255,0.09)',
+  border: 'rgba(255,255,255,0.10)',
+  borderStrong: 'rgba(255,255,255,0.16)',
+  textPrimary: 'rgba(255,255,255,0.92)',
+  textSecondary: 'rgba(255,255,255,0.62)',
+  textMuted: 'rgba(255,255,255,0.45)',
+} as const;
+
 export type Trio = { c: string; bg: string; bd: string };
 
 export type ToneName = 'blue' | 'green' | 'purple' | 'amber' | 'rose' | 'cyan' | 'slate';

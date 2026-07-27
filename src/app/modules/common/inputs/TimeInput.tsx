@@ -3,6 +3,7 @@ import { useFormikContext } from 'formik';
 import dayjs from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { useTheme } from '@mui/material/styles';
 import HighlightErrors from "../../errors/components/HighlightErrors";
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -29,6 +30,14 @@ const TimePickerInput: React.FC<TimePickerInputProps> = ({
   const { setFieldValue, values, errors, touched } = useFormikContext<Record<string, any>>();
   const error = errors[formikField];
   const isTouched = touched[formikField];
+
+  // Theme-driven colors so the field (and its value) stay legible in both light and dark mode.
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const fieldBg = theme.palette.background.paper;
+  const fieldText = theme.palette.text.primary;
+  const fieldBorder = theme.palette.divider;
+  const brand = theme.palette.primary.main;
   
   const isIosDevice = userAgent?.os?.name === 'iOS' && userAgent?.device?.model === 'iPhone' && userAgent?.device?.vendor === 'Apple';
 
@@ -104,17 +113,19 @@ const TimePickerInput: React.FC<TimePickerInputProps> = ({
         max={timeRestriction ? getCurrentTime() : undefined}
         style={{
           height: '44px',
-          backgroundColor: '#fff',
+          backgroundColor: fieldBg,
+          color: fieldText,
+          colorScheme: isDark ? 'dark' : 'light',
           borderRadius: '6px',
-          borderColor: error && isTouched ? '#f1416c' : '#c9d2df',
+          borderColor: error && isTouched ? '#f1416c' : fieldBorder,
           fontSize: '1.2rem',
           transition: 'border-color 0.3s ease-in-out'
         }}
         onFocus={(e) => {
-          e.target.style.borderColor = '#1E3A8A';
+          e.target.style.borderColor = brand;
         }}
         onBlur={(e) => {
-          e.target.style.borderColor = error && isTouched ? '#f1416c' : '#c9d2df';
+          e.target.style.borderColor = error && isTouched ? '#f1416c' : fieldBorder;
         }}
       />
       <HighlightErrors isRequired={isRequired} formikField={formikField} />
@@ -142,25 +153,25 @@ const TimePickerInput: React.FC<TimePickerInputProps> = ({
               placeholder: placeholder,
               className: 'form-control form-control-lg form-control-solid',
               sx: {
-                "& .MuiInputBase-input": { fontSize: "1.2rem" },
+                // Value text follows the theme so it never renders white-on-white in dark mode.
+                "& .MuiInputBase-input": { fontSize: "1.2rem", color: fieldText, WebkitTextFillColor: fieldText },
                 "& .MuiInputLabel-root": { fontSize: "1.5rem" },
-                "& .MuiOutlinedInput-root": { 
-                  height: "44px", 
-                  backgroundColor: "#fff", 
-                  borderRadius: "6px", 
-                  borderColor: "#1E3A8A", 
-                  transition: "border-color 0.3s ease-in-out" 
+                "& .MuiOutlinedInput-root": {
+                  height: "44px",
+                  backgroundColor: fieldBg,
+                  borderRadius: "6px",
+                  transition: "border-color 0.3s ease-in-out"
                 },
-                "& .MuiOutlinedInput-notchedOutline": { borderColor: "#c9d2df" },
+                "& .MuiOutlinedInput-notchedOutline": { borderColor: fieldBorder },
                 "& .MuiInputBase-input::placeholder": {
                   opacity: 1,
-                  color: "#99A1B7",
+                  color: theme.palette.text.secondary,
                 },
                 "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "#1E3A8A !important",
+                  borderColor: `${brand} !important`,
                 },
                 "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "#1E3A8A !important",
+                  borderColor: `${brand} !important`,
                   borderWidth: "1px",
                 },
               },
@@ -184,12 +195,12 @@ const TimePickerInput: React.FC<TimePickerInputProps> = ({
                   fontSize: '1rem',
                   fontWeight: 200,
                 },
-                // style only the selected AM/PM item
+                // style only the selected AM/PM item — solid brand pill reads on light and dark
                 '& .MuiTimePickerToolbar-ampmSelection .Mui-selected': {
                   padding: '13px',
-                  backgroundColor: '#E6F0FF',
-                  color: '#0B61D8',
-                  borderColor: '#0B61D8',
+                  backgroundColor: brand,
+                  color: theme.palette.primary.contrastText,
+                  borderColor: brand,
                   fontWeight: 900,
                   borderRadius: '30px',
                 },

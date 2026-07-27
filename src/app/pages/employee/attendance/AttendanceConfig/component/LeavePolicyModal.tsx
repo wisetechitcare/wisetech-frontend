@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef, type ReactNode } from 'react';
 import { KTIcon } from '@metronic/helpers';
-import { Box, ButtonBase, CircularProgress, Grid, MenuItem, Popover, Stack, TextField, Typography } from '@mui/material';
+import { Box, ButtonBase, CircularProgress, Grid, MenuItem, Popover, Stack, TextField, Typography, useTheme } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { createNewConfiguration, fetchConfiguration, updateConfigurationById } from '@services/company';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { LEAVE_POLICY_KEY } from '@constants/configurations-key';
@@ -9,6 +10,7 @@ import {
   WtButton, WtIconButton, WtSwitch, GlassSurface, GlassDialog, GlassHeader,
   TRIO, IconBox, StatTile, T,
 } from '@app/modules/common/components/ui';
+import { TimeWheelField } from '@app/modules/common/components/TimeWheelField';
 
 interface LeavePolicyModalProps {
   open: boolean;
@@ -19,131 +21,6 @@ interface LeavePolicyModalProps {
 const DEFAULT_PRIORITY = ['Casual Leaves', 'Sick Leaves', 'Floater Leaves', 'Annual Leaves'];
 
 type Tone = { c: string; bg: string; bd: string };
-
-// ── Scroll-wheel time picker ────────────────────────────────────────────────
-// Two snap-scrolling columns (hours / minutes) in a popover — big touch targets,
-// no clock-face fiddling, works the same on phone and desktop.
-const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
-const ITEM_H = 40;
-
-function WheelColumn({ items, selected, onSelect, tone }: {
-  items: string[]; selected: string; onSelect: (v: string) => void; tone: Tone;
-}) {
-  const boxRef = useRef<HTMLDivElement>(null);
-  // Center the selected value once, when the popover mounts.
-  useEffect(() => {
-    const idx = items.indexOf(selected);
-    const el = boxRef.current;
-    if (el && idx >= 0) el.scrollTop = idx * ITEM_H - (el.clientHeight / 2 - ITEM_H / 2);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return (
-    <Box
-      ref={boxRef}
-      sx={{
-        height: ITEM_H * 5,
-        overflowY: 'auto',
-        scrollSnapType: 'y proximity',
-        px: 0.75,
-        py: `${ITEM_H * 2}px`, // padding so first/last items can center
-        '&::-webkit-scrollbar': { width: 6 },
-        '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(15,23,42,0.15)', borderRadius: 3 },
-        maskImage: 'linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent)',
-      }}
-    >
-      {items.map((it) => {
-        const on = it === selected;
-        return (
-          <ButtonBase
-            key={it}
-            onClick={() => onSelect(it)}
-            sx={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: '100%', height: ITEM_H, my: 0.25, borderRadius: 2,
-              scrollSnapAlign: 'center',
-              fontWeight: on ? 800 : 600,
-              fontSize: on ? 21 : 16.5,
-              letterSpacing: 0.5,
-              color: on ? '#fff' : 'text.secondary',
-              bgcolor: on ? tone.c : 'transparent',
-              boxShadow: on ? `0 6px 14px -4px ${tone.c}66` : 'none',
-              transition: 'background-color .14s, color .14s, font-size .14s',
-              '&:hover': { bgcolor: on ? tone.c : tone.bg },
-            }}
-          >
-            {it}
-          </ButtonBase>
-        );
-      })}
-    </Box>
-  );
-}
-
-function TimeWheelField({ value, onChange, disabled, tone }: {
-  value: string; onChange: (v: string) => void; disabled?: boolean; tone: Tone;
-}) {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const open = Boolean(anchor);
-  const m = /^(\d{2}):(\d{2})$/.exec(value || '');
-  const hh = m ? m[1] : '12';
-  const mm = m ? m[2] : '00';
-
-  return (
-    <>
-      <ButtonBase
-        disabled={disabled}
-        onClick={(e) => setAnchor(e.currentTarget)}
-        sx={{
-          width: '100%', height: 40, px: 1.5, borderRadius: '8px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          border: `1px solid ${open ? tone.c : '#d9dee6'}`,
-          bgcolor: disabled ? '#f4f6f9' : '#fff',
-          boxShadow: open ? `0 0 0 3px ${tone.c}26` : 'none',
-          transition: 'border-color .15s, box-shadow .15s',
-          '&:hover': { borderColor: disabled ? '#d9dee6' : tone.c },
-        }}
-      >
-        <Typography component="span" sx={{ fontSize: 16.5, fontWeight: 700, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
-          {hh}<Box component="span" sx={{ color: tone.c, mx: 0.5 }}>:</Box>{mm}
-        </Typography>
-        <KTIcon iconName="time" className="fs-3" />
-      </ButtonBase>
-
-      <Popover
-        open={open}
-        anchorEl={anchor}
-        onClose={() => setAnchor(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        slotProps={{ paper: { sx: { mt: 1, borderRadius: 3, overflow: 'hidden', boxShadow: '0 24px 64px -12px rgba(16,24,40,0.28)', border: '1px solid #eceff3' } } }}
-      >
-        <Box sx={{ width: 220 }}>
-          <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid #eef1f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
-              Cutoff Time
-            </Typography>
-            <Typography sx={{ fontSize: 17, fontWeight: 800, color: tone.c, fontVariantNumeric: 'tabular-nums' }}>{hh}:{mm}</Typography>
-          </Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'stretch' }}>
-            <WheelColumn items={HOURS} selected={hh} tone={tone} onSelect={(h) => onChange(`${h}:${mm}`)} />
-            <Box sx={{ display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 800, color: 'text.disabled' }}>:</Box>
-            <WheelColumn items={MINUTES} selected={mm} tone={tone} onSelect={(mi) => onChange(`${hh}:${mi}`)} />
-          </Box>
-          <Box sx={{ px: 1.25, pb: 1.25, pt: 0.5 }}>
-            <ButtonBase
-              onClick={() => setAnchor(null)}
-              sx={{ width: '100%', height: 38, borderRadius: 2, fontSize: 14.5, fontWeight: 700, color: '#fff', bgcolor: tone.c,
-                boxShadow: `0 8px 18px -6px ${tone.c}80`, transition: 'filter .15s', '&:hover': { filter: 'brightness(1.06)' } }}
-            >
-              Done
-            </ButtonBase>
-          </Box>
-        </Box>
-      </Popover>
-    </>
-  );
-}
 
 interface PolicyState {
   probationEnabled: boolean;
@@ -174,6 +51,8 @@ const DEFAULTS: PolicyState = {
 };
 
 export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalProps) {
+  const theme = useTheme();
+  const divider = theme.palette.divider;
   const [configId, setConfigId] = useState<string | null>(null);
   const [state, setState] = useState<PolicyState>(DEFAULTS);
   const [loading, setLoading] = useState(true);
@@ -273,7 +152,7 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
   // Type scale mirrors the Sandwich Leave benchmark, nudged up for readability: 16 titles,
   // 13.5 body with a darker secondary for stronger contrast, 14.5 input text.
   const titleSx = { fontSize: 16, fontWeight: 800, color: 'text.primary', lineHeight: 1.3, letterSpacing: '-0.01em' } as const;
-  const descSx = { fontSize: 13.5, color: '#55606F', mt: 0.5, lineHeight: 1.6 } as const;
+  const descSx = { fontSize: 13.5, color: theme.palette.mode === 'dark' ? 'text.secondary' : '#55606F', mt: 0.5, lineHeight: 1.6 } as const;
   // Shared input sizing — nudges MUI's small inputs/menu items to a comfortable reading size.
   // The select value wraps instead of truncating so long option text stays fully readable.
   const inputSx = {
@@ -357,7 +236,7 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
               </Box>
 
               {state.probationEnabled && (
-                <Grid container spacing={2} sx={{ pt: 1, borderTop: `1px solid ${T.color.line}` }}>
+                <Grid container spacing={2} sx={{ pt: 1, borderTop: `1px solid ${divider}` }}>
                   <Grid item xs={12} sm={5}>
                     <FieldLabel icon="calendar-8" tone={TRIO.purple}>Probation Duration (days from joining)</FieldLabel>
                     <TextField type="number" size="small" fullWidth disabled={readOnly} sx={inputSx}
@@ -476,7 +355,7 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
               </Box>
 
               {state.penaltyEnabled && (
-                <Grid container spacing={2} sx={{ pt: 1, borderTop: `1px solid ${T.color.line}` }}>
+                <Grid container spacing={2} sx={{ pt: 1, borderTop: `1px solid ${divider}` }}>
                   <Grid item xs={12} sm={6} md={4}>
                     <FieldLabel icon="time" tone={TRIO.amber}>Cutoff Time (24h, IST)</FieldLabel>
                     <TimeWheelField
@@ -528,7 +407,7 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
       {/* Footer Actions — benchmark spacing (px 2.5 / py 1.5) and button physics */}
       <Box sx={{
         px: { xs: 2, sm: 2.5 }, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1.25,
-        flexShrink: 0, borderTop: `1px solid ${T.color.line}`, backgroundColor: 'rgba(255,255,255,0.4)',
+        flexShrink: 0, borderTop: `1px solid ${divider}`, backgroundColor: alpha(theme.palette.background.paper, 0.4),
         flexDirection: { xs: 'column-reverse', sm: 'row' },
       }}>
         <WtButton ghost onClick={onClose} disabled={saving} sx={{ width: { xs: '100%', sm: 'auto' } }}>

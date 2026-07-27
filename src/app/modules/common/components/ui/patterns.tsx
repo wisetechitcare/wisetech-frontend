@@ -10,13 +10,22 @@
  * Reuse these instead of re-declaring them in any feature.
  */
 import React from 'react';
-import { Box, Typography, Tooltip } from '@mui/material';
-import type { SxProps, Theme } from '@mui/material/styles';
+import { Box, Typography, Tooltip, useTheme } from '@mui/material';
+import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import { KTIcon } from '@metronic/helpers';
 import { GlassSurface } from './glass';
 
 /** Accent tone: foreground / fill / border — drives IconBox, StatusBadge, StatTile, and keylines. */
 export type Trio = { c: string; bg: string; bd: string };
+
+/** Resolve a tone's fill/border for the active mode. Light uses the designed pastels; dark derives
+ * translucent tints from the tone color so tiles/pills read correctly on a dark surface instead of
+ * appearing as near-white blocks. The foreground (icon/text) keeps the vivid tone color in both. */
+export function toneSurface(trio: Trio, dark: boolean) {
+  return dark
+    ? { bg: alpha(trio.c, 0.22), bd: alpha(trio.c, 0.44), fg: trio.c }
+    : { bg: trio.bg, bd: trio.bd, fg: trio.c };
+}
 
 /** The shared accent palette (mirrors the Sandwich Leave benchmark). Semantics: green=success/active,
  * rose=danger/derived, amber=warning, blue=info, slate=neutral/inactive, purple=category. */
@@ -37,10 +46,11 @@ export const SHADOW_HOVER = '0 2px 4px rgba(15,23,42,0.04), 0 14px 22px rgba(15,
 
 /** Tinted leading glyph tile. `fs` is a Metronic icon-font size class (fs-1..fs-5). */
 export function IconBox({ icon, trio, size = 40, fs = 'fs-2' }: { icon: string; trio: Trio; size?: number; fs?: string }) {
+  const t = toneSurface(trio, useTheme().palette.mode === 'dark');
   return (
     <Box sx={{
       width: size, height: size, borderRadius: '11px', display: 'grid', placeItems: 'center',
-      bgcolor: trio.bg, color: trio.c, border: `1px solid ${trio.bd}`, flexShrink: 0,
+      bgcolor: t.bg, color: t.fg, border: `1px solid ${t.bd}`, flexShrink: 0,
     }}>
       <KTIcon iconName={icon} className={fs} />
     </Box>
@@ -49,13 +59,14 @@ export function IconBox({ icon, trio, size = 40, fs = 'fs-2' }: { icon: string; 
 
 /** Pill status chip — a dot + label, optionally a live pulse (`.sw-dot-pulse` keyframe) and a tooltip. */
 export function StatusBadge({ trio, label, pulse, title }: { trio: Trio; label: string; pulse?: boolean; title?: string }) {
+  const t = toneSurface(trio, useTheme().palette.mode === 'dark');
   const badge = (
     <Box sx={{
       display: 'inline-flex', alignItems: 'center', gap: '6px', px: '10px', py: '3px',
-      borderRadius: 999, bgcolor: trio.bg, border: `1px solid ${trio.bd}`, flexShrink: 0, userSelect: 'none',
+      borderRadius: 999, bgcolor: t.bg, border: `1px solid ${t.bd}`, flexShrink: 0, userSelect: 'none',
     }}>
-      <Box className={pulse ? 'sw-dot-pulse' : undefined} sx={{ width: 7, height: 7, borderRadius: 999, bgcolor: trio.c }} />
-      <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: trio.c, lineHeight: 1, whiteSpace: 'nowrap' }}>{label}</Typography>
+      <Box className={pulse ? 'sw-dot-pulse' : undefined} sx={{ width: 7, height: 7, borderRadius: 999, bgcolor: t.fg }} />
+      <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: t.fg, lineHeight: 1, whiteSpace: 'nowrap' }}>{label}</Typography>
     </Box>
   );
   return title ? <Tooltip title={title}>{badge}</Tooltip> : badge;
@@ -64,11 +75,12 @@ export function StatusBadge({ trio, label, pulse, title }: { trio: Trio; label: 
 /** KPI stat tile (icon + uppercase eyebrow + big value) on a thin glass surface.
  * Value font is responsive ({xs:16, sm:19}) so it doesn't truncate in 2-up mobile grids. */
 export function StatTile({ label, value, trio, icon }: { label: string; value: React.ReactNode; trio: Trio; icon: string }) {
+  const hoverBd = toneSurface(trio, useTheme().palette.mode === 'dark').bd;
   return (
     <GlassSurface variant="thin" sx={{
       minWidth: 0, p: 1.5, borderRadius: '14px', display: 'flex', alignItems: 'center', gap: 1.25,
       borderColor: 'divider', boxShadow: SHADOW_REST, transition: EASE_200,
-      '&:hover': { transform: 'translateY(-2px)', boxShadow: SHADOW_HOVER, borderColor: trio.bd },
+      '&:hover': { transform: 'translateY(-2px)', boxShadow: SHADOW_HOVER, borderColor: hoverBd },
     }}>
       <IconBox icon={icon} trio={trio} size={40} fs="fs-2" />
       <Box sx={{ minWidth: 0 }}>

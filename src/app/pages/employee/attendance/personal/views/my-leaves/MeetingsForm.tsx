@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import Select from 'react-select';
-import { Modal, Form as BootstrapForm, Row, Col } from 'react-bootstrap';
+import { DialogContent, Grid, Box, TextField, Typography } from '@mui/material';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { createMeetings, fetchAllEmployees } from '@services/employee';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
@@ -168,24 +168,26 @@ const OptimizedDateTimePicker = ({ value, onChange, label, error, touched, minDa
     };
 
     return (
-        <BootstrapForm.Group className='mb-0'>
+        <Box className='mb-0'>
             <label className="fs-7 fw-bold text-gray-700 d-block mb-2">{label} <span className="text-danger">*</span></label>
             {isIOSMobile ? (
-                <BootstrapForm.Control
+                <TextField
                     type="datetime-local"
                     value={formatDateForHTMLInput(value)}
                     onChange={handleHTMLDateChange}
-                    min={minDateTime ? formatDateForHTMLInput(minDateTime) : formatDateForHTMLInput(dayjs())}
-                    isInvalid={Boolean(error && touched)}
+                    inputProps={{ min: minDateTime ? formatDateForHTMLInput(minDateTime) : formatDateForHTMLInput(dayjs()) }}
+                    error={Boolean(error && touched)}
+                    size="small"
+                    fullWidth
                     className="form-control"
                 />
             ) : (
                 <MobileDateTimePicker {...pickerProps} />
             )}
             {error && touched && (
-                <BootstrapForm.Text className="text-danger small mt-1">{error}</BootstrapForm.Text>
+                <Typography variant="caption" className="text-danger small mt-1">{error}</Typography>
             )}
-        </BootstrapForm.Group>
+        </Box>
     );
 };
 
@@ -428,7 +430,7 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
             >
                 {({ values, setFieldValue, errors, touched, isSubmitting }) => (
                     <Form>
-                        <Modal.Body className='p-2'>
+                        <DialogContent className='p-2'>
                             {/* Meeting Details */}
                             <div style={sectionBoxStyle}>
                                 <SectionHeading icon="setting-2" label="Meeting Details" />
@@ -473,8 +475,8 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                             {/* Project Selection (File Location pattern) */}
                             <div style={sectionBoxStyle}>
                                 <SectionHeading icon="folder" label="Project" />
-                                <Row>
-                                    <Col md={4}>
+                                <Grid container>
+                                    <Grid item xs={12} md={4}>
                                         <label className="fs-7 fw-bold text-gray-700 d-block mb-2">File Location Type</label>
                                         <Select
                                             options={allCompanyTypes.map((t: any) => ({ label: t.name, value: t.id }))}
@@ -493,8 +495,8 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                             isLoading={loadingData}
                                             placeholder="Select type"
                                         />
-                                    </Col>
-                                    <Col md={4}>
+                                    </Grid>
+                                    <Grid item xs={12} md={4}>
                                         <label className="fs-7 fw-bold text-gray-700 d-block mb-2">File Location Company</label>
                                         <Select
                                             options={getFilteredCompanies(values.fileLocationCompanyType).map((c: any) => ({ label: c.companyName, value: c.id }))}
@@ -512,8 +514,8 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                             isDisabled={!values.fileLocationCompanyType}
                                             placeholder={!values.fileLocationCompanyType ? "Select type first" : "Select company"}
                                         />
-                                    </Col>
-                                    <Col md={4}>
+                                    </Grid>
+                                    <Grid item xs={12} md={4}>
                                         <label className="fs-7 fw-bold text-gray-700 d-block mb-2">Project <span className="text-danger">*</span></label>
                                         <Select
                                             options={allProjects.map((p: any) => ({ label: p.title, value: p.id }))}
@@ -563,8 +565,8 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                         {errors.projectId && touched.projectId && (
                                             <div className="text-danger fs-8 mt-1">{errors.projectId}</div>
                                         )}
-                                    </Col>
-                                </Row>
+                                    </Grid>
+                                </Grid>
                             </div>
 
                             {/* Internal Participants (from project team) */}
@@ -633,8 +635,8 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                             {/* Schedule */}
                             <div style={sectionBoxStyle}>
                                 <SectionHeading icon="calendar" label="Schedule" />
-                                <Row>
-                                    <Col md={6}>
+                                <Grid container>
+                                    <Grid item xs={12} md={6}>
                                         <OptimizedDateTimePicker
                                             label="Start Date and Time"
                                             value={values.startDate}
@@ -647,8 +649,8 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                             error={errors.startDate}
                                             touched={touched.startDate}
                                         />
-                                    </Col>
-                                    <Col md={6}>
+                                    </Grid>
+                                    <Grid item xs={12} md={6}>
                                         <OptimizedDateTimePicker
                                             label="End Date and Time"
                                             value={values.endDate}
@@ -657,8 +659,8 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                             touched={touched.endDate}
                                             minDateTime={values.startDate ? dayjs(values.startDate) : dayjs()}
                                         />
-                                    </Col>
-                                </Row>
+                                    </Grid>
+                                </Grid>
                             </div>
 
                             {/* Description */}
@@ -708,7 +710,7 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                     )}
                                 </button>
                             </div>
-                        </Modal.Body>
+                        </DialogContent>
                     </Form>
                 )}
             </Formik>

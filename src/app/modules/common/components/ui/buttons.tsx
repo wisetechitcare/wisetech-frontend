@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Button, ButtonProps, IconButton, IconButtonProps, Tooltip } from '@mui/material';
+import { Button, ButtonProps, IconButton, IconButtonProps, Tooltip, useTheme } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 
 /**
@@ -82,6 +82,22 @@ export const invertedSx: SxProps<Theme> = {
   '&.Mui-disabled': { bgcolor: '#f1f5f9', color: '#94a3b8', borderColor: '#e2e8f0', boxShadow: 'none' },
 };
 
+// Dark-mode overrides layered on top of the light recipes above. Only the light-hardcoded
+// surfaces (ghost/inverted/disabled) need overriding — the CTA gradients read fine on dark.
+const ghostDarkSx: SxProps<Theme> = {
+  color: 'rgba(255,255,255,0.78)', bgcolor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)',
+  '&:hover': { bgcolor: 'rgba(255,255,255,0.11)', borderColor: 'rgba(255,255,255,0.26)', color: '#fff', boxShadow: '0 4px 10px rgba(0,0,0,0.35)' },
+  '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.30)', borderColor: 'rgba(255,255,255,0.10)' },
+};
+const invertedDarkSx: SxProps<Theme> = {
+  bgcolor: 'rgba(255,255,255,0.10)', color: '#93c5fd', border: '1px solid rgba(147,197,253,0.30)',
+  '&:hover': { bgcolor: 'rgba(255,255,255,0.16)', borderColor: 'rgba(147,197,253,0.5)' },
+  '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.30)', borderColor: 'rgba(255,255,255,0.10)' },
+};
+const ctaDarkSx: SxProps<Theme> = {
+  '&.Mui-disabled': { background: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.40)', boxShadow: 'none' },
+};
+
 export interface WtButtonProps extends ButtonProps {
   /** CTA gradient tone. Ignored when `ghost` or `inverted` is set. Default 'primary'. */
   tone?: WtCtaTone;
@@ -94,13 +110,15 @@ export interface WtButtonProps extends ButtonProps {
 export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function WtButton(
   { tone = 'primary', ghost = false, inverted = false, sx, variant, ...rest }, ref,
 ) {
+  const dark = useTheme().palette.mode === 'dark';
   const base = ghost ? ghostSx : inverted ? invertedSx : ctaSx(tone);
+  const darkOverride = dark ? (ghost ? ghostDarkSx : inverted ? invertedDarkSx : ctaDarkSx) : null;
   return (
     <Button
       ref={ref}
       variant={ghost ? 'text' : (variant ?? 'contained')}
-      // caller sx layered after the recipe so per-use tweaks (width, margins) always win
-      sx={[base, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
+      // recipe → dark override → caller sx, so per-use tweaks (width, margins) always win
+      sx={[base, darkOverride, ...(Array.isArray(sx) ? sx : [sx])].filter(Boolean) as SxProps<Theme>}
       {...rest}
     />
   );

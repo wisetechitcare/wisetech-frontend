@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import { IconButton, IconButtonProps, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
@@ -46,6 +46,24 @@ export function ColorModeProvider({ children, defaultMode = 'light' }: { childre
     try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
     return next;
   }), []);
+
+  // Single source of truth for the whole app's theme. Broadcast the mode to every styling system
+  // so there is no split-brain: MUI reads `palette.mode` (via ThemeProvider below), Bootstrap/
+  // Metronic chrome reads `data-bs-theme`, the Tailwind (tw/) kit reads the `.dark` class /
+  // `data-theme`, and native form controls/scrollbars read `color-scheme`. Default is light, so
+  // nothing changes for existing users until they opt into dark.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute('data-bs-theme', mode);
+    root.setAttribute('data-theme', mode);
+    root.classList.toggle('dark', mode === 'dark');
+    root.style.colorScheme = mode;
+    // Keep Metronic's own keys in sync so its init() doesn't clobber the attribute on reload.
+    try {
+      localStorage.setItem('kt_theme_mode_value', mode);
+      localStorage.setItem('kt_theme_mode_menu', mode);
+    } catch { /* private mode */ }
+  }, [mode]);
 
   const theme = useMemo(() => makeWisetechTheme(mode), [mode]);
   const ctx = useMemo(() => ({ mode, setMode, toggle }), [mode, setMode, toggle]);

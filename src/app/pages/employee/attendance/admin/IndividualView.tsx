@@ -9,7 +9,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import dayjs, { Dayjs } from 'dayjs';
 import { fetchEmpAttendanceStatistics } from '@services/employee';
-import { Card, Image } from 'react-bootstrap';
+import { Card, Avatar } from '@mui/material';
 import { getAvatar } from '@utils/avatar';
 import Leaves from '../personal/views/my-leaves/Leaves';
 import { resourceNameMapWithCamelCase } from '@constants/statistics';
@@ -213,15 +213,17 @@ const ProfileCard = ({ employee }: { employee: any }) => {
     };
 
     return (
-        <Card className="d-flex flex-row align-items-center justify-content-between p-3 w-100" style={{ border: 'none', boxShadow: '0px 1px 5px rgba(0, 0, 0, 0.1)', minHeight: '80px'}}>
+        <Card
+            elevation={0}
+            className="d-flex flex-row align-items-center justify-content-between p-3 w-100"
+            sx={{ border: 'none', boxShadow: '0px 1px 5px rgba(0, 0, 0, 0.1)', minHeight: '80px', flexWrap: 'wrap', gap: 2 }}
+        >
             <div className="d-flex flex-row align-items-center">
-                <Image
+                <Avatar
                     src={user.imageUrl}
-                    roundedCircle
-                    width="60"
-                    height="60"
                     alt="Profile"
                     className="me-3"
+                    sx={{ width: 60, height: 60 }}
                 />
                 <div>
                     <h5 className="mb-0">{user.name}</h5>
