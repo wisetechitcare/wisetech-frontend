@@ -96,7 +96,7 @@ function reconcilePrefsWithColumns(
     };
 }
 
-function useTablePreferences(tableName: string, columns: any[], employeeId?: string, defaultSorting?: Array<{ id: string; desc: boolean }>) {
+function useTablePreferences(tableName: string, columns: any[], employeeId?: string, defaultSorting?: Array<{ id: string; desc: boolean }>, persist: boolean = true) {
     // Use refs to prevent recreating functions and causing loops
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const isMountedRef = useRef(true);
@@ -137,7 +137,8 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
 
     // Debounced save function - moved outside of other effects
     const debouncedSave = useCallback((newPreferences: TablePreferences) => {
-        if (!employeeId || !isMountedRef.current || !isInitialized) {
+        // persist === false → ephemeral table (e.g. chart drill-down): never write the DB.
+        if (!persist || !employeeId || !isMountedRef.current || !isInitialized) {
             return;
         }
 
@@ -155,7 +156,7 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
                 console.error('Error saving table preferences:', error);
             }
         }, 500);
-    }, [employeeId, tableName, isInitialized]); // Stable dependencies only
+    }, [persist, employeeId, tableName, isInitialized]); // Stable dependencies only
 
     // Load preferences on mount - COMPLETELY ISOLATED
     useEffect(() => {
@@ -169,9 +170,21 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
         
         const loadPreferences = async () => {
             if (isCancelled || !isMountedRef.current) return;
-            
+
             setIsLoading(true);
-            
+
+            // Ephemeral tables (persist === false — e.g. chart drill-down modals) never
+            // touch the DB: they always render the code-derived meta.defaultVisible column
+            // set, so a previously-saved (stale) per-drill bucket can no longer override the
+            // curated defaults. In-session show/hide toggles still work; they just aren't
+            // persisted. This also neutralises any already-polluted buckets already in the DB.
+            if (!persist) {
+                setPreferences(defaultPreferences);
+                setIsLoading(false);
+                setIsInitialized(true);
+                return;
+            }
+
             try {
                 let loadedPreferences: TablePreferences | null = null;
                 
@@ -255,7 +268,7 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
         return () => {
             isCancelled = true;
         };
-    }, [tableName, employeeId]); // DO NOT include defaultPreferences here to prevent loops
+    }, [tableName, employeeId, persist]); // DO NOT include defaultPreferences here to prevent loops
 
     // Reconcile preferences when the SET of columns changes - SEPARATE EFFECT.
     //
@@ -370,8 +383,8 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
         if (!isInitialized) return;
         
         setPreferences(defaultPreferences);
-        
-        if (employeeId) {
+
+        if (persist && employeeId) {
             try {
                 await upsertUserTablePreferences(employeeId, tableName, defaultPreferences);
                 console.log("Preferences reset successfully for", tableName);
@@ -379,7 +392,7 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
                 console.error('Error resetting table preferences:', error);
             }
         }
-    }, [tableName, employeeId, defaultPreferences, isInitialized]);
+    }, [tableName, employeeId, defaultPreferences, isInitialized, persist]);
 
     // Cleanup effect - SEPARATE from other effects
     useEffect(() => {

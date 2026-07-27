@@ -102,6 +102,11 @@ interface MaterialTableProps {
   /** Notifies the parent of the currently-visible column keys (after preferences load
    *  and on every show/hide toggle). Lets a page fetch only the data those columns need. */
   onVisibleColumnsChange?: (visibleKeys: string[]) => void;
+  /** When false, column/sort/etc. preferences are neither loaded from nor saved to the DB —
+   *  the table always renders the code-defined defaults (meta.defaultVisible). Use for
+   *  ephemeral tables such as chart drill-down modals, where a persisted per-instance bucket
+   *  would otherwise stick and override the curated default column set. Defaults to true. */
+  persistPreferences?: boolean;
 }
 
 const defaultColumnSizes = {
@@ -153,6 +158,7 @@ function MaterialTable({
   showColumnFooter = false,
   defaultSorting,
   onVisibleColumnsChange,
+  persistPreferences = true,
 }: MaterialTableProps) {
   // When the pager is hidden on a client-side table, we render ALL rows (no paging)
   // and also drop the rows-per-page selector + range count, which would otherwise
@@ -405,7 +411,7 @@ function MaterialTable({
     updateExpanded,
     updateExportType,
     resetPreferences,
-  } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting);
+  } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting, persistPreferences);
 
   // Surface the visible column keys to the parent once preferences resolve and on every
   // toggle. A column is visible unless its visibility flag is explicitly false.
