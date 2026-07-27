@@ -289,26 +289,94 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   };
 
   // ── Project Manager picker — same pattern as the Execution Team picker above:
-  //    a button opens a dialog with its own explicit Save, writing ONLY
-  //    leadExecution.projectManagerId via the dedicated `projectManager` section
-  //    (team/status/access/flags stay untouched). ─────────────────────────────
+  //    a button opens a dialog with its own explicit Save, writing ONLY the
+  //    manager roster via the dedicated `projectManager` section (team/status/
+  //    access/flags stay untouched).
+  //
+  //    A project can have SEVERAL managers. The roster lives in its own table;
+  //    the backend mirrors whichever row is flagged primary back onto
+  //    leadExecution.projectManagerId, so single-manager readers keep working.
+  //    `lead.projectManagers` is ordered primary-first by the API. ────────────
+  const projectManagers: any[] = lead?.projectManagers || [];
+
+  // Manager ids, primary first. Falls back to the mirrored scalar for projects
+  // saved before the roster table existed.
+  const managerIds: string[] = useMemo(() => {
+    const ids = projectManagers.map((m: any) => String(m.employeeId)).filter(Boolean);
+    if (ids.length > 0) return ids;
+    return ex.projectManagerId ? [String(ex.projectManagerId)] : [];
+  }, [projectManagers, ex.projectManagerId]);
+
+  const primaryManagerId = managerIds[0] || '';
+
   const [savingPm, setSavingPm] = useState(false);
   const [showPmModal, setShowPmModal] = useState(false);
-  const [draftPmId, setDraftPmId] = useState<string>(ex.projectManagerId || '');
+  // Draft roster: one entry per manager row. `employeeId` may be '' for a row the
+  // user just added but hasn't picked yet.
+  const [pmDraft, setPmDraft] = useState<{ employeeId: string; isPrimary: boolean }[]>([]);
 
   const openPmModal = () => {
-    setDraftPmId(ex.projectManagerId || '');
+    setPmDraft(managerIds.map((id, i) => ({ employeeId: id, isPrimary: i === 0 })));
     setShowPmModal(true);
   };
 
+  const addPmRow = () =>
+    setPmDraft(prev => [...prev, { employeeId: '', isPrimary: prev.length === 0 }]);
+
+  const removePmRow = (i: number) =>
+    setPmDraft(prev => {
+      const next = prev.filter((_, idx) => idx !== i);
+      // Removing the primary promotes the first remaining row, so a non-empty
+      // roster always has exactly one primary to mirror onto the scalar.
+      if (next.length > 0 && !next.some(r => r.isPrimary)) next[0] = { ...next[0], isPrimary: true };
+      return next;
+    });
+
+  const setPmRowEmployee = (i: number, employeeId: string) =>
+    setPmDraft(prev => prev.map((r, idx) => (idx === i ? { ...r, employeeId } : r)));
+
+  const setPmPrimary = (i: number) =>
+    setPmDraft(prev => prev.map((r, idx) => ({ ...r, isPrimary: idx === i })));
+
+  // Rows with no employee picked are dropped; duplicates collapse to the first
+  // occurrence (the backend enforces this too, but catching it here lets us warn).
+  const pmDraftClean = useMemo(() => {
+    const seen = new Set<string>();
+    return pmDraft.filter(r => {
+      if (!r.employeeId || seen.has(r.employeeId)) return false;
+      seen.add(r.employeeId);
+      return true;
+    });
+  }, [pmDraft]);
+
+  const pmHasDuplicates = pmDraft.filter(r => r.employeeId).length !== pmDraftClean.length;
+
+  // Compare against the saved roster so Save stays disabled until something
+  // actually changed (identity AND primary, since order carries the primary).
+  const pmDirty = useMemo(() => {
+    const next = pmDraftClean.map(r => r.employeeId);
+    const nextPrimary = (pmDraftClean.find(r => r.isPrimary) || pmDraftClean[0])?.employeeId || '';
+    if (next.length !== managerIds.length) return true;
+    if (nextPrimary !== primaryManagerId) return true;
+    // Order beyond the primary is not persisted, so compare as a set.
+    const current = new Set(managerIds);
+    return next.some(id => !current.has(id));
+  }, [pmDraftClean, managerIds, primaryManagerId]);
+
   const confirmPmChange = () => {
-    if (draftPmId === (ex.projectManagerId || '') || savingPm) return;
+    if (savingPm || !pmDirty) return;
     setSavingPm(true);
-    saveSection('projectManager', { projectManagerId: draftPmId || null })
+    const primaryId = (pmDraftClean.find(r => r.isPrimary) || pmDraftClean[0])?.employeeId || '';
+    saveSection('projectManager', {
+      projectManagers: pmDraftClean.map(r => ({
+        employeeId: r.employeeId,
+        isPrimary: r.employeeId === primaryId,
+      })),
+    })
       .then(() => setShowPmModal(false))
       .catch((e: any) => {
         // eslint-disable-next-line no-alert
-        alert(e?.response?.data?.message || 'Could not update the project manager. Please try again.');
+        alert(e?.response?.data?.message || 'Could not update the project managers. Please try again.');
       })
       .finally(() => setSavingPm(false));
   };
@@ -324,7 +392,16 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       .filter((m: any) => m.employeeId && isEmployeeActive(m.employeeId)),
     [teamMembers, inactiveEmployeeIds],
   );
-  const persisted = internal.length > 0;
+  // `persisted` = the roster is the user's own, so show it verbatim. Seeding from
+  // the execution team is ONLY for a roster that has never been saved.
+  //
+  // internalRosterSet is stamped by the backend on every roster save, including a
+  // save that empties it. Checking only `internal.length > 0` (as this did) made a
+  // deliberately-emptied roster look untouched, so deleting the last member
+  // re-seeded the entire execution team and every removed member came back.
+  // `internal.length > 0` is kept as a fallback for projects saved before the flag
+  // existed; they self-heal on their next save.
+  const persisted = ex.internalRosterSet === true || internal.length > 0;
   const displayMembers: any[] = persisted ? internal : teamRoster;
 
   // ── External roster = the project's OWN stakeholders (projectExternalTeams),
@@ -524,18 +601,39 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                   </button>
                 </div>
               );
-              const pmName = empName(ex.projectManagerId);
+              // All managers, primary first. The primary is badged so it's clear
+              // which one the single-manager views (tables, exports) will show.
               const pmPicker = (
                 <div style={{ flex: 1, minWidth: 260, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 8, background: '#7c3aed14', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <i className="bi bi-person-workspace" />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Project Manager</div>
-                    <div style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ex.projectManagerId ? pmName : 'No manager selected'}</div>
+                    <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {managerIds.length > 1 ? `Project Managers (${managerIds.length})` : 'Project Manager'}
+                    </div>
+                    {managerIds.length === 0 ? (
+                      <div style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', marginTop: 2 }}>No manager selected</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                        {managerIds.map((id, i) => (
+                          <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 3px', borderRadius: 999, background: '#fff', border: '1px solid #E2E8F0' }}>
+                            <img
+                              src={empAvatar(id) || `https://ui-avatars.com/api/?name=${encodeURIComponent(empName(id) === DASH ? '?' : empName(id))}&background=eeeeee&color=888888&size=20&rounded=true`}
+                              alt=""
+                              style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
+                            />
+                            <span style={{ fontFamily: 'Inter', fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>{empName(id)}</span>
+                            {i === 0 && managerIds.length > 1 && (
+                              <span style={{ fontFamily: 'Inter', fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: '#ede9fe', color: '#6d28d9', textTransform: 'uppercase', letterSpacing: 0.3 }}>Primary</span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <button type="button" onClick={openPmModal} style={{ ...addBtn, marginTop: 0, flexShrink: 0, whiteSpace: 'nowrap' }}>
-                    <i className="bi bi-arrow-left-right" /> {ex.projectManagerId ? 'Change Manager' : 'Assign Manager'}
+                  <button type="button" onClick={openPmModal} style={{ ...addBtn, marginTop: 0, flexShrink: 0, whiteSpace: 'nowrap', alignSelf: 'flex-start' }}>
+                    <i className="bi bi-arrow-left-right" /> {managerIds.length > 0 ? 'Manage' : 'Assign Manager'}
                   </button>
                 </div>
               );
@@ -547,13 +645,19 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
               );
 
               if (!editing) {
+                // An empty roster the user saved themselves is NOT the same as one
+                // that was never set up — saying "the team has no members" there is
+                // wrong (the team is fine; this project's roster was cleared).
+                const clearedRoster = persisted && !!team?.name;
                 const readBody = displayMembers.length === 0 ? (
                   <EmptyState
                     icon="bi bi-people"
-                    title="No internal members yet"
-                    message={team?.name
-                      ? `The ${team.name} team has no members. Click Edit to add people individually.`
-                      : 'No execution team is selected. Pick one above, or click Edit to add members individually.'}
+                    title={clearedRoster ? 'No one on this project' : 'No internal members yet'}
+                    message={clearedRoster
+                      ? `Everyone has been removed from this project's roster. The ${team!.name} team itself is unchanged — click Edit to add people back, or use "Seed from ${team!.name}".`
+                      : team?.name
+                        ? `The ${team.name} team has no members. Click Edit to add people individually.`
+                        : 'No execution team is selected. Pick one above, or click Edit to add members individually.'}
                   />
                 ) : (
                   <div>
@@ -776,17 +880,64 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
 
       {/* Project-manager dialog: opened by the "Assign/Change Manager" button above.
           Nothing is written until Save is clicked. */}
-      <Modal show={showPmModal} onHide={() => !savingPm && setShowPmModal(false)} centered>
+      <Modal show={showPmModal} onHide={() => !savingPm && setShowPmModal(false)} centered size="lg">
         <Modal.Header closeButton>
-          <Modal.Title style={{ fontSize: 14, fontWeight: 600 }}>Assign Project Manager</Modal.Title>
+          <Modal.Title style={{ fontSize: 14, fontWeight: 600 }}>Project Managers</Modal.Title>
         </Modal.Header>
         <Modal.Body style={{ padding: 16 }}>
-          <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            Project Manager
-          </div>
-          <SearchableSelectEditor value={draftPmId} options={employeeOptions} onChange={setDraftPmId} placeholder="Select project manager" formatOptionLabel={formatEmployeeOption} />
+          {pmDraft.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, padding: '0 0 6px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              <div style={{ flex: 1, minWidth: 200 }}>Manager</div>
+              <div style={{ width: 90, textAlign: 'center' }}>Primary</div>
+              <div style={{ width: 32 }} />
+            </div>
+          )}
+
+          {pmDraft.length === 0 && (
+            <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '8px 0 12px' }}>
+              No managers assigned — add one below.
+            </div>
+          )}
+
+          {pmDraft.map((row, i) => (
+            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <SearchableSelectEditor
+                  value={row.employeeId}
+                  options={employeeOptions}
+                  onChange={v => setPmRowEmployee(i, v)}
+                  placeholder="Select project manager"
+                  formatOptionLabel={formatEmployeeOption}
+                />
+              </div>
+              <div style={{ width: 90, display: 'flex', justifyContent: 'center' }}>
+                <input
+                  type="radio"
+                  name="pm-primary"
+                  checked={row.isPrimary}
+                  onChange={() => setPmPrimary(i)}
+                  disabled={!row.employeeId}
+                  title={row.employeeId ? 'Make this the primary manager' : 'Pick a manager first'}
+                  style={{ width: 18, height: 18, cursor: row.employeeId ? 'pointer' : 'not-allowed', accentColor: '#1E3A8A' }}
+                />
+              </div>
+              <button type="button" onClick={() => removePmRow(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
+            </div>
+          ))}
+
+          <button type="button" onClick={addPmRow} style={addBtn}><i className="bi bi-plus-lg" /> Add manager</button>
+
+          {pmHasDuplicates && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, padding: '10px 12px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fde68a', fontFamily: 'Inter', fontSize: 12.5, color: '#92400e' }}>
+              <i className="bi bi-exclamation-triangle" style={{ marginTop: 1 }} />
+              <span>The same person is selected more than once — the duplicate will be ignored on save.</span>
+            </div>
+          )}
+
           <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#94A3B8', marginTop: 10 }}>
-            Execution Team and Status are unaffected.
+            {pmDraftClean.length > 1
+              ? 'The primary manager is the one shown in the projects tables and exports; all managers can see this project.'
+              : 'Execution Team and Status are unaffected.'}
           </div>
         </Modal.Body>
         <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6' }}>
@@ -797,7 +948,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             type="button"
             className="btn btn-primary btn-sm"
             onClick={confirmPmChange}
-            disabled={savingPm || draftPmId === (ex.projectManagerId || '')}
+            disabled={savingPm || !pmDirty}
             style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
           >
             {savingPm ? 'Saving...' : 'Save'}

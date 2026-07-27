@@ -34,18 +34,45 @@ export const employeeNameById = (list: any[], id?: string | null): string | null
 };
 
 /**
- * Project Manager name — mirrors the edit form's fallback. The form's "Project
+ * Every project-manager employee id, primary first.
+ *
+ * A project can have several managers. They live in `projectManagers` (ordered
+ * primary-first by the API); `projectManagerId` holds only the mirrored primary,
+ * so it's a fallback for payloads that predate the roster or don't select it.
+ */
+export const projectManagerIds = (project: any): string[] => {
+  const roster: any[] = project?.projectManagers || [];
+  const ids = roster
+    .map((m: any) => String(m?.employeeId || m?.id || ''))
+    .filter(Boolean);
+  if (ids.length > 0) return ids;
+  // `projectManagerIds` is the flattened form the projects list endpoint sends.
+  const flat: any[] = project?.projectManagerIds || [];
+  if (Array.isArray(flat) && flat.length > 0) return flat.map(String).filter(Boolean);
+  return project?.projectManagerId ? [String(project.projectManagerId)] : [];
+};
+
+/**
+ * Project Manager name(s) — mirrors the edit form's fallback. The form's "Project
  * Manager" field is `project.projectManagerId || project.assignedToId`, and on
  * save it writes BOTH columns to the same value. So a project may carry the
  * manager only on assignedToId; we resolve the same chain so the detail page
  * matches what the form shows instead of rendering "—".
+ *
+ * With several managers this returns them comma-separated, primary first.
  */
-export const projectManagerName = (project: any, list: any[]): string | null =>
-  employeeUserName(project?.projectManager) ||
-  employeeNameById(list, project?.projectManagerId) ||
-  employeeUserName(project?.assignedTo) ||
-  employeeNameById(list, project?.assignedToId) ||
-  null;
+export const projectManagerName = (project: any, list: any[]): string | null => {
+  const names = projectManagerIds(project)
+    .map(id => employeeNameById(list, id))
+    .filter(Boolean);
+  if (names.length > 0) return names.join(', ');
+  return (
+    employeeUserName(project?.projectManager) ||
+    employeeUserName(project?.assignedTo) ||
+    employeeNameById(list, project?.assignedToId) ||
+    null
+  );
+};
 
 // ── Commercial roll-up (lead.commercials OR project.projectCommercialMappings) ──
 
@@ -208,7 +235,9 @@ export const computeMissingInfo = (lead: any): MissingItem[] => {
   if (lead?.status?.isProjectTrigger) {
     const p = lead?.project;
     const exec = lead?.execution || {};
-    if (!has(exec.projectManagerId ?? p?.projectManagerId)) out.push({ label: 'Project manager', step: 6 });
+    // Any manager on the roster counts — only a completely unmanaged project is missing one.
+    const managers = projectManagerIds(lead).length || projectManagerIds({ ...p, projectManagers: null }).length;
+    if (!managers && !has(exec.projectManagerId ?? p?.projectManagerId)) out.push({ label: 'Project manager', step: 6 });
     if (!has(lead?.startDate ?? p?.startDate)) out.push({ label: 'Start date', step: 6 });
     if (!has(lead?.endDate ?? p?.endDate)) out.push({ label: 'Expected closure', step: 6 });
   }

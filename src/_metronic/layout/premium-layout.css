@@ -609,7 +609,11 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35) !important;
 }
 
-.header-user-menu-wrapper .menu-item:first-child {
+/* The non-interactive avatar/name/email block at the top of the dropdown.
+   MUST stay a DIRECT-child selector: as a descendant selector this also matched
+   the first .menu-item inside the links wrapper below, and `pointer-events: none`
+   made "My Profile" completely unclickable. */
+.header-user-menu-wrapper > .menu-item:first-child {
   pointer-events: none !important;
   background: #f8fafc !important;
   display: flex !important;
@@ -617,7 +621,7 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
   align-items: center !important;
 }
 
-[data-bs-theme="dark"] .header-user-menu-wrapper .menu-item:first-child {
+[data-bs-theme="dark"] .header-user-menu-wrapper > .menu-item:first-child {
   background: #181824 !important;
 }
 
