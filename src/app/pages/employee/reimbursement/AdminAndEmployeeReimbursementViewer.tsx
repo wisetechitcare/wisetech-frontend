@@ -16,7 +16,7 @@ import { leadsIcons, loanIcons, reimbursementsIcons } from "@metronic/assets/sid
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
-import { canDo } from "@utils/can";
+import { canViewFinanceTab } from "@utils/financeTabs";
 
 
 function AdminAndEmployeeReimbursementViewer() {
@@ -35,33 +35,32 @@ function AdminAndEmployeeReimbursementViewer() {
     }
   }, [location.state]);
 
-  // Employees Reimbursements / Search Employee / Payment / Configure are
-  // write-only surfaces: a read-only viewer gets My Reimbursements only, same
-  // convention as KPI/Tasks/Leads/Salary.
-  const canWrite = canDo("finance.reimbursements", "update");
-
+  // Each tab is gated on its EXACT catalog key (canViewFinanceTab) so granting one
+  // shows only that tab — no cascade. My Reimbursements = view.self, Employees =
+  // view.all, Payment = approve.all, Search + Configure = manage.all (a distinct
+  // admin tier). Admins on flat `finance.*` still see all via the flat fallback.
   const tabItems: TabItem[] = [
-    ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOwn) ? [{
+    ...(canViewFinanceTab('reimb.my') ? [{
       title: "My Reimbursements",
       component: <Reimbursement />,
       icon: 'bi-receipt',
     }]:[]),
-    ...(canWrite ? [{
+    ...(canViewFinanceTab('reimb.employees') ? [{
       title: "Employees Reimbursements",
       component: <AllEmployee />,
       icon: 'bi-receipt-cutoff',
     }]:[]),
-    ...(canWrite ? [{
+    ...(canViewFinanceTab('reimb.search') ? [{
       title: "Search Employee",
       component: <SearchEmployee />,
       icon: 'bi-search',
     }]:[]),
-    ...(canWrite ? [{
+    ...(canViewFinanceTab('reimb.payment') ? [{
       title: "Payment",
       component: <PaymentTab />,
       icon: 'bi-credit-card',
     }]:[]),
-    ...(canWrite ? [{
+    ...(canViewFinanceTab('reimb.configure') ? [{
       title: "Configure",
       component: <ReimbursementConfiguration />,
       icon: 'bi-gear',

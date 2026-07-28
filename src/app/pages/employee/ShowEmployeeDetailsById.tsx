@@ -229,10 +229,9 @@ Location: ${branches?.address || 'N/A'}`;
             <i className="bi bi-whatsapp" aria-hidden></i>
             Share Details
           </button>
-          {hasPermission(
-            resourceNameMapWithCamelCase.employee,
-            permissionConstToUseWithHasPermission.editOthers
-          ) && (
+          {/* App Settings is a MANAGE action → record-level: only when the viewer
+              may edit THIS employee (within their users.update reach). */}
+          {employee?.canManage && (
             <button
               type="button"
               onClick={() => setShowAppSettingsModal(true)}

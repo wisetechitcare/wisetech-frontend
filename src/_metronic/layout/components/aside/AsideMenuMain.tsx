@@ -42,8 +42,13 @@ export function AsideMenuMain() {
     if (item.type === 'section') {
       return (
         <div className='menu-item' key={item.id}>
-          <div className='menu-content py-2'>
-            <span className='menu-section text-muted text-uppercase fs-5 ls-1 fw-semibold'>
+          {/* Solid straight divider above every section header so domains read as distinct groups */}
+          <div className='my-3 mx-4' style={{ borderTop: '1px solid var(--bs-gray-300)' }}></div>
+          <div className='menu-content pt-1 pb-2'>
+            <span
+              className='menu-section text-uppercase fw-bolder fs-5'
+              style={{ color: 'var(--bs-primary)', letterSpacing: '0.12em' }}
+            >
               {item.title}
             </span>
           </div>

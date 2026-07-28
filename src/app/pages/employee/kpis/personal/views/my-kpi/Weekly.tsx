@@ -103,10 +103,10 @@ const Weekly: React.FC<WeeklyProps> = ({
   useEffect(() => {
     if (!employeeId) return;
 
-    const res = hasPermission(
-      resourseAndView[0]?.resource,
-      permissionConstToUseWithHasPermission.readOthers
-    );
+    // My KPI is the employee's OWN KPI — allow it with readOwn (view.self); an
+    // admin viewing someone else still passes via readOthers.
+    const res = hasPermission(resourseAndView[0]?.resource, permissionConstToUseWithHasPermission.readOwn)
+      || hasPermission(resourseAndView[0]?.resource, permissionConstToUseWithHasPermission.readOthers);
 
     if (res) setShowData(true);
   }, [employeeId]);

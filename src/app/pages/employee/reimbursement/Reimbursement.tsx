@@ -40,6 +40,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import ReimbursementPaymentHistoryTable from "./components/ReimbursementPaymentHistoryTable";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
+import { canEditFinanceTab } from "@utils/financeTabs";
 import eventBus from "@utils/EventBus";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -680,10 +681,7 @@ function Reimbursement() {
         selectedEmployeeId={employeeId}
         actionSlot={
           <div className="d-flex align-items-center gap-3">
-            {pendingDraftsCount === 0 && hasPermission(
-              resourceNameMapWithCamelCase.reimbursement,
-              permissionConstToUseWithHasPermission.create
-            ) && (
+            {pendingDraftsCount === 0 && canEditFinanceTab('reimb.my') && (
                 <button
                   onClick={() => pendingPageRef.current?.openAddModal()}
                   style={{

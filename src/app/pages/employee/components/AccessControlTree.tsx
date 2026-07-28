@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { ACCESS_AREAS, AccessArea } from "@utils/accessAreas";
+import type { FinanceTabDef } from "@utils/financeTabs";
 import LiveCountdown from "./LiveCountdown";
 
 const ACCENT = "#1E3A8A";
@@ -62,6 +63,17 @@ interface Props {
    * refresh from the server and reflect the now-expired override reverting to
    * the role's default. Only used in "employee" variant. */
   onExpired?: (module: string) => void;
+  /**
+   * Per-section TAB rows to inject as expandable children under the matching leaf
+   * module (keyed by module, e.g. 'finance.salary' → its tabs). A section with tabs
+   * becomes a group; each tab is a Read/Write row. Read = the tab's view key,
+   * Write = its edit key.
+   */
+  tabsByModule?: Record<string, FinanceTabDef[]>;
+  /** Current Read/Write state per tab id (Read = holds view key, Write = holds edit key). */
+  tabState?: Record<string, { read: boolean; write: boolean }>;
+  /** Toggle a tab's Read or Write. */
+  onToggleTab?: (tab: FinanceTabDef, field: "read" | "write") => void;
 }
 
 interface TNode {
@@ -69,14 +81,19 @@ interface TNode {
   module: string;
   label: string;
   children: TNode[];
+  /** Present when this node is a TAB (rendered as a Read/Write row, not a module). */
+  tabDef?: FinanceTabDef;
 }
 
-const toNode = (a: AccessArea): TNode => ({
-  key: a.module,
-  module: a.module,
-  label: a.label,
-  children: (a.children || []).map(toNode),
-});
+const toNode = (a: AccessArea, tabsByModule?: Record<string, FinanceTabDef[]>): TNode => {
+  const childAreas = (a.children || []).map((c) => toNode(c, tabsByModule));
+  // A leaf that has registered tabs becomes an expandable group of tab rows.
+  const tabs = childAreas.length === 0 ? tabsByModule?.[a.module] : undefined;
+  const children: TNode[] = childAreas.length
+    ? childAreas
+    : (tabs ?? []).map((t) => ({ key: t.id, module: t.id, label: t.title, children: [], tabDef: t }));
+  return { key: a.module, module: a.module, label: a.label, children };
+};
 
 const PRESETS: Array<{ label: string; ms: number }> = [
   { label: "1h", ms: 3600_000 },
@@ -258,12 +275,12 @@ const LeafControls: React.FC<{
   );
 };
 
-const AccessControlTree: React.FC<Props> = ({ levels, expiries, customModules, dirtyModules, onSetLevel, onSetExpiry, onResetToRole, variant = "employee", readOnly = false, onExpired }) => {
+const AccessControlTree: React.FC<Props> = ({ levels, expiries, customModules, dirtyModules, onSetLevel, onSetExpiry, onResetToRole, variant = "employee", readOnly = false, onExpired, tabsByModule, tabState, onToggleTab }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
 
-  const tree = useMemo(() => ACCESS_AREAS.map(toNode), []);
+  const tree = useMemo(() => ACCESS_AREAS.map((a) => toNode(a, tabsByModule)), [tabsByModule]);
 
   const matches = useCallback((n: TNode): boolean => n.label.toLowerCase().includes(q) || n.children.some(matches), [q]);
 
@@ -353,14 +370,19 @@ const AccessControlTree: React.FC<Props> = ({ levels, expiries, customModules, d
                   <span style={{ fontWeight: hasChildren ? 600 : 500, fontSize: hasChildren ? 13.5 : 12.5, color: "#1f2733", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {node.label}
                   </span>
-                  {isLeaf && variant === "employee" && (
+                  {isLeaf && !node.tabDef && variant === "employee" && (
                     customModules?.has(node.module)
                       ? <span style={{ fontSize: 9.5, color: ACCENT, background: "#fbf3f3", border: `1px solid ${ACCENT}40`, borderRadius: 999, padding: "1px 7px", textTransform: "uppercase", letterSpacing: ".4px", flexShrink: 0 }}>Custom</span>
                       : <span style={{ fontSize: 9.5, color: "#aeb6c1", textTransform: "uppercase", letterSpacing: ".4px", flexShrink: 0 }}>Inherited</span>
                   )}
                 </div>
 
-                {isLeaf && (
+                {node.tabDef ? (
+                  <div className="d-flex align-items-center" style={{ gap: 14 }}>
+                    <Checkbox checked={tabState?.[node.tabDef.id]?.read ?? false} label="Read" onChange={() => onToggleTab?.(node.tabDef!, "read")} disabled={readOnly} />
+                    <Checkbox checked={tabState?.[node.tabDef.id]?.write ?? false} label="Write" onChange={() => onToggleTab?.(node.tabDef!, "write")} disabled={readOnly || !node.tabDef.editKey} />
+                  </div>
+                ) : isLeaf ? (
                   <LeafControls
                     module={node.module}
                     level={levels[node.module] || "none"}
@@ -374,7 +396,7 @@ const AccessControlTree: React.FC<Props> = ({ levels, expiries, customModules, d
                     dirty={dirty}
                     onExpired={onExpired}
                   />
-                )}
+                ) : null}
               </div>
             );
           })

@@ -1,5 +1,7 @@
 // utils/dynamicRoles.ts
 import { fetchRoles } from '@services/roles';
+import { store } from '@redux/store';
+import { can } from './can';
 
 /**
  * Fetches roles from the backend and constructs a dynamic ROLES object.
@@ -22,7 +24,29 @@ import { fetchRoles } from '@services/roles';
  */
 export async function getDynamicRolesObject() {
   try {
-    const response = await fetchRoles();
+    // GET /api/roles is admin-gated (accesscontrol.view). Once capabilities are
+    // loaded, skip the call entirely for non-administrators so their sessions
+    // don't emit expected-403 noise on every page (e.g. the attendance calendar).
+    // During bootstrap the capabilities aren't loaded yet (empty array) — we
+    // still attempt the fetch and let the 403 handler below degrade gracefully.
+    const caps = (store.getState() as any).authz?.capabilities;
+    if (Array.isArray(caps) && caps.length > 0 && !can('accesscontrol.view.all')) {
+      return {};
+    }
+
+    let response;
+    try {
+      response = await fetchRoles();
+    } catch (err: any) {
+      // GET /api/roles is admin-gated (accesscontrol.view). A 403 just means the
+      // current user isn't a role administrator — a NORMAL state for employees,
+      // not a failure. Return an empty legacy map so app bootstrap succeeds and
+      // doesn't retry-storm; real authorization is enforced by the capability
+      // system (can()), which hasPermission() consults first. Other errors
+      // (network / 5xx) still propagate so session bootstrap can retry.
+      if (err?.response?.status === 403) return {};
+      throw err;
+    }
     const rolesData = response?.data; // Array of roles with permissions
     // console.log("responseFromGetDynamicRolesObject: ",rolesData);
 

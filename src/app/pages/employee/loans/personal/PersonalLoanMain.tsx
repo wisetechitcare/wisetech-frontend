@@ -11,63 +11,43 @@ import InstallmentsAdmin from '../admin/views/Installments';
 import SearchEmployee from '../admin/views/SearchEmployee';
 import EmployeeLoanInformation from './EmployeeLoanInformation';
 import { loanIcons } from '@metronic/assets/sidepanelicons';
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
-import { hasPermission } from '@utils/authAbac';
+import { resourceNameMapWithCamelCase } from '@constants/statistics';
+import { canViewFinanceTab } from '@utils/financeTabs';
 
 function PersonalLoanMain() {
     const dispatch = useDispatch();
 
     const [activeTab, setActiveTab] = useState(0);
-    const viewOwnPermissionLoan = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.readOwn)
-    const viewOthersPermissionLoan = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.readOthers)
-    const viewOwnPermissionLoanInstallment = hasPermission(resourceNameMapWithCamelCase.loanInstallment, permissionConstToUseWithHasPermission.readOwn)
-    const viewOthersPermissionLoanInstallment = hasPermission(resourceNameMapWithCamelCase.loanInstallment, permissionConstToUseWithHasPermission.readOthers)
-  
-    const tabItems: TabItem[] = [
-      {
-        title: "Loans",
-        component: <PersonalLoan resource={resourceNameMapWithCamelCase.loan} viewOthers={true} viewOwn={true} />,
-        icon: 'bi-cash-coin',
-      },
-      {
-        title: "Installments",
-        component: <Installments />,
-        icon: 'bi-calendar-week',
-      },
-      {
-        title: "Configure",
-        component: <EmployeeLoanInformation />,
-        icon: 'bi-gear',
-      }
-    ];
 
+    // Tabs gated on the finance tab catalog (finance.loans.*), so they respond to
+    // role grants AND per-employee overrides from Employee Access.
     const tabItemsAdmin: TabItem[] = [
-      ...(viewOwnPermissionLoan ? [{
+      ...(canViewFinanceTab('loans.my') ? [{
         title: "Personal Loans",
         component: <PersonalLoan resource={resourceNameMapWithCamelCase.loan} viewOthers={true} viewOwn={true} />,
         icon: 'bi-cash-coin',
       }] : []),
-      ...(viewOwnPermissionLoanInstallment ? [{
+      ...(canViewFinanceTab('loans.my') ? [{
         title: "Personal Installments",
         component: <Installments />,
         icon: 'bi-calendar-week',
       }]:[]),
-      ...(viewOthersPermissionLoan ? [{
+      ...(canViewFinanceTab('loans.overview') ? [{
         title: "Overview",
         component: <Overview />,
         icon: 'bi-grid-1x2',
       }]:[]),
-      ...(viewOthersPermissionLoanInstallment ? [{
+      ...(canViewFinanceTab('loans.installments') ? [{
         title: "Installments",
         component: <InstallmentsAdmin />,
         icon: 'bi-calendar-week',
       }]:[]),
-      ...(viewOthersPermissionLoan ? [{
+      ...(canViewFinanceTab('loans.search') ? [{
         title: "Search Employees",
         component: <SearchEmployee />,
         icon: 'bi-search',
       }]:[]),
-      ...((viewOthersPermissionLoan|| viewOwnPermissionLoan) ? [{
+      ...(canViewFinanceTab('loans.configure') ? [{
         title: "Configure",
         component: <Information />,
         icon: 'bi-gear',

@@ -12,22 +12,14 @@ import FaqsMainPage from '@pages/company/organisationInfo/faqs/FaqsMainPage';
 import DailyShiftTime from './attendance/AttendanceConfig/component/DailyShiftTime';
 import AttendanceConfig from './attendance/AttendanceConfig/AttendanceConfig';
 import AttendanceAdminFaqs from './adminFaqs/AttendaceAdminFaqs';
-import { hasPermission } from '@utils/authAbac';
-import { can } from '@utils/can';
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
+import { useVisibility, type VisibilityReq } from '@utils/visibility';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch } from '@redux/store';
 
-// Configure/FAQS are sub-tabs of this same "Employees" attendance page, so their
-// visibility follows the same access.employees.view grant that unlocks the page
-// itself - not the unrelated "attendanceconfig"/settings resource these previously
-// (and incorrectly) checked. Kept as an OR so any role already relying on the old
-// resource for this stays working.
-const canViewEmployeesAttendanceConfig = () =>
-    can('attendance.employees.view.all') ||
-    hasPermission(resourceNameMapWithCamelCase.attendanceConfig, permissionConstToUseWithHasPermission.readOthers);
-
 const EmployeesAttendanceView = () => {
+    // Every tab derives from the Visibility Layer (RULE 3). Overview/Individual are
+    // team-attendance views; Configure/FAQS are the admin config surface.
+    const { canSeeTab } = useVisibility();
     const [activeTab, setActiveTab] = useState(0);
     const [informationKey, setInformationKey] = useState(0);
     const dispatch = useDispatch();
@@ -48,46 +40,13 @@ const EmployeesAttendanceView = () => {
         }
     }, [activeTab]);
 
-    const tabItems: TabItem[] = [
-        {
-            title: 'Overview',
-            component: <OverviewView />,
-            icon: 'bi-grid-1x2',
-        },
-        {
-            title: 'Individual',
-            component: <IndividualView />,
-            icon: 'bi-person',
-        },
-        // {
-        //     title: 'Configure',
-        //     component: <Information key={informationKey} />,
-        //     icon: activeTab === 2 ? leadsIcons.leadsConfigIcon.active
-        //               : leadsIcons.leadsConfigIcon.default, // Can be SVG or Image URL
-        // },
-        // {
-        //     title: 'FAQS',
-        //     component: <FaqsMainPage />,
-        //     icon: activeTab === 3 ? faqsIcons.faqDefualtIcon?.active
-        //               : faqsIcons.faqDefualtIcon?.default, // Can be SVG or Image URL
-        // },
-         ...(canViewEmployeesAttendanceConfig()
-            ? [{
-                title: 'Configure',
-                component: <AttendanceConfig/>,
-                icon: 'bi-gear',
-            }]
-            : []
-        ),
-
-          ...(canViewEmployeesAttendanceConfig()
-            ? [{
-            title: 'FAQS',
-            component: <AttendanceAdminFaqs />,
-            icon: 'bi-question-circle',
-        }]: []),
-
+    const allTabs: Array<{ req: VisibilityReq; item: TabItem }> = [
+        { req: { capability: 'attendance.view.team' }, item: { title: 'Overview', component: <OverviewView />, icon: 'bi-grid-1x2' } },
+        { req: { capability: 'attendance.view.team' }, item: { title: 'Individual', component: <IndividualView />, icon: 'bi-person' } },
+        { req: { capability: 'attendance.manage.team' }, item: { title: 'Configure', component: <AttendanceConfig />, icon: 'bi-gear' } },
+        { req: { capability: 'attendance.manage.team' }, item: { title: 'FAQS', component: <AttendanceAdminFaqs />, icon: 'bi-question-circle' } },
     ];
+    const tabItems: TabItem[] = allTabs.filter((t) => canSeeTab(t.req)).map((t) => t.item);
 
     const newAttendanceWizardBreadcrumb: Array<PageLink> = [
         {
@@ -107,7 +66,7 @@ const EmployeesAttendanceView = () => {
     return (
         <>
             <PageTitle breadcrumbs={newAttendanceWizardBreadcrumb}>Attendance</PageTitle>
-            <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab}/>
+            <MaterialHeaderTab tabItems={tabItems} activeTab={Math.min(activeTab, Math.max(0, tabItems.length - 1))} onTabChange={setActiveTab}/>
         </>
     );
 };

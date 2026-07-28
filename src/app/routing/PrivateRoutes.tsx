@@ -1,5 +1,5 @@
 import { FC, lazy, Suspense, useEffect, useState } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { MasterLayout } from '../../_metronic/layout/MasterLayout'
 import TopBarProgress from 'react-topbar-progress-indicator'
 import { DashboardWrapper } from '../pages/dashboard/DashboardWrapper'
@@ -82,7 +82,32 @@ const ChatPage = lazy(() => import('../modules/apps/chat/ChatPage'))
 const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage'))
 const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
 const AppSettings = lazy(() => import('@pages/admin/AppSettings').then(m => ({ default: m.AppSettings })))
-const RolesPermissions = lazy(() => import('@pages/admin/RolesPermissions').then(m => ({ default: m.RolesPermissions })))
+// Redirect that preserves route params (e.g. :personId) when forwarding a legacy
+// URL to its canonical Access Control route. Used only for backward-compat redirects.
+const ParamRedirect = ({ to }: { to: string }) => {
+  const params = useParams()
+  let target = to
+  for (const [k, v] of Object.entries(params)) if (v) target = target.replace(`:${k}`, v)
+  return <Navigate to={target} replace />
+}
+// Access Control (Phase 5.1) — read-only role browsing. Lazy so the module is a
+// separate chunk and never loads for users who don't open it.
+const AccessControlRoles = lazy(() => import('@modules/access-control/pages/RoleDashboardPage').then(m => ({ default: m.RoleDashboardPage })))
+const AccessControlRoleDetails = lazy(() => import('@modules/access-control/pages/RoleDetailsPage').then(m => ({ default: m.RoleDetailsPage })))
+// Shared layout: mounts the Global Scope Bar + AccessScopeProvider once for the whole module.
+const AccessControlLayout = lazy(() => import('@modules/access-control/scope/AccessControlLayout').then(m => ({ default: m.AccessControlLayout })))
+// Organization Management (Phase 6.1) — multi-tenant org structure. Lazy so the
+// module is a separate chunk and never loads for users who don't open it.
+const OrganizationTenants = lazy(() => import('@modules/organization/pages/TenantDashboardPage').then(m => ({ default: m.TenantDashboardPage })))
+const OrganizationTenantDetails = lazy(() => import('@modules/organization/pages/OrganizationPage').then(m => ({ default: m.OrganizationPage })))
+// Access Control → Assignments (Phase 6.2) — role assignment & access management.
+// Lazy so the module is a separate chunk and never loads for users who don't open it.
+// Employee Access — the unified employee-centric experience (Step 4). Reuses the
+// assignment/effective/history pages internally as tabs.
+const EmployeeAccessList = lazy(() => import('@modules/access-control/employee/EmployeeAccessListPage').then(m => ({ default: m.EmployeeAccessListPage })))
+const EmployeeAccessDetail = lazy(() => import('@modules/access-control/employee/EmployeeAccessDetailPage').then(m => ({ default: m.EmployeeAccessDetailPage })))
+// Audit Logs — the read-only access-governance history (Step 5).
+const AuditLogs = lazy(() => import('@modules/access-control/audit/AuditLogsPage').then(m => ({ default: m.AuditLogsPage })))
 const PrivateRoutes = () => {
   const [isStored, setIsStored] = useState(false)
   const employeeId = useSelector(
@@ -796,12 +821,56 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
+        {/* Legacy Access Control entry → canonical Roles route (stub page retained, not deleted). */}
+        <Route path='/admin/roles-permissions' element={<Navigate to='/access-control/roles' replace />} />
+
+        {/* ── Access Control — single entry, one shared scope (Global Scope Bar) ──
+            The layout mounts the AccessScopeProvider + Global Scope Bar once; child
+            pages render through <Outlet/> and share the same organizational scope.
+            The module guard sits on the layout, so it applies to every child once. */}
         <Route
-          path='/admin/roles-permissions'
+          path='/access-control'
           element={
-            <SuspensedView>
-              <RolesPermissions />
-            </SuspensedView>
+            <SectionGuard module='accesscontrol' permission="accesscontrol.view.all">
+              <SuspensedView>
+                <AccessControlLayout />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        >
+          <Route index element={<Navigate to='/access-control/roles' replace />} />
+          <Route path='roles' element={<SuspensedView><AccessControlRoles /></SuspensedView>} />
+          <Route path='roles/:id' element={<SuspensedView><AccessControlRoleDetails /></SuspensedView>} />
+          {/* Employee Access — one employee, one place (search → shell with tabs). */}
+          <Route path='employees' element={<SuspensedView><EmployeeAccessList /></SuspensedView>} />
+          <Route path='employees/:personId' element={<SuspensedView><EmployeeAccessDetail /></SuspensedView>} />
+          {/* Audit Logs — the read-only access-governance history. */}
+          <Route path='audit' element={<SuspensedView><AuditLogs /></SuspensedView>} />
+          {/* Legacy assignment routes → Employee Access (params preserved; pages retained). */}
+          <Route path='assignments' element={<Navigate to='/access-control/employees' replace />} />
+          <Route path='assignments/effective/:personId' element={<ParamRedirect to='/access-control/employees/:personId' />} />
+          <Route path='assignments/history/:personId' element={<ParamRedirect to='/access-control/employees/:personId' />} />
+        </Route>
+
+        {/* Organization Management — multi-tenant org structure (Phase 6.1) */}
+        <Route
+          path='/organization'
+          element={
+            <SectionGuard module='settings' permission="users.view.all">
+              <SuspensedView>
+                <OrganizationTenants />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          path='/organization/tenants/:tenantId'
+          element={
+            <SectionGuard module='settings' permission="users.view.all">
+              <SuspensedView>
+                <OrganizationTenantDetails />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         {/* Page Not Found */}

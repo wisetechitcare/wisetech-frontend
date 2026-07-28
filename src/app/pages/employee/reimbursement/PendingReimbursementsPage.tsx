@@ -29,6 +29,7 @@ import { KTIcon } from '@metronic/helpers';
 import { Avatar, Box, Chip, Paper, Skeleton, Stack, Tooltip, Typography } from '@mui/material';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import { getAvatar } from '@utils/avatar';
+import { canEditFinanceTab } from '@utils/financeTabs';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
@@ -1227,7 +1228,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                   <span>Add Reimbursement Request</span>
                 </button>
               )}
-            {drafts.length > 0 && (
+            {drafts.length > 0 && canEditFinanceTab('reimb.my') && (
               <button
                 onClick={handleSendForApproval}
                 disabled={submitting}

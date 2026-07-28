@@ -5,6 +5,7 @@ import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/
 import { KTCard, KTCardBody } from "@metronic/helpers";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@redux/store";
+import { useVisibility } from "@utils/visibility";
 import TodoCard from "./Todo";
 import UpcomingEventsCard from "./UpcomingThings";
 import PendingRequestsTable from "./PendingRequestsTable";
@@ -62,6 +63,14 @@ const DashboardPage = () => {
 
   // Dashboard settings hook (key forces re-render when settings change)
   const { isSectionEnabled, refreshSettings } = useDashboardSettings();
+
+  // Manager/company-wide widgets derive visibility from the Visibility Layer
+  // (canSeeWidget) — the single abstraction, reactive to capability changes. A
+  // widget renders only when the user holds the required (team-or-broader)
+  // permission; otherwise it neither renders NOR fires its admin API calls.
+  // Employee-facing cards (mark attendance, my KPI, my loans, announcements,
+  // todos, events) stay ungated — everyone keeps their self-service.
+  const { canSeeWidget } = useVisibility();
 
   const dispatch = useDispatch<AppDispatch>();
 
@@ -183,11 +192,11 @@ const DashboardPage = () => {
 
         </div>
 
-        {/* Daily Attendance Overview Section */}
-        { isSectionEnabled("dailyAttendanceOverview") && <DashboardDailyAttendanceOverview />}
+        {/* Daily Attendance Overview Section — company/team attendance (manager) */}
+        { isSectionEnabled("dailyAttendanceOverview") && canSeeWidget({ capability: "attendance.view.team" }) && <DashboardDailyAttendanceOverview />}
 
-        {/* Tasks Section */}
-        {isSectionEnabled("tasks") && (
+        {/* Tasks Section — team task metrics/list (manager) */}
+        {isSectionEnabled("tasks") && canSeeWidget({ capability: "tasks.view.team" }) && (
         <DashboardTasks
           onNewTaskClick={handleNewTaskClick}
           onEditTask={handleEditTask}
@@ -216,8 +225,8 @@ const DashboardPage = () => {
           </div>
         </div> */}
 
-        {/* Pending Requests Table */}
-        {isSectionEnabled("pendingRequests") && (
+        {/* Pending Requests Table — team/approver queue (manager/approver) */}
+        {isSectionEnabled("pendingRequests") && canSeeWidget({ anyOf: [{ capability: "approvals.view.team" }, { capability: "attendance.view.team" }] }) && (
         <div className="row mt-5">
           <div className="col-12 mb-5">
             <PendingRequestsTable />
@@ -225,8 +234,8 @@ const DashboardPage = () => {
         </div>
         )}
 
-        {/* Leaderboard Section */}
-        {isSectionEnabled("leaderboard") && (
+        {/* Leaderboard Section — team KPI leaderboard (manager) */}
+        {isSectionEnabled("leaderboard") && canSeeWidget({ capability: "kpi.view.team" }) && (
         <div className="row mt-5">
           <div className="col-12 mb-5">
             <DashboardLeaderboard />
@@ -234,8 +243,8 @@ const DashboardPage = () => {
         </div>
         )}
 
-        {/* Lead Analytics Graphs */}
-        {isSectionEnabled("analyticsGraphs") && (
+        {/* Lead / Project Analytics Graphs — CRM + team project charts (manager) */}
+        {isSectionEnabled("analyticsGraphs") && canSeeWidget({ anyOf: [{ capability: "projects.view.team" }, { capability: "crm.leads.view.team" }] }) && (
         <div className="row mt-5">
           <div className="col-12 mb-5">
             <DashboardGraph />

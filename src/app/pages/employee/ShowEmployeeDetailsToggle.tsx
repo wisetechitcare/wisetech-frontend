@@ -165,8 +165,10 @@ const ShowEmployeeDetailsToggle = () => {
           </div>
         </div> 
 
-        {/* Right Buttons */}
-        {hasPermission(resourceNameMapWithCamelCase.employee, permissionConstToUseWithHasPermission.editOthers) && (
+        {/* Right Buttons — RECORD-LEVEL: only when the viewer may EDIT this specific
+            employee (target within their users.update reach). A Company-view /
+            Team-edit actor can open anyone but only edit their team. */}
+        {employee?.canManage && (
           <div className="d-flex gap-2 w-100 w-md-auto">
             <button
               className="btn btn-primary rounded-2 px-3 px-md-4 w-100 w-md-auto"

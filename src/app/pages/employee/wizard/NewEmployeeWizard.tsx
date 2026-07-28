@@ -1271,8 +1271,15 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
 
     if (appRole) {
-      try { await updateEmployeeRolesById(employeeId, { roleIds: [appRole] }); }
-      catch (error) { console.log("Error while updating employee roles", error); }
+      try {
+        await updateEmployeeRolesById(employeeId, { roleIds: [appRole] });
+      } catch (error: any) {
+        // Surface, don't swallow (see the onboarding path). A silent failure here —
+        // e.g. assigning a role at/above your own level — hid that the role never changed.
+        errorConfirmation(error?.response?.data?.message
+          || "The role could not be updated (it may be at or above your own level). Other changes are unaffected.");
+        console.error("Error while updating employee roles", error);
+      }
     }
 
     const aadharDocumentId = values?.documentFields?.find(
@@ -1505,13 +1512,29 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         const savedEmployeeId = await saveNewEmployee(values, savedUserId);
         if (!savedEmployeeId) throw new Error("Failed to save employee data");
 
+        // Assign the selected role via the SAME endpoint the Access tab uses
+        // (PUT /employee/:id/roles → replaces the role set + busts the permission
+        // cache). Do NOT swallow the error: a silent failure here made onboarding
+        // report success while the role never applied (e.g. an Admin trying to
+        // assign the Admin role — the backend's anti-escalation guard blocks
+        // assigning a role at or above your own level; only a Super Admin can).
+        let roleAssignError: string | null = null;
         if (values.appRole) {
-          try { await updateEmployeeRolesById(savedEmployeeId, { roleIds: [values.appRole] }); }
-          catch (roleError) { console.error("Error while updating employee roles:", roleError); }
+          try {
+            await updateEmployeeRolesById(savedEmployeeId, { roleIds: [values.appRole] });
+          } catch (roleError: any) {
+            roleAssignError = roleError?.response?.data?.message
+              || "The employee was created, but the selected role could not be assigned. Assign it from the employee's Access tab.";
+            console.error("Error while updating employee roles:", roleError);
+          }
         }
 
         await saveEmployeeData(values, savedEmployeeId);
-        successConfirmation("Successfully onboarded an employee");
+        if (roleAssignError) {
+          errorConfirmation(`Employee onboarded, but the role was not applied:<br><br>${roleAssignError}`);
+        } else {
+          successConfirmation("Successfully onboarded an employee");
+        }
         clearDraft();
         stepper?.goto(1);
         setActiveStepIndex(1);

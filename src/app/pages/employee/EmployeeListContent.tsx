@@ -9,6 +9,7 @@ import { RootState } from "@redux/store";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { hasPermission } from "@utils/authAbac";
 import { usePermission } from "@hooks/usePermission";
+import { useVisibility } from "@utils/visibility";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { fetchAllBranches } from "@services/company";
 import Loader from "@app/modules/common/utils/Loader";
@@ -264,6 +265,7 @@ const EmployeeListContent = () => {
   ], [handleEditClick, handleWhatsAppShare]);
 
   const canManageEmployees = usePermission('users.manage.all');
+  const { canSeeAction } = useVisibility(); // buttons derive from the Visibility Layer
 
   const columns = useMemo(() =>
     canManageEmployees ? [...baseColumns, ...adminColumns] : baseColumns,
@@ -281,15 +283,23 @@ const EmployeeListContent = () => {
           setDataLoading(true);
         }
 
-        // Always fetch all employees to get counts
-        const [employeesRes, branchesRes] = await Promise.all([
-          fetchAllEmployees(), // No filter - get all employees
-          fetchAllBranches()
+        // Employees are essential; branches are BEST-EFFORT. The branches endpoint
+        // requires admin `settings.view.all`, which a non-admin (scoped) viewer
+        // lacks — a 403 there must NOT wipe the employee list. Each employee already
+        // carries its own `branches` relation for the name; the branches list only
+        // powers the filter dropdown. So load them independently.
+        const [employeesSettled, branchesSettled] = await Promise.allSettled([
+          fetchAllEmployees(), // No filter - scope-narrowed server-side to the viewer's reach
+          fetchAllBranches(),
         ]);
 
+        if (employeesSettled.status === 'rejected') throw employeesSettled.reason;
+        const employeesRes = employeesSettled.value;
         const { data } = employeesRes;
 
-        const { data: { branches: branchesData } } = branchesRes;
+        const branchesData = branchesSettled.status === 'fulfilled'
+          ? (branchesSettled.value?.data?.branches ?? [])
+          : [];
 
         setBranches(branchesData);
 
@@ -391,11 +401,8 @@ const EmployeeListContent = () => {
     />
   </div>
 
-  {/* Right side — New Employee button */}
-  {hasPermission(
-    resourceNameMapWithCamelCase.employee,
-    permissionConstToUseWithHasPermission.create
-  ) && (
+  {/* Right side — New Employee button (Visibility Layer) */}
+  {canSeeAction('users', 'create') && (
     <div
       className="card-toolbar text-end d-flex align-items-center justify-content-center"
       data-bs-toggle="tooltip"

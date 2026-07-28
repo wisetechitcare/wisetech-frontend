@@ -41,6 +41,17 @@ const SCOPE_TIERS = ['self', 'team', 'department', 'all', 'global'];
 export const canViewModule = (module: string): boolean =>
   SCOPE_TIERS.some((scope) => can(`${module}.view.${scope}`));
 
+// PURE, reactive-friendly twin of `canViewModule`, prepared for a future
+// navigation migration (Milestone 1 only builds the helper — the sidebar is NOT
+// migrated here). The CALLER passes the capabilities array (e.g. the value from
+// its own `useSelector`/`useMemo` subscription), so gating stays fully reactive
+// with no snapshot read inside this helper — unlike `canViewModule`, which reads
+// the store directly. Same semantics: "view access to `module` at ANY scope".
+//   const caps = useSelector(s => s.authz.capabilities)   // reactive
+//   const visible = canView(caps, 'attendance.employees')
+export const canView = (capabilities: unknown, module: string): boolean =>
+  SCOPE_TIERS.some((scope) => evaluateCapability(capabilities, `${module}.view.${scope}`));
+
 // True if the current user holds `<module>.<action>` at ANY scope tier. The
 // backend resolves the user's broadest granted scope per action and enforces
 // the real record-level reach (self/team/department) server-side, so the UI
@@ -48,6 +59,17 @@ export const canViewModule = (module: string): boolean =>
 // affordance. e.g. canDo('crm.leads', 'update'), canDo('crm.leads', 'delete').
 export const canDo = (module: string, action: string): boolean =>
   SCOPE_TIERS.some((scope) => can(`${module}.${action}.${scope}`));
+
+// Scope tiers that mean "beyond my own records" (everything wider than self).
+const NON_SELF_SCOPE_TIERS = SCOPE_TIERS.filter((s) => s !== 'self');
+
+// True if the user can VIEW `module` at a scope broader than self (team+), i.e.
+// they can see OTHER people's records, not only their own. Lets a page gate an
+// "all employees / others" surface distinctly from a "my own" surface — e.g. the
+// Salary page shows "Employee Payrolls" only to someone who can view others,
+// while "My Salary" needs just self-view.
+export const canViewOthers = (module: string): boolean =>
+  NON_SELF_SCOPE_TIERS.some((scope) => can(`${module}.view.${scope}`));
 
 // True if the employee is staffed on at least one project (PM, execution-team
 // member, or internal roster entry) - lets the Projects section reveal itself

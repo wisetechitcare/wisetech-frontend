@@ -192,6 +192,22 @@ export const fetchOrganizationTree = async () => {
     }
 }
 
+/**
+ * Names-only org list (id, name, parentOrganizationId) — authenticated, no
+ * capability. Use this (not the admin-gated tree) for the "<Org> Team" label and
+ * sub-org name filters so every employee gets them without a 403.
+ */
+export const fetchOrganizationNames = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.GET_ORGANIZATION_NAMES}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const fetchOrganizationStats = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.GET_ORGANIZATION_STATS}`;

@@ -4,8 +4,8 @@ import LeaveRequestForm from './views/my-leaves/LeaveRequestForm';
 import ApplyLeave from './views/my-leaves/ApplyLeave';
 import BalanceProgress from './views/my-leaves/BalanceProgress';
 import Leaves from './views/my-leaves/Leaves';
-import { hasPermission } from '@utils/authAbac';
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
+import { useVisibility } from '@utils/visibility';
+import { resourceNameMapWithCamelCase } from '@constants/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
@@ -89,7 +89,8 @@ const PersonalLeaveView = () => {
         }
         // 'rgba(30, 58, 138, 0.1)'
     });
-    const res = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.create);
+    const { canSeeAction } = useVisibility();
+    const res = canSeeAction('leaves', 'create'); // Apply-Leave button — Visibility Layer
 
     return (
         <>

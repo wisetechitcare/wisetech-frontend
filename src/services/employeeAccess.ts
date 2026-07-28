@@ -57,6 +57,21 @@ export const setSectionAccessLevel = async (
 };
 
 /**
+ * Set the per-TAB finance override for one module — replaces the module's override
+ * rows with the exact (action, allow) rows the editor computed from the tab catalog.
+ * @api "api/employee/:id/access/tab-grants"
+ */
+export const setModuleTabGrants = async (
+    employeeId: string,
+    module: string,
+    rows: Array<{ action: string; allow: boolean }>,
+): Promise<EmployeeAccessSummary> => {
+    const endpoint = `${API_BASE_URL}/${EMPLOYEE.SET_MODULE_TAB_GRANTS.replace(":id", employeeId)}`;
+    const { data } = await axios.put(endpoint, { module, rows });
+    return data?.data;
+};
+
+/**
  * Clear ALL per-module overrides for an employee in one step, so their
  * effective access falls back to exactly what their current role(s) grant.
  * @api "api/employee/:id/access/reset-all"

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal } from "react-bootstrap";
+import { Autocomplete, TextField } from "@mui/material";
 import { toast } from "react-toastify";
 import { fetchRoles } from "@services/roles";
 import {
@@ -141,11 +142,6 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
   const dirty = changedModules.length > 0 || rolesChanged;
   const dirtyModules = useMemo(() => new Set(changedModules), [changedModules]);
 
-  // An employee holds exactly one role at a time — selecting a role replaces
-  // whatever was picked before; clicking the active one clears it.
-  const toggleRole = (roleId: string) =>
-    setSelectedRoleIds((prev) => (prev.includes(roleId) ? [] : [roleId]));
-
   const onSetLevel = (module: string, level: EffLevel) => {
     setLevels((prev) => ({ ...prev, [module]: level }));
     if (level === "none") setExpiries((prev) => ({ ...prev, [module]: null })); // blocked carries no timer
@@ -266,27 +262,21 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
 
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto" }} className="pb-20">
-      {/* Assigned job roles */}
-      <div className="d-flex align-items-center justify-content-between mb-3 mt-2">
+      {/* Assigned job role — same searchable dropdown as the Employee Access
+          panel. One role per employee: selecting replaces the current role. */}
+      <div className="d-flex align-items-center flex-wrap gap-3 mb-8 mt-2">
         <span className="text-muted fw-bold fs-7" style={{ letterSpacing: 1 }}>ASSIGNED JOB ROLE</span>
-        <span className="text-muted fs-8">One role per employee</span>
-      </div>
-      <div className="d-flex flex-wrap gap-3 mb-8">
-        {allRoles.map((role) => {
-          const active = selectedRoleIds.includes(role.id);
-          return (
-            <button
-              key={role.id}
-              type="button"
-              onClick={() => toggleRole(role.id)}
-              className={`btn btn-sm rounded-pill px-4 ${active ? "btn-primary" : "btn-light border"}`}
-              style={{ fontWeight: 600 }}
-            >
-              {active && <i className="bi bi-check-lg me-1" />}
-              {role.name}
-            </button>
-          );
-        })}
+        <Autocomplete
+          size="small"
+          sx={{ minWidth: 260, maxWidth: 320 }}
+          options={allRoles}
+          getOptionLabel={(o) => o.name}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          value={allRoles.find((r) => r.id === selectedRoleIds[0]) ?? null}
+          onChange={(_, v) => setSelectedRoleIds(v ? [v.id] : [])}
+          renderInput={(params) => <TextField {...params} label="Assign a role" placeholder="Search roles…" />}
+        />
+        <span className="text-muted fs-8 ms-auto">One role per employee</span>
       </div>
 
       <div className="row g-6">

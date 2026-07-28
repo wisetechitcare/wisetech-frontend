@@ -12,7 +12,7 @@ import { useLocation } from "react-router-dom";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import SalaryEmployeeData from "./admin/SalaryEmployeeData";
-import { canDo } from "@utils/can";
+import { canViewFinanceTab } from "@utils/financeTabs";
 
 function Salary() {
   const location = useLocation();
@@ -25,32 +25,28 @@ function Salary() {
     }
   }, [location.state]);
 
-  // Employee Payrolls / Search Employee / Configure are write-only surfaces:
-  // a read-only viewer gets My Salary only, same convention as KPI/Tasks/Leads.
-  const canWrite = canDo("finance.salary", "update");
-
+  // Each tab is gated on its EXACT catalog key (canViewFinanceTab), so granting one
+  // tab shows only that tab — no cascade. My Salary = view.self, Employee Payrolls =
+  // view.all, Search + Configure = manage.all (a distinct admin tier, so a view/edit
+  // grant on Payrolls never reveals the admin surfaces). Admins on flat `finance.*`
+  // still see everything via the helper's flat-finance fallback.
   const tabItems: TabItem[] = [
-    ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOwn) ? [{
+    ...(canViewFinanceTab('salary.my') ? [{
       title: "My Salary",
       component: <MySalary />,
       icon: 'bi-wallet2',
     }]:[]),
-    ...(canWrite ? [{
+    ...(canViewFinanceTab('salary.payrolls') ? [{
       title: "Employee Payrolls",
       component: <SalaryEmployeeData/>,
       icon: 'bi-cash-stack',
     }]:[]),
-    ...(canWrite ? [{
+    ...(canViewFinanceTab('salary.search') ? [{
       title: "Search Employee",
       component: <SearchEmployee />,
       icon: 'bi-search',
     }]:[]),
-    // ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers) ? [{
-    //   title: "All Employees",
-    //   component: <AllEmployeeData/>,
-    //   icon:activeTab === 2 ? financeSalaryAllIcoon.empSalaey.active : financeSalaryAllIcoon.empSalaey.default,
-    // }]:[]),
-    ...(canWrite ? [{
+    ...(canViewFinanceTab('salary.configure') ? [{
       title: "Configure",
       component: <SalaryConfiguration />,
       icon: 'bi-gear',

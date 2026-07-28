@@ -3,8 +3,7 @@ import MaterialHeaderTab, { TabItem } from "@app/modules/common/components/Mater
 import AllEmployeesSearchDropdown from "@app/modules/common/components/AllEmployeesSearchDropdown";
 import { financeSalaryAllIcoon } from "@metronic/assets/sidepanelicons";
 import { useSearchParams } from "react-router-dom";
-import { hasPermission } from "@utils/authAbac";
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import { canViewFinanceTab } from "@utils/financeTabs";
 import IncrementView from "./IncrementView";
 
 const breadcrumbs: Array<PageLink> = [
@@ -17,13 +16,13 @@ function Increment() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const tabs: Array<{ key: string; title: string; icon: string; component: JSX.Element }> = [
-    ...(hasPermission(resourceNameMapWithCamelCase.increment, permissionConstToUseWithHasPermission.readOwn) ? [{
+    ...(canViewFinanceTab('increment.my') ? [{
       key: "my",
       title: "My Increment",
       icon: 'bi-graph-up-arrow',
       component: <IncrementView />,
     }] : []),
-    ...(hasPermission(resourceNameMapWithCamelCase.increment, permissionConstToUseWithHasPermission.readOthers) ? [{
+    ...(canViewFinanceTab('increment.employees') ? [{
       key: "employees",
       title: "Employee Increment",
       icon: 'bi-people',
