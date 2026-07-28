@@ -4,6 +4,7 @@ import MaterialHeaderTab, {
 import { useSearchParams } from "react-router-dom";
 import { PageTitle } from "@metronic/layout/core";
 import RequisitionsView from "./RequisitionsView";
+import PostingsView from "./PostingsView";
 import PipelineView from "./PipelineView";
 import RecruitmentConfigurationMain from "./RecruitmentConfigurationMain";
 
@@ -17,7 +18,7 @@ import RecruitmentConfigurationMain from "./RecruitmentConfigurationMain";
  *   Candidates   -> applicant directory (Phase 2)
  *   Configure    -> stages / reasons / sources / templates (Phase 1+)
  */
-const TAB_KEYS = ["overview", "requisitions", "pipeline", "candidates", "configure"] as const;
+const TAB_KEYS = ["overview", "requisitions", "postings", "pipeline", "candidates", "configure"] as const;
 
 const ComingSoon = ({ label }: { label: string }) => (
   <div
@@ -41,6 +42,7 @@ const RecruitmentMain = () => {
   const tabItems: TabItem[] = [
     { title: "Overview", component: <ComingSoon label="Recruitment Overview" />, icon: "bi-grid-1x2" },
     { title: "Requisitions", component: <RequisitionsView />, icon: "bi-briefcase" },
+    { title: "Postings", component: <PostingsView />, icon: "bi-megaphone" },
     { title: "Pipeline", component: <PipelineView />, icon: "bi-kanban" },
     { title: "Candidates", component: <ComingSoon label="Candidates" />, icon: "bi-people" },
     { title: "Configure", component: <RecruitmentConfigurationMain />, icon: "bi-gear" },

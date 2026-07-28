@@ -46,6 +46,12 @@ export const RECRUITMENT = {
     UPDATE_OFFER: "api/recruitment/offers/:id",
     SUBMIT_OFFER_APPROVAL: "api/recruitment/offers/:id/submit-approval",
     RESPOND_OFFER: "api/recruitment/offers/:id/respond",
+    // Job postings (Phase 6, admin — authenticated)
+    CREATE_POSTING: "api/recruitment/postings",
+    GET_POSTINGS: "api/recruitment/postings",
+    GET_POSTING_BY_ID: "api/recruitment/postings/:id",
+    UPDATE_POSTING: "api/recruitment/postings/:id",
+    DELETE_POSTING: "api/recruitment/postings/:id",
     // Configuration masters (stages / reasons / sources)
     CONFIG_ENTITY: "api/recruitment/config/:type",
     CONFIG_ENTITY_BY_ID: "api/recruitment/config/:type/:id",

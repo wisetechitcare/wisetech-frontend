@@ -50,5 +50,6 @@ export const queryKeys = {
     interviews: (applicationId: string) => [...queryKeys.recruitment.all, 'interviews', applicationId] as const,
     evaluation: (applicationId: string) => [...queryKeys.recruitment.all, 'evaluation', applicationId] as const,
     offer: (applicationId: string) => [...queryKeys.recruitment.all, 'offer', applicationId] as const,
+    postings: () => [...queryKeys.recruitment.all, 'postings'] as const,
   },
 } as const;

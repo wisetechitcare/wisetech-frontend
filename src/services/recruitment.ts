@@ -367,3 +367,32 @@ export const respondToOffer = async (id: string, acceptanceStatus: "ACCEPTED" | 
     const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.RESPOND_OFFER.replace(":id", id)}`, { acceptanceStatus });
     return data;
 };
+
+// ─── Job postings (Phase 6, admin) ───────────────────────────────────────────
+export interface JobPosting {
+    id: string; requisitionId: string; publicSlug: string; title: string;
+    descriptionHtml?: string | null; location?: string | null; isRemote: boolean;
+    employmentType?: string | null; isPublished: boolean; publishedAt?: string | null; expiresAt?: string | null;
+    requisition?: { id: string; title: string; prefix?: string | null } | null;
+}
+export interface PostingPayload {
+    requisitionId?: string; title?: string; descriptionHtml?: string | null; location?: string | null;
+    isRemote?: boolean; employmentType?: string | null; expiresAt?: string | null; isPublished?: boolean; isActive?: boolean;
+}
+
+export const getPostings = async (): Promise<JobPosting[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_POSTINGS}`);
+    return data?.postings ?? [];
+};
+export const createPosting = async (payload: PostingPayload) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_POSTING}`, payload);
+    return data;
+};
+export const updatePosting = async (id: string, payload: PostingPayload) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.UPDATE_POSTING.replace(":id", id)}`, payload);
+    return data;
+};
+export const deletePosting = async (id: string) => {
+    const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.DELETE_POSTING.replace(":id", id)}`);
+    return data;
+};
