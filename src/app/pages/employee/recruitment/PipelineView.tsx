@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Box, Stack, Typography, Button, ToggleButton, ToggleButtonGroup, Chip, CircularProgress,
     Table, TableHead, TableBody, TableRow, TableCell, TextField, MenuItem, DialogContent, DialogActions,
 } from "@mui/material";
-import { GlassDialog, GlassHeader, toast } from "@app/modules/common/components/ui";
+import { KTIcon } from "@metronic/helpers";
+import { GlassDialog, GlassHeader, WtButton, toast } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { getRequisitions, type JobRequisition } from "@services/recruitment";
 import {
@@ -28,6 +30,7 @@ const scoreLabel = (a: Application): string | null => {
 
 const PipelineView = () => {
     const qc = useQueryClient();
+    const navigate = useNavigate();
     const [mode, setMode] = useState<"board" | "list">("board");
     const [createOpen, setCreateOpen] = useState(false);
     const [form, setForm] = useState(emptyCreate());
@@ -103,6 +106,25 @@ const PipelineView = () => {
         });
     };
 
+    // Convert a hired candidate into an employee: prefill the New Employee wizard
+    // via its onboarding-draft seam, then open it — no re-keying of known details.
+    const convertToEmployee = (a: Application) => {
+        const draft = {
+            firstName: a.applicant?.firstName ?? "",
+            lastName: a.applicant?.lastName ?? "",
+            personalEmailId: a.applicant?.email ?? "",
+            personalPhoneNumber: a.applicant?.phone ?? "",
+            linkedInProfileUrl: a.applicant?.linkedInUrl ?? "",
+        };
+        try {
+            sessionStorage.setItem("employee-onboarding-draft", JSON.stringify(draft));
+        } catch {
+            /* storage quota — proceed with a blank wizard */
+        }
+        toast({ icon: "info", title: "Opening onboarding with the candidate's details prefilled" });
+        navigate("/employees/create-new");
+    };
+
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
@@ -171,7 +193,7 @@ const PipelineView = () => {
                     <TableHead>
                         <TableRow>
                             <TableCell>Ref</TableCell><TableCell>Candidate</TableCell><TableCell>Requisition</TableCell>
-                            <TableCell>Stage</TableCell><TableCell align="center">Score</TableCell>
+                            <TableCell>Stage</TableCell><TableCell align="center">Score</TableCell><TableCell align="right">Actions</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -184,10 +206,17 @@ const PipelineView = () => {
                                     <Chip size="small" label={a.status?.name ?? "—"} sx={{ bgcolor: a.status?.color ?? undefined, color: a.status?.color ? "#fff" : undefined }} />
                                 </TableCell>
                                 <TableCell align="center">{scoreLabel(a) ?? "—"}</TableCell>
+                                <TableCell align="right">
+                                    {a.status?.isHiredOutcome && (
+                                        <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
+                                            Convert
+                                        </WtButton>
+                                    )}
+                                </TableCell>
                             </TableRow>
                         ))}
                         {applications.length === 0 && (
-                            <TableRow><TableCell colSpan={5} align="center" sx={{ color: "text.secondary", py: 4 }}>No applications yet.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={6} align="center" sx={{ color: "text.secondary", py: 4 }}>No applications yet.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
