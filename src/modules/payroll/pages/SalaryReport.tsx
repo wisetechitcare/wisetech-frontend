@@ -164,9 +164,16 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                 userId={employee.userId}
                                 employeeId={employee.id}
                                 salaryId={apiSalaryData?.id as string}
+                                month={Number(month)}
+                                year={Number(year)}
                                 loading={ui.loading}
                                 setLoading={ui.setLoading}
                                 employee={employee}
+                                apiSalaryData={apiSalaryData}
+                                summaryData={summaryData}
+                                paymentRows={tableRows}
+                                resolveName={resolveName}
+                                resolveComponent={resolveComponent}
                             />
 
                             {/* Breakdown tables */}

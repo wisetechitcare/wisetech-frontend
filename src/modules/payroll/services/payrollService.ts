@@ -223,6 +223,19 @@ export const payrollService = {
   },
 
   /**
+   * Download the Salary Slip PDF for a payroll month.
+   * Works even when that month has no saved salary record yet (the in-progress
+   * current month) — the backend renders the same slip template from live data.
+   */
+  downloadSalarySlipForPeriod: async (employeeId: string, month: number, year: number) => {
+    const response = await axios.get(`${API_URL}/payroll/salary-slip`, {
+      params: { employeeId, month, year },
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
+  /**
    * Fetch salary record details
    */
   getSalaryById: async (salaryId: string) => {
