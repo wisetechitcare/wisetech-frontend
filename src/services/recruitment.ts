@@ -135,6 +135,7 @@ export interface RejectionReason { id: string; reason: string; color?: string | 
 export interface ApplicationStatus {
     id: string; name: string; color?: string | null; sortOrder: number;
     isDefault: boolean; isActive: boolean; isHiredOutcome: boolean; isRejectedOutcome: boolean; requiresReason: boolean;
+    autoEmailSubject?: string | null; autoEmailBody?: string | null; autoAdvanceThreshold?: number | string | null;
 }
 export interface Applicant {
     id: string; firstName: string; lastName?: string | null; email: string; phone?: string | null;
@@ -218,6 +219,13 @@ export const getApplicationStatuses = async (): Promise<ApplicationStatus[]> => 
 };
 export const createApplicationStatus = async (payload: Partial<ApplicationStatus> & { name: string }) => {
     const { data } = await axios.post(`${API_BASE_URL}/${cfgPath("application-statuses")}`, payload);
+    return data;
+};
+export const updateApplicationStatus = async (
+    id: string,
+    payload: Partial<Pick<ApplicationStatus, "name" | "color" | "isDefault" | "isHiredOutcome" | "isRejectedOutcome" | "requiresReason" | "autoEmailSubject" | "autoEmailBody" | "autoAdvanceThreshold">>,
+) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${cfgByIdPath("application-statuses", id)}`, payload);
     return data;
 };
 export const deleteApplicationStatus = async (id: string) => {

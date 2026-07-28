@@ -2,12 +2,12 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Box, Stack, Typography, Button, TextField, Chip, IconButton, CircularProgress,
-    FormControlLabel, Checkbox,
+    FormControlLabel, Checkbox, DialogContent, DialogActions,
 } from "@mui/material";
-import { toast, confirmDialog } from "@app/modules/common/components/ui";
+import { toast, confirmDialog, GlassDialog, GlassHeader } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import {
-    getApplicationStatuses, createApplicationStatus, deleteApplicationStatus,
+    getApplicationStatuses, createApplicationStatus, updateApplicationStatus, deleteApplicationStatus,
     getRejectionReasons, createRejectionReason, deleteRejectionReason,
     getApplicantSources, createApplicantSource, deleteApplicantSource,
     type ApplicationStatus,
@@ -17,10 +17,14 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
     <Typography sx={{ fontWeight: 700, fontSize: 16, mt: 3, mb: 1.5 }}>{children}</Typography>
 );
 
-// ── Application statuses (pipeline stages, with outcome flags) ─────────────────
+// ── Application statuses (pipeline stages, outcome flags + auto-email) ─────────
+interface EmailForm { autoEmailSubject: string; autoEmailBody: string; autoAdvanceThreshold: string }
+
 const StatusesSection = () => {
     const qc = useQueryClient();
     const [f, setF] = useState<Partial<ApplicationStatus> & { name: string }>({ name: "", color: "#4B5563" });
+    const [editing, setEditing] = useState<ApplicationStatus | null>(null);
+    const [email, setEmail] = useState<EmailForm>({ autoEmailSubject: "", autoEmailBody: "", autoAdvanceThreshold: "" });
     const { data: rows = [], isLoading } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
     const inv = () => qc.invalidateQueries({ queryKey: queryKeys.recruitment.applicationStatuses() });
     const add = useMutation({
@@ -33,7 +37,24 @@ const StatusesSection = () => {
         onSuccess: () => { toast({ icon: "success", title: "Stage removed" }); inv(); },
         onError: () => toast({ icon: "error", title: "Could not remove stage" }),
     });
+    const saveEmail = useMutation({
+        mutationFn: () => updateApplicationStatus(editing!.id, {
+            autoEmailSubject: email.autoEmailSubject || null,
+            autoEmailBody: email.autoEmailBody || null,
+            autoAdvanceThreshold: email.autoAdvanceThreshold === "" ? null : Number(email.autoAdvanceThreshold),
+        }),
+        onSuccess: () => { toast({ icon: "success", title: "Automation saved" }); setEditing(null); inv(); },
+        onError: () => toast({ icon: "error", title: "Could not save (admin permission required)" }),
+    });
     const remove = async (id: string, name: string) => { if (await confirmDialog({ icon: "warning", title: "Remove stage?", text: `"${name}" will be deactivated.` })) del.mutate(id); };
+    const openEmail = (s: ApplicationStatus) => {
+        setEditing(s);
+        setEmail({
+            autoEmailSubject: s.autoEmailSubject ?? "",
+            autoEmailBody: s.autoEmailBody ?? "",
+            autoAdvanceThreshold: s.autoAdvanceThreshold == null ? "" : String(s.autoAdvanceThreshold),
+        });
+    };
 
     return (
         <>
@@ -56,12 +77,42 @@ const StatusesSection = () => {
                             {s.isDefault && <Chip size="small" label="Default" variant="outlined" />}
                             {s.isHiredOutcome && <Chip size="small" color="success" label="Hired" variant="outlined" />}
                             {s.isRejectedOutcome && <Chip size="small" color="error" label="Rejected" variant="outlined" />}
+                            {s.autoEmailBody && <Chip size="small" color="info" label="Auto-email" variant="outlined" />}
+                            <IconButton size="small" title="Auto-email on entry" onClick={() => openEmail(s)}><i className="bi bi-envelope-paper" /></IconButton>
                             <IconButton size="small" onClick={() => remove(s.id, s.name)}><i className="bi bi-trash" /></IconButton>
                         </Stack>
                     ))}
                     {rows.length === 0 && <Typography sx={{ color: "text.secondary" }}>No stages yet.</Typography>}
                 </Stack>
             )}
+
+            <GlassDialog
+                open={!!editing}
+                onClose={() => setEditing(null)}
+                maxWidth="sm"
+                header={<GlassHeader title={`Stage automation — ${editing?.name ?? ""}`} subtitle="Email the candidate when they enter this stage" icon={<i className="bi bi-envelope-paper" />} onClose={() => setEditing(null)} />}
+            >
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                        <TextField label="Email subject" size="small" fullWidth value={email.autoEmailSubject} onChange={(e) => setEmail({ ...email, autoEmailSubject: e.target.value })} />
+                        <TextField
+                            label="Email body" size="small" fullWidth multiline minRows={5}
+                            helperText="Tokens: {first_name} {last_name} {candidate_name} {job_title} {stage_name} {application_ref}. Leave body empty to disable."
+                            value={email.autoEmailBody}
+                            onChange={(e) => setEmail({ ...email, autoEmailBody: e.target.value })}
+                        />
+                        <TextField
+                            label="Auto-advance threshold (score, optional)" type="number" size="small" sx={{ maxWidth: 280 }}
+                            value={email.autoAdvanceThreshold}
+                            onChange={(e) => setEmail({ ...email, autoAdvanceThreshold: e.target.value })}
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setEditing(null)}>Cancel</Button>
+                    <Button variant="contained" disabled={saveEmail.isPending} onClick={() => saveEmail.mutate()}>Save</Button>
+                </DialogActions>
+            </GlassDialog>
         </>
     );
 };
