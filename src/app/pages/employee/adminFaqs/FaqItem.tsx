@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { KTIcon } from '@metronic/helpers';
 import { IFaqs } from '@models/company';
 
@@ -39,17 +39,29 @@ function renderAnswer(answer: string) {
 const FaqItem = ({ faq, isLast = false, onEdit, onDelete }: FaqItemProps) => {
     const [expanded, setExpanded] = useState(false);
     const showActions = !!(onEdit || onDelete);
+    const answerId = useId();
+    const answerRef = useRef<HTMLDivElement>(null);
+
+    // Remove the collapsed answer from tab order + a11y tree. (WCAG 2.4.3 / 4.1.2)
+    useEffect(() => {
+        const el = answerRef.current;
+        if (el) (el as unknown as { inert: boolean }).inert = !expanded;
+    }, [expanded]);
 
     return (
         <>
             <div className="d-flex justify-content-between align-items-start gap-3">
                 {/* Q + A */}
                 <div className="flex-grow-1" style={{ minWidth: 0 }}>
-                    {/* Question row — clickable to toggle answer */}
-                    <div
-                        className="d-flex align-items-start justify-content-between gap-2"
+                    {/* Question row — a real button so it toggles by keyboard and
+                        announces its state. */}
+                    <button
+                        type="button"
+                        className="d-flex align-items-start justify-content-between gap-2 w-100"
                         onClick={() => setExpanded((v) => !v)}
-                        style={{ cursor: 'pointer' }}
+                        aria-expanded={expanded}
+                        aria-controls={answerId}
+                        style={{ cursor: 'pointer', background: 'transparent', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit' }}
                     >
                         <div
                             style={{
@@ -64,6 +76,7 @@ const FaqItem = ({ faq, isLast = false, onEdit, onDelete }: FaqItemProps) => {
                         </div>
                         {/* Per-item chevron */}
                         <svg
+                            aria-hidden="true"
                             width="16"
                             height="16"
                             viewBox="0 0 20 20"
@@ -78,10 +91,12 @@ const FaqItem = ({ faq, isLast = false, onEdit, onDelete }: FaqItemProps) => {
                         >
                             <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
-                    </div>
+                    </button>
 
                     {/* Answer — animated */}
                     <div
+                        id={answerId}
+                        ref={answerRef}
                         style={{
                             display: 'grid',
                             gridTemplateRows: expanded ? '1fr' : '0fr',
@@ -112,6 +127,7 @@ const FaqItem = ({ faq, isLast = false, onEdit, onDelete }: FaqItemProps) => {
                                 onClick={(e) => { e.stopPropagation(); onEdit(faq); }}
                                 style={{ width: '26px', height: '26px', background: 'transparent', border: 'none', color: '#9ca3af' }}
                                 title="Edit"
+                                aria-label={`Edit question: ${faq.question}`}
                             >
                                 <KTIcon iconName="pencil" className="fs-5" />
                             </button>
@@ -122,6 +138,7 @@ const FaqItem = ({ faq, isLast = false, onEdit, onDelete }: FaqItemProps) => {
                                 onClick={(e) => { e.stopPropagation(); onDelete(faq); }}
                                 style={{ width: '26px', height: '26px', background: 'transparent', border: 'none', color: '#9ca3af' }}
                                 title="Delete"
+                                aria-label={`Delete question: ${faq.question}`}
                             >
                                 <KTIcon iconName="trash" className="fs-5" />
                             </button>

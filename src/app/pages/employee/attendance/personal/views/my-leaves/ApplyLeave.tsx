@@ -27,6 +27,7 @@ import { rgba, tintOf, borderOf, resolveLeaveTypeColor } from '@utils/leaveTypeC
 import { getCumulativeAllowedLeaves } from '@utils/balanceProgressUtils';
 import { calculateFiscalMonth } from '@utils/fiscalYearHelper';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const ACCENT   = '#1E3A8A';
@@ -650,7 +651,10 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 : holiday ? (holidayColors[iso] || holidayCol)
                 : null;
             cells.push(
-                <button key={iso} title={small ? tip : undefined} style={st}
+                <button key={iso} type="button" style={st}
+                    title={tip}
+                    aria-pressed={isEp || undefined}
+                    aria-label={`${new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} — ${tip}`}
                     onClick={() => {
                         // In view mode, clicking a date flips the same modal straight into edit (if
                         // the request is still editable) — no separate button needed.
@@ -964,7 +968,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     const isImage = f.type.startsWith('image/'), url = URL.createObjectURL(f);
                     return (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: isMobile ? '8px 10px' : '9px 11px', border: '1px solid #e6e6e8', borderRadius: 10 }}>
-                            <div onClick={() => setPv({ url, name: f.name, isImage })} style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                            <div onClick={() => setPv({ url, name: f.name, isImage })} {...pressableProps(() => setPv({ url, name: f.name, isImage }))} aria-label={`Preview ${f.name}`} style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                                 {isImage
                                     ? <img src={url} alt={f.name} style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, objectFit: 'cover', border: '1px solid #e6e6e8' }} />
                                     : <span style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, background: '#eaf0f6', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>📄</span>}
@@ -972,8 +976,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                                 <span style={{ fontSize: 11.5, color: '#9aa0a6', flexShrink: 0 }}>{Math.round(f.size / 1024)} KB</span>
                                 {!isMobile && <span style={{ fontSize: 11, color: '#2F5E8C', fontWeight: 700, flexShrink: 0 }}>Preview</span>}
                             </div>
-                            <span onClick={() => setS(p => ({ ...p, files: p.files.filter((_, j) => j !== i) }))}
-                                style={{ cursor: 'pointer', color: RED, fontSize: 17, lineHeight: 1, flexShrink: 0, padding: '0 4px' }}>×</span>
+                            <button type="button" onClick={() => setS(p => ({ ...p, files: p.files.filter((_, j) => j !== i) }))}
+                                aria-label={`Remove ${f.name}`}
+                                style={{ cursor: 'pointer', color: RED, fontSize: 17, lineHeight: 1, flexShrink: 0, padding: '0 4px', border: 'none', background: 'none' }}>×</button>
                         </div>
                     );
                 })}
@@ -1039,7 +1044,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'rgba(20,24,33,.74)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 22 : 30, borderRadius: isMobile ? '24px 24px 0 0' : 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: 560, marginBottom: 12 }}>
                 <span style={{ color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pv.name}</span>
-                <button onClick={() => setPv(null)} style={{ width: 32, height: 32, borderRadius: 9, border: 'none', background: 'rgba(255,255,255,.16)', color: '#fff', cursor: 'pointer', flexShrink: 0 }}>×</button>
+                <button type="button" onClick={() => setPv(null)} aria-label="Close preview" style={{ width: 32, height: 32, borderRadius: 9, border: 'none', background: 'rgba(255,255,255,.16)', color: '#fff', cursor: 'pointer', flexShrink: 0 }}>×</button>
             </div>
             {pv.isImage
                 ? <img src={pv.url} alt={pv.name} style={{ maxWidth: '100%', maxHeight: '62vh', borderRadius: 12, boxShadow: '0 18px 50px rgba(0,0,0,.45)' }} />
@@ -1057,7 +1062,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 <div style={{ color: '#fff', fontSize: 16.5, fontWeight: 700, fontFamily: PJK }}>{headerTitle}</div>
                 <div style={{ color: 'rgba(255,255,255,.72)', fontSize: 12, fontWeight: 500, marginTop: 1 }}>{fiscalHint}</div>
             </div>
-            <button onClick={onClose} style={{ width: 31, height: 31, borderRadius: 9, border: 'none', background: 'rgba(255,255,255,.14)', color: '#fff', cursor: 'pointer', fontSize: 17 }}>×</button>
+            <button type="button" onClick={onClose} aria-label="Close" style={{ width: 31, height: 31, borderRadius: 9, border: 'none', background: 'rgba(255,255,255,.14)', color: '#fff', cursor: 'pointer', fontSize: 17 }}>×</button>
         </div>
     );
 

@@ -334,10 +334,11 @@ export const LEGACY_UIKIT = {
       tertiary: 'rgba(0,0,0,0.26)',
       quaternary: 'rgba(0,0,0,0.12)',
     },
+    // GitHub Primer "dark default" foreground tiers (fg / fg.muted / fg.subtle).
     dark: {
-      primary: 'rgba(255,255,255,0.92)',
-      secondary: 'rgba(255,255,255,0.55)',
-      tertiary: 'rgba(255,255,255,0.28)',
+      primary: '#e6edf3',
+      secondary: '#7d8590',
+      tertiary: '#6e7681',
       quaternary: 'rgba(255,255,255,0.12)',
     },
   },
@@ -376,28 +377,30 @@ export const LEGACY_UIKIT = {
       scrim: 'rgba(16,24,40,0.32)',
       scrimBlur: 4,
     },
+    // GitHub-style dark: surface #161b22 (regular) / elevated #1c2128 (thin), crisp #30363d borders,
+    // near-black #010409 scrim. Frost tint is pulled toward the flat GitHub surfaces.
     dark: {
       regular: {
-        bg: 'rgba(30,34,44,0.68)',
+        bg: 'rgba(22,27,34,0.72)',
         blur: 30,
         saturate: 180,
-        border: '1px solid rgba(255,255,255,0.10)',
-        highlight: 'inset 0 1px 0 rgba(255,255,255,0.14)',
-        shadow: '0 16px 48px rgba(0,0,0,0.55)',
+        border: '1px solid #30363d',
+        highlight: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+        shadow: '0 16px 48px rgba(1,4,9,0.60)',
         radius: 16,
-        fallbackBg: 'rgba(28,32,42,0.96)',
+        fallbackBg: 'rgba(22,27,34,0.98)',
       },
       thin: {
-        bg: 'rgba(48,54,66,0.52)',
+        bg: 'rgba(28,33,40,0.55)',
         blur: 16,
         saturate: 160,
-        border: '1px solid rgba(255,255,255,0.08)',
-        highlight: 'inset 0 1px 0 rgba(255,255,255,0.10)',
-        shadow: '0 4px 16px rgba(0,0,0,0.40)',
+        border: '1px solid #30363d',
+        highlight: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+        shadow: '0 4px 16px rgba(1,4,9,0.40)',
         radius: 12,
-        fallbackBg: 'rgba(40,46,58,0.94)',
+        fallbackBg: 'rgba(28,33,40,0.96)',
       },
-      scrim: 'rgba(0,0,0,0.55)',
+      scrim: 'rgba(1,4,9,0.70)',
       scrimBlur: 4,
     },
   },
@@ -681,9 +684,11 @@ export const LEGACY_CONFIG_KEYFRAMES = `
   .cfg-fade-in  { animation: cfgFadeIn  0.3s ease; }
   .cfg-slide-in { animation: cfgSlideIn 0.25s ease; }
 
-  /* ─── Base: remove browser focus outline on tab buttons ─────────── */
-  .cfg-tab-btn { outline: none !important; }
-  .cfg-tab-btn:focus { outline: none !important; box-shadow: none !important; }
+  /* ─── Focus: keyboard focus MUST stay visible (WCAG 2.4.7) ───────── */
+  /* Suppress the ring for pointer focus only; restore a clear ring for
+     keyboard users via :focus-visible. */
+  .cfg-tab-btn:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+  .cfg-tab-btn:focus-visible { outline: 2px solid #1E3A8A; outline-offset: 2px; }
 
   /* ─── Responsive: Tablet (≤ 768px) ───────────────────────────────── */
   @media (max-width: 767.98px) {

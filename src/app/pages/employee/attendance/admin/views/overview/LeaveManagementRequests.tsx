@@ -10,7 +10,7 @@ import {
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import dayjs from "dayjs";
 import { KTIcon } from "@metronic/helpers";
-import { successConfirmation } from "@utils/modal";
+import { successConfirmation, rejectConfirmation, errorConfirmation } from "@utils/modal";
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
 import { GlassDialog, GlassHeader, WtButton, WtIconButton, StatusBadge, IconBox, TRIO, type Trio, Spinner } from "@app/modules/common/components/ui/tw";
 import { useEventBus } from "@hooks/useEventBus";
@@ -111,6 +111,10 @@ function LeaveManagementRequests() {
   };
 
   const handleReject = async (requestId: string) => {
+    // Rejecting is a consequential, not-easily-undone action — confirm first
+    // (Nielsen #5 error prevention), matching the Revoke/Delete pattern.
+    const confirmed = await rejectConfirmation();
+    if (!confirmed) return;
     try {
       setProcessingRowId(requestId);
       setProcessingAction('reject');
@@ -124,6 +128,7 @@ function LeaveManagementRequests() {
       fetchRequests();
     } catch (error) {
       console.error("Error rejecting request:", error);
+      await errorConfirmation("Couldn’t reject the request. Please try again.");
     } finally {
       setProcessingRowId(null);
       setProcessingAction(null);

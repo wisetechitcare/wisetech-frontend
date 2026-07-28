@@ -38,6 +38,10 @@ const DOMAINS: ApprovalDomain[] = [
     },
     { key: 'task', label: 'Task', tone: 'cyan', icon: 'check-circle' },
     { key: 'project', label: 'Project', tone: 'brand', icon: 'briefcase' },
+    // Recruitment: requisition sign-off. Detail falls back to the expandable
+    // panel (approval progress + audit); a canonical requisition view can be
+    // registered here later with no other changes.
+    { key: 'requisition', label: 'Requisition', tone: 'indigo', icon: 'briefcase' },
 ];
 
 const BY_KEY = new Map(DOMAINS.map((d) => [d.key, d]));

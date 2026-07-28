@@ -9,6 +9,34 @@ export const AUTH = {
     CAPABILITIES: "api/auth/capabilities",
 }
 
+// Recruitment / ATS module. Keep in sync with the backend copy
+// (wisetech-backend/src/constants/api-endpoint.ts RECRUITMENT).
+export const RECRUITMENT = {
+    // Requisitions (Phase 1)
+    CREATE_REQUISITION: "api/recruitment/requisitions",
+    GET_ALL_REQUISITIONS: "api/recruitment/requisitions",
+    GET_REQUISITION_BY_ID: "api/recruitment/requisitions/:id",
+    UPDATE_REQUISITION: "api/recruitment/requisitions/:id",
+    UPDATE_REQUISITION_SECTION: "api/recruitment/requisitions/:id/section",
+    ARCHIVE_REQUISITION: "api/recruitment/requisitions/:id",
+    SUBMIT_REQUISITION_APPROVAL: "api/recruitment/requisitions/:id/submit-approval",
+    // Applicants (Phase 2)
+    CREATE_APPLICANT: "api/recruitment/applicants",
+    GET_ALL_APPLICANTS: "api/recruitment/applicants",
+    GET_APPLICANT_BY_ID: "api/recruitment/applicants/:id",
+    UPDATE_APPLICANT: "api/recruitment/applicants/:id",
+    // Applications / pipeline (Phase 2)
+    CREATE_APPLICATION: "api/recruitment/applications",
+    GET_ALL_APPLICATIONS: "api/recruitment/applications",
+    GET_APPLICATION_BY_ID: "api/recruitment/applications/:id",
+    UPDATE_APPLICATION_SECTION: "api/recruitment/applications/:id/section",
+    MOVE_APPLICATION_STAGE: "api/recruitment/applications/:id/move",
+    ARCHIVE_APPLICATION: "api/recruitment/applications/:id",
+    // Configuration masters (stages / reasons / sources)
+    CONFIG_ENTITY: "api/recruitment/config/:type",
+    CONFIG_ENTITY_BY_ID: "api/recruitment/config/:type/:id",
+}
+
 export const USERS = {
     CREATE_USER: "api/users",
     ARCHIVE_USER: "api/users/:userId",

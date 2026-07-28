@@ -15,6 +15,7 @@ import { fetchLeaveRequest } from "@services/employee";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, Status } from "@constants/statistics";
 import { formatDateFromISTString } from "@utils/statistics";
 import { pageSize, useServerPagination } from "@hooks/useServerPagination";
+import { useFocusTrap } from "@hooks/useFocusTrap";
 import Loader from "@app/modules/common/utils/Loader";
 import { fetchColorAndStoreInSlice, generateFiscalYearFromGivenYear } from "@utils/file";
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
@@ -82,6 +83,9 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
         const { data: { leaveRequest } } = await fetchLeaveRequest();
         dispatch(saveLeaveRequests(transformLeaveRequests(leaveRequest)));
     };
+
+    // Accessible-dialog behaviour for the hand-rolled edit overlay.
+    const editDialogRef = useFocusTrap<HTMLDivElement>(showEditModal && !!selectedLeave, { onEscape: () => { void handleCloseEditModal(); } });
 
     // Map leave type names to color keys
     const getLeaveTypeColor = (leaveType: string): string => {
@@ -317,6 +321,11 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
                 employee via `target`. Owns its own card chrome, so we provide the backdrop. */}
             {showEditModal && selectedLeave && (
                 <div
+                    ref={editDialogRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Edit leave request"
+                    tabIndex={-1}
                     onClick={(e) => { if (e.target === e.currentTarget) handleCloseEditModal(); }}
                     style={{
                         position: 'fixed', inset: 0, zIndex: 1050, background: 'rgba(15,23,42,.45)', display: 'flex',

@@ -10,10 +10,30 @@ import { T } from '@app/modules/common/components/ui/tokens';
  * NOTE: applied through <ThemeProvider> only (no <CssBaseline/>) so it does not disturb the
  * Metronic/Bootstrap global styles used by the rest of the app.
  */
+/**
+ * GitHub Primer "dark default" surface palette — the app-wide dark benchmark. Cool near-black
+ * canvas, slightly lighter surface for cards/modals, an elevated tone for overlays/menus, crisp
+ * mid-grey borders, and high-contrast foreground text. Kept here as the single source so the MUI
+ * theme, glass tokens, and tw kit all resolve to the same GitHub look.
+ */
+export const GH_DARK = {
+  canvas: '#0d1117',     // page background (bg default)
+  surface: '#161b22',    // cards / modals / paper
+  elevated: '#1c2128',   // menus / popovers / raised rows
+  border: '#30363d',     // default border / divider
+  borderMuted: '#21262d',// subtle inner separators
+  fg: '#e6edf3',         // primary text
+  fgMuted: '#7d8590',    // secondary text
+  fgSubtle: '#6e7681',   // tertiary / placeholder
+  accent: '#2f81f7',     // links / focus / selection accent
+  hover: 'rgba(177,186,196,0.08)',
+  selected: 'rgba(177,186,196,0.12)',
+} as const;
+
 export function makeWisetechTheme(mode: 'light' | 'dark' = 'light'): Theme {
   const dark = mode === 'dark';
-  const line = dark ? 'rgba(255,255,255,0.12)' : T.color.line;
-  const menuPaper = dark ? '#232833' : T.color.surface;
+  const line = dark ? GH_DARK.border : T.color.line;
+  const menuPaper = dark ? GH_DARK.elevated : T.color.surface;
   return createTheme({
     palette: {
       mode,
@@ -24,12 +44,15 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light'): Theme {
       warning: { main: T.color.warning },
       info: { main: T.color.indigo },
       text: dark
-        ? { primary: 'rgba(255,255,255,0.92)', secondary: 'rgba(255,255,255,0.60)' }
+        ? { primary: GH_DARK.fg, secondary: GH_DARK.fgMuted, disabled: GH_DARK.fgSubtle }
         : { primary: T.color.ink, secondary: T.color.inkSoft },
       divider: line,
       background: dark
-        ? { paper: '#1E222C', default: '#15181F' }
+        ? { paper: GH_DARK.surface, default: GH_DARK.canvas }
         : { paper: T.color.surface, default: T.color.panel },
+      ...(dark
+        ? { action: { hover: GH_DARK.hover, selected: GH_DARK.selected, disabledBackground: 'rgba(110,118,129,0.12)' } }
+        : {}),
     },
     shape: { borderRadius: 8 },
     typography: {

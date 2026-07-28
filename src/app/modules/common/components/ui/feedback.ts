@@ -28,7 +28,7 @@ function ensureStyles() {
 
     /* Dark mode — scoped to the app-wide [data-theme="dark"] signal set by ColorModeProvider.
        Swal portals to <body>, so these descendant selectors match. */
-    html[data-theme="dark"] .wt-swal-popup{background:#1E222C;box-shadow:0 24px 64px -12px rgba(0,0,0,.6);}
+    html[data-theme="dark"] .wt-swal-popup{background:#161b22;border:1px solid #30363d;box-shadow:0 24px 64px -12px rgba(1,4,9,.7);}
     html[data-theme="dark"] .wt-swal-title{color:rgba(255,255,255,.92);}
     html[data-theme="dark"] .wt-swal-html{color:rgba(255,255,255,.62);}
     html[data-theme="dark"] .wt-swal-cancel{background:rgba(255,255,255,.08);color:rgba(255,255,255,.78);border-color:rgba(255,255,255,.16);}

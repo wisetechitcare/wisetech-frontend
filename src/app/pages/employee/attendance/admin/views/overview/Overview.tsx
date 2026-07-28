@@ -39,6 +39,7 @@ import { fetchConfiguration } from "@services/company";
 import { getUserTablePreferences, upsertUserTablePreferences } from "@services/users";
 import { isCheckOutMissing } from "@app/modules/common/components/attendanceDurationUtils";
 import ReorderableGroup from "@app/modules/common/components/ReorderableGroup";
+import { pressableProps } from "@app/modules/common/components/ui/a11y";
 import "./OverviewStatsGrid.css";
 
 type SortOption = 'name-asc' | 'name-desc' | 'checkin-asc' | 'checkin-desc' | 'none';
@@ -1117,12 +1118,12 @@ function Overview({ date }: OverviewProps) {
 
                                                 return (
                                                     <>
-                                                        <span className={isLateCheckIn ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                                            <i className="bi bi-clock me-1"></i>
+                                                        <span className={isLateCheckIn ? "text-danger" : "text-success"} title={isLateCheckIn ? "Late check-in" : "On-time check-in"} aria-label={`${isLateCheckIn ? "Late" : "On-time"} check-in at ${dayjs(emp.attendance.checkIn).format('h:mm A')}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                            <i className={`bi ${isLateCheckIn ? 'bi-exclamation-triangle-fill' : 'bi-clock'} me-1`}></i>
                                                             {dayjs(emp.attendance.checkIn).format('h:mm A')}
                                                         </span>
-                                                        <span className={isEarlyCheckOut ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                                            <i className="bi bi-clock-fill me-1"></i>
+                                                        <span className={isEarlyCheckOut ? "text-danger" : "text-success"} title={isEarlyCheckOut ? "Early check-out" : "On-time check-out"} aria-label={`${isEarlyCheckOut ? "Early" : "On-time"} check-out at ${dayjs(emp.attendance.checkOut).format('h:mm A')}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                            <i className={`bi ${isEarlyCheckOut ? 'bi-exclamation-triangle-fill' : 'bi-clock-fill'} me-1`}></i>
                                                             {dayjs(emp.attendance.checkOut).format('h:mm A')}
                                                         </span>
                                                     </>
@@ -1164,8 +1165,8 @@ function Overview({ date }: OverviewProps) {
                                                 }
 
                                                 return (
-                                                    <span className={isLateCheckIn ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                                        <i className="bi bi-clock me-1"></i>
+                                                    <span className={isLateCheckIn ? "text-danger" : "text-success"} title={isLateCheckIn ? "Late check-in" : "On-time check-in"} aria-label={`${isLateCheckIn ? "Late" : "On-time"} check-in at ${dayjs(emp.attendance.checkIn).format('h:mm A')}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                        <i className={`bi ${isLateCheckIn ? 'bi-exclamation-triangle-fill' : 'bi-clock'} me-1`}></i>
                                                         {dayjs(emp.attendance.checkIn).format('h:mm A')}
                                                     </span>
                                                 );
@@ -1398,6 +1399,9 @@ function Overview({ date }: OverviewProps) {
             elevation={0}
             className={`overview-stat-card overview-stat-card--${card.accent}`}
             onClick={() => handleCardClick(card.type)}
+            aria-label={`${card.label}: ${card.stat || 0}. View details`}
+            {...pressableProps(() => handleCardClick(card.type))}
+            sx={{ '&:focus-visible': { outline: '2px solid #1E3A8A', outlineOffset: '2px' } }}
         >
             <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
                 <div className="overview-stat-card-content">

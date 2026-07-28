@@ -38,15 +38,17 @@ export const SHADOW = {
  * in dark. Pair with `toneSurface(trio, true)` for accent tiles/pills.
  */
 export const DARK = {
-  surface: '#1E222C',        // primary card / modal background (matches MUI paper)
-  surfaceAlt: '#252A35',     // elevated inner surface (wells, headers)
-  rowBg: 'rgba(255,255,255,0.045)',   // unselected list/option row on a dark surface
-  rowHover: 'rgba(255,255,255,0.09)',
-  border: 'rgba(255,255,255,0.10)',
-  borderStrong: 'rgba(255,255,255,0.16)',
-  textPrimary: 'rgba(255,255,255,0.92)',
-  textSecondary: 'rgba(255,255,255,0.62)',
-  textMuted: 'rgba(255,255,255,0.45)',
+  canvas: '#0d1117',         // page background
+  surface: '#161b22',        // primary card / modal background (GitHub surface)
+  surfaceAlt: '#1c2128',     // elevated inner surface (wells, menus, headers)
+  rowBg: 'rgba(177,186,196,0.06)',   // unselected list/option row on a dark surface
+  rowHover: 'rgba(177,186,196,0.12)',
+  border: '#30363d',
+  borderStrong: '#3d444d',
+  textPrimary: '#e6edf3',
+  textSecondary: '#7d8590',
+  textMuted: '#6e7681',
+  accent: '#2f81f7',
 } as const;
 
 export type Trio = { c: string; bg: string; bd: string };

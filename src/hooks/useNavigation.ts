@@ -257,6 +257,21 @@ export function useNavigation() {
         fontIcon: 'bi-person-lines-fill',
         visible: !isSectionBlocked('crm.contacts'),
       },
+      // Recruitment
+      {
+        type: 'section',
+        id: 'recruitment-section',
+        title: 'Recruitment',
+        visible: !isSectionBlocked('recruitment') && can('recruitment.view.team'),
+      },
+      {
+        type: 'item',
+        id: 'recruitment-home',
+        to: '/recruitment',
+        title: 'Recruitment',
+        fontIcon: 'bi-person-badge',
+        visible: !isSectionBlocked('recruitment') && can('recruitment.view.team'),
+      },
       // Projects
       {
         type: 'section',
