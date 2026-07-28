@@ -39,6 +39,13 @@ export const RECRUITMENT = {
     GET_APPLICATION_INTERVIEWS: "api/recruitment/applications/:id/interviews",
     SUBMIT_SCORECARD: "api/recruitment/interviews/:id/scorecard",
     GET_APPLICATION_EVALUATION: "api/recruitment/applications/:id/evaluation",
+    // Offers (Phase 5)
+    CREATE_OFFER: "api/recruitment/offers",
+    GET_OFFER_BY_ID: "api/recruitment/offers/:id",
+    GET_APPLICATION_OFFER: "api/recruitment/applications/:id/offer",
+    UPDATE_OFFER: "api/recruitment/offers/:id",
+    SUBMIT_OFFER_APPROVAL: "api/recruitment/offers/:id/submit-approval",
+    RESPOND_OFFER: "api/recruitment/offers/:id/respond",
     // Configuration masters (stages / reasons / sources)
     CONFIG_ENTITY: "api/recruitment/config/:type",
     CONFIG_ENTITY_BY_ID: "api/recruitment/config/:type/:id",

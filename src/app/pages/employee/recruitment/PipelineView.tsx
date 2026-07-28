@@ -10,10 +10,11 @@ import { GlassDialog, GlassHeader, WtButton, toast } from "@app/modules/common/c
 import { queryKeys } from "@/lib/queryKeys";
 import { getRequisitions, type JobRequisition } from "@services/recruitment";
 import {
-    getApplications, createApplication, moveApplicationStage, getApplicationStatuses, getRejectionReasons,
+    getApplications, createApplication, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
     type Application, type ApplicationStatus, type ApplicationCreatePayload,
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
+import OfferPanel from "./OfferPanel";
 
 interface PendingMove {
     application: Application;
@@ -40,6 +41,7 @@ const PipelineView = () => {
     const [rejectNote, setRejectNote] = useState("");
     const [dragId, setDragId] = useState<string | null>(null);
     const [interviewsFor, setInterviewsFor] = useState<Application | null>(null);
+    const [offerFor, setOfferFor] = useState<Application | null>(null);
 
     const { data: applications = [], isLoading } = useQuery({ queryKey: queryKeys.recruitment.applications(), queryFn: () => getApplications() });
     const { data: statuses = [] } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
@@ -110,14 +112,27 @@ const PipelineView = () => {
 
     // Convert a hired candidate into an employee: prefill the New Employee wizard
     // via its onboarding-draft seam, then open it — no re-keying of known details.
-    const convertToEmployee = (a: Application) => {
-        const draft = {
+    const convertToEmployee = async (a: Application) => {
+        const draft: Record<string, unknown> = {
             firstName: a.applicant?.firstName ?? "",
             lastName: a.applicant?.lastName ?? "",
             personalEmailId: a.applicant?.email ?? "",
             personalPhoneNumber: a.applicant?.phone ?? "",
             linkedInProfileUrl: a.applicant?.linkedInUrl ?? "",
         };
+        // Pull the approved offer (if any) so placement details prefill too.
+        try {
+            const offer = await getApplicationOffer(a.id);
+            if (offer) {
+                if (offer.offeredDesignationId) draft.designationId = offer.offeredDesignationId;
+                if (offer.offeredDepartmentId) draft.departmentId = offer.offeredDepartmentId;
+                if (offer.offeredEmployeeTypeConfigId) draft.employeeTypeConfigId = offer.offeredEmployeeTypeConfigId;
+                if (offer.offeredCtcInLpa != null) draft.ctcInLpa = String(offer.offeredCtcInLpa);
+                if (offer.proposedJoiningDate) draft.dateOfJoining = new Date(offer.proposedJoiningDate).toISOString().slice(0, 10);
+            }
+        } catch {
+            /* offer is optional — proceed with what we have */
+        }
         try {
             sessionStorage.setItem("employee-onboarding-draft", JSON.stringify(draft));
         } catch {
@@ -213,6 +228,9 @@ const PipelineView = () => {
                                         <WtButton size="small" ghost startIcon={<KTIcon iconName="message-text-2" className="fs-6" />} onClick={() => setInterviewsFor(a)}>
                                             Interviews
                                         </WtButton>
+                                        <WtButton size="small" ghost startIcon={<KTIcon iconName="dollar" className="fs-6" />} onClick={() => setOfferFor(a)}>
+                                            Offer
+                                        </WtButton>
                                         {a.status?.isHiredOutcome && (
                                             <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
                                                 Convert
@@ -293,6 +311,23 @@ const PipelineView = () => {
                         <InterviewsPanel
                             applicationId={interviewsFor.id}
                             applicantName={`${interviewsFor.applicant?.firstName ?? ""} ${interviewsFor.applicant?.lastName ?? ""}`.trim() || "Candidate"}
+                        />
+                    )}
+                </DialogContent>
+            </GlassDialog>
+
+            {/* Offer for one application */}
+            <GlassDialog
+                open={!!offerFor}
+                onClose={() => setOfferFor(null)}
+                maxWidth="sm"
+                header={<GlassHeader title="Offer" icon={<KTIcon iconName="dollar" className="fs-2" />} onClose={() => setOfferFor(null)} />}
+            >
+                <DialogContent>
+                    {offerFor && (
+                        <OfferPanel
+                            applicationId={offerFor.id}
+                            applicantName={`${offerFor.applicant?.firstName ?? ""} ${offerFor.applicant?.lastName ?? ""}`.trim() || "Candidate"}
                         />
                     )}
                 </DialogContent>

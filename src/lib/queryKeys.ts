@@ -49,5 +49,6 @@ export const queryKeys = {
     settings: () => [...queryKeys.recruitment.all, 'settings'] as const,
     interviews: (applicationId: string) => [...queryKeys.recruitment.all, 'interviews', applicationId] as const,
     evaluation: (applicationId: string) => [...queryKeys.recruitment.all, 'evaluation', applicationId] as const,
+    offer: (applicationId: string) => [...queryKeys.recruitment.all, 'offer', applicationId] as const,
   },
 } as const;

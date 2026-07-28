@@ -331,3 +331,39 @@ export const getApplicationEvaluation = async (applicationId: string): Promise<E
     const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_EVALUATION.replace(":id", applicationId)}`);
     return data?.evaluation;
 };
+
+// ─── Offers (Phase 5) ────────────────────────────────────────────────────────
+export interface Offer {
+    id: string; prefix?: string | null; applicationId: string;
+    offeredDesignationId?: string | null; offeredDepartmentId?: string | null; offeredBranchId?: string | null;
+    offeredEmployeeTypeConfigId?: string | null; offeredCtcInLpa?: number | string | null; proposedJoiningDate?: string | null;
+    status: number; acceptanceStatus: string; offerLetterUrl?: string | null; notes?: string | null;
+    expiresAt?: string | null; revisionCount: number;
+}
+export interface OfferPayload {
+    applicationId?: string;
+    offeredDesignationId?: string | null; offeredDepartmentId?: string | null; offeredBranchId?: string | null;
+    offeredEmployeeTypeConfigId?: string | null; offeredCtcInLpa?: number | null; proposedJoiningDate?: string | null;
+    expiresAt?: string | null; notes?: string | null; expectedRevisionCount?: number;
+}
+
+export const getApplicationOffer = async (applicationId: string): Promise<Offer | null> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_OFFER.replace(":id", applicationId)}`);
+    return data?.offer ?? null;
+};
+export const createOffer = async (payload: OfferPayload) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_OFFER}`, payload);
+    return data;
+};
+export const updateOffer = async (id: string, payload: OfferPayload) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.UPDATE_OFFER.replace(":id", id)}`, payload);
+    return data;
+};
+export const submitOfferApproval = async (id: string, approverIds?: string[]) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.SUBMIT_OFFER_APPROVAL.replace(":id", id)}`, approverIds && approverIds.length ? { approverIds } : {});
+    return data;
+};
+export const respondToOffer = async (id: string, acceptanceStatus: "ACCEPTED" | "DECLINED") => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.RESPOND_OFFER.replace(":id", id)}`, { acceptanceStatus });
+    return data;
+};
