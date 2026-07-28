@@ -32,6 +32,13 @@ export const RECRUITMENT = {
     UPDATE_APPLICATION_SECTION: "api/recruitment/applications/:id/section",
     MOVE_APPLICATION_STAGE: "api/recruitment/applications/:id/move",
     ARCHIVE_APPLICATION: "api/recruitment/applications/:id",
+    // Interviews + scorecards (Phase 4)
+    CREATE_INTERVIEW: "api/recruitment/interviews",
+    GET_INTERVIEW_BY_ID: "api/recruitment/interviews/:id",
+    UPDATE_INTERVIEW: "api/recruitment/interviews/:id",
+    GET_APPLICATION_INTERVIEWS: "api/recruitment/applications/:id/interviews",
+    SUBMIT_SCORECARD: "api/recruitment/interviews/:id/scorecard",
+    GET_APPLICATION_EVALUATION: "api/recruitment/applications/:id/evaluation",
     // Configuration masters (stages / reasons / sources)
     CONFIG_ENTITY: "api/recruitment/config/:type",
     CONFIG_ENTITY_BY_ID: "api/recruitment/config/:type/:id",

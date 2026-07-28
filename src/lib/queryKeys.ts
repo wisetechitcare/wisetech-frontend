@@ -47,5 +47,7 @@ export const queryKeys = {
     rejectionReasons: () => [...queryKeys.recruitment.all, 'rejection-reasons'] as const,
     applicantSources: () => [...queryKeys.recruitment.all, 'applicant-sources'] as const,
     settings: () => [...queryKeys.recruitment.all, 'settings'] as const,
+    interviews: (applicationId: string) => [...queryKeys.recruitment.all, 'interviews', applicationId] as const,
+    evaluation: (applicationId: string) => [...queryKeys.recruitment.all, 'evaluation', applicationId] as const,
   },
 } as const;

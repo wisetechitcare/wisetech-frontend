@@ -13,6 +13,7 @@ import {
     getApplications, createApplication, moveApplicationStage, getApplicationStatuses, getRejectionReasons,
     type Application, type ApplicationStatus, type ApplicationCreatePayload,
 } from "@services/recruitment";
+import InterviewsPanel from "./InterviewsPanel";
 
 interface PendingMove {
     application: Application;
@@ -38,6 +39,7 @@ const PipelineView = () => {
     const [rejectReasonId, setRejectReasonId] = useState("");
     const [rejectNote, setRejectNote] = useState("");
     const [dragId, setDragId] = useState<string | null>(null);
+    const [interviewsFor, setInterviewsFor] = useState<Application | null>(null);
 
     const { data: applications = [], isLoading } = useQuery({ queryKey: queryKeys.recruitment.applications(), queryFn: () => getApplications() });
     const { data: statuses = [] } = useQuery({ queryKey: queryKeys.recruitment.applicationStatuses(), queryFn: getApplicationStatuses });
@@ -207,11 +209,16 @@ const PipelineView = () => {
                                 </TableCell>
                                 <TableCell align="center">{scoreLabel(a) ?? "—"}</TableCell>
                                 <TableCell align="right">
-                                    {a.status?.isHiredOutcome && (
-                                        <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
-                                            Convert
+                                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                        <WtButton size="small" ghost startIcon={<KTIcon iconName="message-text-2" className="fs-6" />} onClick={() => setInterviewsFor(a)}>
+                                            Interviews
                                         </WtButton>
-                                    )}
+                                        {a.status?.isHiredOutcome && (
+                                            <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
+                                                Convert
+                                            </WtButton>
+                                        )}
+                                    </Stack>
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -272,6 +279,23 @@ const PipelineView = () => {
                     <Button onClick={() => setPending(null)}>Cancel</Button>
                     <Button variant="contained" color="error" disabled={!rejectReasonId || moveMut.isPending} onClick={confirmReject}>Confirm</Button>
                 </DialogActions>
+            </GlassDialog>
+
+            {/* Interviews + scorecards for one application */}
+            <GlassDialog
+                open={!!interviewsFor}
+                onClose={() => setInterviewsFor(null)}
+                maxWidth="md"
+                header={<GlassHeader title="Interview management" icon={<KTIcon iconName="message-text-2" className="fs-2" />} onClose={() => setInterviewsFor(null)} />}
+            >
+                <DialogContent>
+                    {interviewsFor && (
+                        <InterviewsPanel
+                            applicationId={interviewsFor.id}
+                            applicantName={`${interviewsFor.applicant?.firstName ?? ""} ${interviewsFor.applicant?.lastName ?? ""}`.trim() || "Candidate"}
+                        />
+                    )}
+                </DialogContent>
             </GlassDialog>
         </Box>
     );

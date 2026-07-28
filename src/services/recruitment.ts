@@ -289,3 +289,45 @@ export const saveRecruitmentSettings = async (payload: Partial<RecruitmentSettin
     const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.SETTINGS}`, payload);
     return data?.settings;
 };
+
+// ─── Interviews + scorecards (Phase 4) ───────────────────────────────────────
+export interface InterviewScorecard {
+    id: string; interviewId: string; panelistId: string; overallRating: number; recommendation: string;
+    factorScoresJson?: Record<string, number> | null; comments?: string | null; submittedAt: string;
+}
+export interface Interview {
+    id: string; applicationId: string; round: number; type: string; mode: string;
+    scheduledStart: string; scheduledEnd: string; meetingLink?: string | null; location?: string | null;
+    panelistIds: string[]; status: string; reminderSentAt?: string | null; scorecards?: InterviewScorecard[];
+}
+export interface InterviewPayload {
+    applicationId: string; round?: number; type?: string; mode?: string;
+    scheduledStart: string; scheduledEnd: string; meetingLink?: string | null; location?: string | null; panelistIds: string[];
+}
+export interface ScorecardPayload {
+    overallRating: number; recommendation: string; factorScores?: Record<string, number> | null; comments?: string | null;
+}
+export interface EvaluationAggregate {
+    scorecardCount: number; averageOverall: number | null; recommendation: string | null; byRecommendation: Record<string, number>;
+}
+
+export const getApplicationInterviews = async (applicationId: string): Promise<Interview[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_INTERVIEWS.replace(":id", applicationId)}`);
+    return data?.interviews ?? [];
+};
+export const createInterview = async (payload: InterviewPayload) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.CREATE_INTERVIEW}`, payload);
+    return data;
+};
+export const updateInterview = async (id: string, payload: Partial<InterviewPayload> & { status?: string }) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.UPDATE_INTERVIEW.replace(":id", id)}`, payload);
+    return data;
+};
+export const submitScorecard = async (interviewId: string, payload: ScorecardPayload) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.SUBMIT_SCORECARD.replace(":id", interviewId)}`, payload);
+    return data;
+};
+export const getApplicationEvaluation = async (applicationId: string): Promise<EvaluationAggregate> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_EVALUATION.replace(":id", applicationId)}`);
+    return data?.evaluation;
+};
