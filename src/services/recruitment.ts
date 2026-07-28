@@ -258,3 +258,34 @@ export const deleteApplicantSource = async (id: string) => {
     const { data } = await axios.delete(`${API_BASE_URL}/${cfgByIdPath("applicant-sources", id)}`);
     return data;
 };
+
+// Edit support for the simple masters (create/delete already above).
+export const updateRejectionReason = async (id: string, payload: Partial<RejectionReason> & { reason?: string }) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${cfgByIdPath("rejection-reasons", id)}`, payload);
+    return data;
+};
+export const updateApplicantSource = async (id: string, payload: Partial<ApplicantSource> & { name?: string }) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${cfgByIdPath("applicant-sources", id)}`, payload);
+    return data;
+};
+
+// Reorder any config master (type = requisition-stages | application-statuses | rejection-reasons | applicant-sources).
+export const reorderConfig = async (type: string, orderedIds: string[]) => {
+    const path = RECRUITMENT.CONFIG_REORDER.replace(":type", type);
+    const { data } = await axios.patch(`${API_BASE_URL}/${path}`, { orderedIds });
+    return data;
+};
+
+// ─── Tenant settings (scoring weights + automation rules) ────────────────────
+export interface ScoringWeights { ctcFit: number; experience: number; noticePeriod: number; keywordMatch: number }
+export interface AutoRules { autoAdvanceEnabled: boolean; autoRejectEnabled: boolean; aiScreeningEnabled: boolean }
+export interface RecruitmentSettings { weights: ScoringWeights; autoRules: AutoRules }
+
+export const getRecruitmentSettings = async (): Promise<RecruitmentSettings> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.SETTINGS}`);
+    return data?.settings;
+};
+export const saveRecruitmentSettings = async (payload: Partial<RecruitmentSettings>): Promise<RecruitmentSettings> => {
+    const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.SETTINGS}`, payload);
+    return data?.settings;
+};

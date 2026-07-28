@@ -4,9 +4,8 @@ import MaterialHeaderTab, {
 import { useSearchParams } from "react-router-dom";
 import { PageTitle } from "@metronic/layout/core";
 import RequisitionsView from "./RequisitionsView";
-import RequisitionStagesConfig from "./RequisitionStagesConfig";
 import PipelineView from "./PipelineView";
-import PipelineConfig from "./PipelineConfig";
+import RecruitmentConfigurationMain from "./RecruitmentConfigurationMain";
 
 /**
  * Recruitment / ATS module shell. Mirrors LeadsMain (MaterialHeaderTab +
@@ -44,16 +43,7 @@ const RecruitmentMain = () => {
     { title: "Requisitions", component: <RequisitionsView />, icon: "bi-briefcase" },
     { title: "Pipeline", component: <PipelineView />, icon: "bi-kanban" },
     { title: "Candidates", component: <ComingSoon label="Candidates" />, icon: "bi-people" },
-    {
-      title: "Configure",
-      component: (
-        <>
-          <RequisitionStagesConfig />
-          <PipelineConfig />
-        </>
-      ),
-      icon: "bi-gear",
-    },
+    { title: "Configure", component: <RecruitmentConfigurationMain />, icon: "bi-gear" },
   ];
 
   const breadcrumbs = [

@@ -35,6 +35,9 @@ export const RECRUITMENT = {
     // Configuration masters (stages / reasons / sources)
     CONFIG_ENTITY: "api/recruitment/config/:type",
     CONFIG_ENTITY_BY_ID: "api/recruitment/config/:type/:id",
+    CONFIG_REORDER: "api/recruitment/config/:type/reorder",
+    // Tenant settings (scoring weights + automation rules)
+    SETTINGS: "api/recruitment/config/settings",
 }
 
 export const USERS = {
