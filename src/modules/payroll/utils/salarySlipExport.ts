@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 import { saveAs } from 'file-saver';
-import { formatValue, sumBreakdownEarnings } from './payrollFormatters';
+import { formatValue } from './payrollFormatters';
 
 /**
  * Spreadsheet export of a month's salary slip.
@@ -69,12 +69,95 @@ const fmtDate = (v: any, withTime = false): string => {
 
 const money2 = (n: number) => `₹${num(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-/** Hours as a decimal from an HH:MM:SS string, else null. */
-const hoursFromClock = (v: any): number | null => {
-    if (typeof v !== 'string' || !/^\d{1,4}:\d{2}(:\d{2})?$/.test(v)) return null;
-    const [h, m, s] = v.split(':').map(Number);
-    return h + m / 60 + (s || 0) / 3600;
+/** A number when the value is one, otherwise an em-dash — keeps day counts numeric in the sheet. */
+const numOrDash = (v: any): number | string => {
+    if (v === null || v === undefined || v === '') return '—';
+    const n = Number(v);
+    return Number.isFinite(n) ? n : safe(v);
 };
+
+interface ParsedQty {
+    qty: number;
+    /** The unit the engine itself declared, when the value carried one. */
+    unit: 'Hrs' | 'Days' | '';
+}
+
+/**
+ * Reads a quantity out of the several shapes `value` arrives in — an "HH:MM:SS"
+ * clock string, "18.46 days", "7.5 hrs", a bare number, or a number as a string.
+ * Returns null only when there is genuinely nothing to multiply.
+ */
+const parseQty = (v: any): ParsedQty | null => {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return Number.isFinite(v) ? { qty: v, unit: '' } : null;
+
+    const s = String(v).trim();
+    if (!s) return null;
+
+    const clock = /^(\d{1,4}):([0-5]?\d)(?::([0-5]?\d))?$/.exec(s);
+    if (clock) return { qty: Number(clock[1]) + Number(clock[2]) / 60 + Number(clock[3] || 0) / 3600, unit: 'Hrs' };
+
+    const plain = /^(-?[\d,]*\.?\d+)\s*(days?|d|hrs?|hours?|h)?$/i.exec(s);
+    if (!plain) return null;
+    const n = Number(plain[1].replace(/,/g, ''));
+    if (!Number.isFinite(n)) return null;
+    const unit = (plain[2] || '').toLowerCase();
+    return { qty: n, unit: unit.startsWith('d') ? 'Days' : unit ? 'Hrs' : '' };
+};
+
+/**
+ * Line amounts are truncated to paise exactly as `sumBreakdownEarnings` does, so a
+ * live SUM() over the lines lands on the very subtotal the app displays.
+ */
+const trunc2 = (n: number) => Math.trunc(num(n) * 100) / 100;
+
+interface Reconciled {
+    qty: number | null;
+    rateValue: number | null;
+    /** Set when the line's rate IS the master hour/day rate, so its cell can link to it. */
+    rateSource: 'hour' | 'day' | null;
+}
+
+/**
+ * Makes `quantity × rate = amount` hold exactly, which is what lets the amount be a
+ * live formula instead of a frozen number.
+ *
+ * The engine ships the amount to the paisa but the quantity only to the minute
+ * ("147:41:00" for 147.6913 h), so multiplying the two back out misses by a few
+ * paise. Previously that mismatch made the exporter drop the formula and write a
+ * literal — which is exactly why editing a Details cell changed nothing. Instead
+ * the quantity is re-derived from the authoritative amount whenever the shipped
+ * quantity corroborates it: the rate stays the official contract figure and the
+ * quantity silently absorbs the sub-minute residue, invisible at two decimals.
+ *
+ * When the shipped quantity plainly is not a multiple of the nominal rate — a
+ * custom component whose "value" is really an amount, or hours worked but not
+ * payable — the line falls back to its own effective rate, or to a flat amount
+ * with no rate at all.
+ */
+function reconcile(amount: number, parsed: ParsedQty | null, nominal: number, isHourly: boolean): Reconciled {
+    const flat: Reconciled = { qty: null, rateValue: null, rateSource: null };
+    const shipped = parsed ? parsed.qty : null;
+
+    // `value` echoing `earned` means the field carries an amount, not a quantity.
+    if (shipped !== null && amount !== 0 && Math.abs(shipped - amount) < 0.005) return flat;
+
+    if (nominal > 0) {
+        const derived = amount / nominal;
+        const tolerance = shipped === null ? 0 : Math.max(0.02, Math.abs(shipped) * 0.01);
+        if (shipped === null || Math.abs(derived - shipped) <= tolerance) {
+            return { qty: derived, rateValue: nominal, rateSource: isHourly ? 'hour' : 'day' };
+        }
+        if (shipped !== 0) {
+            const effective = amount / shipped;
+            // A zero rate is the honest reading of "worked, but not payable".
+            if (effective === 0 || (effective >= nominal / 4 && effective <= nominal * 4)) {
+                return { qty: shipped, rateValue: effective, rateSource: null };
+            }
+        }
+    }
+    return flat;
+}
 
 function amountInWords(n: number): string {
     const value = Math.round(Math.abs(n));
@@ -108,6 +191,8 @@ interface EarningLine {
     rateText: string;
     rateValue: number | null;
     rateUnit: 'Hour' | 'Day' | '';
+    /** When set, the rate cell links to the master hour/day rate instead of repeating it. */
+    rateSource: 'hour' | 'day' | null;
     amount: number;
 }
 
@@ -115,8 +200,16 @@ interface DeductionLine {
     name: string;
     detailsText: string;
     qty: number | null;
+    /** Unit appended to the quantity, e.g. "late" or "Days" */
+    qtyUnit: string;
+    /** Quantities that only come in whole units (late check-in counts) */
+    integralQty: boolean;
     rateText: string;
     rateValue: number | null;
+    /** Unit appended to the rate, e.g. "Day" or "3 late" */
+    rateUnit: string;
+    /** Slab size for count-based penalties: amount = FLOOR(qty / slab) × rate */
+    slab: number | null;
     amount: number;
 }
 
@@ -176,6 +269,12 @@ export interface SlipModel {
     totalDeductions: number;
 
     netSalary: number;
+    /**
+     * Gap between the payroll register's own net figure and gross − deductions.
+     * Gets its own line once it is large enough to move the printed rupee figure,
+     * so the net stays a live formula that still lands on the official number.
+     */
+    netAdjustment: number;
     netInWords: string;
 
     salaryHistory: { paidAt: string; payable: number; paid: number; remaining: number }[];
@@ -217,41 +316,42 @@ export function buildSlipModel(input: SalarySlipExportInput): SlipModel {
         .map(([key, item]: [string, any], index): EarningLine => {
             const meta = rc(item.name || key);
             const masterCalc = meta?.calculationType?.toUpperCase();
-            const isHourly = masterCalc === 'DAILY' ? false : masterCalc === 'HOURLY' ? true : index < 2;
-            const rateValue = isHourly ? hourlySalary : dailySalary;
+            const parsed = parseQty(item.value);
 
-            const clockHours = hoursFromClock(item.value);
-            let qty: number | null = null;
-            let qtyUnit: 'Hrs' | 'Days' | '' = '';
-            let detailsText = formatValue(item.value, item.type);
+            // The engine's own unit wins: under "days" display mode even working time
+            // arrives as days and must be priced at the daily rate, not the hourly one.
+            const isHourly = parsed?.unit === 'Days' ? false
+                : parsed?.unit === 'Hrs' ? true
+                    : masterCalc === 'DAILY' ? false
+                        : masterCalc === 'HOURLY' ? true
+                            : index < 2;
 
-            if (clockHours !== null) {
-                qty = isHourly ? clockHours : clockHours / 8;
-                qtyUnit = isHourly ? 'Hrs' : 'Days';
-                detailsText = isHourly ? String(item.value) : `${qty.toFixed(2)} Days`;
-            } else if (item.value !== null && item.value !== undefined && item.value !== '' && !isNaN(Number(item.value))) {
-                qty = Number(item.value);
-                qtyUnit = isHourly ? 'Hrs' : 'Days';
-            }
+            const amount = trunc2(item.earned);
+            const { qty, rateValue, rateSource } = reconcile(amount, parsed, isHourly ? hourlySalary : dailySalary, isHourly);
 
             return {
                 name: rn(item.name || key),
-                detailsText,
+                detailsText: formatValue(item.value, item.type),
                 qty,
-                qtyUnit,
-                rateText: rateValue > 0 ? `${money2(rateValue)} / ${isHourly ? 'Hour' : 'Day'}` : '—',
-                rateValue: rateValue > 0 ? rateValue : null,
-                rateUnit: rateValue > 0 ? (isHourly ? 'Hour' : 'Day') : '',
-                amount: num(item.earned),
+                qtyUnit: qty === null ? '' : isHourly ? 'Hrs' : 'Days',
+                rateText: rateValue === null ? '—' : `${money2(rateValue)} / ${isHourly ? 'Hour' : 'Day'}`,
+                rateValue,
+                rateUnit: rateValue === null ? '' : isHourly ? 'Hour' : 'Day',
+                rateSource,
+                amount,
             };
         });
 
     const fixedEarnings = sortedEntries(Object.entries(gross.fixed || {}))
         .filter(isVisible)
-        .map(([key, item]: [string, any]) => ({ name: rn(item.name || key), amount: num(item.earned) }));
+        .map(([key, item]: [string, any]) => ({ name: rn(item.name || key), amount: trunc2(item.earned) }));
 
-    const totalVariableEarnings = sumBreakdownEarnings(gross.variable);
-    const totalFixedEarnings = sumBreakdownEarnings(gross.fixed);
+    // Subtotals are the sum of the lines actually printed, using the same per-line
+    // truncation as `sumBreakdownEarnings`, so the panel adds up on the page and a
+    // live SUM() lands exactly on it. Where a hidden component carries earnings the
+    // difference against the register surfaces on the reconciliation line below.
+    const totalVariableEarnings = variableEarnings.reduce((acc, e) => acc + e.amount, 0);
+    const totalFixedEarnings = fixedEarnings.reduce((acc, e) => acc + e.amount, 0);
     const totalGrossPay = totalVariableEarnings + totalFixedEarnings;
 
     // ── Deductions ────────────────────────────────────────────────────────────
@@ -278,33 +378,58 @@ export function buildSlipModel(input: SalarySlipExportInput): SlipModel {
     const salaryAfterAttendance = Math.max(0, totalGrossPay - totalVariableDeductions);
     const totalDeductions = totalVariableDeductions + totalFixedDeductions;
 
-    const variableDeductions: DeductionLine[] = variableDeductionEntries.map(([key, item]: [string, any]) => {
+    const variableDeductions: DeductionLine[] = variableDeductionEntries.map(([key, item]: [string, any]): DeductionLine => {
         const name = item?.name || key;
         const isLate = /late\s*check/i.test(key) || /late\s*attendance/i.test(key)
             || /late\s*check/i.test(name) || /late\s*attendance/i.test(name);
+        const amount = num(item?.earned);
+        const parsed = parseQty(item?.value);
 
-        let rateText = dailySalary ? `${money2(dailySalary)} / Day` : '—';
-        let rateValue: number | null = dailySalary || null;
-        if (isLate && dailySalary) {
-            const percent = num(item?.ratePercent ?? item?.configuredValue ?? item?.deductionPercent ?? 50);
-            const countLimit = num(item?.meta?.countLimit ?? item?.countLimit ?? 4);
-            rateValue = dailySalary * (percent / 100);
-            rateText = `${money2(rateValue)} / ${countLimit} late`;
-        } else if (item?.rateDisplay || item?.rateLabel) {
-            rateText = String(item.rateDisplay || item.rateLabel);
-            rateValue = null;
+        if (isLate) {
+            // A late-check-in penalty is slab-based: one charge of `rateAmount` per
+            // `countLimit` lates. Both come from the engine; when an older payload
+            // omits the limit it is recovered from the charge already applied.
+            const percent = num(item?.ratePercent ?? item?.configuredValue ?? item?.deductionPercent);
+            const slabAmount = num(item?.rateAmount) || (dailySalary && percent ? dailySalary * (percent / 100) : 0);
+            const count = parsed ? parsed.qty : null;
+
+            let slab = num(item?.countLimit ?? item?.meta?.countLimit);
+            if (!(slab > 0) && slabAmount > 0 && amount > 0 && count) {
+                const slabs = Math.round(amount / slabAmount);
+                const guess = slabs > 0 ? count / slabs : 0;
+                if (guess > 0 && Math.abs(guess - Math.round(guess)) < 0.001) slab = Math.round(guess);
+            }
+
+            if (slabAmount > 0 && slab > 0 && count !== null) {
+                return {
+                    name: rn(name),
+                    detailsText: safe(item?.value),
+                    qty: count,
+                    qtyUnit: 'late',
+                    integralQty: true,
+                    rateText: `${money2(slabAmount)} / ${slab} late`,
+                    rateValue: slabAmount,
+                    rateUnit: `${slab} late`,
+                    slab,
+                    amount,
+                };
+            }
         }
 
-        const qtyRaw = item?.value;
-        const qty = qtyRaw !== null && qtyRaw !== undefined && qtyRaw !== '' && !isNaN(Number(qtyRaw)) ? Number(qtyRaw) : null;
+        const { qty, rateValue } = reconcile(amount, parsed, dailySalary, false);
+        const explicitRate = item?.rateDisplay || item?.rateLabel;
 
         return {
             name: rn(name),
-            detailsText: safe(qtyRaw),
+            detailsText: safe(item?.value),
             qty,
-            rateText,
+            qtyUnit: qty === null ? '' : 'Days',
+            integralQty: false,
+            rateText: rateValue !== null ? `${money2(rateValue)} / Day` : (explicitRate ? String(explicitRate) : '—'),
             rateValue,
-            amount: num(item?.earned),
+            rateUnit: rateValue !== null ? 'Day' : '',
+            slab: null,
+            amount,
         };
     });
 
@@ -338,15 +463,17 @@ export function buildSlipModel(input: SalarySlipExportInput): SlipModel {
     const bank = (employee as any)?.EmployeeBankDetails?.[0] || (employee as any)?.employeeBankDetails?.[0] || null;
 
     // ── Attendance & rates ────────────────────────────────────────────────────
+    // Day and check-in counts go in as real numbers so the sheet can compute with
+    // them; the HH:MM:SS clock readings stay as text, they are read, not multiplied.
     const attendance: { label: string; value: string | number }[] = [
-        { label: 'Total Working Days', value: safe(rec.workingdays) },
-        { label: 'Present Days', value: safe(rec.presentDays) },
-        { label: 'Absent Days', value: safe(rec.absentDays) },
-        { label: 'Paid Leaves', value: safe(rec.leavesDays) },
-        { label: 'Unpaid Leaves', value: safe(rec.unpaidLeaveDays) },
-        { label: 'Total Payable Days', value: safe(rec.totalPayableDays) },
-        { label: 'Late Check-ins', value: safe(rec.lateCheckinDays) },
-        { label: 'Extra Days Worked', value: safe(rec.extraDaysWorked) },
+        { label: 'Total Working Days', value: numOrDash(rec.workingdays) },
+        { label: 'Present Days', value: numOrDash(rec.presentDays) },
+        { label: 'Absent Days', value: numOrDash(rec.absentDays) },
+        { label: 'Paid Leaves', value: numOrDash(rec.leavesDays) },
+        { label: 'Unpaid Leaves', value: numOrDash(rec.unpaidLeaveDays) },
+        { label: 'Total Payable Days', value: numOrDash(rec.totalPayableDays) },
+        { label: 'Late Check-ins', value: numOrDash(rec.lateCheckinDays) },
+        { label: 'Extra Days Worked', value: numOrDash(rec.extraDaysWorked) },
         { label: 'Expected Working Hours', value: safe(rec.workingHours) },
         { label: 'Payable Hours', value: safe(rec.payableHours) },
         { label: 'Overtime', value: safe(rec.overTime) },
@@ -465,6 +592,9 @@ export function buildSlipModel(input: SalarySlipExportInput): SlipModel {
         totalDeductions,
 
         netSalary,
+        // Kept at full precision, never truncated: this is the term that has to make
+        // the live net land exactly on the register's figure.
+        netAdjustment: netSalary - derivedNet,
         netInWords: amountInWords(netSalary),
 
         salaryHistory,
@@ -483,8 +613,21 @@ const argb = (hex: string) => 'FF' + hex.replace('#', '').toUpperCase();
 // Indian digit grouping (₹12,34,567.89). The final section also catches negatives.
 const INR2 = '[>=10000000]"₹"##\\,##\\,##\\,##0.00;[>=100000]"₹"##\\,##\\,##0.00;"₹"#,##0.00';
 const INR0 = '[>=10000000]"₹"##\\,##\\,##\\,##0;[>=100000]"₹"##\\,##\\,##0;"₹"#,##0';
-const INR2_NEG = '[>=10000000]"-₹"##\\,##\\,##\\,##0.00;[>=100000]"-₹"##\\,##\\,##0.00;"-₹"#,##0.00';
-const INR0_NEG = '[>=10000000]"-₹"##\\,##\\,##\\,##0;[>=100000]"-₹"##\\,##\\,##0;"-₹"#,##0';
+// Deductions are held as positive numbers and worn with a minus. The leading
+// `[<0.005]` section keeps a nil deduction reading "₹0" rather than "-₹0", and the
+// two-digit grouping repeats leftwards on its own, so crores still come out right.
+const INR2_NEG = '[<0.005]"₹"#,##0.00;[>=100000]"-₹"##\\,##\\,##0.00;"-₹"#,##0.00';
+const INR0_NEG = '[<0.005]"₹"#,##0;[>=100000]"-₹"##\\,##\\,##0;"-₹"#,##0';
+/** Signed format for a figure that may legitimately fall either side of zero. */
+const INR2_SIGNED = '"₹"#,##0.00;"-₹"#,##0.00;"₹"0.00';
+
+const colLetter = (col: number) => String.fromCharCode(64 + col);
+
+/** Quantity format. Whole-unit counts drop the decimals — `0.##` would render "4." */
+const qtyFmt = (unit: string, integral = false) => `${integral ? '0' : '0.00'}${unit ? `" ${unit}"` : ''}`;
+
+/** Rate format carrying its own unit, e.g. ₹80.65 / Hour or ₹322.58 / 3 late. */
+const rateFmt = (unit: string) => `"₹"#,##0.00${unit ? `" / ${unit}"` : ''}`;
 
 const C = {
     navy: '#0f2044',
@@ -815,21 +958,66 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
     r++;
 
     const attPairs = [...m.attendance.map(a => ({ label: a.label, value: a.value, money: false })), ...m.rates];
+
+    /** Absolute reference of every numeric cell here, so later rows can point at it. */
+    const ref: Record<string, { addr: string; row: number; col: number; value: number }> = {};
+
     for (let i = 0; i < attPairs.length; i += 2) {
-        const left = attPairs[i];
-        const right = attPairs[i + 1];
-        band(ws, r, 2, 2, left.label, lblStyle);
-        const lv = band(ws, r, 3, 5, left.value, valStyle);
-        if (left.money && typeof left.value === 'number') lv.numFmt = INR2;
-        if (right) {
-            band(ws, r, 7, 8, right.label, lblStyle);
-            const rv = band(ws, r, 9, 11, right.value, valStyle);
-            if (right.money && typeof right.value === 'number') rv.numFmt = INR2;
-        } else {
-            band(ws, r, 7, 11, '', valStyle);
-        }
+        ([[attPairs[i], 2, 3, 5], [attPairs[i + 1], 7, 9, 11]] as const).forEach(([item, lblCol, valCol, valEnd]) => {
+            if (!item) {
+                band(ws, r, lblCol, valEnd, '', valStyle);
+                return;
+            }
+            band(ws, r, lblCol, valCol - 1, item.label, lblStyle);
+            const cell = band(ws, r, valCol, valEnd, item.value, valStyle);
+            if (typeof item.value === 'number') {
+                if (item.money) cell.numFmt = INR2;
+                ref[item.label] = { addr: `$${colLetter(valCol)}$${r}`, row: r, col: valCol, value: item.value };
+            }
+        });
         ws.getRow(r).height = 16;
         r++;
+    }
+
+    /**
+     * Turns a literal into a formula, but only when the formula reproduces the value
+     * the payroll engine already put there. A mismatch means the identity being
+     * assumed does not hold for this company's configuration, so the number stands.
+     */
+    const relink = (label: string, formula: string, computed: number, fmt?: string): boolean => {
+        const target = ref[label];
+        if (!target || !Number.isFinite(computed) || Math.abs(computed - target.value) >= 0.005) return false;
+        const cell = ws.getCell(target.row, target.col);
+        cell.value = { formula, result: target.value } as any;
+        if (fmt) cell.numFmt = fmt;
+        return true;
+    };
+
+    const hourRateRef = ref['Per Hour Rate']?.addr ?? null;
+    const dayRateRef = ref['Per Day Rate']?.addr ?? null;
+
+    // Make the rate block itself compute: the per-day rate is the per-hour rate over a
+    // standard working day, and the monthly basic is a twelfth of the annual CTC. Change
+    // the hourly rate and every day-priced line downstream follows.
+    if (hourRateRef && ref['Per Day Rate']) {
+        relink('Per Day Rate', `${hourRateRef}*8`, ref['Per Hour Rate'].value * 8, INR2);
+    }
+    if (ref['Annual CTC'] && ref['Monthly Basic Salary']) {
+        relink('Monthly Basic Salary', `${ref['Annual CTC'].addr}/12`, ref['Annual CTC'].value / 12, INR2);
+    }
+    // Payable days: try the fuller identity first, fall back to the plain one. relink
+    // writes nothing where neither reproduces the engine's figure, so a company whose
+    // configuration counts days differently simply keeps its literal.
+    if (ref['Present Days'] && ref['Paid Leaves']) {
+        const present = ref['Present Days'];
+        const leaves = ref['Paid Leaves'];
+        const extra = ref['Extra Days Worked'];
+        const withExtra = extra
+            ? relink('Total Payable Days', `${present.addr}+${leaves.addr}+${extra.addr}`, present.value + leaves.value + extra.value)
+            : false;
+        if (!withExtra) {
+            relink('Total Payable Days', `${present.addr}+${leaves.addr}`, present.value + leaves.value);
+        }
     }
     r++;
 
@@ -893,7 +1081,7 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
             const detail = ws.getCell(r, 3);
             if (e.qty !== null) {
                 detail.value = e.qty;
-                detail.numFmt = e.qtyUnit ? `0.00" ${e.qtyUnit}"` : '0.00';
+                detail.numFmt = qtyFmt(e.qtyUnit);
             } else {
                 detail.value = e.detailsText;
             }
@@ -901,8 +1089,11 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
 
             const rate = ws.getCell(r, 4);
             if (e.rateValue !== null) {
-                rate.value = e.rateValue;
-                rate.numFmt = `"₹"#,##0.00" / ${e.rateUnit}"`;
+                // Lines priced at the standard rate point back at the rate block, so one
+                // edit there re-prices the whole slip.
+                const link = e.rateSource === 'hour' ? hourRateRef : e.rateSource === 'day' ? dayRateRef : null;
+                rate.value = link ? ({ formula: link, result: e.rateValue } as any) : e.rateValue;
+                rate.numFmt = rateFmt(e.rateUnit);
             } else {
                 rate.value = e.rateText;
             }
@@ -924,13 +1115,30 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
             const detail = ws.getCell(r, 8);
             if (d.qty !== null) {
                 detail.value = d.qty;
-                detail.numFmt = '0.##';
+                detail.numFmt = qtyFmt(d.qtyUnit, d.integralQty);
             } else {
                 detail.value = d.detailsText;
             }
             applyStyle(detail, rowCenter);
-            band(ws, r, 9, 10, d.rateText, rowCenter);
-            amountCell(ws, r, 11, d.amount, null, null, dedAmtStyle, INR2_NEG);
+
+            ws.mergeCells(r, 9, r, 10);
+            const rate = ws.getCell(r, 9);
+            if (d.rateValue !== null) {
+                rate.value = d.rateValue;
+                rate.numFmt = rateFmt(d.rateUnit);
+            } else {
+                rate.value = d.rateText;
+            }
+            for (let c = 9; c <= 10; c++) applyStyle(ws.getCell(r, c), rowCenter);
+
+            // A slab penalty charges once per `slab` occurrences — ROUNDDOWN reproduces
+            // the engine's floor division, so raising the count re-prices the penalty.
+            const live = d.qty !== null && d.rateValue !== null;
+            const formula = !live ? null : d.slab ? `ROUNDDOWN(H${r}/${d.slab},0)*I${r}` : `H${r}*I${r}`;
+            const computed = !live ? null : d.slab
+                ? Math.floor((d.qty as number) / d.slab) * (d.rateValue as number)
+                : (d.qty as number) * (d.rateValue as number);
+            amountCell(ws, r, 11, d.amount, formula, computed, dedAmtStyle, INR2_NEG);
         } else {
             band(ws, r, 7, 11, '', rowStyle);
         }
@@ -1087,16 +1295,32 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
         ws.getCell(b.row, 10).value = { formula: `$I$${afterAttRow}`, result: b.value } as any;
     });
 
+    // ── ROUNDING RECONCILIATION ───────────────────────────────────────────────
+    // Where the payroll register's own net differs from earnings − deductions, the
+    // gap gets its own visible line rather than freezing the net into a literal.
+    // The chain below it stays live and still lands on the official figure.
+    let adjRef: string | null = null;
+    if (Math.abs(m.netAdjustment) >= 0.005) {
+        band(ws, r, 2, 8, 'Rounding & Reconciliation  (to payroll register)', { bold: true, size: 10, color: C.amberInk, bg: C.amberBg, border: '#fde68a' });
+        ws.mergeCells(r, 9, r, 11);
+        const adjCell = ws.getCell(r, 9);
+        adjCell.value = m.netAdjustment;
+        adjCell.numFmt = INR2_SIGNED;
+        for (let c = 9; c <= 11; c++) applyStyle(ws.getCell(r, c), { bold: true, size: 11, color: C.amberInk, align: 'right', bg: C.amberBg, border: '#fde68a' });
+        ws.getRow(r).height = 18;
+        adjRef = `I${r}`;
+        r++;
+    }
+
     // ── NET PAYABLE ───────────────────────────────────────────────────────────
     const netRow = r;
-    band(ws, r, 2, 8, 'NET SALARY PAYABLE  (Total Earnings − Total Deductions)', { bold: true, size: 12, color: C.white, bg: C.navy });
+    band(ws, r, 2, 8, `NET SALARY PAYABLE  (Total Earnings − Total Deductions${adjRef ? ' + Reconciliation' : ''})`, { bold: true, size: 12, color: C.white, bg: C.navy });
     ws.mergeCells(r, 9, r, 11);
     const netCell = ws.getCell(r, 9);
-    const derivedNet = m.totalGrossPay - m.totalDeductions;
-    const netFormulaOk = Math.abs(derivedNet - m.netSalary) < 0.51;
-    netCell.value = netFormulaOk
-        ? ({ formula: `E${grossRow}-K${dedRow}`, result: m.netSalary } as any)
-        : m.netSalary;
+    netCell.value = {
+        formula: `E${grossRow}-K${dedRow}${adjRef ? `+${adjRef}` : ''}`,
+        result: m.netSalary,
+    } as any;
     netCell.numFmt = INR0;
     for (let c = 9; c <= 11; c++) applyStyle(ws.getCell(r, c), { bold: true, size: 14, color: C.white, align: 'right', bg: C.navy });
     ws.getRow(r).height = 26;
@@ -1178,21 +1402,57 @@ export async function downloadSalarySlipXlsx(input: SalarySlipExportInput): Prom
     band(ws, r, COL.first, COL.last, 'PAYMENT SUMMARY', { bold: true, size: 11, color: C.white, bg: C.navyLight });
     ws.getRow(r).height = 20;
     r++;
+    const sumRef: Record<string, { addr: string; row: number; col: number; value: number }> = {};
     for (let i = 0; i < m.summary.length; i += 2) {
-        const left = m.summary[i];
-        const right = m.summary[i + 1];
-        band(ws, r, 2, 2, left.label, lblStyle);
-        const lv = band(ws, r, 3, 5, left.value, { ...valStyle, align: 'right' });
-        if (left.money) lv.numFmt = INR0;
-        if (right) {
-            band(ws, r, 7, 8, right.label, lblStyle);
-            const rv = band(ws, r, 9, 11, right.value, { ...valStyle, align: 'right' });
-            if (right.money) rv.numFmt = INR0;
-        } else {
-            band(ws, r, 7, 11, '', valStyle);
-        }
+        ([[m.summary[i], 2, 3, 5], [m.summary[i + 1], 7, 9, 11]] as const).forEach(([item, lblCol, valCol, valEnd]) => {
+            if (!item) {
+                band(ws, r, lblCol, valEnd, '', valStyle);
+                return;
+            }
+            band(ws, r, lblCol, valCol - 1, item.label, lblStyle);
+            const cell = band(ws, r, valCol, valEnd, item.value, { ...valStyle, align: 'right' });
+            if (item.money) cell.numFmt = INR0;
+            if (typeof item.value === 'number') {
+                sumRef[item.label] = { addr: `$${colLetter(valCol)}$${r}`, row: r, col: valCol, value: item.value };
+            }
+        });
         ws.getRow(r).height = 16;
         r++;
+    }
+
+    // Tie the summary back to the slip: what is payable comes from the net row, and
+    // every "pending" is its own outstanding balance rather than a copied number.
+    const sumRelink = (label: string, formula: string, computed: number) => {
+        const target = sumRef[label];
+        if (!target || !Number.isFinite(computed) || Math.abs(computed - target.value) >= 0.51) return;
+        ws.getCell(target.row, target.col).value = { formula, result: target.value } as any;
+    };
+    sumRelink('Net Salary Payable', `$I$${netRow}`, m.netSalary);
+    if (sumRef['Salary Paid']) {
+        sumRelink('Salary Pending', `MAX(0,$I$${netRow}-${sumRef['Salary Paid'].addr})`, Math.max(0, m.netSalary - sumRef['Salary Paid'].value));
+    }
+    sumRelink('Government Deductions', `K${statTotalRow}`, m.totalFixedDeductions);
+    if (sumRef['Government Deductions'] && sumRef['Government Paid']) {
+        sumRelink(
+            'Government Pending',
+            `MAX(0,${sumRef['Government Deductions'].addr}-${sumRef['Government Paid'].addr})`,
+            Math.max(0, sumRef['Government Deductions'].value - sumRef['Government Paid'].value),
+        );
+    }
+    if (sumRef['Retention Deducted'] && sumRef['Retention Paid']) {
+        sumRelink(
+            'Retention Pending',
+            `MAX(0,${sumRef['Retention Deducted'].addr}-${sumRef['Retention Paid'].addr})`,
+            Math.max(0, sumRef['Retention Deducted'].value - sumRef['Retention Paid'].value),
+        );
+    }
+    if (sumRef['Net Salary Payable'] && sumRef['Government Deductions']) {
+        const retention = sumRef['Retention Deducted'];
+        sumRelink(
+            'Total Company Payout',
+            `${sumRef['Net Salary Payable'].addr}+${sumRef['Government Deductions'].addr}${retention ? `+${retention.addr}` : ''}`,
+            sumRef['Net Salary Payable'].value + sumRef['Government Deductions'].value + (retention?.value ?? 0),
+        );
     }
     r++;
 
@@ -1309,10 +1569,24 @@ const csvEscape = (v: any): string => {
 
 const csvNum = (n: number) => csvEscape(Number(num(n).toFixed(2)));
 
+/**
+ * CSV export.
+ *
+ * Laid out on a fixed five-column grid — A Description · B Details · C Rate ·
+ * D Base · E Amount — so that every money figure sits in one predictable column
+ * and can carry a real formula. Excel and Google Sheets both evaluate formulas
+ * when they open a CSV, so this file recalculates on edit exactly like the .xlsx.
+ * Numbers are written plain (no ₹, no grouping) to stay machine-readable.
+ */
 export function downloadSalarySlipCsv(input: SalarySlipExportInput): void {
     const m = buildSlipModel(input);
     const L: string[] = [];
     const row = (...cells: any[]) => L.push(cells.map(csvEscape).join(','));
+    /** 1-based spreadsheet row the NEXT `row()` call will occupy. */
+    const at = () => L.length + 1;
+    /** A formula, but only when it reproduces the engine's own figure. */
+    const calc = (formula: string, computed: number | null, expected: number) =>
+        computed !== null && Math.abs(computed - expected) < 0.51 ? `=${formula}` : Number(expected.toFixed(2));
 
     row(m.companyName);
     row('MONTHLY PAYROLL STATEMENT - SALARY SLIP');
@@ -1336,50 +1610,173 @@ export function downloadSalarySlipCsv(input: SalarySlipExportInput): void {
     L.push('');
 
     row('ATTENDANCE, TIME & SALARY RATES');
-    m.attendance.forEach(a => row(a.label, a.value));
-    m.rates.forEach(a => row(a.label, typeof a.value === 'number' ? Number(a.value.toFixed(2)) : a.value));
+    row('Description', 'Value');
+    const csvRef: Record<string, string> = {};
+    [...m.attendance, ...m.rates].forEach(a => {
+        if (typeof a.value === 'number') csvRef[a.label] = `$B$${at()}`;
+        row(a.label, typeof a.value === 'number' ? Number(a.value.toFixed(4)) : a.value);
+    });
     L.push('');
 
+    // Rate references let each earning line point at the master rate, so editing the
+    // per-hour rate re-prices the entire slip — the same wiring as the .xlsx.
+    const rateRef = { hour: csvRef['Per Hour Rate'] ?? null, day: csvRef['Per Day Rate'] ?? null };
+
     row('A. VARIABLE EARNINGS (WORK-BASED)');
-    row('Description', 'Details', 'Rate', 'Amount');
-    m.variableEarnings.forEach(e => row(e.name, e.detailsText, e.rateText, Number(e.amount.toFixed(2))));
-    row('Subtotal - Variable Earnings', '', '', Number(m.totalVariableEarnings.toFixed(2)));
+    row('Description', 'Details', 'Rate', 'Base', 'Amount');
+    const varEarnFrom = at();
+    m.variableEarnings.forEach(e => {
+        const line = at();
+        const link = e.rateSource ? rateRef[e.rateSource] : null;
+        row(
+            e.name,
+            e.qty !== null ? Number(e.qty.toFixed(4)) : e.detailsText,
+            e.rateValue !== null ? (link ? `=${link}` : Number(e.rateValue.toFixed(4))) : e.rateText,
+            '',
+            e.qty !== null && e.rateValue !== null
+                ? calc(`B${line}*C${line}`, e.qty * e.rateValue, e.amount)
+                : Number(e.amount.toFixed(2)),
+        );
+    });
+    const varEarnTo = at() - 1;
+    const varEarnSum = at();
+    row('Subtotal - Variable Earnings', '', '', '',
+        m.variableEarnings.length ? `=SUM(E${varEarnFrom}:E${varEarnTo})` : Number(m.totalVariableEarnings.toFixed(2)));
     L.push('');
 
     row('B. FIXED ALLOWANCES & BENEFITS');
-    row('Description', 'Amount');
-    m.fixedEarnings.forEach(e => row(e.name, Number(e.amount.toFixed(2))));
-    row('Subtotal - Fixed Earnings', Number(m.totalFixedEarnings.toFixed(2)));
-    row('TOTAL EARNINGS (A + B)', Number(m.totalGrossPay.toFixed(2)));
+    row('Description', '', '', '', 'Amount');
+    const fixedEarnFrom = at();
+    m.fixedEarnings.forEach(e => row(e.name, '', '', '', Number(e.amount.toFixed(2))));
+    const fixedEarnTo = at() - 1;
+    const fixedEarnSum = at();
+    row('Subtotal - Fixed Earnings', '', '', '',
+        m.fixedEarnings.length ? `=SUM(E${fixedEarnFrom}:E${fixedEarnTo})` : Number(m.totalFixedEarnings.toFixed(2)));
+    const grossLine = at();
+    row('TOTAL EARNINGS (A + B)', '', '', '', `=E${varEarnSum}+E${fixedEarnSum}`);
     L.push('');
 
     row('1. ATTENDANCE ADJUSTMENTS');
-    row('Description', 'Details', 'Rate', 'Amount');
-    m.variableDeductions.forEach(d => row(d.name, d.detailsText, d.rateText, -Number(d.amount.toFixed(2))));
-    row('Total Attendance Adjustments', '', '', -Number(m.totalVariableDeductions.toFixed(2)));
-    row('Total Salary After Attendance Adjustments', '', '', Number(m.salaryAfterAttendance.toFixed(2)));
+    row('Description', 'Details', 'Rate', 'Base', 'Amount');
+    const varDedFrom = at();
+    m.variableDeductions.forEach(d => {
+        const line = at();
+        const live = d.qty !== null && d.rateValue !== null;
+        const formula = d.slab ? `ROUNDDOWN(B${line}/${d.slab},0)*C${line}` : `B${line}*C${line}`;
+        const computed = !live ? null : d.slab
+            ? Math.floor((d.qty as number) / d.slab) * (d.rateValue as number)
+            : (d.qty as number) * (d.rateValue as number);
+        row(
+            d.name,
+            d.qty !== null ? Number(d.qty.toFixed(4)) : d.detailsText,
+            d.rateValue !== null ? Number(d.rateValue.toFixed(4)) : d.rateText,
+            '',
+            live ? calc(formula, computed, d.amount) : Number(d.amount.toFixed(2)),
+        );
+    });
+    const varDedTo = at() - 1;
+    const attTotalLine = at();
+    row('Total Attendance Adjustments', '', '', '',
+        m.variableDeductions.length ? `=SUM(E${varDedFrom}:E${varDedTo})` : Number(m.totalVariableDeductions.toFixed(2)));
+    const afterAttLine = at();
+    row('Total Salary After Attendance Adjustments', '', '', '', `=MAX(0,E${grossLine}-E${attTotalLine})`);
     L.push('');
 
     row('2. GOVT. & STATUTORY DEDUCTIONS');
     row('Description', 'Type', 'Rate', 'Base', 'Amount');
-    m.fixedDeductions.forEach(d => row(d.name, d.typeLabel, d.rateText, d.base === null ? '-' : Number(d.base.toFixed(2)), -Number(d.amount.toFixed(2))));
-    row('Total Statutory Deductions', '', '', '', -Number(m.totalFixedDeductions.toFixed(2)));
-    row('TOTAL DEDUCTIONS (1 + 2)', '', '', '', -Number(m.totalDeductions.toFixed(2)));
+    const fixedDedFrom = at();
+    m.fixedDeductions.forEach(d => {
+        const line = at();
+        // Percentage rates go in as fractions so `Base × Rate` works; the Type column
+        // carries the human reading of the same figure.
+        const percentFormula = d.isPercent && d.rateValue !== null && d.base !== null;
+        row(
+            d.name,
+            d.isPercent ? `${d.typeLabel} (${d.rateText})` : d.typeLabel,
+            d.rateValue !== null ? Number(d.rateValue.toFixed(6)) : d.rateText,
+            d.base === null ? '' : `=E${afterAttLine}`,
+            percentFormula
+                ? calc(`ROUND(D${line}*C${line},0)`, Math.round((d.base as number) * (d.rateValue as number)), d.amount)
+                : !d.isPercent && d.rateValue !== null
+                    ? calc(`ROUND(C${line},0)`, Math.round(d.rateValue), d.amount)
+                    : Number(d.amount.toFixed(2)),
+        );
+    });
+    const fixedDedTo = at() - 1;
+    const statTotalLine = at();
+    row('Total Statutory Deductions', '', '', '',
+        m.fixedDeductions.length ? `=SUM(E${fixedDedFrom}:E${fixedDedTo})` : Number(m.totalFixedDeductions.toFixed(2)));
+    const dedTotalLine = at();
+    row('TOTAL DEDUCTIONS (1 + 2)', '', '', '', `=E${attTotalLine}+E${statTotalLine}`);
     L.push('');
 
-    row('NET SALARY PAYABLE', Number(m.netSalary.toFixed(2)));
+    let adjLine: number | null = null;
+    if (Math.abs(m.netAdjustment) >= 0.005) {
+        adjLine = at();
+        row('Rounding & Reconciliation (to payroll register)', '', '', '', Number(m.netAdjustment.toFixed(2)));
+    }
+    const netLine = at();
+    row('NET SALARY PAYABLE', '', '', '', `=E${grossLine}-E${dedTotalLine}${adjLine ? `+E${adjLine}` : ''}`);
     row('Amount in words', m.netInWords);
     L.push('');
 
     if (m.salaryHistory.length) {
         row('SALARY HISTORY');
         row('Date & Time', 'Payable', 'Paid', 'Remaining');
-        m.salaryHistory.forEach(h => L.push([csvEscape(h.paidAt), csvNum(h.payable), csvNum(h.paid), csvNum(h.remaining)].join(',')));
+        const histFrom = at();
+        m.salaryHistory.forEach(h => {
+            const line = at();
+            // Each row's remaining balance is what is payable less everything paid up
+            // to and including that instalment.
+            row(h.paidAt, `=$E$${netLine}`, Number(h.paid.toFixed(2)), `=MAX(0,B${line}-SUM($C$${histFrom}:C${line}))`);
+        });
+        const histTo = at() - 1;
+        row('TOTAL PAID', '', `=SUM(C${histFrom}:C${histTo})`, `=MAX(0,$E$${netLine}-C${at()})`);
         L.push('');
     }
 
     row('PAYMENT SUMMARY');
-    m.summary.forEach(item => row(item.label, typeof item.value === 'number' ? Number(item.value.toFixed(2)) : item.value));
+    row('Description', 'Amount');
+    const summaryRef: Record<string, { addr: string; value: number }> = {};
+    m.summary.forEach(item => {
+        if (typeof item.value === 'number') summaryRef[item.label] = { addr: `$B$${at()}`, value: item.value };
+        row(item.label, typeof item.value === 'number' ? Number(item.value.toFixed(2)) : item.value);
+    });
+    // Rewrite the derived figures in place as formulas, keeping the same guard the
+    // .xlsx uses: a definition that does not reproduce the engine's number is dropped.
+    const rewrite = (label: string, formula: string, computed: number) => {
+        const target = summaryRef[label];
+        if (!target || !Number.isFinite(computed) || Math.abs(computed - target.value) >= 0.51) return;
+        const idx = Number(target.addr.split('$')[2]) - 1;
+        L[idx] = [csvEscape(label), `=${formula}`].join(',');
+    };
+    rewrite('Net Salary Payable', `$E$${netLine}`, m.netSalary);
+    if (summaryRef['Salary Paid']) {
+        rewrite('Salary Pending', `MAX(0,$E$${netLine}-${summaryRef['Salary Paid'].addr})`, Math.max(0, m.netSalary - summaryRef['Salary Paid'].value));
+    }
+    rewrite('Government Deductions', `$E$${statTotalLine}`, m.totalFixedDeductions);
+    if (summaryRef['Government Deductions'] && summaryRef['Government Paid']) {
+        rewrite(
+            'Government Pending',
+            `MAX(0,${summaryRef['Government Deductions'].addr}-${summaryRef['Government Paid'].addr})`,
+            Math.max(0, summaryRef['Government Deductions'].value - summaryRef['Government Paid'].value),
+        );
+    }
+    if (summaryRef['Retention Deducted'] && summaryRef['Retention Paid']) {
+        rewrite(
+            'Retention Pending',
+            `MAX(0,${summaryRef['Retention Deducted'].addr}-${summaryRef['Retention Paid'].addr})`,
+            Math.max(0, summaryRef['Retention Deducted'].value - summaryRef['Retention Paid'].value),
+        );
+    }
+    if (summaryRef['Net Salary Payable'] && summaryRef['Government Deductions']) {
+        const retention = summaryRef['Retention Deducted'];
+        rewrite(
+            'Total Company Payout',
+            `${summaryRef['Net Salary Payable'].addr}+${summaryRef['Government Deductions'].addr}${retention ? `+${retention.addr}` : ''}`,
+            summaryRef['Net Salary Payable'].value + summaryRef['Government Deductions'].value + (retention?.value ?? 0),
+        );
+    }
     L.push('');
 
     row('PAYMENT LEDGER');
@@ -1387,11 +1784,12 @@ export function downloadSalarySlipCsv(input: SalarySlipExportInput): void {
     if (!m.ledger.length) {
         row('No payments recorded for this month');
     } else {
+        const ledgerFrom = at();
         m.ledger.forEach((l, i) => L.push([
             csvEscape(i + 1), csvEscape(l.date), csvEscape(l.type), csvEscape(l.component), csvEscape(l.method),
             csvEscape(l.txn), csvNum(l.paid), csvNum(l.payable), csvNum(l.remaining), csvEscape(l.status), csvEscape(l.remarks),
         ].join(',')));
-        L.push(['TOTAL', '', '', '', '', '', csvNum(m.totalPaid)].join(','));
+        L.push(['TOTAL', '', '', '', '', '', `=SUM(G${ledgerFrom}:G${at() - 1})`].join(','));
     }
     L.push('');
     row('CONFIDENTIAL - This payslip is intended solely for the named employee.');
