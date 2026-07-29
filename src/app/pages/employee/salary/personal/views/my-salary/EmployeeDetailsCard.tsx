@@ -3,6 +3,7 @@ import { RootState } from '@redux/store';
 import { fetchAllPayments } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
 import { formatCurrencyDecimal, formatCurrencyRounded } from '@utils/currency';
+import { getEmployeeStatus } from '@utils/employeeStatus';
 import dayjs from 'dayjs';
 import {
     Avatar,
@@ -159,7 +160,10 @@ interface EmployeeProfileCardProps {
     avatar: string;
     name: string;
     employeeCode?: string;
-    isActive?: boolean;
+    /** Derived from the join/exit/rejoin timeline, not the raw is_active column. */
+    hasExited?: boolean;
+    /** Last working day, shown alongside the EXITED chip. */
+    exitDate?: string | null;
     hasProfessionalFees?: boolean;
     email?: string;
     phone?: string;
@@ -210,7 +214,8 @@ const EmployeeProfileCard = ({
     avatar,
     name,
     employeeCode,
-    isActive,
+    hasExited,
+    exitDate,
     hasProfessionalFees,
     email,
     phone,
@@ -275,22 +280,44 @@ const EmployeeProfileCard = ({
                     {phone || '-'}
                 </Typography>
 
-                <Box sx={{ mt: 0.75 }}>
-                    <Chip 
-                        label={hasProfessionalFees ? "CONTRACT BASED" : "SALARY BASED"} 
+                <Stack direction="row" spacing={0.6} sx={{ mt: 0.75, flexWrap: 'wrap', gap: 0.6 }}>
+                    <Chip
+                        label={hasProfessionalFees ? "CONTRACT BASED" : "SALARY BASED"}
                         size="small"
-                        sx={{ 
-                            height: '22px', 
-                            fontSize: '0.65rem', 
-                            fontWeight: 800, 
+                        sx={{
+                            height: '22px',
+                            fontSize: '0.65rem',
+                            fontWeight: 800,
                             letterSpacing: '0.5px',
                             backgroundColor: hasProfessionalFees ? '#f5f3ff' : '#f0fdf4',
                             color: hasProfessionalFees ? '#7c3aed' : '#16a34a',
                             border: `1px solid ${hasProfessionalFees ? '#ede9fe' : '#dcfce7'}`,
                             '& .MuiChip-label': { px: 1 }
-                        }} 
+                        }}
                     />
-                </Box>
+                    {hasExited && (
+                        <Tooltip
+                            title={exitDate ? `Last working day: ${dayjs(exitDate).format('DD MMM YYYY')}` : 'No longer employed'}
+                            arrow
+                            placement="top"
+                        >
+                            <Chip
+                                label={exitDate ? `EXITED ${dayjs(exitDate).format('DD MMM YYYY')}` : 'EXITED'}
+                                size="small"
+                                sx={{
+                                    height: '22px',
+                                    fontSize: '0.65rem',
+                                    fontWeight: 800,
+                                    letterSpacing: '0.5px',
+                                    backgroundColor: '#fef2f2',
+                                    color: '#dc2626',
+                                    border: '1px solid #fee2e2',
+                                    '& .MuiChip-label': { px: 1 }
+                                }}
+                            />
+                        </Tooltip>
+                    )}
+                </Stack>
             </Box>
         </Stack>
 
@@ -426,6 +453,21 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         if (months === 0) return `${years} Year${years !== 1 ? 's' : ''}`;
         return `${years} Year${years !== 1 ? 's' : ''} ${months} Month${months !== 1 ? 's' : ''}`;
     })();
+    // Exit status comes from the join/exit/rejoin timeline, not the raw is_active
+    // column — the two can disagree, and the timeline is what payroll actually uses.
+    const hasExited = employee ? getEmployeeStatus(employee) === 0 : false;
+
+    // The last day actually worked: once an employee has re-joined, the governing
+    // date is that cycle's re-exit, not the original dateOfExit.
+    const effectiveExitDate: string | null = (() => {
+        if (!employee?.dateOfExit) return null;
+        const mostRecentRejoin = [...(employee.EmployeeRejoinHistory ?? [])]
+            .filter((r: any) => r.dateOfReJoining)
+            .sort((a: any, b: any) => dayjs(b.dateOfReJoining).diff(dayjs(a.dateOfReJoining)))[0];
+        if (mostRecentRejoin) return mostRecentRejoin.dateOfReExit ?? null;
+        return employee.dateOfExit;
+    })();
+
     const employeeName = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim() || 'Employee';
     const paidAmountValue = apiSalaryData
         ? formatSalaryValue(monthlyPaidAmount, formatCurrencyDecimal(0))
@@ -557,7 +599,8 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
                             avatar={avatar}
                             name={employeeName}
                             employeeCode={employee?.employeeCode}
-                            isActive={employee?.isActive}
+                            hasExited={hasExited}
+                            exitDate={effectiveExitDate}
                             hasProfessionalFees={hasProfessionalFees}
                             email={employee?.companyEmailId || undefined}
                             phone={employee?.companyPhoneNumber || undefined}

@@ -45,6 +45,7 @@ export const COMPANY = {
     GET_ALL_PUBLIC_HOLIDAYS_BY_COMPANY: "api/company/public-holidays-all",
     GET_ALL_HOLIDAYS: "api/company/holidays",
     CREATE_HOLIDAY: "api/company/holiday",
+    GENERATE_HOLIDAYS_FOR_YEAR: "api/company/holidays/generate-year",
     GET_LOGO: "api/company/logo",
     CREATE_OVERVIEW: "api/company/overview",
     GET_OVERVIEW: "api/company/overview",

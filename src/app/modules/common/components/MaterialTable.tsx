@@ -1314,7 +1314,7 @@ function MaterialTable({
               ...(customMuiTableContainerProps?.sx || {}),
             },
           }}
-          layoutMode={layoutMode}
+          layoutMode={enableColumnPinning && !isMobile ? "grid" : layoutMode}
           {...muiTableProps}
           muiTableBodyRowProps={(rowArgs: any) => {
             const { row } = rowArgs;

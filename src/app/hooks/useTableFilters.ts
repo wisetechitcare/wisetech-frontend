@@ -1,94 +1,102 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-
-interface FilterState {
-  searchText: string;
-  projectStatusFilter: string;
-  projectManagerFilter: string;
-  showMissingAddress: boolean;
-}
+import { useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 /**
  * Syncs table filter state with URL params so filters persist across navigation.
- * Filters are read from ?search=...&status=...&manager=... and restored on mount.
- * Updates to filters automatically sync back to the URL without page reload.
+ * Filters are read from ?search=...&status=...&manager=... on every render.
+ *
+ * The URL is the SINGLE source of truth — there is deliberately no useState
+ * mirror and no syncing effect. An earlier version kept filters in state,
+ * restored them from the URL in one effect, and wrote them back in another;
+ * on mount the write effect ran with the still-empty initial state and stripped
+ * the params the read effect was about to restore, so the two effects chased
+ * each other forever (?tab=projects ↔ ?tab=projects&manager=<id>). Deriving
+ * straight from the URL removes the second source of truth, so that loop
+ * cannot exist.
  */
 export const useTableFilters = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [filters, setFilters] = useState<FilterState>({
-    searchText: '',
-    projectStatusFilter: '',
-    projectManagerFilter: '',
-    showMissingAddress: false,
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Restore filters from URL params on mount
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    setFilters({
-      searchText: params.get('search') || '',
-      projectStatusFilter: params.get('status') || '',
-      projectManagerFilter: params.get('manager') || '',
-      showMissingAddress: params.get('missingAddr') === 'true',
-    });
-  }, [location.search]); // Only restore when URL search changes (navigation)
+  const searchText = searchParams.get('search') || '';
+  const projectStatusFilter = searchParams.get('status') || '';
+  const projectManagerFilter = searchParams.get('manager') || '';
+  const showMissingAddress = searchParams.get('missingAddr') === 'true';
 
-  // Sync filter updates to URL params (debounced to avoid excessive URL updates)
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
+  // Always merge into the params currently in the URL rather than replacing
+  // them — other owners (e.g. the ?tab= param on the projects page) keep their
+  // values instead of being clobbered. The functional updater avoids writing a
+  // stale snapshot captured at render time.
+  const setParam = useCallback(
+    (key: string, value: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (value) next.set(key, value);
+          else next.delete(key);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
-    // Update or remove params based on filter values
-    if (filters.searchText) params.set('search', filters.searchText);
-    else params.delete('search');
+  const updateSearchText = useCallback(
+    (text: string) => setParam('search', text),
+    [setParam],
+  );
 
-    if (filters.projectStatusFilter) params.set('status', filters.projectStatusFilter);
-    else params.delete('status');
+  const updateStatusFilter = useCallback(
+    (status: string) => setParam('status', status),
+    [setParam],
+  );
 
-    if (filters.projectManagerFilter) params.set('manager', filters.projectManagerFilter);
-    else params.delete('manager');
+  const updateManagerFilter = useCallback(
+    (manager: string) => setParam('manager', manager),
+    [setParam],
+  );
 
-    if (filters.showMissingAddress) params.set('missingAddr', 'true');
-    else params.delete('missingAddr');
+  const updateMissingAddress = useCallback(
+    (show: boolean) => setParam('missingAddr', show ? 'true' : null),
+    [setParam],
+  );
 
-    // Update URL without page reload
-    const newSearch = params.toString();
-    if (newSearch !== location.search.slice(1)) {
-      navigate({ search: newSearch ? `?${newSearch}` : '' }, { replace: true });
-    }
-  }, [filters]); // Sync whenever filters change
+  const clearAllFilters = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('search');
+        next.delete('status');
+        next.delete('manager');
+        next.delete('missingAddr');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
 
-  const updateSearchText = (text: string) => {
-    setFilters(prev => ({ ...prev, searchText: text }));
-  };
-
-  const updateStatusFilter = (status: string) => {
-    setFilters(prev => ({ ...prev, projectStatusFilter: status }));
-  };
-
-  const updateManagerFilter = (manager: string) => {
-    setFilters(prev => ({ ...prev, projectManagerFilter: manager }));
-  };
-
-  const updateMissingAddress = (show: boolean) => {
-    setFilters(prev => ({ ...prev, showMissingAddress: show }));
-  };
-
-  const clearAllFilters = () => {
-    setFilters({
-      searchText: '',
-      projectStatusFilter: '',
-      projectManagerFilter: '',
-      showMissingAddress: false,
-    });
-  };
-
-  return {
-    ...filters,
-    updateSearchText,
-    updateStatusFilter,
-    updateManagerFilter,
-    updateMissingAddress,
-    clearAllFilters,
-  };
+  return useMemo(
+    () => ({
+      searchText,
+      projectStatusFilter,
+      projectManagerFilter,
+      showMissingAddress,
+      updateSearchText,
+      updateStatusFilter,
+      updateManagerFilter,
+      updateMissingAddress,
+      clearAllFilters,
+    }),
+    [
+      searchText,
+      projectStatusFilter,
+      projectManagerFilter,
+      showMissingAddress,
+      updateSearchText,
+      updateStatusFilter,
+      updateManagerFilter,
+      updateMissingAddress,
+      clearAllFilters,
+    ],
+  );
 };

@@ -316,7 +316,7 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
         [filteredAttendance, filteredLeaves, filteredPublicHolidays, totalWeekendCount]);
     
     const totalWorkingDay = getWorkingDaysInYear(year) - donutData.get(HOLIDAYS)!;
-    const attendancePercentage: any = [totalProgressPercent(filteredAttendance, totalWorkingDay)];
+    const attendancePercentage: any = [totalProgressPercent(filteredAttendance, totalWorkingDay, donutData.get(ON_LEAVE) || 0)];
 
     const statRows = [
         { label: PRESENT,    value: donutData.get(PRESENT),    color: '#22c55e', bg: '#f0fdf4' },
