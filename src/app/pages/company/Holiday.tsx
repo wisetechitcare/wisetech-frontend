@@ -50,6 +50,9 @@ const holidaySchema = Yup.object().shape({
     recurrenceDay: Yup.number().min(1).max(31).nullable(),
 }).strict(true);
 
+// `isFixed` IS the recurrence question — Fixed means the holiday lands on the same
+// calendar date every year, Floating means it moves. The month/day pair below is just
+// which date, and is only asked for (and only stored) when Fixed is selected.
 const MONTHS = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
