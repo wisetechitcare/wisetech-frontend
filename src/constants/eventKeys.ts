@@ -107,7 +107,6 @@ export type AppEventMap = {
     dashboardSettingsUpdated: { sections: any[] };
     biometricDeviceUpdated: { branchIds?: string[] };
     attendanceUpdated: { date?: string; employeeId?: string; branchIds?: string[]; source?: string };
-    attendanceSyncConflict: { employeeId?: string; branchIds?: string[] };
   };
 
   export type AppEventKey = keyof AppEventMap;
@@ -220,6 +219,5 @@ export type AppEventMap = {
     dashboardSettingsUpdated: 'dashboardSettingsUpdated',
     biometricDeviceUpdated: 'biometricDeviceUpdated',
     attendanceUpdated: 'attendanceUpdated',
-    attendanceSyncConflict: 'attendanceSyncConflict',
 
   };
