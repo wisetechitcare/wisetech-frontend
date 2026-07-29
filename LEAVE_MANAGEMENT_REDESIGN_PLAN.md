@@ -129,7 +129,7 @@ Dir: `employee/attendance/admin/views/overview/`
 | `Overview.tsx` | shell |
 | `HRPendingLeaveRequests.tsx` ✅, `AllLeaveRequest.tsx` ✅, `LeaveManagementRequests.tsx` ✅ | **done** — `StatusBadge`/`WtIconButton`/`IconBox` cells, react-bootstrap `Modal`→`GlassDialog`, tinted type pills; `MaterialTable` + all logic untouched |
 | `OpenLeaveRequests.tsx` ✅ | leave table — **done** (tinted type pills, `StatusBadge` "Awaiting Manager", `WtIconButton` approve/reject, `IconBox` header) |
-| (attendance siblings for parity: `HRPendingAttendanceRequests`, `OpenAttendanceRequests`, `DailyAttendance`, `EditAttendanceRequest`, `AttendanceRequestLimitReset`) | |
+| (attendance siblings for parity: `HRPendingAttendanceRequests`, `OpenAttendanceRequests`, `DailyAttendance`, `EditAttendanceRequest`, `AttendanceSyncConflicts`, `AttendanceRequestLimitReset`) | |
 
 ### E. Wizard / Rules — Phase 4
 | Component | Kind |
