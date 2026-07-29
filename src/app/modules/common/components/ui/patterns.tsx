@@ -112,3 +112,57 @@ export function SectionHead({ tone, icon, title, desc }: { tone: Trio; icon: str
     </Box>
   );
 }
+
+/**
+ * Responsive auto-fit card grid — the **standard list/collection layout**. Fills wide screens with
+ * as many columns as fit (so there's no dead whitespace / big right-hand gutter) and collapses
+ * cleanly to a single column on mobile. `min` = each card's minimum width before the grid drops a
+ * column. Reuse this instead of hand-rolling `gridTemplateColumns` breakpoints per feature.
+ *
+ *   <AutoGrid min={320}>{items.map(i => <GlassCard key={i.id} preset="row" …/>)}</AutoGrid>
+ */
+export function AutoGrid({
+  children, min = 300, gap = 12, sx,
+}: { children: React.ReactNode; min?: number; gap?: number | string; sx?: SxProps<Theme> }) {
+  return (
+    <Box
+      sx={[{
+        display: 'grid',
+        gap: typeof gap === 'number' ? `${gap}px` : gap,
+        // `min(min, 100%)` clamps the track on very narrow screens so a card never forces horizontal scroll.
+        gridTemplateColumns: `repeat(auto-fit, minmax(min(${min}px, 100%), 1fr))`,
+        alignItems: 'stretch',
+      }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
+    >
+      {children}
+    </Box>
+  );
+}
+
+/**
+ * Standard list/page header: title (+ optional subtitle) on the left, actions on the right. Wraps
+ * to a stacked layout on mobile so the action buttons never overflow or clip. Use at the top of
+ * every list view for a consistent, readable, responsive toolbar (replaces the copy-pasted
+ * `<Stack direction="row" justifyContent="space-between" flexWrap>` header). */
+export function ListHeader({
+  title, subtitle, actions, sx,
+}: { title: React.ReactNode; subtitle?: React.ReactNode; actions?: React.ReactNode; sx?: SxProps<Theme> }) {
+  return (
+    <Box
+      sx={[{
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
+        gap: 1, mb: 2,
+      }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
+    >
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ fontWeight: 700, fontSize: { xs: 16, sm: 18 }, lineHeight: 1.25 }}>{title}</Typography>
+        {subtitle && (
+          <Typography sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.45, mt: 0.25 }}>{subtitle}</Typography>
+        )}
+      </Box>
+      {actions && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', flexShrink: 0 }}>{actions}</Box>
+      )}
+    </Box>
+  );
+}

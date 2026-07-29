@@ -4,7 +4,10 @@ import {
     Box, Stack, Typography, TextField, MenuItem, CircularProgress, DialogContent, DialogActions, FormControlLabel, Switch,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip, WtSwitchField, toast, confirmDialog } from "@app/modules/common/components/ui";
+import {
+    AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip, WtSwitchField,
+    toast, confirmDialog,
+} from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import {
     getPostings, createPosting, updatePosting, deletePosting, getRequisitions,
@@ -15,6 +18,16 @@ import {
 const CAREERS_PUBLIC_BASE = "https://www.wisetech-mep.com/careers";
 
 const emptyForm = (): PostingPayload => ({ requisitionId: "", title: "", location: "", isRemote: false, employmentType: "Full-time", descriptionHtml: "", isPublished: false });
+
+/** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */
+const MetaPill = ({ text }: { text: string }) => (
+    <Box sx={{
+        px: 0.9, py: 0.3, borderRadius: "8px", bgcolor: "action.hover",
+        fontSize: 11.5, fontWeight: 600, color: "text.secondary", whiteSpace: "nowrap", lineHeight: 1.5,
+    }}>
+        {text}
+    </Box>
+);
 
 const PostingsView = () => {
     const qc = useQueryClient();
@@ -53,47 +66,67 @@ const PostingsView = () => {
     };
 
     return (
-        <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
-                <Box>
-                    <Typography sx={{ fontWeight: 700, fontSize: 18 }}>Job Postings</Typography>
-                    <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>Public adverts for approved requisitions — shown on the careers page.</Typography>
-                </Box>
-                <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => { setForm(emptyForm()); setOpen(true); }}>
-                    New posting
-                </WtButton>
-            </Stack>
+        <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
+            <ListHeader
+                title="Job Postings"
+                subtitle="Public adverts for approved requisitions — shown on the careers page."
+                actions={
+                    <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => { setForm(emptyForm()); setOpen(true); }}>
+                        New posting
+                    </WtButton>
+                }
+            />
 
             {isLoading ? (
                 <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={28} /></Stack>
             ) : postings.length === 0 ? (
-                <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>No postings yet. Publish an approved requisition to the careers page.</Box>
+                <Box sx={{
+                    py: 5, px: 2, borderRadius: "14px", textAlign: "center",
+                    border: "1px dashed", borderColor: "divider",
+                }}>
+                    <Typography sx={{ color: "text.secondary", fontSize: 14, fontWeight: 600 }}>No postings yet</Typography>
+                    <Typography sx={{ color: "text.disabled", fontSize: 12.5, mt: 0.25 }}>Publish an approved requisition to the careers page.</Typography>
+                </Box>
             ) : (
-                <Stack spacing={1}>
+                <AutoGrid min={320}>
                     {postings.map((p) => (
-                        <GlassCard key={p.id} preset="row">
-                            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ flexWrap: "wrap" }}>
-                                <Box sx={{ flex: 1, minWidth: 200 }}>
-                                    <Typography sx={{ fontWeight: 600, fontSize: 14.5 }}>{p.title}</Typography>
-                                    <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-                                        {p.requisition?.prefix ? `${p.requisition.prefix} · ` : ""}{p.location ?? "—"}{p.isRemote ? " · Remote" : ""}
-                                    </Typography>
+                        <GlassCard key={p.id} preset="row" interactive sx={{ display: "flex", flexDirection: "column", gap: 1, height: "100%", p: 1.75 }}>
+                            <Stack direction="row" alignItems="flex-start" spacing={1}>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3, wordBreak: "break-word" }}>{p.title}</Typography>
+                                    {p.requisition?.prefix && (
+                                        <Typography sx={{ fontSize: 11.5, color: "text.disabled", fontWeight: 700, letterSpacing: "0.02em", mt: 0.15 }}>{p.requisition.prefix}</Typography>
+                                    )}
                                 </Box>
                                 <ToneChip tone={p.isPublished ? "success" : "warning"} label={p.isPublished ? "Published" : "Draft"} dense />
+                            </Stack>
+
+                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.25 }}>
+                                {p.location && <MetaPill text={p.location} />}
+                                {p.isRemote && <MetaPill text="Remote" />}
+                                {p.employmentType && <MetaPill text={p.employmentType} />}
+                            </Stack>
+
+                            {/* Spacer keeps the action row pinned to the bottom so tiles align in the grid. */}
+                            <Box sx={{ flex: 1 }} />
+
+                            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
                                 <FormControlLabel
+                                    sx={{ mr: 0, ml: -0.5 }}
                                     control={<Switch size="small" checked={p.isPublished} onChange={(e) => publishMut.mutate({ id: p.id, isPublished: e.target.checked })} />}
                                     label={<Typography sx={{ fontSize: 12 }}>Publish</Typography>}
                                 />
-                                <WtIconButton title="Copy public link" onClick={() => copyLink(p.publicSlug)}>
+                                <Box sx={{ flex: 1 }} />
+                                <WtIconButton title="Copy public link" onClick={() => copyLink(p.publicSlug)} sx={{ width: 34, height: 34, borderRadius: "10px" }}>
                                     <KTIcon iconName="cloud-download" className="fs-5" />
                                 </WtIconButton>
-                                <WtIconButton title="Remove" color="#C0392B" onClick={() => remove(p)}>
+                                <WtIconButton title="Remove" color="#C0392B" onClick={() => remove(p)} sx={{ width: 34, height: 34, borderRadius: "10px" }}>
                                     <KTIcon iconName="trash" className="fs-5" />
                                 </WtIconButton>
                             </Stack>
                         </GlassCard>
                     ))}
-                </Stack>
+                </AutoGrid>
             )}
 
             <GlassDialog

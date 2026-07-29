@@ -2,11 +2,11 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Box, Stack, Typography, Button, ToggleButton, ToggleButtonGroup, Chip, CircularProgress,
+    Box, Stack, Typography, ToggleButton, ToggleButtonGroup, Chip, CircularProgress,
     Table, TableHead, TableBody, TableRow, TableCell, TextField, MenuItem, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, WtButton, toast } from "@app/modules/common/components/ui";
+import { ListHeader, GlassDialog, GlassHeader, WtButton, ToneChip, toast } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { getRequisitions, type JobRequisition } from "@services/recruitment";
 import {
@@ -143,19 +143,25 @@ const PipelineView = () => {
     };
 
     return (
-        <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
-                <Typography sx={{ fontWeight: 700, fontSize: 18 }}>Candidate Pipeline</Typography>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                    <ToggleButtonGroup size="small" exclusive value={mode} onChange={(_e, v) => v && setMode(v)}>
-                        <ToggleButton value="board"><i className="bi bi-kanban" />&nbsp;Board</ToggleButton>
-                        <ToggleButton value="list"><i className="bi bi-list-ul" />&nbsp;List</ToggleButton>
-                    </ToggleButtonGroup>
-                    <Button variant="contained" startIcon={<i className="bi bi-plus-lg" />} onClick={() => setCreateOpen(true)}>
-                        New Application
-                    </Button>
-                </Stack>
-            </Stack>
+        <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
+            <ListHeader
+                title="Candidate Pipeline"
+                subtitle="Track applicants across stages — drag on the board or update from the list."
+                actions={
+                    <>
+                        <ToggleButtonGroup
+                            size="small" exclusive value={mode} onChange={(_e, v) => v && setMode(v)}
+                            sx={{ "& .MuiToggleButton-root": { textTransform: "none", px: 1.25 } }}
+                        >
+                            <ToggleButton value="board"><i className="bi bi-kanban" />&nbsp;Board</ToggleButton>
+                            <ToggleButton value="list"><i className="bi bi-list-ul" />&nbsp;List</ToggleButton>
+                        </ToggleButtonGroup>
+                        <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setCreateOpen(true)}>
+                            New application
+                        </WtButton>
+                    </>
+                }
+            />
 
             {statuses.length === 0 && (
                 <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: "warning.light", color: "warning.contrastText", fontSize: 14 }}>
@@ -206,7 +212,8 @@ const PipelineView = () => {
                     })}
                 </Box>
             ) : (
-                <Table size="small">
+                <Box sx={{ overflowX: "auto", border: "1px solid", borderColor: "divider", borderRadius: "14px" }}>
+                <Table size="small" sx={{ minWidth: 680 }}>
                     <TableHead>
                         <TableRow>
                             <TableCell>Ref</TableCell><TableCell>Candidate</TableCell><TableCell>Requisition</TableCell>
@@ -220,7 +227,7 @@ const PipelineView = () => {
                                 <TableCell>{a.applicant?.firstName} {a.applicant?.lastName ?? ""}</TableCell>
                                 <TableCell>{a.requisition?.title ?? "—"}</TableCell>
                                 <TableCell>
-                                    <Chip size="small" label={a.status?.name ?? "—"} sx={{ bgcolor: a.status?.color ?? undefined, color: a.status?.color ? "#fff" : undefined }} />
+                                    <ToneChip tone="brand" color={a.status?.color ?? undefined} label={a.status?.name ?? "—"} dense />
                                 </TableCell>
                                 <TableCell align="center">{scoreLabel(a) ?? "—"}</TableCell>
                                 <TableCell align="right">
@@ -245,6 +252,7 @@ const PipelineView = () => {
                         )}
                     </TableBody>
                 </Table>
+                </Box>
             )}
 
             {/* Create application */}
@@ -252,7 +260,7 @@ const PipelineView = () => {
                 open={createOpen}
                 onClose={() => setCreateOpen(false)}
                 maxWidth="sm"
-                header={<GlassHeader title="New Application" subtitle="Add a candidate to the pipeline" icon={<i className="bi bi-person-plus" />} onClose={() => setCreateOpen(false)} />}
+                header={<GlassHeader title="New Application" subtitle="Add a candidate to the pipeline" icon={<KTIcon iconName="user-tick" className="fs-2" />} onClose={() => setCreateOpen(false)} />}
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -270,10 +278,10 @@ const PipelineView = () => {
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-                    <Button variant="contained" disabled={!form.firstName.trim() || !form.email.trim() || createMut.isPending} onClick={submitCreate}>
+                    <WtButton ghost onClick={() => setCreateOpen(false)}>Cancel</WtButton>
+                    <WtButton tone="primary" disabled={!form.firstName.trim() || !form.email.trim() || createMut.isPending} onClick={submitCreate}>
                         {createMut.isPending ? "Adding…" : "Add"}
-                    </Button>
+                    </WtButton>
                 </DialogActions>
             </GlassDialog>
 
@@ -282,7 +290,7 @@ const PipelineView = () => {
                 open={!!pending}
                 onClose={() => setPending(null)}
                 maxWidth="xs"
-                header={<GlassHeader title={`Move to "${pending?.status.name ?? ""}"`} subtitle="A reason is required for this stage" icon={<i className="bi bi-x-octagon" />} onClose={() => setPending(null)} />}
+                header={<GlassHeader title={`Move to "${pending?.status.name ?? ""}"`} subtitle="A reason is required for this stage" icon={<KTIcon iconName="cross" className="fs-2" />} onClose={() => setPending(null)} />}
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -294,8 +302,8 @@ const PipelineView = () => {
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => setPending(null)}>Cancel</Button>
-                    <Button variant="contained" color="error" disabled={!rejectReasonId || moveMut.isPending} onClick={confirmReject}>Confirm</Button>
+                    <WtButton ghost onClick={() => setPending(null)}>Cancel</WtButton>
+                    <WtButton tone="danger" disabled={!rejectReasonId || moveMut.isPending} onClick={confirmReject}>Confirm</WtButton>
                 </DialogActions>
             </GlassDialog>
 
