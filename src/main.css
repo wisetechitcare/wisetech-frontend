@@ -4,6 +4,10 @@
    ties on the existing admin UI. Utilities apply on new/unstyled elements. */
 @import "tailwindcss";
 
+/* Drive `dark:` utilities off the app-wide `.dark` class that ColorModeProvider stamps on <html>
+   (Tailwind v4 defaults `dark:` to prefers-color-scheme; we want it tied to the in-app toggle). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ============================================================
    TAILWIND UI KIT (tw/) — dynamic bits Tailwind utilities can't express
    ============================================================ */

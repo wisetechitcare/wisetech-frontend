@@ -2,7 +2,6 @@ import { resolveActiveOrgId } from '@utils/activeOrg';
 import { IFaqs } from '@models/company';
 import { createNewFaq, deleteFaqById, fetchAllFaqs, fetchCompanyOverview, updateFaqById } from '@services/company';
 import { useEffect, useState, useCallback } from 'react';
-import { Card } from 'react-bootstrap';
 import { deleteConfirmation, errorConfirmation, successConfirmation } from '@utils/modal';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';

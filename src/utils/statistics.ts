@@ -3388,6 +3388,7 @@ export async function fetchEmpDailyKpiStatistics(day: Dayjs, fromAdmin = false, 
             rank: data.rank,
             remark: data.remark,
             maxTotal: data.maxTotal,
+            employee: data.employee, // carry the late-policy flag through to PerformanceBadge
         };
     } catch (error: any) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
@@ -3424,7 +3425,10 @@ const fetchKpiBase = async (
         yourPoints: Number(data?.yourPoints || 0),
         rank: data?.rank || 0,
         remark: data?.remark || "",
-        maxTotal: Number(data?.maxTotal || 100)
+        maxTotal: Number(data?.maxTotal || 100),
+        // Employee sub-object carries the late-policy flag ('custom-deadline' | 'late-exempt'
+        // | 'standard') for the KPI badge.
+        employee: data?.employee ?? null,
     };
 };
 
@@ -3492,6 +3496,7 @@ export async function fetchEmpWeeklyKpiStatistics(
             rank: data.rank,
             remark: data.remark,
             maxTotal: data.maxTotal,
+            employee: data.employee, // carry the late-policy flag through to PerformanceBadge
         };
     } catch (error: any) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
@@ -3539,6 +3544,7 @@ export async function fetchEmpMonthlyKpiStatistics(
             rank: data.rank,
             remark: data.remark,
             maxTotal: data.maxTotal,
+            employee: data.employee, // carry the late-policy flag through to PerformanceBadge
         };
     } catch (error: any) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
@@ -3561,6 +3567,7 @@ export async function fetchEmpYearlyKpiStatistics(
     rank?: number;
     remark?: string;
     maxTotal?: number;
+    employee?: any;
 } | undefined> {
     try {
         const state = store.getState().employee;
@@ -3596,6 +3603,7 @@ export async function fetchEmpYearlyKpiStatistics(
             rank: data.rank,
             remark: data.remark,
             maxTotal: data.maxTotal,
+            employee: data.employee, // carry the late-policy flag through to PerformanceBadge
         };
     } catch (error: any) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {

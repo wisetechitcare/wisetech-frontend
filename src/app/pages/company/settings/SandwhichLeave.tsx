@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   DialogContent, DialogActions,
-  Tooltip, Switch, TextField, MenuItem,
+  Tooltip, TextField, MenuItem,
   Checkbox, FormControlLabel, CircularProgress, Box, Stack, Typography, Chip,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
@@ -29,7 +29,7 @@ import { safeJsonParse } from "@utils/safeJson";
 // Shared UI kit (single import surface): tokens, CTA/icon buttons, and the reusable
 // glassmorphism primitives (GlassSurface / GlassDialog / GlassHeader) — see ui/index.ts.
 import {
-  T, WtButton, WtIconButton, GlassSurface, GlassDialog, GlassHeader,
+  T, WtButton, WtIconButton, WtSwitch, GlassSurface, GlassDialog, GlassHeader,
 } from "@app/modules/common/components/ui";
 
 interface SandwichLeaveProps {
@@ -510,7 +510,7 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
                     onChange={(e) => set({ runLength: Math.max(1, parseInt(e.target.value) || 1) })} />
                   <Tooltip title="Match a bridge of ANY length (e.g. long weekends, festival breaks)">
                     <FormControlLabel sx={{ ...controlLabelSx, mr: 0, flexShrink: 0 }}
-                      control={<Switch size="small" checked={pattern.runLength === 'any'}
+                      control={<WtSwitch size="sm" checked={pattern.runLength === 'any'}
                         onChange={(e) => set({ runLength: e.target.checked ? 'any' : 2 })} />}
                       label="Any" />
                   </Tooltip>
@@ -527,7 +527,7 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
           <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
             <Stack spacing={1}>
               <Eyebrow>Leading day (before the off-day run)</Eyebrow>
-              <FormControlLabel sx={controlLabelSx} control={<Switch size="small" checked={pattern.leadingRequired} onChange={(e) => set({ leadingRequired: e.target.checked })} />} label="Leading leave day required?" />
+              <FormControlLabel sx={controlLabelSx} control={<WtSwitch size="sm" checked={pattern.leadingRequired} onChange={(e) => set({ leadingRequired: e.target.checked })} />} label="Leading leave day required?" />
               {pattern.leadingRequired && (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, alignItems: 'center' }}>
                   <TextField select label="Leading day must be" value={pattern.leadingPaidCondition} onChange={(e) => set({ leadingPaidCondition: e.target.value as any })} size="small">
@@ -544,7 +544,7 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
           <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
             <Stack spacing={1}>
               <Eyebrow>Trailing day (after the off-day run)</Eyebrow>
-              <FormControlLabel sx={controlLabelSx} control={<Switch size="small" checked={pattern.trailingRequired} onChange={(e) => set({ trailingRequired: e.target.checked })} />} label="Trailing leave day required?" />
+              <FormControlLabel sx={controlLabelSx} control={<WtSwitch size="sm" checked={pattern.trailingRequired} onChange={(e) => set({ trailingRequired: e.target.checked })} />} label="Trailing leave day required?" />
               {pattern.trailingRequired && (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, alignItems: 'center' }}>
                   <TextField select label="Trailing day must be" value={pattern.trailingPaidCondition} onChange={(e) => set({ trailingPaidCondition: e.target.value as any })} size="small">
@@ -562,7 +562,7 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
             <Stack spacing={0.5}>
               <Eyebrow>Salary counting & activation</Eyebrow>
               <FormControlLabel sx={controlLabelSx} control={<Checkbox size="small" checked={pattern.excludeInteriorDaysFromSalary} onChange={(e) => set({ excludeInteriorDaysFromSalary: e.target.checked })} />} label="Exclude the interior off-day(s) themselves from the salary count" />
-              <FormControlLabel sx={controlLabelSx} control={<Switch checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} />} label="Enabled" />
+              <FormControlLabel sx={controlLabelSx} control={<WtSwitch checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} />} label="Enabled" />
             </Stack>
           </GlassSurface>
         </Stack>

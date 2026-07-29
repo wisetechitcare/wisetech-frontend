@@ -12,7 +12,7 @@ import { fetchAttendanceDetails, createUpdateAttendanceRequest, getAttendanceReq
 import { RootState } from "@redux/store";
 import { IAttendance } from "@models/employee";
 import { checkIfAnyValueIsUndefined, fetchColorAndStoreInSlice } from "@utils/file";
-import Modal from "react-bootstrap/Modal";
+import { Dialog, DialogTitle, DialogContent, IconButton, Box, Typography, TextField } from "@mui/material";
 import { Formik, Form, FormikHelpers } from "formik";
 import * as Yup from "yup";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -30,7 +30,6 @@ import { permissionConstToUseWithHasPermission, REQUEST_RAISE_DISABLE_MESSAGE, r
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import { UAParser } from 'ua-parser-js';
-import { Form as BootstrapForm } from "react-bootstrap";
 import { RESTRICT_ATTENDANCE_TO_7_DAYS_KEY } from "@constants/configurations-key";
 import { fetchConfiguration } from "@services/company";
 import { setFeatureConfiguration } from "@redux/slices/featureConfiguration";
@@ -772,16 +771,19 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
             </div>
 
             {/* Modal form */}
-            <Modal show={show} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>
+            <Dialog open={show} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography component="span" variant="h6">
                         {showRequestTypeSelection ?
                             `Select Request Type for ${selectedDate}` :
                             `Raise ${requestType === 'checkin' ? 'Check-In' : 'Check-Out'} Request for ${selectedDate} (24 hr HH:MM)`
                         }
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
+                    </Typography>
+                    <IconButton onClick={handleClose} size="small" aria-label="close">
+                        <i className="bi bi-x-lg" />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent>
                     {showRequestTypeSelection ? (
                         <div className='d-flex flex-column align-items-center'>
                             <h5 className='mb-4'>What type of request would you like to raise?</h5>
@@ -838,23 +840,22 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                 <Form className='d-flex flex-column' noValidate>
                                     {requestType === 'checkin' && <div className="col-lg">
                                         {isIOSMobile ? (
-                                            <BootstrapForm.Group controlId="CheckIn" className="mb-3">
-                                                <BootstrapForm.Label>Check In *</BootstrapForm.Label>
-                                                <BootstrapForm.Control
+                                            <Box className="mb-3">
+                                                <Typography component="label" sx={{ display: 'block', mb: 0.5 }}>Check In *</Typography>
+                                                <TextField
                                                     type="time"
                                                     value={formikProps.values.checkIn}
                                                     onChange={(e) => {
                                                         formikProps.setFieldValue("checkIn", e.target.value);
                                                     }}
                                                     onBlur={() => formikProps.setFieldTouched("checkIn", true)}
-                                                    isInvalid={Boolean(formikProps.errors.checkIn && formikProps.touched.checkIn)}
-                                                    className="form-control"
+                                                    error={Boolean(formikProps.errors.checkIn && formikProps.touched.checkIn)}
+                                                    helperText={formikProps.errors.checkIn && formikProps.touched.checkIn ? formikProps.errors.checkIn : ''}
+                                                    size="small"
+                                                    fullWidth
                                                     required
                                                 />
-                                                <BootstrapForm.Control.Feedback type="invalid">
-                                                    {formikProps.errors.checkIn}
-                                                </BootstrapForm.Control.Feedback>
-                                            </BootstrapForm.Group>
+                                            </Box>
                                         ) : (
                                             <TimePickerInput
                                                 isRequired={true}
@@ -867,22 +868,21 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
 
                                     {requestType === 'checkout' && <div className="col-lg">
                                         {isIOSMobile ? (
-                                            <BootstrapForm.Group controlId="CheckOut" className="mb-3">
-                                                <BootstrapForm.Label>Check Out</BootstrapForm.Label>
-                                                <BootstrapForm.Control
+                                            <Box className="mb-3">
+                                                <Typography component="label" sx={{ display: 'block', mb: 0.5 }}>Check Out</Typography>
+                                                <TextField
                                                     type="time"
                                                     value={formikProps.values.checkOut}
                                                     onChange={(e) => {
                                                         formikProps.setFieldValue("checkOut", e.target.value);
                                                     }}
                                                     onBlur={() => formikProps.setFieldTouched("checkOut", true)}
-                                                    isInvalid={Boolean(formikProps.errors.checkOut && formikProps.touched.checkOut)}
-                                                    className="form-control"
+                                                    error={Boolean(formikProps.errors.checkOut && formikProps.touched.checkOut)}
+                                                    helperText={formikProps.errors.checkOut && formikProps.touched.checkOut ? formikProps.errors.checkOut : ''}
+                                                    size="small"
+                                                    fullWidth
                                                 />
-                                                <BootstrapForm.Control.Feedback type="invalid">
-                                                    {formikProps.errors.checkOut}
-                                                </BootstrapForm.Control.Feedback>
-                                            </BootstrapForm.Group>
+                                            </Box>
                                         ) : (
                                             <TimePickerInput
                                                 isRequired={false}
@@ -947,8 +947,8 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                         </Formik>
                     )}
 
-                </Modal.Body>
-            </Modal>
+                </DialogContent>
+            </Dialog>
 
             {/* Admin Modal to raise request for another employee */}
             <RaiseRequestForEmployee

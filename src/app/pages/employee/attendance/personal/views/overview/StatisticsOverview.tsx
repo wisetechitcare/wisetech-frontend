@@ -2,7 +2,7 @@ import { safeJsonParse } from '@utils/safeJson';
 import { convertToTimeZone, formatTime, convertTo12HourFormat, MUMBAI_TZ as mumbaiTz } from '@utils/date';
 import { parseWorkingDays } from '@utils/workingDays';
 import { allStreaksIndicator, donutaDataLabel, getWorkingDaysInYear, handleDatesChange, todayProgressPercent, totalProgressPercent,currentDayWorkingHours, fetchEmpYearlyStatistics, getWorkingDaysInRange, formatDisplay } from '@utils/statistics';
-import { Card, Row, Col } from 'react-bootstrap';
+import { Card, Grid } from '@mui/material';
 import React, { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import DateSelector from '@components/DateSelector';
@@ -38,11 +38,11 @@ const StatisticsOverview: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
     return (
         <>
             <div>
-                <Row className='mt-4' style={{ alignItems: 'stretch' }}>
+                <Grid container className='mt-4' style={{ alignItems: 'stretch' }}>
                     <OverviewProgessBar  />
                     <OverviewAttendance yearlyStats={yearlyStats} startDates={startDates} endDates={endDates} />
                     <StreakIndicator currentStreak={allStreaksIndicator(yearlyStats)[0].toString()} lastStreak={allStreaksIndicator(yearlyStats)[1].toString()} totalDays={totalWorkingDay} />
-                </Row>
+                </Grid>
             </div>
         </>
     )
@@ -111,8 +111,8 @@ const OverviewProgessBar: React.FC = React.memo(() => {
     }, [day, checkInCheckOut, employeeId]);
 
     return (
-        <Col md={4} className="mb-4" style={{ display: 'flex' }}>
-            <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Grid item xs={12} md={4} className="mb-4" style={{ display: 'flex' }}>
+            <Card elevation={0} sx={{ border: '1px solid #f0f0f0', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', display: 'flex', flexDirection: 'column' }}>
                 {/* Header */}
                 <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, fontSize: 15, color: '#1a1a2e', letterSpacing: '-0.01em' }}>Working Time</span>
@@ -188,7 +188,7 @@ const OverviewProgessBar: React.FC = React.memo(() => {
                     </div>
                 </div>
             </Card>
-        </Col>
+        </Grid>
     );
 });
 
@@ -328,8 +328,8 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
     ];
 
     return (
-        <Col md={4} className="mb-4" style={{ display: 'flex' }}>
-            <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%' }}>
+        <Grid item xs={12} md={4} className="mb-4" style={{ display: 'flex' }}>
+            <Card elevation={0} sx={{ border: '1px solid #f0f0f0', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%' }}>
                 {/* Header */}
                 <div style={{ padding: '16px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, fontSize: 15, color: '#1a1a2e', letterSpacing: '-0.01em' }}>Yearly Stats</span>
@@ -368,6 +368,6 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
                     ))}
                 </div>
             </Card>
-        </Col>
+        </Grid>
     );
 };

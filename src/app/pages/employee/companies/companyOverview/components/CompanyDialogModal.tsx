@@ -1,5 +1,4 @@
-import { Dialog, DialogContent, DialogTitle, IconButton } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import DrillDownDialog from "@app/modules/common/components/DrillDownDialog";
 import ClientCompaniesMain from "../../companies/ClientCompaniesMain";
 import ClientContactsMain from "../../contacts/ClientContactsMain";
 import { Dayjs } from "dayjs";
@@ -31,52 +30,26 @@ export const CompanyDialogModal = ({
   isOthersView?: boolean;
   top10Ids?: string[];
 }) => (
-  <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-    <DialogTitle
-      sx={{
-        m: 0,
-        p: 0,
-        position: "relative",
-      }}
-    >
-      <IconButton
-        aria-label="close"
-        onClick={onClose}
-        sx={{
-          position: "absolute",
-          right: 8,
-          top: 8,
-          color: (theme) => theme.palette.grey[500],
-        }}
-      >
-        <CloseIcon />
-      </IconButton>
-    </DialogTitle>
-    <DialogContent className="!p-0 !shadow-none">
-      <div className="flex flex-col w-full max-w-4xl mx-auto p-2 bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
-        <div className="overflow-y-auto max-h-[70vh]">
-          {contactByRolesId ? (
-            <ClientContactsMain
-              contactByRolesId={contactByRolesId}
-              startDate={startDate}
-              endDate={endDate}
-            />
-          ) : (
-            <ClientCompaniesMain
-              statusId={statusId || undefined}
-              companyTypeId={companyTypeId || undefined}
-              serviceId={serviceId || undefined}
-              subServiceId={subServiceId || undefined}
-              locationId={locationId || undefined}
-              startDate={startDate}
-              endDate={endDate}
-              isOthersView={isOthersView}
-              top10Ids={top10Ids}
-            />
-          )}
-        </div>
-      </div>
-    </DialogContent>
-  </Dialog>
+  <DrillDownDialog open={open} onClose={onClose} maxBodyHeight="70vh" bodyClassName="p-2">
+    {contactByRolesId ? (
+      <ClientContactsMain
+        contactByRolesId={contactByRolesId}
+        startDate={startDate}
+        endDate={endDate}
+      />
+    ) : (
+      <ClientCompaniesMain
+        statusId={statusId || undefined}
+        companyTypeId={companyTypeId || undefined}
+        serviceId={serviceId || undefined}
+        subServiceId={subServiceId || undefined}
+        locationId={locationId || undefined}
+        startDate={startDate}
+        endDate={endDate}
+        isOthersView={isOthersView}
+        top10Ids={top10Ids}
+      />
+    )}
+  </DrillDownDialog>
 );
-   
+

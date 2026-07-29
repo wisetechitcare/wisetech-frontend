@@ -1,10 +1,12 @@
 import { safeJsonParse } from '@utils/safeJson';
 import React, { useState, useEffect, useCallback } from 'react';
-import { Row, Col, Card, Button } from 'react-bootstrap';
+import { KTIcon } from '@metronic/helpers';
+import { Box, Stack, Typography, CircularProgress } from '@mui/material';
+// Same MUI glass kit as the Sandwich Leave benchmark — single source of truth for the look.
+import { WtButton, WtSwitch, GlassSurface, IconBox, TRIO, type Trio } from '@app/modules/common/components/ui';
 import { Formik, Form as FormikForm } from 'formik';
 import * as Yup from 'yup';
 import TextInput from '@app/modules/common/inputs/TextInput';
-import RadioInput, { RadioButton } from '@app/modules/common/inputs/RadioInput';
 import { useConfiguration } from '@hooks/useConfiguration';
 import {
   DISABLE_LAUNCH_DEDUCTION_TIME_KEY,
@@ -33,6 +35,39 @@ interface OtherSettingsValues {
   restrictAttendanceRequestDays: string;
   showDataUpToToday: string;
   monthlyAnnualLeaveLimit: string;
+}
+
+/**
+ * One settings row — glass surface, readable type scale, and a control slot on the right.
+ * Fully responsive: label + control sit side-by-side on ≥sm and stack cleanly on phones, with the
+ * control pinned at flexShrink:0 so it can never be squeezed/shrunk by a long label (the exact bug
+ * the old Bootstrap `Col md={8}/md={4}` split produced). Reused for every row so spacing, contrast,
+ * and breakpoints stay identical across the whole form.
+ */
+function SettingRow({ icon, trio, title, desc, control }: {
+  icon: string; trio: Trio; title: string; desc?: string; control: React.ReactNode;
+}) {
+  return (
+    <GlassSurface variant="thin" sx={{
+      p: { xs: 1.5, sm: 1.75 },
+      display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
+      alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between',
+      gap: { xs: 1.25, sm: 2 },
+      transition: 'border-color .15s, box-shadow .15s',
+      '&:hover': { borderColor: trio.bd },
+    }}>
+      <Stack direction="row" spacing={1.5} alignItems={desc ? 'flex-start' : 'center'} sx={{ minWidth: 0, flex: 1 }}>
+        <IconBox icon={icon} trio={trio} size={38} fs="fs-3" />
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.35, letterSpacing: '-0.01em' }}>{title}</Typography>
+          {desc && <Typography sx={{ fontSize: 13.5, color: '#55606F', mt: 0.4, lineHeight: 1.55 }}>{desc}</Typography>}
+        </Box>
+      </Stack>
+      <Box sx={{ flexShrink: 0, width: { xs: '100%', sm: 'auto' }, display: 'flex', justifyContent: { xs: 'flex-start', sm: 'flex-end' }, pl: { xs: 0, sm: 2 } }}>
+        {control}
+      </Box>
+    </GlassSurface>
+  );
 }
 
 const OtherSettings: React.FC = () => {
@@ -74,11 +109,6 @@ const OtherSettings: React.FC = () => {
     'disableLaunchDeductionTime',
     updateReduxConfig
   );
-
-  const toggleOptions: RadioButton[] = [
-    { label: 'Off', value: 'off' },
-    { label: 'On', value: 'on' }
-  ];
 
   const validationSchema = Yup.object().shape({
     allowedDistance: Yup.number()
@@ -309,200 +339,60 @@ const OtherSettings: React.FC = () => {
       validationSchema={validationSchema}
       onSubmit={handleSubmit}
     >
-      {({ values }) => (
+      {({ values, setFieldValue }) => (
         <FormikForm>
-          <div style={{ padding: '24px 20px' }}>
-            <Card style={{ borderRadius: '12px', border: 'none' }}>
-              <Card.Body style={{ padding: '20px 25px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {/* Date Settings */}
-                  <Row className="align-items-center gy-2">
-                    <Col xs={12} sm={12} md={8} lg={9}>
-                      <div>
-                        <div style={{
-                          fontSize: '14px',
-                          fontWeight: 500,
-                          fontFamily: 'Inter, sans-serif',
-                          marginBottom: '4px'
-                        }}>
-                          Show Data Up to Today
-                        </div>
-                        <div style={{
-                          fontSize: '12px',
-                          color: '#8696ad',
-                          fontFamily: 'Inter, sans-serif'
-                        }}>
-                          When ON, shows data only up to today. When OFF, shows the full period (weekly, monthly, yearly).
-                        </div>
-                      </div>
-                    </Col>
-                    <Col xs={12} sm={12} md={4} lg={3} className="d-flex justify-content-md-end">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <RadioInput
-                          formikField="showDataUpToToday"
-                          isRequired={false}
-                          radioBtns={toggleOptions}
-                          customCss="justify-content-end"
-                        />
-                      </div>
-                    </Col>
-                  </Row>
-                  {/* Enable Lunch Deduction Time */}
-                  <Row className="align-items-center gy-2" style={{ minHeight: '32px' }}>
-                    <Col xs={12} sm={12} md={8} lg={9}>
-                      <span style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}>
-                        Enable Lunch Deduction Time
-                      </span>
-                    </Col>
-                    <Col xs={12} sm={12} md={4} lg={3} className="d-flex justify-content-md-end">
-                      <RadioInput
-                        formikField="enableLunchDeduction"
-                        isRequired={false}
-                        radioBtns={toggleOptions}
-                        customCss="justify-content-end"
-                      />
-                    </Col>
-                  </Row>
+          <Box sx={{ p: { xs: 1.75, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 2.5 } }}>
+            {/* Section 1 — Attendance behaviour toggles */}
+            <Stack spacing={{ xs: 1.25, sm: 1.5 }}>
+              <SettingRow
+                icon="calendar-8" trio={TRIO.blue}
+                title="Show Data Up to Today"
+                desc="When ON, shows data only up to today. When OFF, shows the full period (weekly, monthly, yearly)."
+                control={<WtSwitch tone={TRIO.blue.c} checked={values.showDataUpToToday === 'on'} onChange={(e) => setFieldValue('showDataUpToToday', e.target.checked ? 'on' : 'off')} />}
+              />
+              <SettingRow
+                icon="time" trio={TRIO.amber}
+                title="Enable Lunch Deduction Time"
+                control={<WtSwitch tone={TRIO.amber.c} checked={values.enableLunchDeduction === 'on'} onChange={(e) => setFieldValue('enableLunchDeduction', e.target.checked ? 'on' : 'off')} />}
+              />
+              <SettingRow
+                icon="shield-tick" trio={TRIO.purple}
+                title="On-site, Holiday & Weekend Settings for late attendance"
+                control={<WtSwitch tone={TRIO.purple.c} checked={values.onSiteHolidayWeekendSettings === 'on'} onChange={(e) => setFieldValue('onSiteHolidayWeekendSettings', e.target.checked ? 'on' : 'off')} />}
+              />
+            </Stack>
 
-                  {/* On-site, Holiday & Weekend Settings */}
-                  <Row className="align-items-center gy-2" style={{ minHeight: '32px' }}>
-                    <Col xs={12} sm={12} md={8} lg={9}>
-                      <span style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}>
-                        On-site, Holiday & Weekend Settings for late attendance
-                      </span>
-                    </Col>
-                    <Col xs={12} sm={12} md={4} lg={3} className="d-flex justify-content-md-end">
-                      <RadioInput
-                        formikField="onSiteHolidayWeekendSettings"
-                        isRequired={false}
-                        radioBtns={toggleOptions}
-                        customCss="justify-content-end"
-                      />
-                    </Col>
-                  </Row>
+            {/* Section 2 — Limits & geofencing */}
+            <Stack spacing={{ xs: 1.25, sm: 1.5 }}>
+              <SettingRow
+                icon="geolocation" trio={TRIO.cyan}
+                title="Allowed check-in distance from office (meters)"
+                control={<Box sx={{ width: { xs: '100%', sm: 160 } }}><TextInput formikField="allowedDistance" isRequired placeholder="100" inputValidation="numbers" /></Box>}
+              />
+              <SettingRow
+                icon="calendar-tick" trio={TRIO.green}
+                title="Number of Annual Leaves allowed per month"
+                control={<Box sx={{ width: { xs: '100%', sm: 160 } }}><TextInput formikField="monthlyAnnualLeaveLimit" isRequired placeholder="2" inputValidation="numbers" /></Box>}
+              />
+              <SettingRow
+                icon="calendar-remove" trio={TRIO.rose}
+                title="Restrict Attendance Requests (Days)"
+                desc="Enter number of calendar days to restrict attendance requests."
+                control={<Box sx={{ width: { xs: '100%', sm: 160 } }}><TextInput formikField="restrictAttendanceRequestDays" isRequired placeholder="7" inputValidation="numbers" /></Box>}
+              />
+            </Stack>
 
-                  {/* Allowed Distance */}
-                  <Row className="align-items-center gy-2">
-                    <Col xs={12} sm={12} md={8} lg={9}>
-                      <span style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}>
-                        Allowed distance in meters from office for checkin (meters)
-                      </span>
-                    </Col>
-                    <Col xs={12} sm={12} md={4} lg={3} className="d-flex justify-content-md-end">
-                      <div style={{ width: '100%', maxWidth: '137px' }}>
-                        <TextInput
-                          formikField="allowedDistance"
-                          isRequired={true}
-                          placeholder="100"
-                          inputValidation="numbers"
-                        />
-                      </div>
-                    </Col>
-                  </Row>
-
-
-                  {/* Number of Annual Leaves allowed per month */}
-                  <Row className="align-items-center gy-2">
-                    <Col xs={12} sm={12} md={8} lg={9}>
-                      <span style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}>
-                        Number of Annual Leaves allowed per month
-                      </span>
-                    </Col>
-                    <Col xs={12} sm={12} md={4} lg={3} className="d-flex justify-content-md-end">
-                      <div style={{ width: '100%', maxWidth: '137px' }}>
-                        <TextInput
-                          formikField="monthlyAnnualLeaveLimit"
-                          isRequired={true}
-                          placeholder="2"
-                          inputValidation="numbers"
-                        />
-                      </div>
-                    </Col>
-                  </Row>
-
-                  {/* Restrict Attendance Requests (Days) */}
-                  <Row className="align-items-center gy-2">
-                    <Col xs={12} sm={12} md={8} lg={9}>
-                      <div>
-                        <div style={{
-                          fontSize: '14px',
-                          fontWeight: 500,
-                          fontFamily: 'Inter, sans-serif',
-                          marginBottom: '4px'
-                        }}>
-                          Restrict Attendance Requests (Days)
-                        </div>
-                        <div style={{
-                          fontSize: '12px',
-                          color: '#8696ad',
-                          fontFamily: 'Inter, sans-serif'
-                        }}>
-                          Enter number of calendar days to restrict attendance requests
-                        </div>
-                      </div>
-                    </Col>
-                    <Col xs={12} sm={12} md={4} lg={3} className="d-flex justify-content-md-end">
-                      <div style={{ width: '100%', maxWidth: '137px' }}>
-                        <TextInput
-                          formikField="restrictAttendanceRequestDays"
-                          isRequired={true}
-                          placeholder="7"
-                          inputValidation="numbers"
-                        />
-                      </div>
-                    </Col>
-                  </Row>
-
-
-                </div>
-              </Card.Body>
-            </Card>
-
-            {/* Save Button */}
-            <Row className="mt-4">
-              <Col xs={12}>
-                <Button
-                  type="submit"
-                  disabled={isSaving}
-                  className="w-100 w-sm-auto"
-                  style={{
-                    backgroundColor: '#1E3A8A',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '10px 20px',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    fontFamily: 'Inter, sans-serif'
-                  }}
-                >
-                  {isSaving ? (
-                    <span>
-                      Saving...
-                      <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>
-                    </span>
-                  ) : (
-                    'Save'
-                  )}
-                </Button>
-              </Col>
-            </Row>
-          </div>
+            {/* Save */}
+            <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, pt: 0.5 }}>
+              <WtButton
+                type="submit" tone="primary" disabled={isSaving}
+                startIcon={isSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <KTIcon iconName="check-circle" className="fs-3" />}
+                sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 200 } }}
+              >
+                {isSaving ? 'Saving…' : 'Save Settings'}
+              </WtButton>
+            </Box>
+          </Box>
         </FormikForm>
       )}
     </Formik>

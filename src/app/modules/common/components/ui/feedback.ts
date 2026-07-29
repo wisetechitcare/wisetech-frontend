@@ -25,6 +25,14 @@ function ensureStyles() {
     .wt-swal-confirm.wt-danger:hover{background:#9A1D14;}
     .wt-swal-cancel{background:#fff;color:${T.color.inkSoft};border:1px solid ${T.color.line};border-radius:9px;font-weight:600;font-size:13.5px;padding:9px 20px;transition:background .15s;}
     .wt-swal-cancel:hover{background:${T.color.panel};color:${T.color.ink};}
+
+    /* Dark mode — scoped to the app-wide [data-theme="dark"] signal set by ColorModeProvider.
+       Swal portals to <body>, so these descendant selectors match. */
+    html[data-theme="dark"] .wt-swal-popup{background:#1E222C;box-shadow:0 24px 64px -12px rgba(0,0,0,.6);}
+    html[data-theme="dark"] .wt-swal-title{color:rgba(255,255,255,.92);}
+    html[data-theme="dark"] .wt-swal-html{color:rgba(255,255,255,.62);}
+    html[data-theme="dark"] .wt-swal-cancel{background:rgba(255,255,255,.08);color:rgba(255,255,255,.78);border-color:rgba(255,255,255,.16);}
+    html[data-theme="dark"] .wt-swal-cancel:hover{background:rgba(255,255,255,.14);color:#fff;}
   `;
   document.head.appendChild(style);
 }

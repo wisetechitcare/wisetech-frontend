@@ -30,15 +30,12 @@ const getThemeModeFromLocalStorage = (lsKey: string): ThemeModeType => {
   }
 
   const data = localStorage.getItem(lsKey)
-  // Force light mode only — ignore any stored dark/system to heal stale localStorage
-  if (data === 'dark' || data === 'system') {
-    return 'light'
+  // Mode is unified under the MUI ColorModeProvider (key `wt-mui-color-mode`), which mirrors its
+  // value into these Metronic keys. Respect a stored `dark`; treat `system` as light (the app does
+  // not offer OS-follow). Default light so first load is unchanged.
+  if (data === 'dark') {
+    return 'dark'
   }
-  if (data === 'light') {
-    return 'light'
-  }
-
-  // Ignore data-bs-theme attribute as well; always light
   return 'light'
 }
 

@@ -11,8 +11,7 @@ import { toast } from "react-toastify";
 import dayjs from "dayjs";
 import { toAbsoluteUrl } from "@metronic/helpers";
 import { successConfirmation } from "@utils/modal";
-import OverlayTrigger from "react-bootstrap/OverlayTrigger";
-import Tooltip from "react-bootstrap/Tooltip";
+import Tooltip from "@mui/material/Tooltip";
 import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
 
@@ -250,19 +249,15 @@ function AttendanceRequestLimitReset() {
     <div className=" mt-10">
         <h3 className=" fw-bold">
           Pending Limit Reset Requests
-          <OverlayTrigger
+          <Tooltip
             placement="top"
-            overlay={
-              <Tooltip id="tooltip-limit-reset">
-                Approving this request will double the employee's current attendance request limit
-              </Tooltip>
-            }
+            title="Approving this request will double the employee's current attendance request limit"
           >
             <i
               className="bi bi-question-circle ms-2"
               style={{ fontSize: '1rem', cursor: 'pointer' }}
             ></i>
-          </OverlayTrigger>
+          </Tooltip>
         </h3>
         <MaterialTable
           resource={resourceNameMapWithCamelCase.attendanceRequestLimit}

@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { KTIcon } from '@metronic/helpers';
 import { cn } from './cn';
 import { BRAND } from './tokens';
+import { WtCloseButton } from './WtCloseButton';
 
 /**
  * Tailwind glass primitives — GlassSurface / GlassCard / GlassHeader /
@@ -20,10 +21,12 @@ export type GlassVariant = 'regular' | 'thin';
 const SURFACE: Record<GlassVariant, string> = {
   regular:
     'bg-white/80 supports-[backdrop-filter]:bg-white/70 backdrop-blur-xl border border-white/60 ' +
-    'shadow-[0_1px_3px_rgba(16,24,40,0.05),0_8px_24px_rgba(16,24,40,0.03)]',
+    'shadow-[0_1px_3px_rgba(16,24,40,0.05),0_8px_24px_rgba(16,24,40,0.03)] ' +
+    'dark:bg-[#1e222c]/85 dark:supports-[backdrop-filter]:bg-[#1e222c]/70 dark:border-white/12',
   thin:
     'bg-white/95 border border-[#E6E9EE] ' +
-    'shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_16px_rgba(15,23,42,0.035)]',
+    'shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_16px_rgba(15,23,42,0.035)] ' +
+    'dark:bg-[#252a35] dark:border-white/10',
 };
 
 export interface GlassSurfaceProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -101,15 +104,7 @@ export function GlassHeader({ title, subtitle, icon, onClose, action }: GlassHea
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {action}
-        {onClose && (
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="grid place-items-center w-[38px] h-[38px] rounded-lg text-white bg-white/10 hover:bg-white/20 transition-[background,transform] active:scale-[.92]"
-          >
-            <span className="text-[20px] leading-none font-normal">&times;</span>
-          </button>
-        )}
+        {onClose && <WtCloseButton variant="dark" onClick={onClose} />}
       </div>
     </div>
   );
@@ -199,4 +194,5 @@ export function GlassDialog({
 // The dialog Paper is the ONE `regular` glass surface (real backdrop-filter).
 const GlassSurfaceRegular =
   'bg-white/90 supports-[backdrop-filter]:bg-white/80 backdrop-blur-xl border border-white/60 ' +
-  'shadow-[0_24px_64px_-12px_rgba(16,24,40,0.28),0_8px_20px_-8px_rgba(16,24,40,0.18)]';
+  'shadow-[0_24px_64px_-12px_rgba(16,24,40,0.28),0_8px_20px_-8px_rgba(16,24,40,0.18)] ' +
+  'dark:bg-[#1e222c]/92 dark:supports-[backdrop-filter]:bg-[#1e222c]/82 dark:border-white/12';

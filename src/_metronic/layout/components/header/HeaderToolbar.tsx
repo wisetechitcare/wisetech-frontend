@@ -15,6 +15,7 @@ import NotificationBell from "../NotificationsBell";
 import BirthdayConfetti from "@app/modules/common/utils/BirthdayConfetti";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 import GlobalSearch from "@app/modules/common/components/GlobalSearch/GlobalSearch";
+import { ColorModeToggle } from "@app/theme/ColorMode";
 
 const HeaderToolbar = () => {
   const { classes } = useLayout();
@@ -116,6 +117,10 @@ const HeaderToolbar = () => {
               <div className="wt-header-actions d-flex gap-lg-3 gap-5" >
                 <div className="d-flex align-items-center">
                   <GlobalSearch />
+                </div>
+                {/* light / dark mode toggle (drives the app-wide unified color mode) */}
+                <div className="d-flex align-items-center">
+                  <ColorModeToggle className="btn-icon btn-active-color-primary" />
                 </div>
                 {/* notification */}
                 <NotificationBell employeeId={employeeId} />

@@ -64,7 +64,11 @@ const ActionBtn: React.FC<{ action: ConfigSectionCardAction }> = ({ action }) =>
 
   if (action.variant === 'primary') {
     base = { ...BTN.primary, padding: '7px 16px', fontSize: '13px' };
-    hovStyle = { transform: 'translateY(-1px)', boxShadow: `0 6px 18px ${C.primaryShadowMd}` };
+    hovStyle = {
+      transform: 'translateY(-1.5px)',
+      filter: 'brightness(1.05)',
+      boxShadow: `0 3px 6px ${C.primaryShadow}, 0 18px 32px -10px ${C.primaryShadowMd}, inset 0 1px 0 rgba(255,255,255,0.16)`,
+    };
   } else if (action.variant === 'danger') {
     base = { ...BTN.outline, color: C.danger, borderColor: C.danger, padding: '7px 16px', fontSize: '13px' };
     hovStyle = { backgroundColor: C.dangerLight };

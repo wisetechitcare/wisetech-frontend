@@ -1,4 +1,5 @@
 import React from 'react';
+import { Grid } from '@mui/material';
 import { C, FONT, SP, RADIUS, ICON_COLORS } from './ConfigDesignSystem';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -198,20 +199,23 @@ const ConfigStatsCards: React.FC<ConfigStatsCardsProps> = ({
   cards,
   columns = 4,
 }) => {
-  const colClass: Record<number, string> = {
-    2: 'col-12 col-sm-6',
-    3: 'col-12 col-sm-6 col-lg-4',
-    4: 'col-12 col-sm-6 col-lg-3',
+  // Responsive column span per `columns` setting (MUI Grid, 12-col) — replaces the old
+  // Bootstrap `row/col` classes so the shared engine carries no Bootstrap-grid dependency.
+  const colSpan: Record<number, { sm: number; lg: number }> = {
+    2: { sm: 6, lg: 6 },
+    3: { sm: 6, lg: 4 },
+    4: { sm: 6, lg: 3 },
   };
+  const span = colSpan[columns] ?? colSpan[4];
 
   return (
-    <div className="row g-3" style={{ marginBottom: SP.lg }}>
+    <Grid container spacing={2} sx={{ mb: 3 }}>
       {cards.map((card, idx) => (
-        <div key={idx} className={colClass[columns] ?? 'col-12 col-sm-6 col-lg-3'}>
+        <Grid item key={idx} xs={12} sm={span.sm} lg={span.lg}>
           <StatCard {...card} />
-        </div>
+        </Grid>
       ))}
-    </div>
+    </Grid>
   );
 };
 

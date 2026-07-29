@@ -29,7 +29,7 @@ export function AppearanceModal({ open, onClose }: AppearanceModalProps) {
         onClose={onClose}
       />
 
-      <Box sx={{ overflowY: 'auto', flex: 1 }}>
+      <Box sx={{ p: { xs: 1.75, sm: 2.25 }, overflowY: 'auto', flex: 1 }}>
         <Appearance showAppearanceModal={(v) => { if (!v) onClose(); }} />
       </Box>
     </GlassDialog>

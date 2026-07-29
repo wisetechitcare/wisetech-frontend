@@ -7,7 +7,7 @@ import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { donutaDataLabel, getWorkingDaysInRange, getWorkingDaysInYear, totalWorkingTime } from '@utils/statistics';
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Row, Col, Image } from 'react-bootstrap';
+import { Card, Grid } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
 import { customLeaves, filterLeavesPublicHolidays, handleDatesChange, leavesBalance } from "@utils/statistics";
 import { saveLeaves } from '@redux/slices/attendanceStats';
@@ -157,11 +157,11 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
 
     return (
         <>
-            <Card className="p-4 mt-4">
+            <Card elevation={0} className="p-4 mt-4">
                 <h5>Overview for {fiscalYearDisplay}</h5>
-                <Row className="text-center mt-3">
-                    <Col className='mb-2'>
-                        <Card className="border p-4">
+                <Grid container className="text-center mt-3">
+                    <Grid item xs className='mb-2'>
+                        <Card elevation={0} className="border p-4">
                             <div className="d-flex align-items-center">
                                 <div className="d-flex align-items-center justify-content-center rounded-circle bg-light border me-3" style={{ width: '50px', height: '50px' }}>
                                     <i className="bi bi-calendar-check fs-2"></i>
@@ -172,9 +172,9 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                                 </div>
                             </div>
                         </Card>
-                    </Col>
-                    <Col>
-                        <Card className="border p-4">
+                    </Grid>
+                    <Grid item xs>
+                        <Card elevation={0} className="border p-4">
                             <div className="d-flex align-items-center">
                                 <div className="d-flex align-items-center justify-content-center rounded-circle bg-light border me-3" style={{ width: '50px', height: '50px' }}>
                                     <i className="bi bi-clock fs-2"></i>
@@ -185,9 +185,9 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                                 </div>
                             </div>
                         </Card>
-                    </Col>
-                    <Col>
-                        <Card className="border p-4">
+                    </Grid>
+                    <Grid item xs>
+                        <Card elevation={0} className="border p-4">
                             <div className="d-flex align-items-center">
                                 <div className="d-flex align-items-center justify-content-center rounded-circle bg-light border me-3" style={{ width: '50px', height: '50px' }}>
                                     <i className="bi bi-calendar2-event fs-2"></i>
@@ -198,9 +198,9 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                                 </div>
                             </div>
                         </Card>
-                    </Col>
-                    {showLevesColumn && <Col>
-                        <Card className="border p-4">
+                    </Grid>
+                    {showLevesColumn && <Grid item xs>
+                        <Card elevation={0} className="border p-4">
                             <div className="d-flex align-items-center">
                                 <div className="d-flex align-items-center justify-content-center rounded-circle bg-light border me-3" style={{ width: '50px', height: '50px' }}>
                                     <i className="bi bi-calendar-event fs-2"></i>
@@ -211,8 +211,8 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                                 </div>
                             </div>
                         </Card>
-                    </Col>}
-                </Row>
+                    </Grid>}
+                </Grid>
             </Card>
         </>
     );
