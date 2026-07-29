@@ -27,6 +27,7 @@ import MonthlyOverviewCard from '@pages/employee/salary/personal/views/my-salary
 import MonthlySalaryPieChart from '../components/charts/MonthlySalaryPieChart';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
+import { getEmployeeStatus, wasEmployedDuring } from '@utils/employeeStatus';
 
 const SalaryReport: React.FC<SalaryReportProps> = (props) => {
     const {
@@ -84,6 +85,39 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 <div className="spinner-border text-primary" role="status">
                     <span className="visually-hidden">Loading...</span>
                 </div>
+            </Container>
+        );
+    }
+
+    // The backend returns no salary record for a month the employee was not employed in,
+    // which otherwise renders as an empty report indistinguishable from a failed load.
+    // Gated on having actually exited, so a FUTURE month of a current employee (also
+    // recordless) keeps the ordinary empty state instead of claiming they had left.
+    const monthStart = dayjs(`${year}-${String(month).padStart(2, '0')}-01`);
+    const showNotEmployedNotice =
+        !isYearly &&
+        !apiSalaryData &&
+        monthStart.isValid() &&
+        getEmployeeStatus(employee) === 0 &&
+        !wasEmployedDuring(employee, monthStart.startOf('month').toDate(), monthStart.endOf('month').toDate());
+
+    if (showNotEmployedNotice) {
+        return (
+            <Container fluid className="my-4 w-100 px-0">
+                <Card className="shadow-sm w-100 border-0" style={{ borderRadius: '16px' }}>
+                    <div className="p-6 p-lg-10 d-flex flex-column align-items-center text-center">
+                        <div className="symbol symbol-50px mb-4">
+                            <div className="symbol-label bg-light-danger">
+                                <KTIcon iconName="exit-right-corner" className="fs-2x text-danger" />
+                            </div>
+                        </div>
+                        <h4 className="fw-bolder text-gray-800 mb-2">Not employed during this period</h4>
+                        <p className="text-muted fs-6 mb-0">
+                            This employee had left the company by {monthStart.format('MMMM YYYY')}, so there is no
+                            payroll for this month.
+                        </p>
+                    </div>
+                </Card>
             </Container>
         );
     }
@@ -164,9 +198,16 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                 userId={employee.userId}
                                 employeeId={employee.id}
                                 salaryId={apiSalaryData?.id as string}
+                                month={Number(month)}
+                                year={Number(year)}
                                 loading={ui.loading}
                                 setLoading={ui.setLoading}
                                 employee={employee}
+                                apiSalaryData={apiSalaryData}
+                                summaryData={summaryData}
+                                paymentRows={tableRows}
+                                resolveName={resolveName}
+                                resolveComponent={resolveComponent}
                             />
 
                             {/* Breakdown tables */}

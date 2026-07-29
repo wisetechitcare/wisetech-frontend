@@ -3,7 +3,7 @@ import { resolveActiveOrgId } from '@utils/activeOrg';
 import { parseWorkingDays } from '@utils/workingDays';
 import { Bar, Donut, Dumbell, HeatMap, MultipleRadialBar, Polar, ReportsTable, StatisticsTable, StokedCircle, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
 import { usePagination } from '@pages/employee/attendance/personal/views/my-attendance/hooks/usePagination';
-import { EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, TOTAL_WORKING_DAYS, monthDays, resourceNameMapWithCamelCase } from '@constants/statistics';
+import { CHECK_OUT_MISSING, EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, ON_LEAVE, TOTAL_WORKING_DAYS, monthDays, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { saveFilteredPublicHolidays, saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions';
 import { RootState, store } from '@redux/store';
@@ -331,11 +331,12 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     const actualTotalWorkingDay = (totalWorkingDay - findIsWeekendTrueAndCount) + workedOnHolidaOrWeekend;
 
     const holidays = donutData.get(HOLIDAYS) || 0;
-    const leaves = donutData.get("Leaves") || 0;
+    const leaves = donutData.get(ON_LEAVE) || 0;
+    const checkoutMissing = donutData.get(CHECK_OUT_MISSING) || 0;
     
     const stokedCircleSeries = useMemo(() => 
-        [totalProgressPercent(filteredAttendance, actualTotalWorkingDay)],
-        [filteredAttendance, actualTotalWorkingDay]
+        [totalProgressPercent(filteredAttendance, actualTotalWorkingDay, leaves)],
+        [filteredAttendance, actualTotalWorkingDay, leaves]
     );
 
     const heatMapSeries = useMemo(() => 
@@ -400,7 +401,7 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
                 <Donut donutLabels={donutLabels} donutSeries={donutSeries} totalDays={actualTotalWorkingDay} />
                 <MultipleRadialBar multipleRadialBarLabels={multipleRadialBarLabels} multipleRadialBarSeries={multipleRadialBarSeries} totalWorkingDays={actualTotalWorkingDay} />
                 <Polar polarLabels={polarLabels} polarSeries={polarSeries} totalDays={actualTotalWorkingDay} />
-                <StokedCircle stokedCircleSeries={stokedCircleSeries} totalWorkedDays={totalWorkedDays} totalDays={actualTotalWorkingDay} />
+                <StokedCircle stokedCircleSeries={stokedCircleSeries} totalWorkedDays={totalWorkedDays} totalDays={actualTotalWorkingDay} totalLeaves={leaves} totalCheckoutMissing={checkoutMissing} />
                 <StreakIndicator 
                     currentStreak={allStreaksIndicator(filteredMonthlyStats, isCurrentMonth)[0].toString()} 
                     lastStreak={allStreaksIndicator(filteredMonthlyStats, isCurrentMonth)[1].toString()} 

@@ -29,6 +29,8 @@ const initialValues: IHoliday = {
     isActive: false,
     colorCode: "",
     companyId: "",
+    recurrenceMonth: null,
+    recurrenceDay: null,
 };
 
 const holidaySchema = Yup.object().shape({
@@ -37,7 +39,25 @@ const holidaySchema = Yup.object().shape({
     colorCode: Yup.string().required('Color is required'),
     isActive: Yup.boolean().required('Is active is required'),
     companyId: Yup.string(),
+    // Month and day are only meaningful together — half a rule cannot date anything,
+    // so requiring the pair stops a holiday being saved in a state where "Generate"
+    // would silently skip it.
+    recurrenceMonth: Yup.number().min(1).max(12).nullable()
+        .when('recurrenceDay', {
+            is: (day: number | null) => day != null,
+            then: (s) => s.required('Pick a month as well as a day'),
+        }),
+    recurrenceDay: Yup.number().min(1).max(31).nullable(),
 }).strict(true);
+
+const MONTHS = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+// Highest valid day per month, ignoring leap years — a 29 Feb rule is allowed here
+// and reported as "needs a date" in the years where it does not exist.
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 export const PRESET_COLORS = ['#1E3A8A', '#1E3A8A', '#14966B', '#B4771A', '#C13F6B', '#6B5AD1', '#2F7CC2', '#5E6B7E'];
 
@@ -142,7 +162,14 @@ function Holiday({
                                         <button
                                             key={String(opt.value)}
                                             type="button"
-                                            onClick={() => formik.setFieldValue('isFixed', opt.value, true)}
+                                            onClick={() => {
+                                                formik.setFieldValue('isFixed', opt.value, true);
+                                                // Floating moves each year, so it can't carry a repeat date.
+                                                if (!opt.value) {
+                                                    formik.setFieldValue('recurrenceMonth', null, true);
+                                                    formik.setFieldValue('recurrenceDay', null, true);
+                                                }
+                                            }}
                                             className="btn btn-sm fw-semibold flex-fill"
                                             style={{
                                                 borderRadius: '8px',
@@ -189,7 +216,66 @@ function Holiday({
                         </div>
                     </div>
 
-                    {/* ── SECTION 3 · Color ─────────────────────────────────────────────── */}
+                    {/* ── SECTION 3 · Repeat date (Fixed only) ──────────────────────────── */}
+                    {/* Fixed already means "same date every year", so this section only asks
+                        WHICH date. Floating holidays move, so they get no date here. */}
+                    {formik.values.isFixed && (
+                        <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '20px', marginBottom: '16px', border: '1px solid #e9edf2' }}>
+                            <p className="fs-8 fw-bold text-uppercase text-gray-500 mb-4" style={{ letterSpacing: '0.8px' }}>Repeats On</p>
+                            <div className="row g-3">
+                                <div className="col-7">
+                                    <label className="fs-8 fw-semibold text-gray-600 d-block mb-1">Month</label>
+                                    <select
+                                        className="form-select form-select-solid"
+                                        style={{ borderRadius: '8px', border: '1.5px solid #dde2ec', minHeight: '42px', fontSize: '14px' }}
+                                        // Renders empty, not "January", when no date is stored — showing a
+                                        // month the form would not actually save is how fields silently
+                                        // lose their value.
+                                        value={formik.values.recurrenceMonth ?? ''}
+                                        onChange={(e) => {
+                                            const month = Number(e.target.value);
+                                            formik.setFieldValue('recurrenceMonth', month, true);
+                                            // Clamp the day so switching to a shorter month cannot leave an
+                                            // impossible pair like 31 February sitting in the form.
+                                            const maxDay = DAYS_IN_MONTH[month - 1];
+                                            formik.setFieldValue(
+                                                'recurrenceDay',
+                                                Math.min(formik.values.recurrenceDay ?? 1, maxDay),
+                                                true,
+                                            );
+                                        }}
+                                    >
+                                        <option value="" disabled>Select month</option>
+                                        {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                                    </select>
+                                </div>
+                                <div className="col-5">
+                                    <label className="fs-8 fw-semibold text-gray-600 d-block mb-1">Day</label>
+                                    <select
+                                        className="form-select form-select-solid"
+                                        style={{ borderRadius: '8px', border: '1.5px solid #dde2ec', minHeight: '42px', fontSize: '14px' }}
+                                        value={formik.values.recurrenceDay ?? ''}
+                                        onChange={(e) => formik.setFieldValue('recurrenceDay', Number(e.target.value), true)}
+                                    >
+                                        <option value="" disabled>Select day</option>
+                                        {Array.from(
+                                            { length: DAYS_IN_MONTH[(formik.values.recurrenceMonth ?? 1) - 1] },
+                                            (_, i) => i + 1,
+                                        ).map(d => <option key={d} value={d}>{d}</option>)}
+                                    </select>
+                                </div>
+                                <div className="col-12">
+                                    <div className="fs-8 text-gray-500">
+                                        {formik.values.recurrenceMonth != null && formik.values.recurrenceDay != null
+                                            ? 'Every new year can be pre-filled with this date automatically.'
+                                            : 'Set a date so new years can be pre-filled automatically. If this holiday moves each year, mark it Floating instead.'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── SECTION 4 · Color ─────────────────────────────────────────────── */}
                     <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '20px', marginBottom: '4px', border: '1px solid #e9edf2' }}>
                         <p className="fs-8 fw-bold text-uppercase text-gray-500 mb-4" style={{ letterSpacing: '0.8px' }}>
                             Color <span className="text-danger">*</span>

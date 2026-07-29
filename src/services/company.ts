@@ -117,6 +117,27 @@ export const createHoliday = async (payload: IHoliday) => {
     }
 }
 
+/**
+ * Pre-fills one year's schedule from the master list's recurrence rules.
+ * Safe to call repeatedly — holidays already dated in that year are left untouched.
+ * Resolves to { created, skipped, needsDate, invalid }.
+ */
+export const generateHolidaysForYear = async (payload: {
+    year: number;
+    companyId: string;
+    observedIn?: string;
+    branchId?: string | null;
+}) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.GENERATE_HOLIDAYS_FOR_YEAR}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const fetchHolidays = async (companyId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_HOLIDAYS}?companyId=${companyId}`;

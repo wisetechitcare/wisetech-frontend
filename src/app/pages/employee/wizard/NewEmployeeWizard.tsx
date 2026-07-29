@@ -161,6 +161,12 @@ function buildRetentionPayload(values: {
 
 const RETENTION_KEYS = new Set(["retentionEnabled", "retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]);
 
+// Fields the user can legitimately BLANK OUT. The edit payload is scrubbed of falsy
+// values before it is sent (so untouched optional fields aren't overwritten), which
+// otherwise makes clearing these impossible: the key is dropped, the backend leaves
+// the column alone, and the old value reappears on the next load.
+const CLEARABLE_KEYS = new Set(["dateOfExit"]);
+
 const ONBOARDING_DRAFT_KEY = "employee-onboarding-draft";
 
 // Draft autosave for the NEW-employee form. sessionStorage (not localStorage) so the draft lives
@@ -808,7 +814,10 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
         ...(el.toDate && { toDate: el.toDate }),
         employeeId,
       }))),
-      () => createRejoinHistoryDetails(rejoinHistory.filter((el: any) => el.dateOfReJoining || el.dateOfReExit || el.reason).map((el: any) => ({
+      // A row needs at least one DATE to describe an employment period. Keeping rows
+      // that only carry a reason persists a dateless entry that downstream status
+      // checks read as "re-joined and still employed", overriding a real exit date.
+      () => createRejoinHistoryDetails(rejoinHistory.filter((el: any) => el.dateOfReJoining || el.dateOfReExit).map((el: any) => ({
         ...(el.dateOfReJoining && { dateOfReJoining: el.dateOfReJoining }),
         ...(el.dateOfReExit && { dateOfReExit: el.dateOfReExit }),
         ...(el.reason && { reason: el.reason }),
@@ -1318,7 +1327,14 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(aadharNumber && { aadharNumber }), ...(aadharCardPath && { aadharCardPath }),
       ...(panNumber && { panNumber }), ...(panCardPath && { panCardPath }),
       ...(anniversary && { anniversary }), ...(referredById && { referredById }),
-      ...(nickName && { nickName }), ...(dateOfExit && { dateOfExit }),
+      ...(nickName && { nickName }),
+      // Sent unconditionally, unlike the fields around it. A `dateOfExit && {...}`
+      // guard omits the key entirely when the user CLEARS the date, so the backend
+      // never learns about the change and the old exit date silently survives the
+      // save. An empty string is the documented "clear it" signal — the backend
+      // turns it into NULL (the Yup schema types this field as a plain string, so
+      // null would fail validation before reaching the handler).
+      dateOfExit: dateOfExit || "",
       ...(vegMealPreference && { vegMealPreference }),
       ...(nonVegMealPreference && { nonVegMealPreference }),
       ...(veganMealPreference && { veganMealPreference }),
@@ -1335,6 +1351,11 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     };
 
     Object.keys(employeePayload).forEach((key) => {
+      // CLEARABLE_KEYS must survive the falsy-scrub below: for them an empty value
+      // means "clear this field", not "not provided". Dropping the key makes the
+      // backend leave the column untouched, so the old value silently comes back on
+      // the next load and the field is impossible to un-set from the UI.
+      if (CLEARABLE_KEYS.has(key)) return;
       if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key) || RETENTION_KEYS.has(key)) return;
       if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
     });
@@ -1362,7 +1383,8 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     familyInfo.filter((f: any) => f?.id || hasFamilyInfo(f)).forEach((f: any) =>
       reqPromise.push(() => f?.id ? updateEmergencyContact(f.id, f) : createEmergencyContacts([{ ...(f.name && { name: f.name }), ...(f.mobileNumber && { mobileNumber: f.mobileNumber }), ...(f.dateOfBirth && { dateOfBirth: f.dateOfBirth }), ...(f.relationship && { relation: f.relationship }), employeeId }])));
 
-    const filteredRejoinHistory = rejoinHistory?.filter((r: any) => r.dateOfReJoining || r.dateOfReExit || r.reason);
+    // Reason alone is not an employment period — see the create path above.
+    const filteredRejoinHistory = rejoinHistory?.filter((r: any) => r.dateOfReJoining || r.dateOfReExit);
     await deleteAllRejoinHistoryByEmployeeId(employeeId);
     if (filteredRejoinHistory.length > 0) {
       await createRejoinHistoryDetails(filteredRejoinHistory.map((r: any) => ({

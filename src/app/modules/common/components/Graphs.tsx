@@ -453,14 +453,14 @@ export const Polar = ({ polarLabels, polarSeries, totalDays }: { polarLabels: st
     );
 };
 
-export const StokedCircle = ({ stokedCircleSeries, totalWorkedDays, totalDays = 30 }: { stokedCircleSeries: any; totalWorkedDays: number; totalDays?: number; }) => {
+export const StokedCircle = ({ stokedCircleSeries, totalWorkedDays, totalDays = 30, totalLeaves = 0, totalCheckoutMissing = 0 }: { stokedCircleSeries: any; totalWorkedDays: number; totalDays?: number; totalLeaves?: number; totalCheckoutMissing?: number; }) => {
     const pct = stokedCircleSeries[0] || 0;
     // viewBox 0 0 260 148 — arc at (130,132), r=100, tick ring r=112 stays within bounds
     const cx = 130, cy = 132, r = 100;
     const circ = 2 * Math.PI * r;
     const half = Math.PI * r;
     const filled = (pct / 100) * half;
-    const absence = Math.max(0, totalDays - totalWorkedDays);
+    const absence = Math.max(0, totalDays - totalWorkedDays - totalLeaves - totalCheckoutMissing);
 
     const rateColor = pct >= 80 ? '#16a34a' : pct >= 60 ? '#0891b2' : pct >= 40 ? '#f59e0b' : '#ef4444';
     const rateLabel = pct >= 80 ? 'Excellent' : pct >= 60 ? 'Great' : pct >= 40 ? 'Good' : 'Keep Going';
@@ -474,6 +474,12 @@ export const StokedCircle = ({ stokedCircleSeries, totalWorkedDays, totalDays = 
     const numTicks = 26;
     const tickDash = 3;
     const tickGap = (tickHalf / numTicks) - tickDash;
+
+    const totalTiles = 3 + (totalLeaves > 0 ? 1 : 0) + (totalCheckoutMissing > 0 ? 1 : 0);
+    const gapVal = totalTiles >= 5 ? 4 : (totalTiles === 4 ? 6 : 8);
+    const paddingVal = totalTiles >= 5 ? '10px 4px' : (totalTiles === 4 ? '10px 6px' : '10px 10px');
+    const fontSizeVal = totalTiles >= 5 ? 13 : (totalTiles === 4 ? 15 : 18);
+    const labelFontSize = totalTiles >= 5 ? 8 : (totalTiles === 4 ? 9 : 10);
 
     return (
         <Col md={4} className="mb-4" style={{ display: 'flex' }}>
@@ -540,18 +546,30 @@ export const StokedCircle = ({ stokedCircleSeries, totalWorkedDays, totalDays = 
                     </div>
 
                     {/* Stat tiles */}
-                    <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                        <div style={{ flex: 1, padding: '10px 10px', background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius: 11, textAlign: 'center' }}>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: '#15803d', lineHeight: 1 }}>{totalWorkedDays}</div>
-                            <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Present</div>
+                    <div style={{ display: 'flex', gap: gapVal, marginTop: 'auto' }}>
+                        <div style={{ flex: 1, padding: paddingVal, background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius: 11, textAlign: 'center' }}>
+                            <div style={{ fontSize: fontSizeVal, fontWeight: 800, color: '#15803d', lineHeight: 1 }}>{totalWorkedDays}</div>
+                            <div style={{ fontSize: labelFontSize, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Present</div>
                         </div>
-                        <div style={{ flex: 1, padding: '10px 10px', background: 'linear-gradient(135deg,#fef2f2,#fee2e2)', borderRadius: 11, textAlign: 'center' }}>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626', lineHeight: 1 }}>{absence}</div>
-                            <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Absent</div>
+                        {totalLeaves > 0 && (
+                            <div style={{ flex: 1, padding: paddingVal, background: 'linear-gradient(135deg,#fffbeb,#fef3c7)', borderRadius: 11, textAlign: 'center' }}>
+                                <div style={{ fontSize: fontSizeVal, fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{totalLeaves}</div>
+                                <div style={{ fontSize: labelFontSize, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leave</div>
+                            </div>
+                        )}
+                        {totalCheckoutMissing > 0 && (
+                            <div style={{ flex: 1, padding: paddingVal, background: 'linear-gradient(135deg,#f8fafc,#e2e8f0)', borderRadius: 11, textAlign: 'center' }}>
+                                <div style={{ fontSize: fontSizeVal, fontWeight: 800, color: '#64748b', lineHeight: 1 }}>{totalCheckoutMissing}</div>
+                                <div style={{ fontSize: labelFontSize, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Missing</div>
+                            </div>
+                        )}
+                        <div style={{ flex: 1, padding: paddingVal, background: 'linear-gradient(135deg,#fef2f2,#fee2e2)', borderRadius: 11, textAlign: 'center' }}>
+                            <div style={{ fontSize: fontSizeVal, fontWeight: 800, color: '#dc2626', lineHeight: 1 }}>{absence}</div>
+                            <div style={{ fontSize: labelFontSize, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Absent</div>
                         </div>
-                        <div style={{ flex: 1, padding: '10px 10px', background: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', borderRadius: 11, textAlign: 'center' }}>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: '#0369a1', lineHeight: 1 }}>{totalDays}</div>
-                            <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total</div>
+                        <div style={{ flex: 1, padding: paddingVal, background: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', borderRadius: 11, textAlign: 'center' }}>
+                            <div style={{ fontSize: fontSizeVal, fontWeight: 800, color: '#0369a1', lineHeight: 1 }}>{totalDays}</div>
+                            <div style={{ fontSize: labelFontSize, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total</div>
                         </div>
                     </div>
 

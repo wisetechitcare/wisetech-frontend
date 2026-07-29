@@ -12,7 +12,8 @@ import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { useEventBus } from "@hooks/useEventBus";
-import { deletePublicHolidayById, fetchAllBranches, fetchPublicHolidays } from "@services/company";
+import { deletePublicHolidayById, fetchAllBranches, fetchPublicHolidays, fetchHolidays, generateHolidaysForYear, fetchCompanyOverview } from "@services/company";
+import { resolveActiveOrgId } from "@utils/activeOrg";
 import { T } from "@app/modules/common/components/ui/tokens";
 
 interface PublicHoliday {
@@ -88,6 +89,58 @@ function PublicHolidaysListTwo({
     };
 
     const country = 'India';
+
+    // ── Pre-fill a year from the master list ────────────────────────────────────
+    // The master list (Configure > Public Holidays) holds the holiday NAMES; this
+    // page holds the DATED rows for one year. A fresh year starts empty, so these
+    // let the user pre-fill it instead of retyping every holiday annually.
+    const [masterHolidays, setMasterHolidays] = useState<any[]>([]);
+    const [companyId, setCompanyId] = useState<string>('');
+    const [generating, setGenerating] = useState(false);
+
+    // Master holidays with no dated row in the selected year. Movable festivals
+    // (Diwali, Ganesh Chaturthi, Good Friday) land here every year by design —
+    // their date cannot be derived, so a human sets it. Derived rather than stored:
+    // PublicHolidays.date is NOT NULL and that table feeds payroll, so a placeholder
+    // row with no real date has no safe representation.
+    const datedHolidayIds = useMemo(
+        () => new Set(rawHolidaysData.map(h => h.holidayId)),
+        [rawHolidaysData],
+    );
+    const needsDateHolidays = useMemo(
+        () => masterHolidays.filter(m => !datedHolidayIds.has(m.id)),
+        [masterHolidays, datedHolidayIds],
+    );
+    // Only rules the generator can actually act on — anything else needs a manual date.
+    const generatableCount = useMemo(
+        () => needsDateHolidays.filter(m => m.recurrenceMonth != null && m.recurrenceDay != null).length,
+        [needsDateHolidays],
+    );
+
+    const handleGenerateYear = async () => {
+        if (!companyId) {
+            errorConfirmation('Could not resolve the company — please reload and try again.');
+            return;
+        }
+        setGenerating(true);
+        try {
+            const res = await generateHolidaysForYear({ year: selectedYear, companyId, observedIn: country });
+            if (res && !res.hasError) {
+                const created = res?.data?.created?.length ?? 0;
+                setRefetch(prev => !prev);
+                successConfirmation(
+                    created > 0
+                        ? `Added ${created} holiday${created === 1 ? '' : 's'} to ${selectedYear}.`
+                        : `Nothing to add — every holiday with a repeating date already exists in ${selectedYear}.`,
+                );
+            }
+        } catch (error) {
+            console.error('Error generating holidays for year:', error);
+            errorConfirmation(`Failed to pre-fill ${selectedYear} from the holiday list.`);
+        } finally {
+            setGenerating(false);
+        }
+    };
 
     const handleEdit = (item: any) => {
         setShowEditModal(true)
@@ -183,6 +236,26 @@ function PublicHolidaysListTwo({
             })
             .catch(() => {});
     }, []);
+
+    // Master holiday list — the template each year is pre-filled from. Refetched on
+    // `refetch` so a holiday added in Configure shows up here without a page reload.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const { data: { companyOverview } } = await fetchCompanyOverview();
+                const resolvedId = resolveActiveOrgId(companyOverview) ?? '';
+                if (cancelled) return;
+                setCompanyId(resolvedId);
+                if (!resolvedId) return;
+                const { data: { holidays: masters } } = await fetchHolidays(resolvedId);
+                if (!cancelled) setMasterHolidays(masters ?? []);
+            } catch (error) {
+                console.error('Error fetching master holiday list:', error);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [refetch]);
 
     // fetch on component mount
     useEventBus("holidayUpdated", () => {
@@ -653,6 +726,33 @@ function PublicHolidaysListTwo({
                         </button>
                     </div>
 
+                    {/* Pre-fill this year from the master list. Hidden when there is
+                        nothing it could add, so it never appears as a button that
+                        silently does nothing. */}
+                    {isAdmin && generatableCount > 0 && (
+                        <button
+                            type="button"
+                            className="btn btn-sm fw-semibold wt-touch-target w-100 w-md-auto text-nowrap"
+                            style={{
+                                height: '38px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #1E3A8A',
+                                background: '#ffffff',
+                                color: '#1E3A8A',
+                            }}
+                            disabled={generating}
+                            onClick={handleGenerateYear}
+                            title={`Add the ${generatableCount} holiday(s) with a repeating date to ${selectedYear}`}
+                        >
+                            {generating ? (
+                                <span className="d-flex align-items-center gap-2 justify-content-center">
+                                    <span className="spinner-border spinner-border-sm" />
+                                    Generating…
+                                </span>
+                            ) : `Generate from config (${generatableCount})`}
+                        </button>
+                    )}
+
                     {/* Add Holiday Button */}
                     {isAdmin && (
                         <PremiumButton
@@ -695,7 +795,51 @@ function PublicHolidaysListTwo({
                     surfaces first as the "upcoming holiday highlight", then the actual
                     month-wise holiday list. */}
                 <div className="col-12 col-md-7 order-2 p-4 p-md-8">
-                    
+
+                    {/* Holidays configured in the master list that have no date in this
+                        year. Movable festivals land here every year by design — their
+                        date genuinely cannot be derived, so this is a to-do list rather
+                        than an error. Shown before the schedule so an incomplete year is
+                        obvious instead of just looking short. */}
+                    {!loading && isAdmin && needsDateHolidays.length > 0 && (
+                        <div
+                            className="mb-6 p-4 p-md-5"
+                            style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px' }}
+                        >
+                            <div className="d-flex align-items-start gap-3">
+                                <KTIcon iconName="information-5" className="fs-2 text-warning mt-1" />
+                                <div className="flex-grow-1">
+                                    <div className="fw-bold text-gray-800 mb-1">
+                                        {needsDateHolidays.length} holiday{needsDateHolidays.length === 1 ? '' : 's'} still need
+                                        {needsDateHolidays.length === 1 ? 's' : ''} a date in {selectedYear}
+                                    </div>
+                                    <div className="fs-8 text-gray-600 mb-3">
+                                        These move each year, so their date can't be filled in automatically. Use
+                                        <span className="fw-semibold"> Add Holiday </span>
+                                        to set the real date for {selectedYear}.
+                                    </div>
+                                    <div className="d-flex flex-wrap gap-2">
+                                        {needsDateHolidays.map((m: any) => (
+                                            <span
+                                                key={m.id}
+                                                className="badge fw-semibold"
+                                                style={{
+                                                    background: '#ffffff',
+                                                    border: '1px solid #fde68a',
+                                                    color: '#92400e',
+                                                    borderRadius: '999px',
+                                                    padding: '6px 12px',
+                                                }}
+                                            >
+                                                {m.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {loading ? (
                         <div className="d-flex justify-content-center align-items-center py-20">
                             <div className="spinner-border text-primary" role="status">
