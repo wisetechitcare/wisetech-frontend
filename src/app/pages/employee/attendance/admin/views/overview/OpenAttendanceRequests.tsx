@@ -7,6 +7,7 @@ import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import { fetchApprovalInstanceByRequest } from "@services/employee";
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
 import { GlassDialog, GlassHeader, WtIconButton, StatusBadge, IconBox, TRIO, type Trio, Spinner } from "@app/modules/common/components/ui/tw";
+import { ToneChip } from "@app/modules/common/components/ui";
 import { LEAVE_STATUS, LeaveStatus, WORKING_METHOD_TYPE } from "@constants/attendance";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -204,9 +205,7 @@ const OpenAttendanceRequests = () => {
                 <div className="d-flex flex-column">
                     <span className="fw-semibold text-gray-800">{row.original.date}</span>
                     {row.original.day ? (
-                        <span className="badge badge-light-primary align-self-start mt-1 fw-semibold">
-                            {row.original.day}
-                        </span>
+                        <ToneChip tone="brand" dense label={row.original.day} sx={{ alignSelf: 'flex-start', mt: 0.5 }} />
                     ) : null}
                 </div>
             ),

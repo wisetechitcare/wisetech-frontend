@@ -1,6 +1,9 @@
 import KeyboardArrowLeftRoundedIcon from '@mui/icons-material/KeyboardArrowLeftRounded';
 import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded';
+import { useState } from 'react';
 import { Box, IconButton, SxProps, Theme, Typography, Tooltip, useMediaQuery, useTheme } from '@mui/material';
+import { WtDateField } from '@app/modules/common/components/ui';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 interface PeriodNavigatorProps {
     label: string;
@@ -37,6 +40,7 @@ const PeriodNavigator = ({
 }: PeriodNavigatorProps) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const [pickerOpen, setPickerOpen] = useState(false);
 
     return (
         <Box
@@ -108,22 +112,34 @@ const PeriodNavigator = ({
                     py: 0,
                     cursor: onPickDate ? 'pointer' : 'default',
                 }}
+                {...(onPickDate ? pressableProps(() => setPickerOpen(true)) : {})}
+                onClick={onPickDate ? () => setPickerOpen(true) : undefined}
+                aria-label={onPickDate ? 'Jump to date' : undefined}
             >
-                {/* Invisible native date input overlaid on the label — clicking the
-                    label opens the OS calendar; onChange jumps to that date. */}
+                {/* The label itself is the trigger. The picker is laid out underneath it
+                    but visually hidden, so the calendar Popper still anchors to the label
+                    while the label stays the only thing you see. Was a native
+                    <input type="date"> — that renders the OS calendar: unstyleable,
+                    OS-locale formatted and light-on-white in dark mode. */}
                 {onPickDate && (
                     <Box
-                        component="input"
-                        type="date"
-                        value={pickValue || ''}
-                        onChange={(e: { target: { value: string } }) => { if (e.target.value) onPickDate(e.target.value); }}
-                        // Open the native calendar on click (showPicker needs the user
-                        // gesture). Overlay sits ON TOP of the label (zIndex) so it
-                        // actually receives the click; opacity 0 keeps the label visible.
-                        onClick={(e: any) => { try { e.currentTarget.showPicker?.(); } catch { /* not supported */ } }}
-                        aria-label="Jump to date"
-                        sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', border: 'none', p: 0, m: 0, zIndex: 2 }}
-                    />
+                        sx={{
+                            position: 'absolute',
+                            inset: 0,
+                            opacity: 0,
+                            // The Box above owns the click; this must not swallow it.
+                            pointerEvents: 'none',
+                            overflow: 'hidden',
+                        }}
+                        aria-hidden
+                    >
+                        <WtDateField
+                            value={pickValue || ''}
+                            onChange={(v) => { if (v) onPickDate(v); setPickerOpen(false); }}
+                            open={pickerOpen}
+                            onClose={() => setPickerOpen(false)}
+                        />
+                    </Box>
                 )}
                 <Typography
                     component="span"

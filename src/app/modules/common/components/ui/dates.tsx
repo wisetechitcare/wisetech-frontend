@@ -52,6 +52,15 @@ export interface WtDateFieldBaseProps {
   sx?: SxProps<Theme>;
   /** Escape hatch for a form library that needs the blur event. */
   onBlur?: () => void;
+  /**
+   * Controlled popup state. Use when something OTHER than the field itself opens
+   * the calendar — e.g. a label or tile that acts as the trigger while the field
+   * is visually hidden but still laid out (the Popper anchors to it). Leave unset
+   * for the normal case where the field opens itself.
+   */
+  open?: boolean;
+  onOpen?: () => void;
+  onClose?: () => void;
 }
 
 /** Parse a wire string into a Dayjs, or null when absent/invalid. */
@@ -81,7 +90,7 @@ const textFieldSlot = (p: WtDateFieldBaseProps) => ({
  * Drop-in replacement for `<TextField type="date">`.
  */
 export function WtDateField(props: WtDateFieldBaseProps) {
-  const { label, value, onChange, disabled, minDate, maxDate } = props;
+  const { label, value, onChange, disabled, minDate, maxDate, open, onOpen, onClose } = props;
   // `noSsr` avoids the light-then-dark double render this would otherwise cause on first paint.
   const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'), { noSsr: true });
   const Picker = isPhone ? MobileDatePicker : DatePicker;
@@ -97,6 +106,7 @@ export function WtDateField(props: WtDateFieldBaseProps) {
         maxDate={parse(maxDate) ?? undefined}
         format={DATE_FORMATS.DISPLAY}
         reduceAnimations
+        {...(open !== undefined ? { open, onOpen, onClose } : {})}
         slotProps={textFieldSlot(props)}
       />
     </LocalizationProvider>
