@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import dayjs, { Dayjs } from "dayjs";
 import PeriodTabs from "./PeriodTabs";
 import PeriodNavigator from "./PeriodNavigator";
+import { Box, Typography } from "@mui/material";
 import { DATE_FORMATS, formatDateRange, buildFiscalYearLabel } from "@utils/dateFormats";
+import { WtDateField } from "@app/modules/common/components/ui";
 
 export type PeriodMode = "daily" | "weekly" | "monthly" | "yearly" | "allyear" | "custom";
 
@@ -27,6 +29,9 @@ interface Props {
   getFiscalYearRange?: (date: Dayjs) => Promise<{ startDate: string; endDate: string }>;
   /** Only show these modes (hides tabs entirely if only 1 mode is provided) */
   allowedModes?: PeriodMode[];
+  /** Override the dayjs format for the Daily-mode label (default DATE_FORMATS.FULL,
+   *  e.g. "29 Jul, 2026"). Pass "dddd, DD MMM YYYY" to show the weekday too. */
+  dailyLabelFormat?: string;
 }
 
 const MODES: Array<{ key: PeriodMode; label: string }> = [
@@ -54,6 +59,7 @@ const PeriodFilter: React.FC<Props> = ({
   clampYearToToday = false,
   getFiscalYearRange,
   allowedModes,
+  dailyLabelFormat,
 }) => {
   const [mode, setMode] = useState<PeriodMode>(() => {
     if (storageKey) {
@@ -103,7 +109,7 @@ const PeriodFilter: React.FC<Props> = ({
   const range = useMemo<PeriodRange>(() => {
     switch (mode) {
       case "daily":
-        return { mode, start: anchor.startOf("day"), end: anchor.endOf("day"), label: anchor.format(DATE_FORMATS.FULL) };
+        return { mode, start: anchor.startOf("day"), end: anchor.endOf("day"), label: anchor.format(dailyLabelFormat || DATE_FORMATS.DISPLAY) };
       case "weekly": {
         const s = anchor.startOf("week");
         const e = anchor.endOf("week");
@@ -128,7 +134,7 @@ const PeriodFilter: React.FC<Props> = ({
       default:
         return { mode, start: null, end: null, label: "" };
     }
-  }, [mode, anchor, customStart, customEnd, useFiscalYear, yearStart, yearEnd, yearRawEnd]);
+  }, [mode, anchor, customStart, customEnd, useFiscalYear, yearStart, yearEnd, yearRawEnd, dailyLabelFormat]);
 
   useEffect(() => {
     onChange(range);
@@ -166,15 +172,17 @@ const PeriodFilter: React.FC<Props> = ({
           label={range.label}
           onPrevious={() => step(-1)}
           onNext={() => step(1)}
+          onPickDate={(v) => setAnchor(dayjs(v))}
+          pickValue={anchor.format("YYYY-MM-DD")}
         />
       )}
 
       {mode === "custom" && (
-        <div className="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 gap-sm-2">
-          <input type="date" className="form-control form-control-sm" style={{ fontSize: 12, minWidth: 0, flex: "1 1 140px" }} value={customStart} max={customEnd || undefined} onChange={(e) => setCustomStart(e.target.value)} />
-          <span style={{ color: "#aab2bd", textAlign: "center" }}>–</span>
-          <input type="date" className="form-control form-control-sm" style={{ fontSize: 12, minWidth: 0, flex: "1 1 140px" }} value={customEnd} min={customStart || undefined} onChange={(e) => setCustomEnd(e.target.value)} />
-        </div>
+        <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, alignItems: { xs: "stretch", sm: "center" }, gap: 1 }}>
+          <WtDateField label="From" value={customStart} maxDate={customEnd || undefined} onChange={setCustomStart} sx={{ flex: "1 1 150px", minWidth: 0 }} />
+          <Typography sx={{ color: "text.disabled", textAlign: "center", flexShrink: 0 }}>–</Typography>
+          <WtDateField label="To" value={customEnd} minDate={customStart || undefined} onChange={setCustomEnd} sx={{ flex: "1 1 150px", minWidth: 0 }} />
+        </Box>
       )}
     </div>
   );

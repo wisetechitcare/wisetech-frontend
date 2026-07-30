@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { GH_DARK } from './githubDark';
 
 /**
  * ============================================================================
@@ -163,9 +164,12 @@ const FILL = {
   },
 } as const;
 
+// Dark tracks the app-wide GitHub palette rather than Apple's pure black. The Login page is the
+// only live consumer of makeTokens(), and pure #000 made it the one screen that didn't match the
+// rest of the app's #0d1117 canvas.
 const BG = {
   light: { base: '#FFFFFF', sunken: '#F2F2F7', elevated: '#FFFFFF', grouped: '#F2F2F7' },
-  dark: { base: '#000000', sunken: '#1C1C1E', elevated: '#2C2C2E', grouped: '#000000' },
+  dark: { base: GH_DARK.canvas, sunken: GH_DARK.surface, elevated: GH_DARK.elevated, grouped: GH_DARK.canvas },
 } as const;
 
 const FONT_STACK = {
@@ -334,10 +338,11 @@ export const LEGACY_UIKIT = {
       tertiary: 'rgba(0,0,0,0.26)',
       quaternary: 'rgba(0,0,0,0.12)',
     },
+    // GitHub Primer "dark default" foreground tiers, from the shared palette (./githubDark).
     dark: {
-      primary: 'rgba(255,255,255,0.92)',
-      secondary: 'rgba(255,255,255,0.55)',
-      tertiary: 'rgba(255,255,255,0.28)',
+      primary: GH_DARK.fg,
+      secondary: GH_DARK.fgMuted,
+      tertiary: GH_DARK.fgSubtle,
       quaternary: 'rgba(255,255,255,0.12)',
     },
   },
@@ -376,28 +381,31 @@ export const LEGACY_UIKIT = {
       scrim: 'rgba(16,24,40,0.32)',
       scrimBlur: 4,
     },
+    // GitHub-style dark, derived from the shared palette (./githubDark): surface (regular) /
+    // elevated (thin), crisp borders, near-black scrim. Frost tint is pulled toward the flat
+    // GitHub surfaces — `bg` is the translucent form of the same colour as `fallbackBg`.
     dark: {
       regular: {
-        bg: 'rgba(30,34,44,0.68)',
+        bg: 'rgba(22,27,34,0.72)',        // GH_DARK.surface @ 72%
         blur: 30,
         saturate: 180,
-        border: '1px solid rgba(255,255,255,0.10)',
-        highlight: 'inset 0 1px 0 rgba(255,255,255,0.14)',
-        shadow: '0 16px 48px rgba(0,0,0,0.55)',
+        border: `1px solid ${GH_DARK.border}`,
+        highlight: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+        shadow: GH_DARK.shadowLg,
         radius: 16,
-        fallbackBg: 'rgba(28,32,42,0.96)',
+        fallbackBg: GH_DARK.surface,
       },
       thin: {
-        bg: 'rgba(48,54,66,0.52)',
+        bg: 'rgba(28,33,40,0.55)',        // GH_DARK.elevated @ 55%
         blur: 16,
         saturate: 160,
-        border: '1px solid rgba(255,255,255,0.08)',
-        highlight: 'inset 0 1px 0 rgba(255,255,255,0.10)',
-        shadow: '0 4px 16px rgba(0,0,0,0.40)',
+        border: `1px solid ${GH_DARK.border}`,
+        highlight: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+        shadow: '0 4px 16px rgba(1,4,9,0.40)',
         radius: 12,
-        fallbackBg: 'rgba(40,46,58,0.94)',
+        fallbackBg: GH_DARK.elevated,
       },
-      scrim: 'rgba(0,0,0,0.55)',
+      scrim: GH_DARK.scrim,
       scrimBlur: 4,
     },
   },
@@ -681,9 +689,11 @@ export const LEGACY_CONFIG_KEYFRAMES = `
   .cfg-fade-in  { animation: cfgFadeIn  0.3s ease; }
   .cfg-slide-in { animation: cfgSlideIn 0.25s ease; }
 
-  /* ─── Base: remove browser focus outline on tab buttons ─────────── */
-  .cfg-tab-btn { outline: none !important; }
-  .cfg-tab-btn:focus { outline: none !important; box-shadow: none !important; }
+  /* ─── Focus: keyboard focus MUST stay visible (WCAG 2.4.7) ───────── */
+  /* Suppress the ring for pointer focus only; restore a clear ring for
+     keyboard users via :focus-visible. */
+  .cfg-tab-btn:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+  .cfg-tab-btn:focus-visible { outline: 2px solid #1E3A8A; outline-offset: 2px; }
 
   /* ─── Responsive: Tablet (≤ 768px) ───────────────────────────────── */
   @media (max-width: 767.98px) {

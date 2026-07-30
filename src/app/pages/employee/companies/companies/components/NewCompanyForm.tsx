@@ -22,6 +22,7 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { WtDateField } from "@app/modules/common/components/ui";
 import { useEffect, useMemo, useState } from "react";
 import Select from "react-select";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
@@ -715,11 +716,9 @@ const NewCompanyForm: React.FC<Props> = ({
       return (
         <>
           <label className="form-label">{field.label}{reqMark}</label>
-          <input
-            type="date"
-            className="form-control"
+          <WtDateField
             value={field.value ?? ""}
-            onChange={(e) => updateCustomValue(sectionId, field.id, e.target.value)}
+            onChange={(v) => updateCustomValue(sectionId, field.id, v)}
           />
           {customErrors[field.id] && <div className="text-danger small mt-1">{customErrors[field.id]}</div>}
         </>

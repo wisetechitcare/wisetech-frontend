@@ -33,17 +33,19 @@
 [data-bs-theme="dark"] .ob-wizard-root,
 [data-bs-theme="dark"] .emp-details,
 [data-bs-theme="dark"] .gm-scope {
-  --gm-surface: rgba(27, 27, 41, 0.68);
-  --gm-surface-strong: rgba(27, 27, 41, 0.8);
-  --gm-field: rgba(43, 43, 64, 0.5);
-  --gm-border: 1px solid rgba(255, 255, 255, 0.1);
-  --gm-border-soft: 1px solid rgba(255, 255, 255, 0.08);
-  --gm-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 42%);
-  --gm-shadow: 0 0.5rem 1.75rem rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  /* Frost tints are the GitHub surfaces at partial alpha (#161b22 / #1c2128), so these panels
+     land on the same family as the rest of the app instead of the old purple-graphite. */
+  --gm-surface: rgba(22, 27, 34, 0.68);
+  --gm-surface-strong: rgba(22, 27, 34, 0.8);
+  --gm-field: rgba(28, 33, 40, 0.5);
+  --gm-border: 1px solid var(--gh-border, #30363d);
+  --gm-border-soft: 1px solid var(--gh-border-muted, #21262d);
+  --gm-highlight: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 42%);
+  --gm-shadow: 0 0.5rem 1.75rem rgba(1, 4, 9, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   --gm-page-grad:
-    radial-gradient(60rem 40rem at 12% -10%, rgba(30, 58, 138, 0.28), transparent 60%),
-    radial-gradient(50rem 34rem at 108% 8%, rgba(139, 92, 246, 0.18), transparent 55%),
-    linear-gradient(180deg, #12121c 0%, #15151f 45%, #101019 100%);
+    radial-gradient(60rem 40rem at 12% -10%, rgba(47, 129, 247, 0.16), transparent 60%),
+    radial-gradient(50rem 34rem at 108% 8%, rgba(139, 92, 246, 0.10), transparent 55%),
+    linear-gradient(180deg, var(--gh-canvas, #0d1117) 0%, #0f141b 45%, var(--gh-canvas, #0d1117) 100%);
 }
 
 /* ── Reusable frosted surfaces ── */
@@ -93,9 +95,9 @@
   [data-bs-theme="dark"] .ob-wizard-root,
   [data-bs-theme="dark"] .emp-details,
   [data-bs-theme="dark"] .gm-scope {
-    --gm-surface: #1b1b29;
-    --gm-surface-strong: #1b1b29;
-    --gm-field: #22222f;
+    --gm-surface: var(--gh-surface, #161b22);
+    --gm-surface-strong: var(--gh-surface, #161b22);
+    --gm-field: var(--gh-elevated, #1c2128);
   }
   .gm-panel, .gm-panel-strong, .gm-field { backdrop-filter: none; -webkit-backdrop-filter: none; }
 }

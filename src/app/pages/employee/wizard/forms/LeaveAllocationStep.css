@@ -133,8 +133,8 @@
   .ob-leave-default { text-align: left; }
 }
 
-[data-bs-theme="dark"] .ob-leave-head { color: #cdd2df; border-color: #2b2b40; }
-[data-bs-theme="dark"] .ob-leave-row { border-color: #2b2b40; }
+[data-bs-theme="dark"] .ob-leave-head { color: var(--gh-fg, #e6edf3); border-color: var(--gh-border, #30363d); }
+[data-bs-theme="dark"] .ob-leave-row { border-color: var(--gh-border, #30363d); }
 [data-bs-theme="dark"] .ob-leave-row.is-overridden { background: #322d16; }
-[data-bs-theme="dark"] .ob-leave-derived { background: #1b1b29; border-color: #2b2b40; }
-[data-bs-theme="dark"] .ob-leave-cell-label { color: #cdd2df; }
+[data-bs-theme="dark"] .ob-leave-derived { background: var(--gh-surface, #161b22); border-color: var(--gh-border, #30363d); }
+[data-bs-theme="dark"] .ob-leave-cell-label { color: var(--gh-fg, #e6edf3); }

@@ -7,6 +7,7 @@ import { successConfirmation, errorConfirmation } from "@utils/modal";
 import { KTIcon } from "@metronic/helpers";
 import IconPickerModal, { SelectedIcon } from "@app/pages/employee/reimbursement/views/admin/IconPickerModal";
 import { C, FONT, SP, RADIUS } from "@app/modules/configuration";
+import { WtSwitch } from "@app/modules/common/components/ui";
 
 export interface CalendarConfigItem {
   id: string | null;
@@ -155,14 +156,7 @@ const CalendarConfigForm: React.FC<CalendarConfigFormProps> = ({ show, onClose, 
                 <label className="form-label" style={{ fontFamily: FONT.body, fontWeight: 600, color: C.textPrimary, fontSize: '14px', marginBottom: 0 }}>
                   Enable Event Display
                 </label>
-                <div className="form-check form-switch">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={values.enabled}
-                    onChange={(e) => setFieldValue("enabled", e.target.checked)}
-                  />
-                </div>
+                <WtSwitch checked={values.enabled} onChange={(e) => setFieldValue("enabled", e.target.checked)} />
               </div>
 
               {/* Color Picker */}

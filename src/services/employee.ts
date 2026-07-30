@@ -199,6 +199,19 @@ export const fetchEmployeesOnLeaveToday = async (dateToday?: string) => {
     } catch (error) {
         throw error;
     }
+};
+
+// Approved leaves overlapping [from, to] (YYYY-MM-DD), company-scoped. Returns
+// { data: { leaveRecords: [{ employeeId, dateFrom, dateTo, isHalfDay, leaveType, employee }] } }.
+// Powers weekly/monthly Overview On-Leave / Absent stats.
+export const fetchEmployeesOnLeaveRange = async (from: string, to: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_LEAVES}?from=${from}&to=${to}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
 }
 
 export const fetchCurrentEmployeeByUserId = async (userId: string) => {
@@ -969,6 +982,19 @@ export const fetchCompleteLeaveTrack = async (employeeId: string) => {
 export const fetchAllEmployeesAttendance = async (date: number, month: number, year: number) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_ATTENDANCE}?date=${date}&month=${month}&year=${year}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+// Company-wide attendance for an inclusive [from, to] IST day range (YYYY-MM-DD).
+// Powers the weekly/monthly Overview stats — same endpoint, range params.
+export const fetchAllEmployeesAttendanceRange = async (from: string, to: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_ATTENDANCE}?from=${from}&to=${to}`;
         const { data } = await axios.get(endpoint);
         return data;
     }

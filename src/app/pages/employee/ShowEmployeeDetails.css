@@ -224,10 +224,10 @@
 
 /* Minimal dark-mode support (Metronic toggles data-bs-theme). */
 [data-bs-theme="dark"] .emp-details {
-  --emp-surface: #1b1b29;
-  --emp-border-color: #2b2b40;
+  --emp-surface: var(--gh-surface, #161b22);
+  --emp-border-color: var(--gh-border, #30363d);
   --emp-label-color: #9aa2b4;
   --emp-value-color: #e6e9f0;
-  --emp-icon-bg: #2b2b40;
+  --emp-icon-bg: var(--gh-border, #30363d);
 }
 [data-bs-theme="dark"] .emp-card-title { color: #ffffff; }

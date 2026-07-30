@@ -413,6 +413,6 @@
 }
 
 [data-bs-theme='dark'] .bottom-nav__center-btn {
-  border-color: #1c1c28 !important;
+  border-color: var(--gh-surface, #161b22) !important;
 }
 

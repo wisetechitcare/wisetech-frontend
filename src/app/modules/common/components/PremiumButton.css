@@ -93,12 +93,12 @@
   width: 100%;
 }
 
-/* Dark mode — deepen the ambient shadow, keep the top highlight. */
-@media (prefers-color-scheme: dark) {
-  .wt-premium-btn {
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.5),
-      0 8px 20px -8px rgba(0, 0, 0, 0.55),
-      inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  }
+/* Dark mode — deepen the ambient shadow, keep the top highlight.
+   Keyed to the in-app toggle, not `prefers-color-scheme`: as a media query this applied off the
+   OS setting and so fired in light mode on a dark-OS machine. */
+[data-bs-theme="dark"] .wt-premium-btn {
+  box-shadow:
+    0 1px 2px rgba(1, 4, 9, 0.5),
+    0 8px 20px -8px rgba(1, 4, 9, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }

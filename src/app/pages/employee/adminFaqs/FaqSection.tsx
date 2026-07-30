@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 
 interface FaqSectionProps {
     title: string;
@@ -14,6 +14,16 @@ const FaqSection: React.FC<FaqSectionProps> = ({
     badge,
 }) => {
     const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+    const panelId = useId();
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // When collapsed, take the panel out of the tab order + accessibility tree so
+    // its (height:0) contents aren't focusable/announced — set via ref so it works
+    // regardless of the React version's `inert` prop support. (WCAG 2.4.3 / 4.1.2)
+    useEffect(() => {
+        const el = panelRef.current;
+        if (el) (el as unknown as { inert: boolean }).inert = !isExpanded;
+    }, [isExpanded]);
 
     return (
         <div
@@ -26,16 +36,25 @@ const FaqSection: React.FC<FaqSectionProps> = ({
                 overflow: 'hidden',
             }}
         >
-            {/* Section header */}
-            <div
-                className="d-flex align-items-center justify-content-between"
+            {/* Section header — a real button so it is keyboard-operable + announces
+                its expanded state. */}
+            <button
+                type="button"
+                className="d-flex align-items-center justify-content-between w-100"
                 onClick={() => setIsExpanded((v) => !v)}
+                aria-expanded={isExpanded}
+                aria-controls={panelId}
                 style={{
                     cursor: 'pointer',
                     padding: '20px 24px',
                     userSelect: 'none',
                     borderBottom: isExpanded ? '1px solid #f3f4f6' : 'none',
                     transition: 'border-bottom 0.15s ease',
+                    background: 'transparent',
+                    border: 'none',
+                    textAlign: 'left',
+                    font: 'inherit',
+                    color: 'inherit',
                 }}
             >
                 <div className="d-flex align-items-center gap-3">
@@ -68,6 +87,7 @@ const FaqSection: React.FC<FaqSectionProps> = ({
                 </div>
                 {/* Chevron */}
                 <svg
+                    aria-hidden="true"
                     width="20"
                     height="20"
                     viewBox="0 0 20 20"
@@ -81,10 +101,13 @@ const FaqSection: React.FC<FaqSectionProps> = ({
                 >
                     <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-            </div>
+            </button>
 
             {/* Collapsible body — CSS grid trick for smooth animation */}
             <div
+                id={panelId}
+                ref={panelRef}
+                role="region"
                 style={{
                     display: 'grid',
                     gridTemplateRows: isExpanded ? '1fr' : '0fr',

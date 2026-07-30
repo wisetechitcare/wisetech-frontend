@@ -15,5 +15,7 @@ export { WtCloseButton } from './WtCloseButton';
 export type { WtCloseButtonProps } from './WtCloseButton';
 export { IconBox, StatusBadge, StatTile, Eyebrow, SectionHead } from './Patterns';
 export { Spinner } from './Spinner';
+export { ErrorState } from './ErrorState';
+export type { ErrorStateProps } from './ErrorState';
 export { GlassSurface, GlassCard, GlassHeader, GlassDialog } from './Glass';
 export type { GlassSurfaceProps, GlassCardProps, GlassHeaderProps, GlassDialogProps, GlassVariant, DialogMaxWidth } from './Glass';

@@ -25,7 +25,28 @@
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <!--begin::Theme mode setup on page load-->
   <script>
-    document.documentElement.setAttribute('data-bs-theme', 'light')
+    // Apply the stored mode BEFORE first paint. This previously hardcoded 'light', which meant a
+    // dark-mode user got a full white flash (splash screen included) on every reload until React
+    // mounted and ColorModeProvider corrected it.
+    // Keep the storage key in sync with app/theme/ColorMode.tsx (STORAGE_KEY).
+    (function () {
+      var mode = 'light'
+      try {
+        var stored = localStorage.getItem('wt-mui-color-mode')
+        if (stored === 'dark' || stored === 'light') mode = stored
+      } catch (e) { /* private mode */ }
+      var root = document.documentElement
+      root.setAttribute('data-bs-theme', mode)
+      root.setAttribute('data-theme', mode)
+      root.style.colorScheme = mode
+      if (mode === 'dark') {
+        root.classList.add('dark')
+        // The one place the canvas colour is duplicated outside app/theme/githubDark.ts — this
+        // runs before any module loads, so it cannot import GH_DARK.canvas. Keep them equal.
+        root.style.setProperty('--gh-canvas', '#0d1117')
+        root.style.backgroundColor = '#0d1117'
+      }
+    })()
   </script>
   <!--end::Theme mode setup on page load-->
 

@@ -26,12 +26,22 @@
   --wt-ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Dark Mode Variables Override */
+/* Dark Mode Variables Override.
+   Maps this file's local vars onto the app-wide GitHub dark palette. The `--gh-*` custom
+   properties are generated from app/theme/githubDark.ts and stamped on <html> by
+   ColorModeProvider, so the chrome, the MUI theme and the glass kit all resolve to one palette.
+   The literal fallbacks only apply in the pre-React frame (see index.html). */
 [data-bs-theme='dark'] {
-  --wt-ink: #cecfd2;
-  --wt-ink-soft: #8a92a6;
-  --wt-line: #2d2d3a;
-  --wt-chip: rgba(255, 255, 255, 0.06);
+  --wt-ink: var(--gh-fg, #e6edf3);
+  --wt-ink-soft: var(--gh-fg-muted, #7d8590);
+  --wt-line: var(--gh-border, #30363d);
+  --wt-chip: var(--gh-hover, rgba(177, 186, 196, 0.08));
+}
+
+/* Page canvas. Metronic's compiled $body-bg-dark (#1C1D22) is the vendored default; overriding
+   here keeps the vendored sass untouched (see CLAUDE.md: compose over editing _metronic). */
+[data-bs-theme='dark'] body {
+  background-color: var(--gh-canvas, #0d1117);
 }
 
 body[data-aside-collapsed='true'] {
@@ -106,9 +116,9 @@ body {
 }
 
 [data-bs-theme="dark"] .aside {
-  background: #1c1c28 !important;
+  background: var(--gh-surface, #161b22) !important;
   border-right: 1px solid var(--wt-line) !important;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: var(--gh-shadow-md, 0 8px 24px rgba(1, 4, 9, 0.55)) !important;
 }
 
 .aside::-webkit-scrollbar {
@@ -507,10 +517,10 @@ body {
 
 [data-bs-theme="dark"] .header,
 [data-bs-theme="dark"] .header .header-brand {
-  background: #1c1c28 !important;
+  background: var(--gh-surface, #161b22) !important;
   border-right: 1px solid var(--wt-line) !important;
   border-bottom: 1px solid var(--wt-line) !important;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+  box-shadow: var(--gh-shadow-sm, 0 1px 0 rgba(1, 4, 9, 0.6)) !important;
 }
 
 /* Logo swap */
@@ -570,9 +580,9 @@ body {
 }
 
 [data-bs-theme="dark"] .wt-aside-toggle {
-  background: #1c1c28 !important;
+  background: var(--gh-elevated, #1c2128) !important;
   border-color: var(--wt-line) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: var(--gh-shadow-md, 0 8px 24px rgba(1, 4, 9, 0.55)) !important;
 }
 
 .wt-aside-toggle:hover {
@@ -604,9 +614,9 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
 }
 
 [data-bs-theme="dark"] .header-user-menu-wrapper {
-  background: #1c1c28 !important;
-  border-color: #2d2d3a !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35) !important;
+  background: var(--gh-elevated, #1c2128) !important;
+  border-color: var(--gh-border, #30363d) !important;
+  box-shadow: var(--gh-shadow-lg, 0 16px 48px rgba(1, 4, 9, 0.65)) !important;
 }
 
 /* The non-interactive avatar/name/email block at the top of the dropdown.
@@ -622,7 +632,7 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
 }
 
 [data-bs-theme="dark"] .header-user-menu-wrapper > .menu-item:first-child {
-  background: #181824 !important;
+  background: var(--gh-surface, #161b22) !important;
 }
 
 .header-user-menu-wrapper .menu-item {
@@ -807,31 +817,26 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
 [data-bs-theme='dark'] .header,
 [data-bs-theme='dark'] .header .header-brand,
 [data-bs-theme='dark'] .aside {
-  background: #16161f !important;
+  background: var(--gh-surface, #161b22) !important;
 }
 
-[data-bs-theme='dark'] .header .global-search-input-wrapper {
-  background: #1c1c28 !important;
-  border-color: #2d2d3a !important;
-}
-
-[data-bs-theme='dark'] .header [title='Notifications'] {
-  background: #1c1c28 !important;
-  border-color: #2d2d3a !important;
-}
-
+/* Header controls (search field · bell · profile trigger) sit ON the header surface, so they take
+   the elevated tone — the same one-step-up relationship GitHub uses for inputs on a header. */
+[data-bs-theme='dark'] .header .global-search-input-wrapper,
+[data-bs-theme='dark'] .header [title='Notifications'],
 [data-bs-theme='dark'] .header a[data-kt-menu-trigger] {
-  background: #1c1c28 !important;
-  border-color: #2d2d3a !important;
+  background: var(--gh-elevated, #1c2128) !important;
+  border-color: var(--gh-border, #30363d) !important;
 }
 
 [data-bs-theme='dark'] .header a[data-kt-menu-trigger]:hover {
-  background: #222232 !important;
+  background: var(--gh-selected, rgba(177, 186, 196, 0.12)) !important;
+  border-color: var(--gh-border-strong, #3d444d) !important;
 }
 
 [data-bs-theme='dark'] .wt-aside-toggle {
-  background: #1f1f2b;
-  border-color: #2d2d3a;
+  background: var(--gh-elevated, #1c2128);
+  border-color: var(--gh-border, #30363d);
 }
 
 /* Vertical dividers between search · bell · profile */
@@ -860,13 +865,9 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
   margin-right: 18px !important;
 }
 
-[data-bs-theme='dark'] .header [title='Notifications'] {
-  background: #1f1f2b;
-  border-color: var(--wt-line);
-}
-
+[data-bs-theme='dark'] .header [title='Notifications'],
 [data-bs-theme='dark'] .header a[data-kt-menu-trigger] {
-  background: #1f1f2b;
+  background: var(--gh-elevated, #1c2128);
   border-color: var(--wt-line);
 }
 
@@ -939,7 +940,7 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
 }
 
 [data-bs-theme="dark"] .announcement-card-hover:hover {
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25) !important;
+  box-shadow: var(--gh-shadow-lg, 0 16px 48px rgba(1, 4, 9, 0.65)) !important;
 }
 
 /* =============================================================================
@@ -1019,8 +1020,8 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
   }
 
   [data-bs-theme="dark"] .global-search-container.mobile-mode>button {
-    background: #1c1c28 !important;
-    border-color: #2d2d3a !important;
+    background: var(--gh-elevated, #1c2128) !important;
+    border-color: var(--gh-border, #30363d) !important;
   }
 
   /* The employee name is hidden below lg, so render the profile trigger as a

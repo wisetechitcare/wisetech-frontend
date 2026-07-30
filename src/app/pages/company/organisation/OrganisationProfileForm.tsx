@@ -16,6 +16,7 @@ import { IconGear } from '@app/modules/common/components/icons/OrgIcons';
 import { Box, IconButton, Typography } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import eventBus from '@utils/EventBus';
+import { WtDateField } from '@app/modules/common/components/ui';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@redux/store';
@@ -417,16 +418,15 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                         </>
                                     );
                                 }
-                                // Date built-in field: native calendar picker (validates the date itself).
+                                // Date built-in field: the shared WtDateField (company YYYY.MM.DD
+                                // display, themed picker) — never the browser's native calendar.
                                 if (field.type === 'date') {
                                     return (
                                         <>
                                             <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
-                                            <input
-                                                type="date"
-                                                className="form-control form-control-lg form-control-solid"
+                                            <WtDateField
                                                 value={(values as any)[field.id] ?? ''}
-                                                onChange={e => setFieldValue(field.id, e.target.value)}
+                                                onChange={v => setFieldValue(field.id, v)}
                                             />
                                             <ErrorMessage name={field.id}>{msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}</ErrorMessage>
                                         </>
@@ -455,11 +455,9 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                 return (
                                     <>
                                         <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
-                                        <input
-                                            type="date"
-                                            className="form-control form-control-lg form-control-solid"
+                                        <WtDateField
                                             value={field.value ?? ''}
-                                            onChange={e => updateCustomValue(sectionId, field.id, e.target.value)}
+                                            onChange={v => updateCustomValue(sectionId, field.id, v)}
                                         />
                                         {customErrors[field.id] && <div className="fv-plugins-message-container"><div className="fv-help-block">{customErrors[field.id]}</div></div>}
                                     </>

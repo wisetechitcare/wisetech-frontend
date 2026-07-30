@@ -331,6 +331,30 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
         return 'react__calendar__status__default';
     };
 
+    // Non-color status cue: the tile colour alone can't convey state to screen
+    // readers or colour-blind users (WCAG 1.4.1). Emit a visually-hidden status
+    // word inside each tile so the day is announced as e.g. "12, On leave".
+    const getTileStatusLabel = ({ date, view }: any) => {
+        if (view !== 'month') return null;
+        const formattedDate = dayjs(date).format('DD/MM/YYYY');
+        const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WORKING_WEEKEND, MARKED_PRESENT_VIA_REQUEST_RAISED, HOLIDAY } = ATTENDANCE_STATUS;
+        const matchedDate = calendarCells.find((el) => el?.date === formattedDate);
+        let label = '';
+        switch (matchedDate?.status) {
+            case PRESENT: label = 'Present'; break;
+            case ABSENT: label = 'Absent'; break;
+            case CHECK_IN_MISSING:
+            case CHECK_OUT_MISSING: label = 'Check-in or check-out missing'; break;
+            case LEAVE: label = 'On leave'; break;
+            case WORKING_WEEKEND: label = 'Worked on weekend'; break;
+            case MARKED_PRESENT_VIA_REQUEST_RAISED: label = 'Marked present via request'; break;
+            case HOLIDAY: label = 'Public holiday'; break;
+            default: break;
+        }
+        if (!label && isWeekendFromConfig(date)) label = 'Weekend';
+        return label ? <span className="visually-hidden">{`, ${label}`}</span> : null;
+    };
+
 
     // Helper function to check if date is allowed for attendance requests
     const isDateAllowedForRequest = (date: Date): boolean => {
@@ -711,6 +735,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                     onActiveStartDateChange={handleMonthChange}
                     className={'calendar-light'}
                     tileClassName={getTileClassName}
+                    tileContent={getTileStatusLabel}
                     showFixedNumberOfWeeks={true}
                     onClickDay={handleDateClick}
                 />

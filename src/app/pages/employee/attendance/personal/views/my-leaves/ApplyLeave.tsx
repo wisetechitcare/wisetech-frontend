@@ -27,6 +27,7 @@ import { rgba, tintOf, borderOf, resolveLeaveTypeColor } from '@utils/leaveTypeC
 import { getCumulativeAllowedLeaves } from '@utils/balanceProgressUtils';
 import { calculateFiscalMonth } from '@utils/fiscalYearHelper';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const ACCENT   = '#1E3A8A';
@@ -175,6 +176,11 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const sandwichCol  = leaveTypeColors?.sandwichColor  || '#92400E';
     const holidayCol   = overviewColors?.holidayColor    || '#9B59B6';
     const weekendCol   = calColors?.weekendColor         || '#9B59B6';
+    // Team Off = a branch-configured working-week off-day (e.g. a company that's off on Wednesday).
+    // It needs its OWN identity — weekendCol and holidayCol both default to the same purple, so a
+    // team-off day was indistinguishable from a Saturday/holiday. Teal is distinct from both and
+    // stays legible in light/dark; overridable via config (calColors.teamOffColor) when present.
+    const teamOffCol   = calColors?.teamOffColor         || '#0F766E';
 
     const isMobile  = useIsMobile();
     const { loading, submitting, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated, usedPaidLeaves } = useApplyLeave({
@@ -561,15 +567,28 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             if (holiday && !charged && !blocked) {
                 st.background = rgba(holidayCol, 0.12); st.color = holidayCol; st.boxShadow = `inset 0 0 0 1px ${rgba(holidayCol, 0.30)}`;
             }
-            // Off-days — Sunday=RED (matches column header), Saturday/other=weekendCol from config
+            // Off-days — three distinct identities so they never read as the same swatch:
+            //  • Team Off (branch-configured weekday off) → teal tint + dashed ring (its own colour,
+            //    plus a non-colour cue for accessibility)
+            //  • Sunday → RED (matches the column header)
+            //  • Saturday / other weekend → weekendCol from config
             if (offDay && !charged && !blocked && !holiday) {
-                const isSun   = wd === 0;
-                const offCol  = isSun ? RED : weekendCol;
-                const offAlpha = isSun ? 0.07 : 0.10;
-                st.background = rgba(offCol, offAlpha);
-                st.color      = offCol;
-                st.boxShadow  = `inset 0 0 0 1px ${rgba(offCol, isSun ? 0.20 : 0.25)}`;
-                if (teamOff) st.borderBottom = '2px solid #c9ccd1';
+                if (teamOff) {
+                    st.background     = rgba(teamOffCol, 0.12);
+                    st.color          = teamOffCol;
+                    // Dashed ring (via outline → no layout shift) is the non-colour cue that sets
+                    // Team Off apart from the SOLID rings on weekend/holiday cells.
+                    st.outline        = `1.5px dashed ${rgba(teamOffCol, 0.55)}`;
+                    st.outlineOffset  = '-3px';
+                    st.borderRadius   = rad;
+                } else {
+                    const isSun   = wd === 0;
+                    const offCol  = isSun ? RED : weekendCol;
+                    const offAlpha = isSun ? 0.07 : 0.10;
+                    st.background = rgba(offCol, offAlpha);
+                    st.color      = offCol;
+                    st.boxShadow  = `inset 0 0 0 1px ${rgba(offCol, isSun ? 0.20 : 0.25)}`;
+                }
             }
             // In-range uncharged — light accent band so the selection reads cohesively.
             if (inRange && !charged && !blocked && !holiday) {
@@ -648,9 +667,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 : charged ? colorOf(seg!.leaveType)
                 : sandwichCharged ? sandwichCol
                 : holiday ? (holidayColors[iso] || holidayCol)
+                : teamOff ? teamOffCol
                 : null;
             cells.push(
-                <button key={iso} title={small ? tip : undefined} style={st}
+                <button key={iso} type="button" style={st}
+                    title={tip}
+                    aria-pressed={isEp || undefined}
+                    aria-label={`${new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} — ${tip}`}
                     onClick={() => {
                         // In view mode, clicking a date flips the same modal straight into edit (if
                         // the request is still editable) — no separate button needed.
@@ -724,7 +747,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px', marginTop: 13, paddingTop: 11, borderTop: '1px solid #f0f0f1' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 13, height: 13, borderRadius: 4, border: `1.5px solid ${ACCENT}`, flexShrink: 0 }} />Today</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: tintOf('casual', colorOf), border: `1px solid ${borderOf('casual', colorOf)}`, flexShrink: 0 }} />Charged</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(weekendCol, 0.10), border: `1px solid ${rgba(weekendCol, 0.25)}`, borderBottom: '2px solid #c9ccd1', flexShrink: 0 }} />Team Off</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(teamOffCol, 0.12), outline: `1.5px dashed ${rgba(teamOffCol, 0.55)}`, outlineOffset: '-2px', flexShrink: 0 }} />Team Off</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(holidayCol, 0.12), border: `1px solid ${rgba(holidayCol, 0.30)}`, flexShrink: 0 }} />Holiday</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(weekendCol, 0.10), border: `1px solid ${rgba(weekendCol, 0.25)}`, flexShrink: 0 }} />Saturday</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(RED, 0.07), border: `1px solid ${rgba(RED, 0.20)}`, flexShrink: 0 }} />Sunday</span>
@@ -964,7 +987,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     const isImage = f.type.startsWith('image/'), url = URL.createObjectURL(f);
                     return (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: isMobile ? '8px 10px' : '9px 11px', border: '1px solid #e6e6e8', borderRadius: 10 }}>
-                            <div onClick={() => setPv({ url, name: f.name, isImage })} style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                            <div onClick={() => setPv({ url, name: f.name, isImage })} {...pressableProps(() => setPv({ url, name: f.name, isImage }))} aria-label={`Preview ${f.name}`} style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                                 {isImage
                                     ? <img src={url} alt={f.name} style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, objectFit: 'cover', border: '1px solid #e6e6e8' }} />
                                     : <span style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, background: '#eaf0f6', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>📄</span>}
@@ -972,8 +995,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                                 <span style={{ fontSize: 11.5, color: '#9aa0a6', flexShrink: 0 }}>{Math.round(f.size / 1024)} KB</span>
                                 {!isMobile && <span style={{ fontSize: 11, color: '#2F5E8C', fontWeight: 700, flexShrink: 0 }}>Preview</span>}
                             </div>
-                            <span onClick={() => setS(p => ({ ...p, files: p.files.filter((_, j) => j !== i) }))}
-                                style={{ cursor: 'pointer', color: RED, fontSize: 17, lineHeight: 1, flexShrink: 0, padding: '0 4px' }}>×</span>
+                            <button type="button" onClick={() => setS(p => ({ ...p, files: p.files.filter((_, j) => j !== i) }))}
+                                aria-label={`Remove ${f.name}`}
+                                style={{ cursor: 'pointer', color: RED, fontSize: 17, lineHeight: 1, flexShrink: 0, padding: '0 4px', border: 'none', background: 'none' }}>×</button>
                         </div>
                     );
                 })}
@@ -1035,11 +1059,23 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             ? <div style={railCardSt()}><ApprovalStatusTracker instanceId={approvalInstanceId} compact /></div>
             : <ApprovalChain compact={compact} />;
 
+    // Why the Submit button is disabled — one renderer for BOTH layouts so the copy can't drift.
+    // `spaced` adds bottom margin for the mobile footer (desktop rail spaces via flex gap).
+    const BlockingAlerts = ({ spaced }: { spaced?: boolean }) => {
+        const box = spaced ? { ...errBox, marginBottom: 10 } : errBox;
+        return (
+            <>
+                {overlapConflict && <div style={box}>This range overlaps a leave you already have.</div>}
+                {alloc?.blocked && <div style={box}>{alloc.blocked.reason}</div>}
+            </>
+        );
+    };
+
     const Lightbox = () => !pv ? null : (
         <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'rgba(20,24,33,.74)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 22 : 30, borderRadius: isMobile ? '24px 24px 0 0' : 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: 560, marginBottom: 12 }}>
                 <span style={{ color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pv.name}</span>
-                <button onClick={() => setPv(null)} style={{ width: 32, height: 32, borderRadius: 9, border: 'none', background: 'rgba(255,255,255,.16)', color: '#fff', cursor: 'pointer', flexShrink: 0 }}>×</button>
+                <button type="button" onClick={() => setPv(null)} aria-label="Close preview" style={{ width: 32, height: 32, borderRadius: 9, border: 'none', background: 'rgba(255,255,255,.16)', color: '#fff', cursor: 'pointer', flexShrink: 0 }}>×</button>
             </div>
             {pv.isImage
                 ? <img src={pv.url} alt={pv.name} style={{ maxWidth: '100%', maxHeight: '62vh', borderRadius: 12, boxShadow: '0 18px 50px rgba(0,0,0,.45)' }} />
@@ -1057,7 +1093,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 <div style={{ color: '#fff', fontSize: 16.5, fontWeight: 700, fontFamily: PJK }}>{headerTitle}</div>
                 <div style={{ color: 'rgba(255,255,255,.72)', fontSize: 12, fontWeight: 500, marginTop: 1 }}>{fiscalHint}</div>
             </div>
-            <button onClick={onClose} style={{ width: 31, height: 31, borderRadius: 9, border: 'none', background: 'rgba(255,255,255,.14)', color: '#fff', cursor: 'pointer', fontSize: 17 }}>×</button>
+            <button type="button" onClick={onClose} aria-label="Close" style={{ width: 31, height: 31, borderRadius: 9, border: 'none', background: 'rgba(255,255,255,.14)', color: '#fff', cursor: 'pointer', fontSize: 17 }}>×</button>
         </div>
     );
 
@@ -1162,8 +1198,11 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 </div>
                 <div style={{ flexShrink: 0, padding: '11px 16px 16px', borderTop: '1px solid #eef0f1', background: '#fff' }}>
                     <div style={{ marginBottom: 10 }}><Financial compact /></div>
+                    {/* Blocking reasons — mobile parity with the desktop rail. Without these, the
+                        Submit button just disabled silently on an overlap with no explanation. */}
+                    <BlockingAlerts spaced />
                     {isView && reviewActions && <div style={{ marginBottom: 10 }}>{reviewActions}</div>}
-                    {error && <div style={errBox}>{error}</div>}
+                    {error && <div style={{ ...errBox, marginBottom: 10 }}>{error}</div>}
                     <button disabled={primaryDisabled} onClick={onPrimary}
                         style={{ width: '100%', padding: 15, borderRadius: 14, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, background: primaryActive ? ACCENT : '#cdd0d4', cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
                         {primaryLabel}
@@ -1276,8 +1315,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     {/* Financial impact */}
                     <Financial />
                     {/* Overlap / block errors */}
-                    {overlapConflict && <div style={errBox}>This range overlaps a leave you already have.</div>}
-                    {alloc?.blocked && <div style={errBox}>{alloc.blocked.reason}</div>}
+                    <BlockingAlerts />
                     {/* Approval flow */}
                     <ApprovalFlowView />
                     {error && <div style={errBox}>{error}</div>}

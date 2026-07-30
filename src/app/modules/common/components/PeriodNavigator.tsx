@@ -1,6 +1,9 @@
 import KeyboardArrowLeftRoundedIcon from '@mui/icons-material/KeyboardArrowLeftRounded';
 import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded';
+import { useState } from 'react';
 import { Box, IconButton, SxProps, Theme, Typography, Tooltip, useMediaQuery, useTheme } from '@mui/material';
+import { WtDateField } from '@app/modules/common/components/ui';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 interface PeriodNavigatorProps {
     label: string;
@@ -14,6 +17,10 @@ interface PeriodNavigatorProps {
     sx?: SxProps<Theme>;
     labelColor?: string;
     secondaryLabel?: string;
+    /** When set, clicking the label opens a native date picker to jump directly
+     *  to a date (no clicking the arrows N times). pickValue is YYYY-MM-DD. */
+    onPickDate?: (value: string) => void;
+    pickValue?: string;
 }
 
 const PeriodNavigator = ({
@@ -28,9 +35,12 @@ const PeriodNavigator = ({
     sx,
     labelColor = '#1E3A8A',
     secondaryLabel,
+    onPickDate,
+    pickValue,
 }: PeriodNavigatorProps) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const [pickerOpen, setPickerOpen] = useState(false);
 
     return (
         <Box
@@ -88,8 +98,10 @@ const PeriodNavigator = ({
                 </IconButton>
             </Tooltip>
 
+            <Tooltip title={onPickDate ? 'Click to jump to a date' : ''} placement="top" arrow disableHoverListener={!onPickDate}>
             <Box
                 sx={{
+                    position: 'relative',
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
@@ -98,8 +110,37 @@ const PeriodNavigator = ({
                     minWidth: 0,
                     px: isMobile ? 0.75 : 1,
                     py: 0,
+                    cursor: onPickDate ? 'pointer' : 'default',
                 }}
+                {...(onPickDate ? pressableProps(() => setPickerOpen(true)) : {})}
+                onClick={onPickDate ? () => setPickerOpen(true) : undefined}
+                aria-label={onPickDate ? 'Jump to date' : undefined}
             >
+                {/* The label itself is the trigger. The picker is laid out underneath it
+                    but visually hidden, so the calendar Popper still anchors to the label
+                    while the label stays the only thing you see. Was a native
+                    <input type="date"> — that renders the OS calendar: unstyleable,
+                    OS-locale formatted and light-on-white in dark mode. */}
+                {onPickDate && (
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            inset: 0,
+                            opacity: 0,
+                            // The Box above owns the click; this must not swallow it.
+                            pointerEvents: 'none',
+                            overflow: 'hidden',
+                        }}
+                        aria-hidden
+                    >
+                        <WtDateField
+                            value={pickValue || ''}
+                            onChange={(v) => { if (v) onPickDate(v); setPickerOpen(false); }}
+                            open={pickerOpen}
+                            onClose={() => setPickerOpen(false)}
+                        />
+                    </Box>
+                )}
                 <Typography
                     component="span"
                     sx={{
@@ -136,6 +177,7 @@ const PeriodNavigator = ({
                     </Typography>
                 )}
             </Box>
+            </Tooltip>
 
             <Tooltip title={nextTitle || 'Next period'} placement="top" arrow>
                 <IconButton

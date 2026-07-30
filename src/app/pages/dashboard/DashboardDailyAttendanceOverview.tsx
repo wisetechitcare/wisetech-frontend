@@ -16,7 +16,9 @@ import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 // import { multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
 import { toAbsoluteUrl } from "@metronic/helpers";
-import { Image, Modal, Button, Form, Dropdown, OverlayTrigger, Tooltip, Row, Col, Alert, Spinner } from "react-bootstrap";
+// Modal / Button / Form / Dropdown / Row / Col are gone — the stat modal and its card
+// grid now come from the shared kit. The rest are still-legacy usages on this page.
+import { Image, OverlayTrigger, Tooltip, Alert, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { hasPermission } from "@utils/authAbac";
 import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTableFilters";
@@ -36,183 +38,11 @@ function isAttendanceDurationShort(checkIn: string | undefined, checkOut: string
     return minutes > 0 && minutes < 480; // 8h = 480 min
 }
 
-// Custom Modal Component
-interface CustomModalProps {
-  show: boolean;
-  onHide: () => void;
-  title: string;
-  children: React.ReactNode;
-  size?: 'sm' | 'lg' | 'xl';
-  searchQuery?: string;
-  onSearchChange?: (value: string) => void;
-  sortOption?: SortOption;
-  onSortChange?: (value: SortOption) => void;
-}
-
-const CustomModal: React.FC<CustomModalProps> = ({
-  show,
-  onHide,
-  title,
-  children,
-  size = 'lg',
-  searchQuery = '',
-  onSearchChange,
-  sortOption = 'none',
-  onSortChange
-}) => {
-  const getSortLabel = () => {
-    switch (sortOption) {
-      case 'name-asc': return 'Name (A-Z)';
-      case 'name-desc': return 'Name (Z-A)';
-      case 'checkin-asc': return 'Check-in (Earliest)';
-      case 'checkin-desc': return 'Check-in (Latest)';
-      default: return 'Sort By';
-    }
-  };
-  return (
-    <Modal
-      show={show}
-      onHide={onHide}
-      size={size}
-      centered
-      backdrop={true}
-      keyboard={true}
-      className="fade"
-    >
-      <Modal.Header closeButton className="border-0 pb-2">
-        <div className="w-100 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
-          <Modal.Title className="fw-bold fs-3 mb-0">{title}</Modal.Title>
-          <div className="d-flex gap-2 flex-grow-1 flex-md-grow-0" style={{ minWidth: '250px', maxWidth: '500px', width: '100%' }}>
-            {onSortChange && (
-              <Dropdown>
-                <Dropdown.Toggle
-                  size="sm"
-                  style={{
-                    backgroundColor: '#1E3A8A',
-                    borderColor: '#1E3A8A',
-                    color: 'white',
-                    whiteSpace: 'nowrap',
-                    height: '35px',
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}
-                >
-                  <i className="bi bi-filter me-2"></i>
-                  {getSortLabel()}
-                </Dropdown.Toggle>
-                <Dropdown.Menu>
-                  <Dropdown.Item onClick={() => onSortChange('name-asc')}>
-                    <i className="bi bi-sort-alpha-down me-2"></i>
-                    Name (A-Z)
-                  </Dropdown.Item>
-                  <Dropdown.Item onClick={() => onSortChange('name-desc')}>
-                    <i className="bi bi-sort-alpha-up me-2"></i>
-                    Name (Z-A)
-                  </Dropdown.Item>
-                  <Dropdown.Divider />
-                  <Dropdown.Item onClick={() => onSortChange('checkin-asc')}>
-                    <i className="bi bi-clock me-2"></i>
-                    Check-in (Earliest)
-                  </Dropdown.Item>
-                  <Dropdown.Item onClick={() => onSortChange('checkin-desc')}>
-                    <i className="bi bi-clock-fill me-2"></i>
-                    Check-in (Latest)
-                  </Dropdown.Item>
-                  {sortOption !== 'none' && (
-                    <>
-                      <Dropdown.Divider />
-                      <Dropdown.Item onClick={() => onSortChange('none')}>
-                        <i className="bi bi-x-circle me-2"></i>
-                        Clear Sort
-                      </Dropdown.Item>
-                    </>
-                  )}
-                </Dropdown.Menu>
-              </Dropdown>
-            )}
-            {onSearchChange && (
-              <div style={{ position: 'relative', flex: 1 }}>
-                <Form.Control
-                  type="text"
-                  placeholder="Search by name..."
-                  value={searchQuery}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  size="sm"
-                  style={{
-                    borderColor: '#1E3A8A',
-                    outline: 'none',
-                    boxShadow: 'none',
-                    paddingRight: searchQuery ? '35px' : '12px'
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#1E3A8A';
-                    e.target.style.boxShadow = '0 0 0 0.2rem rgba(30, 58, 138, 0.25)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.boxShadow = 'none';
-                  }}
-                />
-                {searchQuery && (
-                  <Button
-                    size="sm"
-                    onClick={() => onSearchChange('')}
-                    title="Clear search"
-                    style={{
-                      position: 'absolute',
-                      right: '5px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      color: '#1E3A8A',
-                      padding: '2px 6px',
-                      fontSize: '14px',
-                      cursor: 'pointer'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = '#7d3434';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = '#1E3A8A';
-                    }}
-                  >
-                    <i className="bi bi-x-lg"></i>
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </Modal.Header>
-      <Modal.Body className="" style={{
-        maxHeight: '80vh',
-        overflowY: 'auto',
-        scrollbarWidth: 'thin',
-        scrollbarColor: '#1E3A8A #f1f1f1'
-      }}>
-        <style>
-          {`
-            .modal-body::-webkit-scrollbar {
-              width: 6px;
-            }
-            .modal-body::-webkit-scrollbar-track {
-              background: #f1f1f1;
-              border-radius: 10px;
-            }
-            .modal-body::-webkit-scrollbar-thumb {
-              background: #888;
-              border-radius: 10px;
-            }
-            .modal-body::-webkit-scrollbar-thumb:hover {
-              background: #555;
-            }
-          `}
-        </style>
-        {children}
-      </Modal.Body>
-    </Modal>
-  );
-};
+// Modal shell and the employee card grid are shared with the admin Attendance
+// Overview - see the two components below, not a local copy.
+import StatDetailModal from '@app/modules/common/components/StatDetailModal';
+import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | null;
 
@@ -861,32 +691,24 @@ const DashboardDailyAttendanceOverview = () => {
       const sortedEmployees = sortEmployees(filteredEmployees);
 
       if (!sortedEmployees || sortedEmployees.length === 0) {
-        return <div className="p-3 text-muted">
-          {searchQuery.trim() ? `No employees found matching "${searchQuery}"` : 'No employees found in this category'}
-        </div>;
+        return <StatEmptyState searchQuery={searchQuery} />;
       }
 
-      // All modals use 3-column layout
-      return (
-        <Row className="g-3">
-          {sortedEmployees.map(emp => (
-            <Col md={4} key={emp._id}>
-              <div className="d-flex align-items-center p-3 rounded" style={{ transition: 'all 0.2s', border: '1px solid #1E3A8A' }}>
-                <Image
-                  src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
-                  roundedCircle
-                  width={45}
-                  height={45}
-                  className="me-3"
-                  alt={`${emp.firstName || ''} ${emp.lastName || ''}`}
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                  }}
-                />
-                <div className="flex-grow-1">
-                  <div className="fw-bold">{emp.firstName} {emp.lastName}</div>
-                  <div className="text-muted small">{emp.designation || 'No designation'}</div>
+      // Card layout, breakpoints and density all live in EmployeeStatGrid so this
+      // renders identically to the admin Attendance Overview. Only the meta content —
+      // check-in/out colouring, working method — is computed here, because it depends
+      // on this page's shifts, grace times and on-site settings.
+      const statItems: EmployeeStatItem[] = sortedEmployees.map(emp => {
+        const hasMeta = Boolean(
+          additionalInfo[emp._id] || emp.attendance?.checkIn || emp.attendance?.checkOut,
+        );
+        return {
+          key: emp._id,
+          name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown',
+          avatarUrl: emp.avatar,
+          designation: emp.designation,
+          meta: hasMeta ? (
+                <>
                   {additionalInfo[emp._id] && (
                     <div className="text-primary small mt-1">
                       <i className="bi bi-info-circle me-1"></i>
@@ -894,7 +716,7 @@ const DashboardDailyAttendanceOverview = () => {
                     </div>
                   )}
                   {!additionalInfo[emp._id] && (emp.attendance?.checkIn || emp.attendance?.checkOut) && (
-                    <div className="d-flex align-items-center gap-2 small mt-1">
+                    <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
                       {emp.attendance?.checkIn && emp.attendance?.checkOut && (() => {
                         // Check if weekend/holiday worker
                         const attendanceDate = new Date(emp.attendance.checkIn);
@@ -1052,12 +874,12 @@ const DashboardDailyAttendanceOverview = () => {
                       )}
                     </div>
                   )}
-                </div>
-              </div>
-            </Col>
-          ))}
-        </Row>
-      );
+                </>
+          ) : null,
+        };
+      });
+
+      return <EmployeeStatGrid items={statItems} />;
 
     } catch (err) {
       console.error('Error in getModalContent:', err);
@@ -1565,7 +1387,7 @@ const DashboardDailyAttendanceOverview = () => {
       </div>
 
       {/* Modal */}
-      <CustomModal
+      <StatDetailModal
         show={showModal !== null}
         onHide={handleCloseModal}
         title={getModalTitle()}
@@ -1576,7 +1398,7 @@ const DashboardDailyAttendanceOverview = () => {
         onSortChange={setSortOption}
       >
         {getModalContent()}
-      </CustomModal>
+      </StatDetailModal>
     </div>
   );
 };

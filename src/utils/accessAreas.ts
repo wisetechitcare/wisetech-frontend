@@ -27,6 +27,15 @@ export const ACCESS_AREAS: AccessArea[] = [
   { module: "projects", label: "Projects" },
   { module: "crm.companies", label: "Companies" },
   { module: "crm.contacts", label: "Contacts" },
+  {
+    module: "recruitment",
+    label: "Recruitment",
+    children: [
+      { module: "recruitment.requisitions", label: "Requisitions" },
+      { module: "recruitment.pipeline", label: "Pipeline" },
+      { module: "recruitment.candidates", label: "Candidates" },
+    ],
+  },
   { module: "tasks", label: "Tasks" },
   {
     module: "timesheets",

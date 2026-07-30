@@ -701,7 +701,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 [data-bs-theme="dark"] .app-settings-sidebar { background: rgba(43, 43, 64, 0.4); }
                 @supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
                     .app-settings-modal-wide .modal-content { background: #fff; }
-                    [data-bs-theme="dark"] .app-settings-modal-wide .modal-content { background: #1b1b29; }
+                    [data-bs-theme="dark"] .app-settings-modal-wide .modal-content { background: var(--gh-surface, #161b22); }
                 }
 
                 /* Sidebar */

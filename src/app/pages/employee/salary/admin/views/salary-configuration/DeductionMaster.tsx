@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Box, Paper, Stack, Typography, Switch, Chip, Skeleton, Tooltip,
+  Box, Paper, Stack, Typography, Chip, Skeleton, Tooltip,
   IconButton, TextField, InputAdornment, ToggleButtonGroup, ToggleButton,
   Drawer,
 } from '@mui/material';
@@ -21,6 +21,7 @@ import {
 } from '@modules/payroll/services/payrollService';
 import { successConfirmation } from '@utils/modal';
 import Swal from 'sweetalert2';
+import { WtSwitch } from "@app/modules/common/components/ui";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -1088,11 +1089,7 @@ function ComponentCard({
 
           {/* Active toggle */}
           <Tooltip title={item.isActive ? 'Deactivate' : 'Activate'}>
-            <Switch checked={item.isActive} onChange={onToggle} size="small"
-              sx={{
-                '& .MuiSwitch-switchBase.Mui-checked': { color: '#1E3A8A' },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#1E3A8A' },
-              }} />
+            <WtSwitch checked={item.isActive} onChange={onToggle} size="sm" />
           </Tooltip>
 
           {/* Clone */}

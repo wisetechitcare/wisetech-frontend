@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { ACCESS_AREAS, AccessArea } from "@utils/accessAreas";
 import LiveCountdown from "./LiveCountdown";
+import { WtDateTimeField } from "@app/modules/common/components/ui";
 
 const ACCENT = "#1E3A8A";
 
@@ -79,7 +80,7 @@ const PRESETS: Array<{ label: string; ms: number }> = [
   { label: "7d", ms: 7 * 24 * 3600_000 },
 ];
 
-// Local-datetime string for <input type="datetime-local"> from an ISO/now+ms.
+// Local wire-format string (YYYY-MM-DDTHH:mm) for WtDateTimeField, from an ISO/now+ms.
 const toLocalInput = (ms: number): string => {
   const d = new Date(ms);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -199,13 +200,13 @@ const LeafControls: React.FC<{
               <Chip key={p.label} label={p.label} onClick={() => applyPreset(p.ms)} />
             ))}
             <span style={{ fontSize: 12, color: "#aab2bd", margin: "0 2px" }}>or</span>
-            <input
-              type="datetime-local"
-              className="form-control form-control-sm"
-              style={{ width: 210, fontSize: 12, borderColor: hexToRgba(ACCENT, 0.3), borderRadius: 8 }}
-              min={toLocalInput(Date.now() + 60_000)}
-              defaultValue={expiry ? toLocalInput(new Date(expiry).getTime()) : ""}
-              onChange={(e) => applyCustom(e.target.value)}
+            <WtDateTimeField
+              label="Expires"
+              fullWidth={false}
+              sx={{ width: 230 }}
+              minDateTime={toLocalInput(Date.now() + 60_000)}
+              value={expiry ? toLocalInput(new Date(expiry).getTime()) : ""}
+              onChange={applyCustom}
             />
           </div>
         </div>

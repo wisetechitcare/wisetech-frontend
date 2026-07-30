@@ -45,7 +45,7 @@ export function StatusBadge({ trio, label, pulse, title, className }: { trio: Tr
 /** KPI tile — tinted IconBox + uppercase label + big value; thin glass, hover lift. */
 export function StatTile({ label, value, trio, icon }: { label: string; value: React.ReactNode; trio: Trio; icon: string }) {
   return (
-    <div className="min-w-0 p-3 rounded-[14px] flex items-center gap-3 bg-white/95 border border-[#E6E9EE] dark:bg-[#252a35] dark:border-white/10 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_16px_rgba(15,23,42,0.035)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgba(15,23,42,0.04),0_14px_22px_rgba(15,23,42,0.055)]">
+    <div className="min-w-0 p-3 rounded-[14px] flex items-center gap-3 bg-white/95 border border-[#E6E9EE] dark:bg-[#161b22] dark:border-[#30363d] shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_16px_rgba(15,23,42,0.035)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgba(15,23,42,0.04),0_14px_22px_rgba(15,23,42,0.055)]">
       <IconBox icon={icon} trio={trio} size={40} fs="fs-2" />
       <div className="min-w-0">
         <p className="text-[10.5px] text-slate-500 dark:text-slate-400 uppercase tracking-[0.04em] font-bold truncate m-0">{label}</p>
