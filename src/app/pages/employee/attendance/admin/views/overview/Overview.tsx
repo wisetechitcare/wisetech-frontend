@@ -42,6 +42,7 @@ import { isCheckOutMissing } from "@app/modules/common/components/attendanceDura
 import ReorderableGroup from "@app/modules/common/components/ReorderableGroup";
 import { pressableProps } from "@app/modules/common/components/ui/a11y";
 import "./OverviewStatsGrid.css";
+import { ToneChip } from '@app/modules/common/components/ui';
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
 
@@ -590,7 +591,7 @@ function Overview({ date, range }: OverviewProps) {
                             meta: (
                                 <>
                                     <div className="d-flex align-items-center gap-2 small flex-wrap">
-                                        <span className="badge badge-light-warning fw-semibold">{leaveType}</span>
+                                        <ToneChip tone="warning" dense label={leaveType} />
                                     </div>
                                     <div className="small mt-1 text-gray-700">
                                         <i className="bi bi-calendar3 me-1"></i>
@@ -816,7 +817,7 @@ function Overview({ date, range }: OverviewProps) {
                                     {att?.checkIn && (
                                         <div className="d-flex align-items-center gap-2 small flex-wrap">
                                             <span className="fw-semibold text-gray-800">{dayjs(att.checkIn).format('D MMM YYYY')}</span>
-                                            <span className="badge badge-light-primary fw-semibold">{dayjs(att.checkIn).format('dddd')}</span>
+                                            <ToneChip tone="brand" dense label={dayjs(att.checkIn).format('dddd')} />
                                         </div>
                                     )}
                                     <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
@@ -824,7 +825,7 @@ function Overview({ date, range }: OverviewProps) {
                                             <span className="text-gray-700"><i className="bi bi-clock me-1"></i>{dayjs(att.checkIn).format('h:mm A')}</span>
                                         )}
                                         {workingMethod && (
-                                            <span className="badge badge-light-info fw-semibold">{workingMethod}</span>
+                                            <ToneChip tone="cyan" dense label={workingMethod} />
                                         )}
                                         {att?.checkInLocation && (
                                             att.latitude && att.longitude ? (
@@ -882,11 +883,13 @@ function Overview({ date, range }: OverviewProps) {
                                         return (
                                             <div className="d-flex align-items-center gap-2 small flex-wrap">
                                                 <span className="fw-semibold text-gray-800">{dt.format('D MMM YYYY')}</span>
-                                                <span className="badge badge-light-primary fw-semibold">{dt.format('dddd')}</span>
+                                                <ToneChip tone="brand" dense label={dt.format('dddd')} />
                                                 {(emp as any).leaveType && (
-                                                    <span className="badge badge-light-warning fw-semibold">
-                                                        {(emp as any).leaveType}{(emp as any).isHalfDay ? ' (½)' : ''}
-                                                    </span>
+                                                    <ToneChip
+                                                        tone="warning"
+                                                        dense
+                                                        label={`${(emp as any).leaveType}${(emp as any).isHalfDay ? ' (½)' : ''}`}
+                                                    />
                                                 )}
                                             </div>
                                         );
