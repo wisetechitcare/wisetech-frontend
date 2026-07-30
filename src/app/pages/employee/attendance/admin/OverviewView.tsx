@@ -28,6 +28,7 @@ import { fetchConfiguration } from "@services/company";
 import { calculateTotalDuration } from "@utils/calculateTotalDuration";
 import LazySection from "@app/modules/common/components/LazySection";
 import Loader from "@app/modules/common/utils/Loader";
+import { ErrorState } from "@app/modules/common/components/ui/tw";
 
 import DailyAttendance from "./views/overview/DailyAttendance";
 // Lazy load heavy components
@@ -163,6 +164,8 @@ function OverviewView() {
   const [usersName, setUsersName] = useState([]);
   const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
   const [isConfigLoading, setIsConfigLoading] = useState(true);
+  const [initError, setInitError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   // const [subtractLunchTime, setSubtractLunchTime] = useState<boolean>();
   const { employeeId } = useSelector((state: RootState) => {
     const { employee } = state;
@@ -185,6 +188,7 @@ function OverviewView() {
     const initializeData = async () => {
       try {
         setIsConfigLoading(true);
+        setInitError(false);
         // Fetch all data in parallel
         const [leaveRequestRes, employeesRes, configRes, lunchTimeRes] =
           await Promise.all([
@@ -245,13 +249,14 @@ function OverviewView() {
         );
       } catch (error) {
         console.error("Error initializing data", error);
+        setInitError(true);
       } finally {
         setIsConfigLoading(false);
       }
     };
 
     initializeData();
-  }, [dispatch]);
+  }, [dispatch, reloadKey]);
 
   const barOptions = usersName;
   const barSeriesData = Array.from(
@@ -267,6 +272,19 @@ function OverviewView() {
   // Show loader while configuration is loading
   if (isConfigLoading) {
     return <Loader />;
+  }
+
+  // Surface load failures instead of silently rendering an empty Overview.
+  if (initError) {
+    return (
+      <div className="mt-10">
+        <ErrorState
+          title="Couldn’t load the attendance overview"
+          message="We couldn’t fetch employees, leave requests or configuration. Check your connection and try again."
+          onRetry={() => setReloadKey((k) => k + 1)}
+        />
+      </div>
+    );
   }
 
   // Calculate total working time and allowed time

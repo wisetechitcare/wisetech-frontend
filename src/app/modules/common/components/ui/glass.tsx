@@ -5,6 +5,7 @@ import {
 import type { TransitionProps } from '@mui/material/transitions';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { T, GlassVariant, VividTone, ThemeMode, label } from './tokens';
+import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
 
 /** Read the active MUI theme mode as our ThemeMode ('light' | 'dark'). */
@@ -257,6 +258,9 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(function Gla
   { preset = 'section', interactive = false, accentEdge = false, sx, ...rest }, ref,
 ) {
   const edge = accentEdge ? T.color.vivid[accentEdge] : undefined;
+  // The light hover shadow is blue-grey (rgba(16,24,40,…)) — on a near-black canvas that reads as
+  // haze, not lift. Dark uses the near-black elevation from the shared GitHub palette.
+  const hoverShadow = useMode() === 'dark' ? GH_DARK.shadowMd : T.shadow.cardHover;
   return (
     <GlassSurface
       ref={ref}
@@ -267,7 +271,7 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(function Gla
         interactive
           ? {
               transition: `transform .15s ${MRD_EASE}, box-shadow .15s ease`,
-              '&:hover': { transform: 'translateY(-2px)', boxShadow: T.shadow.cardHover },
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: hoverShadow },
             }
           : null,
         ...(Array.isArray(sx) ? sx : [sx]),

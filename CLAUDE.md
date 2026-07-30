@@ -16,11 +16,63 @@ HRMS web client (Metronic-based admin theme). React 18 + TypeScript + Vite. Pair
 - API calls go through `src/services/` (axios). Don't call axios directly from components — add/extend a service.
 - Path aliases (in `vite.config.ts` + tsconfig): `@ @app @pages @components @hooks @services @utils @redux @models @constants @metronic`.
 
+## UI standard — READ THIS BEFORE WRITING ANY UI
+
+**The standard is MUI + Tailwind, composed from the shared kit. This is not a preference to weigh against what a file already does — it is the target for all new and edited UI.** Ant Design, Mantine, react-bootstrap and raw Bootstrap markup are legacy; never reach for them, and convert what you touch.
+
+The bar for every component: **reusable, responsive, accessible, theme-aware (light AND dark), enterprise-grade.** If you find yourself styling something per-screen, you are doing it wrong — build it once in the kit and consume it.
+
+### This is lint-enforced — you cannot merge a violation
+`.eslintrc.cjs` fails the build on banned primitives. Don't add `eslint-disable` to get around it; fix the code or the rule is pointless.
+- **`no-restricted-imports`** (always error, everywhere except the kit): importing `Switch` from `@mui/material`.
+- **`no-restricted-syntax`** (error): native `type="date"|"datetime-local"|"time"|"month"`, `<style>` blocks, Bootstrap component classes (`form-switch`, `form-control`, `btn btn-`, `card-body`, `badge badge-`), `toLocaleDateString()`.
+- **The ratchet** (`.eslint-ui-baseline.cjs`, auto-generated): 286 legacy files predate these rules and would make the build permanently red, so they emit *warnings* instead. **Every file not in that list errors.** New code can't regress; the list can only shrink. Regenerate after a burn-down pass with `npm run lint:ui:baseline`, and delete paths as you fix them — never add one.
+- Severity is split across two rules on purpose: the ratchet downgrades `no-restricted-syntax` for baselined files, so the raw-`Switch` ban lives in `no-restricted-imports` where the ratchet can't reach it.
+
+Current burn-down: **0 errors, ~1375 warnings.** The warnings are the migration backlog, not noise.
+
+### The shared kit is the first stop
+`src/app/modules/common/components/ui/` (barrel: `@app/modules/common/components/ui`) — plus the MUI-free Tailwind twin in `ui/tw/`, and shared inputs in `src/app/modules/common/inputs/`.
+**Search the kit before building anything.** If the right component doesn't exist, BUILD IT IN THE KIT (generic, documented, responsive, theme-aware) and consume it from the feature — do not inline it in a page.
+
+Canonical primitives — use these, don't reinvent or fork:
+| Need | Use | Never |
+|---|---|---|
+| Date | `WtDateField` | `<input type="date">`, `<TextField type="date">` |
+| Date + time | `WtDateTimeField` | `type="datetime-local"` |
+| Time | `TimeWheelField` | `<input type="time">` |
+| Wizard / steps | `WtStepper` | hand-rolled circles, Metronic `.stepper` SCSS |
+| Buttons | `WtButton` / `WtIconButton` | `<button className="btn btn-primary">` |
+| Toggle | `WtSwitch` / `WtSwitchField` | raw `<Switch>`, `.form-switch` |
+| Modal | `GlassDialog` + `GlassHeader` | react-bootstrap `<Modal>` |
+| Card / surface | `GlassCard` / `GlassSurface` | `<div className="card">` |
+| List / collection layout | `AutoGrid` (auto-fit tile grid) | stretched single-column rows, hand-rolled `gridTemplateColumns` breakpoints |
+| List / page header | `ListHeader` (title + subtitle + actions) | copy-pasted `Stack direction="row" justifyContent="space-between"` toolbars |
+| Chip / badge | `ToneChip` | `<span className="badge">` |
+| Single-select modal | `OptionPickerDialog` | bespoke option lists |
+| Drag-to-reorder | `ReorderableGroup` + `DragHandle` | up/down arrow buttons |
+| Employee picker | `EmployeeSelectionDialog` | bespoke pickers |
+
+**Why native inputs are banned:** `<input type="date">` renders the *browser's* picker. It is unstyleable, formats in the OS locale (`dd-mm-yyyy` vs `mm/dd/yyyy`), and stays light-on-white in dark mode because the calendar popup is browser chrome. `WtDateField` wraps `@mui/x-date-pickers`, so it inherits the theme, is correct in dark mode, and renders the company date format.
+
+### Dates — company standard is `YYYY.MM.DD`
+Official format guide: **`2025.12.03`** ✅ · `2025-12-03` ❌ (dashes) · `03.12.2025` ❌ (day first).
+Single source of truth: `src/utils/dateFormats.ts`.
+- **Display** (anything a human reads — fields, tables, cards, exports, PDFs): `formatDate()` / `formatDateTime()` / `DATE_FORMATS.DISPLAY`. Never `toLocaleDateString()` and never an inline format string.
+- **Wire** (network/DB): ISO `DATE_FORMATS.WIRE` (`YYYY-MM-DD`). This must stay ISO — the backend parses it. Don't "fix" wire values to dots.
+
+### Styling rules
+- Layout/spacing: Tailwind utilities or MUI `sx`. **No new `.css` files, no `<style>` blocks, no inline `style={{}}`, no Bootstrap layout classes** (`row`, `col-*`, `d-flex`, `px-5`, `mt-7`, `fw-bold`, `text-muted`, `form-control`, `btn`).
+  - Exception: `KTIcon`'s `fs-*` classes are the icon font's own sizing API — keep those.
+- Colors: MUI theme (`text.primary`, `background.paper`, `divider`, `action.hover`) or kit tokens. **Never hardcode `#fff`/`#000`/greys** — that is what breaks dark mode. For accent tiles use `toneSurface(trio, dark)`.
+- Dark mode: the palette SSOT is `src/app/theme/githubDark.ts` (GitHub/VS Code dark). CSS consumes it via `var(--gh-*)`. Any dark rule keys off `[data-bs-theme="dark"]` — **never `@media (prefers-color-scheme: dark)`**, which follows the OS instead of the in-app toggle.
+- Responsive is mandatory: every surface must work from 360px to ultrawide. Use MUI breakpoint objects (`{ xs, sm, md }`) / Tailwind prefixes, `minmax(0, 1fr)` in grids, and `minWidth: 0` on flex children so text can truncate.
+- **Density — fill the width, no dead whitespace** (a repeated review finding — treat as a default, not a per-task ask): a list of a few fields spread across a full-width row leaves a big empty gutter and reads poorly. Instead: cap the page at `maxWidth ~1600, mx: "auto"`, lay collections out with **`AutoGrid`** (auto-fit tiles that fill wide screens and collapse to one column on mobile), and pack each card — title + muted meta pills + a 2-line clamped description + a bottom-pinned action row (`flex:1` spacer for equal-height tiles). Wrap any wide `Table` in an `overflowX: "auto"` container with a `minWidth` so mobile scrolls instead of the page. Every list view starts with `<ListHeader …/>`. Reference implementation: `pages/employee/recruitment/RequisitionsView.tsx`.
+
 ## Conventions
 - TypeScript strict. No `any`; type API responses (`src/models/`, `src/types/`). Zod/Yup available for runtime validation — validate external data.
 - Forms: Formik or react-hook-form (both present) — match whatever the surrounding page already uses; don't mix within one form.
-- UI: MUI + Ant Design + Mantine + Bootstrap all exist (legacy layering). **Match the component library the rest of the page/module uses** rather than introducing a new one.
-- Notifications: react-toastify / sonner / sweetalert2 are all present — follow the module's existing choice.
+- Notifications: prefer the kit's `toast` / `confirmDialog` / `alertDialog` (`ui/feedback.ts`). react-toastify / sonner / sweetalert2 all exist from earlier eras; don't add new direct usages.
 - Heavy libs (PDF, charts, maps, xlsx) are code-split via `manualChunks` in `vite.config.ts`. Prefer lazy-loading heavy routes/components; don't import a vendor bundle into a hot common path.
 
 ## Before saying a change is done

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Grid, Box, Typography, IconButton, CircularProgress, Switch, FormControlLabel } from "@mui/material";
+import { Grid, Box, Typography, IconButton, CircularProgress, FormControlLabel } from "@mui/material";
 import axios from "axios";
 import { ProjectPointsSection } from "@app/modules/projectPoints";
 
@@ -20,6 +20,7 @@ import { CommercialsGrid } from "../shared/CommercialsGrid";
 import { PaymentStageSelector } from "./PaymentStageSelector";
 import { MeetingScheduleSelector } from "./MeetingScheduleSelector";
 import { SectionWrapper } from "./SectionWrapper";
+import { WtSwitch, TRIO } from "@app/modules/common/components/ui";
 
 interface LeadSectionsProps {
   // dropdown arrays
@@ -868,10 +869,10 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
           <Grid item xs={12} md={3}>
             <FormControlLabel
               control={
-                <Switch
+                <WtSwitch
                   checked={!!values.projectMeta?.isLocationIncorrect}
                   onChange={(e) => setFieldValue("projectMeta.isLocationIncorrect", e.target.checked)}
-                  color="warning"
+                  tone={TRIO.amber.c}
                 />
               }
               label={<Typography sx={{ fontSize: "14px", fontWeight: 500 }}>Location Incorrect</Typography>}

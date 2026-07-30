@@ -9,6 +9,57 @@ export const AUTH = {
     CAPABILITIES: "api/auth/capabilities",
 }
 
+// Recruitment / ATS module. Keep in sync with the backend copy
+// (wisetech-backend/src/constants/api-endpoint.ts RECRUITMENT).
+export const RECRUITMENT = {
+    // Requisitions (Phase 1)
+    CREATE_REQUISITION: "api/recruitment/requisitions",
+    GET_ALL_REQUISITIONS: "api/recruitment/requisitions",
+    GET_REQUISITION_BY_ID: "api/recruitment/requisitions/:id",
+    UPDATE_REQUISITION: "api/recruitment/requisitions/:id",
+    UPDATE_REQUISITION_SECTION: "api/recruitment/requisitions/:id/section",
+    ARCHIVE_REQUISITION: "api/recruitment/requisitions/:id",
+    SUBMIT_REQUISITION_APPROVAL: "api/recruitment/requisitions/:id/submit-approval",
+    // Applicants (Phase 2)
+    CREATE_APPLICANT: "api/recruitment/applicants",
+    GET_ALL_APPLICANTS: "api/recruitment/applicants",
+    GET_APPLICANT_BY_ID: "api/recruitment/applicants/:id",
+    UPDATE_APPLICANT: "api/recruitment/applicants/:id",
+    // Applications / pipeline (Phase 2)
+    CREATE_APPLICATION: "api/recruitment/applications",
+    GET_ALL_APPLICATIONS: "api/recruitment/applications",
+    GET_APPLICATION_BY_ID: "api/recruitment/applications/:id",
+    UPDATE_APPLICATION_SECTION: "api/recruitment/applications/:id/section",
+    MOVE_APPLICATION_STAGE: "api/recruitment/applications/:id/move",
+    ARCHIVE_APPLICATION: "api/recruitment/applications/:id",
+    // Interviews + scorecards (Phase 4)
+    CREATE_INTERVIEW: "api/recruitment/interviews",
+    GET_INTERVIEW_BY_ID: "api/recruitment/interviews/:id",
+    UPDATE_INTERVIEW: "api/recruitment/interviews/:id",
+    GET_APPLICATION_INTERVIEWS: "api/recruitment/applications/:id/interviews",
+    SUBMIT_SCORECARD: "api/recruitment/interviews/:id/scorecard",
+    GET_APPLICATION_EVALUATION: "api/recruitment/applications/:id/evaluation",
+    // Offers (Phase 5)
+    CREATE_OFFER: "api/recruitment/offers",
+    GET_OFFER_BY_ID: "api/recruitment/offers/:id",
+    GET_APPLICATION_OFFER: "api/recruitment/applications/:id/offer",
+    UPDATE_OFFER: "api/recruitment/offers/:id",
+    SUBMIT_OFFER_APPROVAL: "api/recruitment/offers/:id/submit-approval",
+    RESPOND_OFFER: "api/recruitment/offers/:id/respond",
+    // Job postings (Phase 6, admin — authenticated)
+    CREATE_POSTING: "api/recruitment/postings",
+    GET_POSTINGS: "api/recruitment/postings",
+    GET_POSTING_BY_ID: "api/recruitment/postings/:id",
+    UPDATE_POSTING: "api/recruitment/postings/:id",
+    DELETE_POSTING: "api/recruitment/postings/:id",
+    // Configuration masters (stages / reasons / sources)
+    CONFIG_ENTITY: "api/recruitment/config/:type",
+    CONFIG_ENTITY_BY_ID: "api/recruitment/config/:type/:id",
+    CONFIG_REORDER: "api/recruitment/config/:type/reorder",
+    // Tenant settings (scoring weights + automation rules)
+    SETTINGS: "api/recruitment/config/settings",
+}
+
 export const USERS = {
     CREATE_USER: "api/users",
     ARCHIVE_USER: "api/users/:userId",

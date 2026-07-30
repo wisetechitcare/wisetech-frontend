@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import { IconButton, IconButtonProps, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { makeWisetechTheme } from './wisetechTheme';
+import { ghDarkCssVars, ghDarkCssVarNames } from './githubDark';
 
 /**
  * Reusable MUI color-mode system. Wraps the app once (in App.tsx) and provides the branded
@@ -52,12 +53,24 @@ export function ColorModeProvider({ children, defaultMode = 'light' }: { childre
   // Metronic chrome reads `data-bs-theme`, the Tailwind (tw/) kit reads the `.dark` class /
   // `data-theme`, and native form controls/scrollbars read `color-scheme`. Default is light, so
   // nothing changes for existing users until they opt into dark.
-  useEffect(() => {
+  //
+  // The `--gh-*` custom properties are the CSS half of that broadcast: they carry the GitHub dark
+  // palette (theme/githubDark.ts) into plain stylesheets, so premium-layout.css & friends theme
+  // themselves from the SAME object the MUI theme uses instead of hardcoding their own hexes.
+  // Layout effect, not effect — it runs before paint, so there is no light-flash frame on toggle.
+  useLayoutEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-bs-theme', mode);
     root.setAttribute('data-theme', mode);
     root.classList.toggle('dark', mode === 'dark');
     root.style.colorScheme = mode;
+
+    if (mode === 'dark') {
+      for (const [name, value] of Object.entries(ghDarkCssVars())) root.style.setProperty(name, value);
+    } else {
+      for (const name of ghDarkCssVarNames()) root.style.removeProperty(name);
+    }
+
     // Keep Metronic's own keys in sync so its init() doesn't clobber the attribute on reload.
     try {
       localStorage.setItem('kt_theme_mode_value', mode);

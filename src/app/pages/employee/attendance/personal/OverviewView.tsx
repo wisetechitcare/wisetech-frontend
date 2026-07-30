@@ -7,7 +7,7 @@ import { ATTENDANCE_STATUS, LEAVE_STATUS, LeaveStatus } from "@constants/attenda
 import { RootState, store } from "@redux/store";
 import { Attendance, IAttendance, ILeaves } from "@models/employee";
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
-import { GlassCard, Spinner } from "@app/modules/common/components/ui/tw";
+import { GlassCard, Spinner, ErrorState } from "@app/modules/common/components/ui/tw";
 import { fetchAttendanceDetails, fetchEmployeeLeaves, getAttendanceRequest } from "@services/employee";
 import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, getWeekDay, isDateAfterOrSameAsEmployeeOnboardingDate, isDateBeforeOrSameAsCurrDate, MUMBAI_TZ as mumbaiTz } from "@utils/date";
 import { saveCoordinates, savePersonalAttendance, toggleLocationPermission } from "@redux/slices/attendance";
@@ -240,6 +240,8 @@ function OverviewView() {
     const [activeStartDate, setActiveStartDate] = useState(new Date());
     const dispatch = useDispatch();
     const [calendarCells, setCalendarCells] = useState<Cell[]>([]);
+    const [errored, setErrored] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
     useEffect(() => {
         if (!employeeId || !activeStartDate) return;
         const month = activeStartDate.getMonth() + 1;
@@ -248,6 +250,7 @@ function OverviewView() {
         
         async function fetchData() {
             try {
+                setErrored(false);
                 // Parallel API calls for better performance
                 const [
                     { data: { companyOverview } },
@@ -298,10 +301,11 @@ function OverviewView() {
                 
             } catch (error) {
                 console.error('Error in fetchData:', error);
+                setErrored(true);
             }
         }
         fetchData();
-    }, [employeeId, activeStartDate]);
+    }, [employeeId, activeStartDate, reloadKey]);
 
     useEffect(() => {
         if (navigator.geolocation) {
@@ -378,6 +382,17 @@ function OverviewView() {
             status: el.status 
         })));
     }, [attendance]);
+
+    if (errored) {
+        return (
+            <div className="mt-10">
+                <ErrorState
+                    title="Couldn’t load your attendance"
+                    onRetry={() => setReloadKey((k) => k + 1)}
+                />
+            </div>
+        );
+    }
 
     return (
         <>

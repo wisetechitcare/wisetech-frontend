@@ -15,7 +15,7 @@ import { customLeaves, filterLeavesPublicHolidays, handleDatesChange, leavesBala
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState, useCallback } from "react";
 // Shared glass UI kit — single source of truth for the leave-management look.
-import { GlassCard, WtButton, IconBox, SectionHead, BRAND, TRIO } from "@app/modules/common/components/ui/tw";
+import { GlassCard, WtButton, IconBox, SectionHead, BRAND, TRIO, ErrorState } from "@app/modules/common/components/ui/tw";
 import { useDispatch, useSelector } from "react-redux";
 import ConvertLeavesModal from "./ConvertLeavesModal";
 import EncashTransferLeavesModal from "./EncashTransferLeavesModal";
@@ -66,6 +66,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     const [approvedRequestInfo, setApprovedRequestInfo] = useState<{ transfer?: any; encash?: any } | null>(null);
     const [addonLeaveAllowanceCount, setAddonLeaveAllowanceCount] = useState(0);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [errored, setErrored] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
 
     const dateOfJoining = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.dateOfJoining : state.employee.currentEmployee?.dateOfJoining);
     const employeeBranchId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.branchId : state.employee.currentEmployee?.branchId);
@@ -190,6 +192,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
         async function fetchData() {
             try {
+                setErrored(false);
                 const [leavesResponse, holidaysResponse, balanceResponse, leaveOptionsResponse, addonResponse, transferResponse] = await Promise.all([
                     fetchEmployeeLeaves(selectedEmployeeId),
                     fetchPublicHolidays(currentYear, country),
@@ -342,11 +345,12 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
             } catch (error) {
                 console.error("Error fetching data:", error);
+                setErrored(true);
             }
         }
 
         fetchData();
-    }, [selectedEmployeeId, startDateNew, endDateNew, currentYear, country, dispatch, employeeBranchId, dateOfJoining, refreshTrigger]);
+    }, [selectedEmployeeId, startDateNew, endDateNew, currentYear, country, dispatch, employeeBranchId, dateOfJoining, refreshTrigger, reloadKey]);
 
     const balanceLeaveMap = useMemo(() =>
         leavesBalance(leaves.filter(leave => leave.status === Status.Approved)),
@@ -402,6 +406,18 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
     if (!res2 && !res1) {
         return null;
+    }
+
+    if (errored) {
+        return (
+            <div className="mt-6">
+                <ErrorState
+                    compact
+                    title="Couldn’t load leave balances"
+                    onRetry={() => setReloadKey((k) => k + 1)}
+                />
+            </div>
+        );
     }
 
     return (

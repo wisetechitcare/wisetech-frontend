@@ -14,6 +14,7 @@ import { saveLeaves } from '@redux/slices/attendanceStats';
 import { calculateTotalDuration } from '@utils/calculateTotalDuration';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { ErrorState } from '@app/modules/common/components/ui/tw';
 
 interface CurrentYearOverviewProps {
     yearlyStats: Attendance[];
@@ -43,14 +44,6 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
     
     const totalWorkingDay = getWorkingDaysInRange(dayjs(startDate), dayjs(endDate), true, allWeekends, holidays );
 
-    console.log("=== ATTENDANCE MODULE ===");
-    console.log("WorkingDays:", totalWorkingDay);
-    console.log("StartDate:", dayjs(startDate).format('YYYY-MM-DD'));
-    console.log("EndDate:", dayjs(endDate).format('YYYY-MM-DD'));
-    console.log("Holidays:", holidays);
-    console.log("WorkingConfig:", allWeekends);
-    console.log("=========================");
-
     const selectedEmployeeId = useSelector((state: RootState) => state.employee.selectedEmployee?.id);
     const currentEmployeeId = useSelector((state:RootState) => state?.employee?.currentEmployee?.id);
 
@@ -70,6 +63,8 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
     const [leavesTaken, setLeavesTaken] = useState(0);
     const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
     const [lateCheckIns, setLateCheckIns] = useState<number>(0);
+    const [errored, setErrored] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
     const dispatch = useDispatch();
 
     const totalWorkedTime = calculateTotalDuration(yearlyStats);
@@ -122,7 +117,7 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
    const fetchEmployeeLeaveBlance = async () => {
     if(!selectedEmployeeId) return;
     try {
-        
+        setErrored(false);
         const { data: { leavesSummary } } = await fetchEmployeeLeaveBalance(selectedEmployeeId);
         
         const allLeaveBlanceCount = leavesSummary?.filter((leave:any) => leave.leaveType !== 'Unpaid Leaves').reduce((total:any, leave:any) => total + leave.numberOfDays, 0);
@@ -133,13 +128,14 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
         
     } catch (error) {
         console.error("Error fetching leave balances:", error);
+        setErrored(true);
     }
 };
     
 
     useEffect(() => {
         fetchEmployeeLeaveBlance();
-    }, [selectedEmployeeId, checkInCheckOut, startDate, endDate]);
+    }, [selectedEmployeeId, checkInCheckOut, startDate, endDate, reloadKey]);
 
     // Real-time: refresh leave balances when leave config / addon tiers change.
     useEventBus(EVENT_KEYS.leaveOptionsUpdated, fetchEmployeeLeaveBlance);
@@ -154,6 +150,15 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
     // const workedOnHolidaOrWeekend = donutaDataLabel(yearlyStats).get(EXTRA_DAYS) || 0;
     // const actualTotalWorkingDayInYear = (totalWorkingDayInYear - findIsWeekendTrueAndCount) + workedOnHolidaOrWeekend;
     
+
+    if (errored) {
+        return (
+            <ErrorState
+                compact
+                onRetry={() => setReloadKey((k) => k + 1)}
+            />
+        );
+    }
 
     return (
         <>

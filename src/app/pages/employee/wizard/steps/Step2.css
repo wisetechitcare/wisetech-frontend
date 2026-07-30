@@ -2068,4 +2068,4 @@
 [data-bs-theme="dark"] .ob-draft-notice-text,
 [data-bs-theme="dark"] .ob-draft-notice-discard { color: #aebee6; }
 [data-bs-theme="dark"] .ob-draft-notice-discard { border-color: rgba(174, 190, 230, 0.4); }
-[data-bs-theme="dark"] .ob-draft-notice-discard:hover { background: #aebee6; color: #12121c; }
+[data-bs-theme="dark"] .ob-draft-notice-discard:hover { background: #aebee6; color: var(--gh-canvas, #0d1117); }

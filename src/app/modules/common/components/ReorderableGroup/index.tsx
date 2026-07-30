@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
+import { Box, Tooltip } from '@mui/material';
 
 /** Props passed to a drag handle element when `withHandle` is on. Spread onto the grip:
  *  `<span {...handleProps}>≡</span>`. Only pointer-down on the handle starts a drag, so the rest
@@ -44,6 +45,55 @@ export interface ReorderableGroupProps<T> {
   /** Handle-only mode: dragging starts ONLY from the grip element the item renders with
    *  `handleProps`. Use for items that contain their own buttons/toggles/links. */
   withHandle?: boolean;
+}
+
+/**
+ * DragHandle — the canonical six-dot grip for `withHandle` reorder lists.
+ *
+ * Pair it with `<ReorderableGroup withHandle>`: spread the `handleProps` the group hands to
+ * `renderItem` onto this, and dragging starts from the grip only, so the row's own buttons stay
+ * clickable. Also the ACCESSIBLE path — pointer drag is mouse-only, so the grip is focusable and
+ * ArrowUp/ArrowDown call `onNudge`, which is what lets a list drop its visible move-up/move-down
+ * buttons without losing keyboard reordering.
+ *
+ *   <DragHandle handleProps={handleProps} disabled={rows.length < 2} onNudge={(d) => move(i, d)} />
+ */
+export function DragHandle({ handleProps, disabled, onNudge, title = 'Drag to reorder' }: {
+  handleProps?: DragHandleProps;
+  disabled?: boolean;
+  /** Keyboard reorder: -1 moves the row up, +1 moves it down. */
+  onNudge?: (dir: -1 | 1) => void;
+  title?: string;
+}) {
+  const grip = (
+    <Box
+      {...(disabled ? {} : handleProps)}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-label={`${title}, or use the up and down arrow keys`}
+      aria-disabled={disabled || undefined}
+      onKeyDown={(e: React.KeyboardEvent) => {
+        if (disabled || !onNudge || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+        e.preventDefault();
+        onNudge(e.key === 'ArrowUp' ? -1 : 1);
+      }}
+      sx={{
+        flexShrink: 0, width: 24, height: 32, borderRadius: '8px',
+        display: 'grid', gridTemplateColumns: 'repeat(2, 3px)', gridAutoRows: '3px',
+        gap: '3px', placeContent: 'center',
+        color: 'text.disabled', opacity: disabled ? 0.35 : 0.8,
+        cursor: disabled ? 'default' : 'grab', touchAction: 'none',
+        transition: 'opacity .15s, background-color .15s, color .15s',
+        '&:hover': disabled ? undefined : { opacity: 1, color: 'text.secondary', bgcolor: 'action.selected' },
+        '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2, opacity: 1 },
+      }}
+    >
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Box key={i} sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: 'currentColor' }} />
+      ))}
+    </Box>
+  );
+  return disabled ? grip : <Tooltip title={title}>{grip}</Tooltip>;
 }
 
 function ReorderableGroup<T>({

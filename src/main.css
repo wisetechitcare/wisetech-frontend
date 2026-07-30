@@ -48,7 +48,7 @@
   
   [data-bs-theme="dark"] .aside,
   [data-bs-theme="dark"] #kt_aside {
-    background-color: #1c1c28 !important;
+    background-color: var(--gh-surface, #161b22) !important;
   }
   
   @media (max-width: 1024px) {

@@ -4,6 +4,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import { Typography } from "@mui/material";
 import { successConfirmation } from "@utils/modal";
 import { useDashboardSettings, DashboardSection } from "./useDashboardSettings";
+import { WtSwitch } from "@app/modules/common/components/ui";
 
 interface CustomizeDashboardProps {
   show: boolean;
@@ -129,15 +130,7 @@ const CustomizeDashboard: React.FC<CustomizeDashboardProps> = ({ show, onHide, o
                   <label className="form-label mb-0" htmlFor={section.key}>
                     {section.label}
                   </label>
-                  <div className="form-check form-switch">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      id={section.key}
-                      checked={section.enabled}
-                      onChange={() => handleToggle(section.key)}
-                    />
-                  </div>
+                  <WtSwitch id={section.key} checked={section.enabled} onChange={() => handleToggle(section.key)} />
                 </div>
               ))}
             </div>

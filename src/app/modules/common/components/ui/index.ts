@@ -20,8 +20,11 @@ export type {
   GlassSurfaceProps, GlassDialogProps, GlassHeaderProps, GlassCardProps,
 } from './glass';
 // Shared UI pattern atoms — app-wide primitives (single source of truth; use across every feature).
+// AutoGrid + ListHeader are the standard responsive list-page layout — prefer them over per-feature
+// grid/toolbar breakpoints so every collection view fills wide screens and stacks cleanly on mobile.
 export {
   TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile, Eyebrow, SectionHead,
+  AutoGrid, ListHeader,
 } from './patterns';
 export type { Trio } from './patterns';
 export { hoverLiftSx, pressableSx, MOTION_KEYFRAMES } from './motion';
@@ -32,3 +35,11 @@ export type { FeedbackOptions } from './feedback';
 // App-wide single-select picker modal (glass kit, theme-aware) — use instead of bootstrap <Modal>.
 export { OptionPickerDialog, OptionRow } from './pickers';
 export type { OptionPickerDialogProps, PickerOption } from './pickers';
+// Canonical date / date-time fields. NEVER use <input type="date"|"datetime-local"> or
+// <TextField type="date">: those render the browser's own picker — unstyled, OS-locale-formatted,
+// and unthemeable (so it stays light in dark mode). These render the company standard YYYY.MM.DD.
+export { WtDateField, WtDateTimeField } from './dates';
+export type { WtDateFieldBaseProps, WtDateTimeFieldProps } from './dates';
+// Canonical wizard/multi-step indicator — responsive (compact summary on phones) + theme-aware.
+export { WtStepper } from './stepper';
+export type { WtStepperProps, WtStep } from './stepper';

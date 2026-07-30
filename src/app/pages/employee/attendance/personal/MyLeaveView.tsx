@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useFocusTrap } from '@hooks/useFocusTrap';
 import ApplyLeave from './views/my-leaves/ApplyLeave';
 import BalanceProgress from './views/my-leaves/BalanceProgress';
 import Leaves from './views/my-leaves/Leaves';
@@ -66,6 +67,10 @@ const PersonalLeaveView = () => {
         setOpen(false);
     };
 
+    // Accessible-dialog behaviour for the hand-rolled Apply-Leave overlay:
+    // trap Tab within, close on Escape, restore focus to the trigger on close.
+    const dialogRef = useFocusTrap<HTMLDivElement>(open, { onEscape: handleClose });
+
     const res = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.create);
 
     return (
@@ -94,6 +99,11 @@ const PersonalLeaveView = () => {
             {/* Apply-Leave v4 — the component owns its own card/sheet + header; we provide the backdrop. */}
             {open && (
                 <div
+                    ref={dialogRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Apply for leave"
+                    tabIndex={-1}
                     onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
                     style={{
                         position: 'fixed', inset: 0, zIndex: 1050, background: 'rgba(15,23,42,.45)',
