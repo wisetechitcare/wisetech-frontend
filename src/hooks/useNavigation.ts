@@ -73,7 +73,7 @@ export function useNavigation() {
         type: 'section',
         id: 'hr-section',
         title: 'HR & People',
-        visible: !isSectionBlocked('users') || !isSectionBlocked('attendance') || (NEW_MY_TEAM_IA && (can('approvals.view.team') || can('approvals.approve.team') || can('approvals.manage.all'))),
+        visible: !isSectionBlocked('users') || !isSectionBlocked('attendance') || (!isSectionBlocked('recruitment') && can('recruitment.view.team')) || (NEW_MY_TEAM_IA && (can('approvals.view.team') || can('approvals.approve.team') || can('approvals.manage.all'))),
       },
       {
         type: 'sub',
@@ -144,6 +144,14 @@ export function useNavigation() {
         ]
       },
 
+      {
+        type: 'item',
+        id: 'recruitment-home',
+        to: '/recruitment',
+        title: 'Recruitment',
+        fontIcon: 'bi-person-badge',
+        visible: !isSectionBlocked('recruitment') && can('recruitment.view.team'),
+      },
       {
         type: 'sub',
         id: 'hr-my-team-group',
@@ -256,21 +264,6 @@ export function useNavigation() {
         title: 'Contacts',
         fontIcon: 'bi-person-lines-fill',
         visible: !isSectionBlocked('crm.contacts'),
-      },
-      // Recruitment
-      {
-        type: 'section',
-        id: 'recruitment-section',
-        title: 'Recruitment',
-        visible: !isSectionBlocked('recruitment') && can('recruitment.view.team'),
-      },
-      {
-        type: 'item',
-        id: 'recruitment-home',
-        to: '/recruitment',
-        title: 'Recruitment',
-        fontIcon: 'bi-person-badge',
-        visible: !isSectionBlocked('recruitment') && can('recruitment.view.team'),
       },
       // Projects
       {
