@@ -16,7 +16,9 @@ import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 // import { multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
 import { toAbsoluteUrl } from "@metronic/helpers";
-import { Image, Modal, Button, Form, Dropdown, OverlayTrigger, Tooltip, Row, Col, Alert, Spinner } from "react-bootstrap";
+// Modal / Button / Form / Dropdown / Row / Col are gone — the stat modal and its card
+// grid now come from the shared kit. The rest are still-legacy usages on this page.
+import { Image, OverlayTrigger, Tooltip, Alert, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { hasPermission } from "@utils/authAbac";
 import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTableFilters";
