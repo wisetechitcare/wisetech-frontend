@@ -27,6 +27,9 @@ interface Props {
   getFiscalYearRange?: (date: Dayjs) => Promise<{ startDate: string; endDate: string }>;
   /** Only show these modes (hides tabs entirely if only 1 mode is provided) */
   allowedModes?: PeriodMode[];
+  /** Override the dayjs format for the Daily-mode label (default DATE_FORMATS.FULL,
+   *  e.g. "29 Jul, 2026"). Pass "dddd, DD MMM YYYY" to show the weekday too. */
+  dailyLabelFormat?: string;
 }
 
 const MODES: Array<{ key: PeriodMode; label: string }> = [
@@ -54,6 +57,7 @@ const PeriodFilter: React.FC<Props> = ({
   clampYearToToday = false,
   getFiscalYearRange,
   allowedModes,
+  dailyLabelFormat,
 }) => {
   const [mode, setMode] = useState<PeriodMode>(() => {
     if (storageKey) {
@@ -103,7 +107,7 @@ const PeriodFilter: React.FC<Props> = ({
   const range = useMemo<PeriodRange>(() => {
     switch (mode) {
       case "daily":
-        return { mode, start: anchor.startOf("day"), end: anchor.endOf("day"), label: anchor.format(DATE_FORMATS.FULL) };
+        return { mode, start: anchor.startOf("day"), end: anchor.endOf("day"), label: anchor.format(dailyLabelFormat || DATE_FORMATS.FULL) };
       case "weekly": {
         const s = anchor.startOf("week");
         const e = anchor.endOf("week");
@@ -128,7 +132,7 @@ const PeriodFilter: React.FC<Props> = ({
       default:
         return { mode, start: null, end: null, label: "" };
     }
-  }, [mode, anchor, customStart, customEnd, useFiscalYear, yearStart, yearEnd, yearRawEnd]);
+  }, [mode, anchor, customStart, customEnd, useFiscalYear, yearStart, yearEnd, yearRawEnd, dailyLabelFormat]);
 
   useEffect(() => {
     onChange(range);
@@ -166,6 +170,8 @@ const PeriodFilter: React.FC<Props> = ({
           label={range.label}
           onPrevious={() => step(-1)}
           onNext={() => step(1)}
+          onPickDate={(v) => setAnchor(dayjs(v))}
+          pickValue={anchor.format("YYYY-MM-DD")}
         />
       )}
 

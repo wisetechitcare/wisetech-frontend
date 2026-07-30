@@ -14,6 +14,10 @@ interface PeriodNavigatorProps {
     sx?: SxProps<Theme>;
     labelColor?: string;
     secondaryLabel?: string;
+    /** When set, clicking the label opens a native date picker to jump directly
+     *  to a date (no clicking the arrows N times). pickValue is YYYY-MM-DD. */
+    onPickDate?: (value: string) => void;
+    pickValue?: string;
 }
 
 const PeriodNavigator = ({
@@ -28,6 +32,8 @@ const PeriodNavigator = ({
     sx,
     labelColor = '#1E3A8A',
     secondaryLabel,
+    onPickDate,
+    pickValue,
 }: PeriodNavigatorProps) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -88,8 +94,10 @@ const PeriodNavigator = ({
                 </IconButton>
             </Tooltip>
 
+            <Tooltip title={onPickDate ? 'Click to jump to a date' : ''} placement="top" arrow disableHoverListener={!onPickDate}>
             <Box
                 sx={{
+                    position: 'relative',
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
@@ -98,8 +106,25 @@ const PeriodNavigator = ({
                     minWidth: 0,
                     px: isMobile ? 0.75 : 1,
                     py: 0,
+                    cursor: onPickDate ? 'pointer' : 'default',
                 }}
             >
+                {/* Invisible native date input overlaid on the label — clicking the
+                    label opens the OS calendar; onChange jumps to that date. */}
+                {onPickDate && (
+                    <Box
+                        component="input"
+                        type="date"
+                        value={pickValue || ''}
+                        onChange={(e: { target: { value: string } }) => { if (e.target.value) onPickDate(e.target.value); }}
+                        // Open the native calendar on click (showPicker needs the user
+                        // gesture). Overlay sits ON TOP of the label (zIndex) so it
+                        // actually receives the click; opacity 0 keeps the label visible.
+                        onClick={(e: any) => { try { e.currentTarget.showPicker?.(); } catch { /* not supported */ } }}
+                        aria-label="Jump to date"
+                        sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', border: 'none', p: 0, m: 0, zIndex: 2 }}
+                    />
+                )}
                 <Typography
                     component="span"
                     sx={{
@@ -136,6 +161,7 @@ const PeriodNavigator = ({
                     </Typography>
                 )}
             </Box>
+            </Tooltip>
 
             <Tooltip title={nextTitle || 'Next period'} placement="top" arrow>
                 <IconButton

@@ -1,6 +1,7 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
 import Loader from "@app/modules/common/utils/Loader";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import { fetchApprovalInstanceByRequest } from "@services/employee";
@@ -180,36 +181,35 @@ const OpenAttendanceRequests = () => {
 
     const allColumns = [
         {
+            accessorKey: "employeeName",
+            header: "Employee",
+            size: 220,
+            minSize: 180,
+            maxSize: 280,
+            Cell: ({ row }: any) => (
+                <EmployeeIdentityCell
+                    name={row.original.employeeName}
+                    code={row.original.employeeCode}
+                    avatarUrl={allEmployees?.find((e: any) => e.employeeId === row.original.employeeId)?.avatar}
+                />
+            ),
+        },
+        {
             accessorKey: "date",
             header: "Date",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
-        {
-            accessorKey: "day",
-            header: "Day",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
-        {
-            accessorKey: "employeeName",
-            header: "Employee Name",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
-        {
-            accessorKey: "employeeCode",
-            header: "Employee Code",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            size: 150,
+            minSize: 130,
+            maxSize: 190,
+            Cell: ({ row }: any) => (
+                <div className="d-flex flex-column">
+                    <span className="fw-semibold text-gray-800">{row.original.date}</span>
+                    {row.original.day ? (
+                        <span className="badge badge-light-primary align-self-start mt-1 fw-semibold">
+                            {row.original.day}
+                        </span>
+                    ) : null}
+                </div>
+            ),
         },
         {
             accessorKey: "remarks",
@@ -461,6 +461,7 @@ const OpenAttendanceRequests = () => {
                 data={allIsWeekendOrHolidayDataWithAttendanceRequests}
                 tableName="All Attendance Requests"
                 employeeId={employeeIdCurrent}
+                persistPreferences={false}
                 manualPagination={true}
                 rowCount={allTotalRecords}
                 onPaginationChange={setAllPagination}

@@ -6,7 +6,7 @@ import { Attendance } from "@models/employee";
 import { Employee } from "@redux/slices/employee";
 import { saveTotalEmployeeCount } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
-import { fetchAllEmployees, fetchEmployeesOnLeaveToday } from "@services/employee";
+import { fetchAllEmployees, fetchEmployeesOnLeaveToday, fetchEmployeesOnLeaveRange } from "@services/employee";
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
@@ -33,7 +33,8 @@ import {
     Typography,
 } from "@mui/material";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchEmpsAttendance } from "./DailyAttendance";
+import { fetchEmpsAttendance, fetchEmpsAttendanceRange } from "./DailyAttendance";
+import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import { fetchConfiguration } from "@services/company";
 import { getUserTablePreferences, upsertUserTablePreferences } from "@services/users";
@@ -97,19 +98,39 @@ const CustomModal: React.FC<CustomModalProps> = ({
             scroll="paper"
             PaperProps={{ sx: { borderRadius: 2 } }}
         >
-            <DialogTitle sx={{ pb: 1 }}>
+            <DialogTitle sx={{ pb: 1.25, pt: 1.75 }}>
                 <Box
                     sx={{
                         display: 'flex',
                         flexDirection: { xs: 'column', md: 'row' },
                         alignItems: { xs: 'stretch', md: 'center' },
                         justifyContent: 'space-between',
-                        gap: 2,
+                        gap: { xs: 1.25, md: 2 },
                     }}
                 >
-                    <Typography component="span" sx={{ fontWeight: 700, fontSize: '1.35rem', flexShrink: 0 }}>
-                        {title}
-                    </Typography>
+                    {/* Title row. On mobile the close button belongs here, beside the
+                        title — not stranded at the end of the controls row below. */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
+                        <Typography
+                            component="span"
+                            sx={{
+                                fontWeight: 700,
+                                fontSize: { xs: '1.1rem', sm: '1.35rem' },
+                                lineHeight: 1.25,
+                                flexShrink: 1,
+                                minWidth: 0,
+                            }}
+                        >
+                            {title}
+                        </Typography>
+                        <IconButton
+                            onClick={onHide}
+                            aria-label="close"
+                            sx={{ display: { xs: 'inline-flex', md: 'none' }, flexShrink: 0, color: (t) => t.palette.grey[600] }}
+                        >
+                            <i className="bi bi-x-lg" />
+                        </IconButton>
+                    </Box>
                     <Box
                         sx={{
                             display: 'flex',
@@ -259,10 +280,17 @@ interface EmployeeWithAttendance {
 }
 
 interface OverviewProps {
-    date: any; // dayjs object
+    date: any; // dayjs object — anchor day (daily stats + table)
+    // Selected period from the Overview PeriodFilter. When mode is weekly/monthly the
+    // stat cards aggregate over [start, end]; daily (or null) keeps the single-day
+    // behaviour. Optional so existing callers stay backward compatible.
+    range?: import("@app/modules/common/components/PeriodFilter").PeriodRange | null;
 }
 
-function Overview({ date }: OverviewProps) {
+function Overview({ date, range }: OverviewProps) {
+    // Weekly/monthly stats load a date range instead of a single day; daily (or no
+    // range) keeps the original single-day path untouched.
+    const useRange = !!(range && range.mode !== "daily" && range.start && range.end);
     const { filterIds } = useTeamFilter();
     const dispatch = useDispatch();
     const [isLoading, setIsLoading] = useState(true);
@@ -270,6 +298,9 @@ function Overview({ date }: OverviewProps) {
 
     const [employeesOnLeave, setEmployeesOnLeave] = useState<any[]>([]);
     const [employesLeaveDatas, setEmployesLeaveDatas] = useState<any[]>([]);//employesLeaveData
+    // Approved leaves overlapping the selected week/month (range mode only) — used to
+    // expand On-Leave / Absent into per-day stats. Empty in daily mode.
+    const [rangeLeaveRecords, setRangeLeaveRecords] = useState<any[]>([]);
     const [attendance, setAttendance] = useState<Attendance[]>([]);
     const [showModal, setShowModal] = useState<ModalType>(null);
     const [allEmployees, setAllEmployees] = useState<EmployeeWithAttendance[]>([]);
@@ -428,7 +459,7 @@ function Overview({ date }: OverviewProps) {
     )?.get(EXTRA_DAYS) || 0;
 
     // Calculate late check-in count: employees who checked in after (shift check-in time + grace time)
-    const lateCheckInsCount = attendance.filter(att => {
+    const lateRows = attendance.filter(att => {
         if (!att.checkIn) return false;
 
         const attendanceDate = new Date(att.checkIn);
@@ -461,10 +492,11 @@ function Overview({ date }: OverviewProps) {
 
         // Return true if checked in after expected time (shift time + grace time)
         return actualCheckIn.isAfter(expectedCheckIn);
-    }).length;
+    });
+    const lateCheckInsCount = lateRows.length;
 
     // Calculate early check-out count: employees who checked out before shift check-out time
-    const earlyCheckOutsCount = attendance.filter(att => {
+    const earlyRows = attendance.filter(att => {
         if (!att.checkOut) return false;
 
         const attendanceDate = new Date(att.checkOut);
@@ -490,7 +522,8 @@ function Overview({ date }: OverviewProps) {
 
         // Return true if checked out before expected time
         return actualCheckOut.isBefore(expectedCheckOut);
-    }).length;
+    });
+    const earlyCheckOutsCount = earlyRows.length;
 
     // Calculate absent count.
     // employeesOnLeave from the API is a NUMBER (count), not an array — using .length on it gives
@@ -501,7 +534,85 @@ function Overview({ date }: OverviewProps) {
     const hasCheckInNoCheckOut = (att: Attendance) =>
         Boolean(att.checkIn) && isCheckOutMissing(att.checkOut);
 
-    const checkoutMissingCount = attendance.filter(hasCheckInNoCheckOut).length;
+    const missingRows = attendance.filter(hasCheckInNoCheckOut);
+    const checkoutMissingCount = missingRows.length;
+
+    // One entry per attendance row (person-day) — the modal lists these so its
+    // count matches the card. Employee identity is joined from the roster.
+    const rowToEntry = (att: any) => ({
+        ...(allEmployees.find((e: any) => e._id === att.employeeId) || {}),
+        _id: att.employeeId,
+        attendance: att,
+    }) as EmployeeWithAttendance;
+    // Present / on-leave / extra-day rows (weekend-worked) for the range modals.
+    const presentRows = attendance.filter((a: any) => a.checkIn);
+    const leaveRows = attendance.filter((a: any) => a.leaveTrackedId);
+    // Extra day = a check-in on a weekend OR a public holiday.
+    const extraRows = attendance.filter((a: any) => {
+        if (!a.checkIn) return false;
+        const isWeekend = weekends?.[dayjs(a.checkIn).format("dddd").toLowerCase()] === "0";
+        const isHoliday = (allHolidays || []).some((h: any) => dayjs(h.date).format("YYYY-MM-DD") === dayjs(a.checkIn).format("YYYY-MM-DD"));
+        return isWeekend || isHoliday;
+    });
+
+    // ── Weekly/Monthly On-Leave & Absent, expanded per working day ──────────────
+    // Attendance rows are checkIn-only (no leave/absent), so these come from
+    // rangeLeaveRecords (approved leaves overlapping the window) + the roster.
+    // ponytail: a half-day leave marks the employee on-leave (not absent) for that day.
+    const presentByDay = new Map<string, Set<string>>();
+    for (const att of presentRows as any[]) {
+        const k = dayjs(att.checkIn).format("YYYY-MM-DD");
+        if (!presentByDay.has(k)) presentByDay.set(k, new Set());
+        presentByDay.get(k)!.add(att.employeeId);
+    }
+    const leaveByDay = new Map<string, Map<string, any>>(); // dateKey -> empId -> leave record
+    if (useRange && range?.start && range?.end) {
+        const rStart = range.start.startOf("day");
+        const rEnd = range.end.startOf("day");
+        for (const lr of rangeLeaveRecords) {
+            let d = dayjs(lr.dateFrom).startOf("day");
+            const lEnd = dayjs(lr.dateTo).startOf("day");
+            while (d.isBefore(lEnd) || d.isSame(lEnd, "day")) {
+                const inRange = (d.isAfter(rStart) || d.isSame(rStart, "day")) && (d.isBefore(rEnd) || d.isSame(rEnd, "day"));
+                const isWorking = weekends?.[d.format("dddd").toLowerCase()] !== "0";
+                if (inRange && isWorking) {
+                    const k = d.format("YYYY-MM-DD");
+                    if (!leaveByDay.has(k)) leaveByDay.set(k, new Map());
+                    if (!leaveByDay.get(k)!.has(lr.employeeId)) leaveByDay.get(k)!.set(lr.employeeId, { ...lr, _leaveDate: d });
+                }
+                d = d.add(1, "day");
+            }
+        }
+    }
+    // One entry per (employee, leave day) — On-Leave modal list + count.
+    const leaveDayEntries = Array.from(leaveByDay.values()).flatMap((m) =>
+        Array.from(m.values()).map((lr) => ({
+            ...(allEmployees.find((e: any) => e._id === lr.employeeId) || {}),
+            _id: lr.employeeId,
+            _leaveDate: lr._leaveDate,
+            leaveType: lr.leaveType,
+            isHalfDay: lr.isHalfDay,
+        }))
+    );
+    // Absent = per working day, roster minus present minus on-leave.
+    const absentEntries: any[] = [];
+    if (useRange && range?.start && range?.end) {
+        let d = range.start.startOf("day");
+        const end = range.end.startOf("day");
+        while (d.isBefore(end) || d.isSame(end, "day")) {
+            if (weekends?.[d.format("dddd").toLowerCase()] !== "0") {
+                const k = d.format("YYYY-MM-DD");
+                const present = presentByDay.get(k) || new Set<string>();
+                const onLeave = leaveByDay.get(k) || new Map<string, any>();
+                for (const emp of allEmployees) {
+                    if (emp?._id && !present.has(emp._id) && !onLeave.has(emp._id)) {
+                        absentEntries.push({ ...emp, _absentDate: d });
+                    }
+                }
+            }
+            d = d.add(1, "day");
+        }
+    }
 
     const handleCardClick = (type: ModalType) => {
         // console.log('Opening modal: ======================>', type, {
@@ -627,15 +738,16 @@ function Overview({ date }: OverviewProps) {
         try {
             switch (showModal) {
                 case 'working':
-                    employees = allEmployees
-                        .filter(emp => employeesPresentAttendance.some(a => a.employeeId === emp._id))
-                        .map(emp => ({
-                            ...emp,
-                            attendance: attendance.find(a => a.employeeId === emp._id)
-                        } as EmployeeWithAttendance));
+                    // Present-day rows (with a check-in) — same source as the card numerator.
+                    employees = presentRows.map(rowToEntry);
                     break;
 
                 case 'leave':
+                    // Range: list leave person-days (matches the On-Leave card) via the shared render.
+                    if (useRange) {
+                        employees = leaveDayEntries as any;
+                        break;
+                    }
                     // employeesOnLeave is a NUMBER from the API — use the array employesLeaveDatas for length check
                     if ((employesLeaveDatas?.length ?? 0) === 0) {
                         return <div className="p-3 text-muted">No employees on leave today</div>;
@@ -675,24 +787,11 @@ function Overview({ date }: OverviewProps) {
                                         return (
                                             <tr key={emp.id}>
                                                 <td>
-                                                    <div className="d-flex align-items-center">
-                                                        <Avatar
-                                                            src={avatarSrc}
-                                                            alt={fullName}
-                                                            className="me-3"
-                                                            sx={{ width: 40, height: 40 }}
-                                                            imgProps={{
-                                                                onError: (e) => {
-                                                                    const target = e.target as HTMLImageElement;
-                                                                    target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                                                                },
-                                                            }}
-                                                        />
-                                                        <div>
-                                                            <div className="fw-bold">{fullName || 'Unnamed Employee'}</div>
-                                                            <small className="text-muted">{employeeData.employeeCode || emp.employeeCode || ''}</small>
-                                                        </div>
-                                                    </div>
+                                                    <EmployeeIdentityCell
+                                                        name={fullName || 'Unnamed Employee'}
+                                                        code={employeeData.employeeCode || emp.employeeCode || ''}
+                                                        avatarUrl={employeeData.avatar || emp.avatar}
+                                                    />
                                                 </td>
                                                 <td style={{ whiteSpace: 'nowrap' }}>{employeeData.designations?.role || emp.designations?.role || 'N/A'}</td>
                                                 <td>
@@ -767,10 +866,11 @@ function Overview({ date }: OverviewProps) {
                         return isLate;
                     });
 
-                    employees = lateCheckInEmployees.map(emp => ({
-                        ...emp,
-                        attendance: attendance.find(a => a.employeeId === emp._id)
-                    }));
+                    // Always list the same rows the card counts (lateRows). The filter
+                    // above still runs, populating additionalInfo[employeeId] ("Late by
+                    // Xm") which the shared render shows.
+                    void lateCheckInEmployees;
+                    employees = lateRows.map(rowToEntry);
 
                     break;
 
@@ -813,14 +913,17 @@ function Overview({ date }: OverviewProps) {
                         return isEarly;
                     });
 
-                    employees = earlyCheckOutEmployees.map(emp => ({
-                        ...emp,
-                        attendance: attendance.find(a => a.employeeId === emp._id)
-                    }));
+                    void earlyCheckOutEmployees;
+                    employees = earlyRows.map(rowToEntry);
 
                     break;
 
                 case 'absent':
+                    // Range: list absent person-days (matches the Absent card) via the shared render.
+                    if (useRange) {
+                        employees = absentEntries as any;
+                        break;
+                    }
                     try {
                         // console.log('Calculating absent employees with:', {
                         //     allEmployees: allEmployees?.length || 0,
@@ -894,23 +997,16 @@ function Overview({ date }: OverviewProps) {
                         return isConfiguredWeekend || isPublicHoliday;
                     });
 
-                    employees = extraDayEmployees.map(emp => ({
-                        ...emp,
-                        attendance: attendance.find(a => a.employeeId === emp._id)
-                    }));
+                    void extraDayEmployees;
+                    employees = extraRows.map(rowToEntry);
 
                     break;
 
                 case 'checkoutMissing': {
-                    const checkoutMissingEmployees = allEmployees
-                        .filter(emp => {
-                            const empAttendance = attendance.find(a => a.employeeId === emp._id);
-                            return empAttendance && hasCheckInNoCheckOut(empAttendance);
-                        })
-                        .map(emp => ({
-                            ...emp,
-                            attendance: attendance.find(a => a.employeeId === emp._id),
-                        }));
+                    // One entry per attendance row with a missing check-out — the SAME
+                    // rows the card counts (missingRows), so the modal count always
+                    // matches the card (daily and range alike).
+                    const checkoutMissingEmployees = missingRows.map(rowToEntry);
 
                     const filtered = filterEmployeesBySearch(checkoutMissingEmployees);
                     const sorted = sortEmployees(filtered);
@@ -930,8 +1026,8 @@ function Overview({ date }: OverviewProps) {
                             <table className="table table-hover align-middle">
                                 <thead className="table-light">
                                     <tr>
-                                        <th>Employee Code</th>
-                                        <th>Name</th>
+                                        <th>Employee</th>
+                                        <th>Date</th>
                                         <th>Check-in Time</th>
                                         <th>Working Method</th>
                                         <th>Location</th>
@@ -956,26 +1052,21 @@ function Overview({ date }: OverviewProps) {
                                                     : '#6c757d';
 
                                         return (
-                                            <tr key={emp._id}>
-                                                <td>{emp.employeeCode || '—'}</td>
+                                            <tr key={att?.id || emp._id}>
                                                 <td>
-                                                    <div className="d-flex align-items-center">
-                                                        <Avatar
-                                                            src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
-                                                            alt={`${emp.firstName} ${emp.lastName}`}
-                                                            className="me-2"
-                                                            sx={{ width: 36, height: 36 }}
-                                                            imgProps={{
-                                                                onError: (e) => {
-                                                                    const target = e.target as HTMLImageElement;
-                                                                    target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                                                                },
-                                                            }}
-                                                        />
-                                                        <span className="fw-semibold">
-                                                            {emp.firstName} {emp.lastName}
-                                                        </span>
-                                                    </div>
+                                                    <EmployeeIdentityCell
+                                                        name={`${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown'}
+                                                        code={emp.employeeCode}
+                                                        avatarUrl={emp.avatar}
+                                                    />
+                                                </td>
+                                                <td>
+                                                    {att?.checkIn ? (
+                                                        <div className="d-flex flex-column">
+                                                            <span className="fw-semibold text-gray-800">{dayjs(att.checkIn).format('D MMM YYYY')}</span>
+                                                            <span className="badge badge-light-primary align-self-start mt-1 fw-semibold">{dayjs(att.checkIn).format('dddd')}</span>
+                                                        </div>
+                                                    ) : '—'}
                                                 </td>
                                                 <td>
                                                     {att?.checkIn
@@ -1035,32 +1126,98 @@ function Overview({ date }: OverviewProps) {
             const sortedEmployees = sortEmployees(filteredEmployees);
 
             if (!sortedEmployees || sortedEmployees.length === 0) {
-                return <div className="p-3 text-muted">
-                    {searchQuery.trim() ? `No employees found matching "${searchQuery}"` : 'No employees found in this category'}
-                </div>;
+                return (
+                    <Box sx={{ py: 6, px: 2, textAlign: 'center', color: '#5A6573' }}>
+                        <Box
+                            sx={{
+                                width: 52,
+                                height: 52,
+                                mx: 'auto',
+                                mb: 1.5,
+                                display: 'grid',
+                                placeItems: 'center',
+                                borderRadius: '50%',
+                                bgcolor: '#F2F4F7',
+                                color: '#98A2B3',
+                                fontSize: 22,
+                            }}
+                        >
+                            <i className={searchQuery.trim() ? 'bi bi-search' : 'bi bi-people'} />
+                        </Box>
+                        <Typography sx={{ fontWeight: 650, fontSize: '0.95rem', color: '#1B2230' }}>
+                            {searchQuery.trim() ? 'No matches found' : 'Nothing to show here'}
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.8rem', mt: 0.5 }}>
+                            {searchQuery.trim()
+                                ? `No employee matches "${searchQuery.trim()}".`
+                                : 'No employees fall into this category for the selected period.'}
+                        </Typography>
+                    </Box>
+                );
             }
 
-            // All modals use a responsive 1 / 2 / 3-column layout
+            // Responsive 1 / 2 / 3 / 4-column layout. The 4th column at lg fills the
+            // xl dialog's width instead of leaving half of every card empty.
             return (
-                <Grid container spacing={2}>
-                    {sortedEmployees.map(emp => (
-                        <Grid item xs={12} sm={6} md={4} key={emp._id}>
-                            <div className="d-flex align-items-center p-3 rounded" style={{ transition: 'all 0.2s', border: '1px solid #1E3A8A' }}>
-                                <Avatar
-                                    src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
-                                    className="me-3"
-                                    alt={`${emp.firstName || ''} ${emp.lastName || ''}`}
-                                    sx={{ width: 45, height: 45 }}
-                                    imgProps={{
-                                        onError: (e) => {
-                                            const target = e.target as HTMLImageElement;
-                                            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                                        },
-                                    }}
+                <Grid container spacing={1.5}>
+                    {sortedEmployees.map(emp => {
+                        // Absent / on-leave cards carry no times or badges. Knowing that up
+                        // front lets the meta block be skipped entirely instead of rendering
+                        // an empty div that still eats a flex gap — the blank space complaint.
+                        const hasMeta = Boolean(
+                            (useRange && (emp.attendance?.checkIn || (emp as any)._leaveDate || (emp as any)._absentDate)) ||
+                            additionalInfo[emp._id] ||
+                            emp.attendance?.checkIn ||
+                            emp.attendance?.checkOut,
+                        );
+                        return (
+                        <Grid item xs={12} sm={6} md={4} lg={3} key={emp.attendance?.id || `${emp._id}-${(emp as any)._leaveDate?.format?.('YYYY-MM-DD') || (emp as any)._absentDate?.format?.('YYYY-MM-DD') || ''}`}>
+                            <Box
+                                sx={{
+                                    height: '100%',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 0.75,
+                                    px: 1.25,
+                                    py: 1.125,
+                                    borderRadius: 2,
+                                    border: '1px solid #E6E9EE',
+                                    background: 'linear-gradient(180deg,#FFFFFF 0%,#FCFDFF 100%)',
+                                    boxShadow: '0 1px 2px rgba(16,24,40,0.05)',
+                                    transition: 'box-shadow .2s ease, transform .2s ease, border-color .2s ease',
+                                    '&:hover': {
+                                        boxShadow: '0 8px 24px rgba(16,24,40,0.10)',
+                                        transform: 'translateY(-2px)',
+                                        borderColor: 'rgba(30,58,138,0.28)',
+                                    },
+                                }}
+                            >
+                                {/* Designation rides as the identity subtitle (code chip moves
+                                    inline beside the name) — one tight 2-line block instead of a
+                                    3-line stack with a stranded designation at the bottom. */}
+                                <EmployeeIdentityCell
+                                    name={`${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown'}
+                                    code={emp.employeeCode}
+                                    avatarUrl={emp.avatar}
+                                    subtitle={emp.designation || 'No designation'}
+                                    fluid
                                 />
-                                <div className="flex-grow-1">
-                                    <div className="fw-bold">{emp.firstName} {emp.lastName}</div>
-                                    <div className="text-muted small">{emp.designation || 'No designation'}</div>
+                                {hasMeta && (
+                                <div>
+                                    {useRange && (emp.attendance?.checkIn || (emp as any)._leaveDate || (emp as any)._absentDate) && (() => {
+                                        const dt = emp.attendance?.checkIn ? dayjs(emp.attendance.checkIn) : dayjs((emp as any)._leaveDate || (emp as any)._absentDate);
+                                        return (
+                                            <div className="d-flex align-items-center gap-2 small flex-wrap">
+                                                <span className="fw-semibold text-gray-800">{dt.format('D MMM YYYY')}</span>
+                                                <span className="badge badge-light-primary fw-semibold">{dt.format('dddd')}</span>
+                                                {(emp as any).leaveType && (
+                                                    <span className="badge badge-light-warning fw-semibold">
+                                                        {(emp as any).leaveType}{(emp as any).isHalfDay ? ' (½)' : ''}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                     {additionalInfo[emp._id] && (
                                         <div className="text-primary small mt-1">
                                             <i className="bi bi-info-circle me-1"></i>
@@ -1068,7 +1225,9 @@ function Overview({ date }: OverviewProps) {
                                         </div>
                                     )}
                                     {!additionalInfo[emp._id] && (emp.attendance?.checkIn || emp.attendance?.checkOut) && (
-                                        <div className="d-flex align-items-center gap-2 small mt-1">
+                                        // flex-wrap: at 4 columns the check-in/out chips plus a
+                                        // working-method label must wrap, not overflow the card.
+                                        <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
                                             {emp.attendance?.checkIn && emp.attendance?.checkOut && (() => {
                                                 // Check if weekend/holiday worker
                                                 const attendanceDate = new Date(emp.attendance.checkIn);
@@ -1217,9 +1376,11 @@ function Overview({ date }: OverviewProps) {
                                         </div>
                                     )}
                                 </div>
-                            </div>
+                                )}
+                            </Box>
                         </Grid>
-                    ))}
+                        );
+                    })}
                 </Grid>
             );
 
@@ -1249,7 +1410,19 @@ function Overview({ date }: OverviewProps) {
                 const response = await fetchEmployeesOnLeaveToday(date.format('YYYY-MM-DD'));
                 const employeesOnLeave = response?.data?.employeesOnLeave || [];
                 const employesLeaveData = response?.data?.employeeLeaveDetails || [];
-                const allAttendance = await fetchEmpsAttendance(date);
+                const allAttendance = useRange
+                    ? await fetchEmpsAttendanceRange(range!.start!.format("YYYY-MM-DD"), range!.end!.format("YYYY-MM-DD"))
+                    : await fetchEmpsAttendance(date);
+
+                // Range mode: also pull approved leaves overlapping the window so
+                // On-Leave / Absent can be expanded per day (the attendance fetch is
+                // checkIn-filtered and carries no leave/absent rows).
+                if (useRange && range?.start && range?.end) {
+                    const leaveResp = await fetchEmployeesOnLeaveRange(range.start.format("YYYY-MM-DD"), range.end.format("YYYY-MM-DD"));
+                    if (isMountedRef.current) setRangeLeaveRecords(leaveResp?.data?.leaveRecords || []);
+                } else if (isMountedRef.current) {
+                    setRangeLeaveRecords([]);
+                }
                 //     employees:employees,
                 //     rawResponse: response,
                 //     employesLeaveData:response?.data?.employeeLeaveDetails,
@@ -1301,7 +1474,7 @@ function Overview({ date }: OverviewProps) {
                     setIsLoading(false);
                 }
             }
-    }, [dispatch, date]); // Add date to dependencies
+    }, [dispatch, date, useRange, range?.start?.valueOf(), range?.end?.valueOf()]);
 
     useEffect(() => {
         reloadOverviewAttendance();
@@ -1349,9 +1522,39 @@ function Overview({ date }: OverviewProps) {
         fetchTimeConfiguration();
     }, [shiftScope.companyId, shiftScope.branchId]);
 
+    // ── Weekly/Monthly employee-day totals ──────────────────────────────────────
+    // In range mode `attendance` holds every row in [start, end], so the per-row
+    // counts above (late/early/missing/checkout-missing) already sum. The four
+    // below aren't per-row counts, so derive them as employee-day totals here.
+    // ponytail: On-Leave/Absent read materialized leave rows + a roster×working-days
+    // estimate; exact per-day roster reconciliation stays on the Individual page.
+    // Present count from attendance rows (with a check-in) — same source the
+    // Working modal lists, so card numerator = modal count in daily and range.
+    const presentDays = presentRows.length;
+    // On-Leave (range) = leave person-days, half-days weighted 0.5 (matches the
+    // half-day=0.5 policy). The modal lists every leave-day row with a ½ badge, so
+    // e.g. 11.5 on the card ↔ 12 rows (one marked ½).
+    const leaveDays = useRange
+        ? leaveDayEntries.reduce((s, e: any) => s + (e.isHalfDay ? 0.5 : 1), 0)
+        : (employesLeaveDatas?.length || 0);
+    const extraDayCount = extraRows.length;
+    const workingDaysInRange = (() => {
+        if (!useRange || !range?.start || !range?.end) return 1;
+        let n = 0;
+        let d = range.start.startOf("day");
+        const end = range.end.startOf("day");
+        while (d.isBefore(end) || d.isSame(end, "day")) {
+            if (weekends?.[d.format("dddd").toLowerCase()] !== "0") n++;
+            d = d.add(1, "day");
+        }
+        return n;
+    })();
+    // Absent (range) = per-day roster minus present minus on-leave; matches its modal.
+    const absentDayCount = useRange ? absentEntries.length : absentCount;
+
     const cardsData: StatCardConfig[] = [
-        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${employeePresent || 0}/${totalEmployee || 0}`, label: 'Working Employees' },
-        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${employesLeaveDatas?.length || 0}`, label: 'On Leave' },
+        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: useRange ? `${presentDays}/${(totalEmployee || 0) * workingDaysInRange}` : `${presentDays}/${totalEmployee || 0}`, label: 'Working Employees' },
+        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${leaveDays}`, label: 'On Leave' },
         { type: 'late', accent: 'late', img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: `${lateCheckInsCount}`, label: 'Late Check-ins' },
         {
             type: 'checkoutMissing',
@@ -1363,8 +1566,8 @@ function Overview({ date }: OverviewProps) {
             label: 'Check-out Missing',
         },
         { type: 'early', accent: 'early', img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: `${earlyCheckOutsCount}`, label: 'Early Check-out' },
-        { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDays || 0}`, label: 'Extra Day' },
-        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentCount}`, label: 'Absent' },
+        { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDayCount}`, label: 'Extra Day' },
+        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentDayCount}`, label: 'Absent' },
     ];
 
     // Apply the user's saved order; any card not in the saved order keeps its

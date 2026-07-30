@@ -50,6 +50,7 @@ export interface IEmployeesAttendance {
   id: string;
   code: string;
   name: string;
+  avatar?: string | null;
   checkIn: string;
   checkOut: string;
   status: string;

@@ -1,7 +1,7 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
-import './DailyAttendance.css';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
 import AttendanceStatusBadge from "@app/modules/common/components/AttendanceStatusBadge";
 import AttendanceCheckCell, {
     formatAttendanceCheckExport,
@@ -18,7 +18,7 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { IEmployeesAttendance } from "@models/employee";
 import { saveEmployeesAttendance } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
-import { fetchAllEmployeesAttendance, fetchEmployeeLeaves, fetchEmployeesOnLeaveToday } from "@services/employee";
+import { fetchAllEmployeesAttendance, fetchAllEmployeesAttendanceRange, fetchEmployeeLeaves, fetchEmployeesOnLeaveToday } from "@services/employee";
 import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, convertTo12HourFormat, MUMBAI_TZ } from "@utils/date";
 import dayjs, { Dayjs } from "dayjs";
 import { MRT_ColumnDef } from "material-react-table";
@@ -71,6 +71,12 @@ export const fetchEmpsAttendance = async (date: Dayjs) => {
     const year = date.year();
     const { data: { attendance } } = await fetchAllEmployeesAttendance(currDate, month, year);
 
+    return attendance;
+}
+
+// Range variant (weekly/monthly Overview stats). Same row shape as the daily fetch.
+export const fetchEmpsAttendanceRange = async (from: string, to: string) => {
+    const { data: { attendance } } = await fetchAllEmployeesAttendanceRange(from, to);
     return attendance;
 }
 
@@ -166,6 +172,7 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
             employeeId,
             code: empAttendance.employee.employeeCode,
             name: empAttendance.employee.name,
+            avatar: (empAttendance.employee as any)?.avatar ?? null,
             checkIn: formattedCheckIn,
             checkOut: formattedCheckOut,
             duration: checkIn && checkOut ? getMinutesInHrMinFormat : '-NA-',
@@ -405,17 +412,14 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         {
             id: "employee",
             header: "Employee",
-            size: 180,
+            size: 220,
             accessorFn: (row) => `${row.name} ${row.code}`,
             Cell: ({ row }) => (
-                <div className="daily-attendance__employee-cell">
-                    <div className="daily-attendance__employee-name">
-                        {row.original.name}
-                    </div>
-                    <div className="daily-attendance__employee-code">
-                        {row.original.code}
-                    </div>
-                </div>
+                <EmployeeIdentityCell
+                    name={row.original.name}
+                    code={row.original.code}
+                    avatarUrl={row.original.avatar}
+                />
             ),
         },
         {
@@ -562,11 +566,8 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         //         return <span>-NA-</span>;
         //     }
         // },
-        {
-            accessorKey: "day",
-            header: "Day",
-            size: 120,
-        },
+        // Day column removed — the selected day + date now lives in the Overview
+        // heading (PeriodFilter daily label, e.g. "Wednesday, 29 Jul 2026").
     ], [StatusBadge, lateCheckInThreshold, earlyCheckOutThreshold, employeeThresholds, leaveConfiguration]);
 
     const reloadDailyAttendance = useCallback(async () => {
@@ -791,6 +792,9 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 employeeId={employeeIdCurrent}
                 checkOwnWithOthers={true}
                 manualPagination={false}
+                // Fixed curated column order (Employee, Status, Check-In, Check-Out,
+                // Duration) — don't persist a per-user order that can strand columns.
+                persistPreferences={false}
             />
         </>
     );

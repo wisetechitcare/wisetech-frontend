@@ -35,12 +35,17 @@ interface TablePreferences {
 //  - stale (removed-column) visibility keys are dropped
 //  - meta.defaultVisible is re-applied to existing columns (new meta rules win)
 //  - sorting entries on removed columns are dropped (fall back to defaultSorting)
+// A column's identity for prefs: accessorKey, or `id` for id-only columns
+// (e.g. a custom "employee" cell). Keying on accessorKey alone dropped id-only
+// columns from columnOrder, so they rendered out of their defined position.
+const colKey = (col: any): string | undefined => col.accessorKey ?? col.id;
+
 function reconcilePrefsWithColumns(
     columns: any[],
     prevPrefs: TablePreferences,
     defaultSorting?: Array<{ id: string; desc: boolean }>,
 ): TablePreferences | null {
-    const codeKeys: string[] = columns.map(col => col.accessorKey).filter(Boolean);
+    const codeKeys: string[] = columns.map(colKey).filter(Boolean) as string[];
     const codeKeySet = new Set(codeKeys);
     const prevVis = prevPrefs.columnVisibility || {};
     const knownKeys = Object.keys(prevVis);
@@ -54,7 +59,7 @@ function reconcilePrefsWithColumns(
 
     const nextVisibility: Record<string, boolean> = {};
     columns.forEach((col: any) => {
-        const k = col.accessorKey;
+        const k = colKey(col);
         if (!k) return;
         const hasMeta = col.meta?.defaultVisible !== undefined;
         const isNewColumn = !(k in prevVis);
@@ -77,16 +82,12 @@ function reconcilePrefsWithColumns(
         ? sanitizedSorting
         : (defaultSorting ?? []);
 
-    const prevOrder = prevPrefs.columnOrder || [];
-    // 1. Remove stale columns from the saved order
-    let nextOrder = prevOrder.filter(k => codeKeySet.has(k));
-    // 2. Insert new columns at their default code-defined index
-    codeKeys.forEach((k) => {
-        if (!nextOrder.includes(k)) {
-            const defaultIndex = codeKeys.indexOf(k);
-            nextOrder.splice(defaultIndex, 0, k);
-        }
-    });
+    // Column set changed → adopt the code-defined order. This is exactly when a
+    // saved order is stale (missing a newly-added column, or still holding a
+    // since-removed one); preserving the old positions is what stranded id-only
+    // columns (e.g. "employee") at the end. Pure reorders (same set) return early
+    // above, so user drag-ordering is still preserved between schema changes.
+    const nextOrder = codeKeys;
 
     return {
         ...prevPrefs,
@@ -105,16 +106,17 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
     // Memoize default preferences to prevent recreation on every render
     const defaultPreferences = useMemo((): TablePreferences => {
         const columnVisibility = columns.reduce((acc: any, col: any) => {
-            if (col.accessorKey) {
+            const k = colKey(col);
+            if (k) {
                 // Honour meta.defaultVisible === false to hide columns by default
-                acc[col.accessorKey] = col.meta?.defaultVisible !== false;
+                acc[k] = col.meta?.defaultVisible !== false;
             }
             return acc;
         }, {});
 
         return {
             columnVisibility,
-            columnOrder: columns.map(col => col.accessorKey).filter(Boolean),
+            columnOrder: columns.map(colKey).filter(Boolean) as string[],
             columnSizing: {},
             columnPinning: {},
             sorting: defaultSorting ?? [],

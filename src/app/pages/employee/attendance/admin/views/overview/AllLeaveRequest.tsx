@@ -1,4 +1,5 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
@@ -29,6 +30,7 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
     const isAdmin = usePermission('approvals.approve.team');
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
     const leaveTypeColors = useSelector((state: RootState) => state.customColors?.leaveTypes);
+    const allEmployees = useSelector((state: RootState) => state.allEmployees?.list);
 
     const dispatch = useDispatch();
 
@@ -143,6 +145,20 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
 
     const columns = useMemo<MRT_ColumnDef<any>[]>(() => [
         {
+            accessorKey: "name",
+            header: "Employee",
+            size: 220,
+            minSize: 180,
+            maxSize: 280,
+            Cell: ({ row }: any) => (
+                <EmployeeIdentityCell
+                    name={row.original.name}
+                    code={row.original.code}
+                    avatarUrl={allEmployees?.find((e: any) => e.employeeId === row.original.employeeId)?.avatar}
+                />
+            ),
+        },
+        {
             accessorKey: "createdDate",
             header: "CreatedAt",
             Cell: ({ renderedCellValue }: any) => formatDateFromISTString(renderedCellValue)
@@ -150,16 +166,6 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
         {
             accessorKey: "date",
             header: "Leave Date",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
-        {
-            accessorKey: "name",
-            header: "Name",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
-        {
-            accessorKey: "code",
-            header: "Employee Code",
             Cell: ({ renderedCellValue }: any) => renderedCellValue
         },
         {
@@ -273,6 +279,7 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
                 data={visibleLeaveRequests}
                 columns={columns}
                 tableName="All Leave Requests"
+                persistPreferences={false}
                 resource={resourceNameMapWithCamelCase.leave}
                 viewOthers={true}
                 viewOwn={true}

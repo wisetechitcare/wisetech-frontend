@@ -10,6 +10,7 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { getWeekDay } from "@utils/date";
 import { LEAVE_STATUS, LeaveStatus } from "@constants/attendance";
 import Overview from "./views/overview/Overview";
+import PeriodFilter, { PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { Bar } from "@app/modules/common/components/Graphs";
 import {
   barDailyData,
@@ -138,7 +139,16 @@ export const transformLeaveRequests = (
 function OverviewView() {
   const { filterIds } = useTeamFilter();
   const dispatch = useDispatch();
-  const [date, setDate] = useState(dayjs()); // Centralized date state
+  const [date, setDate] = useState(dayjs()); // Anchor day — drives the Daily Attendance table + daily stats.
+  // Selected period (Daily / Weekly / Monthly) — drives the stat cards. Daily is the
+  // default so the table and stats stay in lock-step exactly as before; weekly/monthly
+  // aggregate the stats over the range while the table stays on the anchor day.
+  const [statsRange, setStatsRange] = useState<PeriodRange | null>(null);
+  const handleRangeChange = useCallback((range: PeriodRange) => {
+    setStatsRange(range);
+    // In daily mode, keep the table + daily stats following the chosen day.
+    if (range.mode === "daily" && range.start) setDate(range.start);
+  }, []);
   const employeesPresentAttendance = useSelector(
     (state: RootState) => state.attendance.employeesAttendance,
   );
@@ -251,15 +261,6 @@ function OverviewView() {
   const floaterLeaves = ["HR", "Manager", "Director"];
   const annualLeaves = ["HR", "Manager", "Director"];
 
-  // Date navigation handlers
-  const incrementDate = useCallback(() => {
-    setDate((prevDate) => prevDate.add(1, "day"));
-  }, []);
-
-  const decrementDate = useCallback(() => {
-    setDate((prevDate) => prevDate.subtract(1, "day"));
-  }, []);
-
   // Show loader while configuration is loading
   if (isConfigLoading) {
     return <Loader />;
@@ -272,29 +273,20 @@ function OverviewView() {
 
   return (
     <>
-      <div className="sticky-overview-header d-flex flex-row justify-content-between align-items-center mb-4">
+      <div className="sticky-overview-header d-flex flex-row justify-content-between align-items-center flex-wrap gap-3 mb-4">
         <h3 className="fw-bold fs-1 mb-0 font-barlow">Overview</h3>
-        {/* Date navigation */}
-        <div>
-          <button className="btn btn-sm px-0" onClick={decrementDate}>
-            <img
-              src={toAbsoluteUrl("media/svg/misc/back.svg")}
-              alt="Previous day"
-            />
-          </button>
-          <span className="mx-1 my-1 fw-semibold">
-            {date.format("DD MMM, YYYY")}
-          </span>
-          <button className="btn btn-sm px-0" onClick={incrementDate}>
-            <img
-              src={toAbsoluteUrl("media/svg/misc/next.svg")}
-              alt="Next day"
-            />
-          </button>
-        </div>
+        {/* Period filter (Daily / Weekly / Monthly) with day+date label in daily mode.
+            Yearly / All-Time are future scope, so they're hidden via allowedModes. */}
+        <PeriodFilter
+          allowedModes={["daily", "weekly", "monthly"]}
+          initialMode="daily"
+          dailyLabelFormat="dddd, DD MMM YYYY"
+          storageKey="attendance:overview:period"
+          onChange={handleRangeChange}
+        />
       </div>
 
-      <Overview date={date} />
+      <Overview date={date} range={statsRange} />
 
       <div className="mt-10"></div>
       <Bar
