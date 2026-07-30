@@ -42,201 +42,12 @@ import { isCheckOutMissing } from "@app/modules/common/components/attendanceDura
 import ReorderableGroup from "@app/modules/common/components/ReorderableGroup";
 import { pressableProps } from "@app/modules/common/components/ui/a11y";
 import "./OverviewStatsGrid.css";
+import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
+import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
 
-type SortOption = 'name-asc' | 'name-desc' | 'checkin-asc' | 'checkin-desc' | 'none';
-
-// Custom Modal Component
-interface CustomModalProps {
-    show: boolean;
-    onHide: () => void;
-    title: string;
-    children: React.ReactNode;
-    size?: 'sm' | 'lg' | 'xl';
-    searchQuery?: string;
-    onSearchChange?: (value: string) => void;
-    sortOption?: SortOption;
-    onSortChange?: (value: SortOption) => void;
-}
-
-const CustomModal: React.FC<CustomModalProps> = ({
-    show,
-    onHide,
-    title,
-    children,
-    size = 'lg',
-    searchQuery = '',
-    onSearchChange,
-    sortOption = 'none',
-    onSortChange
-}) => {
-    const [sortAnchor, setSortAnchor] = useState<null | HTMLElement>(null);
-    const sortMenuOpen = Boolean(sortAnchor);
-
-    const getSortLabel = () => {
-        switch (sortOption) {
-            case 'name-asc': return 'Name (A-Z)';
-            case 'name-desc': return 'Name (Z-A)';
-            case 'checkin-asc': return 'Check-in (Earliest)';
-            case 'checkin-desc': return 'Check-in (Latest)';
-            default: return 'Sort By';
-        }
-    };
-
-    const handleSort = (option: SortOption) => {
-        onSortChange?.(option);
-        setSortAnchor(null);
-    };
-
-    // Map the old react-bootstrap modal sizes to MUI Dialog maxWidth breakpoints.
-    const maxWidthMap = { sm: 'sm', lg: 'md', xl: 'lg' } as const;
-
-    return (
-        <Dialog
-            open={show}
-            onClose={onHide}
-            maxWidth={maxWidthMap[size]}
-            fullWidth
-            scroll="paper"
-            PaperProps={{ sx: { borderRadius: 2 } }}
-        >
-            <DialogTitle sx={{ pb: 1.25, pt: 1.75 }}>
-                <Box
-                    sx={{
-                        display: 'flex',
-                        flexDirection: { xs: 'column', md: 'row' },
-                        alignItems: { xs: 'stretch', md: 'center' },
-                        justifyContent: 'space-between',
-                        gap: { xs: 1.25, md: 2 },
-                    }}
-                >
-                    {/* Title row. On mobile the close button belongs here, beside the
-                        title — not stranded at the end of the controls row below. */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
-                        <Typography
-                            component="span"
-                            sx={{
-                                fontWeight: 700,
-                                fontSize: { xs: '1.1rem', sm: '1.35rem' },
-                                lineHeight: 1.25,
-                                flexShrink: 1,
-                                minWidth: 0,
-                            }}
-                        >
-                            {title}
-                        </Typography>
-                        <IconButton
-                            onClick={onHide}
-                            aria-label="close"
-                            sx={{ display: { xs: 'inline-flex', md: 'none' }, flexShrink: 0, color: (t) => t.palette.grey[600] }}
-                        >
-                            <i className="bi bi-x-lg" />
-                        </IconButton>
-                    </Box>
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                            width: { xs: '100%', md: 'auto' },
-                            minWidth: { md: 250 },
-                            maxWidth: { md: 500 },
-                            flexGrow: { xs: 1, md: 0 },
-                        }}
-                    >
-                        {onSortChange && (
-                            <>
-                                <Button
-                                    size="small"
-                                    variant="contained"
-                                    onClick={(e) => setSortAnchor(e.currentTarget)}
-                                    startIcon={<i className="bi bi-filter" />}
-                                    sx={{
-                                        bgcolor: '#1E3A8A',
-                                        '&:hover': { bgcolor: '#152a63' },
-                                        color: 'white',
-                                        textTransform: 'none',
-                                        whiteSpace: 'nowrap',
-                                        height: 35,
-                                        flexShrink: 0,
-                                    }}
-                                >
-                                    {getSortLabel()}
-                                </Button>
-                                <Menu anchorEl={sortAnchor} open={sortMenuOpen} onClose={() => setSortAnchor(null)}>
-                                    <MenuItem onClick={() => handleSort('name-asc')}>
-                                        <i className="bi bi-sort-alpha-down me-2" />
-                                        Name (A-Z)
-                                    </MenuItem>
-                                    <MenuItem onClick={() => handleSort('name-desc')}>
-                                        <i className="bi bi-sort-alpha-up me-2" />
-                                        Name (Z-A)
-                                    </MenuItem>
-                                    <Divider />
-                                    <MenuItem onClick={() => handleSort('checkin-asc')}>
-                                        <i className="bi bi-clock me-2" />
-                                        Check-in (Earliest)
-                                    </MenuItem>
-                                    <MenuItem onClick={() => handleSort('checkin-desc')}>
-                                        <i className="bi bi-clock-fill me-2" />
-                                        Check-in (Latest)
-                                    </MenuItem>
-                                    {sortOption !== 'none' && [
-                                        <Divider key="clear-divider" />,
-                                        <MenuItem key="clear" onClick={() => handleSort('none')}>
-                                            <i className="bi bi-x-circle me-2" />
-                                            Clear Sort
-                                        </MenuItem>,
-                                    ]}
-                                </Menu>
-                            </>
-                        )}
-                        {onSearchChange && (
-                            <TextField
-                                size="small"
-                                fullWidth
-                                type="text"
-                                placeholder="Search by name..."
-                                value={searchQuery}
-                                onChange={(e) => onSearchChange(e.target.value)}
-                                InputProps={{
-                                    endAdornment: searchQuery ? (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => onSearchChange('')}
-                                                title="Clear search"
-                                                sx={{ color: '#1E3A8A' }}
-                                            >
-                                                <i className="bi bi-x-lg" style={{ fontSize: 14 }} />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    ) : undefined,
-                                }}
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        '& fieldset': { borderColor: '#1E3A8A' },
-                                        '&:hover fieldset': { borderColor: '#1E3A8A' },
-                                        '&.Mui-focused fieldset': { borderColor: '#1E3A8A' },
-                                    },
-                                }}
-                            />
-                        )}
-                        <IconButton
-                            onClick={onHide}
-                            aria-label="close"
-                            sx={{ flexShrink: 0, color: (t) => t.palette.grey[600] }}
-                        >
-                            <i className="bi bi-x-lg" />
-                        </IconButton>
-                    </Box>
-                </Box>
-            </DialogTitle>
-            <DialogContent dividers>
-                {children}
-            </DialogContent>
-        </Dialog>
-    );
-};
+// Sort/search/close modal shell and the employee card grid are shared with the
+// Dashboard daily overview — see the two components above, not a local copy.
+type SortOption = StatSortOption;
 
 type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | 'checkoutMissing' | null;
 
@@ -1127,84 +938,28 @@ function Overview({ date, range }: OverviewProps) {
             const sortedEmployees = sortEmployees(filteredEmployees);
 
             if (!sortedEmployees || sortedEmployees.length === 0) {
-                return (
-                    <Box sx={{ py: 6, px: 2, textAlign: 'center', color: '#5A6573' }}>
-                        <Box
-                            sx={{
-                                width: 52,
-                                height: 52,
-                                mx: 'auto',
-                                mb: 1.5,
-                                display: 'grid',
-                                placeItems: 'center',
-                                borderRadius: '50%',
-                                bgcolor: '#F2F4F7',
-                                color: '#98A2B3',
-                                fontSize: 22,
-                            }}
-                        >
-                            <i className={searchQuery.trim() ? 'bi bi-search' : 'bi bi-people'} />
-                        </Box>
-                        <Typography sx={{ fontWeight: 650, fontSize: '0.95rem', color: '#1B2230' }}>
-                            {searchQuery.trim() ? 'No matches found' : 'Nothing to show here'}
-                        </Typography>
-                        <Typography sx={{ fontSize: '0.8rem', mt: 0.5 }}>
-                            {searchQuery.trim()
-                                ? `No employee matches "${searchQuery.trim()}".`
-                                : 'No employees fall into this category for the selected period.'}
-                        </Typography>
-                    </Box>
-                );
+                return <StatEmptyState searchQuery={searchQuery} />;
             }
 
-            // Responsive 1 / 2 / 3 / 4-column layout. The 4th column at lg fills the
-            // xl dialog's width instead of leaving half of every card empty.
-            return (
-                <Grid container spacing={1.5}>
-                    {sortedEmployees.map(emp => {
-                        // Absent / on-leave cards carry no times or badges. Knowing that up
-                        // front lets the meta block be skipped entirely instead of rendering
-                        // an empty div that still eats a flex gap — the blank space complaint.
+            // Card layout, breakpoints and density all live in EmployeeStatGrid so the
+            // Dashboard daily overview renders identically. Only the meta content —
+            // dates, badges, check-in/out colouring — is computed here, because it
+            // depends on this page's shifts, grace times and on-site settings.
+            const statItems: EmployeeStatItem[] = sortedEmployees.map(emp => {
                         const hasMeta = Boolean(
                             (useRange && (emp.attendance?.checkIn || (emp as any)._leaveDate || (emp as any)._absentDate)) ||
                             additionalInfo[emp._id] ||
                             emp.attendance?.checkIn ||
                             emp.attendance?.checkOut,
                         );
-                        return (
-                        <Grid item xs={12} sm={6} md={4} lg={3} key={emp.attendance?.id || `${emp._id}-${(emp as any)._leaveDate?.format?.('YYYY-MM-DD') || (emp as any)._absentDate?.format?.('YYYY-MM-DD') || ''}`}>
-                            <Box
-                                sx={{
-                                    height: '100%',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: 0.75,
-                                    px: 1.25,
-                                    py: 1.125,
-                                    borderRadius: 2,
-                                    border: '1px solid #E6E9EE',
-                                    background: 'linear-gradient(180deg,#FFFFFF 0%,#FCFDFF 100%)',
-                                    boxShadow: '0 1px 2px rgba(16,24,40,0.05)',
-                                    transition: 'box-shadow .2s ease, transform .2s ease, border-color .2s ease',
-                                    '&:hover': {
-                                        boxShadow: '0 8px 24px rgba(16,24,40,0.10)',
-                                        transform: 'translateY(-2px)',
-                                        borderColor: 'rgba(30,58,138,0.28)',
-                                    },
-                                }}
-                            >
-                                {/* Designation rides as the identity subtitle (code chip moves
-                                    inline beside the name) — one tight 2-line block instead of a
-                                    3-line stack with a stranded designation at the bottom. */}
-                                <EmployeeIdentityCell
-                                    name={`${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown'}
-                                    code={emp.employeeCode}
-                                    avatarUrl={emp.avatar}
-                                    subtitle={emp.designation || 'No designation'}
-                                    fluid
-                                />
-                                {hasMeta && (
-                                <div>
+                        return {
+                            key: emp.attendance?.id || `${emp._id}-${(emp as any)._leaveDate?.format?.('YYYY-MM-DD') || (emp as any)._absentDate?.format?.('YYYY-MM-DD') || ''}`,
+                            name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown',
+                            code: emp.employeeCode,
+                            avatarUrl: emp.avatar,
+                            designation: emp.designation,
+                            meta: hasMeta ? (
+                                <>
                                     {useRange && (emp.attendance?.checkIn || (emp as any)._leaveDate || (emp as any)._absentDate) && (() => {
                                         const dt = emp.attendance?.checkIn ? dayjs(emp.attendance.checkIn) : dayjs((emp as any)._leaveDate || (emp as any)._absentDate);
                                         return (
@@ -1376,14 +1131,12 @@ function Overview({ date, range }: OverviewProps) {
                                             )}
                                         </div>
                                     )}
-                                </div>
-                                )}
-                            </Box>
-                        </Grid>
-                        );
-                    })}
-                </Grid>
-            );
+                                </>
+                            ) : null,
+                        };
+                    });
+
+            return <EmployeeStatGrid items={statItems} />;
 
         } catch (err) {
             console.error('Error in getModalContent:', err);
