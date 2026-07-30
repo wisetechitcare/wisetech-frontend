@@ -34,7 +34,7 @@ export const getEmployeeStatus = (employee: Employee, on: dayjs.Dayjs = dayjs())
 
   // `start` null = no lower bound (legacy rows with no DOJ stay visible).
   // `end` null = still open.
-  const covers = (start?: string | null, end?: string | null): boolean =>
+  const covers = (start?: Date | string | null, end?: Date | string | null): boolean =>
     (!start || !dayjs(start).isAfter(on, 'day')) && (!end || !dayjs(end).isBefore(on, 'day'));
 
   if (covers(employee.dateOfJoining, employee.dateOfExit)) {
