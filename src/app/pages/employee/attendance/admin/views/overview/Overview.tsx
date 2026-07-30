@@ -562,76 +562,51 @@ function Overview({ date, range }: OverviewProps) {
                     }
                     // employeesOnLeave is a NUMBER from the API — use the array employesLeaveDatas for length check
                     if ((employesLeaveDatas?.length ?? 0) === 0) {
-                        return <div className="p-3 text-muted">No employees on leave today</div>;
+                        return <StatEmptyState emptyMessage="No employees on leave today" />;
                     }
 
                     const filteredLeaveData = filterLeaveDataBySearch(employesLeaveDatas);
                     const sortedLeaveData = sortLeaveData(filteredLeaveData);
 
                     if (sortedLeaveData.length === 0) {
-                        return <div className="p-3 text-muted">No employees found matching "{searchQuery}"</div>;
+                        return <StatEmptyState searchQuery={searchQuery} />;
                     }
 
-                    return (
-                        <div className="table-responsive">
-                            <table className="table table-hover align-middle">
-                                <thead className="table-light">
-                                    <tr>
-                                        <th>Employee</th>
-                                        <th>Designation</th>
-                                        <th>Leave Type</th>
-                                        <th>Duration</th>
-                                        <th>Reason</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {sortedLeaveData.map(emp => {
-                                        const employeeData = emp.employee || {};
-                                        const user = employeeData.users || emp.users || {};
-                                        const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-                                        const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                                        const leaveType = emp.leaveType || 'Leave';
-                                        const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
-                                        const endDate = emp.duration?.endDate ? dayjs(emp.duration.endDate).format('MMM D, YYYY') : 'N/A';
-                                        const isSameDay = startDate === endDate;
-                                        const reason = emp.reason || '';
+                    const leaveItems: EmployeeStatItem[] = sortedLeaveData.map(emp => {
+                        const employeeData = emp.employee || {};
+                        const user = employeeData.users || emp.users || {};
+                        const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+                        const leaveType = emp.leaveType || 'Leave';
+                        const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
+                        const endDate = emp.duration?.endDate ? dayjs(emp.duration.endDate).format('MMM D, YYYY') : 'N/A';
+                        const isSameDay = startDate === endDate;
+                        const reason = emp.reason || '';
+                        return {
+                            key: emp.id,
+                            name: fullName || 'Unnamed Employee',
+                            code: employeeData.employeeCode || emp.employeeCode || '',
+                            avatarUrl: employeeData.avatar || emp.avatar,
+                            designation: employeeData.designations?.role || emp.designations?.role,
+                            meta: (
+                                <>
+                                    <div className="d-flex align-items-center gap-2 small flex-wrap">
+                                        <span className="badge badge-light-warning fw-semibold">{leaveType}</span>
+                                    </div>
+                                    <div className="small mt-1 text-gray-700">
+                                        <i className="bi bi-calendar3 me-1"></i>
+                                        {isSameDay ? startDate : `${startDate} to ${endDate}`}
+                                    </div>
+                                    {reason && (
+                                        <div className="small mt-1 text-muted text-truncate" title={reason} style={{ maxWidth: 220 }}>
+                                            <i className="bi bi-chat-square-text me-1"></i>{reason}
+                                        </div>
+                                    )}
+                                </>
+                            ),
+                        };
+                    });
 
-                                        return (
-                                            <tr key={emp.id}>
-                                                <td>
-                                                    <EmployeeIdentityCell
-                                                        name={fullName || 'Unnamed Employee'}
-                                                        code={employeeData.employeeCode || emp.employeeCode || ''}
-                                                        avatarUrl={employeeData.avatar || emp.avatar}
-                                                    />
-                                                </td>
-                                                <td style={{ whiteSpace: 'nowrap' }}>{employeeData.designations?.role || emp.designations?.role || 'N/A'}</td>
-                                                <td>
-                                                    <span className="badge bg-warning text-dark">
-                                                        {leaveType}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <div className="d-flex align-items-center">
-                                                        <i className="bi bi-calendar3 me-2"></i>
-                                                        {isSameDay ? startDate : `${startDate} to ${endDate}`}
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    {reason && (
-                                                        <div className="text-truncate" style={{ maxWidth: '200px' }} title={reason}>
-                                                            <i className="bi bi-chat-square-text me-1"></i>
-                                                            {reason}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    );
+                    return <EmployeeStatGrid items={leaveItems} />;
                 case 'late':
                     // Late check-in: employees who checked in after (shift check-in time + grace time)
                     const lateCheckInEmployees = allEmployees.filter(emp => {
@@ -824,109 +799,51 @@ function Overview({ date, range }: OverviewProps) {
                     const sorted = sortEmployees(filtered);
 
                     if (!sorted.length) {
-                        return (
-                            <div className="p-3 text-muted">
-                                {searchQuery.trim()
-                                    ? `No employees found matching "${searchQuery}"`
-                                    : 'No employees with missing check-out'}
-                            </div>
-                        );
+                        return <StatEmptyState searchQuery={searchQuery} emptyMessage="No employees with missing check-out" />;
                     }
 
-                    return (
-                        <div className="table-responsive">
-                            <table className="table table-hover align-middle">
-                                <thead className="table-light">
-                                    <tr>
-                                        <th>Employee</th>
-                                        <th>Date</th>
-                                        <th>Check-in Time</th>
-                                        <th>Working Method</th>
-                                        <th>Location</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {sorted.map(emp => {
-                                        const att = emp.attendance;
-                                        const workingMethod = att?.workingMethod?.type || '—';
-                                        const wmKey = workingMethod
-                                            ?.replace(/\s/g, '')
-                                            ?.replace(/-/g, '')
-                                            ?.replace(/_/g, '')
-                                            ?.toLowerCase();
-                                        const wmColor =
-                                            workingMethod === 'Office'
-                                                ? workingLocationColors?.officeColor
-                                                : workingMethod === 'Hybrid'
-                                                  ? workingLocationColors?.remoteColor
-                                                  : wmKey?.includes('onsite')
-                                                    ? workingLocationColors?.onSiteColor
-                                                    : '#6c757d';
+                    const missingItems: EmployeeStatItem[] = sorted.map(emp => {
+                        const att = emp.attendance;
+                        const workingMethod = att?.workingMethod?.type || '';
+                        return {
+                            key: att?.id || emp._id,
+                            name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown',
+                            code: emp.employeeCode,
+                            avatarUrl: emp.avatar,
+                            designation: emp.designation,
+                            meta: (
+                                <>
+                                    {att?.checkIn && (
+                                        <div className="d-flex align-items-center gap-2 small flex-wrap">
+                                            <span className="fw-semibold text-gray-800">{dayjs(att.checkIn).format('D MMM YYYY')}</span>
+                                            <span className="badge badge-light-primary fw-semibold">{dayjs(att.checkIn).format('dddd')}</span>
+                                        </div>
+                                    )}
+                                    <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
+                                        {att?.checkIn && (
+                                            <span className="text-gray-700"><i className="bi bi-clock me-1"></i>{dayjs(att.checkIn).format('h:mm A')}</span>
+                                        )}
+                                        {workingMethod && (
+                                            <span className="badge badge-light-info fw-semibold">{workingMethod}</span>
+                                        )}
+                                        {att?.checkInLocation && (
+                                            att.latitude && att.longitude ? (
+                                                <a href={`https://www.google.com/maps?q=${att.latitude},${att.longitude}`} target="_blank" rel="noopener noreferrer" className="text-truncate d-inline-block" style={{ maxWidth: 180 }} onClick={(e) => e.stopPropagation()}>
+                                                    <i className="bi bi-geo-alt me-1"></i>{att.checkInLocation}
+                                                </a>
+                                            ) : (
+                                                <span className="text-muted text-truncate d-inline-block" style={{ maxWidth: 180 }}>
+                                                    <i className="bi bi-geo-alt me-1"></i>{att.checkInLocation}
+                                                </span>
+                                            )
+                                        )}
+                                    </div>
+                                </>
+                            ),
+                        };
+                    });
 
-                                        return (
-                                            <tr key={att?.id || emp._id}>
-                                                <td>
-                                                    <EmployeeIdentityCell
-                                                        name={`${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown'}
-                                                        code={emp.employeeCode}
-                                                        avatarUrl={emp.avatar}
-                                                    />
-                                                </td>
-                                                <td>
-                                                    {att?.checkIn ? (
-                                                        <div className="d-flex flex-column">
-                                                            <span className="fw-semibold text-gray-800">{dayjs(att.checkIn).format('D MMM YYYY')}</span>
-                                                            <span className="badge badge-light-primary align-self-start mt-1 fw-semibold">{dayjs(att.checkIn).format('dddd')}</span>
-                                                        </div>
-                                                    ) : '—'}
-                                                </td>
-                                                <td>
-                                                    {att?.checkIn
-                                                        ? dayjs(att.checkIn).format('h:mm A')
-                                                        : '—'}
-                                                </td>
-                                                <td>
-                                                    <span style={{ color: wmColor, fontWeight: 600 }}>
-                                                        {workingMethod}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    {att?.checkInLocation ? (
-                                                        att.latitude && att.longitude ? (
-                                                            <Tooltip title={att.checkInLocation} placement="top">
-                                                                <a
-                                                                    href={`https://www.google.com/maps?q=${att.latitude},${att.longitude}`}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="d-inline-flex align-items-center"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    <img
-                                                                        src={locationIcon}
-                                                                        alt="location"
-                                                                        style={{ width: 20, height: 20 }}
-                                                                    />
-                                                                    <span className="ms-1 text-truncate" style={{ maxWidth: 180 }}>
-                                                                        {att.checkInLocation}
-                                                                    </span>
-                                                                </a>
-                                                            </Tooltip>
-                                                        ) : (
-                                                            <span className="text-truncate d-inline-block" style={{ maxWidth: 220 }}>
-                                                                {att.checkInLocation}
-                                                            </span>
-                                                        )
-                                                    ) : (
-                                                        '—'
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    );
+                    return <EmployeeStatGrid items={missingItems} />;
                 }
 
                 default:
@@ -1394,7 +1311,7 @@ function Overview({ date, range }: OverviewProps) {
                 itemClassName="overview-stat-card-slot"
             />
 
-            <CustomModal
+            <StatDetailModal
                 show={showModal !== null}
                 onHide={handleCloseModal}
                 title={getModalTitle()}
@@ -1405,7 +1322,7 @@ function Overview({ date, range }: OverviewProps) {
                 onSortChange={setSortOption}
             >
                 {getModalContent()}
-            </CustomModal>
+            </StatDetailModal>
         </>
     );
 }

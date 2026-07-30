@@ -1,18 +1,7 @@
 import React, { useState } from "react";
-import {
-    Box,
-    Button,
-    Dialog,
-    DialogContent,
-    DialogTitle,
-    Divider,
-    IconButton,
-    InputAdornment,
-    Menu,
-    MenuItem,
-    TextField,
-    Typography,
-} from "@mui/material";
+import { Box, Divider, IconButton, InputAdornment, Menu, MenuItem, TextField } from "@mui/material";
+import { KTIcon } from "@metronic/helpers";
+import { GlassDialog, GlassHeader, WtButton } from "@app/modules/common/components/ui";
 
 /**
  * StatDetailModal — the shared "drill into a stat card" dialog: title, Sort By
@@ -20,10 +9,12 @@ import {
  *
  * Pair it with {@link EmployeeStatGrid} for the body. Both the admin Attendance
  * Overview and the Dashboard daily overview use this one component; before it
- * existed each page carried its own copy (one MUI, one react-bootstrap) and they
- * had already drifted apart visually.
+ * existed each page carried its own copy (one MUI Dialog, one react-bootstrap
+ * Modal) and the two had already drifted apart visually.
  *
- * Presentational only — search/sort state stays with the caller.
+ * Built on GlassDialog + GlassHeader, so it inherits the brand header band, the
+ * blurred scrim, dark mode and phone full-screen for free. Presentational only —
+ * search/sort state stays with the caller.
  */
 
 export type StatSortOption = 'name-asc' | 'name-desc' | 'checkin-asc' | 'checkin-desc' | 'none';
@@ -32,6 +23,10 @@ export interface StatDetailModalProps {
     show: boolean;
     onHide: () => void;
     title: string;
+    /** Optional context line under the title, e.g. a live count. */
+    subtitle?: string;
+    /** KTIcon (duotone) name for the header tile. */
+    icon?: string;
     children: React.ReactNode;
     /** Legacy react-bootstrap size names, mapped to MUI Dialog breakpoints. */
     size?: 'sm' | 'lg' | 'xl';
@@ -57,6 +52,8 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
     show,
     onHide,
     title,
+    subtitle,
+    icon = 'people',
     children,
     size = 'lg',
     searchQuery = '',
@@ -65,7 +62,6 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
     onSortChange,
 }) => {
     const [sortAnchor, setSortAnchor] = useState<null | HTMLElement>(null);
-    const sortMenuOpen = Boolean(sortAnchor);
 
     const handleSort = (option: StatSortOption) => {
         onSortChange?.(option);
@@ -73,152 +69,93 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
     };
 
     return (
-        <Dialog
+        <GlassDialog
             open={show}
             onClose={onHide}
             maxWidth={maxWidthMap[size]}
-            fullWidth
             scroll="paper"
-            PaperProps={{ sx: { borderRadius: 2 } }}
+            header={
+                <GlassHeader
+                    title={title}
+                    subtitle={subtitle}
+                    onClose={onHide}
+                    icon={<KTIcon iconName={icon} className="fs-2 text-white" />}
+                    closeIcon={<KTIcon iconName="cross" className="fs-3" />}
+                />
+            }
         >
-            <DialogTitle sx={{ pb: 1.25, pt: 1.75 }}>
+            {/* Controls sit BELOW the header band rather than inside it: on a phone a
+                sort button + search field crammed next to the title either overflows
+                or squeezes the title to an ellipsis. */}
+            {(onSortChange || onSearchChange) && (
                 <Box
                     sx={{
                         display: 'flex',
-                        flexDirection: { xs: 'column', md: 'row' },
-                        alignItems: { xs: 'stretch', md: 'center' },
-                        justifyContent: 'space-between',
-                        gap: { xs: 1.25, md: 2 },
+                        alignItems: 'center',
+                        gap: 1,
+                        flexWrap: 'wrap',
+                        px: { xs: 2, sm: 2.75 },
+                        py: 1.5,
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                        flexShrink: 0,
                     }}
                 >
-                    {/* Title row. On mobile the close button belongs here, beside the
-                        title — not stranded at the end of the controls row below. */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
-                        <Typography
-                            component="span"
-                            sx={{
-                                fontWeight: 700,
-                                fontSize: { xs: '1.1rem', sm: '1.35rem' },
-                                lineHeight: 1.25,
-                                flexShrink: 1,
-                                minWidth: 0,
-                            }}
-                        >
-                            {title}
-                        </Typography>
-                        <IconButton
-                            onClick={onHide}
-                            aria-label="close"
-                            sx={{ display: { xs: 'inline-flex', md: 'none' }, flexShrink: 0, color: (t) => t.palette.grey[600] }}
-                        >
-                            <i className="bi bi-x-lg" />
-                        </IconButton>
-                    </Box>
-
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                            width: { xs: '100%', md: 'auto' },
-                            minWidth: { md: 250 },
-                            maxWidth: { md: 500 },
-                            flexGrow: { xs: 1, md: 0 },
-                        }}
-                    >
-                        {onSortChange && (
-                            <>
-                                <Button
-                                    size="small"
-                                    variant="contained"
-                                    onClick={(e) => setSortAnchor(e.currentTarget)}
-                                    startIcon={<i className="bi bi-filter" />}
-                                    sx={{
-                                        bgcolor: '#1E3A8A',
-                                        '&:hover': { bgcolor: '#152a63' },
-                                        color: 'white',
-                                        textTransform: 'none',
-                                        whiteSpace: 'nowrap',
-                                        height: 35,
-                                        flexShrink: 0,
-                                    }}
-                                >
-                                    {SORT_LABELS[sortOption]}
-                                </Button>
-                                <Menu anchorEl={sortAnchor} open={sortMenuOpen} onClose={() => setSortAnchor(null)}>
-                                    <MenuItem onClick={() => handleSort('name-asc')}>
-                                        <i className="bi bi-sort-alpha-down me-2" />
-                                        Name (A-Z)
-                                    </MenuItem>
-                                    <MenuItem onClick={() => handleSort('name-desc')}>
-                                        <i className="bi bi-sort-alpha-up me-2" />
-                                        Name (Z-A)
-                                    </MenuItem>
-                                    <Divider />
-                                    <MenuItem onClick={() => handleSort('checkin-asc')}>
-                                        <i className="bi bi-clock me-2" />
-                                        Check-in (Earliest)
-                                    </MenuItem>
-                                    <MenuItem onClick={() => handleSort('checkin-desc')}>
-                                        <i className="bi bi-clock-fill me-2" />
-                                        Check-in (Latest)
-                                    </MenuItem>
-                                    {sortOption !== 'none' && [
-                                        <Divider key="clear-divider" />,
-                                        <MenuItem key="clear" onClick={() => handleSort('none')}>
-                                            <i className="bi bi-x-circle me-2" />
-                                            Clear Sort
-                                        </MenuItem>,
-                                    ]}
-                                </Menu>
-                            </>
-                        )}
-
-                        {onSearchChange && (
-                            <TextField
+                    {onSortChange && (
+                        <>
+                            <WtButton
                                 size="small"
-                                fullWidth
-                                type="text"
-                                placeholder="Search by name..."
-                                value={searchQuery}
-                                onChange={(e) => onSearchChange(e.target.value)}
-                                InputProps={{
-                                    endAdornment: searchQuery ? (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => onSearchChange('')}
-                                                title="Clear search"
-                                                sx={{ color: '#1E3A8A' }}
-                                            >
-                                                <i className="bi bi-x-lg" style={{ fontSize: 14 }} />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    ) : undefined,
-                                }}
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        '& fieldset': { borderColor: '#1E3A8A' },
-                                        '&:hover fieldset': { borderColor: '#1E3A8A' },
-                                        '&.Mui-focused fieldset': { borderColor: '#1E3A8A' },
-                                    },
-                                }}
-                            />
-                        )}
+                                onClick={(e) => setSortAnchor(e.currentTarget)}
+                                startIcon={<KTIcon iconName="filter" className="fs-5" />}
+                                sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                            >
+                                {SORT_LABELS[sortOption]}
+                            </WtButton>
+                            <Menu anchorEl={sortAnchor} open={Boolean(sortAnchor)} onClose={() => setSortAnchor(null)}>
+                                <MenuItem onClick={() => handleSort('name-asc')}>Name (A-Z)</MenuItem>
+                                <MenuItem onClick={() => handleSort('name-desc')}>Name (Z-A)</MenuItem>
+                                <Divider />
+                                <MenuItem onClick={() => handleSort('checkin-asc')}>Check-in (Earliest)</MenuItem>
+                                <MenuItem onClick={() => handleSort('checkin-desc')}>Check-in (Latest)</MenuItem>
+                                {sortOption !== 'none' && [
+                                    <Divider key="clear-divider" />,
+                                    <MenuItem key="clear" onClick={() => handleSort('none')}>Clear Sort</MenuItem>,
+                                ]}
+                            </Menu>
+                        </>
+                    )}
 
-                        <IconButton
-                            onClick={onHide}
-                            aria-label="close"
-                            sx={{ display: { xs: 'none', md: 'inline-flex' }, flexShrink: 0, color: (t) => t.palette.grey[600] }}
-                        >
-                            <i className="bi bi-x-lg" />
-                        </IconButton>
-                    </Box>
+                    {onSearchChange && (
+                        <TextField
+                            size="small"
+                            type="text"
+                            placeholder="Search by name..."
+                            value={searchQuery}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                            // Grows to fill the row on desktop, drops to full width once the
+                            // sort button has taken the first line on a narrow screen.
+                            sx={{ flex: '1 1 220px', minWidth: 0 }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <KTIcon iconName="magnifier" className="fs-5" />
+                                    </InputAdornment>
+                                ),
+                                endAdornment: searchQuery ? (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => onSearchChange('')} aria-label="Clear search">
+                                            <KTIcon iconName="cross" className="fs-5" />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ) : undefined,
+                            }}
+                        />
+                    )}
                 </Box>
-            </DialogTitle>
+            )}
 
-            <DialogContent dividers>{children}</DialogContent>
-        </Dialog>
+            <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 2, sm: 2.75 }, py: 2 }}>{children}</Box>
+        </GlassDialog>
     );
 };
 

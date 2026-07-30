@@ -83,9 +83,11 @@ const EmployeeIdentityCell: React.FC<EmployeeIdentityCellProps> = ({
         fontSize: "0.66rem",
         fontWeight: 600,
         letterSpacing: "0.02em",
-        color: "#475467",
-        bgcolor: "#F2F4F7",
-        border: "1px solid #E6E9EE",
+        // Theme tokens, not fixed greys — a hardcoded #F2F4F7 chip stays light-on-light in dark mode.
+        color: "text.secondary",
+        bgcolor: "action.hover",
+        border: 1,
+        borderColor: "divider",
         borderRadius: "6px",
         lineHeight: 1.5,
       }}
@@ -132,7 +134,7 @@ const EmployeeIdentityCell: React.FC<EmployeeIdentityCellProps> = ({
               sx={{
                 fontWeight: 650,
                 fontSize: dense ? "0.82rem" : "0.875rem",
-                color: "#1B2230",
+                color: "text.primary",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -151,7 +153,7 @@ const EmployeeIdentityCell: React.FC<EmployeeIdentityCellProps> = ({
             component="div"
             sx={{
               fontSize: "0.72rem",
-              color: "#5A6573",
+              color: "text.secondary",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",

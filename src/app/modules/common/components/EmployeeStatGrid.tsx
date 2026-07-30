@@ -1,16 +1,20 @@
 import React from "react";
-import { Box, Grid, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
+import { KTIcon } from "@metronic/helpers";
+import { AutoGrid, GlassCard } from "@app/modules/common/components/ui";
 import EmployeeIdentityCell from "./EmployeeIdentityCell";
 
 /**
- * EmployeeStatGrid — the shared responsive card grid used in the body of a
+ * EmployeeStatGrid — the shared card grid used in the body of a
  * {@link StatDetailModal}: one compact card per employee, identity on top and an
  * optional caller-supplied meta line (dates, badges, check-in/out chips).
  *
- * Density is the whole point. The identity is ONE two-line block — the code chip
- * rides inline beside the name and the designation is the subtitle — and the meta
- * block is skipped entirely when a card has none, so absent/on-leave cards don't
- * render an empty div that still eats a flex gap.
+ * Density is the whole point (CLAUDE.md → "fill the width, no dead whitespace").
+ * `AutoGrid` auto-fits as many tiles as the dialog can hold instead of capping at
+ * a fixed column count, the identity is ONE two-line block (code chip inline
+ * beside the name, designation as the subtitle), and the meta block is skipped
+ * entirely when a card has none — so absent/on-leave cards don't render an empty
+ * element that still eats a flex gap.
  *
  * Presentational only. Anything page-specific (late/early colouring, working
  * method, map links) belongs in `meta`, computed by the caller.
@@ -29,46 +33,30 @@ export interface EmployeeStatItem {
 
 export interface EmployeeStatGridProps {
     items: EmployeeStatItem[];
+    /** Minimum tile width before AutoGrid drops a column. */
+    minTileWidth?: number;
 }
 
-export const EmployeeStatGrid: React.FC<EmployeeStatGridProps> = ({ items }) => (
-    // 1 / 2 / 3 / 4 columns. The 4th at lg fills an xl dialog's width instead of
-    // leaving half of every card empty.
-    <Grid container spacing={1.5}>
+export const EmployeeStatGrid: React.FC<EmployeeStatGridProps> = ({ items, minTileWidth = 248 }) => (
+    <AutoGrid min={minTileWidth} gap={12}>
         {items.map((item) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={item.key}>
-                <Box
-                    sx={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 0.75,
-                        px: 1.25,
-                        py: 1.125,
-                        borderRadius: 2,
-                        border: '1px solid #E6E9EE',
-                        background: 'linear-gradient(180deg,#FFFFFF 0%,#FCFDFF 100%)',
-                        boxShadow: '0 1px 2px rgba(16,24,40,0.05)',
-                        transition: 'box-shadow .2s ease, transform .2s ease, border-color .2s ease',
-                        '&:hover': {
-                            boxShadow: '0 8px 24px rgba(16,24,40,0.10)',
-                            transform: 'translateY(-2px)',
-                            borderColor: 'rgba(30,58,138,0.28)',
-                        },
-                    }}
-                >
-                    <EmployeeIdentityCell
-                        name={item.name}
-                        code={item.code}
-                        avatarUrl={item.avatarUrl}
-                        subtitle={item.designation || 'No designation'}
-                        fluid
-                    />
-                    {item.meta ? <div>{item.meta}</div> : null}
-                </Box>
-            </Grid>
+            <GlassCard
+                key={item.key}
+                preset="row"
+                interactive
+                sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, minWidth: 0 }}
+            >
+                <EmployeeIdentityCell
+                    name={item.name}
+                    code={item.code}
+                    avatarUrl={item.avatarUrl}
+                    subtitle={item.designation || 'No designation'}
+                    fluid
+                />
+                {item.meta ? <Box sx={{ minWidth: 0 }}>{item.meta}</Box> : null}
+            </GlassCard>
         ))}
-    </Grid>
+    </AutoGrid>
 );
 
 export interface StatEmptyStateProps {
@@ -82,7 +70,7 @@ export interface StatEmptyStateProps {
 export const StatEmptyState: React.FC<StatEmptyStateProps> = ({ searchQuery, emptyMessage }) => {
     const q = (searchQuery ?? '').trim();
     return (
-        <Box sx={{ py: 6, px: 2, textAlign: 'center', color: '#5A6573' }}>
+        <Box sx={{ py: 6, px: 2, textAlign: 'center' }}>
             <Box
                 sx={{
                     width: 52,
@@ -92,17 +80,16 @@ export const StatEmptyState: React.FC<StatEmptyStateProps> = ({ searchQuery, emp
                     display: 'grid',
                     placeItems: 'center',
                     borderRadius: '50%',
-                    bgcolor: '#F2F4F7',
-                    color: '#98A2B3',
-                    fontSize: 22,
+                    bgcolor: 'action.hover',
+                    color: 'text.disabled',
                 }}
             >
-                <i className={q ? 'bi bi-search' : 'bi bi-people'} />
+                <KTIcon iconName={q ? 'magnifier' : 'people'} className="fs-2x" />
             </Box>
-            <Typography sx={{ fontWeight: 650, fontSize: '0.95rem', color: '#1B2230' }}>
+            <Typography sx={{ fontWeight: 650, fontSize: '0.95rem', color: 'text.primary' }}>
                 {q ? 'No matches found' : 'Nothing to show here'}
             </Typography>
-            <Typography sx={{ fontSize: '0.8rem', mt: 0.5 }}>
+            <Typography sx={{ fontSize: '0.8rem', mt: 0.5, color: 'text.secondary' }}>
                 {q
                     ? `No employee matches "${q}".`
                     : emptyMessage || 'No employees fall into this category for the selected period.'}
