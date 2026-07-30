@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Box, Stack, Typography, TextField, MenuItem, CircularProgress, DialogContent, DialogActions, FormControlLabel, Switch,
+    Box, Stack, Typography, TextField, MenuItem, CircularProgress, DialogContent, DialogActions, FormControlLabel,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
-    AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip, WtSwitchField,
+    AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip, WtSwitch, WtSwitchField,
     toast, confirmDialog,
 } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
@@ -112,9 +112,9 @@ const PostingsView = () => {
 
                             <Stack direction="row" alignItems="center" spacing={0.5} sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
                                 <FormControlLabel
-                                    sx={{ mr: 0, ml: -0.5 }}
-                                    control={<Switch size="small" checked={p.isPublished} onChange={(e) => publishMut.mutate({ id: p.id, isPublished: e.target.checked })} />}
-                                    label={<Typography sx={{ fontSize: 12 }}>Publish</Typography>}
+                                    sx={{ mr: 0, ml: 0, gap: 0.75 }}
+                                    control={<WtSwitch size="sm" checked={p.isPublished} onChange={(e) => publishMut.mutate({ id: p.id, isPublished: e.target.checked })} />}
+                                    label={<Typography sx={{ fontSize: 12, fontWeight: 600 }}>Publish</Typography>}
                                 />
                                 <Box sx={{ flex: 1 }} />
                                 <WtIconButton title="Copy public link" onClick={() => copyLink(p.publicSlug)} sx={{ width: 34, height: 34, borderRadius: "10px" }}>

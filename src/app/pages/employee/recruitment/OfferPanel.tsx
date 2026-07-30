@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Box, Stack, Typography, TextField, CircularProgress } from "@mui/material";
+import { Box, Stack, Typography, TextField, MenuItem, CircularProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassCard, WtButton, ToneChip, toast, confirmDialog, type SemanticTone } from "@app/modules/common/components/ui";
+import { GlassCard, WtButton, ToneChip, WtDateField, toast, confirmDialog, type SemanticTone } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
+import { fetchDesignations, fetchDepartments } from "@services/options";
 import {
     getApplicationOffer, createOffer, updateOffer, submitOfferApproval, respondToOffer,
     type Offer, type OfferPayload,
@@ -30,6 +31,8 @@ interface Props {
 const OfferPanel = ({ applicationId, applicantName }: Props) => {
     const qc = useQueryClient();
     const { data: offer, isLoading } = useQuery({ queryKey: queryKeys.recruitment.offer(applicationId), queryFn: () => getApplicationOffer(applicationId) });
+    const { data: designations = [] } = useQuery({ queryKey: ["designations", "options"], queryFn: async () => (await fetchDesignations())?.data?.designations ?? [], staleTime: 5 * 60_000 });
+    const { data: departments = [] } = useQuery({ queryKey: ["departments", "options"], queryFn: async () => (await fetchDepartments())?.data?.departments ?? [], staleTime: 5 * 60_000 });
     const [form, setForm] = useState<OfferPayload>({ applicationId });
 
     useEffect(() => {
@@ -86,15 +89,21 @@ const OfferPanel = ({ applicationId, applicantName }: Props) => {
                             value={form.offeredCtcInLpa ?? ""}
                             onChange={(e) => setForm({ ...form, offeredCtcInLpa: e.target.value === "" ? null : Number(e.target.value) })}
                         />
-                        <TextField
-                            label="Proposed joining date" type="date" size="small" sx={{ flex: 1 }} InputLabelProps={{ shrink: true }}
+                        <WtDateField
+                            label="Proposed joining date" sx={{ flex: 1 }}
                             value={toDateInput(form.proposedJoiningDate)}
-                            onChange={(e) => setForm({ ...form, proposedJoiningDate: e.target.value || null })}
+                            onChange={(v) => setForm({ ...form, proposedJoiningDate: v || null })}
                         />
                     </Stack>
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                        <TextField label="Designation ID (optional)" size="small" sx={{ flex: 1 }} value={form.offeredDesignationId ?? ""} onChange={(e) => setForm({ ...form, offeredDesignationId: e.target.value || null })} />
-                        <TextField label="Department ID (optional)" size="small" sx={{ flex: 1 }} value={form.offeredDepartmentId ?? ""} onChange={(e) => setForm({ ...form, offeredDepartmentId: e.target.value || null })} />
+                        <TextField label="Designation" select size="small" sx={{ flex: 1 }} value={form.offeredDesignationId ?? ""} onChange={(e) => setForm({ ...form, offeredDesignationId: e.target.value || null })}>
+                            <MenuItem value="">— None —</MenuItem>
+                            {designations.map((d: { id: string; role: string }) => <MenuItem key={d.id} value={d.id}>{d.role}</MenuItem>)}
+                        </TextField>
+                        <TextField label="Department" select size="small" sx={{ flex: 1 }} value={form.offeredDepartmentId ?? ""} onChange={(e) => setForm({ ...form, offeredDepartmentId: e.target.value || null })}>
+                            <MenuItem value="">— None —</MenuItem>
+                            {departments.map((d: { id: string; name: string }) => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
+                        </TextField>
                     </Stack>
                     <TextField label="Notes" size="small" fullWidth multiline minRows={2} value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value || null })} />
 

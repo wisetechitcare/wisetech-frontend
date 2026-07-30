@@ -196,34 +196,38 @@
   display: none;
 }
 
-/* ── Dark mode ─────────────────────────────────────────────────────── */
-@media (prefers-color-scheme: dark) {
-  .aside {
-    background: #0F172A !important;
-    border-right-color: #1E293B !important;
-  }
-  .menu-font-icon {
-    color: #94A3B8;
-    background: #1E293B;
-  }
-  .menu-title {
-    color: #E2E8F0 !important;
-  }
-  .menu-section {
-    color: #64748B !important;
-    border-top-color: #1E293B !important;
-  }
-  .menu-link:hover {
-    background-color: rgba(148, 163, 184, 0.08) !important;
-  }
-  .menu-link:hover .menu-font-icon {
-    color: #FF6B6B !important;
-    background: rgba(255, 107, 107, 0.12) !important;
-  }
-  .menu-link.active .menu-title {
-    color: #FF8A8D !important;
-  }
-  .menu-sub .menu-title {
-    color: #94A3B8 !important;
-  }
+/* ── Dark mode ─────────────────────────────────────────────────────────────
+   Keyed to the in-app toggle, NOT `prefers-color-scheme`. As a media query this block fired off
+   the OS setting, so a user on a dark-OS machine got a dark sidebar while the rest of the app was
+   light (and a dark-mode user on a light OS never got it at all).
+   Surfaces/text come from the shared GitHub palette (app/theme/githubDark.ts) instead of the
+   slate family this block used to carry; the red hover/active accent is kept — it's the app's
+   brand accent, brightened for legibility on a dark surface. */
+[data-bs-theme="dark"] .aside {
+  background: var(--gh-surface, #161b22) !important;
+  border-right-color: var(--gh-border, #30363d) !important;
+}
+[data-bs-theme="dark"] .menu-font-icon {
+  color: var(--gh-fg-muted, #7d8590);
+  background: var(--gh-elevated, #1c2128);
+}
+[data-bs-theme="dark"] .menu-title {
+  color: var(--gh-fg, #e6edf3) !important;
+}
+[data-bs-theme="dark"] .menu-section {
+  color: var(--gh-fg-subtle, #6e7681) !important;
+  border-top-color: var(--gh-border-muted, #21262d) !important;
+}
+[data-bs-theme="dark"] .menu-link:hover {
+  background-color: var(--gh-hover, rgba(177, 186, 196, 0.08)) !important;
+}
+[data-bs-theme="dark"] .menu-link:hover .menu-font-icon {
+  color: #FF6B6B !important;
+  background: rgba(255, 107, 107, 0.12) !important;
+}
+[data-bs-theme="dark"] .menu-link.active .menu-title {
+  color: #FF8A8D !important;
+}
+[data-bs-theme="dark"] .menu-sub .menu-title {
+  color: var(--gh-fg-muted, #7d8590) !important;
 }

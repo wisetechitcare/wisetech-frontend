@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import dayjs, { Dayjs } from "dayjs";
 import PeriodTabs from "./PeriodTabs";
 import PeriodNavigator from "./PeriodNavigator";
+import { Box, Typography } from "@mui/material";
 import { DATE_FORMATS, formatDateRange, buildFiscalYearLabel } from "@utils/dateFormats";
+import { WtDateField } from "@app/modules/common/components/ui";
 
 export type PeriodMode = "daily" | "weekly" | "monthly" | "yearly" | "allyear" | "custom";
 
@@ -103,7 +105,7 @@ const PeriodFilter: React.FC<Props> = ({
   const range = useMemo<PeriodRange>(() => {
     switch (mode) {
       case "daily":
-        return { mode, start: anchor.startOf("day"), end: anchor.endOf("day"), label: anchor.format(DATE_FORMATS.FULL) };
+        return { mode, start: anchor.startOf("day"), end: anchor.endOf("day"), label: anchor.format(DATE_FORMATS.DISPLAY) };
       case "weekly": {
         const s = anchor.startOf("week");
         const e = anchor.endOf("week");
@@ -170,11 +172,11 @@ const PeriodFilter: React.FC<Props> = ({
       )}
 
       {mode === "custom" && (
-        <div className="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 gap-sm-2">
-          <input type="date" className="form-control form-control-sm" style={{ fontSize: 12, minWidth: 0, flex: "1 1 140px" }} value={customStart} max={customEnd || undefined} onChange={(e) => setCustomStart(e.target.value)} />
-          <span style={{ color: "#aab2bd", textAlign: "center" }}>–</span>
-          <input type="date" className="form-control form-control-sm" style={{ fontSize: 12, minWidth: 0, flex: "1 1 140px" }} value={customEnd} min={customStart || undefined} onChange={(e) => setCustomEnd(e.target.value)} />
-        </div>
+        <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, alignItems: { xs: "stretch", sm: "center" }, gap: 1 }}>
+          <WtDateField label="From" value={customStart} maxDate={customEnd || undefined} onChange={setCustomStart} sx={{ flex: "1 1 150px", minWidth: 0 }} />
+          <Typography sx={{ color: "text.disabled", textAlign: "center", flexShrink: 0 }}>–</Typography>
+          <WtDateField label="To" value={customEnd} minDate={customStart || undefined} onChange={setCustomEnd} sx={{ flex: "1 1 150px", minWidth: 0 }} />
+        </Box>
       )}
     </div>
   );

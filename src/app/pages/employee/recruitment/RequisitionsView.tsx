@@ -9,6 +9,7 @@ import {
     AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, ToneChip,
     WtDateField, toast, confirmDialog, type SemanticTone,
 } from "@app/modules/common/components/ui";
+import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
 import { queryKeys } from "@/lib/queryKeys";
 import {
     getRequisitions, createRequisition, updateRequisition, archiveRequisition, submitRequisitionApproval,
@@ -27,6 +28,7 @@ const emptyForm = (): RequisitionPayload => ({
     jobDescription: "",
     headcount: 1,
     hiringManagerId: "",
+    recruiterId: "",
     minCtcInLpa: null,
     maxCtcInLpa: null,
     targetStartDate: null,
@@ -111,6 +113,7 @@ const RequisitionsView = () => {
             jobDescription: r.jobDescription ?? "",
             headcount: r.headcount ?? 1,
             hiringManagerId: r.hiringManagerId ?? "",
+            recruiterId: r.recruiterId ?? "",
             minCtcInLpa: r.minCtcInLpa == null ? null : Number(r.minCtcInLpa),
             maxCtcInLpa: r.maxCtcInLpa == null ? null : Number(r.maxCtcInLpa),
             targetStartDate: r.targetStartDate ? r.targetStartDate.slice(0, 10) : null,
@@ -138,6 +141,7 @@ const RequisitionsView = () => {
             headcount: form.headcount && form.headcount > 0 ? form.headcount : 1,
             jobDescription: form.jobDescription || null,
             hiringManagerId: form.hiringManagerId || null,
+            recruiterId: form.recruiterId || null,
             requisitionStageId: form.requisitionStageId || null,
             minCtcInLpa: form.minCtcInLpa ?? null,
             maxCtcInLpa: form.maxCtcInLpa ?? null,
@@ -305,12 +309,21 @@ const RequisitionsView = () => {
                                 {stages.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
                             </TextField>
                         )}
-                        <TextField
-                            label="Hiring manager (employee ID)" fullWidth size="small"
-                            helperText="Used as the approver when you submit for approval."
-                            value={form.hiringManagerId ?? ""}
-                            onChange={(e) => setForm({ ...form, hiringManagerId: e.target.value })}
-                        />
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                            <EmployeePickerField
+                                label="Hiring manager" sx={{ flex: 1 }}
+                                placeholder="Select a manager…"
+                                helperText="Used as the approver when you submit for approval."
+                                value={form.hiringManagerId ?? null}
+                                onChange={(ids) => setForm({ ...form, hiringManagerId: ids[0] ?? null })}
+                            />
+                            <EmployeePickerField
+                                label="Recruiter" sx={{ flex: 1 }}
+                                placeholder="Select a recruiter…"
+                                value={form.recruiterId ?? null}
+                                onChange={(ids) => setForm({ ...form, recruiterId: ids[0] ?? null })}
+                            />
+                        </Stack>
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>

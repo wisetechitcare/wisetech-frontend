@@ -10,6 +10,7 @@ import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropdownInput from "@app/modules/common/inputs/DropdownInput";
+import { WtSwitch } from "@app/modules/common/components/ui";
 
 // Interfaces matching the specific JSON structure
 interface IRuleTill {
@@ -774,18 +775,7 @@ function DeductionRules() {
                       <TextInput formikField="male.till.monthlyTax" type="number" placeholder="Tax" isRequired={true} parser={numberParser} />
                     </div>
                     <div className="col-2 text-end">
-                      <div className="form-check form-switch" style={{ display: 'inline-block' }}>
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={values.male.till.isActive}
-                          onChange={(e) => setFieldValue("male.till.isActive", e.target.checked)}
-                          style={{
-                            backgroundColor: values.male.till.isActive ? '#1E3A8A' : '#ccc',
-                            borderColor: values.male.till.isActive ? '#1E3A8A' : '#ccc'
-                          }}
-                        />
-                      </div>
+                      <WtSwitch size="sm" checked={values.male.till.isActive} onChange={(e) => setFieldValue("male.till.isActive", e.target.checked)} />
                     </div>
                   </div>
 
@@ -807,18 +797,7 @@ function DeductionRules() {
                       <TextInput formikField="male.range.monthlyTax" type="number" placeholder="Tax" isRequired={true} parser={numberParser} />
                     </div>
                     <div className="col-2 text-end">
-                      <div className="form-check form-switch" style={{ display: 'inline-block' }}>
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={values.male.range.isActive}
-                          onChange={(e) => setFieldValue("male.range.isActive", e.target.checked)}
-                          style={{
-                            backgroundColor: values.male.range.isActive ? '#1E3A8A' : '#ccc',
-                            borderColor: values.male.range.isActive ? '#1E3A8A' : '#ccc'
-                          }}
-                        />
-                      </div>
+                      <WtSwitch size="sm" checked={values.male.range.isActive} onChange={(e) => setFieldValue("male.range.isActive", e.target.checked)} />
                     </div>
                   </div>
 
@@ -832,18 +811,7 @@ function DeductionRules() {
                       <TextInput formikField="male.moreThan.monthlyTax" type="number" placeholder="Tax" isRequired={true} parser={numberParser} />
                     </div>
                     <div className="col-2 text-end">
-                      <div className="form-check form-switch" style={{ display: 'inline-block' }}>
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={values.male.moreThan.isActive}
-                          onChange={(e) => setFieldValue("male.moreThan.isActive", e.target.checked)}
-                          style={{
-                            backgroundColor: values.male.moreThan.isActive ? '#1E3A8A' : '#ccc',
-                            borderColor: values.male.moreThan.isActive ? '#1E3A8A' : '#ccc'
-                          }}
-                        />
-                      </div>
+                      <WtSwitch size="sm" checked={values.male.moreThan.isActive} onChange={(e) => setFieldValue("male.moreThan.isActive", e.target.checked)} />
                     </div>
                   </div>
 
@@ -865,18 +833,7 @@ function DeductionRules() {
                       <TextInput formikField="male.lastMonth.monthlyTax" type="number" placeholder="Tax" isRequired={true} parser={numberParser} />
                     </div>
                     <div className="col-2 text-end">
-                      <div className="form-check form-switch" style={{ display: 'inline-block' }}>
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={values.male.lastMonth.isActive}
-                          onChange={(e) => setFieldValue("male.lastMonth.isActive", e.target.checked)}
-                          style={{
-                            backgroundColor: values.male.lastMonth.isActive ? '#1E3A8A' : '#ccc',
-                            borderColor: values.male.lastMonth.isActive ? '#1E3A8A' : '#ccc'
-                          }}
-                        />
-                      </div>
+                      <WtSwitch size="sm" checked={values.male.lastMonth.isActive} onChange={(e) => setFieldValue("male.lastMonth.isActive", e.target.checked)} />
                     </div>
                   </div>
                 </div>
@@ -913,18 +870,7 @@ function DeductionRules() {
                       <TextInput formikField="female.till.monthlyTax" type="number" placeholder="Tax" isRequired={true} parser={numberParser} />
                     </div>
                     <div className="col-2 text-end">
-                      <div className="form-check form-switch" style={{ display: 'inline-block' }}>
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={values.female.till.isActive}
-                          onChange={(e) => setFieldValue("female.till.isActive", e.target.checked)}
-                          style={{
-                            backgroundColor: values.female.till.isActive ? '#1E3A8A' : '#ccc',
-                            borderColor: values.female.till.isActive ? '#1E3A8A' : '#ccc'
-                          }}
-                        />
-                      </div>
+                      <WtSwitch size="sm" checked={values.female.till.isActive} onChange={(e) => setFieldValue("female.till.isActive", e.target.checked)} />
                     </div>
                   </div>
 
@@ -946,18 +892,7 @@ function DeductionRules() {
                       <TextInput formikField="female.range.monthlyTax" type="number" placeholder="Tax" isRequired={true} parser={numberParser} />
                     </div>
                     <div className="col-2 text-end">
-                      <div className="form-check form-switch" style={{ display: 'inline-block' }}>
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={values.female.range.isActive}
-                          onChange={(e) => setFieldValue("female.range.isActive", e.target.checked)}
-                          style={{
-                            backgroundColor: values.female.range.isActive ? '#1E3A8A' : '#ccc',
-                            borderColor: values.female.range.isActive ? '#1E3A8A' : '#ccc'
-                          }}
-                        />
-                      </div>
+                      <WtSwitch size="sm" checked={values.female.range.isActive} onChange={(e) => setFieldValue("female.range.isActive", e.target.checked)} />
                     </div>
                   </div>
 
@@ -971,18 +906,7 @@ function DeductionRules() {
                       <TextInput formikField="female.moreThan.monthlyTax" type="number" placeholder="Tax" isRequired={true} parser={numberParser} />
                     </div>
                     <div className="col-2 text-end">
-                      <div className="form-check form-switch" style={{ display: 'inline-block' }}>
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={values.female.moreThan.isActive}
-                          onChange={(e) => setFieldValue("female.moreThan.isActive", e.target.checked)}
-                          style={{
-                            backgroundColor: values.female.moreThan.isActive ? '#1E3A8A' : '#ccc',
-                            borderColor: values.female.moreThan.isActive ? '#1E3A8A' : '#ccc'
-                          }}
-                        />
-                      </div>
+                      <WtSwitch size="sm" checked={values.female.moreThan.isActive} onChange={(e) => setFieldValue("female.moreThan.isActive", e.target.checked)} />
                     </div>
                   </div>
 
@@ -1004,18 +928,7 @@ function DeductionRules() {
                       <TextInput formikField="female.lastMonth.monthlyTax" type="number" placeholder="Tax" isRequired={true} parser={numberParser} />
                     </div>
                     <div className="col-2 text-end">
-                      <div className="form-check form-switch" style={{ display: 'inline-block' }}>
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={values.female.lastMonth.isActive}
-                          onChange={(e) => setFieldValue("female.lastMonth.isActive", e.target.checked)}
-                          style={{
-                            backgroundColor: values.female.lastMonth.isActive ? '#1E3A8A' : '#ccc',
-                            borderColor: values.female.lastMonth.isActive ? '#1E3A8A' : '#ccc'
-                          }}
-                        />
-                      </div>
+                      <WtSwitch size="sm" checked={values.female.lastMonth.isActive} onChange={(e) => setFieldValue("female.lastMonth.isActive", e.target.checked)} />
                     </div>
                   </div>
                 </div>

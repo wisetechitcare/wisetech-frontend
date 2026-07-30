@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { GH_DARK } from './githubDark';
 
 /**
  * ============================================================================
@@ -163,9 +164,12 @@ const FILL = {
   },
 } as const;
 
+// Dark tracks the app-wide GitHub palette rather than Apple's pure black. The Login page is the
+// only live consumer of makeTokens(), and pure #000 made it the one screen that didn't match the
+// rest of the app's #0d1117 canvas.
 const BG = {
   light: { base: '#FFFFFF', sunken: '#F2F2F7', elevated: '#FFFFFF', grouped: '#F2F2F7' },
-  dark: { base: '#000000', sunken: '#1C1C1E', elevated: '#2C2C2E', grouped: '#000000' },
+  dark: { base: GH_DARK.canvas, sunken: GH_DARK.surface, elevated: GH_DARK.elevated, grouped: GH_DARK.canvas },
 } as const;
 
 const FONT_STACK = {
@@ -334,11 +338,11 @@ export const LEGACY_UIKIT = {
       tertiary: 'rgba(0,0,0,0.26)',
       quaternary: 'rgba(0,0,0,0.12)',
     },
-    // GitHub Primer "dark default" foreground tiers (fg / fg.muted / fg.subtle).
+    // GitHub Primer "dark default" foreground tiers, from the shared palette (./githubDark).
     dark: {
-      primary: '#e6edf3',
-      secondary: '#7d8590',
-      tertiary: '#6e7681',
+      primary: GH_DARK.fg,
+      secondary: GH_DARK.fgMuted,
+      tertiary: GH_DARK.fgSubtle,
       quaternary: 'rgba(255,255,255,0.12)',
     },
   },
@@ -377,30 +381,31 @@ export const LEGACY_UIKIT = {
       scrim: 'rgba(16,24,40,0.32)',
       scrimBlur: 4,
     },
-    // GitHub-style dark: surface #161b22 (regular) / elevated #1c2128 (thin), crisp #30363d borders,
-    // near-black #010409 scrim. Frost tint is pulled toward the flat GitHub surfaces.
+    // GitHub-style dark, derived from the shared palette (./githubDark): surface (regular) /
+    // elevated (thin), crisp borders, near-black scrim. Frost tint is pulled toward the flat
+    // GitHub surfaces — `bg` is the translucent form of the same colour as `fallbackBg`.
     dark: {
       regular: {
-        bg: 'rgba(22,27,34,0.72)',
+        bg: 'rgba(22,27,34,0.72)',        // GH_DARK.surface @ 72%
         blur: 30,
         saturate: 180,
-        border: '1px solid #30363d',
+        border: `1px solid ${GH_DARK.border}`,
         highlight: 'inset 0 1px 0 rgba(255,255,255,0.06)',
-        shadow: '0 16px 48px rgba(1,4,9,0.60)',
+        shadow: GH_DARK.shadowLg,
         radius: 16,
-        fallbackBg: 'rgba(22,27,34,0.98)',
+        fallbackBg: GH_DARK.surface,
       },
       thin: {
-        bg: 'rgba(28,33,40,0.55)',
+        bg: 'rgba(28,33,40,0.55)',        // GH_DARK.elevated @ 55%
         blur: 16,
         saturate: 160,
-        border: '1px solid #30363d',
+        border: `1px solid ${GH_DARK.border}`,
         highlight: 'inset 0 1px 0 rgba(255,255,255,0.05)',
         shadow: '0 4px 16px rgba(1,4,9,0.40)',
         radius: 12,
-        fallbackBg: 'rgba(28,33,40,0.96)',
+        fallbackBg: GH_DARK.elevated,
       },
-      scrim: 'rgba(1,4,9,0.70)',
+      scrim: GH_DARK.scrim,
       scrimBlur: 4,
     },
   },

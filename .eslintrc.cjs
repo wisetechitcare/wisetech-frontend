@@ -59,5 +59,100 @@ module.exports = {
     'no-empty': 'off',
     'no-fallthrough': 'off',
     'react-refresh/only-export-components': 'off',
+
+    /* --- DESIGN SYSTEM: banned primitives (see CLAUDE.md "UI standard") ---------------
+     * These are ERRORS on purpose. The standard used to live only in prose, so violations
+     * were caught by a human noticing a screenshot looked wrong — a raw <Switch> sat 30
+     * lines from a WtSwitchField in the same file for weeks. Now the build catches them.
+     * Each message names the replacement so the fix is obvious.
+     * The kit itself is exempted in `overrides` below (it must use the raw primitives). */
+    /* Import-level bans. Kept as a SEPARATE rule from `no-restricted-syntax` on purpose: the
+     * ratchet below downgrades no-restricted-syntax to `warn` for 286 legacy files, which would
+     * otherwise let a raw MUI Switch back into any of them. This rule has its own severity and is
+     * only ever switched off for the kit, so these can never regress anywhere. */
+    'no-restricted-imports': [
+      'error',
+      {
+        paths: [
+          {
+            name: '@mui/material',
+            importNames: ['Switch'],
+            message: 'Use WtSwitch / WtSwitchField from @app/modules/common/components/ui — not a raw MUI Switch. See CLAUDE.md → UI standard.',
+          },
+        ],
+      },
+    ],
+
+    'no-restricted-syntax': [
+      'error',
+      {
+        selector: "JSXOpeningElement[name.name='Switch']",
+        message: 'Use WtSwitch / WtSwitchField from @app/modules/common/components/ui — not a raw MUI Switch. See CLAUDE.md → UI standard.',
+      },
+      {
+        selector: "JSXAttribute[name.name='type'][value.value='date']",
+        message: 'Use WtDateField from the ui kit. A native date input renders the browser picker: unstyleable, OS-locale formatted, and light-on-white in dark mode.',
+      },
+      {
+        selector: "JSXAttribute[name.name='type'][value.value='datetime-local']",
+        message: 'Use WtDateTimeField from the ui kit — not a native datetime-local input.',
+      },
+      {
+        selector: "JSXAttribute[name.name='type'][value.value='time']",
+        message: 'Use TimeWheelField from @app/modules/common/components — not a native time input.',
+      },
+      {
+        selector: "JSXAttribute[name.name='type'][value.value='month']",
+        message: 'Use a month picker from the ui kit — not a native month input.',
+      },
+      {
+        selector: "JSXAttribute[name.name='className'] Literal[value=/(^|\\s)(form-switch|form-control|btn btn-|card-body|badge badge-)/]",
+        message: 'Bootstrap component classes are banned. Use the ui kit (WtSwitch / TextField / WtButton / GlassCard / ToneChip). See CLAUDE.md → UI standard.',
+      },
+      {
+        selector: "JSXOpeningElement[name.name='style']",
+        message: 'No <style> blocks. Use Tailwind utilities or MUI sx; if a shared component only takes a className, pass Tailwind classes.',
+      },
+      {
+        selector: "CallExpression[callee.property.name='toLocaleDateString']",
+        message: 'Use formatDate() from @utils/dateFormats — the company standard is YYYY.MM.DD. toLocaleDateString renders in the OS locale.',
+      },
+    ],
   },
+  overrides: [
+    {
+      /* The UI kit and shared inputs IMPLEMENT these primitives, so they must be able to use
+       * them. This is the only place a raw Switch / native input / <style> is legitimate. */
+      files: [
+        'src/app/modules/common/components/ui/**',
+        'src/app/modules/common/inputs/**',
+        'src/app/modules/common/components/TimeWheelField.tsx',
+      ],
+      rules: { 'no-restricted-syntax': 'off', 'no-restricted-imports': 'off' },
+    },
+    {
+      /* MIGRATION BACKLOG — files that still contain a banned *primitive* (native date/time
+       * input). Downgraded to warn so the build stays green while they're converted.
+       * Do NOT add files here; delete entries as they're fixed. Tracked in CLAUDE.md. */
+      files: [
+        'src/app/pages/employee/EditMeetingModal.tsx',
+        'src/app/pages/employee/attendance/personal/views/my-leaves/MeetingsForm.tsx',
+        'src/app/pages/employee/attendance/personal/views/overview/KPITestPanel.tsx',
+        'src/app/pages/employee/attendance/personal/views/overview/AttendanceCalendar.tsx',
+        'src/app/pages/employee/salary/admin/views/salary-configuration/DeductionMaster.tsx',
+        'src/app/modules/common/components/Graphs.tsx',
+        'src/app/modules/common/components/EmployeeSelectionDialog.tsx',
+      ],
+      rules: { 'no-restricted-syntax': 'warn' },
+    },
+    {
+      /* THE RATCHET (see .eslint-ui-baseline.cjs).
+       * Bootstrap component classes / <style> blocks / toLocaleDateString are 697+ violations
+       * across 251 legacy files — too many to fix in one pass, and a permanently-red build is a
+       * build everyone learns to ignore. So those 251 files warn, and every OTHER file errors.
+       * Net effect: new code cannot regress, and the list can only shrink. */
+      files: require('./.eslint-ui-baseline.cjs'),
+      rules: { 'no-restricted-syntax': 'warn' },
+    },
+  ],
 }

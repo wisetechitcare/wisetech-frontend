@@ -4,7 +4,8 @@ import {
     Box, Stack, Typography, TextField, MenuItem, Chip, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, GlassCard, WtButton, WtIconButton, ToneChip, toast } from "@app/modules/common/components/ui";
+import { GlassDialog, GlassHeader, GlassCard, WtButton, WtIconButton, ToneChip, WtDateTimeField, toast } from "@app/modules/common/components/ui";
+import { EmployeePickerField } from "@app/modules/common/components/EmployeePickerField";
 import { queryKeys } from "@/lib/queryKeys";
 import {
     getApplicationInterviews, createInterview, updateInterview, submitScorecard, getApplicationEvaluation,
@@ -49,7 +50,6 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
     const qc = useQueryClient();
     const [scheduleOpen, setScheduleOpen] = useState(false);
     const [form, setForm] = useState<InterviewPayload>({ ...emptySchedule(), applicationId });
-    const [panelText, setPanelText] = useState("");
     const [scoreFor, setScoreFor] = useState<Interview | null>(null);
     const [score, setScore] = useState<ScorecardPayload>({ overallRating: 4, recommendation: "YES", comments: "" });
 
@@ -65,7 +65,6 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
         mutationFn: () => createInterview({
             ...form,
             applicationId,
-            panelistIds: panelText.split(",").map((s) => s.trim()).filter(Boolean),
             scheduledStart: form.scheduledStart ? new Date(form.scheduledStart).toISOString() : "",
             scheduledEnd: form.scheduledEnd ? new Date(form.scheduledEnd).toISOString() : "",
         }),
@@ -89,10 +88,9 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
         const start = new Date(Date.now() + 86_400_000);
         const end = new Date(start.getTime() + 45 * 60_000);
         setForm({ ...emptySchedule(), applicationId, scheduledStart: toLocalInput(start.toISOString()), scheduledEnd: toLocalInput(end.toISOString()) });
-        setPanelText("");
         setScheduleOpen(true);
     };
-    const canSchedule = !!form.scheduledStart && !!form.scheduledEnd && panelText.trim().length > 0;
+    const canSchedule = !!form.scheduledStart && !!form.scheduledEnd && (form.panelistIds?.length ?? 0) > 0;
 
     return (
         <Box>
@@ -153,11 +151,19 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                             </TextField>
                         </Stack>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                            <TextField label="Start" type="datetime-local" size="small" sx={{ flex: 1 }} InputLabelProps={{ shrink: true }} value={form.scheduledStart} onChange={(e) => setForm({ ...form, scheduledStart: e.target.value })} />
-                            <TextField label="End" type="datetime-local" size="small" sx={{ flex: 1 }} InputLabelProps={{ shrink: true }} value={form.scheduledEnd} onChange={(e) => setForm({ ...form, scheduledEnd: e.target.value })} />
+                            <WtDateTimeField label="Start" sx={{ flex: 1 }} value={form.scheduledStart} onChange={(v) => setForm({ ...form, scheduledStart: v })} />
+                            {/* An interview cannot end before it starts — the native input allowed it. */}
+                            <WtDateTimeField label="End" sx={{ flex: 1 }} minDateTime={form.scheduledStart || undefined} value={form.scheduledEnd} onChange={(v) => setForm({ ...form, scheduledEnd: v })} />
                         </Stack>
                         <TextField label={form.mode === "ONLINE" ? "Meeting link" : "Location"} size="small" fullWidth value={(form.mode === "ONLINE" ? form.meetingLink : form.location) ?? ""} onChange={(e) => setForm(form.mode === "ONLINE" ? { ...form, meetingLink: e.target.value } : { ...form, location: e.target.value })} />
-                        <TextField label="Panelists (employee IDs, comma-separated)" size="small" fullWidth helperText="Interviewers to invite and who can score." value={panelText} onChange={(e) => setPanelText(e.target.value)} />
+                        <EmployeePickerField
+                            label="Panelists" multiple
+                            placeholder="Add interviewers…"
+                            helperText="Interviewers to invite and who can score this round."
+                            dialogTitle="Select panelists"
+                            value={form.panelistIds ?? []}
+                            onChange={(ids) => setForm({ ...form, panelistIds: ids })}
+                        />
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>

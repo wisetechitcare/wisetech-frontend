@@ -12,6 +12,7 @@
  *    identical to the MUI kit's palette so a surface's tone choices carry over
  *    verbatim during migration.
  */
+import { GH_DARK } from '@app/theme/githubDark';
 
 export const BRAND = {
   navy: '#1E3A8A',
@@ -32,23 +33,23 @@ export const SHADOW = {
 /**
  * DARK — the app-wide dark-mode benchmark surface/text palette.
  *
- * The reference any surface should match when it renders dark via inline styles or Bootstrap
- * (i.e. outside the MUI palette). Values track `wisetechTheme`'s dark palette (paper #1E222C,
- * text rgba-white .92/.62) so hand-styled modals, the glass kit, and MUI screens read identically
- * in dark. Pair with `toneSurface(trio, true)` for accent tiles/pills.
+ * A view of the shared GitHub dark palette (`@app/theme/githubDark`) under this kit's naming, so
+ * hand-styled surfaces, the glass kit, and MUI screens read identically in dark. There are no
+ * values of its own — edit `githubDark.ts` to change the look everywhere at once. Pair with
+ * `toneSurface(trio, true)` for accent tiles/pills.
  */
 export const DARK = {
-  canvas: '#0d1117',         // page background
-  surface: '#161b22',        // primary card / modal background (GitHub surface)
-  surfaceAlt: '#1c2128',     // elevated inner surface (wells, menus, headers)
-  rowBg: 'rgba(177,186,196,0.06)',   // unselected list/option row on a dark surface
-  rowHover: 'rgba(177,186,196,0.12)',
-  border: '#30363d',
-  borderStrong: '#3d444d',
-  textPrimary: '#e6edf3',
-  textSecondary: '#7d8590',
-  textMuted: '#6e7681',
-  accent: '#2f81f7',
+  canvas: GH_DARK.canvas,          // page background
+  surface: GH_DARK.surface,        // primary card / modal background
+  surfaceAlt: GH_DARK.elevated,    // elevated inner surface (wells, menus, headers)
+  rowBg: GH_DARK.rowBg,            // unselected list/option row on a dark surface
+  rowHover: GH_DARK.selected,
+  border: GH_DARK.border,
+  borderStrong: GH_DARK.borderStrong,
+  textPrimary: GH_DARK.fg,
+  textSecondary: GH_DARK.fgMuted,
+  textMuted: GH_DARK.fgSubtle,
+  accent: GH_DARK.accent,
 } as const;
 
 export type Trio = { c: string; bg: string; bd: string };

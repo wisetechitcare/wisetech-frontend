@@ -16,7 +16,9 @@ import {
 import { fetchAllBranches } from '@services/company';
 import { IBiometricDevice, ICreateBiometricDevice, IUpdateBiometricDevice, ConnectionMode, IBiometricSyncLog } from '@models/biometric';
 import { KTIcon } from '@metronic/helpers';
-import { toast, alertDialog, confirmDialog } from '@app/modules/common/components/ui';
+import { toast, alertDialog, confirmDialog, WtDateField } from '@app/modules/common/components/ui';
+import dayjs from 'dayjs';
+import { DATE_FORMATS } from '@utils/dateFormats';
 import { T } from '@app/modules/common/components/ui/tokens';
 
 interface Props {
@@ -660,27 +662,21 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
           into the app (the automated sync only ever checks today).
         </Typography>
         <Stack direction="row" spacing={1.5} sx={{ mb: 1 }}>
-          <TextField
+          <WtDateField
             label="From date"
-            type="date"
-            size="small"
-            fullWidth
             value={backfillDates.fromDate}
-            onChange={(e) => setBackfillDates(prev => ({ ...prev, fromDate: e.target.value }))}
-            InputLabelProps={{ shrink: true }}
+            onChange={(v) => setBackfillDates(prev => ({ ...prev, fromDate: v }))}
             disabled={backfillSubmitting}
-            inputProps={{ max: new Date().toISOString().split('T')[0] }}
+            maxDate={dayjs().format(DATE_FORMATS.WIRE)}
           />
-          <TextField
+          <WtDateField
             label="To date"
-            type="date"
-            size="small"
-            fullWidth
             value={backfillDates.toDate}
-            onChange={(e) => setBackfillDates(prev => ({ ...prev, toDate: e.target.value }))}
-            InputLabelProps={{ shrink: true }}
+            onChange={(v) => setBackfillDates(prev => ({ ...prev, toDate: v }))}
             disabled={backfillSubmitting}
-            inputProps={{ max: new Date().toISOString().split('T')[0] }}
+            // A backfill range can't run backwards — the native input never enforced this.
+            minDate={backfillDates.fromDate || undefined}
+            maxDate={dayjs().format(DATE_FORMATS.WIRE)}
           />
         </Stack>
         <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2.5 }}>

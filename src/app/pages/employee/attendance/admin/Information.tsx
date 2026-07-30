@@ -16,6 +16,7 @@ import FaqsMainPage from "@pages/company/organisationInfo/faqs/FaqsMainPage";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
+import { WtSwitch } from "@app/modules/common/components/ui";
 
 const Information = () => {
     
@@ -225,16 +226,7 @@ const Information = () => {
                         Enable Lunch Deduction Time
                     </label>
                     <div className="flex gap-3 items-center">
-                        <div className="form-check form-switch">
-                            <input
-                                type="checkbox"
-                                className="form-check-input"
-                                id="disable-lunch-deduction"
-                                checked={lunchDeductionTimeValue}
-                                onChange={handleLunchDeductionToggle}
-                                disabled={isSavingLunchConfig}
-                            />
-                        </div>
+                        <WtSwitch id="disable-lunch-deduction" checked={lunchDeductionTimeValue} onChange={handleLunchDeductionToggle} disabled={isSavingLunchConfig} />
                         <WtButton onClick={handleSaveLunchConfig} disabled={isSavingLunchConfig}
                             startIcon={isSavingLunchConfig ? <Spinner size={14} color="#fff" /> : undefined}
                             className="min-w-[80px]">

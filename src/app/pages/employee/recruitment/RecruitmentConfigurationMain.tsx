@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Box, Stack, Typography, TextField, CircularProgress, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
+import ReorderableGroup, { DragHandle, type DragHandleProps } from "@app/modules/common/components/ReorderableGroup";
 import {
     GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, WtSwitchField,
     IconBox, ToneChip, TRIO, toast, confirmDialog, type Trio, type SemanticTone,
@@ -43,9 +44,22 @@ interface MasterSectionProps {
 
 const DEFAULT_COLOR = "#4B5563";
 
+/** Compact row action button — smaller than the default 44px so list rows stay dense.
+ *  Glyph size stays on the `fs-*` class (duotone path spans are layered — never size them directly). */
+const RowAction = ({ title, icon, color, onClick }: { title: string; icon: string; color?: string; onClick: () => void }) => (
+    <WtIconButton
+        title={title}
+        color={color}
+        onClick={onClick}
+        sx={{ width: { xs: 34, sm: 36 }, height: { xs: 34, sm: 36 }, borderRadius: "10px" }}
+    >
+        <KTIcon iconName={icon} className="fs-5" />
+    </WtIconButton>
+);
+
 /**
  * Reusable, glassmorphic CRUD master card: list + create/edit (GlassDialog) +
- * delete + reorder, driven entirely by injected service fns. Responsive and
+ * delete + drag-to-reorder, driven entirely by injected service fns. Responsive and
  * KTIcon-based; one instance per recruitment config list.
  */
 const MasterSection = ({
@@ -121,25 +135,83 @@ const MasterSection = ({
         if (await confirmDialog({ icon: "warning", title: `Remove "${name}"?`, text: "It will be deactivated." })) deleteMut.mutate(row.id);
     };
 
-    const move = (index: number, dir: -1 | 1) => {
-        const next = index + dir;
-        if (next < 0 || next >= rows.length) return;
-        const ids = rows.map((r) => r.id);
-        [ids[index], ids[next]] = [ids[next], ids[index]];
-        reorderMut.mutate(ids);
+    /** Commit a new order: paint it immediately (the query cache IS the list), then persist.
+     *  Without the optimistic write the row would snap back until the refetch lands. */
+    const applyOrder = (next: MasterRow[]) => {
+        qc.setQueryData(queryKey, next);
+        reorderMut.mutate(next.map((r) => r.id));
+    };
+    const nudge = (index: number, dir: -1 | 1) => {
+        const to = index + dir;
+        if (to < 0 || to >= rows.length) return;
+        const next = rows.slice();
+        [next[index], next[to]] = [next[to], next[index]];
+        applyOrder(next);
     };
 
     const saving = createMut.isPending || updateMut.isPending;
+    const singular = title.replace(/s$/, "");
+
+    const renderRow = (row: MasterRow, handleProps?: DragHandleProps) => {
+        const index = rows.findIndex((r) => r.id === row.id);
+        const activeFlags = flags.filter((f) => field(row, f.key));
+        return (
+            <Stack
+                direction="row"
+                alignItems="center"
+                spacing={0.75}
+                sx={{
+                    px: { xs: 0.75, sm: 1 }, py: 0.75, borderRadius: "12px",
+                    border: "1px solid", borderColor: "divider", bgcolor: "action.hover",
+                    transition: "border-color .15s, background-color .15s",
+                    "&:hover": { borderColor: "text.disabled" },
+                }}
+            >
+                <DragHandle handleProps={handleProps} disabled={rows.length < 2} onNudge={(dir) => nudge(index, dir)} />
+
+                {/* Identity + flags kept together on the left — no stretched gap in the middle. */}
+                <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0.75 }}>
+                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: row.color ?? "#888", flexShrink: 0 }} />
+                    <Typography sx={{ fontWeight: 600, fontSize: 14, lineHeight: 1.35, wordBreak: "break-word", mr: 0.25 }}>
+                        {String(field(row, labelField) ?? "")}
+                    </Typography>
+                    {activeFlags.map((f) => (
+                        <ToneChip key={f.key} tone={f.tone ?? "brand"} label={f.label} dense />
+                    ))}
+                </Box>
+
+                <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                    <RowAction title="Edit" icon="pencil" onClick={() => openEdit(row)} />
+                    <RowAction title="Remove" icon="trash" color="#C0392B" onClick={() => remove(row)} />
+                </Stack>
+            </Stack>
+        );
+    };
 
     return (
-        <GlassCard preset="section" sx={{ mb: 2 }}>
-            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
-                <IconBox icon={icon} trio={trio} />
+        <GlassCard preset="section" sx={{ p: { xs: 1.5, sm: 2 } }}>
+            <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 1.5 }}>
+                <IconBox icon={icon} trio={trio} size={36} fs="fs-3" />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: { xs: 15, sm: 16 } }}>{title}</Typography>
-                    <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>{description}</Typography>
+                    <Stack direction="row" alignItems="center" spacing={0.75}>
+                        <Typography sx={{ fontWeight: 700, fontSize: { xs: 14.5, sm: 15.5 }, lineHeight: 1.3 }}>{title}</Typography>
+                        {!isLoading && rows.length > 0 && (
+                            <Box sx={{
+                                px: 0.75, minWidth: 20, textAlign: "center", borderRadius: 999,
+                                bgcolor: "action.selected", color: "text.secondary",
+                                fontSize: 11, fontWeight: 700, lineHeight: "18px",
+                            }}>
+                                {rows.length}
+                            </Box>
+                        )}
+                    </Stack>
+                    <Typography sx={{ fontSize: 12.5, lineHeight: 1.45, color: "text.secondary", mt: 0.25 }}>{description}</Typography>
                 </Box>
-                <WtButton tone="primary" size="small" onClick={openNew} startIcon={<KTIcon iconName="plus" className="fs-6" />}>
+                <WtButton
+                    tone="primary" size="small" onClick={openNew}
+                    startIcon={<KTIcon iconName="plus" className="fs-6" />}
+                    sx={{ flexShrink: 0, minHeight: 36, px: { xs: 1.25, sm: 1.75 }, fontSize: 13, borderRadius: "10px", alignSelf: "flex-start" }}
+                >
                     New
                 </WtButton>
             </Stack>
@@ -147,46 +219,38 @@ const MasterSection = ({
             {isLoading ? (
                 <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={22} /></Stack>
             ) : rows.length === 0 ? (
-                <Typography sx={{ color: "text.disabled", fontSize: 13, py: 1.5 }}>None configured yet.</Typography>
+                <Box
+                    onClick={openNew}
+                    sx={{
+                        py: 2, px: 1.5, borderRadius: "12px", cursor: "pointer", textAlign: "center",
+                        border: "1px dashed", borderColor: "divider",
+                        transition: "border-color .15s, background-color .15s",
+                        "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+                    }}
+                >
+                    <Typography sx={{ color: "text.secondary", fontSize: 13, fontWeight: 600 }}>No {singular.toLowerCase()} yet</Typography>
+                    <Typography sx={{ color: "text.disabled", fontSize: 12, mt: 0.25 }}>Click to add the first one.</Typography>
+                </Box>
             ) : (
-                <Stack spacing={1}>
-                    {rows.map((row, i) => (
-                        <Stack
-                            key={row.id}
-                            direction="row"
-                            alignItems="center"
-                            spacing={1}
-                            sx={{ p: 1, borderRadius: 2, bgcolor: "action.hover", flexWrap: { xs: "wrap", sm: "nowrap" } }}
-                        >
-                            <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: row.color ?? "#888", flexShrink: 0 }} />
-                            <Typography sx={{ fontWeight: 600, flex: 1, minWidth: 120 }}>{String(field(row, labelField) ?? "")}</Typography>
-                            {flags.filter((f) => field(row, f.key)).map((f) => (
-                                <ToneChip key={f.key} tone={f.tone ?? "brand"} label={f.label} dense />
-                            ))}
-                            <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
-                                <WtIconButton title="Move up" onClick={() => move(i, -1)} disabled={i === 0 || reorderMut.isPending}>
-                                    <KTIcon iconName="arrow-up" className="fs-5" />
-                                </WtIconButton>
-                                <WtIconButton title="Move down" onClick={() => move(i, 1)} disabled={i === rows.length - 1 || reorderMut.isPending}>
-                                    <KTIcon iconName="arrow-down" className="fs-5" />
-                                </WtIconButton>
-                                <WtIconButton title="Edit" onClick={() => openEdit(row)}>
-                                    <KTIcon iconName="pencil" className="fs-5" />
-                                </WtIconButton>
-                                <WtIconButton title="Remove" color="#C0392B" onClick={() => remove(row)}>
-                                    <KTIcon iconName="trash" className="fs-5" />
-                                </WtIconButton>
-                            </Stack>
-                        </Stack>
-                    ))}
-                </Stack>
+                <ReorderableGroup
+                    items={rows}
+                    getItemId={(r) => r.id}
+                    axis="y"
+                    withHandle
+                    disabled={rows.length < 2}
+                    // ReorderableGroup takes a className (not sx) — Tailwind utilities cover the
+                    // stack layout, so no per-feature stylesheet is needed.
+                    className="flex flex-col gap-2"
+                    onReorder={applyOrder}
+                    renderItem={renderRow}
+                />
             )}
 
             <GlassDialog
                 open={open}
                 onClose={close}
                 maxWidth="xs"
-                header={<GlassHeader title={editing ? `Edit ${title.replace(/s$/, "")}` : `New ${title.replace(/s$/, "")}`} icon={<KTIcon iconName={icon} className="fs-2" />} onClose={close} />}
+                header={<GlassHeader title={editing ? `Edit ${singular}` : `New ${singular}`} icon={<KTIcon iconName={icon} className="fs-2" />} onClose={close} />}
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -255,14 +319,17 @@ const SettingsSection = () => {
     };
 
     return (
-        <GlassCard preset="section" sx={{ mb: 2 }}>
-            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
-                <IconBox icon="chart-simple" trio={TRIO.purple} />
+        <GlassCard preset="section" sx={{ p: { xs: 1.5, sm: 2 } }}>
+            <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 1.5 }}>
+                <IconBox icon="chart-simple" trio={TRIO.purple} size={36} fs="fs-3" />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: { xs: 15, sm: 16 } }}>Scoring &amp; Automation</Typography>
-                    <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>Tune how candidates are scored and which automations run.</Typography>
+                    <Typography sx={{ fontWeight: 700, fontSize: { xs: 14.5, sm: 15.5 }, lineHeight: 1.3 }}>Scoring &amp; Automation</Typography>
+                    <Typography sx={{ fontSize: 12.5, lineHeight: 1.45, color: "text.secondary", mt: 0.25 }}>Tune how candidates are scored and which automations run.</Typography>
                 </Box>
-                <WtButton tone="primary" size="small" disabled={!draft || saveMut.isPending} onClick={() => draft && saveMut.mutate(draft)}>
+                <WtButton
+                    tone="primary" size="small" disabled={!draft || saveMut.isPending} onClick={() => draft && saveMut.mutate(draft)}
+                    sx={{ flexShrink: 0, minHeight: 36, px: { xs: 1.5, sm: 2 }, fontSize: 13, borderRadius: "10px", alignSelf: "flex-start" }}
+                >
                     {saveMut.isPending ? "Saving…" : "Save"}
                 </WtButton>
             </Stack>
@@ -270,9 +337,11 @@ const SettingsSection = () => {
             {isLoading || !settings ? (
                 <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={22} /></Stack>
             ) : (
-                <Stack spacing={2}>
-                    <Typography sx={{ fontWeight: 600, fontSize: 13, color: "text.secondary" }}>Scoring weights (relative)</Typography>
-                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(4, 1fr)" }, gap: 1.5 }}>
+                <Stack spacing={1.5}>
+                    <Typography sx={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.secondary" }}>
+                        Scoring weights (relative)
+                    </Typography>
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" }, gap: 1.5 }}>
                         {WEIGHT_FIELDS.map((w) => (
                             <TextField
                                 key={w.key}
@@ -285,7 +354,9 @@ const SettingsSection = () => {
                             />
                         ))}
                     </Box>
-                    <Typography sx={{ fontWeight: 600, fontSize: 13, color: "text.secondary", mt: 1 }}>Automation rules</Typography>
+                    <Typography sx={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: "text.secondary", pt: 0.5 }}>
+                        Automation rules
+                    </Typography>
                     <WtSwitchField title="Auto-advance on threshold" description="Move a candidate to the next stage when their score clears the stage threshold." checked={settings.autoRules.autoAdvanceEnabled} onChange={(e) => setRule("autoAdvanceEnabled", e.target.checked)} />
                     <WtSwitchField title="Auto-reject below floor" description="Off by default — keeps a human in the loop." checked={settings.autoRules.autoRejectEnabled} onChange={(e) => setRule("autoRejectEnabled", e.target.checked)} />
                     <WtSwitchField title="AI screening (Claude)" description="Per-company opt-in. Also requires the server AI key to be configured." checked={settings.autoRules.aiScreeningEnabled} onChange={(e) => setRule("aiScreeningEnabled", e.target.checked)} />
@@ -295,50 +366,56 @@ const SettingsSection = () => {
     );
 };
 
-const RecruitmentConfigurationMain = () => {
-    const sections = useMemo(
-        () => (
-            <>
-                <MasterSection
-                    title="Pipeline Stages" description="Stages candidates move through (drag order, outcome flags, auto-email)." icon="chart-simple" trio={TRIO.blue}
-                    configType="application-statuses" queryKey={queryKeys.recruitment.applicationStatuses()} labelField="name"
-                    fetchFn={getApplicationStatuses} createFn={(p) => createApplicationStatus(p as never)} updateFn={(id, p) => updateApplicationStatus(id, p as never)} deleteFn={deleteApplicationStatus}
-                    flags={[
-                        { key: "isDefault", label: "Default" },
-                        { key: "isHiredOutcome", label: "Hired", tone: "success" },
-                        { key: "isRejectedOutcome", label: "Rejected", tone: "danger" },
-                        { key: "requiresReason", label: "Needs reason", tone: "warning" },
-                    ]}
-                    emailConfig
-                />
-                <MasterSection
-                    title="Requisition Stages" description="Lifecycle of a job requisition (open / on-hold / filled)." icon="questionnaire-tablet" trio={TRIO.cyan}
-                    configType="requisition-stages" queryKey={queryKeys.recruitment.requisitionStages()} labelField="name"
-                    fetchFn={getRequisitionStages} createFn={(p) => createRequisitionStage(p as never)} updateFn={(id, p) => updateRequisitionStage(id, p as never)} deleteFn={deleteRequisitionStage}
-                    flags={[
-                        { key: "isDefault", label: "Default" },
-                        { key: "isOpenTrigger", label: "Opens headcount", tone: "success" },
-                        { key: "isTerminal", label: "Terminal" },
-                    ]}
-                />
-                <MasterSection
-                    title="Rejection Reasons" description="Reasons captured when a candidate is rejected." icon="cross" trio={TRIO.rose}
-                    configType="rejection-reasons" queryKey={queryKeys.recruitment.rejectionReasons()} labelField="reason"
-                    fetchFn={getRejectionReasons} createFn={(p) => createRejectionReason(p as never)} updateFn={(id, p) => updateRejectionReason(id, p as never)} deleteFn={deleteRejectionReason}
-                />
-                <MasterSection
-                    title="Applicant Sources" description="Where candidates come from (referral, careers page, agency…)." icon="user-tick" trio={TRIO.amber}
-                    configType="applicant-sources" queryKey={queryKeys.recruitment.applicantSources()} labelField="name"
-                    fetchFn={getApplicantSources} createFn={(p) => createApplicantSource(p as never)} updateFn={(id, p) => updateApplicantSource(id, p as never)} deleteFn={deleteApplicantSource}
-                    flags={[{ key: "isReferral", label: "Referral", tone: "brand" }]}
-                />
-                <SettingsSection />
-            </>
-        ),
-        [],
-    );
+const RecruitmentConfigurationMain = () => (
+    // Masters sit 2-up from lg so the page fills the width instead of leaving big empty gutters
+    // (and is half as tall); Scoring & Automation spans the full row — it's a wide form.
+    <Box
+        sx={{
+            p: { xs: 1, sm: 1.5, md: 2 },
+            maxWidth: 1400, mx: "auto",
+            display: "grid", alignItems: "start",
+            gap: { xs: 1.5, md: 2 },
+            gridTemplateColumns: { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" },
+        }}
+    >
+        <MasterSection
+            title="Pipeline Stages" description="Stages candidates move through. Drag a row by its grip to reorder." icon="chart-simple" trio={TRIO.blue}
+            configType="application-statuses" queryKey={queryKeys.recruitment.applicationStatuses()} labelField="name"
+            fetchFn={getApplicationStatuses} createFn={(p) => createApplicationStatus(p as never)} updateFn={(id, p) => updateApplicationStatus(id, p as never)} deleteFn={deleteApplicationStatus}
+            flags={[
+                { key: "isDefault", label: "Default" },
+                { key: "isHiredOutcome", label: "Hired", tone: "success" },
+                { key: "isRejectedOutcome", label: "Rejected", tone: "danger" },
+                { key: "requiresReason", label: "Needs reason", tone: "warning" },
+            ]}
+            emailConfig
+        />
+        <MasterSection
+            title="Requisition Stages" description="Lifecycle of a job requisition (open / on-hold / filled)." icon="questionnaire-tablet" trio={TRIO.cyan}
+            configType="requisition-stages" queryKey={queryKeys.recruitment.requisitionStages()} labelField="name"
+            fetchFn={getRequisitionStages} createFn={(p) => createRequisitionStage(p as never)} updateFn={(id, p) => updateRequisitionStage(id, p as never)} deleteFn={deleteRequisitionStage}
+            flags={[
+                { key: "isDefault", label: "Default" },
+                { key: "isOpenTrigger", label: "Opens headcount", tone: "success" },
+                { key: "isTerminal", label: "Terminal" },
+            ]}
+        />
+        <MasterSection
+            title="Rejection Reasons" description="Reasons captured when a candidate is rejected." icon="cross" trio={TRIO.rose}
+            configType="rejection-reasons" queryKey={queryKeys.recruitment.rejectionReasons()} labelField="reason"
+            fetchFn={getRejectionReasons} createFn={(p) => createRejectionReason(p as never)} updateFn={(id, p) => updateRejectionReason(id, p as never)} deleteFn={deleteRejectionReason}
+        />
+        <MasterSection
+            title="Applicant Sources" description="Where candidates come from (referral, careers page, agency…)." icon="user-tick" trio={TRIO.amber}
+            configType="applicant-sources" queryKey={queryKeys.recruitment.applicantSources()} labelField="name"
+            fetchFn={getApplicantSources} createFn={(p) => createApplicantSource(p as never)} updateFn={(id, p) => updateApplicantSource(id, p as never)} deleteFn={deleteApplicantSource}
+            flags={[{ key: "isReferral", label: "Referral", tone: "brand" }]}
+        />
 
-    return <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 900, mx: "auto" }}>{sections}</Box>;
-};
+        <Box sx={{ gridColumn: "1 / -1" }}>
+            <SettingsSection />
+        </Box>
+    </Box>
+);
 
 export default RecruitmentConfigurationMain;
