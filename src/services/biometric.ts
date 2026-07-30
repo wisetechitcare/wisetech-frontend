@@ -100,3 +100,51 @@ export const fetchDeviceSyncLogs = async (id: string): Promise<IBiometricSyncLog
     throw err;
   }
 };
+
+// ─── Attendance Sync Conflicts ───────────────────────────────────────────────
+
+export interface IAttendanceSyncConflict {
+  id: string;
+  attendanceId: string;
+  employeeId: string;
+  field: 'checkIn' | 'checkOut';
+  existingValue: string;
+  proposedValue: string;
+  source?: string | null;
+  createdAt: string;
+  employee?: {
+    employeeCode?: string;
+    users?: { firstName?: string; lastName?: string };
+  };
+  attendance?: { id: string; checkIn?: string | null; checkOut?: string | null; attendanceDate?: string | null };
+}
+
+export const fetchAttendanceConflicts = async (): Promise<IAttendanceSyncConflict[]> => {
+  try {
+    const { data } = await axios.get(`${API_BASE_URL}/${BIOMETRIC.CONFLICTS}`);
+    return data.data ?? [];
+  } catch (err) {
+    throw err;
+  }
+};
+
+export const fetchAttendanceConflictCount = async (): Promise<number> => {
+  try {
+    const { data } = await axios.get(`${API_BASE_URL}/${BIOMETRIC.CONFLICTS_COUNT}`);
+    return data.count ?? 0;
+  } catch (err) {
+    throw err;
+  }
+};
+
+export const resolveAttendanceConflict = async (
+  id: string,
+  action: 'accept' | 'reject'
+): Promise<{ message: string }> => {
+  try {
+    const { data } = await axios.post(`${API_BASE_URL}/${BIOMETRIC.CONFLICTS_RESOLVE}/${id}/resolve`, { action });
+    return { message: data.message };
+  } catch (err) {
+    throw err;
+  }
+};

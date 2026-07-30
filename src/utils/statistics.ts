@@ -1011,7 +1011,7 @@ export function todayProgressPercent(stats: Attendance[]): number {
     return Math.floor(progressPercent);
 }
 
-export function totalProgressPercent(stats: any[], totalWorkingDay: number): number {
+export function totalProgressPercent(stats: any[], totalWorkingDay: number, totalLeaves: number = 0): number {
 
     const holidays = donutaDataLabel(stats).get(HOLIDAYS);
     const presents = donutaDataLabel(stats).get(PRESENT);
@@ -1020,7 +1020,7 @@ export function totalProgressPercent(stats: any[], totalWorkingDay: number): num
         return 0;
     }
 
-    const total = totalWorkingDay - holidays!;
+    const total = Math.max(1, totalWorkingDay - holidays! - totalLeaves);
     const percentage = (presents! / total) * 100;
 
     return Math.floor(percentage);

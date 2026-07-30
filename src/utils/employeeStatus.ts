@@ -1,21 +1,19 @@
 import dayjs from "dayjs";
 
+// Only the fields these helpers actually read. Deliberately structural and permissive
+// so both the Redux `Employee` interface (whose dates are `Date | string`) and looser
+// API-shaped objects satisfy it — an index signature would exclude the former, since
+// TypeScript does not give interfaces an implicit one.
 interface EmployeeRejoinHistory {
-  id: string;
-  employeeId: string;
-  dateOfReJoining: string | null;
-  dateOfReExit: string | null;
-  reason: string | null;
-  createdAt: string;
-  updatedAt: string;
+  dateOfReJoining?: Date | string | null;
+  dateOfReExit?: Date | string | null;
 }
 
 interface Employee {
-  id: string;
-  dateOfJoining?: string | null;
-  dateOfExit?: string | null;
-  EmployeeRejoinHistory?: EmployeeRejoinHistory[];
-  [key: string]: any;
+  dateOfJoining?: Date | string | null;
+  dateOfExit?: Date | string | null;
+  isActive?: boolean;
+  EmployeeRejoinHistory?: EmployeeRejoinHistory[] | null;
 }
 
 /**
@@ -59,6 +57,53 @@ export const getEmployeeStatus = (employee: Employee, on: dayjs.Dayjs = dayjs())
  */
 export const getEmployeeStatusString = (employee: Employee): string =>
   getEmployeeStatus(employee) === 1 && employee?.isActive !== false ? "Active" : "Inactive";
+
+/**
+ * Whether the employee was employed for any part of the given period.
+ *
+ * Mirrors `resolveEmploymentSegmentsForMonth` on the backend: the timeline is
+ * [dateOfJoining → dateOfExit] plus one interval per rejoin entry, and the period
+ * counts as employed if ANY of those overlap it. Used to tell "this employee had
+ * left the company" apart from "payroll data failed to load" — the two look
+ * identical otherwise, since both render an empty salary report.
+ *
+ * @param employee - Employee object with dateOfJoining, dateOfExit, and rejoin history
+ * @param periodStart - Start of the period being viewed
+ * @param periodEnd - End of the period being viewed
+ */
+export const wasEmployedDuring = (
+  employee: Employee,
+  periodStart: string | Date,
+  periodEnd: string | Date,
+): boolean => {
+  if (!employee?.dateOfJoining) return false;
+
+  const today = dayjs();
+  const start = dayjs(periodStart);
+  const end = dayjs(periodEnd);
+
+  type Interval = { start: dayjs.Dayjs; end: dayjs.Dayjs | null };
+  const intervals: Interval[] = [
+    {
+      start: dayjs(employee.dateOfJoining),
+      // An exit date is the last day WORKED, so the interval runs to end-of-day.
+      end: employee.dateOfExit ? dayjs(employee.dateOfExit).endOf('day') : null,
+    },
+  ];
+
+  for (const r of employee.EmployeeRejoinHistory ?? []) {
+    if (!r.dateOfReJoining) continue;
+    intervals.push({
+      start: dayjs(r.dateOfReJoining),
+      end: r.dateOfReExit ? dayjs(r.dateOfReExit).endOf('day') : null,
+    });
+  }
+
+  return intervals.some((iv) => {
+    const ivEnd = iv.end ?? today;
+    return !iv.start.isAfter(end) && !ivEnd.isBefore(start);
+  });
+};
 
 /**
  * Calculate an employee's total experience from date of joining, summing all

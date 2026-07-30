@@ -20,6 +20,13 @@ export interface IHoliday {
     isActive: boolean,
     colorCode?: string,
     companyId?: string;
+    /**
+     * Calendar date this holiday falls on every year (Independence Day = 8/15), used
+     * to pre-fill a year's schedule. Both null means the date moves year to year
+     * (Diwali, Ganesh Chaturthi, Good Friday) and must be entered for each year.
+     */
+    recurrenceMonth?: number | null;
+    recurrenceDay?: number | null;
 }
 
 export interface ICustomField {

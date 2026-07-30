@@ -39,6 +39,8 @@ interface PublicHoliday {
   day: string;
   name: string;
   type: string;
+  /** Human-readable recurrence rule ("15 Aug"), or "" when the date moves yearly. */
+  repeatsOn: string;
 }
 
 // Interface for holiday dropdown options
@@ -55,6 +57,9 @@ interface RawHolidayData {
   isActive: boolean;
   companyId: string;
   colorCode?: string;
+  /** Set together when the holiday lands on the same date every year. */
+  recurrenceMonth?: number | null;
+  recurrenceDay?: number | null;
 }
 
 function RenameHoliday({ getNotification }: { getNotification?: any }) {
@@ -106,6 +111,14 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
             ? dayjs(publicHoliday.date).format("dddd")
             : "",
           type: holiday.isFixed ? "Fixed" : "Variable",
+          // Both parts are needed to date anything, so only a complete rule is shown.
+          repeatsOn:
+            holiday.recurrenceMonth != null && holiday.recurrenceDay != null
+              ? dayjs()
+                  .month(holiday.recurrenceMonth - 1)
+                  .date(holiday.recurrenceDay)
+                  .format("D MMM")
+              : "",
         };
       });
     },
@@ -291,6 +304,44 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
         header: "Day",
         size: 150,
         Cell: ({ renderedCellValue }) => renderedCellValue || "-",
+      },
+      {
+        accessorKey: "repeatsOn",
+        header: "Repeats On",
+        size: 160,
+        Cell: ({ renderedCellValue, row }) => {
+          if (renderedCellValue) {
+            return (
+              <span style={{
+                backgroundColor: '#F0FDF4',
+                color: '#166534',
+                padding: '4px 10px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: 600,
+              }}>
+                {renderedCellValue} · every year
+              </span>
+            );
+          }
+          // A Fixed holiday with no date can't be auto-generated — flag it as needing
+          // one rather than showing the same neutral text as a genuinely moving holiday.
+          return row.original.type === 'Fixed' ? (
+            <span
+              style={{ color: '#B45309', fontSize: '12px', fontWeight: 600 }}
+              title="Marked Fixed but has no repeat date — edit it to set one, or mark it Floating"
+            >
+              No date set
+            </span>
+          ) : (
+            <span
+              style={{ color: '#94A3B8', fontSize: '12px' }}
+              title="The date changes each year, so it must be set per year on the Holidays tab"
+            >
+              Date changes yearly
+            </span>
+          );
+        },
       },
       {
         accessorKey: "type",
@@ -574,6 +625,10 @@ const PREMIUM_TABLE_CSS = `
                 isFixed: currentEditHolidayData.isFixed,
                 isActive: currentEditHolidayData.isActive,
                 colorCode: currentEditHolidayData.colorCode ?? '',
+                // Carried through so opening Edit doesn't silently wipe an existing
+                // recurrence rule when the form saves.
+                recurrenceMonth: currentEditHolidayData.recurrenceMonth ?? null,
+                recurrenceDay: currentEditHolidayData.recurrenceDay ?? null,
               }}
               onCloseHolidayForm={handleCloseModal}
               refreshHolidayList={handleEditSaved}
