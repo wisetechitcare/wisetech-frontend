@@ -388,7 +388,7 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
     ? allCompanies.filter((c: any) => String(c.companyTypeId) === String(selectedType))
     : allCompanies;
 
-  const typeOptions = allCompanyTypes.map((x: any) => ({ value: x.id, label: x.name }));
+  const typeOptions = mainCompanyTypeOptions(allCompanyTypes);
 
   // The Company list must ALWAYS include the currently-saved value, so an existing
   // lead pre-populates on edit even when the saved Company falls outside the active

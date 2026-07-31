@@ -32,6 +32,7 @@ import SelectInput from "@app/modules/common/inputs/SelectInput";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, Status } from "@constants/statistics";
 import useTablePreferences from "@hooks/useTablePreferences";
+import { fitColumnWidth } from "./fitColumnWidth";
 import {
   HighlightMatch,
   intelligentSearchFilterFn,
@@ -110,10 +111,29 @@ interface MaterialTableProps {
 }
 
 const defaultColumnSizes = {
-  size: 150,
   minSize: 80,
   maxSize: 1000,
 };
+
+/**
+ * A pinned column floats above the ones scrolling beneath it, but MRT sets `opacity: 0.97`
+ * on the pinned cell AND paints its only backdrop (a `::before`) at 97% too — so the columns
+ * sliding underneath ghost straight through, and a pinned header reads as two labels stacked
+ * on each other. Make both solid, and keep MRT's inset edge shadow, which is the thing that
+ * actually signals "this column is pinned".
+ */
+const pinnedCellSx = {
+  '&[data-pinned="true"]': {
+    // The cell stays background-less so row hover and status tinting still show; the
+    // `::before` (zIndex -1) is the backdrop underneath them.
+    opacity: 1,
+    "&:before": {
+      backgroundColor: "#fff",
+      opacity: 1,
+    },
+  },
+};
+
 
 function MaterialTable({
   data,
@@ -219,7 +239,7 @@ function MaterialTable({
           return content;
         },
       })),
-    [columns, defaultColumnSizes, globalFilterValue],
+    [columns, globalFilterValue],
   );
 
   const isMobile = useMediaQuery("(max-width:600px)");
@@ -321,7 +341,7 @@ function MaterialTable({
       const onWheel = (e: WheelEvent) => {
         if (!e.shiftKey) return;
         e.preventDefault();
-        el.scrollLeft += e.deltaY * 1.5;
+        el.scrollLeft += e.deltaY * 0.1;
       };
       el.addEventListener('wheel', onWheel, { passive: false });
       const ro = new ResizeObserver(syncThumb);
@@ -790,6 +810,32 @@ function MaterialTable({
     finalData,
   ]);
 
+  const activePagination = paginationState || preferences.pagination;
+  const pageIndex = activePagination?.pageIndex ?? 0;
+  const pageSize = activePagination?.pageSize ?? 50;
+
+  // Column widths fit the rows currently ON SCREEN. Sizing off the whole set would let a
+  // long value on page 40 widen a column you're reading on page 1. Server-paginated and
+  // unpaginated tables already hold exactly what's rendered.
+  const sizedColumns = useMemo(() => {
+    const visibleRows =
+      manualPagination || paginationDisabled
+        ? tableData
+        : tableData.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
+    return finalColumns.map((col: any) => ({
+      ...col,
+      size: col.size ?? fitColumnWidth(col, visibleRows),
+    }));
+  }, [finalColumns, tableData, pageIndex, pageSize, manualPagination, paginationDisabled]);
+
+  const leftPinnedWidth = useMemo(() => {
+    if (!enableColumnPinning || isMobile) return 0;
+    const leftPinnedKeys = preferences.columnPinning?.left || [];
+    return sizedColumns
+      .filter((col: any) => leftPinnedKeys.includes(col.accessorKey || col.id || ""))
+      .reduce((sum: number, col: any) => sum + (col.size || 150), 0);
+  }, [preferences.columnPinning, sizedColumns, enableColumnPinning, isMobile]);
+
   if (preferencesLoading || !isInitialized) {
     return (
       <div
@@ -1199,6 +1245,7 @@ function MaterialTable({
           enableExpandAll={enableExpandAll ?? true}
           enableRowVirtualization={enableRowVirtualization}
           enableStickyHeader
+          enableStickyFooter={showColumnFooter}
           enableBottomToolbar={enableBottomToolbar ?? true}
           enableTableHead={enableTableHead ?? true}
           enableColumnFilters={enableFilters ?? true}
@@ -1236,13 +1283,16 @@ function MaterialTable({
               letterSpacing: "0.03em",
               textTransform: "uppercase",
 
-              padding: "0 16px",
-              height: "48px",
+              // Padding, not a fixed height: a fixed height clips wrapped headers in grid
+              // layout mode, and min-height is ignored on <th> in table layout mode.
+              padding: "16px",
+              minHeight: "48px",
 
               borderBottom: "2px solid #EAECF0",
               borderRight: "1px solid #F2F4F7",
 
-              whiteSpace: "nowrap",
+              // Header labels wrap onto a second line instead of truncating to "SUB …".
+              whiteSpace: "normal",
               verticalAlign: "middle",
               boxSizing: "border-box",
               userSelect: "none",
@@ -1259,13 +1309,18 @@ function MaterialTable({
                 display: "flex",
                 alignItems: "center",
                 gap: "4px",
-                overflow: "hidden",
+                overflow: "visible",
               },
 
+              // MRT floors the label wrapper at `min-width: 4ch` and lets flex shrink it there,
+              // which chops "SUB ORGANIZATION" into "SUB / ORGA / NIZATI / ON". Raising the floor
+              // to min-content means it wraps on word boundaries and never mid-word.
               "& .Mui-TableHeadCell-Content-Wrapper": {
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                minWidth: "min-content",
+                overflow: "visible",
+                textOverflow: "clip",
+                whiteSpace: "normal",
+                lineHeight: 1.3,
               },
 
               "& .MuiTableSortLabel-root": {
@@ -1293,22 +1348,45 @@ function MaterialTable({
                 opacity: 1,
               },
 
+              ...pinnedCellSx,
+              "&[data-pinned='true']": {
+                zIndex: 3,
+              },
+              "&:not([data-pinned='true'])": {
+                scrollSnapAlign: "start",
+              },
+
+
               ...muiTableHeadCellStyle,
             },
           }}
+          muiTableHeadProps={{
+            // MRT hardcodes opacity 0.97 on <thead>; body rows ghost through the sticky header.
+            sx: { opacity: 1 },
+          }}
           muiTableBodyCellProps={{
             sx: {
-              padding: "0 16px",
-              height: "52px",
+              padding: "16px",
+              minHeight: "52px",
               fontSize: "13px",
               color: "#374151",
               borderBottom: "1px solid #F3F4F6",
               borderRight: "1px solid #F9FAFB",
               verticalAlign: "middle",
               boxSizing: "border-box",
+              // Grid layout mode (column pinning) clips body cells to one nowrap line, which
+              // chopped "Shashi Prabhu and Associates" mid-word. Wrap instead of truncating.
+              whiteSpace: "normal",
+              overflow: "visible",
+              textOverflow: "clip",
+              overflowWrap: "anywhere",
               transition: "background-color 0.15s ease",
               "&:last-child": {
                 borderRight: "none",
+              },
+              ...pinnedCellSx,
+              "&[data-pinned='true']": {
+                zIndex: 1,
               },
             },
           }}
@@ -1317,10 +1395,15 @@ function MaterialTable({
             ...customMuiTableContainerProps,
             sx: {
               overflowX: "auto",
+              // Sticky footer/header only bite inside a height-bounded scroller.
+              ...(showColumnFooter ? { maxHeight: "70vh" } : {}),
+              scrollSnapType: "x proximity",
+              scrollPaddingLeft: `${leftPinnedWidth}px`,
+
               ...(customMuiTableContainerProps?.sx || {}),
             },
           }}
-          layoutMode={enableColumnPinning && !isMobile ? "grid" : layoutMode}
+          layoutMode={layoutMode}
           {...muiTableProps}
           muiTableBodyRowProps={(rowArgs: any) => {
             const { row } = rowArgs;
@@ -1346,7 +1429,7 @@ function MaterialTable({
             const colorMap = {
               approved: { bg: 'rgba(16, 185, 129, 0.04)', border: '#10b981', hover: 'rgba(16, 185, 129, 0.08)' },
               rejected: { bg: 'rgba(239, 68, 68, 0.04)', border: '#ef4444', hover: 'rgba(239, 68, 68, 0.08)' },
-              pending:  { bg: 'rgba(245, 158, 11, 0.04)', border: '#f59e0b', hover: 'rgba(245, 158, 11, 0.08)' },
+              pending: { bg: 'rgba(245, 158, 11, 0.04)', border: '#f59e0b', hover: 'rgba(245, 158, 11, 0.08)' },
             };
             const c = rowStatus ? colorMap[rowStatus] : null;
             const statusSx = {
@@ -1361,7 +1444,25 @@ function MaterialTable({
             // Merge caller-supplied row props (onClick, cursor, etc.) ON TOP of the status styling.
             const custom = muiTableProps?.muiTableBodyRowProps ? (muiTableProps.muiTableBodyRowProps(rowArgs) as any) : {};
             const { sx: customSx, ...customRest } = custom || {};
-            return { ...customRest, sx: { ...statusSx, ...(customSx || {}) } };
+            // 14 legacy pages force `nowrap + overflow:hidden + ellipsis` on every cell
+            // through this same selector, which outranks muiTableBodyCellProps and clipped
+            // values like "abdul.tawwab@mcdonaldsindia.com". Re-assert wrapping last while
+            // keeping the rest of their cell styling (font, borders, radius).
+            const customCellSx = (customSx as any)?.["& .MuiTableCell-root"] || {};
+            return {
+              ...customRest,
+              sx: {
+                ...statusSx,
+                ...(customSx || {}),
+                "& .MuiTableCell-root": {
+                  ...customCellSx,
+                  whiteSpace: "normal",
+                  overflow: "visible",
+                  textOverflow: "clip",
+                  overflowWrap: "anywhere",
+                },
+              },
+            };
           }}
           renderEmptyRowsFallback={() => (
             <div
@@ -1403,30 +1504,32 @@ function MaterialTable({
             density: "comfortable",
           }}
           data={tableData}
-          columns={finalColumns}
+          columns={sizedColumns}
           muiTableFooterProps={{
             sx: showColumnFooter
               ? {
-                  "& .MuiTableCell-footer": {
-                    backgroundColor: "#f8f9fa",
-                    color: "#0f172a",
-                    fontWeight: 800,
-                    borderTop: "2.5px solid #1E3A8A",
-                    fontSize: "1rem",
-                    letterSpacing: "0.01em",
-                    paddingTop: "14px",
-                    paddingBottom: "14px",
-                  },
-                  "& .MuiTableCell-footer:first-of-type": {
-                    borderBottomLeftRadius: "8px",
-                  },
-                  "& .MuiTableCell-footer:last-of-type": {
-                    borderBottomRightRadius: "8px",
-                  },
-                }
-              : {
-                  display: "none",
+                opacity: 1, // MRT dims sticky footers to 0.97; rows must not bleed through
+                "& .MuiTableCell-footer": {
+                  ...pinnedCellSx,
+                  backgroundColor: "#f8f9fa",
+                  color: "#0f172a",
+                  fontWeight: 800,
+                  borderTop: "2.5px solid #1E3A8A",
+                  fontSize: "1rem",
+                  letterSpacing: "0.01em",
+                  paddingTop: "14px",
+                  paddingBottom: "14px",
                 },
+                "& .MuiTableCell-footer:first-of-type": {
+                  borderBottomLeftRadius: "8px",
+                },
+                "& .MuiTableCell-footer:last-of-type": {
+                  borderBottomRightRadius: "8px",
+                },
+              }
+              : {
+                display: "none",
+              },
           }}
           muiTopToolbarProps={{
             sx: {
@@ -1777,122 +1880,122 @@ function MaterialTable({
 
                     {/* Rows per page — hidden when pagination is disabled (all rows shown) */}
                     {!paginationDisabled && (
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: { xs: "6px", md: "8px" },
-                        ml: { xs: 0, lg: 1 },
-                        flexShrink: 0,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: 500,
-                          color: "#6B7280",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {isMobile ? "Rows:" : "Rows per page:"}
-                      </span>
-                      <ButtonGroup
-                        variant="outlined"
-                        size="small"
+                      <Box
                         sx={{
-                          borderRadius: '10px',
-                          overflow: 'hidden',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                          display: "flex",
+                          alignItems: "center",
+                          gap: { xs: "6px", md: "8px" },
+                          ml: { xs: 0, lg: 1 },
+                          flexShrink: 0,
                         }}
                       >
-                        <Button
-                          onClick={(e) => setRowsAnchorEl(e.currentTarget)}
-                          sx={{
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            fontSize: isMobile ? 12 : 13,
-                            borderColor: '#e5e7eb',
-                            color: '#374151',
-                            borderRadius: '10px 0 0 10px',
-                            px: isMobile ? 1 : 1.5,
-                            py: 0.6,
-                            minWidth: 'unset',
-                            '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
-                          }}
-                        >
-                          {pageSize}
-                        </Button>
-                        <Button
-                          onClick={(e) => setRowsAnchorEl(e.currentTarget)}
-                          sx={{
-                            borderColor: '#e5e7eb',
-                            color: '#9ca3af',
-                            borderRadius: '0 10px 10px 0',
-                            px: 0.4,
-                            minWidth: 'unset',
-                            '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
-                          }}
-                        >
-                          <KTIcon iconName="down" className="fs-6" />
-                        </Button>
-                      </ButtonGroup>
-                      <Menu
-                        anchorEl={rowsAnchorEl}
-                        open={Boolean(rowsAnchorEl)}
-                        onClose={() => setRowsAnchorEl(null)}
-                        slotProps={{
-                          paper: {
-                            elevation: 3,
-                            sx: {
-                              mt: 0.5,
-                              minWidth: 100,
-                              borderRadius: '12px',
-                              border: '1px solid #e2e8f0',
-                              overflow: 'hidden',
-                              '& .MuiMenuItem-root': {
-                                px: 2,
-                                py: 0.9,
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: '#1e293b',
-                                '&:hover': { bgcolor: '#f8fafc' },
-                                '&.Mui-selected': { bgcolor: '#fef2f2', color: '#1E3A8A', '&:hover': { bgcolor: '#fee2e2' } },
-                              },
-                            },
-                          },
-                        }}
-                        transformOrigin={{ horizontal: 'left', vertical: 'top' }}
-                        anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
-                      >
-                        {PAGE_SIZE_OPTIONS.map((size) => (
-                          <MenuItem
-                            key={size}
-                            selected={size === pageSize}
-                            onClick={() => {
-                              table.setPageSize(Number(size) as PageSizeOption);
-                              table.setPageIndex(0);
-                              setRowsAnchorEl(null);
-                            }}
-                          >
-                            {size}
-                          </MenuItem>
-                        ))}
-                      </Menu>
-                      {!isMobile && totalRows > 0 && (
                         <span
                           style={{
                             fontSize: "13px",
-                            color: "#9CA3AF",
+                            fontWeight: 500,
+                            color: "#6B7280",
                             whiteSpace: "nowrap",
-                            marginLeft: "4px",
                           }}
                         >
-                          {pageIndex * pageSize + 1}–{Math.min((pageIndex + 1) * pageSize, totalRows)}
-                          {" "}of{" "}
-                          <strong style={{ color: "#374151" }}>{totalRows}</strong>
+                          {isMobile ? "Rows:" : "Rows per page:"}
                         </span>
-                      )}
-                    </Box>
+                        <ButtonGroup
+                          variant="outlined"
+                          size="small"
+                          sx={{
+                            borderRadius: '10px',
+                            overflow: 'hidden',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                          }}
+                        >
+                          <Button
+                            onClick={(e) => setRowsAnchorEl(e.currentTarget)}
+                            sx={{
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              fontSize: isMobile ? 12 : 13,
+                              borderColor: '#e5e7eb',
+                              color: '#374151',
+                              borderRadius: '10px 0 0 10px',
+                              px: isMobile ? 1 : 1.5,
+                              py: 0.6,
+                              minWidth: 'unset',
+                              '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+                            }}
+                          >
+                            {pageSize}
+                          </Button>
+                          <Button
+                            onClick={(e) => setRowsAnchorEl(e.currentTarget)}
+                            sx={{
+                              borderColor: '#e5e7eb',
+                              color: '#9ca3af',
+                              borderRadius: '0 10px 10px 0',
+                              px: 0.4,
+                              minWidth: 'unset',
+                              '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+                            }}
+                          >
+                            <KTIcon iconName="down" className="fs-6" />
+                          </Button>
+                        </ButtonGroup>
+                        <Menu
+                          anchorEl={rowsAnchorEl}
+                          open={Boolean(rowsAnchorEl)}
+                          onClose={() => setRowsAnchorEl(null)}
+                          slotProps={{
+                            paper: {
+                              elevation: 3,
+                              sx: {
+                                mt: 0.5,
+                                minWidth: 100,
+                                borderRadius: '12px',
+                                border: '1px solid #e2e8f0',
+                                overflow: 'hidden',
+                                '& .MuiMenuItem-root': {
+                                  px: 2,
+                                  py: 0.9,
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  color: '#1e293b',
+                                  '&:hover': { bgcolor: '#f8fafc' },
+                                  '&.Mui-selected': { bgcolor: '#fef2f2', color: '#1E3A8A', '&:hover': { bgcolor: '#fee2e2' } },
+                                },
+                              },
+                            },
+                          }}
+                          transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+                          anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+                        >
+                          {PAGE_SIZE_OPTIONS.map((size) => (
+                            <MenuItem
+                              key={size}
+                              selected={size === pageSize}
+                              onClick={() => {
+                                table.setPageSize(Number(size) as PageSizeOption);
+                                table.setPageIndex(0);
+                                setRowsAnchorEl(null);
+                              }}
+                            >
+                              {size}
+                            </MenuItem>
+                          ))}
+                        </Menu>
+                        {!isMobile && totalRows > 0 && (
+                          <span
+                            style={{
+                              fontSize: "13px",
+                              color: "#9CA3AF",
+                              whiteSpace: "nowrap",
+                              marginLeft: "4px",
+                            }}
+                          >
+                            {pageIndex * pageSize + 1}–{Math.min((pageIndex + 1) * pageSize, totalRows)}
+                            {" "}of{" "}
+                            <strong style={{ color: "#374151" }}>{totalRows}</strong>
+                          </span>
+                        )}
+                      </Box>
                     )}
                   </Box>
 

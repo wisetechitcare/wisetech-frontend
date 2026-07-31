@@ -9,6 +9,7 @@ import { fetchCompanyOverview } from '@services/company';
 import { errorConfirmation } from '@utils/modal';
 import { toast } from 'react-toastify';
 import { RootState } from '@redux/store';
+import { isAdminRole } from '@utils/media.utils';
 import { payrollService } from '@modules/payroll/services/payrollService';
 import { downloadSalarySlipXlsx, downloadSalarySlipCsv } from '@modules/payroll/utils/salarySlipExport';
 
@@ -59,6 +60,9 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
     const currentUser = useSelector((state: RootState) => state.employee.currentEmployee);
     const generatedBy = `${currentUser?.users?.firstName || ''} ${currentUser?.users?.lastName || ''}`.replace(/\s+/g, ' ').trim() || 'Payroll System';
 
+    // Raw month data (Excel / CSV) is an admin tool — everyone else gets the PDF slip only.
+    const isAdmin = isAdminRole(currentUser as any);
+
     const isContractEmployee = !!employee?.professionalFeesEnabled;
 
     // Single source for the slip PDF — always the backend template.
@@ -98,7 +102,7 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
 
     // Excel / CSV are built in the browser from the same month record the Financial
     // Breakdown renders, so the sheet always reconciles with the screen and the PDF.
-    const canExportSheet = !!apiSalaryData && !!month && !!year;
+    const canExportSheet = isAdmin && !!apiSalaryData && !!month && !!year;
 
     // Company branding for the exported slip header/signature — fetched once, on demand.
     const companyRef = React.useRef<any>(null);
@@ -267,6 +271,20 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
             style={{ pointerEvents: 'auto', filter: 'none', gap: '8px' }}
         >
             {salarySlipProps && (canFetchSlip || canExportSheet) ? (
+                !canExportSheet ? (
+                    // No sheet formats to choose from — the toggle would open a one-item menu.
+                    <button
+                        type="button"
+                        onClick={handleDownloadPdf}
+                        disabled={loading}
+                        style={downloadBtnStyle}
+                        onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; } }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
+                    >
+                        <KTIcon iconName="file-down" className="fs-6" />
+                        <span>{downloadLabel}</span>
+                    </button>
+                ) : (
                 <Dropdown align="end">
                     <Dropdown.Toggle
                         as="button"
@@ -306,7 +324,6 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
 
                         <Dropdown.Item
                             onClick={() => handleSheetExport('xlsx')}
-                            disabled={!canExportSheet}
                             style={{ borderRadius: '8px', padding: '8px 10px' }}
                         >
                             <div className="d-flex align-items-center gap-3">
@@ -320,7 +337,6 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
 
                         <Dropdown.Item
                             onClick={() => handleSheetExport('csv')}
-                            disabled={!canExportSheet}
                             style={{ borderRadius: '8px', padding: '8px 10px' }}
                         >
                             <div className="d-flex align-items-center gap-3">
@@ -333,6 +349,7 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
                         </Dropdown.Item>
                     </Dropdown.Menu>
                 </Dropdown>
+                )
             ) : (
                 <button disabled style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 14px', border: '1.5px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#94a3b8', fontWeight: 500, fontSize: '12px', cursor: 'not-allowed', whiteSpace: 'nowrap' }}>
                     <KTIcon iconName="file-down" className="fs-6" />
