@@ -146,6 +146,12 @@ export type ResolveCheckInColorInput = {
   leaveConfig?: Record<string, unknown> | null;
   /** Weekend/holiday/leave rows — show muted, no red/green */
   skipColoring?: boolean;
+  /**
+   * Server verdict: this day's late mark is waived (the previous work day ran past the
+   * configured late-night cutoff). Comes from the API — the rule lives on the backend so
+   * every screen and payroll agree; never re-derive it here.
+   */
+  lateWaived?: boolean;
 };
 
 /**
@@ -159,10 +165,21 @@ export function resolveCheckInColor(input: ResolveCheckInColorInput): CheckInCol
     lateCheckInThreshold,
     leaveConfig,
     skipColoring = false,
+    lateWaived = false,
   } = input;
 
   if (skipColoring || isAttendanceTimeMissing(checkIn)) {
     return { tone: 'muted', color: ATTENDANCE_COLORS.muted, isLate: false };
+  }
+
+  // Late-night waiver — worked past the cutoff the previous day, so today is never late.
+  if (lateWaived) {
+    return {
+      tone: 'success',
+      color: ATTENDANCE_COLORS.success,
+      isLate: false,
+      tooltip: 'On time — late mark waived after a late-night shift the previous day',
+    };
   }
 
   const referenceDate = date || dayjs().format('YYYY-MM-DD');

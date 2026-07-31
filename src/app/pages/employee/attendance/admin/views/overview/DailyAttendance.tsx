@@ -195,6 +195,8 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
             checkOutLatitude: empAttendance.checkOutLatitude,
             checkOutLongitude: empAttendance.checkOutLongitude,
             checkoutWorkingMethod: empAttendance.checkoutWorkingMethod?.type || '-NA-',
+            // Server verdict: late mark waived after a late-night shift the previous day.
+            lateWaived: (empAttendance as any).lateWaived === true,
         };
     });
 }
@@ -471,6 +473,8 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                         employee.status,
                         employee.isWeekendOrHoliday
                     ),
+                    // Server-computed late-night waiver (same rule payroll applies).
+                    lateWaived: (employee as any).lateWaived === true,
                 });
 
                 const checkInCoords =
