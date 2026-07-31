@@ -23,6 +23,8 @@ import {
   DATE_SETTINGS_KEY,
   LEAVE_MANAGEMENT,
   ENFORCE_ONSITE_DEADLINE_KEY,
+  LATE_NIGHT_WAIVER_KEY,
+  LATE_NIGHT_WAIVER_TIME_KEY,
 } from '@constants/configurations-key';
 import { onSiteAndHolidayWeekendSettingsOnOffName } from '@constants/statistics';
 import Loader from '@app/modules/common/utils/Loader';
@@ -298,6 +300,7 @@ const AttendanceConfig: React.FC = () => {
   const [graceTimeOffice,       setGraceTimeOffice]       = useState('00:30');
   const [graceTimeOnSite,       setGraceTimeOnSite]       = useState('00:30');
   const [enforceOnsiteDeadline, setEnforceOnsiteDeadline] = useState(true);
+  const [lateNightWaiver,       setLateNightWaiver]       = useState<string>('Disabled');
 
   // ── Loaders ────────────────────────────────────────────────────────────────
 
@@ -332,14 +335,21 @@ const AttendanceConfig: React.FC = () => {
       const onsiteGrace = leaveConfig?.['Grace Time - On Site'];
       setGraceTimeOnSite(onsiteGrace !== undefined && String(onsiteGrace).trim() !== '' ? String(onsiteGrace) : '11:00');
 
+      // OFF unless explicitly enabled — on-site check-ins carry no late mark by default.
       const enforceRaw = leaveConfig?.[ENFORCE_ONSITE_DEADLINE_KEY];
-      let enforce = true;
-      if (typeof enforceRaw === 'boolean') enforce = enforceRaw;
-      else if (enforceRaw !== undefined && enforceRaw !== null) {
-        const l = String(enforceRaw).trim().toLowerCase();
-        enforce = !(l === 'false' || l === '0' || l === 'no');
-      }
+      const enforce =
+        typeof enforceRaw === 'boolean'
+          ? enforceRaw
+          : ['true', '1', 'yes', 'on'].includes(String(enforceRaw ?? '').trim().toLowerCase());
       setEnforceOnsiteDeadline(enforce);
+
+      // Late-night waiver: OFF unless explicitly enabled.
+      const waiverRaw = leaveConfig?.[LATE_NIGHT_WAIVER_KEY];
+      const waiverOn = typeof waiverRaw === 'boolean'
+        ? waiverRaw
+        : ['true', '1', 'yes', 'on'].includes(String(waiverRaw ?? '').trim().toLowerCase());
+      const waiverTime = String(leaveConfig?.[LATE_NIGHT_WAIVER_TIME_KEY] ?? '').trim() || '22:00';
+      setLateNightWaiver(waiverOn ? `After ${waiverTime}` : 'Disabled');
     } catch (e) {
       console.error('Error loading shift data:', e);
     }
@@ -519,13 +529,15 @@ const AttendanceConfig: React.FC = () => {
                     {/* Lunch / Grace info tiles */}
                     <div style={{ marginTop: SP.md, paddingTop: SP.md, borderTop: '1px dashed #e5e7eb' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        {[
+                        {([
                           { label: 'Lunch Time',     val: lunchTime,          icon: 'bi-cup-hot' },
                           { label: 'Deduction',      val: deductionTime,      icon: 'bi-dash-circle' },
                           { label: 'Grace – Office', val: graceTimeOffice,    icon: 'bi-building' },
                           { label: 'Grace – Site',   val: enforceOnsiteDeadline ? graceTimeOnSite : 'Disabled', icon: 'bi-geo-alt' },
-                        ].map(({ label, val, icon }) => (
+                          { label: 'No Late Mark After Late Night', val: lateNightWaiver, icon: 'bi-moon-stars', full: true },
+                        ] as Array<{ label: string; val: string | number; icon: string; full?: boolean }>).map(({ label, val, icon, full }) => (
                           <div key={label} style={{
+                            gridColumn: full ? '1 / -1' : undefined,
                             background: 'linear-gradient(135deg, #fafbfd 0%, #f4f6fb 100%)',
                             border: '1px solid #eaecf3',
                             borderRadius: RADIUS.lg,

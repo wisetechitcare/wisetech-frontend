@@ -52,17 +52,26 @@ export function isOnsiteWorkingMethod(method?: string | null): boolean {
   return key === 'onsite' || method === WORKING_METHOD_TYPE.ON_SITE;
 }
 
-/** Reads Enforce Onsite Deadline from leave-management JSON (default: enforced). */
+/**
+ * On-site check-ins are never late by DEFAULT — the deadline applies only when
+ * "Enforce Onsite Deadline" is explicitly ON *and* a "Grace Time - On Site" is set.
+ * Mirrors the backend `parseOnsiteGraceConfig`; keep the two in step.
+ */
 export function isOnsiteDeadlineEnforced(
   leaveConfig?: Record<string, unknown> | null
 ): boolean {
   const config = leaveConfig ?? {};
   const raw = config[ENFORCE_ONSITE_DEADLINE_KEY];
-  if (typeof raw === 'boolean') return raw;
-  if (raw === undefined || raw === null) return true;
-  const lowered = String(raw).trim().toLowerCase();
-  if (lowered === 'false' || lowered === '0' || lowered === 'no') return false;
-  return true;
+  const toggledOn =
+    typeof raw === 'boolean'
+      ? raw
+      : raw !== undefined && raw !== null
+        ? ['true', '1', 'yes', 'on'].includes(String(raw).trim().toLowerCase())
+        : false;
+  if (!toggledOn) return false;
+
+  const deadline = config[GRACE_TIME_ON_SITE_KEY];
+  return deadline !== undefined && deadline !== null && String(deadline).trim() !== '';
 }
 
 function parseOnsiteClockDeadline(raw: unknown): { hour: number; minute: number; label: string } {
