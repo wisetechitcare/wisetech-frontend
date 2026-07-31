@@ -2,6 +2,10 @@ export const LEAVE_MANAGEMENT = 'leave management';
 /** When false, on-site check-ins are never marked late */
 export const ENFORCE_ONSITE_DEADLINE_KEY = 'Enforce Onsite Deadline';
 export const GRACE_TIME_ON_SITE_KEY = 'Grace Time - On Site';
+/** No late mark the day after a work day that ran past LATE_NIGHT_WAIVER_TIME_KEY.
+ *  Must match backend utils/lateNightWaiver.ts. */
+export const LATE_NIGHT_WAIVER_KEY = 'Late Night Waiver';
+export const LATE_NIGHT_WAIVER_TIME_KEY = 'Late Night Waiver Time';
 export const GROSS_PAY = 'grossPay';
 export const DEDUCTIONS = 'deductions';
 export const EXCLUDE_FROM_LATE_ATTENDANCE = 'excludeFromLateAttendance';

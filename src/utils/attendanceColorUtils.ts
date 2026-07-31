@@ -52,17 +52,26 @@ export function isOnsiteWorkingMethod(method?: string | null): boolean {
   return key === 'onsite' || method === WORKING_METHOD_TYPE.ON_SITE;
 }
 
-/** Reads Enforce Onsite Deadline from leave-management JSON (default: enforced). */
+/**
+ * On-site check-ins are never late by DEFAULT — the deadline applies only when
+ * "Enforce Onsite Deadline" is explicitly ON *and* a "Grace Time - On Site" is set.
+ * Mirrors the backend `parseOnsiteGraceConfig`; keep the two in step.
+ */
 export function isOnsiteDeadlineEnforced(
   leaveConfig?: Record<string, unknown> | null
 ): boolean {
   const config = leaveConfig ?? {};
   const raw = config[ENFORCE_ONSITE_DEADLINE_KEY];
-  if (typeof raw === 'boolean') return raw;
-  if (raw === undefined || raw === null) return true;
-  const lowered = String(raw).trim().toLowerCase();
-  if (lowered === 'false' || lowered === '0' || lowered === 'no') return false;
-  return true;
+  const toggledOn =
+    typeof raw === 'boolean'
+      ? raw
+      : raw !== undefined && raw !== null
+        ? ['true', '1', 'yes', 'on'].includes(String(raw).trim().toLowerCase())
+        : false;
+  if (!toggledOn) return false;
+
+  const deadline = config[GRACE_TIME_ON_SITE_KEY];
+  return deadline !== undefined && deadline !== null && String(deadline).trim() !== '';
 }
 
 function parseOnsiteClockDeadline(raw: unknown): { hour: number; minute: number; label: string } {
@@ -137,6 +146,12 @@ export type ResolveCheckInColorInput = {
   leaveConfig?: Record<string, unknown> | null;
   /** Weekend/holiday/leave rows — show muted, no red/green */
   skipColoring?: boolean;
+  /**
+   * Server verdict: this day's late mark is waived (the previous work day ran past the
+   * configured late-night cutoff). Comes from the API — the rule lives on the backend so
+   * every screen and payroll agree; never re-derive it here.
+   */
+  lateWaived?: boolean;
 };
 
 /**
@@ -150,10 +165,21 @@ export function resolveCheckInColor(input: ResolveCheckInColorInput): CheckInCol
     lateCheckInThreshold,
     leaveConfig,
     skipColoring = false,
+    lateWaived = false,
   } = input;
 
   if (skipColoring || isAttendanceTimeMissing(checkIn)) {
     return { tone: 'muted', color: ATTENDANCE_COLORS.muted, isLate: false };
+  }
+
+  // Late-night waiver — worked past the cutoff the previous day, so today is never late.
+  if (lateWaived) {
+    return {
+      tone: 'success',
+      color: ATTENDANCE_COLORS.success,
+      isLate: false,
+      tooltip: 'On time — late mark waived after a late-night shift the previous day',
+    };
   }
 
   const referenceDate = date || dayjs().format('YYYY-MM-DD');

@@ -14,6 +14,8 @@ import {
   LEAVE_MANAGEMENT,
   ENFORCE_ONSITE_DEADLINE_KEY,
   GRACE_TIME_ON_SITE_KEY,
+  LATE_NIGHT_WAIVER_KEY,
+  LATE_NIGHT_WAIVER_TIME_KEY,
 } from '@constants/configurations-key';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import Loader from '@app/modules/common/utils/Loader';
@@ -30,6 +32,16 @@ const timeToMinutes = (timeStr: string | null): number => {
   if (period === 'PM' && hours !== 12) hours += 12;
   if (period === 'AM' && hours === 12) hours = 0;
   return hours * 60 + minutes;
+};
+
+/** Config booleans have been persisted as boolean | "true"/"1"/"yes" over time — read them all. */
+const parseConfigBool = (raw: unknown, fallback: boolean): boolean => {
+  if (typeof raw === 'boolean') return raw;
+  if (raw === undefined || raw === null) return fallback;
+  const v = String(raw).trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(v)) return true;
+  if (['false', '0', 'no', 'off'].includes(v)) return false;
+  return fallback;
 };
 
 // Helper function to convert minutes to "H:MM Hrs" format
@@ -91,6 +103,8 @@ interface ShiftValues {
   graceTimeOffice: string;
   graceTimeOnSite: string;
   enforceOnsiteDeadline: boolean;
+  lateNightWaiver: boolean;
+  lateNightWaiverTime: string;
 }
 
 interface DayWiseShiftData {
@@ -151,6 +165,14 @@ const DailyShiftTime: React.FC<DailyShiftTimeProps> = ({ scope }) => {
       then: (schema) => schema.required('Grace time on site is required'),
       otherwise: (schema) => schema.notRequired(),
     }),
+    lateNightWaiver: Yup.boolean(),
+    lateNightWaiverTime: Yup.string().when('lateNightWaiver', {
+      is: true,
+      then: (schema) => schema
+        .required('Late-night cutoff is required')
+        .matches(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Use 24-hour HH:MM, e.g. 22:00'),
+      otherwise: (schema) => schema.notRequired(),
+    }),
   });
 
   const [initialValues, setInitialValues] = useState<ShiftValues>({
@@ -201,6 +223,8 @@ const DailyShiftTime: React.FC<DailyShiftTimeProps> = ({ scope }) => {
     graceTimeOffice: '00:30',
     graceTimeOnSite: '11:00',
     enforceOnsiteDeadline: true,
+    lateNightWaiver: false,
+    lateNightWaiverTime: '22:00',
   });
 
 
@@ -253,17 +277,17 @@ const DailyShiftTime: React.FC<DailyShiftTimeProps> = ({ scope }) => {
               ? String(onsiteGrace)
               : '11:00';
 
-          const enforceRaw = leaveConfig?.[ENFORCE_ONSITE_DEADLINE_KEY];
-          if (typeof enforceRaw === 'boolean') {
-            updatedValues.enforceOnsiteDeadline = enforceRaw;
-          } else if (enforceRaw !== undefined && enforceRaw !== null) {
-            const lowered = String(enforceRaw).trim().toLowerCase();
-            updatedValues.enforceOnsiteDeadline = !(
-              lowered === 'false' || lowered === '0' || lowered === 'no'
-            );
-          } else {
-            updatedValues.enforceOnsiteDeadline = true;
-          }
+          // OFF unless explicitly enabled — a site check-in gets no late mark until an
+          // admin turns this on AND sets a deadline time.
+          updatedValues.enforceOnsiteDeadline = parseConfigBool(leaveConfig?.[ENFORCE_ONSITE_DEADLINE_KEY], false);
+
+          // Late-night waiver — OFF unless explicitly enabled, so existing tenants are unaffected.
+          updatedValues.lateNightWaiver = parseConfigBool(leaveConfig?.[LATE_NIGHT_WAIVER_KEY], false);
+          const waiverTime = leaveConfig?.[LATE_NIGHT_WAIVER_TIME_KEY];
+          updatedValues.lateNightWaiverTime =
+            waiverTime !== undefined && waiverTime !== null && String(waiverTime).trim() !== ''
+              ? String(waiverTime).trim()
+              : '22:00';
         } catch (error) {
           console.error('[DailyShiftTime] Error loading LEAVE_MANAGEMENT config:', error);
         }
@@ -403,6 +427,8 @@ const handleSubmit = async (values: ShiftValues) => {
         [GRACE_TIME_ON_SITE_KEY]: values.enforceOnsiteDeadline
           ? values.graceTimeOnSite
           : null,
+        [LATE_NIGHT_WAIVER_KEY]: values.lateNightWaiver,
+        [LATE_NIGHT_WAIVER_TIME_KEY]: values.lateNightWaiver ? values.lateNightWaiverTime : null,
       };
 
       // Upsert the config for THIS exact scope. The backend finds-or-creates the row for
@@ -642,6 +668,33 @@ const handleSubmit = async (values: ShiftValues) => {
                         <TextInput formikField="graceTimeOnSite" isRequired={true} placeholder="11:00" />
                       </Grid>
                     )}
+                  </Grid>
+
+                  <Box sx={{ height: '1px', backgroundColor: T.color.line }} />
+
+                  {/* Late-night waiver — worked past the cutoff yesterday ⇒ no late mark today. */}
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={5} md={4} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <WtSwitch
+                        checked={values.lateNightWaiver}
+                        onChange={(e) => setFieldValue('lateNightWaiver', e.target.checked)}
+                        title={values.lateNightWaiver
+                          ? 'On: no late mark the day after a late-night shift'
+                          : 'Off: late marks apply as usual'}
+                      />
+                      <Typography sx={settingLabelSx}>No Late Mark After Late Night</Typography>
+                    </Grid>
+                    {values.lateNightWaiver && (
+                      <Grid item xs={12} sm={7} md={4}>
+                        <TextInput formikField="lateNightWaiverTime" isRequired={true} placeholder="22:00" />
+                      </Grid>
+                    )}
+                    <Grid item xs={12} md={4}>
+                      <Typography sx={{ fontSize: 12.5, color: '#55606F', lineHeight: 1.5 }}>
+                        Worked until {values.lateNightWaiver ? values.lateNightWaiverTime || '22:00' : '22:00'} or later
+                        (24-hour, branch time)? The next day&apos;s check-in is never marked late.
+                      </Typography>
+                    </Grid>
                   </Grid>
                 </GlassSurface>
 

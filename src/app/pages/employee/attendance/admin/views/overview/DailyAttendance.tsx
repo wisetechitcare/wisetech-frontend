@@ -30,7 +30,7 @@ import { onSiteAndHolidayWeekendSettingsOnOffName, resourceNameMapWithCamelCase 
 import { fetchAddressDetails } from "@services/location";
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration } from "@services/company";
 import { DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from "@constants/configurations-key";
-import { getGraceBasedThresholds } from "@utils/getGraceBasedThresholds";
+import { getScopedGraceThresholds } from "@utils/getGraceBasedThresholds";
 import { decimalHoursToHHMM } from "@utils/date";
 import { convertMinutesIntoHrMinFormat, convertMinutesIntoHrMinFormats, customLeaves, filterLeavesPublicHolidays, getTimeDifference, markWeekendOrHoliday } from "@utils/statistics";
 import { saveFilteredLeaves, saveLeaves, savePublicHolidays } from "@redux/slices/attendanceStats";
@@ -56,6 +56,10 @@ interface IEmployeesAttendanceResponse {
         employeeCode: string;
         userId: string;
         name: string;
+        // This employee's own org/branch — the board mixes several, so shift + on-site
+        // config must resolve per row's scope, not from one company-wide fetch.
+        companyId?: string | null;
+        branchId?: string | null;
         // The employee's own branch timezone — business day/weekday classification
         // for this row must use THIS, not a hardcoded constant, so admins viewing
         // from a different timezone (or a company with branches across timezones)
@@ -173,6 +177,9 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
             code: empAttendance.employee.employeeCode,
             name: empAttendance.employee.name,
             avatar: (empAttendance.employee as any)?.avatar ?? null,
+            // Carried onto the row so thresholds/config resolve per employee's own scope.
+            companyId: empAttendance.employee?.companyId ?? null,
+            branchId: empAttendance.employee?.branchId ?? null,
             checkIn: formattedCheckIn,
             checkOut: formattedCheckOut,
             duration: checkIn && checkOut ? getMinutesInHrMinFormat : '-NA-',
@@ -188,6 +195,8 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
             checkOutLatitude: empAttendance.checkOutLatitude,
             checkOutLongitude: empAttendance.checkOutLongitude,
             checkoutWorkingMethod: empAttendance.checkoutWorkingMethod?.type || '-NA-',
+            // Server verdict: late mark waived after a late-night shift the previous day.
+            lateWaived: (empAttendance as any).lateWaived === true,
         };
     });
 }
@@ -277,6 +286,8 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
     const [lateCheckInThreshold, setLateCheckInThreshold] = useState('');
     const [earlyCheckOutThreshold, setEarlyCheckOutThreshold] = useState('');
     const [employeeThresholds, setEmployeeThresholds] = useState<any[]>([]);
+    // employeeId → the leave-management config resolved for THAT employee's org/branch.
+    const [leaveConfigByEmployeeId, setLeaveConfigByEmployeeId] = useState<Map<string, Record<string, unknown>>>(new Map());
     const [employeesOnLeaveToday, setEmployeesOnLeaveToday] = useState<any[]>([]);
     const [mergedAttendanceData, setMergedAttendanceData] = useState<IEmployeesAttendance[]>([]);
 
@@ -454,11 +465,16 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                     date: employee.date,
                     lateCheckInThreshold:
                         employeeData?.lateCheckInThreshold ?? lateCheckInThreshold,
-                    leaveConfig: leaveConfiguration,
+                    // This employee's OWN branch/org config (on-site deadline + enforce
+                    // toggle); the company-wide fetch is only a fallback.
+                    leaveConfig:
+                        leaveConfigByEmployeeId.get(employee.employeeId ?? '') ?? leaveConfiguration,
                     skipColoring: !shouldApplyCheckInColoring(
                         employee.status,
                         employee.isWeekendOrHoliday
                     ),
+                    // Server-computed late-night waiver (same rule payroll applies).
+                    lateWaived: (employee as any).lateWaived === true,
                 });
 
                 const checkInCoords =
@@ -568,7 +584,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         // },
         // Day column removed — the selected day + date now lives in the Overview
         // heading (PeriodFilter daily label, e.g. "Wednesday, 29 Jul 2026").
-    ], [StatusBadge, lateCheckInThreshold, earlyCheckOutThreshold, employeeThresholds, leaveConfiguration]);
+    ], [StatusBadge, lateCheckInThreshold, earlyCheckOutThreshold, employeeThresholds, leaveConfiguration, leaveConfigByEmployeeId]);
 
     const reloadDailyAttendance = useCallback(async () => {
             try {
@@ -646,7 +662,9 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
     // Realtime: refetch when attendance changes anywhere (biometric punch, admin edit, self check-in/out).
     useAttendanceRealtime(() => reloadDailyAttendance());
 
-    // fetch grace based thresholds
+    // Grace thresholds + leave config, resolved PER employee's org/branch. This board lists
+    // several orgs/branches at once, so one company-wide config would colour a branch that
+    // overrides its shift (or its on-site deadline) by the group default.
     useEffect(() => {
         const initThresholds = async () => {
             if (!employeesAttendance || employeesAttendance.length === 0) {
@@ -654,14 +672,13 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 return;
             }
 
-            const thresholds = await getGraceBasedThresholds(employeesAttendance);
+            const thresholds = await getScopedGraceThresholds(employeesAttendance);
 
-            if (thresholds) {
-                setEmployeeThresholds(thresholds.employeesWithThresholds);
+            setEmployeeThresholds(thresholds.employeesWithThresholds);
+            setLeaveConfigByEmployeeId(thresholds.leaveConfigByEmployeeId);
+            if (thresholds.defaultThresholds) {
                 setLateCheckInThreshold(thresholds.defaultThresholds.lateCheckInThreshold);
                 setEarlyCheckOutThreshold(thresholds.defaultThresholds.earlyCheckOutThreshold);
-            } else {
-                console.error('No thresholds returned from getGraceBasedThresholds');
             }
         };
 
