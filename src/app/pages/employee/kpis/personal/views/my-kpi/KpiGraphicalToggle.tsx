@@ -1,5 +1,6 @@
 import { Container } from "@mui/material";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import { usePersistedState } from "@app/modules/common/hooks/usePersistedState";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import Daily from "@pages/employee/kpis/personal/views/my-kpi/Daily";
 import Weekly from "@pages/employee/kpis/personal/views/my-kpi/Weekly";
@@ -43,7 +44,11 @@ const KpiGraphicalToggle = ({
   const dispatch = useDispatch();
   const today = dayjs();
 
-  const [alignment, setAlignment] = useState("weekly");
+  const [alignment, setAlignment] = usePersistedState(
+    "kpiPersonalPeriodMode",
+    "weekly",
+    ["daily", "weekly", "monthly", "yearly", "alltime", "custom"] as const
+  );
 
   const [day, setDay] = useState(today);
   // week should be start from monday to sunday

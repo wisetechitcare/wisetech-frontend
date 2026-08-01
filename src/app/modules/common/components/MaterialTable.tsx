@@ -338,18 +338,13 @@ function MaterialTable({
         return;
       }
       el.addEventListener('scroll', syncThumb, { passive: true });
-      const onWheel = (e: WheelEvent) => {
-        if (!e.shiftKey) return;
-        e.preventDefault();
-        el.scrollLeft += e.deltaY * 0.1;
-      };
-      el.addEventListener('wheel', onWheel, { passive: false });
+      // Shift+wheel is native browser behaviour — a custom handler here only got in its
+      // way (it moved deltaY * 0.1, i.e. ~10px, which scroll-snap immediately undid).
       const ro = new ResizeObserver(syncThumb);
       ro.observe(el);
       syncThumb();
       cleanupFn = () => {
         el.removeEventListener('scroll', syncThumb);
-        el.removeEventListener('wheel', onWheel);
         ro.disconnect();
       };
     };
