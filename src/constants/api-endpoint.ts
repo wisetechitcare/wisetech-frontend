@@ -13,6 +13,7 @@ export const AUTH = {
 // (wisetech-backend/src/constants/api-endpoint.ts RECRUITMENT).
 export const RECRUITMENT = {
     // Requisitions (Phase 1)
+    GET_OVERVIEW: "api/recruitment/overview",
     CREATE_REQUISITION: "api/recruitment/requisitions",
     GET_ALL_REQUISITIONS: "api/recruitment/requisitions",
     GET_REQUISITION_BY_ID: "api/recruitment/requisitions/:id",

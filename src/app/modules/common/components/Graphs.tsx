@@ -24,7 +24,7 @@ import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from './MaterialTable';
 import { convertMinutesIntoHrMinFormat, convertToIST, convertToTime, isValidTime, markWeekendOrHoliday, markWeekendOrHolidayForReportsTable } from '@utils/statistics';
 import { useDispatch, useSelector } from 'react-redux';
-import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, REQUEST_RAISE_DISABLE_MESSAGE, resourceNameMapWithCamelCase, Status, weekDays } from '@constants/statistics';
+import { permissionConstToUseWithHasPermission, REQUEST_RAISE_DISABLE_MESSAGE, resourceNameMapWithCamelCase, Status, weekDays } from '@constants/statistics';
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues } from 'formik';
 import TextInput from '../inputs/TextInput';
