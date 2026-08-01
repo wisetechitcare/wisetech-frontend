@@ -209,6 +209,18 @@ export const createApplicant = async (payload: ApplicantPayload) => {
     return data;
 };
 
+export const getApplicantById = async (id: string): Promise<Applicant | null> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICANT_BY_ID.replace(":id", id)}`);
+    return data?.applicant ?? null;
+};
+
+// There is deliberately no deleteApplicant: candidate records are never hard-deleted (audit +
+// data-retention). Deactivating/blacklisting flows through this update instead.
+export const updateApplicant = async (id: string, payload: Partial<ApplicantPayload> & { isBlacklisted?: boolean; isActive?: boolean }) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${RECRUITMENT.UPDATE_APPLICANT.replace(":id", id)}`, payload);
+    return data;
+};
+
 // ─── Pipeline config masters ─────────────────────────────────────────────────
 const cfgPath = (type: string) => RECRUITMENT.CONFIG_ENTITY.replace(":type", type);
 const cfgByIdPath = (type: string, id: string) => RECRUITMENT.CONFIG_ENTITY_BY_ID.replace(":type", type).replace(":id", id);
@@ -395,4 +407,27 @@ export const updatePosting = async (id: string, payload: PostingPayload) => {
 export const deletePosting = async (id: string) => {
     const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.DELETE_POSTING.replace(":id", id)}`);
     return data;
+};
+
+// ─── Overview / analytics dashboard ──────────────────────────────────────────
+export interface RecruitmentOverview {
+    kpis: {
+        openRequisitions: number;
+        activeCandidates: number;
+        interviewsScheduled: number;
+        offersOutstanding: number;
+        hires: number;
+        totalApplications: number;
+        publishedPostings: number;
+        avgTimeToHireDays: number | null;
+    };
+    funnel: Array<{ id: string; name: string; color?: string | null; count: number; sortOrder: number; isHiredOutcome: boolean; isRejectedOutcome: boolean }>;
+    requisitionsByStatus: { pending: number; approved: number; rejected: number };
+    candidatesBySource: Array<{ id: string; name: string; color?: string | null; count: number }>;
+    offersByAcceptance: Array<{ status: string; count: number }>;
+}
+
+export const getRecruitmentOverview = async (): Promise<RecruitmentOverview | null> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_OVERVIEW}`);
+    return data?.overview ?? null;
 };
