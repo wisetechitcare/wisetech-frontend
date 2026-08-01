@@ -301,7 +301,7 @@ function OverviewView() {
         <PeriodFilter
           allowedModes={["daily", "weekly", "monthly"]}
           initialMode="daily"
-          dailyLabelFormat="dddd, DD MMM YYYY"
+          dailyLabelFormat="dddd, D MMMM YYYY"
           storageKey="attendance:overview:period"
           onChange={handleRangeChange}
         />

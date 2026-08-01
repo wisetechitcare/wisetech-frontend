@@ -33,7 +33,20 @@
 }
 
 .overview-stats-container .overview-stat-card:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px 0 rgba(16, 24, 40, 0.12);
+}
+
+/* The cards are drag-reorderable, so a pointer-motion user gets a hint the surface is
+   interactive. Respect a reduced-motion preference — the shadow still communicates it. */
+@media (prefers-reduced-motion: reduce) {
+  .overview-stats-container .overview-stat-card {
+    transition: box-shadow 0.2s ease;
+  }
+
+  .overview-stats-container .overview-stat-card:hover {
+    transform: none;
+  }
 }
 
 .overview-stat-card .card-body {
@@ -112,6 +125,58 @@
 
 .overview-stats-container .overview-stat-card--absent {
   box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.14);
+}
+
+/* ── Dark mode ────────────────────────────────────────────────────────────────
+   The rules above hardcode #fff / #1a1a1a, which left this whole strip a block of
+   white cards with near-black text on the dark canvas. Colours resolve from the
+   GitHub-dark SSOT (src/app/theme/githubDark.ts) via the --gh-* custom properties
+   ColorModeProvider stamps on <html>; keying off [data-bs-theme="dark"] follows the
+   in-app toggle, which prefers-color-scheme would not. */
+[data-bs-theme="dark"] .overview-stats-container .overview-stat-card {
+  background: var(--gh-surface);
+  border: 1px solid var(--gh-border);
+  /* Blue-grey glows read as haze on a near-black canvas — the category is carried by
+     the tinted ring below instead. */
+  box-shadow: var(--gh-shadow-sm);
+}
+
+[data-bs-theme="dark"] .overview-stats-container .overview-stat-card:hover {
+  box-shadow: var(--gh-shadow-md);
+}
+
+[data-bs-theme="dark"] .overview-stat-card-value,
+[data-bs-theme="dark"] .overview-stat-card-label {
+  color: var(--gh-fg);
+}
+
+/* Category identity in dark: a tinted inner ring instead of the light theme's glow. */
+[data-bs-theme="dark"] .overview-stats-container .overview-stat-card--working {
+  border-color: rgba(40, 167, 69, 0.45);
+}
+
+[data-bs-theme="dark"] .overview-stats-container .overview-stat-card--leave {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+[data-bs-theme="dark"] .overview-stats-container .overview-stat-card--late {
+  border-color: rgba(236, 72, 153, 0.45);
+}
+
+[data-bs-theme="dark"] .overview-stats-container .overview-stat-card--checkout-missing {
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+[data-bs-theme="dark"] .overview-stats-container .overview-stat-card--early {
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+[data-bs-theme="dark"] .overview-stats-container .overview-stat-card--extra {
+  border-color: rgba(139, 92, 246, 0.45);
+}
+
+[data-bs-theme="dark"] .overview-stats-container .overview-stat-card--absent {
+  border-color: rgba(239, 68, 68, 0.45);
 }
 
 /* Tablets / small laptops: tighten padding and gap so more cards fit per row

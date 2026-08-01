@@ -10,7 +10,7 @@ import { fetchAllEmployees, fetchEmployeesOnLeaveToday, fetchEmployeesOnLeaveRan
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import {
     Card,
@@ -43,14 +43,39 @@ import ReorderableGroup from "@app/modules/common/components/ReorderableGroup";
 import { pressableProps } from "@app/modules/common/components/ui/a11y";
 import "./OverviewStatsGrid.css";
 import { ToneChip } from '@app/modules/common/components/ui';
+import type { SemanticTone } from '@app/theme/tokens';
+import { DATE_FORMATS, formatDateLong } from '@utils/dateFormats';
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
-import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
+import {
+    EmployeeStatGrid,
+    EmployeeStatGroupView,
+    StatEmptyState,
+    type EmployeeStatItem,
+} from '@app/modules/common/components/EmployeeStatGrid';
+import type { EmployeeStatGroup } from '@app/modules/common/components/employeeStatGrouping';
 
 // Sort/search/close modal shell and the employee card grid are shared with the
 // Dashboard daily overview — see the two components above, not a local copy.
 type SortOption = StatSortOption;
 
 type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | 'checkoutMissing' | null;
+
+// Count-badge colour per category, mirroring the stat-card accents so a modal reads as
+// the same object the user clicked rather than a generic list.
+const MODAL_TONE: Record<Exclude<ModalType, null>, SemanticTone> = {
+    working: 'success',
+    leave: 'warning',
+    late: 'danger',
+    early: 'cyan',
+    extra: 'indigo',
+    absent: 'danger',
+    checkoutMissing: 'warning',
+};
+
+// Weekly/monthly rolls up to one card per employee, so "who does this most" leads.
+// Check-in ordering is dropped there: a group spans many days and has no single time.
+const GROUPED_SORT_OPTIONS: StatSortOption[] = ['count-desc', 'count-asc', 'name-asc', 'name-desc'];
+const FLAT_SORT_OPTIONS: StatSortOption[] = ['name-asc', 'name-desc', 'checkin-asc', 'checkin-desc'];
 
 type StatCardAccent =
     | 'working'
@@ -116,6 +141,10 @@ function Overview({ date, range }: OverviewProps) {
     const [rangeLeaveRecords, setRangeLeaveRecords] = useState<any[]>([]);
     const [attendance, setAttendance] = useState<Attendance[]>([]);
     const [showModal, setShowModal] = useState<ModalType>(null);
+    // Weekly/monthly drill-in: which grouped employee is open. Only the key + name are
+    // held — the group itself is re-resolved from live data on every render, so a
+    // realtime attendance refresh can never leave a stale snapshot on screen.
+    const [drill, setDrill] = useState<{ key: string; name: string } | null>(null);
     const [allEmployees, setAllEmployees] = useState<EmployeeWithAttendance[]>([]);
     const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState<string>('');
@@ -350,10 +379,31 @@ function Overview({ date, range }: OverviewProps) {
     const missingRows = attendance.filter(hasCheckInNoCheckOut);
     const checkoutMissingCount = missingRows.length;
 
+    // Roster index for the joins below. rowToEntry runs once per attendance row, so a
+    // linear find() per row makes the range paths O(rows × roster) on EVERY render —
+    // a month is ~2k rows against a ~120-person roster, and the modal re-renders on
+    // every keystroke in its search box. One Map turns each join into O(1).
+    const employeesById = useMemo(() => {
+        const index = new Map<string, EmployeeWithAttendance>();
+        for (const emp of allEmployees) if (emp?._id) index.set(emp._id, emp);
+        return index;
+    }, [allEmployees]);
+
+    // Holiday dates as a lookup set. The extra-day filter previously re-formatted every
+    // holiday for every attendance row — O(rows × holidays) dayjs parses per render.
+    const holidayDateKeys = useMemo(() => {
+        const keys = new Set<string>();
+        for (const h of (allHolidays || []) as any[]) {
+            const d = dayjs(h?.date);
+            if (d.isValid()) keys.add(d.format(DATE_FORMATS.WIRE));
+        }
+        return keys;
+    }, [allHolidays]);
+
     // One entry per attendance row (person-day) — the modal lists these so its
     // count matches the card. Employee identity is joined from the roster.
     const rowToEntry = (att: any) => ({
-        ...(allEmployees.find((e: any) => e._id === att.employeeId) || {}),
+        ...(employeesById.get(att.employeeId) || {}),
         _id: att.employeeId,
         attendance: att,
     }) as EmployeeWithAttendance;
@@ -363,9 +413,9 @@ function Overview({ date, range }: OverviewProps) {
     // Extra day = a check-in on a weekend OR a public holiday.
     const extraRows = attendance.filter((a: any) => {
         if (!a.checkIn) return false;
-        const isWeekend = weekends?.[dayjs(a.checkIn).format("dddd").toLowerCase()] === "0";
-        const isHoliday = (allHolidays || []).some((h: any) => dayjs(h.date).format("YYYY-MM-DD") === dayjs(a.checkIn).format("YYYY-MM-DD"));
-        return isWeekend || isHoliday;
+        const day = dayjs(a.checkIn);
+        const isWeekend = weekends?.[day.format("dddd").toLowerCase()] === "0";
+        return isWeekend || holidayDateKeys.has(day.format(DATE_FORMATS.WIRE));
     });
 
     // ── Weekly/Monthly On-Leave & Absent, expanded per working day ──────────────
@@ -400,7 +450,7 @@ function Overview({ date, range }: OverviewProps) {
     // One entry per (employee, leave day) — On-Leave modal list + count.
     const leaveDayEntries = Array.from(leaveByDay.values()).flatMap((m) =>
         Array.from(m.values()).map((lr) => ({
-            ...(allEmployees.find((e: any) => e._id === lr.employeeId) || {}),
+            ...(employeesById.get(lr.employeeId) || {}),
             _id: lr.employeeId,
             _leaveDate: lr._leaveDate,
             leaveType: lr.leaveType,
@@ -427,6 +477,31 @@ function Overview({ date, range }: OverviewProps) {
         }
     }
 
+    // ── Weekly/Monthly grouping ─────────────────────────────────────────────────
+    // Over a range the stat lists are per-OCCURRENCE (one row per offending day), so a
+    // flat list repeats the same employee once per day — 30 people × a month is ~600
+    // cards and no way to see who repeats. Rolling up to one card per employee answers
+    // that directly and cuts the rendered DOM by roughly the number of days in range.
+    const groupedView = useRange;
+
+    const handleDrillChange = useCallback((group: EmployeeStatGroup | null) => {
+        setDrill(group ? { key: group.key, name: group.name } : null);
+    }, []);
+
+    /** Flat grid on a single day (one row already = one employee), grouped over a range. */
+    const renderStatItems = (items: EmployeeStatItem[]) => {
+        if (!groupedView) return <EmployeeStatGrid items={items} />;
+        return (
+            <EmployeeStatGroupView
+                items={items}
+                sort={sortOption}
+                tone={showModal ? MODAL_TONE[showModal] : 'brand'}
+                openKey={drill?.key ?? null}
+                onOpenChange={handleDrillChange}
+            />
+        );
+    };
+
     const handleCardClick = (type: ModalType) => {
         // console.log('Opening modal: ======================>', type, {
         //     totalEmployees: totalEmployee,
@@ -435,10 +510,18 @@ function Overview({ date, range }: OverviewProps) {
         //     attendanceCount: attendance
         // });
         setShowModal(type);
+        // Each category is a fresh list: carrying the previous one's drill-in or search
+        // would open the modal already filtered to something the user didn't ask for.
+        setDrill(null);
+        setSearchQuery('');
+        // Over a range, lead with the repeat offenders — that is the question the
+        // grouped list exists to answer. A single day has nothing to rank by.
+        setSortOption(groupedView ? 'count-desc' : 'none');
     };
 
     const handleCloseModal = () => {
         setShowModal(null);
+        setDrill(null);
         setSearchQuery('');
         setSortOption('none');
     };
@@ -456,29 +539,34 @@ function Overview({ date, range }: OverviewProps) {
     };
 
     const filterEmployeesBySearch = (employees: EmployeeWithAttendance[]) => {
-        if (!searchQuery.trim()) return employees;
+        const query = searchQuery.trim().toLowerCase();
+        if (!query) return employees;
 
-        const query = searchQuery.toLowerCase();
         return employees.filter(emp => {
             const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
-            return fullName.includes(query);
+            // Code as well as name: "WT-69" is how an admin actually refers to someone.
+            return fullName.includes(query) || (emp.employeeCode || '').toLowerCase().includes(query);
         });
     };
 
     const filterLeaveDataBySearch = (leaveData: any[]) => {
-        if (!searchQuery.trim()) return leaveData;
+        const query = searchQuery.trim().toLowerCase();
+        if (!query) return leaveData;
 
-        const query = searchQuery.toLowerCase();
         return leaveData.filter(emp => {
             const employeeData = emp.employee || {};
             const user = employeeData.users || emp.users || {};
             const fullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
-            return fullName.includes(query);
+            const code = (employeeData.employeeCode || emp.employeeCode || '').toLowerCase();
+            return fullName.includes(query) || code.includes(query);
         });
     };
 
     const sortEmployees = (employees: EmployeeWithAttendance[]) => {
-        if (sortOption === 'none') return employees;
+        // Count ordering is a property of the GROUP, not of a row, so it is applied by
+        // sortEmployeeStatGroups after rollup. Returning early also skips a pointless
+        // O(n) copy of a list whose order is about to be discarded.
+        if (sortOption === 'none' || sortOption === 'count-desc' || sortOption === 'count-asc') return employees;
 
         const sorted = [...employees];
         switch (sortOption) {
@@ -512,7 +600,8 @@ function Overview({ date, range }: OverviewProps) {
     };
 
     const sortLeaveData = (leaveData: any[]) => {
-        if (sortOption === 'none') return leaveData;
+        // Same as sortEmployees: count ordering happens after rollup, so don't copy here.
+        if (sortOption === 'none' || sortOption === 'count-desc' || sortOption === 'count-asc') return leaveData;
 
         const sorted = [...leaveData];
         switch (sortOption) {
@@ -576,6 +665,7 @@ function Overview({ date, range }: OverviewProps) {
                     const leaveItems: EmployeeStatItem[] = sortedLeaveData.map(emp => {
                         const employeeData = emp.employee || {};
                         const user = employeeData.users || emp.users || {};
+                        const employeeId = employeeData.id || emp.employeeId || employeeData._id || null;
                         const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
                         const leaveType = emp.leaveType || 'Leave';
                         const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
@@ -584,6 +674,8 @@ function Overview({ date, range }: OverviewProps) {
                         const reason = emp.reason || '';
                         return {
                             key: emp.id,
+                            employeeId,
+                            date: emp.duration?.startDate ? dayjs(emp.duration.startDate).format(DATE_FORMATS.WIRE) : null,
                             name: fullName || 'Unnamed Employee',
                             code: employeeData.employeeCode || emp.employeeCode || '',
                             avatarUrl: employeeData.avatar || emp.avatar,
@@ -607,7 +699,7 @@ function Overview({ date, range }: OverviewProps) {
                         };
                     });
 
-                    return <EmployeeStatGrid items={leaveItems} />;
+                    return renderStatItems(leaveItems);
                 case 'late':
                     // Late check-in: employees who checked in after (shift check-in time + grace time)
                     const lateCheckInEmployees = allEmployees.filter(emp => {
@@ -806,18 +898,24 @@ function Overview({ date, range }: OverviewProps) {
                     const missingItems: EmployeeStatItem[] = sorted.map(emp => {
                         const att = emp.attendance;
                         const workingMethod = att?.workingMethod?.type || '';
+                        const day = att?.checkIn ? dayjs(att.checkIn) : null;
                         return {
                             key: att?.id || emp._id,
+                            employeeId: emp._id,
+                            date: day ? day.format(DATE_FORMATS.WIRE) : null,
                             name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown',
                             code: emp.employeeCode,
                             avatarUrl: emp.avatar,
                             designation: emp.designation,
                             meta: (
                                 <>
-                                    {att?.checkIn && (
+                                    {/* Grouped view renders the date structurally (span on the card,
+                                        per-day heading in the drill-in), so printing it here too
+                                        would duplicate it on every row. */}
+                                    {!groupedView && day && (
                                         <div className="d-flex align-items-center gap-2 small flex-wrap">
-                                            <span className="fw-semibold text-gray-800">{dayjs(att.checkIn).format('D MMM YYYY')}</span>
-                                            <ToneChip tone="brand" dense label={dayjs(att.checkIn).format('dddd')} />
+                                            <span className="fw-semibold text-gray-800">{formatDateLong(day)}</span>
+                                            <ToneChip tone="brand" dense label={day.format('dddd')} />
                                         </div>
                                     )}
                                     <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
@@ -844,7 +942,7 @@ function Overview({ date, range }: OverviewProps) {
                         };
                     });
 
-                    return <EmployeeStatGrid items={missingItems} />;
+                    return renderStatItems(missingItems);
                 }
 
                 default:
@@ -864,36 +962,49 @@ function Overview({ date, range }: OverviewProps) {
             // dates, badges, check-in/out colouring — is computed here, because it
             // depends on this page's shifts, grace times and on-site settings.
             const statItems: EmployeeStatItem[] = sortedEmployees.map(emp => {
+                        // The day this row belongs to: a check-in for attendance rows, the
+                        // expanded leave/absent day for the range-only rollups.
+                        const rawDay = emp.attendance?.checkIn || (emp as any)._leaveDate || (emp as any)._absentDate || null;
+                        const day = rawDay ? dayjs(rawDay) : null;
+                        const dayWire = day?.isValid() ? day.format(DATE_FORMATS.WIRE) : null;
+                        const leaveTypeLabel = (emp as any).leaveType
+                            ? `${(emp as any).leaveType}${(emp as any).isHalfDay ? ' (½)' : ''}`
+                            : null;
+                        // Grouped: the date is structural (span on the card, heading in the
+                        // drill-in), so only the non-date detail belongs in `meta`.
+                        const showDateLine = useRange && !groupedView && Boolean(day);
                         const hasMeta = Boolean(
-                            (useRange && (emp.attendance?.checkIn || (emp as any)._leaveDate || (emp as any)._absentDate)) ||
+                            showDateLine ||
+                            (groupedView && leaveTypeLabel) ||
                             additionalInfo[emp._id] ||
                             emp.attendance?.checkIn ||
                             emp.attendance?.checkOut,
                         );
                         return {
-                            key: emp.attendance?.id || `${emp._id}-${(emp as any)._leaveDate?.format?.('YYYY-MM-DD') || (emp as any)._absentDate?.format?.('YYYY-MM-DD') || ''}`,
+                            key: emp.attendance?.id || `${emp._id}-${dayWire || ''}`,
+                            employeeId: emp._id,
+                            date: dayWire,
+                            // Half-day leave counts as 0.5 so a grouped total reconciles with the
+                            // On-Leave stat card, which applies the same weighting.
+                            weight: (emp as any).isHalfDay ? 0.5 : 1,
                             name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown',
                             code: emp.employeeCode,
                             avatarUrl: emp.avatar,
                             designation: emp.designation,
                             meta: hasMeta ? (
                                 <>
-                                    {useRange && (emp.attendance?.checkIn || (emp as any)._leaveDate || (emp as any)._absentDate) && (() => {
-                                        const dt = emp.attendance?.checkIn ? dayjs(emp.attendance.checkIn) : dayjs((emp as any)._leaveDate || (emp as any)._absentDate);
-                                        return (
-                                            <div className="d-flex align-items-center gap-2 small flex-wrap">
-                                                <span className="fw-semibold text-gray-800">{dt.format('D MMM YYYY')}</span>
-                                                <ToneChip tone="brand" dense label={dt.format('dddd')} />
-                                                {(emp as any).leaveType && (
-                                                    <ToneChip
-                                                        tone="warning"
-                                                        dense
-                                                        label={`${(emp as any).leaveType}${(emp as any).isHalfDay ? ' (½)' : ''}`}
-                                                    />
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
+                                    {showDateLine && day && (
+                                        <div className="d-flex align-items-center gap-2 small flex-wrap">
+                                            <span className="fw-semibold text-gray-800">{formatDateLong(day)}</span>
+                                            <ToneChip tone="brand" dense label={day.format('dddd')} />
+                                            {leaveTypeLabel && <ToneChip tone="warning" dense label={leaveTypeLabel} />}
+                                        </div>
+                                    )}
+                                    {groupedView && leaveTypeLabel && (
+                                        <div className="d-flex align-items-center gap-2 small flex-wrap">
+                                            <ToneChip tone="warning" dense label={leaveTypeLabel} />
+                                        </div>
+                                    )}
                                     {additionalInfo[emp._id] && (
                                         <div className="text-primary small mt-1">
                                             <i className="bi bi-info-circle me-1"></i>
@@ -1056,7 +1167,7 @@ function Overview({ date, range }: OverviewProps) {
                         };
                     });
 
-            return <EmployeeStatGrid items={statItems} />;
+            return renderStatItems(statItems);
 
         } catch (err) {
             console.error('Error in getModalContent:', err);
@@ -1269,6 +1380,13 @@ function Overview({ date, range }: OverviewProps) {
             </Alert>
         );
     }
+    const modalCategoryTitle = getModalTitle();
+    // Weekly/monthly lists no longer repeat the date on every card, so the window the
+    // numbers cover has to be stated once, in the header.
+    const periodSubtitle = useRange && range?.start && range?.end
+        ? `${formatDateLong(range.start)} → ${formatDateLong(range.end)}`
+        : undefined;
+
     const renderStatCard = (card: StatCardConfig) => (
         <Card
             key={card.type}
@@ -1317,12 +1435,19 @@ function Overview({ date, range }: OverviewProps) {
             <StatDetailModal
                 show={showModal !== null}
                 onHide={handleCloseModal}
-                title={getModalTitle()}
+                // Drilled in, the employee is the subject and the category becomes context —
+                // the reverse of the list view. One dialog, two levels: stacking a second
+                // GlassDialog would put a scrim over a scrim, unusable at phone width.
+                title={drill ? drill.name : modalCategoryTitle}
+                subtitle={drill ? modalCategoryTitle : periodSubtitle}
+                onBack={drill ? () => setDrill(null) : undefined}
+                backLabel={`Back to ${modalCategoryTitle || 'list'}`}
                 size="xl"
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 sortOption={sortOption}
                 onSortChange={setSortOption}
+                sortOptions={groupedView ? GROUPED_SORT_OPTIONS : FLAT_SORT_OPTIONS}
             >
                 {getModalContent()}
             </StatDetailModal>

@@ -21,6 +21,15 @@ import dayjs, { Dayjs } from "dayjs";
 export const DATE_FORMATS = {
   /** ✅ The company standard. Use for every user-visible date. */
   DISPLAY: "YYYY.MM.DD",
+  /**
+   * Long form with the month spelled out — `1 July 2026`. For headings and labels a
+   * person reads rather than scans: period filters, modal subtitles, report headers.
+   * Never abbreviate the month ("Jul") — that was the old ad-hoc `D MMM YYYY` and it
+   * is what this token replaces.
+   */
+  DISPLAY_LONG: "D MMMM YYYY",
+  /** Long month + year — `August 2026`. The readable form of MONTH_YEAR. */
+  MONTH_YEAR_LONG: "MMMM YYYY",
   /** User-visible date + 24h time. */
   DISPLAY_DATETIME: "YYYY.MM.DD HH:mm",
   /** User-visible time only. */
@@ -51,6 +60,13 @@ export const formatDate = (value: DateLike, fallback = "—"): string => {
   return d.isValid() ? d.format(DATE_FORMATS.DISPLAY) : fallback;
 };
 
+/** Format a date in the long, spelled-out form (`3 December 2025`). See DISPLAY_LONG. */
+export const formatDateLong = (value: DateLike, fallback = "—"): string => {
+  if (value === null || value === undefined || value === "") return fallback;
+  const d = dayjs(value);
+  return d.isValid() ? d.format(DATE_FORMATS.DISPLAY_LONG) : fallback;
+};
+
 /** Format a date + 24h time for DISPLAY (`2025.12.03 14:30`). */
 export const formatDateTime = (value: DateLike, fallback = "—"): string => {
   if (value === null || value === undefined || value === "") return fallback;
@@ -65,27 +81,50 @@ export const toWireDate = (value: DateLike): string => {
   return d.isValid() ? d.format(DATE_FORMATS.WIRE) : "";
 };
 
-export const formatDateRange = (start: Dayjs, end: Dayjs, includeYear: boolean = false): string => {
+/**
+ * Both range styles share this. Repeated parts are elided — a span inside one month
+ * names the month once — and `includeYear` appends the year for labels that stand alone.
+ *
+ * A span crossing a year boundary ALWAYS states both years, regardless of `includeYear`:
+ * the original rendered 28 Dec 2026 → 3 Jan 2027 as "28 Dec - 3 Jan, 2027", silently
+ * attributing the start date to the wrong year.
+ */
+const buildDateRange = (
+  start: Dayjs,
+  end: Dayjs,
+  includeYear: boolean,
+  month: "MMM" | "MMMM",
+  dash: string,
+): string => {
   if (!start || !end || !start.isValid() || !end.isValid()) return "";
-  
-  const isSameMonth = start.isSame(end, "month");
-  const isSameYear = start.isSame(end, "year");
-  
-  let result = "";
-  if (start.isSame(end, "day")) {
-      result = start.format("D MMM");
-  } else if (isSameMonth && isSameYear) {
-      result = `${start.format("D")} - ${end.format("D MMM")}`;
-  } else {
-      result = `${start.format("D MMM")} - ${end.format("D MMM")}`;
-  }
-  
-  if (includeYear) {
-      result += `, ${end.format("YYYY")}`;
-  }
-  
-  return result;
+
+  const full = `D ${month} YYYY`;
+  if (!start.isSame(end, "year")) return `${start.format(full)} ${dash} ${end.format(full)}`;
+
+  const suffix = includeYear ? `, ${end.format(DATE_FORMATS.YEAR_ONLY)}` : "";
+
+  if (start.isSame(end, "day")) return `${start.format(`D ${month}`)}${suffix}`;
+  if (start.isSame(end, "month")) return `${start.format("D")} ${dash} ${end.format(`D ${month}`)}${suffix}`;
+  return `${start.format(`D ${month}`)} ${dash} ${end.format(`D ${month}`)}${suffix}`;
 };
+
+/**
+ * Compact span — `19 - 25 Jul`, `19 - 25 Jul, 2026` with `includeYear`.
+ *
+ * Kept as-is for dense contexts (table cells, chips, anywhere the width is tight).
+ * For a HEADING a person reads, prefer {@link formatDateRangeLong} — an abbreviated
+ * month scans as data rather than as a label.
+ */
+export const formatDateRange = (start: Dayjs, end: Dayjs, includeYear: boolean = false): string =>
+  buildDateRange(start, end, includeYear, "MMM", "-");
+
+/**
+ * Detailed span with the month spelled out — `19 – 25 July`, `19 – 25 July, 2026` with
+ * `includeYear`. The long-form counterpart of {@link formatDateRange}; both exist so a
+ * consumer picks per surface rather than one replacing the other.
+ */
+export const formatDateRangeLong = (start: Dayjs, end: Dayjs, includeYear: boolean = false): string =>
+  buildDateRange(start, end, includeYear, "MMMM", "–");
 
 export const buildFiscalYearLabel = (start: Dayjs, rawEnd: Dayjs, end: Dayjs): string => {
   if (!start || !rawEnd || !start.isValid() || !rawEnd.isValid()) return "";

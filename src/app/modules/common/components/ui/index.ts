@@ -11,7 +11,7 @@ export * from './buttons';
 // tintedSwitch sx, raw <Switch>, and Bootstrap form-switch).
 export { WtSwitch, WtSwitchField, wtSwitchSx } from './switch';
 export type { WtSwitchProps, WtSwitchFieldProps, WtSwitchSize } from './switch';
-export { ToneChip } from './chips';
+export { ToneChip, toneAlpha } from './chips';
 export type { ToneChipProps } from './chips';
 export {
   glassSx, GlassSurface, GlassDialog, GlassHeader, GlassCard, GlassTransition,

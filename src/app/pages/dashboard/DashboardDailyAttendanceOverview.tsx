@@ -25,7 +25,9 @@ import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTabl
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import PeriodFilter from "@app/modules/common/components/PeriodFilter";
-type SortOption = 'name-asc' | 'name-desc' | 'checkin-asc' | 'checkin-desc' | 'none';
+// Alias the shared vocabulary rather than re-declaring it — a local copy silently
+// drifts from StatDetailModal's menu the moment an option is added there.
+type SortOption = StatSortOption;
 
 /**
  * Returns true when the total worked duration is < 8 hours.
@@ -40,7 +42,7 @@ function isAttendanceDurationShort(checkIn: string | undefined, checkOut: string
 
 // Modal shell and the employee card grid are shared with the admin Attendance
 // Overview - see the two components below, not a local copy.
-import StatDetailModal from '@app/modules/common/components/StatDetailModal';
+import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
 import { ToneChip } from '@app/modules/common/components/ui';
 
