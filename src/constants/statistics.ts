@@ -1,6 +1,7 @@
 import { fetchAppSettings } from "@redux/slices/appSettings";
 import { store } from "@redux/store";
 import { fetchConfiguration } from "@services/company";
+import { ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY } from "@constants/configurations-key";
 
 const shiftHours: number = 9;
 const shiftMinutes: number = 30;
@@ -240,7 +241,8 @@ export const leadAndProjectTemplateTypeId = {
     webDev: "web-dev"
 }
 
-export const onSiteAndHolidayWeekendSettingsOnOffName = "On-site, Holiday & Weekend Settings for late attendance"
+/** @deprecated Alias — prefer ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY from @constants/configurations-key. */
+export const onSiteAndHolidayWeekendSettingsOnOffName = ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY
 
 export const prefixIdentifier = {
     "LEAD": "LEAD",

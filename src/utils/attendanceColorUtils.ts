@@ -3,6 +3,7 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 import durationPlugin from 'dayjs/plugin/duration';
 import {
   ENFORCE_ONSITE_DEADLINE_KEY,
+  ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY,
   GRACE_TIME_ON_SITE_KEY,
 } from '@constants/configurations-key';
 import { ATTENDANCE_STATUS, WORKING_METHOD_TYPE } from '@constants/attendance';
@@ -50,6 +51,24 @@ export function normalizeWorkingMethodKey(method?: string | null): string {
 export function isOnsiteWorkingMethod(method?: string | null): boolean {
   const key = normalizeWorkingMethodKey(method);
   return key === 'onsite' || method === WORKING_METHOD_TYPE.ON_SITE;
+}
+
+/**
+ * Master policy switch — Attendance Settings → "On-site, Holiday & Weekend Settings
+ * for late attendance". When ON, on-site check-ins never show a late mark (holiday and
+ * weekend rows are already muted by `shouldApplyCheckInColoring`). Stored by the
+ * settings UI as "1" / "0"; absent → OFF.
+ * Mirrors the backend `isOnsiteHolidayWeekendExemptionEnabled`; keep the two in step.
+ */
+export function isOnsiteHolidayWeekendExemptionEnabled(
+  leaveConfig?: Record<string, unknown> | null
+): boolean {
+  const raw = (leaveConfig ?? {})[ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY];
+  if (raw === undefined || raw === null) return false;
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw === 'number') return raw > 0;
+  const lowered = String(raw).trim().toLowerCase();
+  return lowered === '1' || lowered === 'true' || lowered === 'yes' || lowered === 'on';
 }
 
 /**
@@ -189,6 +208,18 @@ export function resolveCheckInColor(input: ResolveCheckInColorInput): CheckInCol
   }
 
   if (isOnsiteWorkingMethod(workingMethod)) {
+    // Master policy switch outranks the deadline (ladder rule 2 in the backend
+    // lateMarkPolicy). Checked BEFORE enforcement so a company that switched on-site
+    // late marks off never sees a red on-site row.
+    if (isOnsiteHolidayWeekendExemptionEnabled(leaveConfig)) {
+      return {
+        tone: 'success',
+        color: ATTENDANCE_COLORS.success,
+        isLate: false,
+        tooltip: 'On-site check-in — late marks disabled by company policy',
+      };
+    }
+
     if (!isOnsiteDeadlineEnforced(leaveConfig)) {
       return {
         tone: 'success',

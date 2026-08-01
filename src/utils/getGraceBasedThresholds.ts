@@ -8,7 +8,10 @@ import {
   GRACE_TIME_ON_SITE_KEY,
   LEAVE_MANAGEMENT,
 } from "@constants/configurations-key";
-import { isOnsiteDeadlineEnforced } from "@utils/attendanceColorUtils";
+import {
+  isOnsiteDeadlineEnforced,
+  isOnsiteHolidayWeekendExemptionEnabled,
+} from "@utils/attendanceColorUtils";
 
 dayjs.extend(duration);
 
@@ -65,7 +68,10 @@ export const getGraceBasedThresholds = async (
     const checkOutTime = settings["Check-out time"]; // "5:30 PM"
     const defaultGraceTime = settings["Grace Time"] || "00:30:00 Hrs";
     const graceTimeOnSite = settings[GRACE_TIME_ON_SITE_KEY] || "11:00";
-    const enforceOnsite = isOnsiteDeadlineEnforced(settings);
+    // Master policy switch outranks the on-site deadline: when ON, on-site check-ins
+    // are never late, so the threshold is pushed to end-of-day. Matches backend ladder rule 2.
+    const enforceOnsite =
+      !isOnsiteHolidayWeekendExemptionEnabled(settings) && isOnsiteDeadlineEnforced(settings);
 
     const defaultThresholds = calculateThresholds(checkInTime, checkOutTime, defaultGraceTime);
     const onSiteLateThreshold = enforceOnsite
