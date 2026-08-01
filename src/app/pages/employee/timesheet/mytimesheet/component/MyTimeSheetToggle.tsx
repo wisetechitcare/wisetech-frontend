@@ -1,5 +1,6 @@
 import { toAbsoluteUrl } from "@metronic/helpers";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import { usePersistedState } from "@app/modules/common/hooks/usePersistedState";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import dayjs, { Dayjs } from "dayjs";
 import React, { useCallback, useEffect, useState, useMemo } from "react";
@@ -55,7 +56,11 @@ const MyTimeSheetToggle = ({
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
     
     // Core state
-    const [alignment, setAlignment] = useState("daily");
+    const [alignment, setAlignment] = usePersistedState(
+        "myTimesheetPeriodMode",
+        "daily",
+        ["daily", "weekly", "monthly", "yearly"] as const
+    );
     const [startDate, setStartDate] = useState<Dayjs | null>(today);
     const [endDate, setEndDate] = useState<Dayjs | null>(today);
     const [showModal, setShowModal] = useState(false);

@@ -5,6 +5,7 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/components/TimePeriodDropdown";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import { usePersistedState } from "@app/modules/common/hooks/usePersistedState";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import DetailsModal from "@pages/employee/leads/lead/DetailsModal";
 import { AppDispatch, RootState } from "@redux/store";
@@ -52,7 +53,11 @@ const MyEmployeeTimeSheetToggle = ({
     const today = useMemo(() => dayjs(), []);
 
     // Core state
-    const [alignment, setAlignment] = useState("daily");
+    const [alignment, setAlignment] = usePersistedState(
+        "employeeTimesheetPeriodMode",
+        "daily",
+        ["daily", "weekly", "monthly", "yearly"] as const
+    );
     const [startDate, setStartDate] = useState<Dayjs | null>(today);
     const [endDate, setEndDate] = useState<Dayjs | null>(today);
     const [showModal, setShowModal] = useState(false);

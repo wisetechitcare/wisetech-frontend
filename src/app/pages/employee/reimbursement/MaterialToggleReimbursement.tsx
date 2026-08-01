@@ -7,6 +7,7 @@ import SubmissionsTable from "@pages/employee/reimbursement/views/SubmissionsTab
 import dayjs, { Dayjs, ManipulateType } from "dayjs";
 import React, { useEffect, useState } from "react";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import { usePersistedState } from "@app/modules/common/hooks/usePersistedState";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { IReimbursements, IReimbursementsUpdate } from "@models/employee";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
@@ -61,7 +62,11 @@ const MaterialToggleReimbursement = ({
 }: MaterialToggleProps) => {
 
   const dispatch = useDispatch();
-  const [alignment, setAlignment] = useState<PeriodAlignment>("monthly");
+  const [alignment, setAlignment] = usePersistedState<PeriodAlignment>(
+    "reimbursementPeriodMode",
+    "monthly",
+    ["monthly", "yearly", "allTime"] as const
+  );
   const [month, setMonth] = useState(dayjs());
   const [year, setYear] = useState(dayjs());
 
@@ -82,7 +87,7 @@ const MaterialToggleReimbursement = ({
 
   // Fire once on mount so the parent can load initial overview stats
   useEffect(() => {
-    onPeriodChange?.('monthly', dayjs());
+    onPeriodChange?.(alignment, alignment === 'yearly' ? year : month);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

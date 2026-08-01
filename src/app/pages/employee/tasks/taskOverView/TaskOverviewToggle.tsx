@@ -2,6 +2,7 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { Container } from "@mui/material";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import { usePersistedState } from "@app/modules/common/hooks/usePersistedState";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import dayjs, { Dayjs } from "dayjs";
@@ -40,7 +41,11 @@ const TaskOverviewToggle = ({
   const dispatch = useDispatch();
   const today = dayjs();
 
-  const [alignment, setAlignment] = useState("weekly");
+  const [alignment, setAlignment] = usePersistedState(
+    "taskOverviewPeriodMode",
+    "weekly",
+    ["weekly", "monthly", "yearly", "custom"] as const
+  );
 
   const [day, setDay] = useState(today);
   // week should be start from monday to sunday

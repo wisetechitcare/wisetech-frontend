@@ -41,7 +41,8 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
       alignItems: "center",
       gap: variant === "boxed" ? "2px" : "4px",
       width: isMobile ? "100%" : "fit-content",
-      overflowX: "auto",
+      overflowX: isMobile ? "auto" : "visible",
+      overflowY: "visible",
       scrollbarWidth: "none",
       marginRight: "4px",
       WebkitOverflowScrolling: "touch",
@@ -59,6 +60,16 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
     return baseStyles;
   };
 
+  // Caret color per variant — matches each variant's own active text color, so
+  // the little pointer above the selected tab reads as part of the same
+  // selection state rather than a mismatched accent. "dark" skips the caret
+  // entirely: its solid fill already makes the active tab unambiguous.
+  const activeCaretColor: Partial<Record<NonNullable<TimePeriodSelectorProps["variant"]>, string>> = {
+    light: "#1E3A8A",
+    boxed: "#1E3A8A",
+    outline: "#1E3A8A",
+  };
+
   const getButtonStyles = (isActive: boolean): CSSProperties => {
     const baseStyles: CSSProperties = {
       border: "none",
@@ -71,6 +82,8 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
       cursor: "pointer",
       whiteSpace: "nowrap",
       flex: isMobile ? 1 : "none",
+      position: "relative",
+      overflow: "visible",
       ...buttonStyle,
     };
 
@@ -116,15 +129,35 @@ const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
 
   return (
     <div style={{ ...getContainerStyles(), ...containerStyle }}>
-      {modes.map((mode) => (
-        <button
-          key={mode}
-          onClick={() => onChange(mode)}
-          style={getButtonStyles(value === mode)}
-        >
-          {labels[mode]}
-        </button>
-      ))}
+      {modes.map((mode) => {
+        const isActive = value === mode;
+        const caretColor = activeCaretColor[variant];
+        return (
+          <button
+            key={mode}
+            onClick={() => onChange(mode)}
+            style={getButtonStyles(isActive)}
+          >
+            {labels[mode]}
+            {isActive && caretColor && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -5,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  width: 0,
+                  height: 0,
+                  borderLeft: "5px solid transparent",
+                  borderRight: "5px solid transparent",
+                  borderTop: `5px solid ${caretColor}`,
+                  pointerEvents: "none",
+                }}
+              />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 };

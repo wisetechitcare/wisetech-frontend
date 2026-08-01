@@ -944,6 +944,11 @@ const ProjectTablePage = () => {
                 isMobile={isMobile}
               />
             )}
+            {alignment === "allyear" && (
+              <div style={{ textAlign: "center", opacity: 0.7, fontSize: "14px", whiteSpace: "nowrap", alignSelf: "center" }}>
+                All-Time Summary
+              </div>
+            )}
             {alignment === "custom" && (
               <div className="d-flex align-items-center gap-2">
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
