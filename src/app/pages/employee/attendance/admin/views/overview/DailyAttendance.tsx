@@ -461,12 +461,6 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             ),
         },
         {
-            accessorKey: "status",
-            header: "Status",
-            size: 120,
-            Cell: ({ row }) => <StatusBadge status={row.original.status} />
-        },
-        {
             accessorKey: "checkIn",
             header: "Check-In",
             size: 200,
@@ -591,6 +585,13 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                     skipIncompleteHighlight={row.original.isWeekendOrHoliday}
                 />
             ),
+        },
+        {
+            accessorKey: "status",
+            header: "Status",
+            size: 140,
+            minSize: 120,
+            Cell: ({ row }) => <StatusBadge status={row.original.status} />
         },
 
         // {
@@ -830,8 +831,8 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 employeeId={employeeIdCurrent}
                 checkOwnWithOthers={true}
                 manualPagination={false}
-                // Fixed curated column order (Employee, Status, Check-In, Check-Out,
-                // Duration) — don't persist a per-user order that can strand columns.
+                // Fixed curated column order (Employee, Check-In, Check-Out, Duration,
+                // Status) — don't persist a per-user order that can strand columns.
                 persistPreferences={false}
             />
         </>

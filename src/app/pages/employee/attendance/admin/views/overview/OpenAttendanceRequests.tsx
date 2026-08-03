@@ -257,10 +257,13 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
         },
         {
             accessorKey: "status",
-            header: "Status ",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
+            header: "Status",
+            // Sized for the LONGEST label ("Approval Pending"), not the shortest. At the
+            // old 100/150 cap the badge — which is shrink-0 + nowrap, so it cannot
+            // compress — overflowed the cell and was clipped to "Approval Pend".
+            size: 175,
+            minSize: 150,
+            maxSize: 220,
             Cell: ({ renderedCellValue }: any) => {
                 let statusText = '';
                 let trio: Trio;

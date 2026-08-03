@@ -30,14 +30,24 @@ export function StatusBadge({ trio, label, pulse, title, className }: { trio: Tr
   return (
     <span
       title={title}
-      className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] border shrink-0 select-none', className)}
+      // `max-w-full` + a truncating label so a badge in a too-narrow container
+      // degrades to an ellipsis instead of overflowing and being clipped mid-word by
+      // the cell ("Approval Pend"). The dot stays shrink-0 so it never disappears.
+      className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] border shrink-0 max-w-full select-none', className)}
       style={{ backgroundColor: t.bg, borderColor: t.bd }}
     >
       <span
-        className={cn('w-[7px] h-[7px] rounded-full', pulse && 'wt-dot-pulse')}
+        className={cn('w-[7px] h-[7px] rounded-full shrink-0', pulse && 'wt-dot-pulse')}
         style={{ backgroundColor: t.fg }}
       />
-      <span className="text-[11.5px] font-bold leading-none whitespace-nowrap" style={{ color: t.fg }}>{label}</span>
+      <span
+        className="text-[11.5px] font-bold leading-none whitespace-nowrap overflow-hidden text-ellipsis"
+        style={{ color: t.fg }}
+        // Falls back to the label so the full text is always reachable on hover.
+        title={title ?? label}
+      >
+        {label}
+      </span>
     </span>
   );
 }

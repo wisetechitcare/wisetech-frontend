@@ -1248,13 +1248,22 @@ function MaterialTable({
               letterSpacing: "0.03em",
               textTransform: "uppercase",
 
-              padding: "0 16px",
-              height: "48px",
+              padding: "8px 16px",
+              // Minimum, not fixed — a header allowed to wrap to two lines needs room to
+              // grow. Same grid-vs-semantic split as the body cells above.
+              ...(isGridLayout
+                ? { minHeight: "48px", height: "auto" }
+                : { height: "48px" }),
 
               borderBottom: "2px solid #EAECF0",
               borderRight: "1px solid #F2F4F7",
 
-              whiteSpace: "nowrap",
+              // Headers WRAP rather than ellipsize. `nowrap` meant every header longer
+              // than its column became "CHECK-..." / "PR..." — unreadable, and widening
+              // every column to fit the longest label is not affordable across 9 columns.
+              // Two lines at 12px fit the 48px row comfortably.
+              whiteSpace: "normal",
+              lineHeight: 1.25,
               verticalAlign: "middle",
               boxSizing: "border-box",
               userSelect: "none",
@@ -1265,19 +1274,35 @@ function MaterialTable({
                 gap: "6px",
                 width: "100%",
                 height: "100%",
+                minWidth: 0,
+                // Containing block for the actions button. Deliberately on this inner
+                // div and NOT on the <th> — MRT gives pinned header cells
+                // `position: sticky`, and overriding that would unpin them.
+                position: "relative",
               },
 
               "& .Mui-TableHeadCell-Content-Labels": {
                 display: "flex",
                 alignItems: "center",
                 gap: "4px",
+                // THE fix for shrinking headings: without `flex: 1` + `minWidth: 0` this
+                // box never claims the cell's free space, so `overflow: hidden` clipped
+                // the label while empty space sat to its right.
+                flex: "1 1 auto",
+                minWidth: 0,
                 overflow: "hidden",
               },
 
               "& .Mui-TableHeadCell-Content-Wrapper": {
+                minWidth: 0,
+                whiteSpace: "normal",
+                overflowWrap: "anywhere",
+                // Two lines, then ellipsis — a pathological header can't grow the row
+                // without bound.
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
                 overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
               },
 
               "& .MuiTableSortLabel-root": {
@@ -1296,13 +1321,23 @@ function MaterialTable({
                 color: "#4B5563",
               },
 
+              // `opacity: 0` hides the column-actions button but it still occupies its
+              // full width in EVERY header, permanently narrowing the label. Taking it
+              // out of flow means the label gets the whole cell; on hover it fades in
+              // over the label's tail rather than shoving the text sideways.
               "& .Mui-TableHeadCell-Content-Actions": {
+                position: "absolute",
+                right: "4px",
+                top: "50%",
+                transform: "translateY(-50%)",
                 opacity: 0,
+                pointerEvents: "none",
                 transition: "opacity 0.15s ease",
               },
 
               "&:hover .Mui-TableHeadCell-Content-Actions": {
                 opacity: 1,
+                pointerEvents: "auto",
               },
 
               ...muiTableHeadCellStyle,
