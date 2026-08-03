@@ -47,6 +47,10 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
   });
   const [chains, setChains] = useState<Record<WorkflowType, string[]>>(emptyRecord());
   const [configIds, setConfigIds] = useState<Record<WorkflowType, string[]>>(emptyRecord());
+  // What is actually PERSISTED, mirrored from the server on load and after each save.
+  // `configIds` can't stand in for this: it stays populated when the user swaps an
+  // already-saved approver for another, so it can't tell "saved" from "edited but unsaved".
+  const [savedChains, setSavedChains] = useState<Record<WorkflowType, string[]>>(emptyRecord());
 
   useEffect(() => {
     if (!employeeId) return;
@@ -89,6 +93,11 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
 
       setChains(nextChains);
       setConfigIds(nextIds);
+      setSavedChains({
+        attendance: [...nextChains.attendance],
+        leave: [...nextChains.leave],
+        reimbursement: [...nextChains.reimbursement],
+      });
     } catch (err) {
       console.error('Failed to load approval settings:', err);
     } finally {
@@ -145,6 +154,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
         if (idx >= 0 && idx < 5 && cfg?.isActive) ids[idx] = String(cfg.id || '');
       });
       setConfigIds(prev => ({ ...prev, [type]: ids }));
+      setSavedChains(prev => ({ ...prev, [type]: [...chain] }));
 
       successConfirmation(`${capitalize(type)} approval chain saved`);
     } catch (err: any) {
@@ -160,6 +170,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
     const ids = configIds[type].filter(Boolean);
     if (!ids.length) {
       setChains(prev => ({ ...prev, [type]: emptyChain() }));
+      setSavedChains(prev => ({ ...prev, [type]: emptyChain() }));
       return;
     }
 
@@ -170,6 +181,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
       await Promise.all(ids.map(id => deleteApprovalWorkflowConfig(id)));
       setChains(prev => ({ ...prev, [type]: emptyChain() }));
       setConfigIds(prev => ({ ...prev, [type]: emptyChain() }));
+      setSavedChains(prev => ({ ...prev, [type]: emptyChain() }));
       successConfirmation(`${capitalize(type)} approval chain deleted`);
     } catch (err: any) {
       errorConfirmation(
@@ -186,7 +198,15 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
 
   return (
     <div className="d-flex flex-column gap-4">
-      {MODULES.map(({ key, label }) => (
+      {MODULES.map(({ key, label }) => {
+        // Level 1 is the requirement — without it the module has no approver at all.
+        // Three states drive the row: nothing chosen, chosen but not yet persisted,
+        // and persisted. `handleSave` already rejects an empty Level 1; surfacing it
+        // inline means the user sees it before they press Save, not after.
+        const isMissing = !chains[key][0];
+        const isDirty = chains[key].join('|') !== savedChains[key].join('|');
+
+        return (
         <div key={key} className="border rounded p-4">
           <div className="row g-3 align-items-end">
             {/* Category label */}
@@ -197,7 +217,10 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
             {/* Level dropdowns */}
             {[0, 1, 2, 3, 4].map(idx => (
               <div key={`${key}-l${idx + 1}`} className="col-12 col-sm-6 col-md-4 col-xl-2">
-                <label className="form-label mb-1" style={{ fontSize: '0.8125rem' }}>
+                <label
+                  className={`form-label mb-1 ${idx === 0 ? 'required' : ''}`}
+                  style={{ fontSize: '0.8125rem' }}
+                >
                   Level {idx + 1}
                 </label>
                 <Select
@@ -211,32 +234,47 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
                   classNamePrefix="react-select"
                   className="react-select-styled"
                 />
+                {idx === 0 && isMissing && (
+                  <div className="text-danger fs-8 mt-1">Level 1 approver is required</div>
+                )}
               </div>
             ))}
 
             {/* Actions */}
-            <div className="col-12 d-flex justify-content-end gap-2 flex-wrap mt-2">
-              <button
-                type="button"
-                className="btn btn-sm btn-light-danger"
-                onClick={() => handleDelete(key)}
-                disabled={isSaving[key]}
-              >
-                Delete Chain
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                style={{ backgroundColor: '#1E3A8A', border: 'none' }}
-                onClick={() => handleSave(key)}
-                disabled={isSaving[key]}
-              >
-                {isSaving[key] ? 'Saving...' : 'Save'}
-              </button>
+            <div className="col-12 d-flex justify-content-between align-items-center gap-2 flex-wrap mt-2">
+              <span className="fs-8">
+                {isMissing ? (
+                  <span className="text-danger">Not configured</span>
+                ) : isDirty ? (
+                  <span className="text-warning">Unsaved changes — press Save to apply</span>
+                ) : (
+                  <span className="text-success">Saved</span>
+                )}
+              </span>
+              <span className="d-flex gap-2 flex-wrap">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-light-danger"
+                  onClick={() => handleDelete(key)}
+                  disabled={isSaving[key]}
+                >
+                  Delete Chain
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  style={{ backgroundColor: '#1E3A8A', border: 'none' }}
+                  onClick={() => handleSave(key)}
+                  disabled={isSaving[key]}
+                >
+                  {isSaving[key] ? 'Saving...' : 'Save'}
+                </button>
+              </span>
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

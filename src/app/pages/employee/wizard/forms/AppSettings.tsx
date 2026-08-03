@@ -74,10 +74,16 @@ function AppSettings() {
                 </div>
             </div>
 
-            {/* Approval Settings — shared component, loads its own data */}
+            {/* Approval Settings — shared component, loads its own data.
+                Required: an employee with no Level 1 approver has nowhere to route
+                their attendance/leave/reimbursement requests, so every chain needs
+                one. The component marks and enforces that per module. */}
             {employeeId && (
                 <div className="mt-6">
-                    <h5 className="mb-4">Approval Settings</h5>
+                    <h5 className="mb-1 required">Approval Settings</h5>
+                    <div className="text-muted fs-7 mb-4">
+                        Each request type needs a Level 1 approver. Set one and press Save on that row.
+                    </div>
                     <ApprovalSettings employeeId={employeeId} />
                 </div>
             )}
