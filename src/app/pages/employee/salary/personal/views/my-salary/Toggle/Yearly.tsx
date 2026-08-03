@@ -17,7 +17,7 @@ import SavingsOutlinedIcon from '@mui/icons-material/SavingsOutlined';
 import { formatCurrencyDecimal, formatCurrencyRounded } from '@utils/currency';
 import YearlyKpiCard from './components/salary/YearlyKpiCard';
 import YearlyOverViewCard from './YearlyOverViewCard';
-import SalaryBreakdownTable, { YearlyBreakdownRow } from './components/salary/SalaryBreakdownTable';
+import SalaryBreakdownTable, { PayState, YearlyBreakdownRow } from './components/salary/SalaryBreakdownTable';
 import MonthlySalaryComparison from './MonthlySalaryComparison';
 import { deductionMasterService, PayrollComponent } from '../../../../../../../../modules/payroll/services/payrollService';
 
@@ -58,13 +58,17 @@ const parseCurrencyOrNumber = (value: unknown): number => {
     return 0;
 };
 
-const normalizeStatus = (status: string, paidAmount: number, pendingAmount: number): 'Paid' | 'Pending' | 'Partial' => {
-    const normalizedStatus = String(status || '').toLowerCase();
-    if (normalizedStatus.includes('partial')) return 'Partial';
-    if (normalizedStatus.includes('full') || normalizedStatus.includes('fully')) return 'Paid';
-    if (paidAmount > 0 && pendingAmount > 0) return 'Partial';
-    if (paidAmount > 0 && pendingAmount <= 0) return 'Paid';
-    return 'Pending';
+/**
+ * The single paid/unpaid verdict used for salary and for each statutory head.
+ * Rupee-driven — the stored status strings disagree with the ledger too often.
+ * Half a rupee of slack absorbs rounding between the two sides.
+ */
+const payState = (due: number, paid: number): PayState => {
+    if (due <= 0 && paid <= 0) return 'None';
+    if (paid <= 0) return 'Unpaid';
+    if (paid - due > 0.5) return 'Extra Paid';
+    if (due - paid > 0.5) return 'Partial';
+    return 'Paid';
 };
 
 const getFixedDeductionAmount = (row: any, matcher: (key: string) => boolean): number => {
@@ -134,6 +138,21 @@ const getDeductionAmountAny = (row: any, matcher: (key: string) => boolean): num
     return sumBreakdown(row?.deductionBreakdown?.fixed) + sumBreakdown(row?.deductionBreakdown?.variable);
 };
 
+/**
+ * What was actually remitted to the government this month, per challan type.
+ * RETENTION is company-side money, never a statutory payment — it is dropped here.
+ */
+const getGovtPaidByType = (row: any): Record<'PF' | 'PT' | 'TDS', number> => {
+    const paid = { PF: 0, PT: 0, TDS: 0 };
+    for (const payment of (row?.govtPayments || [])) {
+        const type = String(payment?.deductionType ?? '').toUpperCase();
+        if (type.includes('RETENTION')) continue;
+        const bucket = type.includes('PF') ? 'PF' : type.includes('PT') ? 'PT' : 'TDS';
+        paid[bucket] += parseCurrencyOrNumber(payment?.paidAmount ?? payment?.amount);
+    }
+    return paid;
+};
+
 const convertHoursToDays = (time: string) => {
     if (!time || time === '-' || time === '') return 0;
     const [hh, mm, ss] = time.split(':').map(Number);
@@ -155,7 +174,9 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
                 ptaxDeduction: '-',
                 tdsDeduction: '-',
                 tds2Deduction: '-',
-                status: 'Pending',
+                // A month that has not happened yet is neither paid nor unpaid.
+                status: 'None',
+                govtStatus: 'None',
                 isPlaceholder: true,
             };
         }
@@ -167,6 +188,21 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
         const ptax = getFixedDeductionAmount(row, isPtaxKey);
         const tds = getDeductionAmountAny(row, isTdsKey);
         const tds2 = getDeductionAmountAny(row, isTds2Key);
+
+        // Statutory remittance status: what was deducted vs what reached the government.
+        const govtPaid = getGovtPaidByType(row);
+        const govtBuckets: [string, number, number][] = [
+            ['PF', pfDeduction, govtPaid.PF],
+            ['PTax', ptax, govtPaid.PT],
+            ['TDS', tds + tds2, govtPaid.TDS],
+        ];
+        const govtDue = govtBuckets.reduce((sum, [, due]) => sum + due, 0);
+        const govtPaidTotal = govtBuckets.reduce((sum, [, , paid]) => sum + paid, 0);
+        const govtStatus = payState(govtDue, govtPaidTotal);
+        const govtDetail = govtBuckets
+            .filter(([, due]) => due > 0)
+            .map(([label, due, paid]) => `${label}: ${formatCurrencyDecimal(paid)} of ${formatCurrencyDecimal(due)}`)
+            .join('  ·  ');
 
         const basicSalary = parseCurrencyOrNumber(row.basicSalary);
         const hourlySalary = parseCurrencyOrNumber(row.hourlySalary);
@@ -185,7 +221,12 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
             ptaxDeduction: ptax > 0 ? formatCurrencyDecimal(ptax) : '',
             tdsDeduction: formatCurrencyDecimal(tds),
             tds2Deduction: tds2 > 0 ? formatCurrencyDecimal(tds2) : '',
-            status: normalizeStatus(row.status, paidAmount, pendingAmount),
+            status: payState(netPayable, paidAmount),
+            govtStatus,
+            govtDetail,
+            pfStatus: payState(pfDeduction, govtPaid.PF),
+            ptaxStatus: payState(ptax, govtPaid.PT),
+            tdsStatus: payState(tds + tds2, govtPaid.TDS),
             isPlaceholder: false,
         };
     })

@@ -3007,6 +3007,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 onClose={handleSalaryIncrementClose}
                 employeeId={employee.id}
                 employeeName={`${employee.users?.firstName ?? ''} ${employee.users?.lastName ?? ''}`.trim() || 'Employee'}
+                joiningDate={employee.dateOfJoining ? String(employee.dateOfJoining) : undefined}
                 onSuccess={handleSalaryIncrementSuccess}
             />
 
