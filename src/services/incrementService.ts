@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 import { fetchAllEmployeeSalaryAllTimeDateRage } from '@services/employee';
-import { createSalaryHistory, updateSalaryHistory } from '@services/company';
+import { createSalaryHistory, updateSalaryHistory, deleteSalaryHistory } from '@services/company';
 
 export interface IncrementRecord {
   id: string;
@@ -202,7 +202,14 @@ export const incrementService = {
 
     for (const item of sortedHistory) {
       const newSalary = (Number(item.ctcInLpa) || 0) / 12;
-      const incrementAmount = Math.max(0, newSalary - currentSalary);
+      const delta = newSalary - currentSalary;
+
+      // Salary history also carries rows that only re-state the same CTC (professional-fees
+      // / TDS splits). They are not revisions — skip them so the history shows real changes
+      // only. `currentSalary` is unchanged by definition, so the chain stays correct.
+      if (delta === 0 && records.length > 0) continue;
+
+      const incrementAmount = Math.max(0, delta);
       const incrementPercentage = currentSalary > 0
         ? Number(((incrementAmount / currentSalary) * 100).toFixed(2))
         : 0;
@@ -237,5 +244,9 @@ export const incrementService = {
       effectiveFrom: dayjs(payload.effectiveDate).format('YYYY-MM-DD'),
       ctcInLpa: (payload.newSalary || 0) * 12,
     });
+  },
+
+  deleteIncrement: async (id: string): Promise<void> => {
+    await deleteSalaryHistory(id);
   },
 };

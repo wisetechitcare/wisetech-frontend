@@ -133,6 +133,7 @@ export const COMPANY = {
     CREATE_SALARY_HISTORY: "api/company/salary-history",
     GET_SALARY_HISTORY: "api/company/salary-history",
     UPDATE_SALARY_HISTORY: "api/company/salary-history",
+    DELETE_SALARY_HISTORY: "api/company/salary-history",
 
     GET_ALL_SUB_COMPANIES: 'api/lead-project-companies/sub-companies',
     GET_SUB_COMPANY_BY_ID: 'api/lead-project-companies/sub-companies/:id',
@@ -345,7 +346,8 @@ export const CALENDAR = {
 }
 
 export const FILE = {
-    UPLOAD: "api/files/upload"
+    UPLOAD: "api/files/upload",
+    LEAD_PO: "api/files/lead-po"
 }
 
 export const OPTIONS = {
