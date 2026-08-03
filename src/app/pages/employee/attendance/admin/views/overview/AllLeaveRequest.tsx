@@ -41,6 +41,8 @@ import dayjs from "dayjs";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import type { PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { toPeriodParams, periodKey } from "@utils/periodRange";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 
 interface AllLeaveRequestProps {
     fromAdmin?: boolean;
@@ -187,6 +189,12 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
     useEffect(() => {
         refetch();
     }, [selectedEmployeeId]);
+
+    // Realtime. The server already broadcast `leaveRequests:updated` on every leave
+    // mutation and useRealtimeSync already bridged it to the eventBus — this table just
+    // never listened, so an approval by anyone (including the approver's own action from
+    // a different surface) stayed invisible until the whole app was reloaded.
+    useEventBus(EVENT_KEYS.leaveRequestUpdated, () => { refetch(); });
 
     useEffect(() => {
         dispatch(fetchRolesAndPermissions() as any);

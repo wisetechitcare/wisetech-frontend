@@ -33,6 +33,8 @@ import { ErrorState } from "@app/modules/common/components/ui/tw";
 import DailyAttendance from "./views/overview/DailyAttendance";
 import { countWorkingDays, isMultiDay } from "@utils/periodRange";
 import { filterActiveEmployees } from "@utils/activeEmployee";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 import { formatWorkedMinutes, parseHoursMinutes } from "./views/overview/attendancePeriodSummary";
 import { safeJsonParse } from "@utils/safeJson";
 // Lazy load heavy components
@@ -271,6 +273,14 @@ function OverviewView() {
 
     initializeData();
   }, [dispatch, reloadKey]);
+
+  // Realtime for the page's OWN data (the Redux leave-request store and the roster
+  // feeding the Working Time chart). It was a mount-only fetch, so these went stale the
+  // moment anyone acted anywhere — the reason the page needed a full reload. Reuses the
+  // existing reloadKey rather than a second fetch path, so there is one way to refresh.
+  const reloadPageData = useCallback(() => setReloadKey((k) => k + 1), []);
+  useEventBus(EVENT_KEYS.leaveRequestUpdated, reloadPageData);
+  useEventBus(EVENT_KEYS.attendanceRequestUpdated, reloadPageData);
 
   const barOptions = usersName;
   const barSeriesData = Array.from(
