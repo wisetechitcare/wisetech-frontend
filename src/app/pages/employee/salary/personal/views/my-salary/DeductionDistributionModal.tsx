@@ -59,6 +59,24 @@ const transformApiDataToModalFormat = (deductionBreakdown: IBreakdownData) => {
     }
 };
 
+/**
+ * The AUTO-only amount for a component — what payroll would deduct with no manual
+ * adjustment. `earned` is the FINAL figure (auto PLUS the adjustment already saved for
+ * this month), and the rows render `auto + adjustment`, so reading `earned` charged a
+ * saved adjustment twice: a ₹60,000 manual component re-opened as ₹1,20,000.
+ *
+ * `calculatedAmount` is the auto basis. Older/partial payloads may carry only
+ * `earned` + `extraAmount`, so derive it from those; a component that never went
+ * through the adjustment pass has neither, and its `earned` IS the auto amount.
+ */
+const autoBasis = (data: any): number => {
+    if (data?.calculatedAmount != null) return Number(data.calculatedAmount) || 0;
+    if (data?.earned != null && data?.extraAmount != null) {
+        return Number(data.earned) - Number(data.extraAmount) || 0;
+    }
+    return Number(data?.earned) || 0;
+};
+
 export const DeductionDistributionModal: React.FC<DeductionDistributionModalProps> = ({
     show,
     onClose,
@@ -182,7 +200,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             if (breakdown?.fixed) {
                 const fixed = breakdown.fixed;
                 Object.entries(fixed).forEach(([key, data]: [string, any]) => {
-                    autoDeductions[key] = data.earned || 0;
+                    autoDeductions[key] = autoBasis(data);
                 });
                 setProfFeesEnabled(!!fixed['Professional Fees']?.isActive);
                 setProfTaxEnabled(!!fixed['Professional Tax']?.isActive);
@@ -190,7 +208,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             if (breakdown?.variable) {
                 // Also capture attendance-section auto amounts so previews show correctly
                 Object.entries(breakdown.variable).forEach(([key, data]: [string, any]) => {
-                    if (!(key in autoDeductions)) autoDeductions[key] = data.earned || 0;
+                    if (!(key in autoDeductions)) autoDeductions[key] = autoBasis(data);
                 });
             }
             setAutoCalculatedDeductions(autoDeductions);

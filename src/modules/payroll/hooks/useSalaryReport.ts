@@ -94,23 +94,11 @@ export const useSalaryReport = () => {
             setLoading(true);
             const { paymentType, salaryAmount, govtDeductions, paidAt, paymentMethod, transactionId, remarks, _netSalary, _salaryPaid, sendEmail } = values;
 
-            const editingId = values.id ? String(values.id) : '';
-            // Real salary payments live inside paymentHistoryJson with "payment_*" ids.
-            // The backend appends on record (it never replaces by id), so to EDIT one we
-            // delete the original transaction first and then re-record the new values.
-            const isHistoryPayment = editingId.startsWith('payment_');
-            if (editMode && isHistoryPayment) {
-                try {
-                    console.log('✏️ [PaymentSubmit] replacing history payment, removing original:', editingId);
-                    await payrollService.deletePayment(editingId);
-                } catch (e) {
-                    console.warn('⚠️ [PaymentSubmit] failed to remove original before edit:', e);
-                }
-            }
-
-            // History edits are re-created as a fresh entry (new payment_ id).
-            // Government payments (real UUID) keep their id so the backend updates in place.
-            const paymentId = isHistoryPayment ? undefined : (values.id || undefined);
+            // Editing sends the transaction's id and the backend REPLACES that entry —
+            // both real "payment_*" history rows and the synthetic "*-legacy-salary" row for
+            // a master recorded before payment history existed. This used to delete the
+            // original first and re-record it, so a failed delete silently doubled the payout.
+            const paymentId = (editMode && values.id) ? values.id : undefined;
 
             const basePayload = {
                 id: paymentId || undefined,
@@ -137,7 +125,11 @@ export const useSalaryReport = () => {
                         amount: amount,
                         paymentType: 'SALARY',
                         netSalary:       _netSalary  ?? 0,
-                        totalPaidBefore: _salaryPaid ?? 0,
+                        // Paid BEFORE this transaction — on an edit, _salaryPaid still
+                        // includes the amount being replaced, so take it back out.
+                        totalPaidBefore: editMode
+                            ? Math.max(0, Number(_salaryPaid ?? 0) - Number(selectedPayment?.calculatedPaidAmount ?? 0))
+                            : (_salaryPaid ?? 0),
                     });
                     emailNotification = res?.data?.emailNotification ?? null;
                 }

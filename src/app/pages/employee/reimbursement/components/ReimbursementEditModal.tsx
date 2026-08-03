@@ -196,9 +196,12 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
     const keepId = reimbursement?.projectId;
     list = list.filter((p: any) => (p.status?.id && ongoingStatusIds.includes(p.status.id)) || p.id === keepId);
 
-    const opts: Option[] = list
-      .map((p: any) => ({ value: p.id, label: p.title }))
-      .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
+    const opts: Option[] = [...list]
+      .sort((a: any, b: any) => (a.title || "").localeCompare(b.title || ""))
+      .map((p: any) => ({
+        value: p.id,
+        label: p.projectPrefix ? `${p.projectPrefix} - ${p.title}` : p.title,
+      }));
     setProjectOptions(opts);
 
     if (reimbursement?.projectId) {
@@ -333,6 +336,9 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                     formikField="expenseDate"
                     placeHolder="Select Date"
                     maxDate={true}
+                    // Same window as a new request — an edit cannot move an expense
+                    // into a past month or the future.
+                    minDate={dayjs().startOf('month')}
                   />
                 </div>
               </div>
@@ -388,6 +394,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                     disabled={projectsLoading}
                     onChange={(option: any) => handleProjectChange(option, formikProps.setFieldValue)}
                     value={selectedProject}
+                    disableAlphabeticalSort={true}
                   />
                 </div>
               </div>

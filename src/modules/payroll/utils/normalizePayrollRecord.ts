@@ -80,7 +80,19 @@ export function normalizePayrollRecord(raw: any): NormalizedPayrollRecord {
     // Trust backend-normalized payload when present.
     const pre = raw?.normalized;
 
-    const salaryPayments: any[] = Array.isArray(raw?.salaryPayments) ? raw.salaryPayments : [];
+    let salaryPayments: any[] = Array.isArray(raw?.salaryPayments) ? raw.salaryPayments : [];
+    if (salaryPayments.length === 0 && raw?.paymentHistoryJson) {
+        try {
+            const jsonData = raw.paymentHistoryJson;
+            if (typeof jsonData === 'string') {
+                salaryPayments = JSON.parse(jsonData);
+            } else if (Array.isArray(jsonData)) {
+                salaryPayments = jsonData;
+            }
+        } catch (e) {
+            console.warn('Failed to parse paymentHistoryJson in normalizePayrollRecord:', e);
+        }
+    }
     const govtPayments: any[] = Array.isArray(raw?.govtPayments) ? raw.govtPayments : [];
 
     const grossPay = num(pre?.grossPay ?? raw?.grossPay);
@@ -153,7 +165,7 @@ export function normalizePayrollRecord(raw: any): NormalizedPayrollRecord {
             paymentHistory.push({
                 id: p?.id,
                 amount: num(p?.amount ?? p?.amountPaid),
-                paymentDate: p?.paymentDate ?? null,
+                paymentDate: p?.paymentDate ?? p?.paidAt ?? null,
                 paymentMethod: p?.paymentMethod ?? null,
                 transactionId: p?.transactionId ?? null,
                 remarks: p?.remarks ?? null,

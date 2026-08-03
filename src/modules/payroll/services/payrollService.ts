@@ -16,6 +16,8 @@ export interface PayrollComponent {
   direction: string;
   calculationType: string;
   enableInOnboarding: boolean;
+  /** '' = applies to every employee; otherwise the one employee this row is scoped to. */
+  employeeId: string;
   applyDuration: string;
   defaultAmount?: number | null;
   defaultPercentage?: number | null;
@@ -82,9 +84,10 @@ export const deductionMasterService = {
     const res = await axios.post(`${API_URL}/salary-component-master/seed`);
     return res.data?.data?.items || [];
   },
-  create: async (data: Partial<PayrollComponent>): Promise<PayrollComponent> => {
+  /** `employeeIds` assigns the component to those employees (one row each); omit for company-wide. */
+  create: async (data: Partial<PayrollComponent> & { employeeIds?: string[] }): Promise<PayrollComponent[]> => {
     const res = await axios.post(`${API_URL}/salary-component-master`, data);
-    return res.data?.data?.item;
+    return res.data?.data?.items || [];
   },
   update: async (id: string, data: Partial<PayrollComponent>): Promise<PayrollComponent> => {
     const res = await axios.put(`${API_URL}/salary-component-master/${id}`, data);

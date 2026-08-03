@@ -234,47 +234,47 @@ export const useSalaryCalculations = (
             const govPaid = hasGovDeductions ? Number(item.governmentPaidInNumber ?? parseCurrencyString(item.governmentPaid || '0')) : 0;
             const salaryRemainingStart = net;
 
-            // 1. Add Paid Rows from History (or synthesize from master if legacy)
-            if (history.length === 0 && (amountPaid > 0 || govPaid > 0)) {
-                if (amountPaid > 0) {
-                    rows.push({
-                        ...item,
-                        id: `${item.id}-legacy-salary`,
-                        calculatedGrossPay: gross,
-                        calculatedVariableDeduction: variable,
-                        calculatedFixedDeduction: fixed,
-                        calculatedNetSalary: net,
-                        calculatedRemainingAmount: net - amountPaid,
-                        calculatedStatus: Math.round(amountPaid) >= Math.round(net) ? 'Full Paid' : 'Partially Paid',
-                        calculatedPaidAmount: amountPaid,
-                        paymentType: 'SALARY',
-                        paymentMethod: 'BANK_TRANSFER',
-                        transactionId: 'LEGACY_RECORD',
-                        remarks: 'Historical Payment Record',
-                        displayDate: item.paidAt || item.monthEndDate,
-                        item: item
-                    });
-                }
-                if (govPaid > 0) {
-                    rows.push({
-                        ...item,
-                        id: `${item.id}-legacy-gov`,
-                        calculatedGrossPay: gross,
-                        calculatedVariableDeduction: variable,
-                        calculatedFixedDeduction: fixed,
-                        calculatedNetSalary: totalGovDeductions,
-                        calculatedRemainingAmount: totalGovDeductions - govPaid,
-                        calculatedStatus: Math.round(govPaid) >= Math.round(totalGovDeductions) ? 'Full Paid' : 'Partially Paid',
-                        calculatedPaidAmount: govPaid,
-                        paymentType: 'GOVERNMENT',
-                        paymentMethod: 'BANK_TRANSFER',
-                        transactionId: 'LEGACY_RECORD',
-                        remarks: 'Historical Statutory Payment',
-                        displayDate: item.paidAt || item.monthEndDate,
-                        item: item
-                    });
-                }
-            } else {
+             // 1. Add Paid Rows from History (or synthesize from master if legacy)
+             if (history.length === 0 && (amountPaid > 0 || govPaid > 0)) {
+                 if (amountPaid > 0) {
+                     rows.push({
+                         ...item,
+                         id: `${item.id}-legacy-salary`,
+                         calculatedGrossPay: gross,
+                         calculatedVariableDeduction: variable,
+                         calculatedFixedDeduction: fixed,
+                         calculatedNetSalary: net,
+                         calculatedRemainingAmount: net - amountPaid,
+                         calculatedStatus: Math.round(amountPaid) >= Math.round(net) ? 'Full Paid' : 'Partially Paid',
+                         calculatedPaidAmount: amountPaid,
+                         paymentType: 'SALARY',
+                         paymentMethod: item.paymentMethod || 'BANK_TRANSFER',
+                         transactionId: 'LEGACY_RECORD',
+                         remarks: 'Historical Payment Record',
+                         displayDate: item.paidAt || item.monthEndDate,
+                         item: item
+                     });
+                 }
+                 if (govPaid > 0) {
+                     rows.push({
+                         ...item,
+                         id: `${item.id}-legacy-gov`,
+                         calculatedGrossPay: gross,
+                         calculatedVariableDeduction: variable,
+                         calculatedFixedDeduction: fixed,
+                         calculatedNetSalary: totalGovDeductions,
+                         calculatedRemainingAmount: totalGovDeductions - govPaid,
+                         calculatedStatus: Math.round(govPaid) >= Math.round(totalGovDeductions) ? 'Full Paid' : 'Partially Paid',
+                         calculatedPaidAmount: govPaid,
+                         paymentType: 'GOVERNMENT',
+                         paymentMethod: item.paymentMethod || 'BANK_TRANSFER',
+                         transactionId: 'LEGACY_RECORD',
+                         remarks: 'Historical Statutory Payment',
+                         displayDate: item.paidAt || item.monthEndDate,
+                         item: item
+                     });
+                 }
+             } else {
             // Sort by payment date, then by paidAt/createdAt (server-set exact time) as tiebreaker.
             // If timestamps are still equal, keep the original DB/API insertion order (return 0).
             // Sorting by amount as a tiebreaker broke "Full Paid" rows when an extra payment

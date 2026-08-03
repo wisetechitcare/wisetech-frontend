@@ -22,6 +22,16 @@ import {
 import { successConfirmation } from '@utils/modal';
 import Swal from 'sweetalert2';
 import { WtSwitch } from "@app/modules/common/components/ui";
+import { useDispatch, useSelector } from 'react-redux';
+import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
+import { AppDispatch, RootState } from '@redux/store';
+
+/** Company-wide employees, loaded once into redux and shared by the picker + cards. */
+function useEmployeeOptions() {
+  const dispatch = useDispatch<AppDispatch>();
+  useEffect(() => { dispatch(loadAllEmployeesIfNeeded()); }, [dispatch]);
+  return useSelector((s: RootState) => s.allEmployees?.list) || [];
+}
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -193,8 +203,66 @@ const INITIAL_FORM = {
   applyScope:       'all' as 'all' | 'from',
   applyFromMonth:   currentYearMonth(),
   applyToMonth:     currentYearMonth(),
+  appliesTo:        'all' as 'all' | 'employees',
+  employeeIds:      [] as string[],
 };
 type FormState = typeof INITIAL_FORM;
+
+// ── Employee picker ────────────────────────────────────────────────────────────
+
+function EmployeePicker({
+  value, onChange, single,
+}: {
+  value: string[];
+  onChange: (ids: string[]) => void;
+  single?: boolean;
+}) {
+  const employees = useEmployeeOptions();
+  const [q, setQ] = useState('');
+
+  const visible = employees
+    .filter(e => e.isActive !== false)
+    .filter(e => !q || e.employeeName.toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+
+  const toggle = (id: string) => {
+    if (single) { onChange([id]); return; }
+    onChange(value.includes(id) ? value.filter(v => v !== id) : [...value, id]);
+  };
+
+  return (
+    <div>
+      <input
+        className="form-control form-control-sm mb-2"
+        value={q}
+        onChange={e => setQ(e.target.value)}
+        placeholder={`Search employees${employees.length ? ` (${employees.length})` : ''}…`}
+      />
+      <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+        {visible.length === 0 ? (
+          <div className="text-muted fs-8 p-3 text-center">No employees found</div>
+        ) : visible.map(e => (
+          <label key={e.employeeId}
+            className="d-flex align-items-center gap-2 px-3 py-2"
+            style={{ cursor: 'pointer', borderBottom: '1px solid #f5f5f5' }}>
+            <input
+              type={single ? 'radio' : 'checkbox'}
+              name={single ? 'componentEmployee' : undefined}
+              checked={value.includes(e.employeeId)}
+              onChange={() => toggle(e.employeeId)}
+            />
+            <span className="fs-7 text-gray-700">{e.employeeName || e.employeeId}</span>
+          </label>
+        ))}
+      </div>
+      {value.length > 0 && (
+        <div className="text-muted fs-8 mt-1">
+          {value.length} employee{value.length > 1 ? 's' : ''} selected
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Create / Edit Modal ────────────────────────────────────────────────────────
 
@@ -236,6 +304,8 @@ function ComponentFormModal({
         applyScope:        'all',
         applyFromMonth:    currentYearMonth(),
         applyToMonth:      currentYearMonth(),
+        appliesTo:         item.employeeId ? 'employees' : 'all',
+        employeeIds:       item.employeeId ? [item.employeeId] : [],
       } : { ...INITIAL_FORM, category: defaultCategory });
     }
   }, [open, item, defaultCategory]);
@@ -255,6 +325,9 @@ function ComponentFormModal({
     e.preventDefault();
     if (!form.displayName.trim()) { setErr('Component name is required'); return; }
     if (!isEdit && !form.key.trim()) { setErr('Key is required'); return; }
+    if (form.appliesTo === 'employees' && form.employeeIds.length === 0) {
+      setErr('Select at least one employee, or switch back to "All employees"'); return;
+    }
     setSaving(true);
     try {
       let effectiveFrom: string | undefined;
@@ -311,6 +384,10 @@ function ComponentFormModal({
         defaultAmount:     isAmountBased && form.defaultAmount !== '' ? Number(form.defaultAmount) : null,
         defaultPercentage: isPercentBased && form.defaultPercentage !== '' ? Number(form.defaultPercentage) : null,
         dependsOnKey:      isPercentBased ? form.dependsOnKey : '',
+        // '' = every employee; edit touches one row so it only ever sends a single id.
+        ...(isEdit
+          ? { employeeId: form.appliesTo === 'employees' ? (form.employeeIds[0] ?? '') : '' }
+          : { employeeIds: form.appliesTo === 'employees' ? form.employeeIds : [] }),
         ...(effectiveFrom ? { effectiveFrom } : {}),
         ...(effectiveTo   ? { effectiveTo }   : {}),
       });
@@ -517,6 +594,44 @@ function ComponentFormModal({
                     )}
                   </div>
                 )}
+
+                {/* Applies To — company-wide vs a specific set of employees */}
+                <div className="col-12">
+                  <div className="p-3 rounded-3" style={{ background: '#f8faff', border: '1px solid #e0e7ff' }}>
+                    <div className="fw-semibold text-gray-800 fs-7 mb-2">
+                      <i className="bi bi-people me-1" />
+                      Who does this apply to?
+                    </div>
+                    <div className="d-flex gap-4 mb-2 flex-wrap">
+                      <label className="d-flex align-items-center gap-2" style={{ cursor: 'pointer' }}>
+                        <input type="radio" name="appliesTo" checked={form.appliesTo === 'all'}
+                          onChange={() => setForm(f => ({ ...f, appliesTo: 'all', employeeIds: [] }))} />
+                        <span className="fs-7 text-gray-700">All employees</span>
+                      </label>
+                      <label className="d-flex align-items-center gap-2" style={{ cursor: 'pointer' }}>
+                        <input type="radio" name="appliesTo" checked={form.appliesTo === 'employees'}
+                          onChange={() => setForm(f => ({ ...f, appliesTo: 'employees' }))} />
+                        <span className="fs-7 text-gray-700">
+                          {isEdit ? 'A specific employee' : 'Selected employees only'}
+                        </span>
+                      </label>
+                    </div>
+                    {form.appliesTo === 'employees' && (
+                      <>
+                        <EmployeePicker
+                          value={form.employeeIds}
+                          onChange={ids => setForm(f => ({ ...f, employeeIds: ids }))}
+                          single={isEdit}
+                        />
+                        {!isEdit && (
+                          <div className="text-muted fs-8 mt-1">
+                            One component row is created per selected employee — each can then be edited or removed on its own.
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
 
                 {/* Apply Duration */}
                 <div className={isAmountBased || isPercentBased ? 'col-md-6' : 'col-md-8'}>
@@ -953,7 +1068,7 @@ function HistoryDrawer({
 // ── Component Card ─────────────────────────────────────────────────────────────
 
 function ComponentCard({
-  item, onToggle, onEdit, onDelete, onToggleOnboarding, onRestore, onClone, onHistory, formulaLabel,
+  item, onToggle, onEdit, onDelete, onToggleOnboarding, onRestore, onClone, onHistory, formulaLabel, employeeName,
 }: {
   item: PayrollComponent;
   onToggle: () => void;
@@ -964,6 +1079,7 @@ function ComponentCard({
   onClone: () => void;
   onHistory: () => void;
   formulaLabel?: string | null;
+  employeeName?: string | null;
 }) {
   const accent    = KEY_ACCENT[item.key] || '#1E3A8A';
   const catStyle  = CATEGORY_COLORS[item.category] || CATEGORY_COLORS['Custom'];
@@ -1023,6 +1139,12 @@ function ComponentCard({
             {item.isSystem && (
               <Chip label="System" size="small"
                 sx={{ fontSize: 10, height: 17, bgcolor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }} />
+            )}
+            {item.employeeId && (
+              <Chip
+                icon={<i className="bi bi-person-fill" style={{ fontSize: 9, color: '#0f766e', marginLeft: 4 }} />}
+                label={employeeName || 'Specific employee'} size="small"
+                sx={{ fontSize: 10, height: 17, bgcolor: '#ecfdf5', color: '#0f766e', border: '1px solid #99f6e4', fontWeight: 700 }} />
             )}
             <Chip label={item.category} size="small"
               sx={{ fontSize: 10, height: 17, bgcolor: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}` }} />
@@ -1151,6 +1273,12 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
   const [historyItem, setHistoryItem]   = useState<PayrollComponent | null>(null);
   const [showInactive, setShowInactive] = useState(false);
 
+  const employees = useEmployeeOptions();
+  const employeeNameById = React.useMemo(
+    () => Object.fromEntries(employees.map(e => [e.employeeId, e.employeeName])),
+    [employees],
+  );
+
   const items = allItems.filter(i => modeCategories.includes(i.category));
 
   const handleToggle = async (item: PayrollComponent) => {
@@ -1180,8 +1308,9 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
     if (!isConfirmed) return;
     try {
       await deductionMasterService.delete(item.id, reason || undefined);
-      // Backend removes every row for this key (all versions) → drop them all locally.
-      onItemsChange(allItems.filter(i => i.key !== item.key));
+      // Backend removes every version of this key for THIS assignment (company-wide, or
+      // the one employee) → drop exactly those locally, leaving other employees' rows.
+      onItemsChange(allItems.filter(i => !(i.key === item.key && i.employeeId === item.employeeId)));
       successConfirmation('Component deleted');
     } catch (e: any) {
       Swal.fire('Error', e?.response?.data?.message || 'Cannot delete', 'error');
@@ -1218,15 +1347,16 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
       successConfirmation('Component updated');
     } else {
       const created = await deductionMasterService.create(componentData);
-      onItemsChange([...allItems, created]);
+      onItemsChange([...allItems, ...created]);
 
-      const newDeps = { ...allDeps };
       if (calcType === 'PERCENTAGE' && dependsOnKey) {
-        const dep = await deductionMasterService.setDependency(created.id, dependsOnKey);
-        newDeps[created.id] = dep;
+        const newDeps = { ...allDeps };
+        for (const c of created) {
+          newDeps[c.id] = await deductionMasterService.setDependency(c.id, dependsOnKey);
+        }
         onDepsChange(newDeps);
       }
-      successConfirmation('Component created');
+      successConfirmation(created.length > 1 ? `Component added for ${created.length} employees` : 'Component created');
     }
     setEditItem(null);
   };
@@ -1244,7 +1374,8 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
     const matchSearch = !search
       || item.displayName.toLowerCase().includes(search.toLowerCase())
       || item.key.toLowerCase().includes(search.toLowerCase())
-      || (item.shortCode || '').toLowerCase().includes(search.toLowerCase());
+      || (item.shortCode || '').toLowerCase().includes(search.toLowerCase())
+      || (employeeNameById[item.employeeId] || '').toLowerCase().includes(search.toLowerCase());
     const matchCat = categoryFilter === 'All' || item.category === categoryFilter;
     return matchSearch && matchCat;
   });
@@ -1367,6 +1498,7 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
                         onClone={() => { setCloneItem(item); setCloneOpen(true); }}
                         onHistory={() => { setHistoryItem(item); setHistoryOpen(true); }}
                         formulaLabel={formulaLabel}
+                        employeeName={employeeNameById[item.employeeId]}
                       />
                     );
                   })}
@@ -1392,6 +1524,7 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
                 onClone={() => { setCloneItem(item); setCloneOpen(true); }}
                 onHistory={() => { setHistoryItem(item); setHistoryOpen(true); }}
                 formulaLabel={formulaLabel}
+                employeeName={employeeNameById[item.employeeId]}
               />
             );
           })}

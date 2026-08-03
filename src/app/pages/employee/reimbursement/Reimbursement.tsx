@@ -374,9 +374,12 @@ function Reimbursement() {
     const keepId = editMode ? currentReimbursement?.projectId : undefined;
     list = list.filter((p: any) => (p.status?.id && ongoingStatusIds.includes(p.status.id)) || p.id === keepId);
 
-    const opts: Option[] = list
-      .map((p: any) => ({ value: p.id, label: p.title }))
-      .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
+    const opts: Option[] = [...list]
+      .sort((a: any, b: any) => (a.title || "").localeCompare(b.title || ""))
+      .map((p: any) => ({
+        value: p.id,
+        label: p.projectPrefix ? `${p.projectPrefix} - ${p.title}` : p.title,
+      }));
     setProjectOptions(opts);
 
     if (editMode && currentReimbursement?.projectId) {
@@ -801,6 +804,9 @@ function Reimbursement() {
                         formikField="expenseDate"
                         placeHolder={"Select Date"}
                         maxDate={true}
+                        // Claimable window: this month only, up to today — no past
+                        // months, no future days.
+                        minDate={dayjs().startOf('month')}
                       />
                     </div>
                   </div>
@@ -866,6 +872,7 @@ function Reimbursement() {
                           handleProjectChange(option, formikProps.setFieldValue)
                         }
                         value={selectedProject}
+                        disableAlphabeticalSort={true}
                       />
                     </div>
                   </div>
