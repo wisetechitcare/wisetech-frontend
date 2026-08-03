@@ -20,7 +20,21 @@ import { useFocusTrap } from "@hooks/useFocusTrap";
 import Loader from "@app/modules/common/utils/Loader";
 import { fetchColorAndStoreInSlice, generateFiscalYearFromGivenYear } from "@utils/file";
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
-import { GlassDialog, GlassHeader, WtIconButton, IconBox, TRIO, Spinner } from "@app/modules/common/components/ui/tw";
+import { GlassDialog, GlassHeader, WtIconButton, IconBox, TRIO, StatusBadge, Spinner, type Trio } from "@app/modules/common/components/ui/tw";
+import { LeaveStatus } from "@constants/attendance";
+
+/**
+ * Status → tone. Approved reads as settled (green), anything still awaiting a human
+ * is amber, rejected is rose, and revoked is deliberately neutral: it is a withdrawn
+ * request, not a refused one, and colouring it like a rejection misreports it.
+ */
+const LEAVE_STATUS_TRIO: Record<LeaveStatus, Trio> = {
+    [LeaveStatus.ApprovalPending]: TRIO.amber,
+    [LeaveStatus.PendingHR]: TRIO.amber,
+    [LeaveStatus.Approved]: TRIO.green,
+    [LeaveStatus.Rejected]: TRIO.rose,
+    [LeaveStatus.Revoked]: TRIO.slate,
+};
 import ApplyLeave from "@pages/employee/attendance/personal/views/my-leaves/ApplyLeave";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import dayjs from "dayjs";
@@ -227,11 +241,25 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         {
             accessorKey: "statusText",
             header: "Status",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            size: 150,
+            // Was raw text in a table where every other categorical column is a badge,
+            // so status — the column an admin actually scans this table for — was the
+            // one thing with no visual weight. Keyed off the numeric status, not the
+            // label: matching on display strings breaks the moment one is reworded.
+            Cell: ({ row }: any) => {
+                const trio = LEAVE_STATUS_TRIO[row.original.statusNumber as LeaveStatus] ?? TRIO.slate;
+                return <StatusBadge trio={trio} label={row.original.statusText || '—'} />;
+            }
         },
         {
             accessorKey: "approvedByName",
             header: "Approved / Rejected By",
+            // Without an explicit width this column collapsed to roughly the header's
+            // size, so a two-word name wrapped to two lines AND the timestamp wrapped
+            // to two more — four lines in a 52px row. Sized to hold "Firstname
+            // Lastname" plus the timestamp on one line each.
+            size: 210,
+            minSize: 180,
             Cell: ({ row }: any) => {
                 const { statusNumber, approvedByName, rejectedByName, updatedAt } = row.original;
                 const isApproved = statusNumber === Status.Approved;
@@ -250,9 +278,22 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
                         >
                             {name.charAt(0).toUpperCase()}
                         </div>
+                        {/* Both lines truncate rather than wrap: a long name must not be
+                            able to grow this cell past the row height. `min-w-0` on the
+                            flex child is what actually lets truncate work — without it a
+                            flex item refuses to shrink below its content. */}
                         <div className="flex flex-col min-w-0">
-                            <span className="text-slate-900 font-semibold text-[12.5px] leading-[1.3]">{name}</span>
-                            {date && <span className="text-slate-500 text-[11px]">{date}</span>}
+                            <span
+                                className="text-slate-900 font-semibold text-[12.5px] leading-[1.3] truncate"
+                                title={name}
+                            >
+                                {name}
+                            </span>
+                            {date && (
+                                <span className="text-slate-500 text-[11px] leading-[1.3] truncate" title={date}>
+                                    {date}
+                                </span>
+                            )}
                         </div>
                     </div>
                 );

@@ -223,6 +223,18 @@ function MaterialTable({
   );
 
   const isMobile = useMediaQuery("(max-width:600px)");
+
+  /**
+   * MRT renders body cells two different ways, and the row-height rule differs:
+   *   • grid layout (whenever column pinning is active) → cells are flex DIVs, where
+   *     `height` is a HARD cap: taller content overflows and paints on top of the rows
+   *     above and below. These need `min-height`.
+   *   • semantic layout → cells are real <td>s, where CSS already treats `height` as a
+   *     minimum and `min-height` does not apply to table-cell at all. These need
+   *     `height`, or the cells collapse to their content (vertical padding is 0 here).
+   * Applying one rule to both is what let the leave-request approver cell overlap.
+   */
+  const isGridLayout = (!isMobile && (enableColumnPinning ?? true)) || layoutMode === "grid";
   const globalTheme = useTheme();
 
   // Memoize finalData to prevent infinite re-renders
@@ -1299,7 +1311,11 @@ function MaterialTable({
           muiTableBodyCellProps={{
             sx: {
               padding: "0 16px",
-              height: "52px",
+              // See `isGridLayout` above — a flex cell needs a minimum it can grow past,
+              // a <td> needs `height` (which CSS already treats as a minimum).
+              ...(isGridLayout
+                ? { minHeight: "52px", height: "auto" }
+                : { height: "52px" }),
               fontSize: "13px",
               color: "#374151",
               borderBottom: "1px solid #F3F4F6",
