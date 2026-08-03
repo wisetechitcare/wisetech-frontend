@@ -336,6 +336,9 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                     formikField="expenseDate"
                     placeHolder="Select Date"
                     maxDate={true}
+                    // Same window as a new request — an edit cannot move an expense
+                    // into a past month or the future.
+                    minDate={dayjs().startOf('month')}
                   />
                 </div>
               </div>

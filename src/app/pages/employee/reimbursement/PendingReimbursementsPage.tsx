@@ -1344,6 +1344,9 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       formikField='expenseDate'
                       placeHolder='Select Date'
                       maxDate={true}
+                      // Claimable window: this month only, up to today — no past
+                      // months, no future days.
+                      minDate={dayjs().startOf('month')}
                     />
                   </div>
                 </div>
