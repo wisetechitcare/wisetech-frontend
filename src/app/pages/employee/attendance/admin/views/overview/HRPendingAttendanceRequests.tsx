@@ -6,7 +6,9 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { LeaveStatus } from "@constants/attendance";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
-import { toAbsoluteUrl } from "@metronic/helpers";
+import { KTIcon } from "@metronic/helpers";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { WtIconButton, Spinner, TRIO } from "@app/modules/common/components/ui/tw";
 import { IAttendanceRequests } from "@models/employee";
 import { RootState } from "@redux/store";
 import { fetchCompanyOverview } from "@services/company";
@@ -146,7 +148,10 @@ function HRPendingAttendanceRequests() {
         {
             accessorKey: 'remarks',
             header: 'Remarks',
-            size: 130,
+            // Matches OpenAttendanceRequests — enough width for the uppercase heading
+            // plus the sort icon on one line.
+            size: 150,
+            minSize: 140,
             Cell: ({ renderedCellValue }: any) => renderedCellValue,
         },
         {
@@ -174,28 +179,30 @@ function HRPendingAttendanceRequests() {
             size: 110,
             Cell: ({ row }: any) => (
                 <>
-                    <button
-                        className="btn btn-icon btn-sm"
+                    <WtIconButton
+                        color={TRIO.green.c}
                         title="HR Final Approve"
                         disabled={loading || processingRowId === row.original.id}
                         onClick={() => approveAsHR(row.original)}
+                        size={34}
                     >
                         {processingRowId === row.original.id && processingAction === 'approve'
-                            ? <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                            : <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt="approve" />
+                            ? <Spinner size={14} color={TRIO.green.c} />
+                            : <KTIcon iconName="check" className="fs-4" />
                         }
-                    </button>
-                    <button
-                        className="btn btn-icon btn-sm"
+                    </WtIconButton>
+                    <WtIconButton
+                        color={TRIO.rose.c}
                         title="HR Reject"
                         disabled={loading || processingRowId === row.original.id}
                         onClick={() => rejectAsHR(row.original.id)}
+                        size={34}
                     >
                         {processingRowId === row.original.id && processingAction === 'reject'
-                            ? <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                            : <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt="reject" />
+                            ? <Spinner size={14} color={TRIO.rose.c} />
+                            : <KTIcon iconName="cross" className="fs-4" />
                         }
-                    </button>
+                    </WtIconButton>
                 </>
             ),
         },

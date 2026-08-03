@@ -30,14 +30,27 @@ export function StatusBadge({ trio, label, pulse, title, className }: { trio: Tr
   return (
     <span
       title={title}
-      className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] border shrink-0 select-none', className)}
+      // `max-w-full` so the badge can never overflow its container and get clipped
+      // mid-word by the cell ("Approval Pend"). When it runs out of room the LABEL
+      // WRAPS to a second line rather than shrinking or ellipsizing — a status is the
+      // column people scan, so a partially hidden one is worse than a taller row.
+      // `rounded-2xl` instead of `rounded-full`: a full pill radius on a two-line box
+      // bows the sides out. Table rows use min-height, so a wrapped badge grows its row
+      // instead of overlapping the neighbours.
+      className={cn('inline-flex items-center gap-1.5 rounded-2xl px-2.5 py-[4px] border shrink-0 max-w-full select-none', className)}
       style={{ backgroundColor: t.bg, borderColor: t.bd }}
     >
       <span
-        className={cn('w-[7px] h-[7px] rounded-full', pulse && 'wt-dot-pulse')}
+        className={cn('w-[7px] h-[7px] rounded-full shrink-0', pulse && 'wt-dot-pulse')}
         style={{ backgroundColor: t.fg }}
       />
-      <span className="text-[11.5px] font-bold leading-none whitespace-nowrap" style={{ color: t.fg }}>{label}</span>
+      <span
+        className="text-[11.5px] font-bold leading-[1.3] min-w-0 whitespace-normal break-words"
+        style={{ color: t.fg }}
+        title={title ?? label}
+      >
+        {label}
+      </span>
     </span>
   );
 }

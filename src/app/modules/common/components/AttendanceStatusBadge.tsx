@@ -23,24 +23,18 @@ interface AttendanceStatusBadgeProps {
 
 const AttendanceStatusBadge = ({ status, color }: AttendanceStatusBadgeProps) => (
     <span
-        style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '4px 12px',
-            borderRadius: '9999px',
-            fontSize: '12px',
-            fontWeight: 700,
-            lineHeight: 1.4,
-            whiteSpace: 'nowrap',
-            backgroundColor: color,
-            color: '#ffffff',
-            border: 'none',
-            /* White ring separates the badge from a same-tinted row background */
-            boxShadow: '0 0 0 2px rgba(255,255,255,0.9), 0 2px 6px rgba(0,0,0,0.15)',
-            letterSpacing: '0.01em',
-            textShadow: '0 1px 1px rgba(0,0,0,0.15)',
-        }}
+        // Tailwind for everything static (CLAUDE.md bans inline style objects); only the
+        // caller-resolved status colour stays inline, because it is a runtime hex from
+        // configuration and cannot be expressed as a utility class.
+        //
+        // The label WRAPS rather than staying nowrap: a long status ("Check-out Missing")
+        // in a narrow column previously overflowed the cell and was clipped mid-word.
+        // `break-words` wraps at the space first, so it splits cleanly onto two lines, and
+        // table rows use min-height so the row grows instead of the badge colliding with
+        // its neighbours. `rounded-2xl` — a full pill radius bows out on two lines.
+        className="inline-flex items-center justify-center text-center max-w-full py-1 px-3 rounded-2xl text-[12px] font-bold leading-[1.4] tracking-[0.01em] text-white border-0 whitespace-normal break-words shadow-[0_0_0_2px_rgba(255,255,255,0.9),0_2px_6px_rgba(0,0,0,0.15)] [text-shadow:0_1px_1px_rgba(0,0,0,0.15)]"
+        style={{ backgroundColor: color }}
+        title={status}
     >
         {status}
     </span>

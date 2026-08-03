@@ -243,6 +243,7 @@ function MaterialTable({
   );
 
   const isMobile = useMediaQuery("(max-width:600px)");
+
   const globalTheme = useTheme();
 
   // Memoize finalData to prevent infinite re-renders
@@ -1298,6 +1299,11 @@ function MaterialTable({
                 gap: "6px",
                 width: "100%",
                 height: "100%",
+                minWidth: 0,
+                // Containing block for the actions button. Deliberately on this inner
+                // div and NOT on the <th> — MRT gives pinned header cells
+                // `position: sticky`, and overriding that would unpin them.
+                position: "relative",
               },
 
               "& .Mui-TableHeadCell-Content-Labels": {
@@ -1334,13 +1340,23 @@ function MaterialTable({
                 color: "#4B5563",
               },
 
+              // `opacity: 0` hides the column-actions button but it still occupies its
+              // full width in EVERY header, permanently narrowing the label. Taking it
+              // out of flow means the label gets the whole cell; on hover it fades in
+              // over the label's tail rather than shoving the text sideways.
               "& .Mui-TableHeadCell-Content-Actions": {
+                position: "absolute",
+                right: "4px",
+                top: "50%",
+                transform: "translateY(-50%)",
                 opacity: 0,
+                pointerEvents: "none",
                 transition: "opacity 0.15s ease",
               },
 
               "&:hover .Mui-TableHeadCell-Content-Actions": {
                 opacity: 1,
+                pointerEvents: "auto",
               },
 
               ...pinnedCellSx,
