@@ -18,7 +18,8 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { IEmployeesAttendance } from "@models/employee";
 import { saveEmployeesAttendance } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
-import { fetchAllEmployeesAttendance, fetchAllEmployeesAttendanceRange, fetchEmployeeLeaves, fetchEmployeesOnLeaveToday } from "@services/employee";
+import { fetchAllEmployees, fetchAllEmployeesAttendance, fetchAllEmployeesAttendanceRange, fetchEmployeeLeaves, fetchEmployeesOnLeaveToday } from "@services/employee";
+import { activeEmployeeIdSet } from "@utils/activeEmployee";
 import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, convertTo12HourFormat, MUMBAI_TZ } from "@utils/date";
 import dayjs, { Dayjs } from "dayjs";
 import { MRT_ColumnDef } from "material-react-table";
@@ -114,7 +115,13 @@ const transformLeaveToAttendance = (leave: any, weekends: any): IEmployeesAttend
     };
 };
 
-const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekends: any): IEmployeesAttendance[] => {
+/**
+ * Exported so the weekly/monthly summary rolls up THESE rows rather than deriving its
+ * own. Status here is the product of timezone-correct weekday resolution plus the
+ * present/absent/missing rules below; a second implementation would drift, and the
+ * summary and the day-by-day drill-in would disagree about the same day.
+ */
+export const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekends: any): IEmployeesAttendance[] => {
     if (!attendance?.length) {
         console.warn('No attendance data received');
         return [];
@@ -176,6 +183,10 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
             checkIn: formattedCheckIn,
             checkOut: formattedCheckOut,
             duration: checkIn && checkOut ? getMinutesInHrMinFormat : '-NA-',
+            // Numeric twin of `duration`. The period summary sums worked time, and
+            // parsing "8h 27m" back out of the display string is how rounding bugs and
+            // locale bugs get in — emit the number once, here, where it is computed.
+            durationMinutes: checkIn && checkOut ? getTimeDifferenceInMinutes : 0,
             location: empAttendance.checkInLocation || '-NA-',
             workingMethod: workingMethod?.type || '-NA-',
             day: weekDay,
@@ -279,6 +290,25 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
     const [employeeThresholds, setEmployeeThresholds] = useState<any[]>([]);
     const [employeesOnLeaveToday, setEmployeesOnLeaveToday] = useState<any[]>([]);
     const [mergedAttendanceData, setMergedAttendanceData] = useState<IEmployeesAttendance[]>([]);
+    // Roster-derived set of employees this table may show. Attendance/leave rows carry no
+    // active flag of their own, so the roster is the only place the answer lives.
+    const [activeEmployeeIds, setActiveEmployeeIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const employeesRes = await fetchAllEmployees();
+                if (cancelled) return;
+                setActiveEmployeeIds(activeEmployeeIdSet(employeesRes?.data?.employees || []));
+            } catch (error) {
+                // Non-fatal: an empty set means "don't filter", so a roster failure shows
+                // everything rather than an empty table.
+                console.error('Error loading roster for active-employee filter:', error);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
 
     useEffect(() => {
@@ -403,10 +433,18 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         // Apply weekend/holiday marking logic
         const isWeekendOrHolidayData = markWeekendOrHoliday(dataToProcess, getAllWeekends, allHolidays);
 
-        return filterIds
-            ? isWeekendOrHolidayData.filter((row: any) => filterIds.includes(row.employeeId))
+        // Attendance and leave rows carry no isActive of their own, so inactive staff are
+        // excluded by employee id against the roster — otherwise a leaver keeps appearing
+        // as "Absent" every day forever, which is what the stat cards already avoid.
+        // Empty set = roster not loaded yet; don't blank the table on first paint.
+        const activeOnly = activeEmployeeIds.size > 0
+            ? isWeekendOrHolidayData.filter((row: any) => !row.employeeId || activeEmployeeIds.has(row.employeeId))
             : isWeekendOrHolidayData;
-    }, [mergedAttendanceData, employeesAttendance, getAllWeekends, allHolidays, filterIds]);
+
+        return filterIds
+            ? activeOnly.filter((row: any) => filterIds.includes(row.employeeId))
+            : activeOnly;
+    }, [mergedAttendanceData, employeesAttendance, getAllWeekends, allHolidays, filterIds, activeEmployeeIds]);
 
     const columns = useMemo<MRT_ColumnDef<IEmployeesAttendance>[]>(() => [
         {

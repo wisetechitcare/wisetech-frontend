@@ -15,6 +15,16 @@ interface UseServerPaginationProps<T> {
     initialPageSize?: number;
     transformData?: (data: any[]) => T[];
     filterData?: (data: T[]) => T[];
+    /**
+     * Identity of the current server-side filters (e.g. `periodKey(range)`). When it
+     * changes, pagination snaps back to the first page.
+     *
+     * Without this, narrowing a filter while on page 5 asks the server for page 5 of a
+     * result set that now has one page, and the table renders empty — the classic
+     * "my filter broke the table" bug. Pass a STRING, not the filter object: an object
+     * rebuilt each render would reset pagination on every render.
+     */
+    resetKey?: string | number;
 }
 
 interface UseServerPaginationReturn<T> {
@@ -33,6 +43,7 @@ export function useServerPagination<T = any>({
     initialPageSize = pageSize,
     transformData,
     filterData,
+    resetKey,
 }: UseServerPaginationProps<T>): UseServerPaginationReturn<T> {
     const [allData, setAllData] = useState<T[]>([]);
     const [filteredData, setFilteredData] = useState<T[]>([]);
@@ -40,6 +51,16 @@ export function useServerPagination<T = any>({
         pageIndex: 0,
         pageSize: initialPageSize,
     });
+
+    // Adjust-state-during-render rather than an effect. An effect would run AFTER the
+    // fetch effect below, so a filter change would fire one wasted request for the stale
+    // page and only then reset — two round trips and a visible flash of an empty table.
+    // React re-runs this component immediately, before children render or effects fire.
+    const [appliedResetKey, setAppliedResetKey] = useState(resetKey);
+    if (resetKey !== appliedResetKey) {
+        setAppliedResetKey(resetKey);
+        if (pagination.pageIndex !== 0) setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    }
     const [totalRecords, setTotalRecords] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [isInitialLoading, setIsInitialLoading] = useState(true);

@@ -25,7 +25,24 @@ import ApplyLeave from "@pages/employee/attendance/personal/views/my-leaves/Appl
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import dayjs from "dayjs";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
-function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
+import type { PeriodRange } from "@app/modules/common/components/PeriodFilter";
+import { toPeriodParams, periodKey } from "@utils/periodRange";
+
+interface AllLeaveRequestProps {
+    fromAdmin?: boolean;
+    /**
+     * Overview's Daily/Weekly/Monthly selection. Omit (or pass null) to list all time —
+     * which is what the personal/non-Overview usages want.
+     */
+    range?: PeriodRange | null;
+    /**
+     * Hide employees flagged inactive. The Overview passes this so every table matches
+     * its stat cards; personal views leave it off so someone's own history stays intact.
+     */
+    activeOnly?: boolean;
+}
+
+function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }: AllLeaveRequestProps) {
     const { filterIds } = useTeamFilter();
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const isAdmin = usePermission('approvals.approve.team');
@@ -105,15 +122,28 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
         return '#3498DB'; // default color
     };
 
+    // Selected Overview period → wire params. Filtering is SERVER-side: this table is
+    // paginated, so narrowing a ten-row page in the browser would leave the count and
+    // the page contents disagreeing, and rows outside page 1 unfiltered entirely.
+    const periodParams = useMemo(() => toPeriodParams(range), [range]);
+    // Primitive identity for the window — `range` is rebuilt (with fresh Dayjs objects)
+    // on every PeriodFilter render, so depending on it directly would refetch forever.
+    // Both server-side filters live in the reset key: changing either can shrink the
+    // result set, and staying on page 5 of a now-one-page list renders empty.
+    const rangeKey = useMemo(() => `${periodKey(range)}|${activeOnly ? 'active' : 'all'}`, [range, activeOnly]);
+
     // Fetch function for server pagination
     const fetchLeaves = useCallback(async (page: number, limit: number) => {
-        const { data: { leaveRequest, pagination } } = await fetchLeaveRequest(undefined, undefined, page, limit);
+        // activeOnly is server-side for the same reason the period is: filtering a
+        // ten-row page in the browser would leave the total count claiming rows the
+        // table refuses to show.
+        const { data: { leaveRequest, pagination } } = await fetchLeaveRequest(undefined, undefined, page, limit, periodParams, activeOnly);
 
         return {
             data: leaveRequest || [],
             totalRecords: pagination?.totalRecords || leaveRequest?.length || 0,
         };
-    }, []);
+    }, [periodParams, activeOnly]);
 
     // Use the server pagination hook
     const {
@@ -128,6 +158,8 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
         fetchFunction: fetchLeaves,
         initialPageSize: pageSize,
         transformData: transformLeaveRequests,
+        // Changing the period must snap back to page 1 — see the hook's docs.
+        resetKey: rangeKey,
     });
 
     const deleteLeaveRequest = async (id: string) => {

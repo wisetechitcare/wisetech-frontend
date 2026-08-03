@@ -72,15 +72,28 @@ export const normalizeAttendanceRequestTime = (value: string | undefined, dateSt
     return undefined;
 };
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useSelector } from "react-redux";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { pageSize, useServerPagination } from "@hooks/useServerPagination";
 import EditAttendanceRequest from "./EditAttendanceRequest";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import type { PeriodRange } from "@app/modules/common/components/PeriodFilter";
+import { toPeriodParams, periodKey } from "@utils/periodRange";
 
-const OpenAttendanceRequests = () => {
+interface OpenAttendanceRequestsProps {
+    /**
+     * Overview's Daily/Weekly/Monthly selection. Omit (or pass null) to list all time.
+     */
+    range?: PeriodRange | null;
+    /**
+     * Hide employees flagged inactive, so this table matches the Overview's stat cards.
+     */
+    activeOnly?: boolean;
+}
+
+const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttendanceRequestsProps) => {
     const { filterIds } = useTeamFilter();
     const worktypeColorValues = useSelector((state: RootState) => state?.customColors?.workingLocation)
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
@@ -112,19 +125,41 @@ const OpenAttendanceRequests = () => {
     const getAllWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
     const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
 
+    // Selected Overview period → wire params. Filtering is SERVER-side: this table is
+    // paginated, so filtering a ten-row page in the browser would leave the total count
+    // and the page contents disagreeing, and rows beyond page 1 unfiltered entirely.
+    const periodParams = useMemo(() => toPeriodParams(range), [range]);
+    // Primitive identity — `range` is rebuilt (with fresh Dayjs objects) on every
+    // PeriodFilter render, so depending on it directly would refetch forever.
+    // Both server-side filters live in the reset key: changing either can shrink the
+    // result set, and staying on page 5 of a now-one-page list renders empty.
+    const rangeKey = useMemo(() => `${periodKey(range)}|${activeOnly ? 'active' : 'all'}`, [range, activeOnly]);
+
+    // The active org never changes within a mounted session, but this fetcher runs once
+    // per page turn AND per period change — resolving it every time meant an extra
+    // company-overview round trip before every list request. Resolve once, then reuse.
+    const companyIdRef = useRef<string | null>(null);
+    const resolveCompanyId = useCallback(async () => {
+        if (companyIdRef.current !== null) return companyIdRef.current;
+        const { data: { companyOverview } } = await fetchCompanyOverview();
+        companyIdRef.current = resolveActiveOrgId(companyOverview) ?? '';
+        return companyIdRef.current;
+    }, []);
+
     // Fetch function for all attendance requests
     const fetchAllAttendanceRequests = useCallback(async (page: number, limit: number) => {
-        const { data: { companyOverview } } = await fetchCompanyOverview();
-        const companyId = (resolveActiveOrgId(companyOverview) ?? '');
+        const companyId = await resolveCompanyId();
 
-        const { data: { attendanceRequests, pagination: paginationData } } = await getAllAttendanceRequestByCompanyId(companyId, page, limit);
-        console.log("attendanceRequestsAll", attendanceRequests);
+        // activeOnly is server-side for the same reason the period is: filtering a
+        // ten-row page in the browser would leave the total count claiming rows the
+        // table refuses to show.
+        const { data: { attendanceRequests, pagination: paginationData } } = await getAllAttendanceRequestByCompanyId(companyId, page, limit, periodParams, activeOnly);
 
         return {
             data: attendanceRequests,
             totalRecords: paginationData?.totalRecords || attendanceRequests.length,
         };
-    }, []);
+    }, [resolveCompanyId, periodParams, activeOnly]);
 
     // Single hook for all attendance requests with server-side pagination
     const {
@@ -140,6 +175,8 @@ const OpenAttendanceRequests = () => {
         fetchFunction: fetchAllAttendanceRequests,
         initialPageSize: pageSize,
         transformData: transformAttendanceRequest,
+        // Changing the period must snap back to page 1 — see the hook's docs.
+        resetKey: rangeKey,
     });
 
     useEventBus(EVENT_KEYS.attendanceRequestUpdated, (data) => {

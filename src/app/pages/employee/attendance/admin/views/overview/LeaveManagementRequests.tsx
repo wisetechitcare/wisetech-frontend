@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { RootState } from "@redux/store";
+import { activeEmployeeIdSet } from "@utils/activeEmployee";
 import {
   getAllLeaveManagements,
   updateLeaveManagement,
@@ -89,6 +90,19 @@ function LeaveManagementRequests() {
       fetchRequests();
     }
   });
+
+  /**
+   * Rows this table may show. Requests carry an employeeId but no active flag of their
+   * own, so the roster in Redux is the only place that answer lives. An empty set means
+   * the roster hasn't loaded — don't blank the table on first paint.
+   */
+  const visibleRequests = useMemo(() => {
+    const activeIds = activeEmployeeIdSet((allEmployees || []) as any);
+    const active = activeIds.size
+      ? requests.filter((r) => !r.employeeId || activeIds.has(r.employeeId))
+      : requests;
+    return filterIds ? active.filter((r) => filterIds.includes(r.employeeId)) : active;
+  }, [requests, allEmployees, filterIds]);
 
   const handleApprove = async (request: LeaveManagementRequest) => {
     try {
@@ -318,7 +332,7 @@ function LeaveManagementRequests() {
         </div>
         <MaterialTable
           columns={columns}
-          data={filterIds ? requests.filter((r) => filterIds.includes(r.employeeId)) : requests}
+          data={visibleRequests}
           tableName="Pending Leave Management Requests"
           isLoading={loading}
           viewOthers={true}

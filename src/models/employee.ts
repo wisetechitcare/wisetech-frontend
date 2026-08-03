@@ -54,7 +54,11 @@ export interface IEmployeesAttendance {
   checkIn: string;
   checkOut: string;
   status: string;
+  /** Display form, e.g. "8h 27m" or "-NA-". */
   duration: string;
+  /** Numeric twin of `duration` in minutes (0 when the day has no complete pair).
+   *  Sum this for period totals — never parse `duration` back into a number. */
+  durationMinutes?: number;
   workingMethod: string;
   location: string;
   day: string;

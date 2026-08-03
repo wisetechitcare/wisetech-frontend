@@ -45,6 +45,8 @@ import "./OverviewStatsGrid.css";
 import { ToneChip } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { DATE_FORMATS, formatDateLong } from '@utils/dateFormats';
+import { countWorkingDays } from '@utils/periodRange';
+import { filterActiveEmployees } from '@utils/activeEmployee';
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import {
     EmployeeStatGrid,
@@ -1236,8 +1238,13 @@ function Overview({ date, range }: OverviewProps) {
                     //     attendance: allAttendance.length
                     // });
 
-                    // Filter only active employees for state
-                    const activeEmployees = transformedEmployees.filter((emp: any) => emp.isActive !== false);
+                    // Filter only active employees for state. Same predicate, now shared —
+                    // every table and graph on this page derives from `isActiveEmployee`
+                    // so none of them can disagree with these cards about who counts.
+                    // Explicit type argument: `transformedEmployees` is `any[]`, and TS
+                    // falls back to the generic's constraint rather than inferring the
+                    // row shape, which would widen the state to MaybeActiveEmployee[].
+                    const activeEmployees = filterActiveEmployees<EmployeeWithAttendance>(transformedEmployees);
                     const visibleEmployees = filterIds
                         ? activeEmployees.filter((emp: any) => filterIds.includes(emp._id))
                         : activeEmployees;
@@ -1323,17 +1330,10 @@ function Overview({ date, range }: OverviewProps) {
         ? leaveDayEntries.reduce((s, e: any) => s + (e.isHalfDay ? 0.5 : 1), 0)
         : (employesLeaveDatas?.length || 0);
     const extraDayCount = extraRows.length;
-    const workingDaysInRange = (() => {
-        if (!useRange || !range?.start || !range?.end) return 1;
-        let n = 0;
-        let d = range.start.startOf("day");
-        const end = range.end.startOf("day");
-        while (d.isBefore(end) || d.isSame(end, "day")) {
-            if (weekends?.[d.format("dddd").toLowerCase()] !== "0") n++;
-            d = d.add(1, "day");
-        }
-        return n;
-    })();
+    // Shared with the Attendance summary and the Working Time target — three
+    // independently-written copies of this loop is three chances to disagree about
+    // whether the range end is inclusive. Daily falls back to 1 (the anchor day).
+    const workingDaysInRange = useRange ? countWorkingDays(range, weekends) : 1;
     // Absent (range) = per-day roster minus present minus on-leave; matches its modal.
     const absentDayCount = useRange ? absentEntries.length : absentCount;
 

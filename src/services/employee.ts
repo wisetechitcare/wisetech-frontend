@@ -1037,6 +1037,42 @@ export const fetchAttendanceClassification = async (employeeId: string, startDat
     };
 };
 
+/** One employee's classification counts — same shape the single-employee endpoint returns. */
+export interface AttendanceClassification {
+    totalWorkingDays: number;
+    earlyCheckins: number;
+    lateCheckins: number;
+    earlyCheckouts: number;
+    lateCheckouts: number;
+    missingCheckouts: number;
+    lateCheckinDates?: string[];
+    earlyCheckinDates?: string[];
+}
+
+/**
+ * Classification counts for many employees in ONE request.
+ *
+ * The server runs the same `countLateCheckins` engine per employee — lateness has a
+ * single definition in this product (it honours per-employee check-in deadline
+ * overrides), so this never recomputes it in the browser. Employees the server could not
+ * classify are simply absent from the map; render them as "—" rather than 0, which would
+ * read as "never late".
+ *
+ * POST because the id list is unbounded and would exceed URL length limits as a query
+ * string. The server caps the batch size.
+ */
+export const fetchAttendanceClassificationBatch = async (
+    employeeIds: string[],
+    startDate: string,
+    endDate: string,
+) => {
+    const { data } = await axios.post(
+        `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_CLASSIFICATION_BATCH}`,
+        { employeeIds, startDate, endDate },
+    );
+    return data as { data: { classifications: Record<string, AttendanceClassification> } };
+};
+
 export const fetchEmpAttendanceAllTimeRecords = async (employeeId: string, observedIn: string, companyId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_RECORDS}?employeeId=${employeeId}&observedIn=${observedIn}&companyId=${companyId}`;
@@ -1048,7 +1084,21 @@ export const fetchEmpAttendanceAllTimeRecords = async (employeeId: string, obser
     }
 }
 
-export const fetchLeaveRequest = async (employeeId?: string, status?: number, page?: number, limit?: number) => {
+/**
+ * @param range Optional business-day window (ISO `YYYY-MM-DD`), from `toPeriodParams()`.
+ *   Filtering happens in SQL as an interval overlap, so a leave that began before the
+ *   window and is still running inside it is included. Omit for all time.
+ */
+export const fetchLeaveRequest = async (
+    employeeId?: string,
+    status?: number,
+    page?: number,
+    limit?: number,
+    range?: { startDate: string; endDate: string },
+    /** Exclude employees explicitly flagged inactive. Filtered in SQL — see the API's
+     *  `activeEmployeeRelationFilter`. Off by default so existing callers are unchanged. */
+    activeOnly?: boolean,
+) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_LEAVE_REQUEST}`;
         const params = new URLSearchParams();
@@ -1056,6 +1106,12 @@ export const fetchLeaveRequest = async (employeeId?: string, status?: number, pa
         if (status !== undefined) params.append('status', status.toString());
         if (page !== undefined) params.append('page', page.toString());
         if (limit !== undefined) params.append('limit', limit.toString());
+        // Both or neither — the API rejects a half-specified window on purpose.
+        if (range?.startDate && range?.endDate) {
+            params.append('startDate', range.startDate);
+            params.append('endDate', range.endDate);
+        }
+        if (activeOnly) params.append('activeOnly', 'true');
 
         if (params.toString()) {
             endpoint += `?${params.toString()}`;
@@ -1356,9 +1412,28 @@ export const getPaymentHistory = async (salaryId: string) => {
     }
 }
 
-export const getAllAttendanceRequestByCompanyId = async (companyId: string, page: number = 1, limit: number = 20) => {
+/**
+ * @param range Optional business-day window (ISO `YYYY-MM-DD`), from `toPeriodParams()`.
+ *   Matched against `checkIn ?? checkOut`, so checkout-only regularizations (NULL
+ *   check-in) are included. Omit for all time.
+ */
+export const getAllAttendanceRequestByCompanyId = async (
+    companyId: string,
+    page: number = 1,
+    limit: number = 20,
+    range?: { startDate: string; endDate: string },
+    /** Exclude employees explicitly flagged inactive. Filtered in SQL. Off by default. */
+    activeOnly?: boolean,
+) => {
     try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_ATTENDANCE_REQUEST}?companyId=${companyId}&page=${page}&limit=${limit}`;
+        const params = new URLSearchParams({ companyId, page: String(page), limit: String(limit) });
+        // Both or neither — the API rejects a half-specified window on purpose.
+        if (range?.startDate && range?.endDate) {
+            params.append('startDate', range.startDate);
+            params.append('endDate', range.endDate);
+        }
+        if (activeOnly) params.append('activeOnly', 'true');
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_ATTENDANCE_REQUEST}?${params.toString()}`;
         const { data } = await axios.get(endpoint);
         return data;
     }
