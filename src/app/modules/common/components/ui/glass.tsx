@@ -122,12 +122,26 @@ export interface GlassHeaderProps {
   action?: React.ReactNode;
   /** Custom close glyph (e.g. `<KTIcon iconName="cross" className="fs-3" />`); defaults to `×`. */
   closeIcon?: React.ReactNode;
+  /**
+   * Drill-in navigation: when set, a back control replaces the icon tile and the
+   * dialog reads as a second level rather than a different dialog. Prefer this over
+   * stacking a second GlassDialog — nested scrims are unusable on a phone, where
+   * both dialogs are full-screen.
+   */
+  onBack?: () => void;
+  /** Accessible name for the back control. */
+  backLabel?: string;
+  /** Custom back glyph; defaults to `‹`. */
+  backIcon?: React.ReactNode;
   /** 'gradient' = the brand navy header band (default, needs nothing behind it);
    *  'frost' = a regular glass surface header for lighter contexts. */
   variant?: 'gradient' | 'frost';
 }
 
-export function GlassHeader({ title, subtitle, icon, onClose, action, closeIcon, variant = 'gradient' }: GlassHeaderProps) {
+export function GlassHeader({
+  title, subtitle, icon, onClose, action, closeIcon,
+  onBack, backLabel = 'Back', backIcon, variant = 'gradient',
+}: GlassHeaderProps) {
   const gradient = variant === 'gradient';
   const mode = useMode();
   const frostSx = gradient ? {} : glassSx('regular', { mode });
@@ -141,7 +155,20 @@ export function GlassHeader({ title, subtitle, icon, onClose, action, closeIcon,
       borderBottom: `3px solid ${T.color.accent}`, flexShrink: 0,
     }}>
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-        {icon && (
+        {/* Back replaces the icon tile rather than sitting next to it: on a 360px header
+            a back control + icon + title + close leaves the title an ellipsis. */}
+        {onBack ? (
+          <IconButton onClick={onBack} aria-label={backLabel} sx={{
+            width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5, flexShrink: 0,
+            ...(gradient
+              ? { color: '#fff', bgcolor: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.22)', '&:hover': { bgcolor: 'rgba(255,255,255,0.24)' } }
+              : { color: T.color.brand, bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.08)' : T.color.brandSoft, border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.12)' : T.color.line}`, '&:hover': { bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.14)' : T.color.line } }),
+            transition: `background-color .15s, transform .12s ${MRD_EASE}`,
+            '&:active': { transform: 'scale(.92)' },
+          }}>
+            {backIcon ?? <Box component="span" sx={{ fontSize: 26, lineHeight: 1, fontWeight: 400, mt: '-2px' }}>&lsaquo;</Box>}
+          </IconButton>
+        ) : icon && (
           <Box sx={{
             width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5,
             display: 'grid', placeItems: 'center', flexShrink: 0,

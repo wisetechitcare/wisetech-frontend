@@ -1,4 +1,4 @@
-import KeyboardArrowLeftRoundedIcon from '@mui/icons-material/KeyboardArrowLeftRounded';
+﻿import KeyboardArrowLeftRoundedIcon from '@mui/icons-material/KeyboardArrowLeftRounded';
 import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded';
 import { useState } from 'react';
 import { Box, IconButton, SxProps, Theme, Typography, Tooltip, useMediaQuery, useTheme } from '@mui/material';
@@ -33,14 +33,24 @@ const PeriodNavigator = ({
     nextTitle,
     minWidth = 'fit-content',
     sx,
-    labelColor = '#1E3A8A',
+    labelColor,
     secondaryLabel,
     onPickDate,
     pickValue,
 }: PeriodNavigatorProps) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const isDark = theme.palette.mode === 'dark';
     const [pickerOpen, setPickerOpen] = useState(false);
+
+    // The navigator used to be a hardcoded white pill with navy text, which on the dark
+    // canvas was a bright rectangle with unreadable text. The surface now resolves from
+    // the theme, and the brand navy is swapped for the dark palette's accent — navy on
+    // near-black fails contrast, which is why the accent tier exists.
+    const accent = labelColor ?? (isDark ? theme.palette.primary.main : '#1E3A8A');
+    const surface = isDark ? theme.palette.background.paper : '#ffffff';
+    const arrowColor = isDark ? theme.palette.text.secondary : '#64748b';
+    const arrowDisabledColor = isDark ? theme.palette.text.disabled : '#cbd5e1';
 
     return (
         <Box
@@ -52,15 +62,15 @@ const PeriodNavigator = ({
                 width: isMobile ? '100%' : minWidth,
                 minWidth: isMobile ? undefined : minWidth,
                 maxWidth: '100%',
-                backgroundColor: '#ffffff',
-                border: `1.5px solid ${labelColor}12`,
+                backgroundColor: surface,
+                border: `1.5px solid ${isDark ? theme.palette.divider : `${accent}12`}`,
                 borderRadius: '8px',
                 overflow: 'hidden',
-                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)',
+                boxShadow: isDark ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.05)',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
-                    boxShadow: `0 2px 8px ${labelColor}10`,
-                    borderColor: `${labelColor}20`,
+                    boxShadow: isDark ? 'none' : `0 2px 8px ${accent}10`,
+                    borderColor: isDark ? theme.palette.text.disabled : `${accent}20`,
                 },
                 ...sx,
             }}
@@ -74,7 +84,7 @@ const PeriodNavigator = ({
                         width: isMobile ? 32 : 36,
                         height: isMobile ? 32 : 36,
                         borderRadius: 0,
-                        color: '#64748b',
+                        color: arrowColor,
                         p: 0,
                         transition: 'all 0.2s ease',
                         display: 'flex',
@@ -82,14 +92,14 @@ const PeriodNavigator = ({
                         justifyContent: 'center',
                         flexShrink: 0,
                         '&:hover:not(.Mui-disabled)': {
-                            backgroundColor: `${labelColor}08`,
-                            color: labelColor,
+                            backgroundColor: `${accent}14`,
+                            color: accent,
                         },
                         '&:active:not(.Mui-disabled)': {
-                            backgroundColor: `${labelColor}15`,
+                            backgroundColor: `${accent}24`,
                         },
                         '&.Mui-disabled': {
-                            color: '#cbd5e1',
+                            color: arrowDisabledColor,
                             cursor: 'not-allowed',
                         },
                     }}
@@ -144,7 +154,7 @@ const PeriodNavigator = ({
                 <Typography
                     component="span"
                     sx={{
-                        color: labelColor,
+                        color: accent,
                         fontSize: isMobile ? 11 : 12,
                         fontWeight: 700,
                         lineHeight: 1,
@@ -161,7 +171,7 @@ const PeriodNavigator = ({
                     <Typography
                         component="span"
                         sx={{
-                            color: '#94a3b8',
+                            color: theme.palette.text.secondary,
                             fontSize: 9,
                             fontWeight: 500,
                             lineHeight: 1,
@@ -188,7 +198,7 @@ const PeriodNavigator = ({
                         width: isMobile ? 32 : 36,
                         height: isMobile ? 32 : 36,
                         borderRadius: 0,
-                        color: '#64748b',
+                        color: arrowColor,
                         p: 0,
                         transition: 'all 0.2s ease',
                         display: 'flex',
@@ -196,14 +206,14 @@ const PeriodNavigator = ({
                         justifyContent: 'center',
                         flexShrink: 0,
                         '&:hover:not(.Mui-disabled)': {
-                            backgroundColor: `${labelColor}08`,
-                            color: labelColor,
+                            backgroundColor: `${accent}14`,
+                            color: accent,
                         },
                         '&:active:not(.Mui-disabled)': {
-                            backgroundColor: `${labelColor}15`,
+                            backgroundColor: `${accent}24`,
                         },
                         '&.Mui-disabled': {
-                            color: '#cbd5e1',
+                            color: arrowDisabledColor,
                             cursor: 'not-allowed',
                         },
                     }}

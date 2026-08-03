@@ -3,10 +3,13 @@ import dayjs, { Dayjs } from "dayjs";
 import PeriodTabs from "./PeriodTabs";
 import PeriodNavigator from "./PeriodNavigator";
 import { Box, Typography } from "@mui/material";
-import { DATE_FORMATS, formatDateRange, buildFiscalYearLabel } from "@utils/dateFormats";
+import { DATE_FORMATS, formatDateRange, formatDateRangeLong, buildFiscalYearLabel } from "@utils/dateFormats";
 import { WtDateField } from "@app/modules/common/components/ui";
 
 export type PeriodMode = "daily" | "weekly" | "monthly" | "yearly" | "allyear" | "custom";
+
+/** Compact (company `YYYY.MM.DD` family) or detailed (month spelled out). See `dateStyle`. */
+export type PeriodLabelStyle = "compact" | "long";
 
 export interface PeriodRange {
   mode: PeriodMode;
@@ -29,9 +32,18 @@ interface Props {
   getFiscalYearRange?: (date: Dayjs) => Promise<{ startDate: string; endDate: string }>;
   /** Only show these modes (hides tabs entirely if only 1 mode is provided) */
   allowedModes?: PeriodMode[];
-  /** Override the dayjs format for the Daily-mode label (default DATE_FORMATS.FULL,
-   *  e.g. "29 Jul, 2026"). Pass "dddd, DD MMM YYYY" to show the weekday too. */
+  /** Override the dayjs format for the Daily-mode label. Wins over `dateStyle`.
+   *  Pass "dddd, D MMMM YYYY" to show the weekday too. */
   dailyLabelFormat?: string;
+  /**
+   * How the navigator label renders dates. Both styles are supported so each consumer
+   * picks per surface — neither replaces the other:
+   *   'long'    (default) `19 – 25 July 2026` · `August 2026` · `19 July 2026`
+   *   'compact'           `19 - 25 Jul`       · `2026.08`     · `2026.07.19`
+   * 'long' is the default because this control is a page heading, and an abbreviated
+   * or all-numeric label there scans as data. Choose 'compact' where width is tight.
+   */
+  dateStyle?: PeriodLabelStyle;
 }
 
 const MODES: Array<{ key: PeriodMode; label: string }> = [
@@ -60,6 +72,7 @@ const PeriodFilter: React.FC<Props> = ({
   getFiscalYearRange,
   allowedModes,
   dailyLabelFormat,
+  dateStyle = "long",
 }) => {
   const [mode, setMode] = useState<PeriodMode>(() => {
     if (storageKey) {
@@ -107,16 +120,24 @@ const PeriodFilter: React.FC<Props> = ({
   }, [useFiscalYear, getFiscalYearRange, anchor, clampYearToToday]);
 
   const range = useMemo<PeriodRange>(() => {
+    // Both label vocabularies live here; `dateStyle` picks one. The year is always shown
+    // in 'long' because the navigator is a standalone heading — "19 - 25 Jul" never said
+    // which year the numbers below it covered.
+    const long = dateStyle === "long";
+    const dayFormat = dailyLabelFormat || (long ? DATE_FORMATS.DISPLAY_LONG : DATE_FORMATS.DISPLAY);
+    const monthFormat = long ? DATE_FORMATS.MONTH_YEAR_LONG : DATE_FORMATS.MONTH_YEAR;
+    const spanLabel = (s: Dayjs, e: Dayjs) => (long ? formatDateRangeLong(s, e, true) : formatDateRange(s, e, false));
+
     switch (mode) {
       case "daily":
-        return { mode, start: anchor.startOf("day"), end: anchor.endOf("day"), label: anchor.format(dailyLabelFormat || DATE_FORMATS.DISPLAY) };
+        return { mode, start: anchor.startOf("day"), end: anchor.endOf("day"), label: anchor.format(dayFormat) };
       case "weekly": {
         const s = anchor.startOf("week");
         const e = anchor.endOf("week");
-        return { mode, start: s, end: e, label: formatDateRange(s, e, false) };
+        return { mode, start: s, end: e, label: spanLabel(s, e) };
       }
       case "monthly":
-        return { mode, start: anchor.startOf("month"), end: anchor.endOf("month"), label: anchor.format(DATE_FORMATS.MONTH_YEAR) };
+        return { mode, start: anchor.startOf("month"), end: anchor.endOf("month"), label: anchor.format(monthFormat) };
       case "yearly":
         if (useFiscalYear && yearStart && yearEnd) {
           const label = yearRawEnd ? buildFiscalYearLabel(yearStart, yearRawEnd, yearEnd) : yearStart.format(DATE_FORMATS.FISCAL_YEAR);
@@ -128,13 +149,13 @@ const PeriodFilter: React.FC<Props> = ({
       case "custom": {
         const s = customStart ? dayjs(customStart).startOf("day") : null;
         const e = customEnd ? dayjs(customEnd).endOf("day") : null;
-        const label = s && e ? formatDateRange(s, e, false) : "Pick a range";
+        const label = s && e ? spanLabel(s, e) : "Pick a range";
         return { mode, start: s, end: e, label };
       }
       default:
         return { mode, start: null, end: null, label: "" };
     }
-  }, [mode, anchor, customStart, customEnd, useFiscalYear, yearStart, yearEnd, yearRawEnd, dailyLabelFormat]);
+  }, [mode, anchor, customStart, customEnd, useFiscalYear, yearStart, yearEnd, yearRawEnd, dailyLabelFormat, dateStyle]);
 
   useEffect(() => {
     onChange(range);
