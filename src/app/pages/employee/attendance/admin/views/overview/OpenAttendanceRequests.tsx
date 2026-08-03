@@ -250,9 +250,12 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
         {
             accessorKey: "remarks",
             header: "Remarks",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
+            // "REMARKS" uppercase at 12px is ~68px, and the header also has to fit the
+            // sort icon inside 32px of cell padding — at size 100 there was no room, so
+            // the heading wrapped. Sized so it always reads on ONE line.
+            size: 150,
+            minSize: 140,
+            maxSize: 220,
             Cell: ({ renderedCellValue }: any) => renderedCellValue
         },
         {
