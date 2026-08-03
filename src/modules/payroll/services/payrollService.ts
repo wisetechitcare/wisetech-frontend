@@ -72,8 +72,16 @@ export interface ComponentDependency {
 export type DependencyMap = Record<string, ComponentDependency>;
 
 export const deductionMasterService = {
-  getAll: async (): Promise<PayrollComponent[]> => {
-    const res = await axios.get(`${API_URL}/salary-component-master`);
+  /**
+   * Without a period: the whole catalogue (the Salary Master screen).
+   * With one: only what applies to that employee in that month — company-wide rows plus
+   * their own, one version per key. An employee's salary screen must pass the period, or
+   * it lists components assigned to other people and other months.
+   */
+  getAll: async (scope?: { employeeId?: string; date?: string }): Promise<PayrollComponent[]> => {
+    const res = await axios.get(`${API_URL}/salary-component-master`, {
+      params: scope?.date ? { employeeId: scope.employeeId, date: scope.date } : undefined,
+    });
     return res.data?.data?.items || [];
   },
   getOne: async (id: string): Promise<{ item: PayrollComponent; versions: ComponentVersion[]; audits: ComponentAuditEntry[] }> => {

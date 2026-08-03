@@ -359,6 +359,7 @@ const IncrementDashboard = ({
                     employeeName={employeeName}
                     record={selectedRecord}
                     history={history}
+                    joiningDate={joiningDate}
                     onSuccess={refetch}
                 />
             )}

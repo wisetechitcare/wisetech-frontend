@@ -156,8 +156,10 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                                 </span>
                                             </td>
                                         <td className="text-end">
-                                            <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
-                                                -{formatINRDecimal(Number(item.earned || 0))}
+                                            {/* A credit-direction component is a negative deduction — show it as a
+                                                positive payout, not "-₹-65,000". */}
+                                            <span className={`${Number(item.earned || 0) < 0 ? 'text-success' : 'text-danger'} fw-bolder fs-7 ${sensitiveCls}`}>
+                                                {Number(item.earned || 0) < 0 ? '+' : '-'}{formatINRDecimal(Math.abs(Number(item.earned || 0)))}
                                             </span>
                                         </td>
                                     </tr>

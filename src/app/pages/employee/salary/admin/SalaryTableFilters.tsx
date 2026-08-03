@@ -96,27 +96,44 @@ export interface SalaryFilters {
   setSubOrgFilter: (v: string) => void;
   payTypeFilter: PayTypeFilter;
   setPayTypeFilter: (v: PayTypeFilter) => void;
+  branchFilter: string;
+  setBranchFilter: (v: string) => void;
+  teamFilter: string;
+  setTeamFilter: (v: string) => void;
   subOrgOptions: string[];
+  branchOptions: string[];
+  teamOptions: string[];
   filteredEmployeeSummaries: any[];
 }
+
+// Distinct, sorted values of one summary field ('N/A' and blanks dropped).
+const distinctValues = (summaries: any[], field: string, exclude?: Set<string>) => {
+  const names = new Set<string>();
+  summaries.forEach((s: any) => {
+    const name = s[field];
+    if (name && name !== 'N/A' && !exclude?.has(name)) names.add(name);
+  });
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+};
 
 export const useSalaryFilters = (employeesData: any): SalaryFilters => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
   const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
   const [payTypeFilter, setPayTypeFilter] = useState<PayTypeFilter>('All');
+  const [branchFilter, setBranchFilter] = useState<string>('All');
+  const [teamFilter, setTeamFilter] = useState<string>('All');
   const rootOrgNames = useRootOrgNames();
 
-  // Unique sub-organization names present in the data (dynamic, no hardcoding).
-  // The top-level org is excluded — only actual sub-orgs belong in this dropdown.
-  const subOrgOptions = useMemo(() => {
-    const summaries = employeesData?.message?.employeeSummaries ?? [];
-    const names = new Set<string>();
-    summaries.forEach((s: any) => {
-      const name = s.subOrganization;
-      if (name && name !== 'N/A' && !rootOrgNames.has(name)) names.add(name);
-    });
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [employeesData, rootOrgNames]);
+  const summaries: any[] = employeesData?.message?.employeeSummaries ?? [];
+
+  // Dropdown options come from the data itself (no hardcoding). For sub-orgs the
+  // top-level org is excluded — only actual sub-orgs belong in that dropdown.
+  const subOrgOptions = useMemo(
+    () => distinctValues(summaries, 'subOrganization', rootOrgNames),
+    [employeesData, rootOrgNames],
+  );
+  const branchOptions = useMemo(() => distinctValues(summaries, 'branch'), [employeesData]);
+  const teamOptions = useMemo(() => distinctValues(summaries, 'team'), [employeesData]);
 
   const filteredEmployeeSummaries = useMemo(() => {
     if (!employeesData?.message?.employeeSummaries) return [];
@@ -129,20 +146,24 @@ export const useSalaryFilters = (employeesData: any): SalaryFilters => {
         true; // 'All'
 
       const subOrgMatch = subOrgFilter === 'All' || summary.subOrganization === subOrgFilter;
+      const branchMatch = branchFilter === 'All' || summary.branch === branchFilter;
+      const teamMatch = teamFilter === 'All' || summary.team === teamFilter;
 
       const payTypeMatch =
         payTypeFilter === 'All' ||
         (payTypeFilter === 'Contract' ? isContractBased(summary) : !isContractBased(summary));
 
-      return statusMatch && subOrgMatch && payTypeMatch;
+      return statusMatch && subOrgMatch && branchMatch && teamMatch && payTypeMatch;
     });
-  }, [employeesData, statusFilter, subOrgFilter, payTypeFilter]);
+  }, [employeesData, statusFilter, subOrgFilter, payTypeFilter, branchFilter, teamFilter]);
 
   return {
     statusFilter, setStatusFilter,
     subOrgFilter, setSubOrgFilter,
     payTypeFilter, setPayTypeFilter,
-    subOrgOptions, filteredEmployeeSummaries,
+    branchFilter, setBranchFilter,
+    teamFilter, setTeamFilter,
+    subOrgOptions, branchOptions, teamOptions, filteredEmployeeSummaries,
   };
 };
 
@@ -160,7 +181,9 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
     statusFilter, setStatusFilter,
     subOrgFilter, setSubOrgFilter,
     payTypeFilter, setPayTypeFilter,
-    subOrgOptions,
+    branchFilter, setBranchFilter,
+    teamFilter, setTeamFilter,
+    subOrgOptions, branchOptions, teamOptions,
   } = filters;
 
   return (
@@ -204,6 +227,38 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
           ...subOrgOptions.map((name) => ({ value: name, label: name })),
         ]}
       />
+      {branchOptions.length > 0 && (
+        <ToolbarFilterSelect
+          label="Branch"
+          icon="bi-geo-alt"
+          value={branchFilter}
+          onChange={setBranchFilter}
+          minWidth={190}
+          theme={branchFilter !== 'All'
+            ? { icon: '#0891b2', border: '#a5f3fc', bg: '#ecfeff', text: '#155e75', ring: 'rgba(8, 145, 178, 0.12)' }
+            : undefined}
+          options={[
+            { value: 'All', label: 'All Branches' },
+            ...branchOptions.map((name) => ({ value: name, label: name })),
+          ]}
+        />
+      )}
+      {teamOptions.length > 0 && (
+        <ToolbarFilterSelect
+          label="Team"
+          icon="bi-people"
+          value={teamFilter}
+          onChange={setTeamFilter}
+          minWidth={180}
+          theme={teamFilter !== 'All'
+            ? { icon: '#d97706', border: '#fde68a', bg: '#fffbeb', text: '#92400e', ring: 'rgba(217, 119, 6, 0.12)' }
+            : undefined}
+          options={[
+            { value: 'All', label: 'All Teams' },
+            ...teamOptions.map((name) => ({ value: name, label: name })),
+          ]}
+        />
+      )}
       <ToolbarFilterSelect
         label="Pay Type"
         icon="bi-briefcase"
@@ -223,9 +278,9 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
       />
 
       {/* Reset appears only when a non-default filter is applied */}
-      {(subOrgFilter !== 'All' || statusFilter !== 'Active' || payTypeFilter !== 'All') && (
+      {(subOrgFilter !== 'All' || statusFilter !== 'Active' || payTypeFilter !== 'All' || branchFilter !== 'All' || teamFilter !== 'All') && (
         <button
-          onClick={() => { setSubOrgFilter('All'); setStatusFilter('Active'); setPayTypeFilter('All'); onStatusChange?.('Active'); }}
+          onClick={() => { setSubOrgFilter('All'); setStatusFilter('Active'); setPayTypeFilter('All'); setBranchFilter('All'); setTeamFilter('All'); onStatusChange?.('Active'); }}
           title="Reset filters to defaults"
           style={{
             height: '38px', padding: '0 12px',

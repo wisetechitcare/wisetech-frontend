@@ -186,6 +186,18 @@ function formatChangeDetails(oldVal: any, newVal: any): string {
 
 // ── Form State ─────────────────────────────────────────────────────────────────
 
+/**
+ * 'YYYY-MM' of a stored effective date, or null when there isn't a real one. The
+ * 1970 sentinel means "applies from the beginning of time", which is not a month
+ * anyone picked, so it must not seed the month field.
+ */
+const monthOf = (value: unknown): string | null => {
+  const iso = value ? String(value) : '';
+  if (!iso || iso.startsWith('1970')) return null;
+  const month = iso.slice(0, 7);
+  return /^\d{4}-\d{2}$/.test(month) ? month : null;
+};
+
 const INITIAL_FORM = {
   key:              '',
   displayName:      '',
@@ -302,8 +314,12 @@ function ComponentFormModal({
         sortOrder:         String(item.sortOrder ?? 0),
         dependsOnKey:      allDeps[item.id]?.dependsOnKey || '',
         applyScope:        'all',
-        applyFromMonth:    currentYearMonth(),
-        applyToMonth:      currentYearMonth(),
+        // Seed from the row being edited, not from today. Defaulting to the current month
+        // meant opening a July component showed August, and saving silently moved it.
+        // Sliced off the ISO string: these are date-only values stored at UTC midnight,
+        // so converting to local time could roll the last day into the next month.
+        applyFromMonth:    monthOf(item.effectiveFrom) ?? currentYearMonth(),
+        applyToMonth:      monthOf(item.effectiveTo) ?? currentYearMonth(),
         appliesTo:         item.employeeId ? 'employees' : 'all',
         employeeIds:       item.employeeId ? [item.employeeId] : [],
       } : { ...INITIAL_FORM, category: defaultCategory });

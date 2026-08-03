@@ -9,6 +9,7 @@ import { IMonthlyApiResponse, IBreakdownData } from '@redux/slices/salaryData';
 import { Close, InfoOutlined } from '@mui/icons-material';
 import { formatINRDecimal } from '../../../../../../../modules/payroll/utils/payrollFormatters';
 import { deductionMasterService } from '@modules/payroll/services/payrollService';
+import dayjs from 'dayjs';
 
 interface DeductionDistributionModalProps {
     show: boolean;
@@ -228,7 +229,13 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             //    Falls back to the original 3 if the API call fails.
             const defaultFields: any = {};
             try {
-                const masterItems = await deductionMasterService.getAll();
+                // Scoped to this employee and month: company-wide components plus any
+                // assigned to them, one version per key. Asking unscoped listed other
+                // people's components and months payroll would never charge.
+                const masterItems = await deductionMasterService.getAll({
+                    employeeId,
+                    date: dayjs(`${year}-${String(month).padStart(2, '0')}-01`).format('YYYY-MM-DD'),
+                });
                 const activeDebit = masterItems.filter(c => c.direction === 'DEBIT' && c.isActive);
                 activeDebit
                     .sort((a, b) => a.sortOrder - b.sortOrder)
