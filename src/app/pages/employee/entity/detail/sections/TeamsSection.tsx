@@ -62,6 +62,56 @@ const managerIconBtn: React.CSSProperties = {
   borderRadius: 6, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', cursor: 'pointer', fontSize: 11,
 };
 
+const managerBadge = (isPrimary: boolean): React.CSSProperties => ({
+  display: 'inline-flex', alignItems: 'center', fontFamily: 'Inter', fontSize: 10.5,
+  fontWeight: 700, padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap',
+  backgroundColor: isPrimary ? '#ffe0ba' : '#e4e6f4', color: isPrimary ? '#b86e13' : '#6067cf',
+});
+
+/**
+ * Manager picker for one roster row. Purely a draft editor — it hands the caller
+ * the NEXT manager-id list and never writes; the surrounding Save (card or
+ * dialog) persists it. Primary manager is simply index 0, so promoting is a
+ * reorder and removing the primary auto-promotes the next one.
+ */
+const ManagerCell: React.FC<{
+  employeeId: string;
+  managerIds: string[];
+  onChange: (ids: string[]) => void;
+}> = ({ employeeId, managerIds, onChange }) => {
+  const id = String(employeeId || '');
+  const isManager = !!id && managerIds.includes(id);
+  const isPrimary = isManager && id === managerIds[0];
+
+  if (!isManager) {
+    return (
+      <button type="button" disabled={!id} style={{ ...makeManagerBtn, opacity: id ? 1 : 0.5 }} onClick={() => onChange([...managerIds, id])}>
+        <i className="bi bi-person-badge" /> Make Manager
+      </button>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+      <span style={managerBadge(isPrimary)}>{isPrimary ? 'Primary Manager' : 'Manager'}</span>
+      {!isPrimary && (
+        <button type="button" title="Make primary manager" style={managerIconBtn} onClick={() => onChange([id, ...managerIds.filter(m => m !== id)])}>
+          <i className="bi bi-star" />
+        </button>
+      )}
+      <button type="button" title="Remove as manager" style={managerIconBtn} onClick={() => onChange(managerIds.filter(m => m !== id))}>
+        <i className="bi bi-x-lg" />
+      </button>
+    </div>
+  );
+};
+
+// Managers must be on the roster being saved — drop any whose row was removed,
+// then stamp the first as primary (the backend mirrors it onto execution).
+const managersPayload = (ids: string[], members: any[]) => {
+  const present = new Set(members.map((m: any) => String(m.employeeId)).filter(Boolean));
+  return ids.filter(id => present.has(String(id))).map((employeeId, i) => ({ employeeId, isPrimary: i === 0 }));
+};
+
 // Roster ordering: active members first, inactive below (stable within each group).
 // Used for the read-mode table and the Change-Team review list so the split is visible.
 const sortByActive = (arr: any[]) =>
@@ -153,6 +203,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const [teamStep, setTeamStep] = useState<1 | 2>(1);
   const [draftTeamId, setDraftTeamId] = useState<string>(ex.teamId || '');
   const [rosterDraft, setRosterDraft] = useState<any[]>([]);
+  // Manager ids (primary first) being edited in the dialog — seeded from the
+  // persisted roster on open, written only by the dialog's Save.
+  const [managerDraft, setManagerDraft] = useState<string[]>([]);
 
   useEffect(() => {
     getAllTeams(1, 9999).then((r: any) => setTeams(r?.data?.teams || r?.teams || [])).catch(() => {});
@@ -182,6 +235,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const openTeamModal = () => {
     setDraftTeamId(ex.teamId || '');
     setRosterDraft([]);
+    setManagerDraft(managerIds);
     setTeamStep(1);
     setShowTeamModal(true);
   };
@@ -215,9 +269,12 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
     setRosterDraft(prev => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
   // Drops a row entirely (not just marks it inactive) — for members the user
   // decides shouldn't be on the roster at all, whether pre-existing or newly
-  // added by the picked team.
-  const removeRosterRow = (i: number) =>
+  // added by the picked team. A dropped member can't stay a manager.
+  const removeRosterRow = (i: number) => {
+    const gone = String(rosterDraft[i]?.employeeId || '');
     setRosterDraft(prev => prev.filter((_, idx) => idx !== i));
+    setManagerDraft(prev => prev.filter(id => id !== gone));
+  };
   const markAllActive = (active: boolean) =>
     setRosterDraft(prev =>
       prev.map(m => ({
@@ -293,7 +350,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
         isActive: m.isActive !== false,
         source: m.source === 'adhoc' ? 'adhoc' : 'team',
       }));
-    saveSection('executionTeam', { teamId: draftTeamId || null, internalMembers: members })
+    saveSection('executionTeam', {
+      teamId: draftTeamId || null,
+      internalMembers: members,
+      projectManagers: managersPayload(managerDraft, members),
+    })
       .then(() => setShowTeamModal(false))
       .catch((e: any) => {
         // eslint-disable-next-line no-alert
@@ -302,11 +363,13 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       .finally(() => setSavingTeam(false));
   };
 
-  // ── Project Manager assignment — lives INLINE in the Execution Team table
-  //    below (a "Manager" column, same idea as the Teams page's "Make Leader"
-  //    action per row): only current team members are eligible, so there's no
-  //    separate picker/dialog. Each action is an immediate write to the
-  //    dedicated `projectManager` section (team/status/access/flags untouched).
+  // ── Project Manager assignment — lives INLINE in the roster rows (a "Manager"
+  //    column, same idea as the Teams page's "Make Leader" action per row): only
+  //    roster members are eligible, so there's no separate picker/dialog.
+  //
+  //    Manager changes are DRAFT-ONLY — they ride along with the surrounding
+  //    Save (the Internal Team card's Save, or the Assign/Change Team dialog's),
+  //    so nothing is written until the user confirms.
   //
   //    A project can have SEVERAL managers; the backend mirrors whichever row
   //    is flagged primary back onto leadExecution.projectManagerId, so
@@ -323,46 +386,6 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   }, [projectManagers, ex.projectManagerId]);
 
   const primaryManagerId = managerIds[0] || '';
-
-  // employeeId of whichever row's manager action is in flight (disables just
-  // that row's buttons rather than the whole table).
-  const [managerActionId, setManagerActionId] = useState<string | null>(null);
-
-  const persistManagers = (list: { employeeId: string; isPrimary: boolean }[], actingEmployeeId: string) => {
-    setManagerActionId(actingEmployeeId);
-    saveSection('projectManager', { projectManagers: list })
-      .catch((e: any) => {
-        // eslint-disable-next-line no-alert
-        alert(e?.response?.data?.message || 'Could not update the project manager. Please try again.');
-      })
-      .finally(() => setManagerActionId(null));
-  };
-
-  // Assign a team member as manager. First manager assigned becomes primary;
-  // subsequent ones join as non-primary (promote via "Make primary" below).
-  const makeManager = (employeeId: string) => {
-    if (!employeeId || managerIds.includes(employeeId) || managerActionId) return;
-    const hadExisting = managerIds.length > 0;
-    const nextIds = [...managerIds, employeeId];
-    const list = nextIds.map(id => ({ employeeId: id, isPrimary: hadExisting ? id === primaryManagerId : id === employeeId }));
-    persistManagers(list, employeeId);
-  };
-
-  // Unassign a manager. Removing the primary promotes the next remaining
-  // manager, so a non-empty roster always has exactly one primary.
-  const removeManager = (employeeId: string) => {
-    if (managerActionId) return;
-    const remaining = managerIds.filter(id => id !== employeeId);
-    const newPrimaryId = employeeId === primaryManagerId ? remaining[0] : primaryManagerId;
-    const list = remaining.map(id => ({ employeeId: id, isPrimary: id === newPrimaryId }));
-    persistManagers(list, employeeId);
-  };
-
-  const makePrimaryManager = (employeeId: string) => {
-    if (managerActionId || employeeId === primaryManagerId) return;
-    const list = managerIds.map(id => ({ employeeId: id, isPrimary: id === employeeId }));
-    persistManagers(list, employeeId);
-  };
 
   // ── Internal roster: persisted members win; otherwise fall back to the live
   //    execution-team roster so the team's employees show up automatically the
@@ -545,13 +568,26 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 isActive: m.isActive !== false,
                 source: m.source || 'team',
               })),
+              // Manager column is edited in the same grid and saved by the same
+              // Save button — primary is index 0.
+              managerIds,
             }}
-            onSave={d => saveSection('internalTeam', { internalMembers: (d.internalMembers || []).filter((m: any) => m.employeeId) })}
+            onSave={d => {
+              const members = (d.internalMembers || []).filter((m: any) => m.employeeId);
+              return saveSection('internalTeam', {
+                internalMembers: members,
+                projectManagers: managersPayload(d.managerIds || [], members),
+              });
+            }}
           >
             {({ editing, draft, set }) => {
               const rows: any[] = draft.internalMembers || [];
+              const draftManagerIds: string[] = draft.managerIds || [];
               const update = (i: number, patch: any) => { const next = [...rows]; next[i] = { ...next[i], ...patch }; set({ internalMembers: next }); };
-              const remove = (i: number) => set({ internalMembers: rows.filter((_, idx) => idx !== i) });
+              const remove = (i: number) => {
+                const gone = String(rows[i]?.employeeId || '');
+                set({ internalMembers: rows.filter((_, idx) => idx !== i), managerIds: draftManagerIds.filter(id => id !== gone) });
+              };
               // New rows default their start date to today (member joining now);
               // the date stays editable before Save.
               const add = () => set({ internalMembers: [...rows, { employeeId: '', startDate: toDateInputValue(new Date()), endDate: '', isActive: true, source: 'adhoc' }] });
@@ -654,14 +690,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                               <td style={td}><DetailStatusBadge status={m.isActive !== false ? 'Active' : 'Inactive'} color={m.isActive !== false ? '#16a34a' : '#94A3B8'} /></td>
                               <td style={td}>
                                 {isManager ? (
-                                  <span style={{
-                                    display: 'inline-flex', alignItems: 'center', fontFamily: 'Inter', fontSize: 10.5,
-                                    fontWeight: 700, padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap',
-                                    backgroundColor: isPrimary ? '#ffe0ba' : '#e4e6f4', color: isPrimary ? '#b86e13' : '#6067cf',
-                                  }}
-                                  >
-                                    {isPrimary ? 'Primary Manager' : 'Manager'}
-                                  </span>
+                                  <span style={managerBadge(isPrimary)}>{isPrimary ? 'Primary Manager' : 'Manager'}</span>
                                 ) : DASH}
                               </td>
                             </tr>
@@ -692,46 +721,18 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                     {rows.length === 0 && (
                       <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '8px 0 12px' }}>No members yet — add one below{team?.name ? ` or seed the whole ${team.name} team` : ''}.</div>
                     )}
-                    {rows.map((m, i) => {
-                      const isManager = !!m.employeeId && managerIds.includes(String(m.employeeId));
-                      const isPrimary = isManager && String(m.employeeId) === primaryManagerId;
-                      const savingThisRow = managerActionId === m.employeeId;
-                      return (
+                    {rows.map((m, i) => (
                       <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
                         <div style={{ flex: 2, minWidth: 160 }}><SearchableSelectEditor value={m.employeeId} options={employeeOptions} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" formatOptionLabel={formatEmployeeOption} /></div>
                         <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.startDate} onChange={v => update(i, { startDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.endDate} onChange={v => update(i, { endDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={m.isActive !== false} onChange={v => applyStatusToggle(v, m, patch => update(i, patch))} onLabel="Active" offLabel="Inactive" /></div>
                         <div style={{ flex: 1, minWidth: 150 }}>
-                          {isManager ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <span style={{
-                                display: 'inline-flex', alignItems: 'center', fontFamily: 'Inter', fontSize: 10.5,
-                                fontWeight: 700, padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap',
-                                backgroundColor: isPrimary ? '#ffe0ba' : '#e4e6f4', color: isPrimary ? '#b86e13' : '#6067cf',
-                              }}
-                              >
-                                {isPrimary ? 'Primary Manager' : 'Manager'}
-                              </span>
-                              {!isPrimary && (
-                                <button type="button" title="Make primary manager" onClick={() => makePrimaryManager(m.employeeId)} disabled={!!managerActionId} style={managerIconBtn}>
-                                  <i className="bi bi-star" />
-                                </button>
-                              )}
-                              <button type="button" title="Remove as manager" onClick={() => removeManager(m.employeeId)} disabled={!!managerActionId} style={managerIconBtn}>
-                                <i className={savingThisRow ? 'bi bi-hourglass-split' : 'bi bi-x-lg'} />
-                              </button>
-                            </div>
-                          ) : (
-                            <button type="button" onClick={() => makeManager(m.employeeId)} disabled={!!managerActionId || !m.employeeId} style={makeManagerBtn}>
-                              {savingThisRow ? 'Saving...' : 'Make Manager'}
-                            </button>
-                          )}
+                          <ManagerCell employeeId={m.employeeId} managerIds={draftManagerIds} onChange={ids => set({ managerIds: ids })} />
                         </div>
                         <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
                       </div>
-                      );
-                    })}
+                    ))}
                   </div>
                   <button type="button" onClick={add} style={addBtn}><i className="bi bi-plus-lg" /> Add member</button>
                   {teamMembers.length > 0 && (
@@ -768,7 +769,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 <i className="bi bi-info-circle" style={{ marginTop: 1 }} />
                 <span>
                   Members already on this project are <strong>kept</strong>. The selected team's members are <strong>added</strong> to the roster.
-                  On the next step you can mark anyone active or inactive. Project Manager and Status are unaffected.
+                  On the next step you can mark anyone active or inactive and pick the project manager(s). Status is unaffected.
                 </span>
               </div>
             </Modal.Body>
@@ -792,7 +793,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             <Modal.Body style={{ padding: 16 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
                 <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#475569' }}>
-                  Roster for <strong style={{ color: '#1E293B' }}>{selectedTeamName}</strong> — grouped below into your project's <strong>Current Team</strong> and the <strong>Incoming</strong> members from {selectedTeamName}. Mark anyone active/inactive, or remove a row entirely with <i className="bi bi-trash" />.
+                  Roster for <strong style={{ color: '#1E293B' }}>{selectedTeamName}</strong> — grouped below into your project's <strong>Current Team</strong> and the <strong>Incoming</strong> members from {selectedTeamName}. Mark anyone active/inactive, assign project manager(s), or remove a row entirely with <i className="bi bi-trash" />.
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" onClick={() => markAllActive(true)} style={{ ...addBtn, marginTop: 0, borderColor: '#16a34a55', color: '#15803d' }}>
@@ -827,6 +828,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                             <div style={{ flex: 1, minWidth: 120 }}>Start</div>
                             <div style={{ flex: 1, minWidth: 120 }}>End</div>
                             <div style={{ flex: 1, minWidth: 120 }}>Status</div>
+                            <div style={{ flex: 1, minWidth: 150 }}>Manager</div>
                             <div style={{ width: 32 }} />
                           </div>
                           {sorted.map((x, pos) => (
@@ -849,6 +851,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                                 <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.startDate} onChange={v => updateRosterRow(x.i, { startDate: v })} /></div>
                                 <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.endDate} onChange={v => updateRosterRow(x.i, { endDate: v })} /></div>
                                 <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={x.m.isActive !== false} onChange={v => applyStatusToggle(v, x.m, patch => updateRosterRow(x.i, patch))} onLabel="Active" offLabel="Inactive" /></div>
+                                <div style={{ flex: 1, minWidth: 150 }}>
+                                  <ManagerCell employeeId={x.m.employeeId} managerIds={managerDraft} onChange={setManagerDraft} />
+                                </div>
                                 <button type="button" onClick={() => removeRosterRow(x.i)} title="Remove from roster" style={removeBtn}><i className="bi bi-trash" /></button>
                               </div>
                             </React.Fragment>

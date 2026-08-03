@@ -394,11 +394,7 @@ const ProjectOverview = () => {
               />
             )}
 
-            {alignment === "alltime" && (
-              <div style={{ textAlign: "center", opacity: 0.7, fontSize: "14px", whiteSpace: "nowrap", alignSelf: "center" }}>
-                All-Time Summary
-              </div>
-            )}
+
 
             {alignment === "custom" && (
               <div className="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-3 gap-sm-4 w-100">
