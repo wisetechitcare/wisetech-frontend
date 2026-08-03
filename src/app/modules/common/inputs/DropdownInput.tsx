@@ -24,7 +24,8 @@ function VirtualizedMenuList(props: any) {
     const selectedIndex = selected.length
         ? options.findIndex((o: any) => o.value === selected[0]?.value)
         : -1;
-    const initialOffset = selectedIndex > 0 ? selectedIndex * OPTION_ROW_HEIGHT : 0;
+    const isFiltered = children.length !== options.length;
+    const initialOffset = !isFiltered && selectedIndex > 0 ? selectedIndex * OPTION_ROW_HEIGHT : 0;
     const height = Math.min(maxHeight, children.length * OPTION_ROW_HEIGHT);
 
     return (
@@ -62,6 +63,7 @@ interface DropDownInputProps {
     filterOption?: (option: any, inputValue: any) => boolean; // Added: Support for custom filtering
     enableSmartSort?: boolean; // Added: Enable smart priority-based sorting
     smartFilterFunction?: (options: any[], inputValue: string) => any[]; // Added: Smart filter and sort function
+    disableAlphabeticalSort?: boolean;
 }
 
 function DropDownInput({ 
@@ -83,6 +85,7 @@ function DropDownInput({
     filterOption, // Added: Custom filter function
     enableSmartSort = false, // Added: Smart sorting flag
     smartFilterFunction, // Added: Smart filter and sort function
+    disableAlphabeticalSort = false,
 }: DropDownInputProps) {
     const [field, meta, helpers] = useField(formikField);
     const [show, setShow] = useState(false);
@@ -110,9 +113,12 @@ function DropDownInput({
 
     // Centralized case-insensitive alphabetical sorting
     const sortedOptions = useMemo(() => {
+        if (disableAlphabeticalSort) {
+            return options || [];
+        }
         const listToSort = enableSmartSort ? processedOptions : (options || []);
         return sortOptionsAlphabetically(listToSort);
-    }, [enableSmartSort, processedOptions, options]);
+    }, [disableAlphabeticalSort, enableSmartSort, processedOptions, options]);
 
     // Use propValue if provided, otherwise use formik field value
     let selectedValue;

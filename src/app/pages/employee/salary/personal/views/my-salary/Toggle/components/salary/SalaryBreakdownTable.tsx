@@ -1,5 +1,8 @@
-import { Box, Chip, Paper, Skeleton, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
+import { Box, Chip, Paper, Skeleton, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography } from '@mui/material';
 import ExportButton, { ExportColumn } from '@app/modules/common/components/ExportButton';
+
+/** One vocabulary for every "was this money actually paid?" question in the table. */
+export type PayState = 'Paid' | 'Unpaid' | 'Partial' | 'Extra Paid' | 'None';
 
 export interface YearlyBreakdownRow {
     month: string;
@@ -13,7 +16,15 @@ export interface YearlyBreakdownRow {
     ptaxDeduction: string;
     tdsDeduction: string;
     tds2Deduction: string;
-    status: 'Paid' | 'Pending' | 'Partial';
+    status: PayState;
+    /** Whether PF + PTax + TDS deducted this month actually reached the government. */
+    govtStatus?: PayState;
+    /** Per-type breakdown behind govtStatus, shown on hover. */
+    govtDetail?: string;
+    /** Remittance state of each statutory head, so its amount can be coloured. */
+    pfStatus?: PayState;
+    ptaxStatus?: PayState;
+    tdsStatus?: PayState;
     isPlaceholder?: boolean;
 }
 
@@ -27,11 +38,47 @@ interface SalaryBreakdownTableProps {
     showSensitiveData?: boolean;
 }
 
-const statusStyles = {
+const stateStyles = {
     Paid: { color: '#15803d', bg: '#ecfdf3' },
-    Pending: { color: '#dc2626', bg: '#fef2f2' },
+    Unpaid: { color: '#dc2626', bg: '#fef2f2' },
     Partial: { color: '#d97706', bg: '#fff7e8' },
+    'Extra Paid': { color: '#2563eb', bg: '#dbeafe' },
 } as const;
+
+const NEUTRAL = '#0f172a';
+const styleOf = (state?: PayState) => (state && state !== 'None' ? stateStyles[state] : null);
+/** Amounts take their state's colour; anything unstated stays neutral. */
+const colourOf = (state?: PayState) => styleOf(state)?.color ?? NEUTRAL;
+
+const exportStatusConfig = {
+    Paid:         { bg: stateStyles.Paid.bg,         text: stateStyles.Paid.color },
+    Unpaid:       { bg: stateStyles.Unpaid.bg,       text: stateStyles.Unpaid.color },
+    Partial:      { bg: stateStyles.Partial.bg,      text: stateStyles.Partial.color },
+    'Extra Paid': { bg: stateStyles['Extra Paid'].bg, text: stateStyles['Extra Paid'].color },
+};
+
+const StateChip = ({ state, detail }: { state?: PayState; detail?: string }) => {
+    const style = styleOf(state);
+    if (!style) return <Typography sx={{ fontSize: 13, color: '#94a3b8' }}>-</Typography>;
+
+    const chip = (
+        <Chip
+            size="small"
+            label={state}
+            sx={{
+                height: 22,
+                fontSize: 10.5,
+                fontWeight: 800,
+                borderRadius: '999px',
+                color: style.color,
+                backgroundColor: style.bg,
+                '& .MuiChip-label': { px: 0.95 },
+            }}
+        />
+    );
+
+    return detail ? <Tooltip title={detail} placement="top" arrow>{chip}</Tooltip> : chip;
+};
 
 const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds = true, tdsLabel = 'TDS', showTds2 = false, showSensitiveData = true }: SalaryBreakdownTableProps) => {
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
@@ -53,6 +100,22 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
         })}`;
+
+    const realRows = rows.filter((r) => !r.isPlaceholder);
+
+    // Hide any amount column that is zero for every real month.
+    const allZero = (pick: (r: YearlyBreakdownRow) => string) =>
+        hasRealRows && realRows.every((r) => parseAmount(pick(r)) === 0);
+
+    const colOvertime = !allZero((r) => r.overtime);
+    const colPf = !allZero((r) => r.pfDeduction);
+    const colPtax = showPtax && !allZero((r) => r.ptaxDeduction);
+    const colTds = showTds && !allZero((r) => r.tdsDeduction);
+    const colTds2 = showTds2 && !allZero((r) => r.tds2Deduction);
+    const colPaid = !allZero((r) => r.paid);
+    const colPending = !allZero((r) => r.pending);
+    // Only worth a column when there is statutory money to remit at all.
+    const colGovt = realRows.some((r) => r.govtStatus && r.govtStatus !== 'None');
 
     const totals = rows.reduce(
         (acc, row) => {
@@ -86,8 +149,6 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
     // Styled export via the shared SpreadsheetML exporter (coloured headers,
     // striped rows, status pills and a totals row). Currency columns receive
     // numeric values so totals compute correctly.
-    const realRows = rows.filter(r => !r.isPlaceholder);
-
     const exportData = realRows.map(r => ({
         month: r.month,
         basicSalary: parseAmount(r.basicSalary),
@@ -99,28 +160,26 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
         netPayable: parseAmount(r.netPayable),
         paid: parseAmount(r.paid),
         pending: parseAmount(r.pending),
-        status: r.status,
+        status: r.status === 'None' ? '-' : r.status,
+        govtStatus: r.govtStatus === 'None' ? '-' : (r.govtStatus ?? '-'),
     }));
 
     const exportColumns: ExportColumn[] = [
         { key: 'month',       header: 'Month',        type: 'text' },
         { key: 'basicSalary', header: 'Basic Salary', type: 'currency', showTotal: true },
-        { key: 'overtime',    header: 'Overtime',     type: 'currency', showTotal: true },
-        { key: 'pf',          header: 'PF',           type: 'currency', showTotal: true },
-        ...(showPtax ? [{ key: 'ptax', header: 'PTax', type: 'currency' as const, showTotal: true }] : []),
-        ...(showTds  ? [{ key: 'tds',  header: tdsLabel, type: 'currency' as const, showTotal: true }] : []),
-        ...(showTds2 ? [{ key: 'tds2', header: 'TDS 2', type: 'currency' as const, showTotal: true }] : []),
+        ...(colOvertime ? [{ key: 'overtime', header: 'Overtime', type: 'currency' as const, showTotal: true }] : []),
+        ...(colPf    ? [{ key: 'pf',   header: 'PF',     type: 'currency' as const, showTotal: true }] : []),
+        ...(colPtax ? [{ key: 'ptax', header: 'PTax', type: 'currency' as const, showTotal: true }] : []),
+        ...(colTds  ? [{ key: 'tds',  header: tdsLabel, type: 'currency' as const, showTotal: true }] : []),
+        ...(colTds2 ? [{ key: 'tds2', header: 'TDS 2', type: 'currency' as const, showTotal: true }] : []),
         { key: 'netPayable',  header: 'Net Payable',  type: 'currency', showTotal: true },
-        { key: 'paid',        header: 'Paid',         type: 'currency', showTotal: true, color: '#1d4ed8' },
-        { key: 'pending',     header: 'Pending',      type: 'currency', showTotal: true, color: '#dc2626' },
-        {
-            key: 'status', header: 'Status', type: 'status',
-            statusConfig: {
-                Paid:    { bg: '#ecfdf3', text: '#15803d' },
-                Pending: { bg: '#fef2f2', text: '#dc2626' },
-                Partial: { bg: '#fff7e8', text: '#d97706' },
-            },
-        },
+        ...(colPaid    ? [{ key: 'paid',    header: 'Paid',    type: 'currency' as const, showTotal: true, color: '#1d4ed8' }] : []),
+        ...(colPending ? [{ key: 'pending', header: 'Pending', type: 'currency' as const, showTotal: true, color: '#dc2626' }] : []),
+        { key: 'status', header: 'Status', type: 'status', statusConfig: exportStatusConfig },
+        ...(colGovt ? [{
+            key: 'govtStatus', header: 'Govt. Deductions Paid', type: 'status' as const,
+            statusConfig: exportStatusConfig,
+        }] : []),
     ];
 
     return (
@@ -160,11 +219,17 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                     <TableHead>
                         <TableRow>
                             {[
-                            'Month', 'Basic Salary', 'Overtime', 'PF',
-                                ...(showPtax ? ['PTax'] : []),
-                                ...(showTds  ? [tdsLabel] : []),
-                                ...(showTds2 ? ['TDS 2'] : []),
-                                'Net Payable', 'Paid', 'Pending', 'Status',
+                            'Month', 'Basic Salary',
+                                ...(colOvertime ? ['Overtime'] : []),
+                                ...(colPf ? ['PF'] : []),
+                                ...(colPtax ? ['PTax'] : []),
+                                ...(colTds  ? [tdsLabel] : []),
+                                ...(colTds2 ? ['TDS 2'] : []),
+                                'Net Payable',
+                                ...(colPaid ? ['Paid'] : []),
+                                ...(colPending ? ['Pending'] : []),
+                                'Salary Statu',
+                                ...(colGovt ? ['Govt. Deductions Paid'] : []),
                             ].map((head) => (
                                 <TableCell
                                     key={head}
@@ -184,7 +249,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                     </TableHead>
                     <TableBody>
                         {rows.map((row) => {
-                            const status = statusStyles[row.status];
+                            const salaryColour = colourOf(row.status);
 
                             return (
                                 <TableRow
@@ -212,28 +277,32 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                                         <span className={sensitiveCls}>{row.basicSalary}</span>
                                     </TableCell>
 
-                                    <TableCell sx={{ fontSize: 13, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
-                                        <span className={sensitiveCls}>{row.overtimeDisplay || row.overtime}</span>
-                                    </TableCell>
+                                    {colOvertime && (
+                                        <TableCell sx={{ fontSize: 13, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
+                                            <span className={sensitiveCls}>{row.overtimeDisplay || row.overtime}</span>
+                                        </TableCell>
+                                    )}
 
-                                    <TableCell sx={{ fontSize: 13, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
-                                        <span className={sensitiveCls}>{row.pfDeduction}</span>
-                                    </TableCell>
+                                    {colPf && (
+                                        <TableCell sx={{ fontSize: 13, fontWeight: 700, color: colourOf(row.pfStatus), whiteSpace: 'nowrap', py: 1.15 }}>
+                                            <span className={sensitiveCls}>{row.pfDeduction}</span>
+                                        </TableCell>
+                                    )}
 
-                                    {showPtax && (
-                                        <TableCell sx={{ fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
+                                    {colPtax && (
+                                        <TableCell sx={{ fontSize: 13, fontWeight: 700, color: colourOf(row.ptaxStatus), whiteSpace: 'nowrap', py: 1.15 }}>
                                             <span className={sensitiveCls}>{row.ptaxDeduction}</span>
                                         </TableCell>
                                     )}
 
-                                    {showTds && (
-                                        <TableCell sx={{ fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
+                                    {colTds && (
+                                        <TableCell sx={{ fontSize: 13, fontWeight: 700, color: colourOf(row.tdsStatus), whiteSpace: 'nowrap', py: 1.15 }}>
                                             <span className={sensitiveCls}>{row.tdsDeduction}</span>
                                         </TableCell>
                                     )}
 
-                                    {showTds2 && (
-                                        <TableCell sx={{ fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
+                                    {colTds2 && (
+                                        <TableCell sx={{ fontSize: 13, fontWeight: 700, color: colourOf(row.tdsStatus), whiteSpace: 'nowrap', py: 1.15 }}>
                                             <span className={sensitiveCls}>{row.tds2Deduction}</span>
                                         </TableCell>
                                     )}
@@ -242,47 +311,43 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                                         <span className={sensitiveCls}>{row.netPayable}</span>
                                     </TableCell>
 
-                                    <TableCell
-                                        sx={{
-                                            fontSize: 13,
-                                            color: '#2563eb',
-                                            fontWeight: 700,
-                                            whiteSpace: 'nowrap',
-                                            py: 1.15,
-                                        }}
-                                    >
-                                        <span className={sensitiveCls}>{row.paid}</span>
-                                    </TableCell>
+                                    {colPaid && (
+                                        <TableCell
+                                            sx={{
+                                                fontSize: 13,
+                                                color: salaryColour,
+                                                fontWeight: 700,
+                                                whiteSpace: 'nowrap',
+                                                py: 1.15,
+                                            }}
+                                        >
+                                            <span className={sensitiveCls}>{row.paid}</span>
+                                        </TableCell>
+                                    )}
 
-                                    <TableCell
-                                        sx={{
-                                            fontSize: 13,
-                                            color: '#d97706',
-                                            fontWeight: 700,
-                                            whiteSpace: 'nowrap',
-                                            py: 1.15,
-                                        }}
-                                    >
-                                        <span className={sensitiveCls}>{row.pending}</span>
-                                    </TableCell>
+                                    {colPending && (
+                                        <TableCell
+                                            sx={{
+                                                fontSize: 13,
+                                                color: salaryColour,
+                                                fontWeight: 700,
+                                                whiteSpace: 'nowrap',
+                                                py: 1.15,
+                                            }}
+                                        >
+                                            <span className={sensitiveCls}>{row.pending}</span>
+                                        </TableCell>
+                                    )}
 
                                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                                        <Chip
-                                            size="small"
-                                            label={row.status}
-                                            sx={{
-                                                height: 22,
-                                                fontSize: 10.5,
-                                                fontWeight: 800,
-                                                borderRadius: '999px',
-                                                color: status.color,
-                                                backgroundColor: status.bg,
-                                                '& .MuiChip-label': {
-                                                    px: 0.95,
-                                                },
-                                            }}
-                                        />
+                                        <StateChip state={row.status} />
                                     </TableCell>
+
+                                    {colGovt && (
+                                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                            <StateChip state={row.govtStatus} detail={row.govtDetail} />
+                                        </TableCell>
+                                    )}
                                 </TableRow>
                             );
                         })}
@@ -312,22 +377,22 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                                 </TableCell>
 
                                 <TableCell><span className={sensitiveCls}>{formatCurrency(totals.basicSalary)}</span></TableCell>
-                                <TableCell><span className={sensitiveCls}>{formatCurrency(totals.overtime)}</span></TableCell>
-                                <TableCell><span className={sensitiveCls}>{formatCurrency(totals.pfDeduction)}</span></TableCell>
+                                {colOvertime && <TableCell><span className={sensitiveCls}>{formatCurrency(totals.overtime)}</span></TableCell>}
+                                {colPf && <TableCell><span className={sensitiveCls}>{formatCurrency(totals.pfDeduction)}</span></TableCell>}
 
-                                {showPtax && (
+                                {colPtax && (
                                     <TableCell>
                                         <span className={sensitiveCls}>{formatCurrency(totals.ptaxDeduction)}</span>
                                     </TableCell>
                                 )}
 
-                                {showTds && (
+                                {colTds && (
                                     <TableCell>
                                         <span className={sensitiveCls}>{formatCurrency(totals.tdsDeduction)}</span>
                                     </TableCell>
                                 )}
 
-                                {showTds2 && (
+                                {colTds2 && (
                                     <TableCell>
                                         <span className={sensitiveCls}>{formatCurrency(totals.tds2Deduction)}</span>
                                     </TableCell>
@@ -335,13 +400,17 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
 
                                 <TableCell><span className={sensitiveCls}>{formatCurrency(totals.netPayable)}</span></TableCell>
 
-                                <TableCell sx={{ color: '#2563eb' }}>
-                                    <span className={sensitiveCls}>{formatCurrency(totals.paid)}</span>
-                                </TableCell>
+                                {colPaid && (
+                                    <TableCell sx={{ color: '#2563eb' }}>
+                                        <span className={sensitiveCls}>{formatCurrency(totals.paid)}</span>
+                                    </TableCell>
+                                )}
 
-                                <TableCell sx={{ color: '#d97706' }}>
-                                    <span className={sensitiveCls}>{formatCurrency(totals.pending)}</span>
-                                </TableCell>
+                                {colPending && (
+                                    <TableCell sx={{ color: '#d97706' }}>
+                                        <span className={sensitiveCls}>{formatCurrency(totals.pending)}</span>
+                                    </TableCell>
+                                )}
 
                                 <TableCell>
                                     <Chip
@@ -357,6 +426,8 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                                         }}
                                     />
                                 </TableCell>
+
+                                {colGovt && <TableCell />}
                             </TableRow>
                         )}
                     </TableBody>

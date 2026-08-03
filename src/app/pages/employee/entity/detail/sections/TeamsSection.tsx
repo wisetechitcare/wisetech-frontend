@@ -52,6 +52,65 @@ const addBtn: React.CSSProperties = {
 const seedBtn: React.CSSProperties = {
   ...addBtn, borderStyle: 'solid', borderColor: '#1E3A8A33', color: '#1E3A8A', marginLeft: 8,
 };
+const makeManagerBtn: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'Inter', fontSize: 11.5, fontWeight: 600,
+  padding: '4px 10px', borderRadius: 999, border: '1px dashed #cbd5e1', background: '#fff', color: '#475569',
+  cursor: 'pointer', whiteSpace: 'nowrap',
+};
+const managerIconBtn: React.CSSProperties = {
+  width: 22, height: 22, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  borderRadius: 6, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', cursor: 'pointer', fontSize: 11,
+};
+
+const managerBadge = (isPrimary: boolean): React.CSSProperties => ({
+  display: 'inline-flex', alignItems: 'center', fontFamily: 'Inter', fontSize: 10.5,
+  fontWeight: 700, padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap',
+  backgroundColor: isPrimary ? '#ffe0ba' : '#e4e6f4', color: isPrimary ? '#b86e13' : '#6067cf',
+});
+
+/**
+ * Manager picker for one roster row. Purely a draft editor — it hands the caller
+ * the NEXT manager-id list and never writes; the surrounding Save (card or
+ * dialog) persists it. Primary manager is simply index 0, so promoting is a
+ * reorder and removing the primary auto-promotes the next one.
+ */
+const ManagerCell: React.FC<{
+  employeeId: string;
+  managerIds: string[];
+  onChange: (ids: string[]) => void;
+}> = ({ employeeId, managerIds, onChange }) => {
+  const id = String(employeeId || '');
+  const isManager = !!id && managerIds.includes(id);
+  const isPrimary = isManager && id === managerIds[0];
+
+  if (!isManager) {
+    return (
+      <button type="button" disabled={!id} style={{ ...makeManagerBtn, opacity: id ? 1 : 0.5 }} onClick={() => onChange([...managerIds, id])}>
+        <i className="bi bi-person-badge" /> Make Manager
+      </button>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+      <span style={managerBadge(isPrimary)}>{isPrimary ? 'Primary Manager' : 'Manager'}</span>
+      {!isPrimary && (
+        <button type="button" title="Make primary manager" style={managerIconBtn} onClick={() => onChange([id, ...managerIds.filter(m => m !== id)])}>
+          <i className="bi bi-star" />
+        </button>
+      )}
+      <button type="button" title="Remove as manager" style={managerIconBtn} onClick={() => onChange(managerIds.filter(m => m !== id))}>
+        <i className="bi bi-x-lg" />
+      </button>
+    </div>
+  );
+};
+
+// Managers must be on the roster being saved — drop any whose row was removed,
+// then stamp the first as primary (the backend mirrors it onto execution).
+const managersPayload = (ids: string[], members: any[]) => {
+  const present = new Set(members.map((m: any) => String(m.employeeId)).filter(Boolean));
+  return ids.filter(id => present.has(String(id))).map((employeeId, i) => ({ employeeId, isPrimary: i === 0 }));
+};
 
 // Roster ordering: active members first, inactive below (stable within each group).
 // Used for the read-mode table and the Change-Team review list so the split is visible.
@@ -144,6 +203,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const [teamStep, setTeamStep] = useState<1 | 2>(1);
   const [draftTeamId, setDraftTeamId] = useState<string>(ex.teamId || '');
   const [rosterDraft, setRosterDraft] = useState<any[]>([]);
+  // Manager ids (primary first) being edited in the dialog — seeded from the
+  // persisted roster on open, written only by the dialog's Save.
+  const [managerDraft, setManagerDraft] = useState<string[]>([]);
 
   useEffect(() => {
     getAllTeams(1, 9999).then((r: any) => setTeams(r?.data?.teams || r?.teams || [])).catch(() => {});
@@ -173,6 +235,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const openTeamModal = () => {
     setDraftTeamId(ex.teamId || '');
     setRosterDraft([]);
+    setManagerDraft(managerIds);
     setTeamStep(1);
     setShowTeamModal(true);
   };
@@ -204,6 +267,14 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
 
   const updateRosterRow = (i: number, patch: any) =>
     setRosterDraft(prev => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  // Drops a row entirely (not just marks it inactive) — for members the user
+  // decides shouldn't be on the roster at all, whether pre-existing or newly
+  // added by the picked team. A dropped member can't stay a manager.
+  const removeRosterRow = (i: number) => {
+    const gone = String(rosterDraft[i]?.employeeId || '');
+    setRosterDraft(prev => prev.filter((_, idx) => idx !== i));
+    setManagerDraft(prev => prev.filter(id => id !== gone));
+  };
   const markAllActive = (active: boolean) =>
     setRosterDraft(prev =>
       prev.map(m => ({
@@ -279,7 +350,11 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
         isActive: m.isActive !== false,
         source: m.source === 'adhoc' ? 'adhoc' : 'team',
       }));
-    saveSection('executionTeam', { teamId: draftTeamId || null, internalMembers: members })
+    saveSection('executionTeam', {
+      teamId: draftTeamId || null,
+      internalMembers: members,
+      projectManagers: managersPayload(managerDraft, members),
+    })
       .then(() => setShowTeamModal(false))
       .catch((e: any) => {
         // eslint-disable-next-line no-alert
@@ -288,15 +363,18 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       .finally(() => setSavingTeam(false));
   };
 
-  // ── Project Manager picker — same pattern as the Execution Team picker above:
-  //    a button opens a dialog with its own explicit Save, writing ONLY the
-  //    manager roster via the dedicated `projectManager` section (team/status/
-  //    access/flags stay untouched).
+  // ── Project Manager assignment — lives INLINE in the roster rows (a "Manager"
+  //    column, same idea as the Teams page's "Make Leader" action per row): only
+  //    roster members are eligible, so there's no separate picker/dialog.
   //
-  //    A project can have SEVERAL managers. The roster lives in its own table;
-  //    the backend mirrors whichever row is flagged primary back onto
-  //    leadExecution.projectManagerId, so single-manager readers keep working.
-  //    `lead.projectManagers` is ordered primary-first by the API. ────────────
+  //    Manager changes are DRAFT-ONLY — they ride along with the surrounding
+  //    Save (the Internal Team card's Save, or the Assign/Change Team dialog's),
+  //    so nothing is written until the user confirms.
+  //
+  //    A project can have SEVERAL managers; the backend mirrors whichever row
+  //    is flagged primary back onto leadExecution.projectManagerId, so
+  //    single-manager readers keep working. `lead.projectManagers` is ordered
+  //    primary-first by the API. ─────────────────────────────────────────────
   const projectManagers: any[] = lead?.projectManagers || [];
 
   // Manager ids, primary first. Falls back to the mirrored scalar for projects
@@ -308,78 +386,6 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   }, [projectManagers, ex.projectManagerId]);
 
   const primaryManagerId = managerIds[0] || '';
-
-  const [savingPm, setSavingPm] = useState(false);
-  const [showPmModal, setShowPmModal] = useState(false);
-  // Draft roster: one entry per manager row. `employeeId` may be '' for a row the
-  // user just added but hasn't picked yet.
-  const [pmDraft, setPmDraft] = useState<{ employeeId: string; isPrimary: boolean }[]>([]);
-
-  const openPmModal = () => {
-    setPmDraft(managerIds.map((id, i) => ({ employeeId: id, isPrimary: i === 0 })));
-    setShowPmModal(true);
-  };
-
-  const addPmRow = () =>
-    setPmDraft(prev => [...prev, { employeeId: '', isPrimary: prev.length === 0 }]);
-
-  const removePmRow = (i: number) =>
-    setPmDraft(prev => {
-      const next = prev.filter((_, idx) => idx !== i);
-      // Removing the primary promotes the first remaining row, so a non-empty
-      // roster always has exactly one primary to mirror onto the scalar.
-      if (next.length > 0 && !next.some(r => r.isPrimary)) next[0] = { ...next[0], isPrimary: true };
-      return next;
-    });
-
-  const setPmRowEmployee = (i: number, employeeId: string) =>
-    setPmDraft(prev => prev.map((r, idx) => (idx === i ? { ...r, employeeId } : r)));
-
-  const setPmPrimary = (i: number) =>
-    setPmDraft(prev => prev.map((r, idx) => ({ ...r, isPrimary: idx === i })));
-
-  // Rows with no employee picked are dropped; duplicates collapse to the first
-  // occurrence (the backend enforces this too, but catching it here lets us warn).
-  const pmDraftClean = useMemo(() => {
-    const seen = new Set<string>();
-    return pmDraft.filter(r => {
-      if (!r.employeeId || seen.has(r.employeeId)) return false;
-      seen.add(r.employeeId);
-      return true;
-    });
-  }, [pmDraft]);
-
-  const pmHasDuplicates = pmDraft.filter(r => r.employeeId).length !== pmDraftClean.length;
-
-  // Compare against the saved roster so Save stays disabled until something
-  // actually changed (identity AND primary, since order carries the primary).
-  const pmDirty = useMemo(() => {
-    const next = pmDraftClean.map(r => r.employeeId);
-    const nextPrimary = (pmDraftClean.find(r => r.isPrimary) || pmDraftClean[0])?.employeeId || '';
-    if (next.length !== managerIds.length) return true;
-    if (nextPrimary !== primaryManagerId) return true;
-    // Order beyond the primary is not persisted, so compare as a set.
-    const current = new Set(managerIds);
-    return next.some(id => !current.has(id));
-  }, [pmDraftClean, managerIds, primaryManagerId]);
-
-  const confirmPmChange = () => {
-    if (savingPm || !pmDirty) return;
-    setSavingPm(true);
-    const primaryId = (pmDraftClean.find(r => r.isPrimary) || pmDraftClean[0])?.employeeId || '';
-    saveSection('projectManager', {
-      projectManagers: pmDraftClean.map(r => ({
-        employeeId: r.employeeId,
-        isPrimary: r.employeeId === primaryId,
-      })),
-    })
-      .then(() => setShowPmModal(false))
-      .catch((e: any) => {
-        // eslint-disable-next-line no-alert
-        alert(e?.response?.data?.message || 'Could not update the project managers. Please try again.');
-      })
-      .finally(() => setSavingPm(false));
-  };
 
   // ── Internal roster: persisted members win; otherwise fall back to the live
   //    execution-team roster so the team's employees show up automatically the
@@ -562,13 +568,26 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 isActive: m.isActive !== false,
                 source: m.source || 'team',
               })),
+              // Manager column is edited in the same grid and saved by the same
+              // Save button — primary is index 0.
+              managerIds,
             }}
-            onSave={d => saveSection('internalTeam', { internalMembers: (d.internalMembers || []).filter((m: any) => m.employeeId) })}
+            onSave={d => {
+              const members = (d.internalMembers || []).filter((m: any) => m.employeeId);
+              return saveSection('internalTeam', {
+                internalMembers: members,
+                projectManagers: managersPayload(d.managerIds || [], members),
+              });
+            }}
           >
             {({ editing, draft, set }) => {
               const rows: any[] = draft.internalMembers || [];
+              const draftManagerIds: string[] = draft.managerIds || [];
               const update = (i: number, patch: any) => { const next = [...rows]; next[i] = { ...next[i], ...patch }; set({ internalMembers: next }); };
-              const remove = (i: number) => set({ internalMembers: rows.filter((_, idx) => idx !== i) });
+              const remove = (i: number) => {
+                const gone = String(rows[i]?.employeeId || '');
+                set({ internalMembers: rows.filter((_, idx) => idx !== i), managerIds: draftManagerIds.filter(id => id !== gone) });
+              };
               // New rows default their start date to today (member joining now);
               // the date stays editable before Save.
               const add = () => set({ internalMembers: [...rows, { employeeId: '', startDate: toDateInputValue(new Date()), endDate: '', isActive: true, source: 'adhoc' }] });
@@ -601,46 +620,12 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                   </button>
                 </div>
               );
-              // All managers, primary first. The primary is badged so it's clear
-              // which one the single-manager views (tables, exports) will show.
-              const pmPicker = (
-                <div style={{ flex: 1, minWidth: 260, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 8, background: '#7c3aed14', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <i className="bi bi-person-workspace" />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {managerIds.length > 1 ? `Project Managers (${managerIds.length})` : 'Project Manager'}
-                    </div>
-                    {managerIds.length === 0 ? (
-                      <div style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', marginTop: 2 }}>No manager selected</div>
-                    ) : (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                        {managerIds.map((id, i) => (
-                          <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 3px', borderRadius: 999, background: '#fff', border: '1px solid #E2E8F0' }}>
-                            <img
-                              src={empAvatar(id) || `https://ui-avatars.com/api/?name=${encodeURIComponent(empName(id) === DASH ? '?' : empName(id))}&background=eeeeee&color=888888&size=20&rounded=true`}
-                              alt=""
-                              style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
-                            />
-                            <span style={{ fontFamily: 'Inter', fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>{empName(id)}</span>
-                            {i === 0 && managerIds.length > 1 && (
-                              <span style={{ fontFamily: 'Inter', fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: '#ede9fe', color: '#6d28d9', textTransform: 'uppercase', letterSpacing: 0.3 }}>Primary</span>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <button type="button" onClick={openPmModal} style={{ ...addBtn, marginTop: 0, flexShrink: 0, whiteSpace: 'nowrap', alignSelf: 'flex-start' }}>
-                    <i className="bi bi-arrow-left-right" /> {managerIds.length > 0 ? 'Manage' : 'Assign Manager'}
-                  </button>
-                </div>
-              );
+              // Project Manager is no longer a separate picker — it's assigned
+              // inline in the roster table below via the "Manager" column
+              // (team members only, same idea as the Teams page's "Make Leader").
               const ownershipPickers = (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
                   {teamPicker}
-                  {pmPicker}
                 </div>
               );
 
@@ -670,7 +655,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter' }}>
                         <thead>
-                          <tr>{['Employee', 'Start Date', 'End Date', 'Status', 'Source'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
+                          <tr>{['Employee', 'Start Date', 'End Date', 'Status', 'Manager'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
                         </thead>
                         <tbody>
                           {[...displayMembers]
@@ -685,11 +670,14 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                                 { sensitivity: 'base' }
                               );
                             })
-                            .map((m, i) => (
+                            .map((m, i) => {
+                              const isManager = !!m.employeeId && managerIds.includes(String(m.employeeId));
+                              const isPrimary = isManager && String(m.employeeId) === primaryManagerId;
+                              return (
                             <tr key={m.id || m.employeeId || i}>
                               <td style={tdName}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <img 
+                                  <img
                                     src={empAvatar(m.employeeId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(empName(m.employeeId) === DASH ? '?' : empName(m.employeeId))}&background=eeeeee&color=888888&size=20&rounded=true`}
                                     alt=""
                                     style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
@@ -700,9 +688,14 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                               <td style={td}>{m.startDate ? fmtDate(m.startDate) : DASH}</td>
                               <td style={td}>{m.endDate ? fmtDate(m.endDate) : DASH}</td>
                               <td style={td}><DetailStatusBadge status={m.isActive !== false ? 'Active' : 'Inactive'} color={m.isActive !== false ? '#16a34a' : '#94A3B8'} /></td>
-                              <td style={td}>{m.source === 'adhoc' ? 'Added' : 'Team'}</td>
+                              <td style={td}>
+                                {isManager ? (
+                                  <span style={managerBadge(isPrimary)}>{isPrimary ? 'Primary Manager' : 'Manager'}</span>
+                                ) : DASH}
+                              </td>
                             </tr>
-                          ))}
+                              );
+                            })}
                         </tbody>
                       </table>
                     </div>
@@ -721,6 +714,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <div style={{ flex: 1, minWidth: 130 }}>Start</div>
                         <div style={{ flex: 1, minWidth: 130 }}>End</div>
                         <div style={{ flex: 1, minWidth: 120 }}>Status</div>
+                        <div style={{ flex: 1, minWidth: 150 }}>Manager</div>
                         <div style={{ width: 32 }} />
                       </div>
                     )}
@@ -733,6 +727,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.startDate} onChange={v => update(i, { startDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: 130 }}><DateEditor value={m.endDate} onChange={v => update(i, { endDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={m.isActive !== false} onChange={v => applyStatusToggle(v, m, patch => update(i, patch))} onLabel="Active" offLabel="Inactive" /></div>
+                        <div style={{ flex: 1, minWidth: 150 }}>
+                          <ManagerCell employeeId={m.employeeId} managerIds={draftManagerIds} onChange={ids => set({ managerIds: ids })} />
+                        </div>
                         <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
                       </div>
                     ))}
@@ -772,7 +769,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 <i className="bi bi-info-circle" style={{ marginTop: 1 }} />
                 <span>
                   Members already on this project are <strong>kept</strong>. The selected team's members are <strong>added</strong> to the roster.
-                  On the next step you can mark anyone active or inactive. Project Manager and Status are unaffected.
+                  On the next step you can mark anyone active or inactive and pick the project manager(s). Status is unaffected.
                 </span>
               </div>
             </Modal.Body>
@@ -796,7 +793,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             <Modal.Body style={{ padding: 16 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
                 <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#475569' }}>
-                  Roster for <strong style={{ color: '#1E293B' }}>{selectedTeamName}</strong> — mark everyone as active, or inactivate specific members below.
+                  Roster for <strong style={{ color: '#1E293B' }}>{selectedTeamName}</strong> — grouped below into your project's <strong>Current Team</strong> and the <strong>Incoming</strong> members from {selectedTeamName}. Mark anyone active/inactive, assign project manager(s), or remove a row entirely with <i className="bi bi-trash" />.
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" onClick={() => markAllActive(true)} style={{ ...addBtn, marginTop: 0, borderColor: '#16a34a55', color: '#15803d' }}>
@@ -814,43 +811,63 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
-                  <div style={{ display: 'flex', gap: 8, padding: '0 0 6px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    <div style={{ flex: 2, minWidth: 180 }}>Employee</div>
-                    <div style={{ flex: 1, minWidth: 120 }}>Start</div>
-                    <div style={{ flex: 1, minWidth: 120 }}>End</div>
-                    <div style={{ flex: 1, minWidth: 120 }}>Status</div>
-                  </div>
                   {(() => {
-                    const sorted = rosterDraft
-                      .map((m, i) => ({ m, i }))
-                      .sort((a, b) => (a.m.isActive !== false ? 0 : 1) - (b.m.isActive !== false ? 0 : 1));
-                    const firstInactive = sorted.findIndex(x => x.m.isActive === false);
-                    return sorted.map((x, pos) => (
-                      <React.Fragment key={x.m.employeeId || x.i}>
-                        {pos === firstInactive && firstInactive > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 4px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            <span>Inactive</span>
+                    const renderGroup = (label: string, items: { m: any; i: number }[], accent: string) => {
+                      if (items.length === 0) return null;
+                      const sorted = [...items].sort((a, b) => (a.m.isActive !== false ? 0 : 1) - (b.m.isActive !== false ? 0 : 1));
+                      const firstInactive = sorted.findIndex(x => x.m.isActive === false);
+                      return (
+                        <div style={{ marginBottom: 18 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                            <span style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{label}</span>
+                            <span style={{ fontFamily: 'Inter', fontSize: 11, color: '#94A3B8' }}>({items.length})</span>
                             <span style={{ flex: 1, height: 1, background: '#EEF2F6' }} />
                           </div>
-                        )}
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9', opacity: x.m.isActive === false ? 0.75 : 1 }}>
-                          <div style={{ flex: 2, minWidth: 180, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <img
-                              src={empAvatar(x.m.employeeId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(empName(x.m.employeeId) === DASH ? '?' : empName(x.m.employeeId))}&background=eeeeee&color=888888&size=20&rounded=true`}
-                              alt=""
-                              style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                            />
-                            <span style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName(x.m.employeeId)}</span>
-                            <span style={{ fontFamily: 'Inter', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, whiteSpace: 'nowrap', ...(x.m._added ? { background: '#dbeafe', color: '#1e40af' } : { background: '#F1F5F9', color: '#64748B' }) }}>
-                              {x.m._added ? 'New' : 'Existing'}
-                            </span>
+                          <div style={{ display: 'flex', gap: 8, padding: '0 0 6px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            <div style={{ flex: 2, minWidth: 180 }}>Employee</div>
+                            <div style={{ flex: 1, minWidth: 120 }}>Start</div>
+                            <div style={{ flex: 1, minWidth: 120 }}>End</div>
+                            <div style={{ flex: 1, minWidth: 120 }}>Status</div>
+                            <div style={{ flex: 1, minWidth: 150 }}>Manager</div>
+                            <div style={{ width: 32 }} />
                           </div>
-                          <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.startDate} onChange={v => updateRosterRow(x.i, { startDate: v })} /></div>
-                          <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.endDate} onChange={v => updateRosterRow(x.i, { endDate: v })} /></div>
-                          <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={x.m.isActive !== false} onChange={v => applyStatusToggle(v, x.m, patch => updateRosterRow(x.i, patch))} onLabel="Active" offLabel="Inactive" /></div>
+                          {sorted.map((x, pos) => (
+                            <React.Fragment key={x.m.employeeId || x.i}>
+                              {pos === firstInactive && firstInactive > 0 && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 4px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                  <span>Inactive</span>
+                                  <span style={{ flex: 1, height: 1, background: '#EEF2F6' }} />
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9', opacity: x.m.isActive === false ? 0.75 : 1 }}>
+                                <div style={{ flex: 2, minWidth: 180, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <img
+                                    src={empAvatar(x.m.employeeId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(empName(x.m.employeeId) === DASH ? '?' : empName(x.m.employeeId))}&background=eeeeee&color=888888&size=20&rounded=true`}
+                                    alt=""
+                                    style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                                  />
+                                  <span style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName(x.m.employeeId)}</span>
+                                </div>
+                                <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.startDate} onChange={v => updateRosterRow(x.i, { startDate: v })} /></div>
+                                <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={x.m.endDate} onChange={v => updateRosterRow(x.i, { endDate: v })} /></div>
+                                <div style={{ flex: 1, minWidth: 120 }}><ToggleEditor value={x.m.isActive !== false} onChange={v => applyStatusToggle(v, x.m, patch => updateRosterRow(x.i, patch))} onLabel="Active" offLabel="Inactive" /></div>
+                                <div style={{ flex: 1, minWidth: 150 }}>
+                                  <ManagerCell employeeId={x.m.employeeId} managerIds={managerDraft} onChange={setManagerDraft} />
+                                </div>
+                                <button type="button" onClick={() => removeRosterRow(x.i)} title="Remove from roster" style={removeBtn}><i className="bi bi-trash" /></button>
+                              </div>
+                            </React.Fragment>
+                          ))}
                         </div>
-                      </React.Fragment>
-                    ));
+                      );
+                    };
+                    const indexed = rosterDraft.map((m, i) => ({ m, i }));
+                    return (
+                      <>
+                        {renderGroup('Current Team', indexed.filter(x => !x.m._added), '#475569')}
+                        {renderGroup(`Incoming — ${selectedTeamName}`, indexed.filter(x => x.m._added), '#1e40af')}
+                      </>
+                    );
                   })()}
                 </div>
               )}
@@ -876,84 +893,6 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             </Modal.Footer>
           </>
         )}
-      </Modal>
-
-      {/* Project-manager dialog: opened by the "Assign/Change Manager" button above.
-          Nothing is written until Save is clicked. */}
-      <Modal show={showPmModal} onHide={() => !savingPm && setShowPmModal(false)} centered size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title style={{ fontSize: 14, fontWeight: 600 }}>Project Managers</Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: 16 }}>
-          {pmDraft.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, padding: '0 0 6px', fontFamily: 'Inter', fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              <div style={{ flex: 1, minWidth: 200 }}>Manager</div>
-              <div style={{ width: 90, textAlign: 'center' }}>Primary</div>
-              <div style={{ width: 32 }} />
-            </div>
-          )}
-
-          {pmDraft.length === 0 && (
-            <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#94A3B8', padding: '8px 0 12px' }}>
-              No managers assigned — add one below.
-            </div>
-          )}
-
-          {pmDraft.map((row, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <SearchableSelectEditor
-                  value={row.employeeId}
-                  options={employeeOptions}
-                  onChange={v => setPmRowEmployee(i, v)}
-                  placeholder="Select project manager"
-                  formatOptionLabel={formatEmployeeOption}
-                />
-              </div>
-              <div style={{ width: 90, display: 'flex', justifyContent: 'center' }}>
-                <input
-                  type="radio"
-                  name="pm-primary"
-                  checked={row.isPrimary}
-                  onChange={() => setPmPrimary(i)}
-                  disabled={!row.employeeId}
-                  title={row.employeeId ? 'Make this the primary manager' : 'Pick a manager first'}
-                  style={{ width: 18, height: 18, cursor: row.employeeId ? 'pointer' : 'not-allowed', accentColor: '#1E3A8A' }}
-                />
-              </div>
-              <button type="button" onClick={() => removePmRow(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
-            </div>
-          ))}
-
-          <button type="button" onClick={addPmRow} style={addBtn}><i className="bi bi-plus-lg" /> Add manager</button>
-
-          {pmHasDuplicates && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, padding: '10px 12px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fde68a', fontFamily: 'Inter', fontSize: 12.5, color: '#92400e' }}>
-              <i className="bi bi-exclamation-triangle" style={{ marginTop: 1 }} />
-              <span>The same person is selected more than once — the duplicate will be ignored on save.</span>
-            </div>
-          )}
-
-          <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#94A3B8', marginTop: 10 }}>
-            {pmDraftClean.length > 1
-              ? 'The primary manager is the one shown in the projects tables and exports; all managers can see this project.'
-              : 'Execution Team and Status are unaffected.'}
-          </div>
-        </Modal.Body>
-        <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6' }}>
-          <button type="button" className="btn btn-light btn-sm" onClick={() => setShowPmModal(false)} disabled={savingPm}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={confirmPmChange}
-            disabled={savingPm || !pmDirty}
-            style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
-          >
-            {savingPm ? 'Saving...' : 'Save'}
-          </button>
-        </Modal.Footer>
       </Modal>
 
       {/* ── External Team ─────────────────────────────────────────────────── */}

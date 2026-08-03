@@ -753,7 +753,9 @@ const DashboardDailyAttendanceOverview = () => {
                             .add(graceTime.seconds, 'second');
 
                           const actualCheckIn = dayjs(emp.attendance.checkIn);
-                          isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn);
+                          // Late-night waiver (server verdict) wins over the shift+grace comparison.
+                          isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn)
+                            && !(emp.attendance as any)?.lateWaived;
 
                           // Calculate early check-out
                           const expectedCheckOut = dayjs(emp.attendance.checkOut)
@@ -812,7 +814,9 @@ const DashboardDailyAttendanceOverview = () => {
                             .add(graceTime.seconds, 'second');
 
                           const actualCheckIn = dayjs(emp.attendance.checkIn);
-                          isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn);
+                          // Late-night waiver (server verdict) wins over the shift+grace comparison.
+                          isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn)
+                            && !(emp.attendance as any)?.lateWaived;
                         }
 
                         // Employee hasn't checked out yet — duration is unknown, so only flag late check-in

@@ -24,7 +24,7 @@ import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from './MaterialTable';
 import { convertMinutesIntoHrMinFormat, convertToIST, convertToTime, isValidTime, markWeekendOrHoliday, markWeekendOrHolidayForReportsTable } from '@utils/statistics';
 import { useDispatch, useSelector } from 'react-redux';
-import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, REQUEST_RAISE_DISABLE_MESSAGE, resourceNameMapWithCamelCase, Status, weekDays } from '@constants/statistics';
+import { permissionConstToUseWithHasPermission, REQUEST_RAISE_DISABLE_MESSAGE, resourceNameMapWithCamelCase, Status, weekDays } from '@constants/statistics';
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues } from 'formik';
 import TextInput from '../inputs/TextInput';
@@ -1556,15 +1556,24 @@ export const StatisticsTable = ({
                 }
             );
         }
+    }, [])
+
+    // Leave-management config, scoped to the VIEWED employee's org/branch — the on-site
+    // deadline it carries is what colours their check-ins. Unscoped, every employee was
+    // coloured by the WISETECH GROUP default even when their branch overrides it.
+    useEffect(() => {
         async function fetchLeaveConfig() {
-
-            const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-            const jsonObject = safeJsonParse(configuration.configuration?.configuration);
-
-            setLeaveConfiguration(jsonObject);
+            const { data: configuration } = await fetchConfiguration(
+                LEAVE_MANAGEMENT, undefined, undefined,
+                {
+                    companyId: fromAdmin ? (selThresholdCompanyId || curThresholdCompanyId) : curThresholdCompanyId,
+                    branchId: fromAdmin ? (selThresholdBranchId || curThresholdBranchId) : curThresholdBranchId,
+                },
+            );
+            setLeaveConfiguration(safeJsonParse(configuration.configuration?.configuration));
         }
         fetchLeaveConfig();
-    }, [])
+    }, [fromAdmin, selThresholdCompanyId, selThresholdBranchId, curThresholdCompanyId, curThresholdBranchId])
 
     // MODIFIED: Use currentRowData to get latitude/longitude
     const handleSubmit = async (values: any, actions: FormikValues) => {
@@ -2441,6 +2450,11 @@ export const ReportsTable = ({
     const [workingMethodOptions, setWorkingMethodOptions] = useState([]);
     const [currentRowData, setCurrentRowData] = useState<any>(null);
     const companyId = useSelector((state: RootState) => state.employee.currentEmployee.companyId);
+    // Config scope for the VIEWED employee (selected when admin, else self) — same rule the
+    // threshold fetch uses, so on-site colouring follows the org/branch override, not global.
+    const curCfgBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const selCfgCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
+    const selCfgBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
     const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
     const attendanceRequestWithIsHolidayorWeekend = markWeekendOrHoliday(attendanceRequests, allWeekends, allHolidays);
     const allEmployees = useSelector((state: RootState) => state.allEmployees?.list);
@@ -2453,12 +2467,17 @@ export const ReportsTable = ({
         }
         getWorkingMethods();
         async function fetchLeaveConfig() {
-            const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-            const jsonObject = safeJsonParse(configuration.configuration?.configuration);
-            setLeaveConfiguration(jsonObject);
+            const { data: configuration } = await fetchConfiguration(
+                LEAVE_MANAGEMENT, undefined, undefined,
+                {
+                    companyId: fromAdmin ? (selCfgCompanyId || companyId) : companyId,
+                    branchId: fromAdmin ? (selCfgBranchId || curCfgBranchId) : curCfgBranchId,
+                },
+            );
+            setLeaveConfiguration(safeJsonParse(configuration.configuration?.configuration));
         }
         fetchLeaveConfig();
-    }, []);
+    }, [fromAdmin, selCfgCompanyId, selCfgBranchId, companyId, curCfgBranchId]);
     const worktypeColorValues = useSelector((state: RootState) => state?.customColors?.workingLocation);
     const deleteRequest = async (values: any) => {
 

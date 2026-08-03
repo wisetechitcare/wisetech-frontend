@@ -49,7 +49,11 @@ const PeriodTabs = ({
             border: '1px solid #eef2f7',
             width: isMobile ? '100%' : 'fit-content',
             maxWidth: '100%',
-            overflowX: 'auto',
+            // The selected-tab arrow sits above the group's top edge, so the
+            // group cannot clip. On mobile the six tabs still need to scroll,
+            // and scrolling requires clipping — so the arrow is desktop-only.
+            overflowX: isMobile ? 'auto' : 'visible',
+            overflowY: 'visible',
             '& .MuiToggleButtonGroup-grouped': {
                 border: 0,
                 borderRadius: '4px !important',
@@ -67,6 +71,7 @@ const PeriodTabs = ({
                 textTransform: 'none',
                 whiteSpace: 'nowrap',
                 letterSpacing: 0,
+                overflow: 'visible',
             },
             '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                 marginLeft: 0,
@@ -80,6 +85,24 @@ const PeriodTabs = ({
                 color: `${selectedColor} !important`,
                 fontWeight: 700,
                 boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
+                position: 'relative',
+                overflow: 'visible',
+                // Caret above the active tab. The white pill alone reads as
+                // selected only once you compare it against its neighbours;
+                // the caret points at one tab and needs no comparison.
+                '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    top: '-5px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 0,
+                    height: 0,
+                    borderLeft: '5px solid transparent',
+                    borderRight: '5px solid transparent',
+                    borderTop: `5px solid ${selectedColor}`,
+                    zIndex: 10,
+                },
             },
             ...sx,
         }}

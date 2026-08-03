@@ -30,9 +30,19 @@ export interface AddEditIncrementDialogProps {
     record?: IncrementRecord | null;
     /** Preloaded history for the previous-salary preview. When omitted, the dialog fetches it on open. */
     history?: IncrementRecord[];
+    /** Employee's joining date — the month picker starts there (nothing can take effect before it). */
+    joiningDate?: string | null;
     /** Called after a successful create/update — caller refetches its own data. */
     onSuccess?: () => void;
 }
+
+/**
+ * The API rejects an annual CTC under ₹1,000 (yup `min` on both salary-history
+ * schemas). Mirror that floor here — otherwise the save leaves as valid and
+ * comes back as a bare 422 the user cannot act on.
+ */
+const MIN_ANNUAL_CTC = 1000;
+const MIN_MONTHLY_SALARY = Math.ceil(MIN_ANNUAL_CTC / 12);
 
 const fieldSx = {
     '& .MuiOutlinedInput-root': {
@@ -51,6 +61,7 @@ const AddEditIncrementDialog: React.FC<AddEditIncrementDialogProps> = ({
     employeeName,
     record = null,
     history,
+    joiningDate,
     onSuccess,
 }) => {
     const isEdit = !!record;
@@ -94,14 +105,22 @@ const AddEditIncrementDialog: React.FC<AddEditIncrementDialogProps> = ({
         return active?.newSalary ?? 0;
     }, [effectiveHistory, selectedDate, record]);
 
-    const minDate = dayjs().subtract(5, 'year').startOf('month');
+    // Increments start at the joining month; fall back to 5 years back when it's unknown.
+    const joined = joiningDate ? dayjs(joiningDate) : null;
+    const minDate = (joined?.isValid() ? joined : dayjs().subtract(5, 'year')).startOf('month');
     const isBackdated = !!selectedDate && selectedDate.isBefore(dayjs().startOf('month'), 'month');
     const isFuture = !!selectedDate && selectedDate.isAfter(dayjs().endOf('month'), 'month');
 
     const salaryNum = Number(newSalary);
-    const salaryError = touched && (!newSalary || isNaN(salaryNum) || salaryNum <= 0);
+    const salaryProblem =
+        !newSalary || isNaN(salaryNum) || salaryNum <= 0
+            ? 'Enter a valid positive salary'
+            : salaryNum * 12 < MIN_ANNUAL_CTC
+                ? `Monthly salary must be at least ₹${MIN_MONTHLY_SALARY}`
+                : null;
+    const salaryError = touched && !!salaryProblem;
     const dateError = touched && (!selectedDate || !selectedDate.isValid());
-    const isValid = !!newSalary && !isNaN(salaryNum) && salaryNum > 0 && !!selectedDate && selectedDate.isValid();
+    const isValid = !salaryProblem && !!selectedDate && selectedDate.isValid();
 
     const incrementAmt = salaryNum - previousSalary;
     const incrementPct = previousSalary > 0 ? Number(((incrementAmt / previousSalary) * 100).toFixed(2)) : 0;
@@ -130,10 +149,16 @@ const AddEditIncrementDialog: React.FC<AddEditIncrementDialogProps> = ({
             onSuccess?.();
             onClose();
         } catch (error: any) {
+            // `message` is only the HTTP status text ("Unprocessable Entity") — the
+            // reason lives in validationError / detail. Read those first.
+            const data = error?.response?.data;
+            const fieldErrors: string = (data?.validationError ?? [])
+                .flatMap((v: any) => v?.errors ?? [])
+                .join('\n');
             alertDialog({
                 icon: 'error',
                 title: isEdit ? 'Failed to update increment' : 'Failed to add increment',
-                text: error?.response?.data?.message || error?.message || 'Something went wrong. Please try again.',
+                text: fieldErrors || data?.detail || data?.message || error?.message || 'Something went wrong. Please try again.',
             });
         } finally {
             setSubmitting(false);
@@ -227,7 +252,7 @@ const AddEditIncrementDialog: React.FC<AddEditIncrementDialogProps> = ({
                         onChange={(e) => setNewSalary(e.target.value)}
                         onBlur={() => setTouched(true)}
                         error={salaryError}
-                        helperText={salaryError ? 'Enter a valid positive salary' : undefined}
+                        helperText={salaryError ? salaryProblem : undefined}
                         placeholder="e.g. 20000"
                         fullWidth
                         sx={fieldSx}

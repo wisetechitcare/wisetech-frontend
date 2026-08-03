@@ -1,5 +1,6 @@
 import { toAbsoluteUrl } from '@metronic/helpers';
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import { usePersistedState } from "@app/modules/common/hooks/usePersistedState";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { handleDatesChange } from '@utils/statistics';
 import dayjs from 'dayjs';
@@ -24,7 +25,11 @@ interface MaterialToggleProps {
 };
 
 const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensitiveData, monthlyApiData, isApiDataLoading, onRefreshSalaryData, isRefreshing, disableFutureDates = true }: MaterialToggleProps) => {
-    const [alignment, setAlignment] = useState('monthly');
+    const [alignment, setAlignment] = usePersistedState(
+        'salaryReportPeriodMode',
+        'monthly',
+        ['monthly', 'yearly', 'alltime'] as const
+    );
 
     const [month, setMonth] = useState(dayjs());
     const [year, setYear] = useState(dayjs());

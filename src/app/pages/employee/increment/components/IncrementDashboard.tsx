@@ -10,9 +10,10 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import LayersIcon from '@mui/icons-material/Layers';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { IncrementRecord, YearlyAnalytics, AllTimeAnalytics } from '@services/incrementService';
-import { formatCurrencyRounded } from '@utils/currency';
+import { incrementService, IncrementRecord, YearlyAnalytics, AllTimeAnalytics } from '@services/incrementService';
+import { formatCurrencyRounded, formatCurrencyDecimal } from '@utils/currency';
 import { T } from '@app/modules/common/components/ui/tokens';
+import { toast, alertDialog, confirmDialog } from '@app/modules/common/components/ui/feedback';
 import AddEditIncrementDialog from '@app/modules/employee/salary/AddEditIncrementDialog';
 import { IncrementMode, UseIncrementDataResult } from '../useIncrementData';
 import IncrementKPISection, { KPICardConfig } from './IncrementKPISection';
@@ -183,6 +184,31 @@ const IncrementDashboard = ({
     const handleView = (r: IncrementRecord) => { setSelectedRecord(r); setShowDetailDialog(true); };
     const handleEdit = (r: IncrementRecord) => { setSelectedRecord(r); setShowEditDialog(true); };
 
+    const handleDelete = async (r: IncrementRecord) => {
+        const ok = await confirmDialog({
+            icon: 'warning',
+            title: 'Delete this revision?',
+            html: `The revision effective <b>${dayjs(r.effectiveDate).format('DD MMM YYYY')}</b> `
+                + `(${formatCurrencyDecimal(r.newSalary)}/month) will be removed and the previous salary `
+                + 'will carry through that period instead. This cannot be undone.',
+            confirmText: 'Delete',
+            danger: true,
+        });
+        if (!ok) return;
+
+        try {
+            await incrementService.deleteIncrement(r.id);
+            toast({ icon: 'success', title: 'Increment deleted' });
+            refetch();
+        } catch (error: any) {
+            alertDialog({
+                icon: 'error',
+                title: 'Failed to delete increment',
+                text: error?.response?.data?.message || error?.message || 'Something went wrong. Please try again.',
+            });
+        }
+    };
+
     if (error) {
         return (
             <Paper elevation={0} sx={{ borderRadius: `${T.radius.lg}px`, border: `1px solid ${T.color.line}`, mb: 2 }}>
@@ -295,6 +321,7 @@ const IncrementDashboard = ({
                             fromAdmin={fromAdmin}
                             onView={handleView}
                             onEdit={fromAdmin ? handleEdit : undefined}
+                            onDelete={fromAdmin ? handleDelete : undefined}
                         />
                     </Box>
 
@@ -332,6 +359,7 @@ const IncrementDashboard = ({
                     employeeName={employeeName}
                     record={selectedRecord}
                     history={history}
+                    joiningDate={joiningDate}
                     onSuccess={refetch}
                 />
             )}

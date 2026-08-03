@@ -697,6 +697,16 @@ export const updateSalaryHistory = async (id: string, payload: { employeeId?: st
     }
 }
 
+export const deleteSalaryHistory = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.DELETE_SALARY_HISTORY}/${id}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+}
+
 export const fetchSalaryDataForDateRangeMonthly = async (params: { employeeId: string; startDate: string; endDate: string }) => {
     try {
         const { employeeId, startDate, endDate } = params;

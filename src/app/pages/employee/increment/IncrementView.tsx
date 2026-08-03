@@ -164,6 +164,7 @@ function IncrementView({ fromAdmin = false }: { fromAdmin?: boolean }) {
                     employeeId={employee.id}
                     employeeName={employeeName}
                     history={data.history}
+                    joiningDate={employee?.dateOfJoining ? String(employee.dateOfJoining) : undefined}
                     onSuccess={data.refetch}
                 />
             )}

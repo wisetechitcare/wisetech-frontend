@@ -944,6 +944,7 @@ const ProjectTablePage = () => {
                 isMobile={isMobile}
               />
             )}
+
             {alignment === "custom" && (
               <div className="d-flex align-items-center gap-2">
                 <LocalizationProvider dateAdapter={AdapterDayjs}>

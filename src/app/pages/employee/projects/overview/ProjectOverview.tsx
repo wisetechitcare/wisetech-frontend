@@ -7,6 +7,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { Container } from "@mui/material";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import { usePersistedState } from "@app/modules/common/hooks/usePersistedState";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import {
   getProjectsByStatusAnalytics,
@@ -49,7 +50,11 @@ const ProjectOverview = () => {
   const today = dayjs();
 
   // ── Period selection (Monthly / Yearly / Custom) — mirrors Leads Overview ──
-  const [alignment, setAlignment] = useState<string>("yearly");
+  const [alignment, setAlignment] = usePersistedState(
+    "projectOverviewPeriodMode",
+    "yearly",
+    ["monthly", "yearly", "alltime", "custom"] as const
+  );
 
   const [monthStart, setMonthStart] = useState(today.startOf("month"));
   const [monthEnd, setMonthEnd] = useState(today.endOf("month"));
@@ -315,19 +320,13 @@ const ProjectOverview = () => {
     };
 
     fetchData();
-  }, [startStr, endStr, yearStart, yearEnd]);
-
-  if (loading) return <Loader />;
-
-  if (error) {
-    return (
-      <div className="container-fluid">
-        <div className="alert alert-danger" role="alert">
-          Error loading project analytics: {error}
-        </div>
-      </div>
-    );
-  }
+    // yearStart/yearEnd deliberately excluded: they only affect the trend-clamp
+    // fallback read inside the effect body, and any real change to them already
+    // flows through startStr/endStr (in "yearly" mode) — including them here
+    // re-triggers this effect (and briefly re-shows the Loader below) whenever
+    // the fiscal-year calc resolves, even while a non-"yearly" period is active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startStr, endStr]);
 
   return (
     <div>
@@ -371,7 +370,7 @@ const ProjectOverview = () => {
               { label: "All Time", value: "alltime" },
               { label: "Custom", value: "custom" },
             ]}
-            onChange={(val) => setAlignment(val)}
+            onChange={(val) => setAlignment(val as typeof alignment)}
             ariaLabel="view selection"
           />
           {/* Compact navigator (fit-content on desktop, full-width on mobile via
@@ -395,11 +394,7 @@ const ProjectOverview = () => {
               />
             )}
 
-            {alignment === "alltime" && (
-              <div style={{ textAlign: "center", opacity: 0.7, fontSize: "14px", whiteSpace: "nowrap", alignSelf: "center" }}>
-                All-Time Summary
-              </div>
-            )}
+
 
             {alignment === "custom" && (
               <div className="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-3 gap-sm-4 w-100">
@@ -439,7 +434,13 @@ const ProjectOverview = () => {
         />
       </div>
 
-      {!rangeReady ? (
+      {loading ? (
+        <Loader />
+      ) : error ? (
+        <div className="alert alert-danger" role="alert">
+          Error loading project analytics: {error}
+        </div>
+      ) : !rangeReady ? (
         alignment === "custom" ? (
           <Container
             className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"

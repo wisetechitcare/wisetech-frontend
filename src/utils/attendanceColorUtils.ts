@@ -3,6 +3,7 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 import durationPlugin from 'dayjs/plugin/duration';
 import {
   ENFORCE_ONSITE_DEADLINE_KEY,
+  ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY,
   GRACE_TIME_ON_SITE_KEY,
 } from '@constants/configurations-key';
 import { ATTENDANCE_STATUS, WORKING_METHOD_TYPE } from '@constants/attendance';
@@ -52,17 +53,44 @@ export function isOnsiteWorkingMethod(method?: string | null): boolean {
   return key === 'onsite' || method === WORKING_METHOD_TYPE.ON_SITE;
 }
 
-/** Reads Enforce Onsite Deadline from leave-management JSON (default: enforced). */
+/**
+ * Master policy switch — Attendance Settings → "On-site, Holiday & Weekend Settings
+ * for late attendance". When ON, on-site check-ins never show a late mark (holiday and
+ * weekend rows are already muted by `shouldApplyCheckInColoring`). Stored by the
+ * settings UI as "1" / "0"; absent → OFF.
+ * Mirrors the backend `isOnsiteHolidayWeekendExemptionEnabled`; keep the two in step.
+ */
+export function isOnsiteHolidayWeekendExemptionEnabled(
+  leaveConfig?: Record<string, unknown> | null
+): boolean {
+  const raw = (leaveConfig ?? {})[ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY];
+  if (raw === undefined || raw === null) return false;
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw === 'number') return raw > 0;
+  const lowered = String(raw).trim().toLowerCase();
+  return lowered === '1' || lowered === 'true' || lowered === 'yes' || lowered === 'on';
+}
+
+/**
+ * On-site check-ins are never late by DEFAULT — the deadline applies only when
+ * "Enforce Onsite Deadline" is explicitly ON *and* a "Grace Time - On Site" is set.
+ * Mirrors the backend `parseOnsiteGraceConfig`; keep the two in step.
+ */
 export function isOnsiteDeadlineEnforced(
   leaveConfig?: Record<string, unknown> | null
 ): boolean {
   const config = leaveConfig ?? {};
   const raw = config[ENFORCE_ONSITE_DEADLINE_KEY];
-  if (typeof raw === 'boolean') return raw;
-  if (raw === undefined || raw === null) return true;
-  const lowered = String(raw).trim().toLowerCase();
-  if (lowered === 'false' || lowered === '0' || lowered === 'no') return false;
-  return true;
+  const toggledOn =
+    typeof raw === 'boolean'
+      ? raw
+      : raw !== undefined && raw !== null
+        ? ['true', '1', 'yes', 'on'].includes(String(raw).trim().toLowerCase())
+        : false;
+  if (!toggledOn) return false;
+
+  const deadline = config[GRACE_TIME_ON_SITE_KEY];
+  return deadline !== undefined && deadline !== null && String(deadline).trim() !== '';
 }
 
 function parseOnsiteClockDeadline(raw: unknown): { hour: number; minute: number; label: string } {
@@ -137,6 +165,12 @@ export type ResolveCheckInColorInput = {
   leaveConfig?: Record<string, unknown> | null;
   /** Weekend/holiday/leave rows — show muted, no red/green */
   skipColoring?: boolean;
+  /**
+   * Server verdict: this day's late mark is waived (the previous work day ran past the
+   * configured late-night cutoff). Comes from the API — the rule lives on the backend so
+   * every screen and payroll agree; never re-derive it here.
+   */
+  lateWaived?: boolean;
 };
 
 /**
@@ -150,10 +184,21 @@ export function resolveCheckInColor(input: ResolveCheckInColorInput): CheckInCol
     lateCheckInThreshold,
     leaveConfig,
     skipColoring = false,
+    lateWaived = false,
   } = input;
 
   if (skipColoring || isAttendanceTimeMissing(checkIn)) {
     return { tone: 'muted', color: ATTENDANCE_COLORS.muted, isLate: false };
+  }
+
+  // Late-night waiver — worked past the cutoff the previous day, so today is never late.
+  if (lateWaived) {
+    return {
+      tone: 'success',
+      color: ATTENDANCE_COLORS.success,
+      isLate: false,
+      tooltip: 'On time — late mark waived after a late-night shift the previous day',
+    };
   }
 
   const referenceDate = date || dayjs().format('YYYY-MM-DD');
@@ -163,6 +208,18 @@ export function resolveCheckInColor(input: ResolveCheckInColorInput): CheckInCol
   }
 
   if (isOnsiteWorkingMethod(workingMethod)) {
+    // Master policy switch outranks the deadline (ladder rule 2 in the backend
+    // lateMarkPolicy). Checked BEFORE enforcement so a company that switched on-site
+    // late marks off never sees a red on-site row.
+    if (isOnsiteHolidayWeekendExemptionEnabled(leaveConfig)) {
+      return {
+        tone: 'success',
+        color: ATTENDANCE_COLORS.success,
+        isLate: false,
+        tooltip: 'On-site check-in — late marks disabled by company policy',
+      };
+    }
+
     if (!isOnsiteDeadlineEnforced(leaveConfig)) {
       return {
         tone: 'success',

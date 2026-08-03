@@ -305,6 +305,8 @@ function Overview({ date, range }: OverviewProps) {
     // Calculate late check-in count: employees who checked in after (shift check-in time + grace time)
     const lateRows = attendance.filter(att => {
         if (!att.checkIn) return false;
+        // Late-night waiver (server verdict, same rule payroll applies) — never late.
+        if ((att as any).lateWaived) return false;
 
         const attendanceDate = new Date(att.checkIn);
 
@@ -1051,7 +1053,9 @@ function Overview({ date, range }: OverviewProps) {
                                                         .add(graceTime.seconds, 'second');
 
                                                     const actualCheckIn = dayjs(emp.attendance.checkIn);
-                                                    isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn);
+                                                    // Late-night waiver (server verdict) wins over the shift+grace comparison.
+                                                    isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn)
+                                                        && !(emp.attendance as any)?.lateWaived;
 
                                                     // Calculate early check-out
                                                     const expectedCheckOut = dayjs(emp.attendance.checkOut)
@@ -1108,7 +1112,9 @@ function Overview({ date, range }: OverviewProps) {
                                                         .add(graceTime.seconds, 'second');
 
                                                     const actualCheckIn = dayjs(emp.attendance.checkIn);
-                                                    isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn);
+                                                    // Late-night waiver (server verdict) wins over the shift+grace comparison.
+                                                    isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn)
+                                                        && !(emp.attendance as any)?.lateWaived;
                                                 }
 
                                                 return (
