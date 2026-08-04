@@ -601,6 +601,12 @@ export const PAYMENT_PLAN = {
     CREATE_PAYMENT_PLAN: "api/payment-plans",
     UPDATE_PAYMENT_PLAN: "api/payment-plans/:id",
     DELETE_PAYMENT_PLAN: "api/payment-plans/:id",
+    // Stage deliverables — configuration only; the lead never fetches these.
+    GET_STAGE_DELIVERABLES: "api/payment-plans/stages/:stageId/deliverables",
+    CREATE_STAGE_DELIVERABLE: "api/payment-plans/stages/:stageId/deliverables",
+    REORDER_STAGE_DELIVERABLES: "api/payment-plans/stages/:stageId/deliverables/reorder",
+    UPDATE_DELIVERABLE: "api/payment-plans/deliverables/:deliverableId",
+    DELETE_DELIVERABLE: "api/payment-plans/deliverables/:deliverableId",
 }
 
 // Meeting Schedules (project-type → area brackets → meetings) — configured under Lead
