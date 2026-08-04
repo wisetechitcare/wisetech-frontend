@@ -433,64 +433,39 @@ export const fetchEmployeeLPCChartSettings = async (employeeId: string) => {
     }
 }
 
-export const fetchAllFaqs = async (companyId: string, type?: string) => {
-    try {
-        let endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_FAQS}?companyId=${companyId}`;
-        if (type) {
-            endpoint += `&type=${type}`;
-        }
-        const { data } = await axios.get(endpoint);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
+/**
+ * FAQ transport. The API always answers with the full `{ sections }` shape —
+ * every section present, empty ones included — so callers never branch on
+ * "did this section come back".
+ *
+ * `companyId` is optional on every call: the backend derives the tenant from
+ * the session and only honours an explicit id when it names a sub-org the
+ * caller already belongs to. Passing it is a narrowing hint, never a
+ * requirement, so no screen needs to fetch the company overview first.
+ */
+export const fetchAllFaqs = async (companyId?: string, type?: string) => {
+    const params = new URLSearchParams();
+    if (companyId) params.set('companyId', companyId);
+    if (type) params.set('type', type);
+    const query = params.toString();
+    const { data } = await axios.get(`${API_BASE_URL}/${COMPANY.GET_ALL_FAQS}${query ? `?${query}` : ''}`);
+    return data;
 }
 
-export const createNewFaq = async (faq: IFaqs | { question: string; answer: string; type: string; companyId: string }, type?: string) => {
-    try {
-        let endpoint = `${API_BASE_URL}/${COMPANY.POST_FAQ}`;
-        // Support old pattern with type as query param
-        if (type) {
-            endpoint += `?type=${type}`;
-        }
-        const { data } = await axios.post(endpoint, faq);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
+export const createNewFaq = async (faq: IFaqs | { question: string; answer: string; type: string; companyId?: string }) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${COMPANY.POST_FAQ}`, faq);
+    return data;
 }
 
-export const updateFaqById = async (faqId: string, payload: IFaqs | { question: string; answer: string }, type?: string) => {
-    try {
-        // Support both patterns: with :faqId param and with ?id= query param
-        let endpoint = `${API_BASE_URL}/${COMPANY.UPDATE_FAQ_BY_ID}`;
-        if (endpoint.includes(':faqId')) {
-            endpoint = endpoint.replace(':faqId', faqId);
-        } else {
-            endpoint += `?id=${faqId}`;
-        }
-        if (type) {
-            endpoint += endpoint.includes('?') ? `&type=${type}` : `?type=${type}`;
-        }
-        const { data } = await axios.put(endpoint, payload);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
+export const updateFaqById = async (faqId: string, payload: { question?: string; answer?: string }) => {
+    const endpoint = `${API_BASE_URL}/${COMPANY.UPDATE_FAQ_BY_ID}`.replace(':faqId', encodeURIComponent(faqId));
+    const { data } = await axios.put(endpoint, payload);
+    return data;
 }
 
 export const deleteFaqById = async (faqId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${COMPANY.DELETE_FAQ}${faqId}`;
-        const { data } = await axios.delete(endpoint);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
+    const { data } = await axios.delete(`${API_BASE_URL}/${COMPANY.DELETE_FAQ}${encodeURIComponent(faqId)}`);
+    return data;
 }
 
 export const getAllAnnouncements = async (scope?: 'me') => {
