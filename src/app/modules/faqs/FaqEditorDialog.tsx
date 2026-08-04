@@ -3,18 +3,13 @@ import { KTIcon } from '@metronic/helpers';
 import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui/tw/Glass';
 import { WtButton } from '@app/modules/common/components/ui/tw/Buttons';
 import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
-import {
-    FAQ_ANSWER_MAX,
-    FAQ_QUESTION_MAX,
-    FAQ_SECTION_BY_ID,
-    type Faq,
-    type FaqType,
-} from './types';
+import { FAQ_ANSWER_MAX, FAQ_QUESTION_MAX, type Faq } from './types';
 
 export interface FaqEditorDialogProps {
     open: boolean;
     /** Section the FAQ belongs to — shown as context, never editable on an existing FAQ. */
-    sectionId: FaqType;
+    sectionTitle: string;
+    sectionIcon: string;
     /** Present when editing; omit to create. */
     faq?: Faq | null;
     saving?: boolean;
@@ -30,12 +25,11 @@ export interface FaqEditorDialogProps {
  * Limits mirror the server schema exactly (FAQ_QUESTION_MAX / FAQ_ANSWER_MAX),
  * so the client can never compose a payload the API will reject for length.
  */
-export function FaqEditorDialog({ open, sectionId, faq, saving, onClose, onSave }: FaqEditorDialogProps) {
+export function FaqEditorDialog({ open, sectionTitle, sectionIcon, faq, saving, onClose, onSave }: FaqEditorDialogProps) {
     const [question, setQuestion] = useState('');
     const [answer, setAnswer] = useState('');
     const [touched, setTouched] = useState(false);
 
-    const section = FAQ_SECTION_BY_ID[sectionId];
     const isEdit = Boolean(faq);
 
     // Reset whenever the dialog opens or switches target, so a previous edit
@@ -83,8 +77,8 @@ export function FaqEditorDialog({ open, sectionId, faq, saving, onClose, onSave 
             header={
                 <GlassHeader
                     title={isEdit ? 'Edit question' : 'Add a question'}
-                    subtitle={section?.title}
-                    icon={<KTIcon iconName={section?.icon ?? 'questionnaire-tablet'} className="fs-1 text-white" />}
+                    subtitle={sectionTitle}
+                    icon={<KTIcon iconName={sectionIcon} className="fs-1 text-white" />}
                     onClose={onClose}
                 />
             }

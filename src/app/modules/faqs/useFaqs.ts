@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createNewFaq, deleteFaqById, fetchAllFaqs, updateFaqById } from '@services/company';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { FAQ_SECTIONS, type Faq, type FaqSection, type FaqType } from './types';
+import { resolveSectionKey, type Faq, type FaqSection } from './types';
 
 /**
  * THE FAQ data hook — one fetch path, one cache, one realtime subscription,
@@ -26,29 +26,38 @@ export const FAQS_QUERY_KEY = ['faqs'] as const;
 /** Reference content changes a few times a year; the socket covers the rest. */
 const FAQ_STALE_TIME_MS = 5 * 60 * 1000;
 
-const EMPTY_SECTIONS: FaqSection[] = FAQ_SECTIONS.map(({ id, title }) => ({ id, title, faqs: [] }));
+const EMPTY_SECTIONS: FaqSection[] = [];
 
 /**
  * Normalise whatever the API returned into the canonical section list.
- * Always yields every section in `FAQ_SECTIONS` order, so the UI never has to
- * defend against a missing or extra section.
+ *
+ * The server owns the section list AND its order (`displayOrder`), so this no
+ * longer reconciles against a local constant — it just validates the shape.
+ * A section with no `categoryId` predates the category model and is dropped
+ * rather than rendered as an unmanageable ghost.
  */
 const toSections = (payload: unknown): FaqSection[] => {
     const raw = (payload as { data?: { sections?: unknown } })?.data?.sections;
     if (!Array.isArray(raw)) return EMPTY_SECTIONS;
 
-    const byId = new Map<string, Faq[]>();
-    for (const section of raw as { id?: string; faqs?: Faq[] }[]) {
-        if (section?.id) byId.set(section.id, Array.isArray(section.faqs) ? section.faqs : []);
-    }
-    return FAQ_SECTIONS.map(({ id, title }) => ({ id, title, faqs: byId.get(id) ?? [] }));
+    return (raw as Partial<FaqSection>[])
+        .filter((section): section is FaqSection => Boolean(section?.categoryId))
+        .map((section) => ({
+            id: section.id ?? section.categoryId,
+            categoryId: section.categoryId,
+            title: section.title ?? 'Untitled section',
+            icon: section.icon ?? null,
+            tone: section.tone ?? null,
+            description: section.description ?? null,
+            displayOrder: section.displayOrder ?? 0,
+            isSystem: Boolean(section.isSystem),
+            faqs: Array.isArray(section.faqs) ? section.faqs : [],
+        }));
 };
 
 export interface UseFaqsOptions {
-    /** Limit the board to one section. Omit for all sections. */
-    type?: FaqType;
-    /** Whether the caller may create/edit/delete. Purely presentational — the API enforces it too. */
-    canManage?: boolean;
+    /** Limit the board to one section, by slug. Omit for all sections. */
+    type?: string;
 }
 
 export function useFaqs(options: UseFaqsOptions = {}) {
@@ -56,9 +65,14 @@ export function useFaqs(options: UseFaqsOptions = {}) {
     const queryClient = useQueryClient();
     const [search, setSearch] = useState('');
 
+    // The section filter is part of the cache key: a board scoped to one section
+    // and the full board are different server responses, not a client-side slice
+    // of one — the server decides which sections exist.
+    const sectionKey = resolveSectionKey(type);
+
     const query = useQuery({
-        queryKey: FAQS_QUERY_KEY,
-        queryFn: () => fetchAllFaqs(),
+        queryKey: [...FAQS_QUERY_KEY, sectionKey ?? 'all'],
+        queryFn: () => fetchAllFaqs(undefined, sectionKey),
         select: toSections,
         staleTime: FAQ_STALE_TIME_MS,
     });
@@ -77,7 +91,7 @@ export function useFaqs(options: UseFaqsOptions = {}) {
     // will refresh every other client anyway, so a single refetch keeps all
     // viewers converged on one truth instead of drifting local copies.
     const createMutation = useMutation({
-        mutationFn: (input: { question: string; answer: string; type: FaqType }) => createNewFaq(input),
+        mutationFn: (input: { question: string; answer: string; categoryId: string }) => createNewFaq(input),
         onSuccess: invalidate,
     });
 
@@ -102,7 +116,7 @@ export function useFaqs(options: UseFaqsOptions = {}) {
      * tenant's FAQ count ever reaches the thousands.
      */
     const sections = useMemo(() => {
-        const scoped = type ? allSections.filter((section) => section.id === type) : allSections;
+        const scoped = allSections;
         const needle = search.trim().toLowerCase();
         if (!needle) return scoped;
 
@@ -114,7 +128,7 @@ export function useFaqs(options: UseFaqsOptions = {}) {
                     faq.answer.toLowerCase().includes(needle),
             ),
         }));
-    }, [allSections, type, search]);
+    }, [allSections, search]);
 
     const totalCount = useMemo(
         () => allSections.reduce((sum, section) => sum + section.faqs.length, 0),

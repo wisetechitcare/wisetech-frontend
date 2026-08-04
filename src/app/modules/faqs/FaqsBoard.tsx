@@ -9,7 +9,8 @@ import { confirmDialog, toast } from '@app/modules/common/components/ui/feedback
 import { FaqAccordionItem } from './FaqAccordionItem';
 import { FaqEditorDialog } from './FaqEditorDialog';
 import { useFaqs } from './useFaqs';
-import { FAQ_SECTION_BY_ID, resolveFaqType, type Faq, type FaqType } from './types';
+import { FaqSectionManagerDialog } from './FaqSectionManagerDialog';
+import { resolveIcon, resolveSectionKey, resolveTone, type Faq, type FaqSection } from './types';
 
 export interface FaqsBoardProps {
     /**
@@ -38,7 +39,7 @@ export interface FaqsBoardProps {
  * is what made the previous board feel empty on wide screens.
  */
 export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoardProps) {
-    const sectionType = resolveFaqType(type);
+    const sectionType = resolveSectionKey(type);
     const {
         sections,
         totalCount,
@@ -54,9 +55,10 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
         isSaving,
     } = useFaqs({ type: sectionType });
 
-    const [activeSection, setActiveSection] = useState<FaqType | null>(null);
-    const [editor, setEditor] = useState<{ sectionId: FaqType; faq: Faq | null } | null>(null);
-    const sectionRefs = useRef<Partial<Record<FaqType, HTMLElement | null>>>({});
+    const [activeSection, setActiveSection] = useState<string | null>(null);
+    const [editor, setEditor] = useState<{ section: FaqSection; faq: Faq | null } | null>(null);
+    const [managingSections, setManagingSections] = useState(false);
+    const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
     const showRail = !sectionType && sections.length > 1;
 
@@ -120,7 +122,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                     .filter((entry) => entry.isIntersecting)
                     .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
                 if (visible?.target instanceof HTMLElement) {
-                    const id = visible.target.dataset.sectionId as FaqType | undefined;
+                    const id = visible.target.dataset.sectionId;
                     if (id) setActiveSection(id);
                 }
             },
@@ -134,7 +136,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
         return () => observer.disconnect();
     }, [sections, showRail, stickyOffset]);
 
-    const scrollToSection = useCallback((id: FaqType) => {
+    const scrollToSection = useCallback((id: string) => {
         setActiveSection(id);
         sectionRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, []);
@@ -166,7 +168,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                     await updateFaq({ id: editor.faq.id, ...values });
                     toast({ title: 'Question updated', icon: 'success' });
                 } else {
-                    await createFaq({ ...values, type: editor.sectionId });
+                    await createFaq({ ...values, categoryId: editor.section.categoryId });
                     toast({ title: 'Question added', icon: 'success' });
                 }
                 setEditor(null);
@@ -226,14 +228,26 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                             </h1>
                             <p className="m-0 mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">{headerSubtitle}</p>
                         </div>
-                        {canManage && !sectionType && (
-                            <WtButton
-                                onClick={() => setEditor({ sectionId: sections[0]?.id ?? 'general_rules', faq: null })}
-                                startIcon={<KTIcon iconName="plus" className="fs-5 text-white" />}
-                                className="shrink-0"
-                            >
-                                Add question
-                            </WtButton>
+                        {canManage && (
+                            <div className="flex shrink-0 gap-2">
+                                {!sectionType && (
+                                    <WtButton
+                                        inverted
+                                        onClick={() => setManagingSections(true)}
+                                        startIcon={<KTIcon iconName="abstract-26" className="fs-5" />}
+                                    >
+                                        Sections
+                                    </WtButton>
+                                )}
+                                {sections.length > 0 && (
+                                    <WtButton
+                                        onClick={() => setEditor({ section: sections[0], faq: null })}
+                                        startIcon={<KTIcon iconName="plus" className="fs-5 text-white" />}
+                                    >
+                                        Add question
+                                    </WtButton>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
@@ -256,7 +270,6 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                 {showRail && (
                     <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 lg:hidden">
                         {sections.map((section) => {
-                            const meta = FAQ_SECTION_BY_ID[section.id];
                             const active = activeSection === section.id;
                             return (
                                 <button
@@ -273,7 +286,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                             : 'border-[#D8DEE7] bg-white text-slate-600 hover:border-[#1E3A8A]/40 dark:border-[#30363d] dark:bg-[#161b22] dark:text-slate-300'
                                     }`}
                                 >
-                                    {meta.title}
+                                    {section.title}
                                     <span className="ml-1.5 tabular-nums opacity-60">{section.faqs.length}</span>
                                 </button>
                             );
@@ -293,7 +306,6 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                         className="sticky top-[calc(var(--faq-shell)+var(--faq-head)+0.75rem)] hidden h-fit w-[210px] shrink-0 flex-col gap-0.5 rounded-2xl border border-[#E6E9EE] bg-white p-2 lg:flex dark:border-[#30363d] dark:bg-[#161b22]"
                     >
                         {sections.map((section) => {
-                            const meta = FAQ_SECTION_BY_ID[section.id];
                             const active = activeSection === section.id;
                             return (
                                 <button
@@ -307,8 +319,8 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                             : 'font-medium text-slate-500 hover:bg-slate-100/70 dark:text-slate-400 dark:hover:bg-white/5'
                                     }`}
                                 >
-                                    <KTIcon iconName={meta.icon} className="fs-6 shrink-0" />
-                                    <span className="min-w-0 flex-1 truncate">{meta.title}</span>
+                                    <KTIcon iconName={resolveIcon(section.icon)} className="fs-6 shrink-0" />
+                                    <span className="min-w-0 flex-1 truncate">{section.title}</span>
                                     <span className="shrink-0 text-[12px] tabular-nums opacity-60">{section.faqs.length}</span>
                                 </button>
                             );
@@ -341,7 +353,6 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                     {!isLoading &&
                         !noResults &&
                         sections.map((section) => {
-                            const meta = FAQ_SECTION_BY_ID[section.id];
                             // While searching, hide sections with nothing to show.
                             if (searching && section.faqs.length === 0) return null;
 
@@ -356,29 +367,31 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                     // scrolling it underneath.
                                     className="scroll-mt-[calc(var(--faq-shell)+var(--faq-head)+1rem)]"
                                 >
-                                    <GlassCard preset="section" accentEdge={meta.tone} className="flex flex-col gap-1">
+                                    <GlassCard preset="section" accentEdge={resolveTone(section.tone)} className="flex flex-col gap-1">
                                         <div className="flex items-start gap-3 pb-1">
-                                            <IconBox icon={meta.icon} trio={TRIO[meta.tone]} size={40} />
+                                            <IconBox icon={resolveIcon(section.icon)} trio={TRIO[resolveTone(section.tone)]} size={40} />
                                             <div className="min-w-0 flex-1">
                                                 <h2
                                                     id={`faq-section-${section.id}`}
                                                     className="m-0 text-[15px] font-semibold text-slate-900 dark:text-slate-100"
                                                 >
-                                                    {meta.title}
+                                                    {section.title}
                                                     <span className="ml-2 text-[12px] font-medium tabular-nums text-slate-400">
                                                         {section.faqs.length}
                                                     </span>
                                                 </h2>
-                                                <p className="m-0 mt-0.5 text-[12.5px] text-slate-500 dark:text-slate-400">
-                                                    {meta.blurb}
-                                                </p>
+                                                {section.description && (
+                                                    <p className="m-0 mt-0.5 text-[12.5px] text-slate-500 dark:text-slate-400">
+                                                        {section.description}
+                                                    </p>
+                                                )}
                                             </div>
                                             {canManage && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => setEditor({ sectionId: section.id, faq: null })}
-                                                    aria-label={`Add a question to ${meta.title}`}
-                                                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#E6E9EE] text-slate-500 transition-colors hover:border-[#1E3A8A] hover:text-[#1E3A8A] dark:border-[#30363d] dark:text-slate-400"
+                                                    onClick={() => setEditor({ section, faq: null })}
+                                                    aria-label={`Add a question to ${section.title}`}
+                                                    className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-[#E6E9EE] text-slate-500 transition-colors hover:border-[#1E3A8A] hover:text-[#1E3A8A] dark:border-[#30363d] dark:text-slate-400"
                                                 >
                                                     <KTIcon iconName="plus" className="fs-5" />
                                                 </button>
@@ -393,7 +406,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                                 {canManage && (
                                                     <WtButton
                                                         ghost
-                                                        onClick={() => setEditor({ sectionId: section.id, faq: null })}
+                                                        onClick={() => setEditor({ section, faq: null })}
                                                         startIcon={<KTIcon iconName="plus" className="fs-6" />}
                                                     >
                                                         Add the first question
@@ -407,7 +420,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                                         key={faq.id}
                                                         faq={faq}
                                                         highlight={search}
-                                                        onEdit={canManage ? (target) => setEditor({ sectionId: section.id, faq: target }) : undefined}
+                                                        onEdit={canManage ? (target) => setEditor({ section, faq: target }) : undefined}
                                                         onDelete={canManage ? handleDelete : undefined}
                                                     />
                                                 ))}
@@ -423,13 +436,16 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
             {editor && (
                 <FaqEditorDialog
                     open
-                    sectionId={editor.sectionId}
+                    sectionTitle={editor.section.title}
+                    sectionIcon={resolveIcon(editor.section.icon)}
                     faq={editor.faq}
                     saving={isSaving}
                     onClose={() => setEditor(null)}
                     onSave={handleSave}
                 />
             )}
+
+            <FaqSectionManagerDialog open={managingSections} onClose={() => setManagingSections(false)} />
         </div>
     );
 }

@@ -452,7 +452,14 @@ export const fetchAllFaqs = async (companyId?: string, type?: string) => {
     return data;
 }
 
-export const createNewFaq = async (faq: IFaqs | { question: string; answer: string; type: string; companyId?: string }) => {
+/**
+ * Create a FAQ. The section is identified by `categoryId`; `type` (the section
+ * slug) is still accepted as a legacy alias, and the server resolves whichever
+ * is present against that tenant's own sections. One of the two is required.
+ */
+export const createNewFaq = async (
+    faq: IFaqs | { question: string; answer: string; companyId?: string } & ({ categoryId: string } | { type: string }),
+) => {
     const { data } = await axios.post(`${API_BASE_URL}/${COMPANY.POST_FAQ}`, faq);
     return data;
 }
@@ -465,6 +472,42 @@ export const updateFaqById = async (faqId: string, payload: { question?: string;
 
 export const deleteFaqById = async (faqId: string) => {
     const { data } = await axios.delete(`${API_BASE_URL}/${COMPANY.DELETE_FAQ}${encodeURIComponent(faqId)}`);
+    return data;
+}
+
+/**
+ * FAQ sections (categories) — admin-managed, so the section list is data rather
+ * than a constant. Deleting a non-empty section answers 409 with the blocking
+ * count; the caller surfaces that rather than treating it as a generic failure.
+ */
+export const fetchFaqCategories = async (includeInactive = false) => {
+    const query = includeInactive ? '?includeInactive=true' : '';
+    const { data } = await axios.get(`${API_BASE_URL}/${COMPANY.GET_FAQ_CATEGORIES}${query}`);
+    return data;
+}
+
+export const createFaqCategory = async (payload: { name: string; icon?: string | null; tone?: string | null; description?: string | null }) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${COMPANY.POST_FAQ_CATEGORY}`, payload);
+    return data;
+}
+
+export const updateFaqCategoryById = async (
+    categoryId: string,
+    payload: { name?: string; icon?: string | null; tone?: string | null; description?: string | null; isActive?: boolean },
+) => {
+    const endpoint = `${API_BASE_URL}/${COMPANY.UPDATE_FAQ_CATEGORY_BY_ID}`.replace(':categoryId', encodeURIComponent(categoryId));
+    const { data } = await axios.put(endpoint, payload);
+    return data;
+}
+
+export const deleteFaqCategoryById = async (categoryId: string) => {
+    const endpoint = `${API_BASE_URL}/${COMPANY.DELETE_FAQ_CATEGORY}`.replace(':categoryId', encodeURIComponent(categoryId));
+    const { data } = await axios.delete(endpoint);
+    return data;
+}
+
+export const reorderFaqCategories = async (orderedIds: string[]) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${COMPANY.REORDER_FAQ_CATEGORIES}`, { orderedIds });
     return data;
 }
 
