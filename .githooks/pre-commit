@@ -1,0 +1,22 @@
+#!/bin/sh
+# Fast gate only. The real typecheck runs in pre-push (tsc is ~73s here).
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+secrets=$(printf '%s\n' "$staged" | grep -Ei '(^|/)\.env($|\.)|\.(pem|p12|pfx|key)$')
+if [ -n "$secrets" ]; then
+  echo "pre-commit: refusing to commit secret files:"
+  echo "$secrets"
+  echo "  git restore --staged <file>   (or --no-verify if truly intentional)"
+  exit 1
+fi
+
+# eslint on staged files only. --quiet = errors only; the ~1375 UI-migration
+# warnings are backlog, not a commit blocker.
+ts=$(printf '%s\n' "$staged" | grep -E '\.tsx?$' | grep -v '^src/_metronic/')
+if [ -n "$ts" ]; then
+  echo "$ts" | xargs npx eslint --quiet --no-error-on-unmatched-pattern || {
+    echo "pre-commit: eslint errors - commit blocked"
+    exit 1
+  }
+fi

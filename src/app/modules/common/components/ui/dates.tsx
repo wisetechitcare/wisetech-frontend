@@ -83,6 +83,12 @@ const textFieldSlot = (p: WtDateFieldBaseProps) => ({
   },
   // A visible Clear action — the native input had one and losing it is a regression.
   actionBar: { actions: ['clear', 'today', 'accept'] as ('clear' | 'today' | 'accept')[] },
+  // Calendar sits ABOVE nested dialogs. MUI's popper/dialog default to zIndex.modal
+  // (1300); dialogs that open over another dialog bump to modal+2 (1302), which would
+  // otherwise render the calendar behind them. 1350 clears app dialogs, stays under
+  // snackbars (1400) / tooltips (1500). popper = desktop, dialog = mobile picker.
+  popper: { sx: { zIndex: 1350 } },
+  dialog: { sx: { zIndex: 1350 } },
 });
 
 /**
