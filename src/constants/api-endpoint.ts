@@ -618,6 +618,10 @@ export const PROJECT_EXECUTION = {
     REORDER_STAGE_DELIVERABLES: "api/projects/stages/:stageId/deliverables/reorder",
     UPDATE_DELIVERABLE: "api/projects/deliverables/:deliverableId",
     DELETE_DELIVERABLE: "api/projects/deliverables/:deliverableId",
+    // Execution — status is the only lever; the completion trail is derived server-side.
+    GET_STAGE_PROGRESS: "api/projects/:projectId/stages/:stageId/progress",
+    UPDATE_DELIVERABLE_STATUS: "api/projects/deliverables/:deliverableId/status",
+    UPDATE_DELIVERABLE_REMARKS: "api/projects/deliverables/:deliverableId/remarks",
 }
 
 // Meeting Schedules (project-type → area brackets → meetings) — configured under Lead
