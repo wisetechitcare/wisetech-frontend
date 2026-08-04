@@ -889,90 +889,130 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
           </div>
         )}
 
-        {/* MUI accordion, not Bootstrap's: nothing in this app initializes Bootstrap's
-            Collapse plugin (MasterInit only wires up Tab), so `data-bs-toggle="collapse"`
-            was inert and this panel rendered permanently `display:none` — i.e. blank. */}
-        <Accordion defaultExpanded disableGutters className="mt-5" sx={{ borderRadius: 2, border: "1px solid", borderColor: "divider", "&:before": { display: "none" } }}>
+        {/* ── Advanced Location Details (manual override) ──────────────────────
+            Everything above auto-fills these fields from the map pin. This panel is
+            the manual escape hatch when geocoding gets it wrong.
+
+            WHY MUI <Accordion> AND NOT THE BOOTSTRAP ONE THIS USED TO BE:
+            the old markup was `<button data-bs-toggle="collapse">` + `<div class="collapse">`,
+            which needs Bootstrap's Collapse JS plugin to toggle the `.show` class.
+            This app never loads it — `_metronic/layout/MasterInit.tsx` imports only
+            `Tab` from 'bootstrap' and only instantiates `[data-bs-toggle="tab"]`, and
+            this was the single `data-bs-toggle="collapse"` in all of src/app, so the
+            gap went unnoticed. With no plugin listening, the click did nothing, the
+            body kept Bootstrap's `.collapse { display: none }`, and the section read
+            as permanently blank. MUI's Accordion holds its open/closed state in React,
+            so it needs no third-party JS — and MUI is the project's UI standard anyway
+            (Bootstrap component classes are lint-banned; see CLAUDE.md).
+
+            `defaultExpanded` — open on mount so the fields are visible without a click.
+            `disableGutters` — kills MUI's auto margin so `mt-5` alone controls spacing.
+            `&:before` — hides MUI's default 1px divider, we draw our own border. */}
+        <Accordion
+          defaultExpanded
+          disableGutters
+          className="mt-5"
+          sx={{ borderRadius: 2, border: "1px solid", borderColor: "divider", "&:before": { display: "none" } }}
+        >
           <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "action.hover", fontWeight: 700 }}>
             Advanced Location Details (Manual Override)
           </AccordionSummary>
+
           <AccordionDetails sx={{ p: 3 }}>
-                <Grid container spacing={4}>
-                <Grid item xs={12} md={4}>
-                  <DropDownInput
-                    isRequired={false}
-                    formikField={`${addressPath}.country`}
-                    inputLabel="Country"
-                    options={countryOptions}
-                    onChange={(val: any) => handleAddressCountryChange(index, val?.value, setFieldValue)}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <DropDownInput
-                    isRequired={false}
-                    formikField={`${addressPath}.state`}
-                    inputLabel="State"
-                    options={(states || []).map((x: any) => ({ value: x.id, label: x.name }))}
-                    onChange={(val: any) => handleAddressStateChange(index, val?.value, addressData.country, setFieldValue)}
-                    disabled={!addressData.country}
-                  />
-                  {!addressData.country && (
-                    <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
-                      Select a country first
-                    </span>
-                  )}
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <DropDownInput
-                    isRequired={false}
-                    formikField={`${addressPath}.city`}
-                    inputLabel="City"
-                    options={(cities || []).map((x: any) => ({ value: x.id, label: x.name }))}
-                    disabled={!addressData.state}
-                  />
-                  {!addressData.state && (
-                    <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
-                      Select a state first
-                    </span>
-                  )}
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextInput formikField={`${addressPath}.locality`} label="Locality" isRequired={false} />
-                  <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
-                    Area / neighbourhood — auto-filled from the map, or enter manually.
-                  </span>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextInput formikField={`${addressPath}.pincode`} label="Pincode" isRequired={false} />
-                  {pincodeLoading ? (
-                    <span className="text-muted d-inline-flex align-items-center gap-1 mt-1" style={{ fontSize: 12 }}>
-                      <CircularProgress size={12} /> Looking up city & state…
-                    </span>
-                  ) : (
-                    <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
-                      Enter a 6-digit Indian pincode to auto-fill City &amp; State.
-                    </span>
-                  )}
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <TextInput formikField={`${addressPath}.projectAddress`} label="Formatted Address" isRequired={false} />
-                </Grid>
-
-                <Grid item xs={12} md={3}>
-                  <TextInput formikField={`${addressPath}.latitude`} label="Latitude" isRequired={false} />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextInput formikField={`${addressPath}.longitude`} label="Longitude" isRequired={false} />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextInput
-                    formikField={`${addressPath}.googleMapLink`}
-                    label="Google Map Link"
-                    isRequired={false}
-                  />
-                </Grid>
+            <Grid container spacing={4}>
+              {/* Country → State → City are a dependent chain: picking one loads the
+                  options for the next via the handlers passed down from LeadSections. */}
+              <Grid item xs={12} md={4}>
+                <DropDownInput
+                  isRequired={false}
+                  formikField={`${addressPath}.country`}
+                  inputLabel="Country"
+                  options={countryOptions}
+                  onChange={(val: any) => handleAddressCountryChange(index, val?.value, setFieldValue)}
+                />
               </Grid>
+
+              {/* State stays disabled until a country is chosen — its options come
+                  from values.addressStatesOptions[index], fetched per country. */}
+              <Grid item xs={12} md={4}>
+                <DropDownInput
+                  isRequired={false}
+                  formikField={`${addressPath}.state`}
+                  inputLabel="State"
+                  options={(states || []).map((x: any) => ({ value: x.id, label: x.name }))}
+                  onChange={(val: any) => handleAddressStateChange(index, val?.value, addressData.country, setFieldValue)}
+                  disabled={!addressData.country}
+                />
+                {!addressData.country && (
+                  <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
+                    Select a country first
+                  </span>
+                )}
+              </Grid>
+
+              {/* City likewise waits on state; options come from addressCitiesOptions[index]. */}
+              <Grid item xs={12} md={4}>
+                <DropDownInput
+                  isRequired={false}
+                  formikField={`${addressPath}.city`}
+                  inputLabel="City"
+                  options={(cities || []).map((x: any) => ({ value: x.id, label: x.name }))}
+                  disabled={!addressData.state}
+                />
+                {!addressData.state && (
+                  <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
+                    Select a state first
+                  </span>
+                )}
+              </Grid>
+
+              {/* Locality = area/neighbourhood below city level; written by parseAddressComponents. */}
+              <Grid item xs={12} md={6}>
+                <TextInput formikField={`${addressPath}.locality`} label="Locality" isRequired={false} />
+                <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
+                  Area / neighbourhood — auto-filled from the map, or enter manually.
+                </span>
+              </Grid>
+
+              {/* Typing a full 6-digit pincode triggers lookupPincode() (India Post),
+                  which back-fills country/state/city — hence the loading hint. */}
+              <Grid item xs={12} md={6}>
+                <TextInput formikField={`${addressPath}.pincode`} label="Pincode" isRequired={false} />
+                {pincodeLoading ? (
+                  <span className="text-muted d-inline-flex align-items-center gap-1 mt-1" style={{ fontSize: 12 }}>
+                    <CircularProgress size={12} /> Looking up city & state…
+                  </span>
+                ) : (
+                  <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
+                    Enter a 6-digit Indian pincode to auto-fill City &amp; State.
+                  </span>
+                )}
+              </Grid>
+
+              {/* Full formatted address — mirrors the search box / reverse-geocode result. */}
+              <Grid item xs={12} md={6}>
+                <TextInput formikField={`${addressPath}.projectAddress`} label="Formatted Address" isRequired={false} />
+              </Grid>
+
+              {/* Lat/Lng are the source of truth for the pin; editing them by hand is
+                  the override path when the map can't be clicked accurately enough. */}
+              <Grid item xs={12} md={3}>
+                <TextInput formikField={`${addressPath}.latitude`} label="Latitude" isRequired={false} />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextInput formikField={`${addressPath}.longitude`} label="Longitude" isRequired={false} />
+              </Grid>
+
+              {/* Pasting a link here runs the resolveLink effect → coordinates → pin.
+                  Dropping a pin writes back here automatically (buildGoogleMapsLink). */}
+              <Grid item xs={12} md={6}>
+                <TextInput
+                  formikField={`${addressPath}.googleMapLink`}
+                  label="Google Map Link"
+                  isRequired={false}
+                />
+              </Grid>
+            </Grid>
           </AccordionDetails>
         </Accordion>
       </div>
