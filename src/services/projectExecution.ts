@@ -19,6 +19,8 @@ export type DeliverableStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED";
  *
  *  `startedAt` / `completedAt` / `completedById` are DERIVED server-side from status
  *  changes — never send them; they are read-only here. */
+export type DeliverablePriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
 export interface ProjectDeliverable {
   id: string;
   projectStageId: string;
@@ -27,6 +29,15 @@ export interface ProjectDeliverable {
   description?: string | null;
   sortOrder: number;
   isCustom: boolean;
+  /** This deliverable's share of ITS STAGE. The shares within one stage total 100. */
+  percentage: number | string;
+  /** READ ONLY — always (stage amount x percentage / 100). Never send it. */
+  calculatedAmount: number | string;
+  priority: DeliverablePriority;
+  category?: string | null;
+  estimatedDays?: number | null;
+  isBillable: boolean;
+  isMandatory: boolean;
   status: DeliverableStatus;
   startedAt?: string | null;
   completedAt?: string | null;
@@ -49,6 +60,14 @@ export interface StageProgress {
   status: DeliverableStatus;
 }
 
+/** Running percentage total for a stage. `isBalanced` is what the UI warns on. */
+export interface PercentageSummary {
+  percentageTotal: number;
+  isBalanced: boolean;
+  /** Signed distance from 100 — negative means over-allocated. */
+  remaining: number;
+}
+
 /** A project stage. `amount` is derived server-side (percentage of the commercial total). */
 export interface ProjectStage {
   id: string;
@@ -58,12 +77,20 @@ export interface ProjectStage {
   sortOrder: number;
   paymentPlanStageId?: string | null;
   progress: StageProgress;
+  allocation: PercentageSummary;
   deliverables: ProjectDeliverable[];
 }
 
+/** `calculatedAmount` is deliberately absent — it is derived, never posted. */
 export interface DeliverablePayload {
   name?: string;
   description?: string | null;
+  percentage?: number;
+  priority?: DeliverablePriority;
+  category?: string | null;
+  estimatedDays?: number | null;
+  isBillable?: boolean;
+  isMandatory?: boolean;
 }
 
 export const getProjectStages = async (projectId: string): Promise<ProjectStage[]> => {
@@ -93,10 +120,31 @@ export const updateProjectDeliverable = async (
   return data?.deliverable;
 };
 
-export const deleteProjectDeliverable = async (deliverableId: string) => {
+/** Returns the stage's new percentage total — deleting a row almost always unbalances it,
+ *  and the remaining percentages are deliberately NOT redistributed. */
+export const deleteProjectDeliverable = async (
+  deliverableId: string,
+): Promise<{ allocation: PercentageSummary }> => {
   const endpoint = `${API_BASE_URL}/${PROJECT_EXECUTION.DELETE_DELIVERABLE.replace(":deliverableId", deliverableId)}`;
   const { data } = await axios.delete(endpoint);
-  return data;
+  return { allocation: data?.allocation };
+};
+
+/** Re-derive every deliverable amount in a stage from the CURRENT stage amount. Use after
+ *  the project's commercials change, since that moves stage amounts with no write here. */
+export const recalculateStageAmounts = async (
+  stageId: string,
+): Promise<{ deliverables: ProjectDeliverable[]; allocation: PercentageSummary; stageAmount: number }> => {
+  const endpoint = `${API_BASE_URL}/${PROJECT_EXECUTION.RECALCULATE_STAGE_AMOUNTS.replace(":stageId", stageId)}`;
+  const { data } = await axios.put(endpoint);
+  return { deliverables: data?.deliverables ?? [], allocation: data?.allocation, stageAmount: data?.stageAmount };
+};
+
+/** Categories already in use. Free text, so this is a suggestion list, not a closed set. */
+export const getDeliverableCategories = async (): Promise<string[]> => {
+  const endpoint = `${API_BASE_URL}/${PROJECT_EXECUTION.GET_DELIVERABLE_CATEGORIES}`;
+  const { data } = await axios.get(endpoint);
+  return data?.categories ?? [];
 };
 
 /**

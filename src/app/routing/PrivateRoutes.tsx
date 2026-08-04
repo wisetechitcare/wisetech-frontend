@@ -31,6 +31,7 @@ const OnBoardingDocs = lazy(() => import('@pages/company/OnboardingDocs'))
 const PersonalAttendanceView = lazy(() => import('@pages/employee/PersonalAttendanceView'))
 const EmployeesAttendanceView = lazy(() => import('@pages/employee/EmployeesAttendanceView'))
 const AdminAndEmployeeReimbursementViewer = lazy(() => import('@pages/employee/reimbursement/AdminAndEmployeeReimbursementViewer'))
+const AccountsBillingQueue = lazy(() => import('@pages/employee/billing/AccountsBillingQueue'))
 const Salary = lazy(() => import('@pages/employee/salary/Salary'))
 const Increment = lazy(() => import('@pages/employee/increment/Increment'))
 const Media = lazy(() => import('@pages/company/Media'))
@@ -177,6 +178,16 @@ const PrivateRoutes = () => {
           }
         />
 
+        {/* Accounts → Billing Queue. Gated on the same finance-bills permission as the
+            other accounts-facing screens; the endpoint filters to approved-without-proforma
+            regardless, so this only controls who can see the page. */}
+        {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
+          path='/finance/billing-queue'
+          element={
+            <SuspensedView>
+              <AccountsBillingQueue />
+            </SuspensedView>}
+        />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
           path='/finance/bills'
           element={

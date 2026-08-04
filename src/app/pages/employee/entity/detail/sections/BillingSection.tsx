@@ -1,45 +1,220 @@
-import React from 'react';
+import React, { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Box, CircularProgress, Stack, Typography } from "@mui/material";
+import { KTIcon } from "@metronic/helpers";
+import {
+  GlassCard, WtButton, WtIconButton, IconBox, TRIO, toast, confirmDialog,
+} from "@app/modules/common/components/ui";
+import { formatCurrencyDecimal } from "@utils/currency";
+import { formatDate } from "@utils/dateFormats";
+import {
+  listBillingRequests, submitBillingRequest, deleteBillingRequest,
+  type BillingRequest,
+} from "@services/billingRequest";
+import NewBillingRequestDialog from "@pages/employee/billing/NewBillingRequestDialog";
+import BillingRequestDetailDialog from "@pages/employee/billing/BillingRequestDetailDialog";
+import { BillingStatusChip } from "@pages/employee/billing/billingUi";
 
 /**
- * Billing — the project's financial workspace (invoices, payments, ledger, taxes…).
- * Currently an "In Development" placeholder; full spec at webapp/docs/BILLING_MODULE_PLAN.md.
+ * Project → Billing.
+ *
+ * A team lead's billing requests for this project. They can raise a request against
+ * completed, billable deliverables and submit it for approval — and nothing more. There is
+ * no proforma or invoice action here by design: after approval the request moves itself to
+ * the Accounts queue, which is where those actions live.
+ *
+ * Approve / reject / send back are NOT here either — they belong to the existing Approval
+ * Inbox, which handles every workflow type generically.
  */
-const BillingSection: React.FC<{ lead?: any }> = () => (
-  <div
-    style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      textAlign: 'center', minHeight: 420, padding: '48px 24px', fontFamily: 'Inter',
-    }}
-  >
-    <div
-      style={{
-        width: 72, height: 72, borderRadius: 20, marginBottom: 22,
-        background: '#1E3A8A14', color: '#1E3A8A',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-    >
-      <i className="bi bi-receipt-cutoff" style={{ fontSize: 34 }} />
-    </div>
+const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
+  const projectId = lead?.id as string | undefined;
+  const qc = useQueryClient();
+  const [showNew, setShowNew] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
-    <span
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7,
-        fontSize: 11.5, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase',
-        padding: '5px 12px', borderRadius: 999, marginBottom: 14,
-        background: '#fff7ed', color: '#b45309', border: '1px solid #fed7aa',
-      }}
-    >
-      <span style={{ width: 7, height: 7, borderRadius: 999, background: '#f59e0b', display: 'inline-block' }} />
-      In Development
-    </span>
+  const queryKey = ["billing-requests", projectId];
+  const { data: requests = [], isLoading } = useQuery({
+    queryKey,
+    queryFn: () => listBillingRequests({ projectId }),
+    enabled: !!projectId,
+  });
 
-    <h2 style={{ fontFamily: 'Barlow', fontWeight: 800, fontSize: 22, color: '#1E293B', margin: '0 0 8px' }}>
-      Billing &amp; Financial Management
-    </h2>
-    <p style={{ fontSize: 14, color: '#94A3B8', margin: 0, maxWidth: 440, lineHeight: 1.55 }}>
-      This financial workspace is under development and will be available soon.
-    </p>
-  </div>
-);
+  const refresh = () => qc.invalidateQueries({ queryKey });
+
+  const submit = async (request: BillingRequest) => {
+    try {
+      await submitBillingRequest(request.id);
+      toast({ icon: "success", title: "Submitted for approval" });
+    } catch (err: unknown) {
+      // The most common failure is "no approval chain configured", which is actionable —
+      // surface the server's sentence rather than a generic one.
+      toast({
+        icon: "error",
+        title:
+          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+          "Could not submit the billing request",
+      });
+    }
+    refresh();
+  };
+
+  const remove = async (request: BillingRequest) => {
+    const confirmed = await confirmDialog({
+      icon: "warning",
+      title: `Delete ${request.requestNumber}?`,
+      text: "Its deliverables become available to bill again.",
+    });
+    if (!confirmed) return;
+    try {
+      await deleteBillingRequest(request.id);
+      toast({ icon: "success", title: "Billing request deleted" });
+    } catch (err: unknown) {
+      toast({
+        icon: "error",
+        title:
+          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+          "Could not delete the billing request",
+      });
+    }
+    refresh();
+  };
+
+  if (!projectId) {
+    return (
+      <GlassCard preset="section" sx={{ p: 3, textAlign: "center" }}>
+        <Typography sx={{ fontSize: 13, color: "text.secondary" }}>No project loaded.</Typography>
+      </GlassCard>
+    );
+  }
+
+  const totalRequested = requests.reduce((sum, r) => sum + (Number(r.totalAmount) || 0), 0);
+
+  return (
+    <Stack spacing={1.5}>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        alignItems={{ xs: "flex-start", sm: "center" }}
+        spacing={1.25}
+        sx={{ px: 0.5 }}
+      >
+        <IconBox icon="dollar" trio={TRIO.green} size={38} fs="fs-3" />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: { xs: 15, sm: 16 }, lineHeight: 1.3 }}>
+            Billing Requests
+          </Typography>
+          <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.25 }}>
+            Request billing for completed deliverables. Approved requests move to Accounts automatically.
+          </Typography>
+        </Box>
+        <WtButton
+          tone="primary"
+          size="small"
+          onClick={() => setShowNew(true)}
+          startIcon={<KTIcon iconName="plus" className="fs-6" />}
+          sx={{ flexShrink: 0, minHeight: 36, borderRadius: "10px", fontSize: 13 }}
+        >
+          New Request
+        </WtButton>
+      </Stack>
+
+      {isLoading ? (
+        <Stack alignItems="center" sx={{ py: 5 }}><CircularProgress size={26} /></Stack>
+      ) : requests.length === 0 ? (
+        <GlassCard preset="section" sx={{ p: 3, textAlign: "center" }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 15 }}>No billing requests yet</Typography>
+          <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 0.5 }}>
+            Complete some billable deliverables in the Execution tab, then raise a request here.
+          </Typography>
+        </GlassCard>
+      ) : (
+        <>
+          <Stack spacing={1}>
+            {requests.map((request) => {
+              const editable = request.status === "DRAFT" || request.status === "REJECTED";
+              return (
+                <GlassCard key={request.id} preset="section" sx={{ p: { xs: 1.25, sm: 1.75 } }}>
+                  <Stack direction="row" alignItems="flex-start" spacing={1}>
+                    <Box
+                      sx={{ flex: 1, minWidth: 0, cursor: "pointer" }}
+                      onClick={() => setDetailId(request.id)}
+                    >
+                      <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={0.75}>
+                        <Typography sx={{ fontWeight: 700, fontSize: 14 }}>{request.requestNumber}</Typography>
+                        <BillingStatusChip status={request.status} />
+                      </Stack>
+                      <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.25 }}>
+                        {request.stageName} · {request.items.length} deliverable
+                        {request.items.length === 1 ? "" : "s"} · {Number(request.totalPercentage) || 0}%
+                      </Typography>
+                      <Typography sx={{ fontSize: 11.5, color: "text.disabled", mt: 0.25 }}>
+                        {request.requestedByName ?? "—"}
+                        {request.requestedAt ? ` · ${formatDate(request.requestedAt)}` : ""}
+                      </Typography>
+                    </Box>
+
+                    <Stack alignItems="flex-end" spacing={0.5} sx={{ flexShrink: 0 }}>
+                      <Typography sx={{ fontSize: 15, fontWeight: 700 }}>
+                        {formatCurrencyDecimal(Number(request.totalAmount) || 0)}
+                      </Typography>
+                      <Stack direction="row" spacing={0.5}>
+                        <WtIconButton
+                          title="View"
+                          onClick={() => setDetailId(request.id)}
+                          sx={{ width: 32, height: 32, borderRadius: "9px" }}
+                        >
+                          <KTIcon iconName="eye" className="fs-6" />
+                        </WtIconButton>
+                        {editable && (
+                          <>
+                            <WtIconButton
+                              title="Submit for approval"
+                              onClick={() => void submit(request)}
+                              sx={{ width: 32, height: 32, borderRadius: "9px" }}
+                            >
+                              <KTIcon iconName="send" className="fs-6" />
+                            </WtIconButton>
+                            <WtIconButton
+                              title="Delete"
+                              color="#C0392B"
+                              onClick={() => void remove(request)}
+                              sx={{ width: 32, height: 32, borderRadius: "9px" }}
+                            >
+                              <KTIcon iconName="trash" className="fs-6" />
+                            </WtIconButton>
+                          </>
+                        )}
+                      </Stack>
+                    </Stack>
+                  </Stack>
+                </GlassCard>
+              );
+            })}
+          </Stack>
+
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            sx={{ px: 1.5, py: 1, borderRadius: "10px", bgcolor: "action.hover" }}
+          >
+            <Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>
+              {requests.length} request{requests.length === 1 ? "" : "s"}
+            </Typography>
+            <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+              {formatCurrencyDecimal(totalRequested)}
+            </Typography>
+          </Stack>
+        </>
+      )}
+
+      <NewBillingRequestDialog
+        open={showNew}
+        projectId={projectId}
+        onClose={() => setShowNew(false)}
+        onCreated={refresh}
+      />
+      <BillingRequestDetailDialog requestId={detailId} onClose={() => setDetailId(null)} />
+    </Stack>
+  );
+};
 
 export default BillingSection;

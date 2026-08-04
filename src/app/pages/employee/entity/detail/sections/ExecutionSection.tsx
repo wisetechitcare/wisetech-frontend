@@ -12,15 +12,25 @@ import {
 } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
+import DeliverableFormDialog from "./DeliverableFormDialog";
 import {
   getProjectStages, createProjectDeliverable, updateProjectDeliverable,
   deleteProjectDeliverable, reorderProjectDeliverables,
   updateDeliverableStatus, updateDeliverableRemarks,
   type ProjectStage, type ProjectDeliverable, type DeliverableStatus,
+  type DeliverablePriority, type DeliverablePayload,
 } from "@services/projectExecution";
 
-const NAME_MAX = 100;
 const REMARKS_MAX = 2000;
+
+/** Priority is planning metadata, so only the two that need attention get colour —
+ *  a wall of chips where everything is coloured communicates nothing. */
+const PRIORITY_META: Record<DeliverablePriority, { label: string; tone: SemanticTone }> = {
+  LOW: { label: "Low", tone: "neutral" },
+  MEDIUM: { label: "Medium", tone: "neutral" },
+  HIGH: { label: "High", tone: "warning" },
+  CRITICAL: { label: "Critical", tone: "danger" },
+};
 
 /** Query key is local to this module — the data has no other consumer yet. */
 const stagesKey = (projectId: string) => ["project-execution", "stages", projectId];
@@ -78,8 +88,6 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [dialog, setDialog] = useState<EditDialogState | null>(null);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const [remarksDialog, setRemarksDialog] = useState<RemarksDialogState | null>(null);
@@ -101,9 +109,8 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
   );
 
   const saveMut = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (payload: DeliverablePayload) => {
       if (!dialog) return;
-      const payload = { name: name.trim(), description: description.trim() || null };
       return dialog.editing
         ? updateProjectDeliverable(dialog.editing.id, payload)
         : createProjectDeliverable(projectId, dialog.stage.id, payload);
@@ -121,44 +128,38 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
     },
   });
 
-  const openNew = (stage: ProjectStage) => {
-    setDialog({ stage, editing: null });
-    setName(""); setDescription(""); setFormError(null);
-  };
+  const openNew = (stage: ProjectStage) => { setDialog({ stage, editing: null }); setFormError(null); };
   const openEdit = (stage: ProjectStage, row: ProjectDeliverable) => {
     setDialog({ stage, editing: row });
-    setName(row.name); setDescription(row.description ?? ""); setFormError(null);
+    setFormError(null);
   };
   const closeDialog = () => { setDialog(null); setFormError(null); };
 
-  const submit = () => {
-    const trimmed = name.trim();
-    if (!trimmed) { setFormError("Deliverable name is required."); return; }
-    if (trimmed.length > NAME_MAX) { setFormError(`Name cannot exceed ${NAME_MAX} characters.`); return; }
-    const siblings = dialog?.stage.deliverables ?? [];
-    if (siblings.some((d) => d.id !== dialog?.editing?.id && d.name.trim().toLowerCase() === trimmed.toLowerCase())) {
-      setFormError(`"${trimmed}" already exists in this stage.`);
-      return;
-    }
-    saveMut.mutate();
-  };
-
   const remove = async (stage: ProjectStage, row: ProjectDeliverable) => {
+    const share = Number(row.percentage) || 0;
     const confirmed = await confirmDialog({
       icon: "warning",
       title: `Remove "${row.name}"?`,
-      text: row.isCustom
-        ? "This removes it from this project."
-        : "This removes it from this project only — the payment plan configuration is unchanged.",
+      // Say what it costs the stage. The remaining percentages are NOT redistributed, so
+      // the stage drops out of balance and the user has to reallocate deliberately.
+      text: share > 0
+        ? `The stage will drop to ${Math.round((stage.allocation.percentageTotal - share) * 1000) / 1000}% and must be brought back to 100%.`
+        : row.isCustom
+          ? "This removes it from this project."
+          : "This removes it from this project only — the payment plan configuration is unchanged.",
     });
     if (!confirmed) return;
     try {
-      await deleteProjectDeliverable(row.id);
-      toast({ icon: "success", title: "Deliverable removed" });
+      const { allocation } = await deleteProjectDeliverable(row.id);
+      if (allocation && !allocation.isBalanced) {
+        toast({ icon: "warning", title: `Stage is now ${allocation.percentageTotal}% — reallocate to 100%` });
+      } else {
+        toast({ icon: "success", title: "Deliverable removed" });
+      }
     } catch {
       toast({ icon: "error", title: "Could not remove the deliverable" });
     }
-    // Always refetch: removing a row changes the stage's progress, which only the
+    // Always refetch: removing a row changes progress and amounts, which only the
     // server computes.
     void invalidate();
   };
@@ -216,6 +217,7 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
   const renderDeliverable = (stage: ProjectStage) => (row: ProjectDeliverable, handleProps?: DragHandleProps) => {
     const index = stage.deliverables.findIndex((d) => d.id === row.id);
     const meta = STATUS_META[row.status] ?? STATUS_META.PENDING;
+    const priorityMeta = PRIORITY_META[row.priority] ?? PRIORITY_META.MEDIUM;
     return (
       <Stack
         direction="row"
@@ -243,6 +245,28 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
             </Typography>
             <ToneChip tone={meta.tone} label={meta.label} dense />
             {row.isCustom && <ToneChip tone="brand" label="Custom" dense />}
+          </Stack>
+
+          {/* Money line: percentage and its derived amount always travel together, so the
+              relationship between them is visible without opening the editor. */}
+          <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={0.75} sx={{ mt: 0.35 }}>
+            <ToneChip tone="indigo" label={`${Number(row.percentage) || 0}%`} dense />
+            <Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>
+              {formatCurrencyDecimal(Number(row.calculatedAmount) || 0)}
+            </Typography>
+            {priorityMeta.tone !== "neutral" && (
+              <ToneChip tone={priorityMeta.tone} label={priorityMeta.label} dense />
+            )}
+            {row.category && <ToneChip tone="cyan" label={row.category} dense />}
+            {row.estimatedDays != null && (
+              <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                {row.estimatedDays}d
+              </Typography>
+            )}
+            {/* Only the exceptions are labelled — billable + mandatory is the default, and
+                chipping every row with "Billable YES" would be noise. */}
+            {!row.isBillable && <ToneChip tone="neutral" label="Non-billable" dense />}
+            {!row.isMandatory && <ToneChip tone="neutral" label="Optional" dense />}
           </Stack>
 
           {row.description && (
@@ -353,6 +377,7 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
       {stages.map((stage, stageIndex) => {
         const isOpen = !!expanded[stage.id];
         const progress = stage.progress;
+        const allocation = stage.allocation ?? { percentageTotal: 0, isBalanced: true, remaining: 0 };
         const stageMeta = STATUS_META[progress?.status ?? "PENDING"] ?? STATUS_META.PENDING;
         const percent = progress?.completionPercentage ?? 0;
         return (
@@ -413,6 +438,17 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
                   <CountPill label="completed" value={progress?.completedCount ?? 0} tone="success" />
                   <CountPill label="in progress" value={progress?.inProgressCount ?? 0} tone="warning" />
                   <CountPill label="pending" value={progress?.pendingCount ?? 0} tone="neutral" />
+                  {/* Running allocation total. Stays visible while balanced too, so the
+                      100% is reassurance rather than only ever an error. */}
+                  <ToneChip
+                    tone={allocation.isBalanced ? "success" : "danger"}
+                    label={
+                      allocation.isBalanced
+                        ? `${allocation.percentageTotal}% allocated ✓`
+                        : `${allocation.percentageTotal}% allocated — must be 100%`
+                    }
+                    dense
+                  />
                 </Stack>
               </Box>
 
@@ -536,57 +572,18 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
         </DialogActions>
       </GlassDialog>
 
-      {/* Add / edit deliverable */}
-      <GlassDialog
+      {/* Add / edit deliverable — all nine configurable fields live in this dialog. */}
+      <DeliverableFormDialog
         open={!!dialog}
         onClose={closeDialog}
-        maxWidth="xs"
-        header={
-          <GlassHeader
-            title={dialog?.editing ? "Edit Deliverable" : "Add Deliverable"}
-            icon={<KTIcon iconName="check-square" className="fs-2" />}
-            onClose={closeDialog}
-          />
-        }
-      >
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            {dialog && (
-              <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
-                Stage: <strong>{dialog.stage.name}</strong>
-              </Typography>
-            )}
-            <TextField
-              label="Name"
-              size="small"
-              fullWidth
-              autoFocus
-              value={name}
-              error={!!formError}
-              helperText={formError ?? `${name.trim().length}/${NAME_MAX}`}
-              inputProps={{ maxLength: NAME_MAX }}
-              onChange={(e) => { setName(e.target.value); setFormError(null); }}
-              placeholder="e.g. Fire NOC"
-            />
-            <TextField
-              label="Description (optional)"
-              size="small"
-              fullWidth
-              multiline
-              minRows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="A short note about what this deliverable covers"
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <WtButton ghost onClick={closeDialog} disabled={saveMut.isPending}>Cancel</WtButton>
-          <WtButton tone="primary" disabled={!name.trim() || saveMut.isPending} onClick={submit}>
-            {saveMut.isPending ? "Saving…" : "Save"}
-          </WtButton>
-        </DialogActions>
-      </GlassDialog>
+        onSubmit={(payload) => saveMut.mutate(payload)}
+        saving={saveMut.isPending}
+        serverError={formError}
+        editing={dialog?.editing ?? null}
+        stageName={dialog?.stage.name ?? ""}
+        stageAmount={dialog?.stage.amount ?? 0}
+        siblings={dialog?.stage.deliverables ?? []}
+      />
     </Stack>
   );
 };

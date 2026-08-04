@@ -9,7 +9,7 @@ import {
 } from '@services/employee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 
-type WorkflowType = 'attendance' | 'leave' | 'reimbursement';
+type WorkflowType = 'attendance' | 'leave' | 'reimbursement' | 'billing_request';
 
 interface ApproverOption {
   value: string;
@@ -25,6 +25,9 @@ const MODULES: Array<{ key: WorkflowType; label: string }> = [
   { key: 'attendance', label: 'Attendance' },
   { key: 'leave', label: 'Leave' },
   { key: 'reimbursement', label: 'Reimbursement' },
+  // Billing Request approval chain. Same generic framework as every other module —
+  // configuring approvers here is all that is needed to route a billing request.
+  { key: 'billing_request', label: 'Billing Request' },
 ];
 
 const emptyChain = (): string[] => ['', '', '', '', ''];
@@ -33,9 +36,13 @@ const emptyRecord = (): Record<WorkflowType, string[]> => ({
   attendance: emptyChain(),
   leave: emptyChain(),
   reimbursement: emptyChain(),
+  billing_request: emptyChain(),
 });
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+// Read the display name off MODULES rather than capitalizing the key — a snake_case key
+// like `billing_request` would otherwise surface as "Billing_request" in toasts.
+const capitalize = (s: string) =>
+  MODULES.find((m) => m.key === s)?.label ?? s.charAt(0).toUpperCase() + s.slice(1);
 
 const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
   const [approverOptions, setApproverOptions] = useState<ApproverOption[]>([]);
@@ -44,6 +51,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
     attendance: false,
     leave: false,
     reimbursement: false,
+    billing_request: false,
   });
   const [chains, setChains] = useState<Record<WorkflowType, string[]>>(emptyRecord());
   const [configIds, setConfigIds] = useState<Record<WorkflowType, string[]>>(emptyRecord());
@@ -93,11 +101,14 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
 
       setChains(nextChains);
       setConfigIds(nextIds);
-      setSavedChains({
-        attendance: [...nextChains.attendance],
-        leave: [...nextChains.leave],
-        reimbursement: [...nextChains.reimbursement],
-      });
+      // Derived from MODULES rather than listed by hand, so adding a workflow type is a
+      // one-line change instead of a hunt for every hardcoded key.
+      setSavedChains(
+        Object.fromEntries(MODULES.map(({ key }) => [key, [...nextChains[key]]])) as Record<
+          WorkflowType,
+          string[]
+        >,
+      );
     } catch (err) {
       console.error('Failed to load approval settings:', err);
     } finally {

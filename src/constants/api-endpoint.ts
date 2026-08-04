@@ -622,6 +622,23 @@ export const PROJECT_EXECUTION = {
     GET_STAGE_PROGRESS: "api/projects/:projectId/stages/:stageId/progress",
     UPDATE_DELIVERABLE_STATUS: "api/projects/deliverables/:deliverableId/status",
     UPDATE_DELIVERABLE_REMARKS: "api/projects/deliverables/:deliverableId/remarks",
+    // Configuration — amounts are always derived, never posted.
+    RECALCULATE_STAGE_AMOUNTS: "api/projects/stages/:stageId/recalculate-amounts",
+    GET_DELIVERABLE_CATEGORIES: "api/projects/deliverable-categories",
+}
+
+// Billing Request — the bridge from execution to finance. Approve/reject/send-back are
+// NOT here: they go through the existing approval endpoints and Approval Inbox.
+export const BILLING_REQUEST = {
+    CREATE: "api/billing-requests",
+    LIST: "api/billing-requests",
+    GET_BY_ID: "api/billing-requests/:id",
+    UPDATE: "api/billing-requests/:id",
+    DELETE: "api/billing-requests/:id",
+    SUBMIT: "api/billing-requests/:id/submit",
+    BILLABLE_DELIVERABLES: "api/billing-requests/stages/:stageId/billable-deliverables",
+    ACCOUNTS_QUEUE: "api/accounts/billing-queue",
+    GENERATE_PROFORMA: "api/accounts/billing-queue/:id/generate-proforma",
 }
 
 // Meeting Schedules (project-type → area brackets → meetings) — configured under Lead
