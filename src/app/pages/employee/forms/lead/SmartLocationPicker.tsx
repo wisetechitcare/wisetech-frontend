@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Grid, CircularProgress, IconButton, Tooltip } from "@mui/material";
-import { MyLocation, LocationOn, CheckCircle, MapOutlined, Directions, ContentCopy, Clear } from "@mui/icons-material";
+import { Grid, CircularProgress, IconButton, Tooltip, Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
+import { MyLocation, LocationOn, CheckCircle, MapOutlined, Directions, ContentCopy, Clear, ExpandMore } from "@mui/icons-material";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { useFormikContext } from "formik";
@@ -889,15 +889,15 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
           </div>
         )}
 
-        <div className="accordion mt-5" id={`advancedLocation-${index}`}>
-          <div className="accordion-item border rounded">
-            <h2 className="accordion-header">
-              <button className="accordion-button collapsed bg-light fw-bold" type="button" data-bs-toggle="collapse" data-bs-target={`#collapseLocation-${index}`}>
-                Advanced Location Details (Manual Override)
-              </button>
-            </h2>
-            <div id={`collapseLocation-${index}`} className="accordion-collapse collapse" data-bs-parent={`#advancedLocation-${index}`}>
-              <Grid container spacing={4} className="bg-white p-5 rounded">
+        {/* MUI accordion, not Bootstrap's: nothing in this app initializes Bootstrap's
+            Collapse plugin (MasterInit only wires up Tab), so `data-bs-toggle="collapse"`
+            was inert and this panel rendered permanently `display:none` — i.e. blank. */}
+        <Accordion defaultExpanded disableGutters className="mt-5" sx={{ borderRadius: 2, border: "1px solid", borderColor: "divider", "&:before": { display: "none" } }}>
+          <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "action.hover", fontWeight: 700 }}>
+            Advanced Location Details (Manual Override)
+          </AccordionSummary>
+          <AccordionDetails sx={{ p: 3 }}>
+                <Grid container spacing={4}>
                 <Grid item xs={12} md={4}>
                   <DropDownInput
                     isRequired={false}
@@ -973,9 +973,8 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
                   />
                 </Grid>
               </Grid>
-            </div>
-          </div>
-        </div>
+          </AccordionDetails>
+        </Accordion>
       </div>
     </div>
   );

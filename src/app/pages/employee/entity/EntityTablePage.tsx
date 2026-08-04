@@ -912,7 +912,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         Cell: ({ cell }: { cell: any }) =>
           projectSubcategories?.find((s: any) => s.id === cell.getValue())?.name || "N/A",
       },
-      {
+      // Hide Lead Status column when viewing team projects (only show project details)
+      ...(teamId ? [] : [{
         accessorKey: "status",
         header: "Lead Status",
         size: 130,
@@ -931,14 +932,15 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             "N/A"
           );
         },
-      },
-      {
+      }]),
+      // Hide Assigned To when viewing team projects (only show project details)
+      ...(teamId ? [] : [{
         accessorKey: "assignedTo",
         header: "Assigned To",
         size: 150,
         Cell: ({ cell }: { cell: any }) =>
           allemployees?.find((e: any) => e.employeeId === cell.getValue())?.employeeName || "N/A",
-      },
+      }]),
     ];
 
     // Lead-pipeline-only columns: hidden in project views to avoid clutter.
@@ -1046,19 +1048,21 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorFn: (row: any) => pmNames(row) || "",
           Cell: ({ row }: { row: any }) => pmNames(row.original) || "N/A",
         },
-        {
+        // Hide Team column when viewing team projects
+        ...(teamId ? [] : [{
           accessorKey: "projectTeamName",
           header: "Team",
           size: 140,
           Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
-        },
-        {
+        }]),
+        // Hide Project Cost column when viewing team projects
+        ...(teamId ? [] : [{
           accessorKey: "projectCost",
           header: "Project Cost",
           size: 130,
           Cell: ({ cell }: { cell: any }) =>
             cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
-        },
+        }]),
         {
           accessorKey: "projectRate",
           header: "Rate",
