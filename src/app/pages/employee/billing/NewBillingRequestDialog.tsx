@@ -1,16 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import { useQuery } from "@tanstack/react-query";
 import {
   Box, Checkbox, CircularProgress, DialogActions, DialogContent,
   MenuItem, Stack, TextField, Typography,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, WtButton, ToneChip, toast } from "@app/modules/common/components/ui";
+import { GlassDialog, GlassHeader, WtButton, ToneChip, toast, alertDialog } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { getProjectStages } from "@services/projectExecution";
 import {
   getBillableDeliverables, createBillingRequest, submitBillingRequest,
 } from "@services/billingRequest";
+import { apiErrorMessage } from "@utils/apiError";
 
 const REMARKS_MAX = 2000;
 
@@ -28,6 +31,7 @@ const NewBillingRequestDialog: React.FC<{
   onClose: () => void;
   onCreated: () => void;
 }> = ({ open, projectId, onClose, onCreated }) => {
+  const navigate = useNavigate();
   const [stageId, setStageId] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [remarks, setRemarks] = useState("");
@@ -80,28 +84,85 @@ const NewBillingRequestDialog: React.FC<{
 
     setSaving(true);
     setError(null);
+
+    // Create and submit are handled as SEPARATE outcomes on purpose. They used to share
+    // one try/catch, so a failed submit left the draft alive — silently claiming its
+    // deliverables — while the dialog stayed open showing an error. Retrying then failed
+    // with "already on another billing request", pointing at a draft the user never knew
+    // existed. Once the draft is created it is real, so the dialog always closes and the
+    // list always refreshes; only the submit outcome is reported separately.
+    let created;
     try {
-      const created = await createBillingRequest({
+      created = await createBillingRequest({
         projectStageId: stageId,
         deliverableIds: [...selected],
         remarks: remarks.trim() || null,
       });
-      if (submitNow) {
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, "Could not create the billing request."));
+      setSaving(false);
+      return;
+    }
+    if (!submitNow) {
+      toast({ icon: "success", title: "Billing request saved as draft" });
+    } else {
+      try {
         await submitBillingRequest(created.id);
         toast({ icon: "success", title: "Billing request submitted for approval" });
-      } else {
-        toast({ icon: "success", title: "Billing request saved as draft" });
+      } catch (err: unknown) {
+        const data = (err as any)?.response?.data;
+        const requesterEmployeeId = data?.meta?.requesterEmployeeId;
+        const employeeName = data?.meta?.employeeName || "the employee";
+
+        if (requesterEmployeeId) {
+          const confirmed = await Swal.fire({
+            icon: "error",
+            title: "Approval Chain Required",
+            html: `
+              <div class="text-start py-2">
+                <p class="mb-4 fs-6 text-gray-700">No Billing Request approval chain is configured for <strong>${employeeName}</strong>. Approval chains must be set before submitting requests.</p>
+                <div class="bg-light-danger border border-danger border-dashed p-4 rounded d-flex align-items-center">
+                  <i class="ki-duotone ki-information-5 fs-2x text-danger me-3"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                  <div class="text-gray-800 fs-7">
+                    The billing request has been saved as draft <strong>${created.requestNumber}</strong>. You can configure the approval chain and submit it from the list later.
+                  </div>
+                </div>
+              </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: "Configure Now",
+            cancelButtonText: "Close",
+            buttonsStyling: false,
+            customClass: {
+              container: 'wt-swal-container',
+              popup: 'wt-swal-popup',
+              title: 'wt-swal-title text-danger text-start px-6 pt-6',
+              htmlContainer: 'wt-swal-html px-6',
+              actions: 'wt-swal-actions px-6 pb-6 justify-content-end',
+              confirmButton: 'btn btn-danger fw-bold px-6 py-3',
+              cancelButton: 'btn btn-light fw-bold px-6 py-3 ms-3',
+            }
+          });
+
+          if (confirmed.isConfirmed) {
+            navigate(`/employees/${requesterEmployeeId}?openSettings=true`);
+          }
+        } else {
+          // The draft survives — say so, and say why it did not go out, so the user can fix
+          // the cause and submit it from the list instead of re-creating it. A dialog, not a
+          // toast: this needs reading and a 2s toast would vanish before it was.
+          await alertDialog({
+            icon: "warning",
+            title: `Saved as draft ${created.requestNumber} — not submitted`,
+            text: `${apiErrorMessage(err, "Could not submit for approval.")} The draft is in the list; submit it from there once this is resolved.`,
+          });
+        }
       }
-      onCreated();
-      onClose();
-    } catch (err: unknown) {
-      setError(
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          "Could not create the billing request.",
-      );
-    } finally {
-      setSaving(false);
     }
+
+    setSaving(false);
+    onCreated();
+    onClose();
   };
 
   return (

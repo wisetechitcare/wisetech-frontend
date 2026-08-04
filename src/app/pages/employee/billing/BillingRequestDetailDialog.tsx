@@ -3,18 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { Box, CircularProgress, DialogActions, DialogContent, Divider, Stack, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import { GlassDialog, GlassHeader, WtButton } from "@app/modules/common/components/ui";
-import ApprovalStatusTracker from "@pages/approvals/ApprovalStatusTracker";
 import { formatDateTime } from "@utils/dateFormats";
 import { getBillingRequest } from "@services/billingRequest";
 import { BillingStatusChip, BillingItemsTable, BillingTotals, projectLabel, clientLabel } from "./billingUi";
 
 /**
- * Billing request detail — project, client, stage, snapshot items, totals and the
- * approval timeline.
+ * Billing request detail — WHAT is being billed: project, client, stage, the frozen
+ * snapshot items and the totals.
  *
- * The timeline is the EXISTING `ApprovalStatusTracker`, mounted by `approvalInstanceId`.
- * Billing keeps no parallel record of who approved what, so this view and the Approval
- * Inbox can never disagree.
+ * Deliberately does NOT show the approval chain. "What am I billing" and "where has this
+ * got to" are separate questions with separate dialogs — see
+ * `BillingApprovalStatusDialog`, which mounts the existing `ApprovalStatusTracker`.
  */
 const BillingRequestDetailDialog: React.FC<{
   requestId: string | null;
@@ -87,14 +86,6 @@ const BillingRequestDetailDialog: React.FC<{
             <BillingItemsTable items={request.items} />
             <BillingTotals request={request} />
 
-            {/* The existing approval timeline component, reused verbatim. */}
-            {request.approvalInstanceId && (
-              <>
-                <Divider />
-                <Typography sx={{ fontSize: 13, fontWeight: 700 }}>Approval</Typography>
-                <ApprovalStatusTracker instanceId={request.approvalInstanceId} showAuditLog />
-              </>
-            )}
           </Stack>
         )}
       </DialogContent>

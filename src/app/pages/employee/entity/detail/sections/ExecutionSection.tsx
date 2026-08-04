@@ -13,6 +13,7 @@ import {
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import DeliverableFormDialog from "./DeliverableFormDialog";
+import { apiErrorMessage } from "@utils/apiError";
 import {
   getProjectStages, createProjectDeliverable, updateProjectDeliverable,
   deleteProjectDeliverable, reorderProjectDeliverables,
@@ -122,8 +123,7 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
     },
     onError: (err: unknown) => {
       setFormError(
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          "Could not save the deliverable.",
+        apiErrorMessage(err, "Could not save the deliverable."),
       );
     },
   });

@@ -12,6 +12,7 @@ import {
 } from "@services/billingRequest";
 import BillingRequestDetailDialog from "./BillingRequestDetailDialog";
 import { BillingStatusChip, projectLabel, clientLabel } from "./billingUi";
+import { apiErrorMessage } from "@utils/apiError";
 
 /**
  * Accounts → Billing Queue.
@@ -47,8 +48,7 @@ const AccountsBillingQueue: React.FC = () => {
       toast({
         icon: "error",
         title:
-          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          "Could not generate the proforma",
+          apiErrorMessage(err, "Could not generate the proforma"),
       });
     } finally {
       setBusyId(null);

@@ -58,6 +58,10 @@ export interface BillingRequest {
   proformaId?: string | null;
   proformaGeneratedAt?: string | null;
   createdAt: string;
+  /** Server-computed: true only while NO approver has acted. The rule lives on the
+   *  server, so never re-derive this from `status` — a PENDING_APPROVAL request nobody
+   *  has touched is still withdrawable. */
+  canDelete?: boolean;
   items: BillingRequestItem[];
   lead?: {
     id: string;

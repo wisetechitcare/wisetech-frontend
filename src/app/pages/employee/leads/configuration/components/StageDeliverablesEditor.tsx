@@ -14,6 +14,7 @@ import {
   deleteDeliverable, reorderStageDeliverables,
 } from "@services/paymentPlan";
 import type { PaymentPlanStageDeliverable } from "@models/leads";
+import { apiErrorMessage } from "@utils/apiError";
 
 const NAME_MAX = 100;
 
@@ -103,8 +104,7 @@ const StageDeliverableList: React.FC<{ stageId: string; loaded: boolean; onCount
       close();
     } catch (err: unknown) {
       const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "Could not save the deliverable.";
+        apiErrorMessage(err, "Could not save the deliverable.");
       setFormError(message);
     } finally {
       setSaving(false);

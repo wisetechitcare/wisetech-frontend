@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, CircularProgress, Stack, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
@@ -13,7 +15,9 @@ import {
 } from "@services/billingRequest";
 import NewBillingRequestDialog from "@pages/employee/billing/NewBillingRequestDialog";
 import BillingRequestDetailDialog from "@pages/employee/billing/BillingRequestDetailDialog";
+import BillingApprovalStatusDialog from "@pages/employee/billing/BillingApprovalStatusDialog";
 import { BillingStatusChip } from "@pages/employee/billing/billingUi";
+import { apiErrorMessage } from "@utils/apiError";
 
 /**
  * Project → Billing.
@@ -31,6 +35,7 @@ const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
   const qc = useQueryClient();
   const [showNew, setShowNew] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [approvalOf, setApprovalOf] = useState<{ instanceId: string; requestNumber: string } | null>(null);
 
   const queryKey = ["billing-requests", projectId];
   const { data: requests = [], isLoading } = useQuery({
@@ -39,6 +44,7 @@ const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
     enabled: !!projectId,
   });
 
+  const navigate = useNavigate();
   const refresh = () => qc.invalidateQueries({ queryKey });
 
   const submit = async (request: BillingRequest) => {
@@ -46,23 +52,66 @@ const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
       await submitBillingRequest(request.id);
       toast({ icon: "success", title: "Submitted for approval" });
     } catch (err: unknown) {
-      // The most common failure is "no approval chain configured", which is actionable —
-      // surface the server's sentence rather than a generic one.
-      toast({
-        icon: "error",
-        title:
-          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          "Could not submit the billing request",
-      });
+      const data = (err as any)?.response?.data;
+      const requesterEmployeeId = data?.meta?.requesterEmployeeId;
+      const employeeName = data?.meta?.employeeName || "the employee";
+
+      if (requesterEmployeeId) {
+        const confirmed = await Swal.fire({
+          icon: "error",
+          title: "Approval Chain Required",
+          html: `
+            <div class="text-start py-2">
+              <p class="mb-4 fs-6 text-gray-700">No Billing Request approval chain is configured for <strong>${employeeName}</strong>. Approval chains must be set before submitting requests.</p>
+              <div class="bg-light-danger border border-danger border-dashed p-4 rounded d-flex align-items-center">
+                <i class="ki-duotone ki-information-5 fs-2x text-danger me-3"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                <div class="text-gray-800 fs-7">
+                  You can set this per employee in their profile under <strong>App Settings &rarr; Approval Configuration</strong>.
+                </div>
+              </div>
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonText: "Configure Now",
+          cancelButtonText: "Close",
+          buttonsStyling: false,
+          customClass: {
+            container: 'wt-swal-container',
+            popup: 'wt-swal-popup',
+            title: 'wt-swal-title text-danger text-start px-6 pt-6',
+            htmlContainer: 'wt-swal-html px-6',
+            actions: 'wt-swal-actions px-6 pb-6 justify-content-end',
+            confirmButton: 'btn btn-danger fw-bold px-6 py-3',
+            cancelButton: 'btn btn-light fw-bold px-6 py-3 ms-3',
+          }
+        });
+
+        if (confirmed.isConfirmed) {
+          navigate(`/employees/${requesterEmployeeId}?openSettings=true`);
+        }
+      } else {
+        toast({
+          icon: "error",
+          title:
+            apiErrorMessage(err, "Could not submit the billing request"),
+        });
+      }
     }
     refresh();
   };
 
   const remove = async (request: BillingRequest) => {
+    // Deleting one that is already with approvers is a WITHDRAWAL — it disappears from
+    // their queues. Say so, rather than presenting it as a quiet cleanup.
+    const withApprovers = request.status === "PENDING_APPROVAL" || request.status === "SUBMITTED";
     const confirmed = await confirmDialog({
       icon: "warning",
-      title: `Delete ${request.requestNumber}?`,
-      text: "Its deliverables become available to bill again.",
+      danger: true,
+      title: withApprovers ? `Withdraw ${request.requestNumber}?` : `Delete ${request.requestNumber}?`,
+      text: withApprovers
+        ? "It will be removed from the approvers' queues and its deliverables become available to bill again."
+        : "Its deliverables become available to bill again.",
+      confirmText: withApprovers ? "Withdraw" : "Delete",
     });
     if (!confirmed) return;
     try {
@@ -72,8 +121,7 @@ const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
       toast({
         icon: "error",
         title:
-          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          "Could not delete the billing request",
+          apiErrorMessage(err, "Could not delete the billing request"),
       });
     }
     refresh();
@@ -157,31 +205,50 @@ const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
                         {formatCurrencyDecimal(Number(request.totalAmount) || 0)}
                       </Typography>
                       <Stack direction="row" spacing={0.5}>
+                        {/* View = what is being billed. Approval Status = where it has
+                            got to. Two questions, two dialogs. */}
                         <WtIconButton
-                          title="View"
+                          title="View details"
                           onClick={() => setDetailId(request.id)}
                           sx={{ width: 32, height: 32, borderRadius: "9px" }}
                         >
                           <KTIcon iconName="eye" className="fs-6" />
                         </WtIconButton>
+                        {request.approvalInstanceId && (
+                          <WtIconButton
+                            title="Approval status"
+                            onClick={() =>
+                              setApprovalOf({
+                                instanceId: request.approvalInstanceId as string,
+                                requestNumber: request.requestNumber,
+                              })
+                            }
+                            sx={{ width: 32, height: 32, borderRadius: "9px" }}
+                          >
+                            <KTIcon iconName="check-circle" className="fs-6" />
+                          </WtIconButton>
+                        )}
                         {editable && (
-                          <>
-                            <WtIconButton
-                              title="Submit for approval"
-                              onClick={() => void submit(request)}
-                              sx={{ width: 32, height: 32, borderRadius: "9px" }}
-                            >
-                              <KTIcon iconName="send" className="fs-6" />
-                            </WtIconButton>
-                            <WtIconButton
-                              title="Delete"
-                              color="#C0392B"
-                              onClick={() => void remove(request)}
-                              sx={{ width: 32, height: 32, borderRadius: "9px" }}
-                            >
-                              <KTIcon iconName="trash" className="fs-6" />
-                            </WtIconButton>
-                          </>
+                          <WtIconButton
+                            title="Submit for approval"
+                            onClick={() => void submit(request)}
+                            sx={{ width: 32, height: 32, borderRadius: "9px" }}
+                          >
+                            <KTIcon iconName="send" className="fs-6" />
+                          </WtIconButton>
+                        )}
+                        {/* Server-computed: true only while no approver has acted, so a
+                            request sitting untouched with approvers is still withdrawable
+                            while one that has been actioned is not. */}
+                        {request.canDelete && (
+                          <WtIconButton
+                            title="Delete"
+                            color="#C0392B"
+                            onClick={() => void remove(request)}
+                            sx={{ width: 32, height: 32, borderRadius: "9px" }}
+                          >
+                            <KTIcon iconName="trash" className="fs-6" />
+                          </WtIconButton>
                         )}
                       </Stack>
                     </Stack>
@@ -213,6 +280,11 @@ const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
         onCreated={refresh}
       />
       <BillingRequestDetailDialog requestId={detailId} onClose={() => setDetailId(null)} />
+      <BillingApprovalStatusDialog
+        instanceId={approvalOf?.instanceId ?? null}
+        requestNumber={approvalOf?.requestNumber}
+        onClose={() => setApprovalOf(null)}
+      />
     </Stack>
   );
 };
