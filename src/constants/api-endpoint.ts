@@ -609,6 +609,17 @@ export const PAYMENT_PLAN = {
     DELETE_DELIVERABLE: "api/payment-plans/deliverables/:deliverableId",
 }
 
+// Project Execution — stages snapshotted from the lead's payment plan, plus the
+// project's own deliverables. Lead-as-master: :projectId is the lead id.
+export const PROJECT_EXECUTION = {
+    GET_PROJECT_STAGES: "api/projects/:projectId/stages",
+    GET_STAGE_DELIVERABLES: "api/projects/:projectId/stages/:stageId/deliverables",
+    CREATE_STAGE_DELIVERABLE: "api/projects/:projectId/stages/:stageId/deliverables",
+    REORDER_STAGE_DELIVERABLES: "api/projects/stages/:stageId/deliverables/reorder",
+    UPDATE_DELIVERABLE: "api/projects/deliverables/:deliverableId",
+    DELETE_DELIVERABLE: "api/projects/deliverables/:deliverableId",
+}
+
 // Meeting Schedules (project-type → area brackets → meetings) — configured under Lead
 // Configuration and selected on a lead's meeting-schedule step.
 export const MEETING_SCHEDULE = {
