@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
+import { Box, CircularProgress, Grid, Stack, TextField, Typography } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui/tw/Glass';
-import { WtButton, WtIconButton } from '@app/modules/common/components/ui/tw/Buttons';
-import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
-import { IconBox } from '@app/modules/common/components/ui/tw/Patterns';
+// Same MUI glass kit as the Leave Policy / Sandwich Leave benchmark — one import
+// surface, one look. Do not reach past this barrel into individual kit files.
+import {
+    TRIO, WtButton, WtIconButton, GlassDialog, GlassHeader, GlassSurface,
+    SettingsSection, StatTile, StatusBadge, IconBox, confirmDialog, toast,
+} from '@app/modules/common/components/ui';
 import { IconPicker, TonePicker } from '@app/modules/common/components/ui/tw/SwatchPicker';
-import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
-import { confirmDialog, toast } from '@app/modules/common/components/ui/feedback';
 import { readConflict, useFaqCategories } from './useFaqCategories';
 import {
     FAQ_CATEGORY_DESCRIPTION_MAX,
@@ -22,22 +23,23 @@ type Draft = { id?: string; name: string; icon: string; tone: string; descriptio
 
 const EMPTY_DRAFT: Draft = { name: '', icon: 'questionnaire-tablet', tone: 'blue', description: '' };
 
-const FIELD_CLASS =
-    'w-full rounded-xl border border-[#E6E9EE] bg-white px-3.5 py-2.5 text-[14px] text-slate-900 ' +
-    'placeholder:text-slate-400 outline-none transition-colors ' +
-    'focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/15 ' +
-    'dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-100 dark:placeholder:text-slate-500';
+/**
+ * The MUI WtIconButton is 44px — correct for a primary action row, too heavy for
+ * five controls on a compact list row. Its size is set via `sx`, unlike the
+ * Tailwind twin which takes a numeric `size` prop. Declared once here rather
+ * than repeated on every button.
+ */
+const COMPACT_ICON_BTN = { width: 32, height: 32, borderRadius: '10px' } as const;
 
 /**
  * FAQ section administration.
  *
- * Sections were a hardcoded enum until this existed: renaming "Leaves" or adding
- * "Onboarding" meant a schema migration and a deploy. Admins now do it here.
+ * Sections were a hardcoded Prisma enum until this existed: renaming "Leaves" or
+ * adding "Onboarding" meant a schema migration and a deploy. Admins now do it here.
  *
- * Reordering uses explicit up/down controls rather than drag-and-drop. The kit
- * ships `ReorderableGroup` for drag, but a modal list of six rows is exactly the
- * case where drag is worse: it is unusable by keyboard, awkward on touch, and
- * the whole list is visible at once so there is nothing to drag *across*.
+ * Composed exactly like LeavePolicyModal — GlassDialog + GlassHeader, a StatTile
+ * summary row, then SettingsSection blocks — so a user who knows one settings
+ * engine already knows this one.
  */
 export interface FaqSectionManagerDialogProps {
     open: boolean;
@@ -57,13 +59,16 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
 
     const [draft, setDraft] = useState<Draft | null>(null);
 
-    // Close the inline editor whenever the dialog is dismissed, so reopening
-    // never resumes a half-finished edit the admin has forgotten about.
+    // Close the inline editor when the dialog is dismissed, so reopening never
+    // resumes a half-finished edit the admin has forgotten about.
     useEffect(() => {
         if (!open) setDraft(null);
     }, [open]);
 
-    const startCreate = () => setDraft({ ...EMPTY_DRAFT });
+    const activeCount = categories.filter((category) => category.isActive).length;
+    const questionCount = categories.reduce((sum, category) => sum + category.faqCount, 0);
+    const customCount = categories.filter((category) => !category.isSystem).length;
+
     const startEdit = (category: FaqCategory) =>
         setDraft({
             id: category.id,
@@ -108,7 +113,7 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
             toast({ title: 'Section deleted', icon: 'success' });
         } catch (error) {
             // A 409 is the server refusing on purpose — surface its reason
-            // verbatim ("still has 7 questions") instead of a generic failure.
+            // verbatim ("still has 7 questions") rather than a generic failure.
             const conflict = readConflict(error);
             toast({ title: conflict?.message ?? 'Could not delete the section', icon: conflict ? 'warning' : 'error' });
         }
@@ -138,174 +143,170 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
         <GlassDialog
             open={open}
             onClose={onClose}
-            maxWidth="lg"
+            maxWidth="md"
             fullWidth
             header={
                 <GlassHeader
-                    title="Manage FAQ sections"
+                    title="FAQ sections"
                     subtitle="Rename, recolour, reorder or add sections"
-                    icon={<KTIcon iconName="category" className="fs-1 text-white" />}
+                    icon={<KTIcon iconName="category" className="fs-1" />}
                     onClose={onClose}
                 />
             }
         >
-            <div className="flex flex-col gap-4 p-5 sm:p-6">
+            <Box sx={{ p: { xs: 2, sm: 2.75 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Summary row — same StatTile grid the Leave Policy engine opens with. */}
+                <Grid container spacing={{ xs: 1.25, sm: 2 }}>
+                    <Grid item xs={6} md={4}>
+                        <StatTile label="Sections" value={`${activeCount}/${categories.length}`} trio={TRIO.blue} icon="category" />
+                    </Grid>
+                    <Grid item xs={6} md={4}>
+                        <StatTile label="Questions" value={questionCount} trio={TRIO.green} icon="questionnaire-tablet" />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                        <StatTile label="Custom" value={customCount} trio={customCount ? TRIO.purple : TRIO.slate} icon="element-plus" />
+                    </Grid>
+                </Grid>
+
                 {isLoading ? (
-                    <div className="flex items-center justify-center gap-2.5 py-12 text-slate-500">
-                        <Spinner size={18} />
-                        <span className="text-[14px]">Loading sections…</span>
-                    </div>
+                    <Stack alignItems="center" justifyContent="center" spacing={1.5} sx={{ py: 6 }}>
+                        <CircularProgress size={22} />
+                        <Typography sx={{ fontSize: 13.5, color: 'text.secondary' }}>Loading sections…</Typography>
+                    </Stack>
                 ) : (
-                    <div className="flex flex-col divide-y divide-slate-100 dark:divide-white/5">
-                        {categories.map((category, index) => (
-                            <div key={category.id} className="flex items-center gap-3 py-2.5">
-                                <IconBox icon={resolveIcon(category.icon)} trio={TRIO[resolveTone(category.tone)]} size={36} fs="fs-4" />
+                    <Stack spacing={1.25}>
+                        {categories.map((category, index) => {
+                            const tone = TRIO[resolveTone(category.tone)];
+                            return (
+                                <GlassSurface
+                                    key={category.id}
+                                    variant="thin"
+                                    radius={12}
+                                    sx={{
+                                        p: 1.5,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1.5,
+                                        borderLeft: `3px solid ${tone.c}`,
+                                        opacity: category.isActive ? 1 : 0.55,
+                                    }}
+                                >
+                                    <IconBox icon={resolveIcon(category.icon)} trio={tone} size={36} fs="fs-3" />
 
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className={`truncate text-[14px] font-semibold ${category.isActive ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 line-through'}`}>
-                                            {category.name}
-                                        </span>
-                                        {category.isSystem && (
-                                            <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-white/10 dark:text-slate-400">
-                                                Built-in
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="truncate text-[12px] text-slate-500 dark:text-slate-400">
-                                        {category.faqCount} question{category.faqCount === 1 ? '' : 's'}
-                                        {category.description ? ` · ${category.description}` : ''}
-                                    </div>
-                                </div>
+                                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                                            <Typography
+                                                noWrap
+                                                sx={{
+                                                    fontSize: 14,
+                                                    fontWeight: 700,
+                                                    color: 'text.primary',
+                                                    textDecoration: category.isActive ? 'none' : 'line-through',
+                                                }}
+                                            >
+                                                {category.name}
+                                            </Typography>
+                                            {category.isSystem && <StatusBadge trio={TRIO.slate} label="Built-in" />}
+                                        </Stack>
+                                        <Typography noWrap sx={{ fontSize: 12, color: 'text.secondary', mt: 0.25 }}>
+                                            {category.faqCount} question{category.faqCount === 1 ? '' : 's'}
+                                            {category.description ? ` · ${category.description}` : ''}
+                                        </Typography>
+                                    </Box>
 
-                                {/* All five are the kit's WtIconButton — one radius,
-                                    tint, press physics and title/aria wiring, shared
-                                    with every other icon action in the app. */}
-                                <div className="flex shrink-0 items-center gap-1">
-                                    <WtIconButton
-                                        type="button"
-                                        size={32}
-                                        onClick={() => void move(index, -1)}
-                                        disabled={index === 0 || isSaving}
-                                        title={`Move ${category.name} up`}
-                                    >
-                                        <KTIcon iconName="arrow-up" className="fs-7" />
-                                    </WtIconButton>
-                                    <WtIconButton
-                                        type="button"
-                                        size={32}
-                                        onClick={() => void move(index, 1)}
-                                        disabled={index === categories.length - 1 || isSaving}
-                                        title={`Move ${category.name} down`}
-                                    >
-                                        <KTIcon iconName="arrow-down" className="fs-7" />
-                                    </WtIconButton>
-                                    <WtIconButton
-                                        type="button"
-                                        size={32}
-                                        color={category.isActive ? TRIO.green.c : TRIO.slate.c}
-                                        onClick={() => void toggleActive(category)}
-                                        title={category.isActive ? `Visible — click to hide ${category.name}` : `Hidden — click to show ${category.name}`}
-                                    >
-                                        <KTIcon iconName={category.isActive ? 'eye' : 'eye-slash'} className="fs-7" />
-                                    </WtIconButton>
-                                    <WtIconButton
-                                        type="button"
-                                        size={32}
-                                        color={TRIO.blue.c}
-                                        onClick={() => startEdit(category)}
-                                        title={`Edit ${category.name}`}
-                                    >
-                                        <KTIcon iconName="pencil" className="fs-7" />
-                                    </WtIconButton>
-                                    <WtIconButton
-                                        type="button"
-                                        size={32}
-                                        color={TRIO.rose.c}
-                                        onClick={() => void handleDelete(category)}
-                                        disabled={category.isSystem}
-                                        title={category.isSystem ? 'Built-in sections cannot be deleted — hide it instead' : `Delete ${category.name}`}
-                                    >
-                                        <KTIcon iconName="trash" className="fs-7" />
-                                    </WtIconButton>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                                    <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                                        <WtIconButton sx={COMPACT_ICON_BTN} title={`Move ${category.name} up`}
+                                            disabled={index === 0 || isSaving} onClick={() => void move(index, -1)}>
+                                            <KTIcon iconName="arrow-up" className="fs-7" />
+                                        </WtIconButton>
+                                        <WtIconButton sx={COMPACT_ICON_BTN} title={`Move ${category.name} down`}
+                                            disabled={index === categories.length - 1 || isSaving} onClick={() => void move(index, 1)}>
+                                            <KTIcon iconName="arrow-down" className="fs-7" />
+                                        </WtIconButton>
+                                        <WtIconButton sx={COMPACT_ICON_BTN} color={category.isActive ? TRIO.green.c : TRIO.slate.c}
+                                            title={category.isActive ? `Visible — hide ${category.name}` : `Hidden — show ${category.name}`}
+                                            onClick={() => void toggleActive(category)}>
+                                            <KTIcon iconName={category.isActive ? 'eye' : 'eye-slash'} className="fs-7" />
+                                        </WtIconButton>
+                                        <WtIconButton sx={COMPACT_ICON_BTN} color={TRIO.blue.c} title={`Edit ${category.name}`}
+                                            onClick={() => startEdit(category)}>
+                                            <KTIcon iconName="pencil" className="fs-7" />
+                                        </WtIconButton>
+                                        <WtIconButton sx={COMPACT_ICON_BTN} color={TRIO.rose.c} disabled={category.isSystem}
+                                            title={category.isSystem ? 'Built-in sections cannot be deleted — hide it instead' : `Delete ${category.name}`}
+                                            onClick={() => void handleDelete(category)}>
+                                            <KTIcon iconName="trash" className="fs-7" />
+                                        </WtIconButton>
+                                    </Stack>
+                                </GlassSurface>
+                            );
+                        })}
+                    </Stack>
                 )}
 
-                {/* Inline editor — create and edit share one form */}
+                {/* Create / edit — one SettingsSection, the same block the config engines use. */}
                 {draft ? (
-                    <div className="flex flex-col gap-4 rounded-2xl border border-[#E6E9EE] bg-slate-50/60 p-4 dark:border-[#30363d] dark:bg-white/[0.03]">
-                        <div className="text-[13px] font-semibold text-slate-700 dark:text-slate-200">
-                            {draft.id ? 'Edit section' : 'New section'}
-                        </div>
-
-                        <input
-                            className={FIELD_CLASS}
-                            value={draft.name}
-                            onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                            placeholder="Section name, e.g. Onboarding"
-                            maxLength={FAQ_CATEGORY_NAME_MAX}
-                            aria-label="Section name"
-                            autoFocus
-                        />
-
-                        <input
-                            className={FIELD_CLASS}
-                            value={draft.description}
-                            onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-                            placeholder="Short description (optional)"
-                            maxLength={FAQ_CATEGORY_DESCRIPTION_MAX}
-                            aria-label="Section description"
-                        />
-
-                        <div className="flex flex-col gap-2">
-                            <span className="text-[12px] font-semibold text-slate-600 dark:text-slate-300">Icon</span>
-                            <IconPicker
-                                label="Section icon"
-                                value={draft.icon}
-                                options={FAQ_ICON_CHOICES}
-                                onChange={(icon) => setDraft({ ...draft, icon })}
+                    <SettingsSection
+                        tone={TRIO[resolveTone(draft.tone)]}
+                        icon={draft.icon}
+                        title={draft.id ? 'Edit section' : 'New section'}
+                        description="Name it, then pick how it should look on the board."
+                    >
+                        <Stack spacing={2}>
+                            <TextField
+                                autoFocus
+                                size="small"
+                                label="Section name"
+                                placeholder="e.g. Onboarding"
+                                value={draft.name}
+                                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                                inputProps={{ maxLength: FAQ_CATEGORY_NAME_MAX }}
+                                fullWidth
                             />
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <span className="text-[12px] font-semibold text-slate-600 dark:text-slate-300">Colour</span>
-                            <TonePicker
-                                label="Section colour"
-                                value={draft.tone}
-                                options={FAQ_TONE_CHOICES}
-                                onChange={(tone) => setDraft({ ...draft, tone })}
+                            <TextField
+                                size="small"
+                                label="Description"
+                                placeholder="Optional — shown under the section heading"
+                                value={draft.description}
+                                onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+                                inputProps={{ maxLength: FAQ_CATEGORY_DESCRIPTION_MAX }}
+                                fullWidth
                             />
-                        </div>
 
-                        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                            <WtButton ghost type="button" onClick={() => setDraft(null)} className="w-full sm:w-auto">
-                                Cancel
-                            </WtButton>
-                            <WtButton
-                                type="button"
-                                onClick={() => void handleSave()}
-                                disabled={!draft.name.trim() || isSaving}
-                                startIcon={isSaving ? <Spinner size={14} color="#fff" /> : undefined}
-                                className="w-full sm:w-auto"
-                            >
-                                {draft.id ? 'Save section' : 'Add section'}
-                            </WtButton>
-                        </div>
-                    </div>
+                            <Box>
+                                <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'text.secondary', mb: 1 }}>Icon</Typography>
+                                <IconPicker label="Section icon" value={draft.icon} options={FAQ_ICON_CHOICES}
+                                    onChange={(icon) => setDraft({ ...draft, icon })} />
+                            </Box>
+
+                            <Box>
+                                <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'text.secondary', mb: 1 }}>Colour</Typography>
+                                <TonePicker label="Section colour" value={draft.tone} options={FAQ_TONE_CHOICES}
+                                    onChange={(tone) => setDraft({ ...draft, tone })} />
+                            </Box>
+
+                            <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.25} justifyContent="flex-end">
+                                <WtButton ghost onClick={() => setDraft(null)}>Cancel</WtButton>
+                                <WtButton
+                                    onClick={() => void handleSave()}
+                                    disabled={!draft.name.trim() || isSaving}
+                                    startIcon={isSaving ? <CircularProgress size={14} sx={{ color: 'inherit' }} /> : undefined}
+                                >
+                                    {draft.id ? 'Save section' : 'Add section'}
+                                </WtButton>
+                            </Stack>
+                        </Stack>
+                    </SettingsSection>
                 ) : (
                     <WtButton
-                        type="button"
-                        onClick={startCreate}
-                        startIcon={<KTIcon iconName="plus" className="fs-5 text-white" />}
-                        className="self-start"
+                        onClick={() => setDraft({ ...EMPTY_DRAFT })}
+                        startIcon={<KTIcon iconName="plus" className="fs-5" />}
+                        sx={{ alignSelf: 'flex-start' }}
                     >
                         Add section
                     </WtButton>
                 )}
-            </div>
+            </Box>
         </GlassDialog>
     );
 }

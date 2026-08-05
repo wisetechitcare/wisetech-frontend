@@ -27,6 +27,15 @@ export {
   AutoGrid, ListHeader,
 } from './patterns';
 export type { Trio } from './patterns';
+// The accent-topped configuration card every settings/config engine is built
+// from (Leave Policy, Sandwich Leave, FAQ sections). Owns the frame — surface,
+// accent rule, icon tile, header, spacing — so those screens stop drifting apart.
+export { SettingsSection } from './SettingsSection';
+export type { SettingsSectionProps } from './SettingsSection';
+// The app-wide toolbar filter (SUB ORGANIZATION / BRANCH / STATUS). Previously
+// defined inside a payroll page that three other features imported across.
+export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
+export type { ToolbarFilterSelectProps, FilterSelectTheme } from './ToolbarFilterSelect';
 export { hoverLiftSx, pressableSx, MOTION_KEYFRAMES } from './motion';
 export { GlassNotification, GlassToastProvider, useGlassToast } from './GlassNotification';
 export type { GlassNotificationProps, GlassToastOptions } from './GlassNotification';

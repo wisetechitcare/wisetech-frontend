@@ -32,6 +32,14 @@ The bar for every component: **reusable, responsive, accessible, theme-aware (li
 Current burn-down: **0 errors, ~1375 warnings.** The warnings are the migration backlog, not noise.
 
 ### The shared kit is the first stop
+
+**READ `src/app/modules/common/components/ui/README.md` FIRST.** It is the
+component index — what exists, what to use instead of building, which of the two
+kits (MUI vs Tailwind twin) a screen belongs on, and the two Metronic/Tailwind
+traps that silently break styling. Searching one folder and finding nothing is
+how this codebase ended up with four close buttons and three dropdowns; the
+index is there so that search is one lookup.
+
 `src/app/modules/common/components/ui/` (barrel: `@app/modules/common/components/ui`) — plus the MUI-free Tailwind twin in `ui/tw/`, and shared inputs in `src/app/modules/common/inputs/`.
 **Search the kit before building anything.** If the right component doesn't exist, BUILD IT IN THE KIT (generic, documented, responsive, theme-aware) and consume it from the feature — do not inline it in a page.
 
