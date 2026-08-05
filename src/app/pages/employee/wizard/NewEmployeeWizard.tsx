@@ -9,11 +9,10 @@ import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { uploadUserAsset } from "@services/uploader";
-import Step2, { NAV_SECTIONS, COMPLETION_FNS, SECTION_OF_FIELD, ALL_SECTION_IDS } from "./steps/Step2";
-import ObSectionsSidebar from "./steps/ObSectionsSidebar";
-import Step3 from "./steps/Step3";
-import Step4 from "./steps/Step4";
-import StepAppSettings from "./steps/StepAppSettings";
+// Only the section-id/field-map constants are still needed — the step components
+// they used to accompany are superseded by OnboardingWorkspace's 7-step config.
+import { SECTION_OF_FIELD, ALL_SECTION_IDS } from "./steps/Step2";
+import OnboardingWorkspace from "../forms/onboarding/OnboardingWorkspace";
 import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
 import "../glass.css";
 import "./steps/Step2.css";
@@ -160,12 +159,6 @@ function buildRetentionPayload(values: {
 }
 
 const RETENTION_KEYS = new Set(["retentionEnabled", "retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]);
-
-// Fields the user can legitimately BLANK OUT. The edit payload is scrubbed of falsy
-// values before it is sent (so untouched optional fields aren't overwritten), which
-// otherwise makes clearing these impossible: the key is dropped, the backend leaves
-// the column alone, and the old value reappears on the next load.
-const CLEARABLE_KEYS = new Set(["dateOfExit"]);
 
 const ONBOARDING_DRAFT_KEY = "employee-onboarding-draft";
 
@@ -608,6 +601,32 @@ const newEmployeeWizardSchema = [
   }),
 ];
 
+/**
+ * ONE schema for the whole form.
+ *
+ * The wizard now presents a single flat step list, so Formik validates the whole
+ * record rather than swapping schemas per macro-step. The four legacy schemas
+ * above cover DISJOINT field sets, so concatenating them is a pure merge — no
+ * rule is overridden or dropped.
+ *
+ * This does not make every field red on step 1: `EnterpriseFormWizard` only
+ * blocks on (and only marks touched) the fields belonging to the step you are
+ * actually on, and Formik renders no error for an untouched field. Full-form
+ * validity is required only at the final submit — which is what the old
+ * last-step behaviour did anyway.
+ */
+// Merge all 4 step schemas into one unified schema for full-form validation.
+// Each step schema is a separate Yup.object with disjoint field sets, so we
+// flatten them into a single shape by extracting .fields from each.
+const allSchemaFields = newEmployeeWizardSchema.reduce(
+  (acc: any, schema: any) => {
+    const fields = schema.fields || schema.describe().fields || {};
+    return { ...acc, ...fields };
+  },
+  {}
+);
+const onboardingSchema = Yup.object().shape(allSchemaFields);
+
 const createDefaultEducationInfo = () => createEducationRow();
 
 const createDefaultFamilyInfo = () => ({ name: "", relationship: "", mobileNumber: "", dateOfBirth: "" });
@@ -814,10 +833,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
         ...(el.toDate && { toDate: el.toDate }),
         employeeId,
       }))),
-      // A row needs at least one DATE to describe an employment period. Keeping rows
-      // that only carry a reason persists a dateless entry that downstream status
-      // checks read as "re-joined and still employed", overriding a real exit date.
-      () => createRejoinHistoryDetails(rejoinHistory.filter((el: any) => el.dateOfReJoining || el.dateOfReExit).map((el: any) => ({
+      () => createRejoinHistoryDetails(rejoinHistory.filter((el: any) => el.dateOfReJoining || el.dateOfReExit || el.reason).map((el: any) => ({
         ...(el.dateOfReJoining && { dateOfReJoining: el.dateOfReJoining }),
         ...(el.dateOfReExit && { dateOfReExit: el.dateOfReExit }),
         ...(el.reason && { reason: el.reason }),
@@ -1312,7 +1328,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     const employeePayload: any = {
       // Always send avatar (even when empty) so removing the photo persists —
       // a guarded `...(avatar && {avatar})` would silently keep the old image.
-      avatar: avatar || "", id: employeeId, userId, dateOfJoining, ctcInLpa,
+      avatar: values.avatar || "", id: employeeId, userId, dateOfJoining, ctcInLpa,
       gender: parseInt(gender), designationId, branchId,
       isActive: isEmployeeActive === "1",
       ...(employeeTypeId && { employeeTypeId }),
@@ -1327,14 +1343,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(aadharNumber && { aadharNumber }), ...(aadharCardPath && { aadharCardPath }),
       ...(panNumber && { panNumber }), ...(panCardPath && { panCardPath }),
       ...(anniversary && { anniversary }), ...(referredById && { referredById }),
-      ...(nickName && { nickName }),
-      // Sent unconditionally, unlike the fields around it. A `dateOfExit && {...}`
-      // guard omits the key entirely when the user CLEARS the date, so the backend
-      // never learns about the change and the old exit date silently survives the
-      // save. An empty string is the documented "clear it" signal — the backend
-      // turns it into NULL (the Yup schema types this field as a plain string, so
-      // null would fail validation before reaching the handler).
-      dateOfExit: dateOfExit || "",
+      ...(nickName && { nickName }), ...(dateOfExit && { dateOfExit }),
       ...(vegMealPreference && { vegMealPreference }),
       ...(nonVegMealPreference && { nonVegMealPreference }),
       ...(veganMealPreference && { veganMealPreference }),
@@ -1351,12 +1360,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     };
 
     Object.keys(employeePayload).forEach((key) => {
-      // CLEARABLE_KEYS must survive the falsy-scrub below: for them an empty value
-      // means "clear this field", not "not provided". Dropping the key makes the
-      // backend leave the column untouched, so the old value silently comes back on
-      // the next load and the field is impossible to un-set from the UI.
-      if (CLEARABLE_KEYS.has(key)) return;
-      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key) || RETENTION_KEYS.has(key)) return;
+      // `avatar` must be exempt: an empty string here is the DELIBERATE signal
+      // that the user removed their photo. Without this the generic falsy-prune
+      // below strips it from the payload, so the removal never reaches the
+      // backend and the old image survives the save — silently undoing the
+      // "always send avatar" intent three lines above.
+      if (key === "avatar" || key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key) || RETENTION_KEYS.has(key)) return;
       if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
     });
     if (!employeePayload.employeeTypeConfigId) delete employeePayload.employeeTypeConfigId;
@@ -1383,8 +1392,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     familyInfo.filter((f: any) => f?.id || hasFamilyInfo(f)).forEach((f: any) =>
       reqPromise.push(() => f?.id ? updateEmergencyContact(f.id, f) : createEmergencyContacts([{ ...(f.name && { name: f.name }), ...(f.mobileNumber && { mobileNumber: f.mobileNumber }), ...(f.dateOfBirth && { dateOfBirth: f.dateOfBirth }), ...(f.relationship && { relation: f.relationship }), employeeId }])));
 
-    // Reason alone is not an employment period — see the create path above.
-    const filteredRejoinHistory = rejoinHistory?.filter((r: any) => r.dateOfReJoining || r.dateOfReExit);
+    const filteredRejoinHistory = rejoinHistory?.filter((r: any) => r.dateOfReJoining || r.dateOfReExit || r.reason);
     await deleteAllRejoinHistoryByEmployeeId(employeeId);
     if (filteredRejoinHistory.length > 0) {
       await createRejoinHistoryDetails(filteredRejoinHistory.map((r: any) => ({
@@ -1454,15 +1462,23 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     }
   };
 
-  const submitStep = async (values: any, actions: FormikValues) => {
-    const currentStepIndex = stepper?.currentStepIndex || activeStepIndex;
-    const totalStepsNumber = stepper?.totalStepsNumber || newEmployeeWizardSchema.length;
-
-    if (currentStepIndex === totalStepsNumber && editMode) {
+  /**
+   * The single terminal save. `EnterpriseFormWizard` owns step navigation now, so
+   * this no longer advances steps — it runs only when the user submits from the
+   * final step (or the persistent Save button), and the wizard has already
+   * enforced full-form validity before calling it.
+   *
+   * The create/edit split is deliberate and preserved: creating an employee POSTs
+   * a user → uploads → employee → roles → employee data (with archive-on-failure
+   * cleanup), while editing PATCHes existing records and first gates on approval
+   * workflows being configured.
+   */
+  const handleFinalSubmit = async (values: any, actions: FormikValues) => {
+    if (editMode) {
       const missingApproval = await getMissingApprovalWorkflows();
       if (missingApproval.length) {
         errorConfirmation(
-          `Please configure Approval Settings before saving.<br><br>Missing a Level 1 approver for: <strong>${missingApproval.join(", ")}</strong>.<br>Open the App Settings step → Approval Settings and save each chain.`
+          `Please configure Approval Settings before saving.<br><br>Missing a Level 1 approver for: <strong>${missingApproval.join(", ")}</strong>.<br>Open the Payroll &amp; Access step → Approval Settings and save each chain.`
         );
         return;
       }
@@ -1477,21 +1493,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       return;
     }
 
-    if (currentStepIndex !== totalStepsNumber) {
-      let targetStep: number;
-      if (stepper) {
-        stepper.goNext();
-        targetStep = stepper.currentStepIndex;
-      } else {
-        targetStep = currentStepIndex + 1;
-      }
-      setActiveStepIndex(targetStep);
-      setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
-      // Open the new step at its OWN first section (activeSection is shared across steps).
-      setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
-      actions.setTouched({});
-      scrollWizardToTop();
-    } else {
+    {
       let savedUserId: string | null = null;
       try {
         setIsSubmitting(true);
@@ -1535,11 +1537,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         await saveEmployeeData(values, savedEmployeeId);
         successConfirmation("Successfully onboarded an employee");
         clearDraft();
-        stepper?.goto(1);
-        setActiveStepIndex(1);
-        setActiveSection("personal-info");
-        setCurrentSchema(newEmployeeWizardSchema[0]);
         actions.resetForm();
+        // Onboarding is done — return to the list rather than leaving a reset
+        // form parked on the last step with no indication anything happened.
+        handleClose();
       } catch (error) {
         console.error("Submission error:", error);
         if (savedUserId) {
@@ -1549,8 +1550,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         await handleSubmissionError(error);
       } finally { setIsSubmitting(false); }
     }
-
-    setCurrentSchema(newEmployeeWizardSchema[(stepper?.currentStepIndex || activeStepIndex) - 1]);
   };
 
   const handleSubmissionError = async (error: any) => {
@@ -1705,387 +1704,81 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   const handleClose = () => { setShow(false); navigate("/employees"); };
 
   return (
-    <>
-      <Modal show={show} onHide={handleClose} dialogClassName="full-width-modal" className="full-width-modal">
-        <Modal.Body ref={modalBodyRef} className="employee__form_wizard__modal_body ob-modal-body">
+    <Modal
+      show={show}
+      onHide={handleClose}
+      fullscreen
+      dialogClassName="responsive-modal"
+      className="responsive-modal wt-wizard-modal onboarding-wizard-modal"
+    >
+      <div className="ob-wizard-shell">
+        {/* EnterpriseFormWizard reserves space at the right of its header for this
+            button but does not render it — the host modal owns it. */}
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="Close onboarding"
+          className="ob-wizard-close"
+        >
+          <KTIcon iconName="cross" className="fs-2" />
+        </button>
+
+        <Modal.Body ref={modalBodyRef} style={{ padding: 0, height: "100%", overflow: "hidden" }}>
           <Formik
             initialValues={defaultState}
-            validationSchema={currentSchema}
-            onSubmit={submitStep}
+            validationSchema={onboardingSchema}
+            onSubmit={handleFinalSubmit}
             enableReinitialize={true}
           >
             {(formikProps) => {
               formikRef.current = formikProps;
 
-              const completion = calculateProfileCompletion(formikProps.values);
-              const isLastStep = activeStepIndex === newEmployeeWizardSchema.length;
-              const headerEmployeeName = `${formikProps.values.firstName || ""} ${formikProps.values.lastName || ""}`.trim();
-              const headerEmployeeAvatar = mobileProfilePhotoPreview || formikProps.values.avatar || "";
-              const headerEmployeeInitials = getNameInitials(headerEmployeeName);
-              const mobileRingSize = 40;
-              const mobileRingRadius = 18;
-              const mobileRingCircumference = 2 * Math.PI * mobileRingRadius;
-              const mobileRingOffset = mobileRingCircumference * (1 - completion / 100);
-              const sidebarProfile =
-                activeStepIndex > 1 && (headerEmployeeName || headerEmployeeAvatar)
-                  ? {
-                    name: headerEmployeeName,
-                    avatar: headerEmployeeAvatar,
-                    initials: headerEmployeeInitials,
-                    animate: sidebarProfileShouldAnimate,
-                  }
-                  : undefined;
-
-              const stepSections = STEP_SECTIONS[activeStepIndex] ?? [];
-              const sectionIdx = stepSections.indexOf(activeSection);
-              // ONLY the genuine last section is "last". Previously `sectionIdx < 0` (activeSection
-              // momentarily out of sync with the step's section list — e.g. right after a top-stepper
-              // jump, before the snap effect re-aligns it) was ALSO treated as last, turning the
-              // Continue button into a step-submit that skipped the remaining sections and jumped
-              // straight to the next step (the "Privacy Controls is skipped → Documents opens" bug).
-              const isLastSection = sectionIdx >= 0 && sectionIdx === stepSections.length - 1;
-
-              // Which top-level field keys currently FAIL validation — computed SYNCHRONOUSLY from
-              // the values on screen right now, via the step's own Yup schema (single source of
-              // truth, so conditional/`.when` requirements like Financial Config are handled for
-              // free). This deliberately does NOT read Formik's async `errors` object: that lags
-              // behind reinitialize/reset and produced the "edit form is frozen until you touch
-              // another step" bug. A pure sync function of (values, schema) can't race anything.
-              const invalidKeys = computeInvalidKeys(currentSchema, formikProps.values);
-
-              // Is the ACTIVE section (not the whole step) free of validation errors right now?
-              // Drives both the CTA styling and — critically — whether "Continue" may move past
-              // this section at all.
-              const activeSectionKeys = SECTION_FIELD_KEYS[activeStepIndex]?.[activeSection] ?? [];
-              const isStepReady = activeSectionKeys.every((key) => !invalidKeys.has(key));
-
-              // Whole-step validity — every field of the CURRENT step is valid. Drives the
-              // step-terminal Continue/Submit buttons.
-              const isWholeStepValid = invalidKeys.size === 0;
-
               return (
-                <Form className="ob-wizard-root" noValidate id="employee_onboarding_form">
-                  <FormikValidationErrorFocus activeStepIndex={activeStepIndex} setActiveSection={setActiveSection} />
+                <Form noValidate id="employee_onboarding_form">
                   <DraftAutosave enabled={!editMode} />
-                  <div ref={stepperRef} className="stepper stepper-pills d-flex flex-column flex-row-fluid" id="kt_create_account_stepper">
 
-                    {/* ── Header Bar ── */}
-                    <header className="ob-header-bar">
-                      <div className="ob-header-left">
-                        <h2 className="ob-header-title">Employee Onboarding</h2>
-                        {editMode && defaultState.firstName && (
-                          <span className="ob-header-user-chip">{defaultState.firstName} {defaultState.lastName}</span>
-                        )}
-                      </div>
-                      <div className="ob-header-right">
-                        <div className="ob-profile-completion">
-                          <span className="ob-completion-label">{completion}% Complete</span>
-                          <div className="ob-completion-bar-track">
-                            <div className="ob-completion-bar-fill" style={{ width: `${completion}%` }} />
-                          </div>
-                        </div>
-                        {(headerEmployeeName || headerEmployeeAvatar) && (
-                          <span className="ob-header-mobile-profile" title={headerEmployeeName}>
-                            <span className="ob-header-mobile-avatar" aria-hidden>
-                              <svg
-                                className="ob-header-mobile-ring"
-                                width={mobileRingSize}
-                                height={mobileRingSize}
-                                viewBox={`0 0 ${mobileRingSize} ${mobileRingSize}`}
-                              >
-                                <circle
-                                  className="ob-header-mobile-ring-track"
-                                  cx={mobileRingSize / 2}
-                                  cy={mobileRingSize / 2}
-                                  r={mobileRingRadius}
-                                />
-                                <circle
-                                  key={`${activeStepIndex}-${completion}`}
-                                  className="ob-header-mobile-ring-progress"
-                                  cx={mobileRingSize / 2}
-                                  cy={mobileRingSize / 2}
-                                  r={mobileRingRadius}
-                                  style={{
-                                    "--ring-circumference": mobileRingCircumference,
-                                    "--ring-offset": mobileRingOffset,
-                                  } as any}
-                                />
-                              </svg>
-                              <span className="ob-header-mobile-avatar-inner">
-                              {headerEmployeeAvatar ? (
-                                <img src={headerEmployeeAvatar} alt="" />
-                              ) : (
-                                headerEmployeeInitials
-                              )}
-                              </span>
-                            </span>
-                            <span className="ob-header-mobile-copy">
-                              <span className="ob-header-mobile-name">{headerEmployeeName}</span>
-                              <span className="ob-header-mobile-percent">{completion}%</span>
-                            </span>
-                          </span>
-                        )}
-                      </div>
-                    </header>
+                  <OnboardingWorkspace
+                    formikProps={formikProps}
+                    editMode={editMode}
+                    setFile={addFileToState}
+                    removeFile={removeFileFromState}
+                    setEducationFile={addEducationFileToState}
+                    profilePhotoPreview={mobileProfilePhotoPreview}
+                    isSubmitting={isSubmitting}
+                    onCancel={handleClose}
+                    onFinalSave={() => formikRef.current?.submitForm()}
+                    headerName={`${defaultState.firstName || ""} ${defaultState.lastName || ""}`.trim()}
+                  />
 
-                    {/* ── Stepper Nav ── */}
-                    <nav className="ob-stepper-nav-bar">
-                      <div className="ob-horiz-stepper">
-                        {[
-                          { label: "Personal Details", desc: "~2 min" },
-                          { label: "Company Details", desc: "~3 min" },
-                          { label: "App Settings", desc: "~2 min" },
-                          { label: "Documents", desc: "~1 min" },
-                        ].map((step, i) => {
-                          const stepNum = i + 1;
-                          const isCurrent = activeStepIndex === stepNum;
-                          const isCompleted = activeStepIndex > stepNum;
-                          return (
-                            <Fragment key={stepNum}>
-                              <div
-                                className={`stepper-item ob-step-item ${isCurrent ? "current" : ""} ${isCompleted ? "completed" : ""}`}
-                                data-kt-stepper-element="nav"
-                              >
-                                <div className="ob-step-circle">
-                                  {isCompleted ? <KTIcon iconName="check" className="fs-6 text-white" /> : stepNum}
-                                </div>
-                                <div className="ob-step-labels">
-                                  <div className="ob-step-name">{step.label}</div>
-                                  <div className="ob-step-desc">{step.desc}</div>
-                                </div>
-                              </div>
-                              {i < 3 && (
-                                <div className={`ob-step-connector ${isCompleted ? "completed" : ""}`} />
-                              )}
-                            </Fragment>
-                          );
-                        })}
-                      </div>
-                    </nav>
-
-                    {/* ── Draft-restored notice (create mode only) ── */}
-                    {!editMode && showDraftNotice && (
-                      <div className="ob-draft-notice" role="status">
-                        <i className="bi bi-clock-history ob-draft-notice-icon" aria-hidden></i>
-                        <span className="ob-draft-notice-text">
-                          Restored your unsaved draft — pick up where you left off.
-                          <span className="ob-draft-notice-sub"> Uploaded files aren't saved and may need re-attaching.</span>
-                        </span>
-                        <button type="button" className="ob-draft-notice-discard" onClick={discardDraft}>
-                          Discard &amp; start fresh
-                        </button>
-                        <button
-                          type="button"
-                          className="ob-draft-notice-close"
-                          aria-label="Dismiss"
-                          onClick={() => setShowDraftNotice(false)}
-                        >
-                          <KTIcon iconName="cross" className="fs-5" />
-                        </button>
-                      </div>
-                    )}
-
-                    {/* ── Main Content ── */}
-                    <main className="ob-main-layout">
-                      <div key={activeStepIndex} className="wizard-step-transition">
-
-                        {/* STEP 1 */}
-                        {activeStepIndex === 1 && (
-                          <div className="ob-two-col-layout">
-                            <ObSectionsSidebar
-                              sections={[
-                                ...NAV_SECTIONS.map((section) => {
-                                  const { filled, total } =
-                                    COMPLETION_FNS[section.id]?.(formikProps.values) ?? { filled: 0, total: 0 };
-                                  return {
-                                    id: section.id,
-                                    label: section.label,
-                                    icon: section.icon,
-                                    // A section earns its green tick only when it is both filled AND
-                                    // schema-valid — so a filled-but-invalid field (e.g. a 5-digit
-                                    // phone) never shows a tick while its border is red.
-                                    isComplete: total > 0 && filled >= total && isSectionValid(section.id, invalidKeys),
-                                  };
-                                }),
-                                (() => {
-                                  const { filled, total } =
-                                    COMPLETION_FNS.meal?.(formikProps.values) ?? { filled: 0, total: 0 };
-                                  return {
-                                    id: "meal",
-                                    label: "Additional Details",
-                                    icon: (
-                                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                        <circle cx="12" cy="12" r="10" />
-                                        <path d="M12 8v4l3 3" />
-                                      </svg>
-                                    ),
-                                    isComplete: total > 0 && filled >= total && isSectionValid("meal", invalidKeys),
-                                  };
-                                })(),
-                              ]}
-                              activeSection={activeSection}
-                              onSectionChange={changeSection}
-                            />
-                            <div className="ob-form-area">
-                              <Step2
-                                formikProps={formikProps}
-                                setFile={addFileToState}
-                                removeFile={removeFileFromState}
-                                setEducationFile={addEducationFileToState}
-                                activeSection={activeSection}
-                                onSectionChange={changeSection}
-                                completion={completion}
-                                activeSectionValid={isStepReady}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {activeStepIndex === 2 && <Step3 formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={changeSection} />}
-                        {activeStepIndex === 3 && <StepAppSettings formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={changeSection} />}
-                        {activeStepIndex === 4 && <Step4 formikProps={formikProps} setFile={addFileToState} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={changeSection} />}
-                      </div>
-                    </main>
-
-                    {/* ── Floating Action Buttons ── */}
-                    <div className="ob-floating-actions">
-                      {/* Cancel */}
-                      <button type="button" className="ob-float-cancel-btn" onClick={handleClose}>
-                        <KTIcon iconName="cross" className="fs-5" />
-                        Cancel
+                  {/* Draft-restored notice (create mode only). Floated over the
+                      wizard so it never disturbs the sticky header/footer layout. */}
+                  {!editMode && showDraftNotice && (
+                    <div className="ob-draft-notice" role="status">
+                      <i className="bi bi-clock-history ob-draft-notice-icon" aria-hidden></i>
+                      <span className="ob-draft-notice-text">
+                        Restored your unsaved draft — pick up where you left off.
+                        <span className="ob-draft-notice-sub"> Uploaded files aren&apos;t saved and may need re-attaching.</span>
+                      </span>
+                      <button type="button" className="ob-draft-notice-discard" onClick={discardDraft}>
+                        Discard &amp; start fresh
                       </button>
-
-                      {/* Back (hidden on step 1) */}
-                      {activeStepIndex > 1 && (
-                        <button type="button" className="ob-float-back-btn" onClick={prevStep} disabled={isSubmitting}>
-                          <KTIcon iconName="arrow-left" className="fs-5" />
-                          Back
-                        </button>
-                      )}
-
-                      {/* Continue / Submit — walks the current step's left-hand sections first,
-                          and only advances to the next top step from the LAST section. Applies to
-                          every step, so the button behaves consistently throughout the wizard. */}
-                      {(() => {
-                        // Not on the last section of this step → advance to the next section only
-                        // once this section's required fields are valid. If not, the click REVEALS
-                        // the red errors (this is the "trying to move" moment) and stays put. The
-                        // button is greyed (is-incomplete) as a hint but stays clickable, so the
-                        // click can surface what's missing — a fresh, untouched form shows no red.
-                        if (!isLastSection) {
-                          return (
-                            <button
-                              type="button"
-                              className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
-                              disabled={isSubmitting}
-                              onClick={() => {
-                                if (!isStepReady) { revealSectionErrors(activeSection); return; }
-                                changeSection(stepSections[sectionIdx + 1]);
-                                scrollWizardToTop();
-                              }}
-                            >
-                              Continue
-                              <KTIcon iconName="arrow-right" className="fs-5" />
-                            </button>
-                          );
-                        }
-
-                        // Last section of step 1 → validate the step, then go to Company Details.
-                        // Clickable even when incomplete: an incomplete click runs submitForm,
-                        // which reveals the red errors and (via FormikValidationErrorFocus) jumps
-                        // to the first missing field's section. Greyed as a hint until valid.
-                        if (activeStepIndex === 1) {
-                          return (
-                            <button
-                              type="button"
-                              className={`ob-float-continue-btn ${isWholeStepValid ? "is-ready" : "is-incomplete"}`}
-                              disabled={isSubmitting}
-                              onClick={() => {
-                                formikProps.validateForm().then((errors) => {
-                                  if (Object.keys(errors).length === 0) advanceToNextStep();
-                                  else formikProps.submitForm();
-                                });
-                              }}
-                            >
-                              Continue to {STEP_TITLES[activeStepIndex] ?? "Next"}
-                              <KTIcon iconName="arrow-right" className="fs-5" />
-                            </button>
-                          );
-                        }
-
-                        // Last section of the final step → submit the whole form. Clickable when
-                        // incomplete so the submit attempt reveals the missing fields.
-                        if (isLastStep) {
-                          return (
-                            <button type="submit" className="ob-float-submit-btn" disabled={isSubmitting}>
-                              {isSubmitting ? (
-                                <>
-                                  Saving...
-                                  <span className="spinner-border spinner-border-sm align-middle ms-1" />
-                                </>
-                              ) : (
-                                <>
-                                  Submit
-                                  <KTIcon iconName="check" className="fs-5" />
-                                </>
-                              )}
-                            </button>
-                          );
-                        }
-
-                        // Last section of steps 2/3 → submit, UNLESS a "must visit" section for this
-                        // step (e.g. Leave Settings) hasn't been opened yet — send the user there
-                        // first instead of letting them submit straight past it.
-                        const unvisitedRequired = stepSections.find((id) => MUST_VISIT_SECTIONS.has(id) && !visitedSections.has(id));
-                        if (unvisitedRequired) {
-                          return (
-                            <button
-                              type="button"
-                              className="ob-float-continue-btn is-incomplete"
-                              disabled={isSubmitting}
-                              onClick={() => {
-                                changeSection(unvisitedRequired);
-                                scrollWizardToTop();
-                              }}
-                            >
-                              Review {unvisitedRequired.split("_").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ")}
-                              <KTIcon iconName="arrow-right" className="fs-5" />
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <button
-                            type="submit"
-                            className={`ob-float-continue-btn ${isWholeStepValid ? "is-ready" : "is-incomplete"}`}
-                            disabled={isSubmitting}
-                          >
-                            {isSubmitting ? (
-                              <>
-                                Please wait...
-                                <span className="spinner-border spinner-border-sm align-middle ms-1" />
-                              </>
-                            ) : (
-                              <>
-                                Continue to {STEP_TITLES[activeStepIndex] ?? "Next"}
-                                <KTIcon iconName="arrow-right" className="fs-5" />
-                              </>
-                            )}
-                          </button>
-                        );
-                      })()}
-
-                      {/* <span className="ob-float-shortcut">Ctrl + Enter</span> */}
+                      <button
+                        type="button"
+                        className="ob-draft-notice-close"
+                        aria-label="Dismiss"
+                        onClick={() => setShowDraftNotice(false)}
+                      >
+                        <KTIcon iconName="cross" className="fs-5" />
+                      </button>
                     </div>
-
-                  </div>
+                  )}
                 </Form>
               );
             }}
           </Formik>
         </Modal.Body>
-      </Modal>
-    </>
+      </div>
+    </Modal>
   );
 }
 

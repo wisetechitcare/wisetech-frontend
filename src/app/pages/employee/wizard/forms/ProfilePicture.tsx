@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Camera, X, Image } from 'lucide-react';
+import { Upload, Camera, X, Image, Eye } from 'lucide-react';
+import Cropper from 'react-easy-crop';
 
 interface ProfilePictureProps {
   setFile: (id: string, file: File) => void;
@@ -12,23 +14,101 @@ interface ProfilePictureProps {
 const ACCEPTED_FORMATS = { 'image/jpeg': [], 'image/png': [], 'image/webp': [] };
 const MAX_SIZE_MB = 5;
 
+const getCroppedImg = (
+  imageSrc: string,
+  pixelCrop: { x: number; y: number; width: number; height: number }
+): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const image = new window.Image();
+    image.src = imageSrc;
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('No 2D context'));
+        return;
+      }
+      canvas.width = pixelCrop.width;
+      canvas.height = pixelCrop.height;
+      ctx.drawImage(
+        image,
+        pixelCrop.x,
+        pixelCrop.y,
+        pixelCrop.width,
+        pixelCrop.height,
+        0,
+        0,
+        pixelCrop.width,
+        pixelCrop.height
+      );
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('Canvas is empty'));
+          return;
+        }
+        resolve(blob);
+      }, 'image/jpeg', 0.95);
+    };
+    image.onerror = (err) => reject(err);
+  });
+};
+
 const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, onRemove }) => {
   const [preview, setPreview] = useState<string | null>(avatar || null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+
+  // Crop states
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
   useEffect(() => {
     setPreview(avatar || null);
   }, [avatar]);
 
+  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
   const processFile = useCallback((file: File) => {
     if (file.size > MAX_SIZE_MB * 1024 * 1024) return;
-    setFile('userProfilePicture', file);
+    setCurrentFile(file);
     const reader = new FileReader();
     reader.onloadend = () => {
-      if (reader.result) setPreview(reader.result.toString());
+      if (reader.result) {
+        setImageToCrop(reader.result.toString());
+        setShowCropper(true);
+      }
     };
     reader.readAsDataURL(file);
-  }, [setFile]);
+  }, []);
+
+  const handleCropApply = async () => {
+    if (!imageToCrop || !croppedAreaPixels || !currentFile) return;
+    try {
+      const croppedBlob = await getCroppedImg(imageToCrop, croppedAreaPixels);
+      const croppedFile = new File([croppedBlob], currentFile.name, { type: currentFile.type });
+      setFile('userProfilePicture', croppedFile);
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (reader.result) setPreview(reader.result.toString());
+      };
+      reader.readAsDataURL(croppedFile);
+      
+      setShowCropper(false);
+      setImageToCrop(null);
+      setCurrentFile(null);
+      setZoom(1);
+      setCrop({ x: 0, y: 0 });
+    } catch (e) {
+      console.error('Error cropping image:', e);
+    }
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: ACCEPTED_FORMATS,
@@ -85,14 +165,27 @@ const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, onRemo
         </div>
 
         {hasPhoto && (
-          <button
-            type="button"
-            className="ob-photo-remove-btn"
-            onClick={removePhoto}
-            aria-label="Remove photo"
-          >
-            <X size={12} />
-          </button>
+          <>
+            <button
+              type="button"
+              className="ob-photo-view-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowModal(true);
+              }}
+              aria-label="View photo"
+            >
+              <Eye size={12} />
+            </button>
+            <button
+              type="button"
+              className="ob-photo-remove-btn"
+              onClick={removePhoto}
+              aria-label="Remove photo"
+            >
+              <X size={12} />
+            </button>
+          </>
         )}
       </div>
       
@@ -103,6 +196,75 @@ const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, onRemo
           A clear, professional photo. Recommended 400×400px or larger.
         </p>
       </div>
+
+      {showModal && createPortal(
+        <div className="ob-photo-view-modal" onClick={() => setShowModal(false)}>
+          <div className="ob-photo-view-content" onClick={(e) => e.stopPropagation()}>
+            <img src={preview!} alt="Profile Full View" />
+            <button className="ob-photo-view-close" type="button" onClick={() => setShowModal(false)}>
+              <X size={20} />
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showCropper && imageToCrop && createPortal(
+        <div className="ob-crop-modal ob-wizard-root">
+          <div className="ob-crop-dialog">
+            <div className="ob-crop-area">
+              <Cropper
+                image={imageToCrop}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+            <div className="ob-crop-controls">
+              <div className="ob-crop-zoom-slider">
+                <span>Zoom</span>
+                <input
+                  type="range"
+                  value={zoom}
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  aria-label="Zoom"
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                />
+              </div>
+              <div className="ob-crop-actions">
+                <button
+                  type="button"
+                  className="ob-crop-btn ob-crop-btn--cancel"
+                  onClick={() => {
+                    setShowCropper(false);
+                    setImageToCrop(null);
+                    setCurrentFile(null);
+                    setZoom(1);
+                    setCrop({ x: 0, y: 0 });
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="ob-crop-btn ob-crop-btn--apply"
+                  onClick={handleCropApply}
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

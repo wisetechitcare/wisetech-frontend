@@ -152,30 +152,29 @@ function BasicInfo({ formikProps }: { formikProps: any }) {
           />
         </div>
         <div className="col-lg-6 col-md-6 col-sm-12">
-          <TogglePillGroup
-            field="maritalStatus"
-            label="Marital Status"
-            options={MARITAL_OPTIONS}
-            tooltip="Used for HR records and leave policy calculations."
-          />
-        </div>
-      </div>
-
-      {/* Row 4 – Anniversary (married only). Blood Group lives only in Health &
-          Emergency Info now — no second editable copy here. */}
-      {isMarried && (
-        <div className="row g-3">
-          <div className="col-lg-6 col-md-6 col-sm-12">
-            <DateInput
-              formikField="anniversary"
-              isRequired={false}
-              formikProps={formikProps}
-              inputLabel="Anniversary Date"
-              placeHolder="DD / MM / YYYY"
-            />
+          <div className="row g-2 align-items-start">
+            <div className={isMarried ? "col-lg-6 col-md-6 col-sm-12" : "col-12"}>
+              <TogglePillGroup
+                field="maritalStatus"
+                label="Marital Status"
+                options={MARITAL_OPTIONS}
+                tooltip="Used for HR records and leave policy calculations."
+              />
+            </div>
+            {isMarried && (
+              <div className="col-lg-6 col-md-6 col-sm-12">
+                <DateInput
+                  formikField="anniversary"
+                  isRequired={false}
+                  formikProps={formikProps}
+                  inputLabel="Anniversary Date"
+                  placeHolder="DD / MM / YYYY"
+                />
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
     </div>
   );

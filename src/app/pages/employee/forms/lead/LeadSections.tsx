@@ -1745,7 +1745,7 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
             <span className="wt-review-label">Total Value</span>
             <span
               className="wt-review-value"
-              style={{ color: "#8B1A2F", fontWeight: 700 }}
+              style={{ color: "var(--wt-primary)", fontWeight: 700 }}
             >
               ₹{" "}
               {commercialsTotal.toLocaleString("en-IN", {
