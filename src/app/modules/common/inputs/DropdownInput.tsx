@@ -93,11 +93,10 @@ function DropDownInput({
     const [inputValue, setInputValue] = useState('');
     
     const handleChange = (selectedOption: any) => {
-        // console.log("handleChange called with:", selectedOption);
+        helpers.setValue(selectedOption?.value || "");
+        helpers.setTouched(true, true);
         if (propOnChange) {
             propOnChange(selectedOption);
-        } else {
-            helpers.setValue(selectedOption?.value || "");
         }
     };
     

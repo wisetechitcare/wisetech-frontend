@@ -193,10 +193,10 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
     // which re-adds the "Organization is a required field" error even right after
     // an organization is picked. setValues validates once with all fields updated.
     const handleOrgChange = (opt: any) => {
-        setValues({ ...values, organizationId: opt?.value || '', subOrganizationId: '', branchId: '' });
+        setValues((prev: any) => ({ ...prev, organizationId: opt?.value || '', subOrganizationId: '', branchId: '' }), true);
     };
     const handleSubOrgChange = (opt: any) => {
-        setValues({ ...values, subOrganizationId: opt?.value || '', branchId: '' });
+        setValues((prev: any) => ({ ...prev, subOrganizationId: opt?.value || '', branchId: '' }), true);
     };
 
     return (

@@ -6,7 +6,6 @@ import { ProjectPointsSection } from "@app/modules/projectPoints";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
-import { SmartLocationPicker } from "./SmartLocationPicker";
 import { FieldArray, useFormikContext } from "formik";
 import { Button } from "react-bootstrap";
 import { Close, Add, Delete, Help, CheckCircleOutline, InfoOutlined } from "@mui/icons-material";
@@ -840,12 +839,7 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
                         <Close fontSize="small" />
                       </IconButton>
                     )}
-                    <SmartLocationPicker 
-                      index={index} 
-                      countryOptions={countryOptions} 
-                      handleAddressCountryChange={props.handleAddressCountryChange}
-                      handleAddressStateChange={props.handleAddressStateChange}
-                    />
+                    {/* SmartLocationPicker removed - use onboarding form only */}
                   </div>
               );
             })}
@@ -1745,7 +1739,7 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
             <span className="wt-review-label">Total Value</span>
             <span
               className="wt-review-value"
-              style={{ color: "#8B1A2F", fontWeight: 700 }}
+              style={{ color: "var(--wt-primary)", fontWeight: 700 }}
             >
               ₹{" "}
               {commercialsTotal.toLocaleString("en-IN", {

@@ -1,0 +1,407 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Host chrome for the Employee Onboarding wizard modal.
+
+   The wizard itself is the shared EnterpriseFormWizard (styled by
+   `forms/shared/Workspace.css`). This file only covers the two pieces the HOST
+   owns: the close button the wizard header deliberately leaves room for, and
+   the draft-restored notice, which floats over the wizard so it can't disturb
+   the sticky header/footer flex layout.
+
+   Colour mirrors the UI-kit tokens `T` the way Workspace.css does — CSS can't
+   import the TS object, so each value names the token it mirrors.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.ob-wizard-shell {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Close (X) — sits over the navy wizard header, so it is white-on-navy. */
+.ob-wizard-close {
+  position: absolute;
+  top: 22px;
+  right: 20px;
+  z-index: 1300;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ob-wizard-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.ob-wizard-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
+}
+
+/* ── Draft-restored notice ────────────────────────────────────────────────
+   Floats just above the wizard's sticky footer (--wt-footer-height: 68px),
+   centred over the step canvas. Overrides the legacy in-flow `ob-draft-notice`
+   rules from Step2.css, which assumed it was a block in the old shell. */
+.onboarding-wizard-modal .ob-draft-notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--wt-footer-height, 68px) + 16px);
+  transform: translateX(-50%);
+  z-index: 120;
+
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  max-width: min(680px, calc(100vw - 32px));
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+
+  border: 1px solid var(--wt-warning-border, rgba(245, 166, 35, 0.3));
+  border-radius: var(--wt-radius-sm, 8px);
+  background: var(--wt-warning-light, #fffbeb); /* C.warningLight */
+  box-shadow: var(--wt-shadow-lg, 0 8px 28px rgba(0, 0, 0, 0.08));
+
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #92400e;
+}
+
+.onboarding-wizard-modal .ob-draft-notice-icon {
+  flex-shrink: 0;
+  font-size: 0.95rem;
+}
+
+.onboarding-wizard-modal .ob-draft-notice-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.onboarding-wizard-modal .ob-draft-notice-sub {
+  opacity: 0.75;
+}
+
+.onboarding-wizard-modal .ob-draft-notice-discard,
+.onboarding-wizard-modal .ob-draft-notice-close {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: #92400e;
+  font-weight: 700;
+  font-size: 0.74rem;
+}
+
+.onboarding-wizard-modal .ob-draft-notice-discard {
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.onboarding-wizard-modal .ob-draft-notice-discard:hover {
+  opacity: 0.75;
+}
+
+.onboarding-wizard-modal .ob-draft-notice-close {
+  display: inline-flex;
+  opacity: 0.6;
+}
+
+.onboarding-wizard-modal .ob-draft-notice-close:hover {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR TREE — the single onboarding timeline.
+
+   Parents are group headers (never a page); children are the editable
+   sections. This replaces the old split where 4 macro-steps lived in a
+   horizontal stepper above the canvas and their sub-sections lived in a
+   separate left rail — two timelines telling the user two different things.
+   Everything is one tree now, and nothing sits above the canvas.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.ob-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ob-tree-group + .ob-tree-group {
+  margin-top: 2px;
+}
+
+/* ── Parent row ─────────────────────────────────────────────────────────── */
+.ob-tree-parent {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid transparent;
+  border-radius: var(--wt-radius-sm, 8px);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ob-tree-parent:hover {
+  background: var(--wt-gray-50, #f8f9fa);
+}
+
+.ob-tree-parent.is-active {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.ob-tree-parent-badge-container {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-right: 2px;
+}
+
+.ob-tree-parent-badge-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--wt-gray-500, #64748b);
+  z-index: 2;
+}
+
+.ob-tree-parent.is-active .ob-tree-parent-badge-inner {
+  color: var(--wt-primary, #1e3a8a);
+}
+
+.ob-tree-parent.is-complete .ob-tree-parent-badge-inner {
+  color: var(--wt-success, #10b981);
+}
+
+.ob-tree-parent.is-error .ob-tree-parent-badge-inner {
+  color: var(--wt-error, #ef4444);
+}
+
+.ob-tree-parent-badge-inner i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.ob-tree-parent-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--wt-gray-800, #1e293b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ob-tree-parent.is-active .ob-tree-parent-label {
+  color: var(--wt-primary, #1e3a8a);
+}
+
+.ob-tree-parent-count {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--wt-gray-400, #94a3b8);
+  font-variant-numeric: tabular-nums;
+}
+
+.ob-tree-chevron {
+  flex-shrink: 0;
+  color: var(--wt-gray-400, #94a3b8);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: rotate(-90deg);
+}
+
+.ob-tree-chevron.is-open {
+  transform: rotate(0deg);
+}
+
+/* ── Children ───────────────────────────────────────────────────────────── */
+.ob-tree-children {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 6px 0;
+  padding-left: 22px; /* aligns the guide rail under the parent badge centre */
+}
+
+/* Vertical guide rail connecting the children of a group. */
+.ob-tree-children::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: #cbd5e1;
+}
+
+.ob-tree-child {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--wt-radius-xs, 6px);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ob-tree-child:hover {
+  background: var(--wt-gray-50, #f8f9fa);
+}
+
+.ob-tree-child.is-active {
+  background: rgba(30, 58, 138, 0.05);
+}
+
+/* Status dot sits ON the guide rail. */
+.ob-tree-child-dot {
+  position: absolute;
+  left: -17px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--wt-white, #fff);
+  border: 1.5px solid #cbd5e1;
+  color: #fff;
+  font-size: 0;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.ob-tree-child-dot i {
+  font-size: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ob-tree-child.is-active .ob-tree-child-dot {
+  border-color: var(--wt-primary, #1e3a8a);
+  background: var(--wt-primary, #1e3a8a);
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15);
+}
+
+.ob-tree-child.is-completed .ob-tree-child-dot {
+  border-color: var(--wt-success, #10b981);
+  background: var(--wt-success, #10b981);
+}
+
+.ob-tree-child.is-error .ob-tree-child-dot {
+  border-color: var(--wt-error, #ef4444);
+  background: var(--wt-error, #ef4444);
+}
+
+.ob-tree-child-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.2s ease;
+}
+
+.ob-tree-child.is-active .ob-tree-child-label {
+  color: var(--wt-primary, #1e3a8a);
+  font-weight: 600;
+}
+
+.ob-tree-child.is-error .ob-tree-child-label {
+  color: var(--wt-error, #ef4444);
+}
+
+@media (max-width: 768px) {
+  .ob-wizard-close {
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .onboarding-wizard-modal .ob-draft-notice {
+    flex-wrap: wrap;
+    bottom: calc(var(--wt-footer-height, 68px) + 8px);
+  }
+
+  /* The shared sidebar goes horizontal on mobile; a nested tree can't. Keep it
+     vertical and let the whole rail scroll instead. */
+  .onboarding-wizard-modal .wizard-nav-sidebar {
+    flex-direction: column !important;
+    max-height: 40vh;
+    overflow-y: auto !important;
+  }
+
+  .ob-tree-parent-count {
+    display: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Header avatar and employee info display
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.ob-header-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.ob-header-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  font-size: 0.73rem;
+  font-weight: 500;
+  margin-right: 0.5rem;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ob-header-chip i {
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
