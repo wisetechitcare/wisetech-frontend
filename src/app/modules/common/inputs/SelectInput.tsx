@@ -106,6 +106,20 @@ function SelectInput({ options, placeholder, dropdown, value, passData }: Select
                 if (dropdown && dropdown.startsWith("search_column_select")) {
                     if (passData) passData(option.value);
                 }
+                // Default: any other (or no) `dropdown` key just reports the value.
+                // Without this the component was only usable by the handful of
+                // call sites named above — every new consumer had to add its own
+                // branch here, which is why features kept hand-rolling their own
+                // dropdown instead. Existing keys are matched first, so their
+                // behaviour is unchanged.
+                if (
+                    passData &&
+                    dropdown !== "employee names" &&
+                    dropdown !== "export_select" &&
+                    !(dropdown && dropdown.startsWith("search_column_select"))
+                ) {
+                    passData(option.value);
+                }
             }} />
     );
 }

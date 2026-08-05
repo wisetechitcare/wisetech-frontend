@@ -5,8 +5,10 @@ import {
 import type { TransitionProps } from '@mui/material/transitions';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { T, GlassVariant, VividTone, ThemeMode, label } from './tokens';
+import { toTitleCase } from './text';
 import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
+import { WtCloseButton } from './tw/WtCloseButton';
 
 /** Read the active MUI theme mode as our ThemeMode ('light' | 'dark'). */
 function useMode(): ThemeMode {
@@ -181,7 +183,7 @@ export function GlassHeader({
         )}
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontWeight: 700, fontSize: { xs: 15.5, sm: 17 }, lineHeight: 1.25, color: gradient ? '#fff' : label(mode, 'primary') }}>
-            {title}
+            {toTitleCase(title)}
           </Typography>
           {subtitle && (
             <Typography sx={{ fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: gradient ? 'rgba(255,255,255,0.72)' : label(mode, 'secondary') }}>
@@ -193,16 +195,15 @@ export function GlassHeader({
       <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
         {action}
         {onClose && (
-          <IconButton onClick={onClose} aria-label="Close" sx={{
-            width: 38, height: 38,
-            ...(gradient
-              ? { color: '#fff', bgcolor: 'rgba(255,255,255,0.10)', '&:hover': { bgcolor: 'rgba(255,255,255,0.20)' } }
-              : { color: label(mode, 'secondary'), bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.08)' : T.color.panelAlt, '&:hover': { bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.14)' : T.color.line } }),
-            transition: `background-color .15s, transform .12s ${MRD_EASE}`,
-            '&:active': { transform: 'scale(.92)' },
-          }}>
-            {closeIcon ?? <Box component="span" sx={{ fontSize: 20, lineHeight: 1, fontWeight: 400 }}>&times;</Box>}
-          </IconButton>
+          // SINGLE SOURCE OF TRUTH: this used to be a bespoke MUI IconButton
+          // rendering a `&times;` text glyph, while the Tailwind GlassHeader used
+          // WtCloseButton. Two dialog systems, two different close controls —
+          // which is why the × looked round on some dialogs and square on others.
+          // Both now render the same component. `closeIcon` is still honoured for
+          // the rare header that needs a different glyph.
+          closeIcon
+            ? <IconButton onClick={onClose} aria-label="Close" sx={{ width: 38, height: 38 }}>{closeIcon}</IconButton>
+            : <WtCloseButton variant={gradient ? 'dark' : 'light'} onClick={onClose} size={38} />
         )}
       </Stack>
     </Box>
