@@ -234,6 +234,17 @@ export function useNavigation() {
       },
 
 
+      // Billing — a top-level ERP module in its own right, NOT a project sub-page.
+      // A single flat entry by design: the module's own header tabs handle everything
+      // below it, so the sidebar stays one level deep.
+      {
+        type: 'item',
+        id: 'billing',
+        to: '/billing',
+        title: 'Billing',
+        fontIcon: 'bi-receipt',
+        visible: !isSectionBlocked('billing'),
+      },
       // CRM
       {
         type: 'section',
