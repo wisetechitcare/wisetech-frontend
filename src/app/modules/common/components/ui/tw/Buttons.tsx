@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
 import { cn } from './cn';
+import { titleCaseNode } from '../text';
 
 /**
  * Tailwind CTA primitives — the WtButton / WtIconButton physics, re-platformed
@@ -66,7 +67,8 @@ export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function Wt
   return (
     <button ref={ref} type={type} className={cn(base, className)} {...rest}>
       {startIcon}
-      {children}
+      {/* Same rule as the MUI twin — see buttons.tsx. */}
+      {titleCaseNode(children)}
     </button>
   );
 });

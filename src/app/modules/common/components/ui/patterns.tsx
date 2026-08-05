@@ -14,7 +14,7 @@ import { Box, Typography, Tooltip, useTheme } from '@mui/material';
 import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import { KTIcon } from '@metronic/helpers';
 import { GlassSurface } from './glass';
-import { toTitleCase } from './text';
+import { toTitleCase, titleCaseNode } from './text';
 
 /** Accent tone: foreground / fill / border — drives IconBox, StatusBadge, StatTile, and keylines. */
 export type Trio = { c: string; bg: string; bd: string };
@@ -156,7 +156,7 @@ export function ListHeader({
       }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
     >
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 700, fontSize: { xs: 16, sm: 18 }, lineHeight: 1.25 }}>{title}</Typography>
+        <Typography sx={{ fontWeight: 700, fontSize: { xs: 16, sm: 18 }, lineHeight: 1.25 }}>{titleCaseNode(title)}</Typography>
         {subtitle && (
           <Typography sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.45, mt: 0.25 }}>{subtitle}</Typography>
         )}

@@ -117,6 +117,23 @@ Rules:
   label itself, so it sits with the field and is announced by screen readers —
   never hand-write an asterisk in the label string.
 
+## Capitalisation
+
+Headlines and button labels are title-cased by the KIT, not by call sites:
+`GlassHeader`, `SettingsSection`, `SectionHead`, `ListHeader` and `WtButton`
+(both twins) all run their text through `toTitleCase`. Write labels naturally —
+`"add question"` renders as "Add Question".
+
+`WtIconButton` is deliberately NOT wrapped: its children are a glyph, not a label.
+
+Any word already carrying a capital is left exactly as written, so `FAQ`, `HR`,
+`KPI` and user-entered names survive untouched. Minor words (of, and, the, to)
+stay lowercase unless they open or close the headline.
+
+Not `text-transform: capitalize` — that capitalises every word ("Rules Of The
+Road"), cannot lift lowercase text into an acronym, and leaves copied text in
+the original case.
+
 ## Colour
 
 `WtColorPicker` — the kit palette plus a custom colour, in one control. It
