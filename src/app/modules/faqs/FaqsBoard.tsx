@@ -216,9 +216,10 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
             {/* ── Sticky header: title, count, action, search, mobile chips ──
                 One block so it pins as a unit. Translucent + blurred rather than
                 transparent, otherwise the list scrolls visibly through it. */}
-            <div
+            <GlassCard
                 ref={stickyHeadRef}
-                className="sticky top-[var(--faq-shell)] z-30 -mx-1 flex flex-col gap-3 border-b border-[#E6E9EE] bg-white/95 px-1 pb-3 pt-3 backdrop-blur-md dark:border-[#30363d] dark:bg-[#0d1117]/95"
+                preset="section"
+                className="sticky top-[var(--faq-shell)] z-30 flex flex-col gap-3"
             >
                 {!embedded && (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -293,7 +294,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                         })}
                     </div>
                 )}
-            </div>
+            </GlassCard>
 
             <div className="flex gap-6">
                 {/* ── Desktop section rail ─────────────────────────────────── */}
