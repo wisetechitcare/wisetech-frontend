@@ -83,6 +83,11 @@ const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage')
 const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
 const AppSettings = lazy(() => import('@pages/admin/AppSettings').then(m => ({ default: m.AppSettings })))
 const RolesPermissions = lazy(() => import('@pages/admin/RolesPermissions').then(m => ({ default: m.RolesPermissions })))
+// Workspace shell (launcher-morph navigation) — Phase 1: additive only. See
+// src/components/workspace/WorkspaceShell.tsx for why it is a pathless LAYOUT route.
+const WorkspaceShell = lazy(() => import('@components/workspace/WorkspaceShell'))
+const WorkspaceHomeStage = lazy(() => import('@components/workspace/pages/HomeStage'))
+const AppWorkspacePage = lazy(() => import('@components/workspace/pages/AppWorkspacePage'))
 const PrivateRoutes = () => {
   const [isStored, setIsStored] = useState(false)
   const employeeId = useSelector(
@@ -114,10 +119,35 @@ const PrivateRoutes = () => {
   return (
     isStored && <Routes>
       <Route element={<MasterLayout />}>
+        {/* ── THE WORKSPACE SHELL WRAPS EVERY ROUTE ─────────────────────────────
+            A PATHLESS layout route. React Router does not remount a parent element when a
+            child route changes, so the application rail mounted inside it PERSISTS across
+            every destination — the launcher and the rail are one component in two layout
+            states, not two components faking continuity.
+
+            It wraps everything on purpose. While it only wrapped /workspace/*, opening an
+            actual module (/employees, /qc/companies) unmounted the shell and the rail
+            vanished mid-journey, which is exactly the "it doesn't navigate through the
+            section" problem. A workspace you fall out of is not a workspace.
+
+            Route PATHS below are untouched — every existing URL, bookmark, redirect and
+            deep link still resolves exactly as before. Rollback: delete this one wrapper
+            element and its closing tag. */}
+        <Route element={<SuspensedView><WorkspaceShell /></SuspensedView>}>
         {/* Redirect to Dashboard after success login/registartion */}
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
         {/* Pages */}
         <Route path='dashboard' element={<DashboardWrapper />} />
+        {/* `/home` was the legacy Transform launcher; the workspace shell supersedes it.
+            In classic-sidebar mode WorkspaceShell bounces /workspace/* to /dashboard, so this
+            resolves correctly in both navigation modes without reading the flag twice. */}
+        <Route path='home' element={<Navigate to='/workspace' replace />} />
+        {/* The shell's own two destinations: the launcher, and an application landing. */}
+        <Route path='workspace'>
+          <Route index element={<SuspensedView><WorkspaceHomeStage /></SuspensedView>} />
+          <Route path=':appId' element={<SuspensedView><AppWorkspacePage /></SuspensedView>} />
+        </Route>
+
         {NEW_MY_TEAM_IA && <Route path='my-team' element={<MyTeamLayout />}>
           <Route index element={<Navigate to='/my-team/overview' replace />} />
           <Route path='overview' element={<MyTeamOverview />} />
@@ -643,6 +673,7 @@ const PrivateRoutes = () => {
         />
         {/* Page Not Found */}
         <Route path='*' element={<Navigate to='/error/404' />} />
+        </Route>{/* ── end workspace shell wrapper ── */}
       </Route>
     </Routes>
   )
