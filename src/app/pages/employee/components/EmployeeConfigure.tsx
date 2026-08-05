@@ -7,6 +7,8 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
 import EmployeeConfigureForm from "./EmployeeConfigureForm";
+import QualificationConfigureForm, { QualificationItem } from "./QualificationConfigureForm";
+import { fetchQualificationMasters, deleteQualificationMaster } from "@services/employee";
 import Loader from "@app/modules/common/utils/Loader";
 import EmployeeTypes from "@pages/company/masters/EmployeeTypes";
 import {
@@ -50,6 +52,11 @@ const EmployeeConfigure = () => {
   const [employeeStatuses, setEmployeeStatuses] = useState<EmployeeConfigItem[]>([]);
   const [showEmployeeStatusModal, setShowEmployeeStatusModal] = useState(false);
   const [editingEmployeeStatus, setEditingEmployeeStatus] = useState<EmployeeConfigItem | null>(null);
+
+  // Qualifications — own table/endpoints, not employee_configurations.
+  const [qualifications, setQualifications] = useState<QualificationItem[]>([]);
+  const [showQualificationModal, setShowQualificationModal] = useState(false);
+  const [editingQualification, setEditingQualification] = useState<QualificationItem | null>(null);
 
   // Modal open handlers
   const handleJobProfileModalOpen = () => setShowJobProfileModal(true);
@@ -97,6 +104,40 @@ const EmployeeConfigure = () => {
   const handleEmployeeStatusEdit = (employeeStatus: EmployeeConfigItem) => {
     setEditingEmployeeStatus(employeeStatus);
     setShowEmployeeStatusModal(true);
+  };
+
+  // Qualification handlers
+  const handleQualificationModalOpen = () => setShowQualificationModal(true);
+  const handleQualificationModalClose = () => {
+    setShowQualificationModal(false);
+    setEditingQualification(null);
+  };
+  const handleQualificationEdit = (qualification: QualificationItem) => {
+    setEditingQualification(qualification);
+    setShowQualificationModal(true);
+  };
+
+  const fetchQualifications = async () => {
+    try {
+      setLoading(true);
+      const response = await fetchQualificationMasters();
+      setQualifications(response?.data?.qualifications || []);
+    } catch (error) {
+      console.error("Error fetching qualifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleQualificationDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation("Successfully deleted qualification");
+      if (!confirmed) return;
+      await deleteQualificationMaster(id);
+      fetchQualifications();
+    } catch (error) {
+      console.error("Error deleting qualification:", error);
+    }
   };
 
   // Fetch job profiles
@@ -179,6 +220,7 @@ const EmployeeConfigure = () => {
     fetchEmployeeTypes();
     fetchEmployeeLevels();
     fetchEmployeeStatuses();
+    fetchQualifications();
   }, []);
 
   // Delete handler
@@ -314,7 +356,7 @@ const EmployeeConfigure = () => {
       <style>{KEYFRAMES}</style>
       <ConfigPageLayout
         title="Employee Configuration"
-        subtitle="Manage job profiles, employee types, levels, and statuses"
+        subtitle="Manage job profiles, employee types, experience levels, statuses and qualifications"
         icon="bi-person-badge"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
@@ -430,10 +472,11 @@ const EmployeeConfigure = () => {
             </button>
           </ConfigSectionCard>
 
-          {/* Employee Levels Section */}
+          {/* Experience Levels Section — EMPLOYEE_LEVEL is the stored enum; the form
+              labels this "Experience Level", so the UI matches that, not the enum. */}
           <ConfigSectionCard
-            title="Employee Levels"
-            description="Define organizational hierarchy levels"
+            title="Experience Levels"
+            description="Options offered in the onboarding Experience Level picker"
             icon="bi-diagram-3"
             iconColor="purple"
             badge={{ label: `${employeeLevels.length}`, color: '#7c3aed', bg: '#ede9fe' }}
@@ -441,7 +484,7 @@ const EmployeeConfigure = () => {
             <div style={{ marginTop: SP.md }}>
               {employeeLevels.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted }}>
-                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No employee levels created yet</p>
+                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No experience levels created yet</p>
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
@@ -482,7 +525,7 @@ const EmployeeConfigure = () => {
                 e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              <i className="bi bi-plus me-2" /> New Employee Level
+              <i className="bi bi-plus me-2" /> New Experience Level
             </button>
           </ConfigSectionCard>
 
@@ -541,6 +584,62 @@ const EmployeeConfigure = () => {
               <i className="bi bi-plus me-2" /> New Employee Status
             </button>
           </ConfigSectionCard>
+
+          {/* Qualifications Section — drives the Education Details picker in onboarding */}
+          <ConfigSectionCard
+            title="Qualifications"
+            description="Options offered in the onboarding Education Details picker"
+            icon="bi-mortarboard"
+            iconColor="teal"
+            badge={{ label: `${qualifications.length}`, color: '#0d9488', bg: '#ccfbf1' }}
+          >
+            <div style={{ marginTop: SP.md }}>
+              {qualifications.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted }}>
+                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No qualifications created yet</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
+                  {qualifications.map((qualification) => (
+                    <ItemChip
+                      key={qualification.id}
+                      item={qualification}
+                      onEdit={handleQualificationEdit}
+                      onDelete={handleQualificationDelete}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleQualificationModalOpen}
+              style={{
+                backgroundColor: '#0d9488',
+                color: '#fff',
+                border: 'none',
+                borderRadius: RADIUS.md,
+                padding: `${SP.sm} ${SP.lg}`,
+                fontFamily: FONT.body,
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                marginTop: SP.lg,
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#0f766e';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = `0 6px 18px rgba(13, 148, 136, 0.3)`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#0d9488';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <i className="bi bi-plus me-2" /> New Qualification
+            </button>
+          </ConfigSectionCard>
         </div>
       </ConfigPageLayout>
 
@@ -575,7 +674,7 @@ const EmployeeConfigure = () => {
         initialData={editingEmployeeLevel}
         isEditing={!!editingEmployeeLevel}
         type="EMPLOYEE_LEVEL"
-        title="Employee Level"
+        title="Experience Level"
       />
 
       {/* Employee Status Modal */}
@@ -587,6 +686,15 @@ const EmployeeConfigure = () => {
         isEditing={!!editingEmployeeStatus}
         type="EMPLOYEE_STATUS"
         title="Employee Status"
+      />
+
+      {/* Qualification Modal */}
+      <QualificationConfigureForm
+        show={showQualificationModal}
+        onClose={handleQualificationModalClose}
+        onSuccess={fetchQualifications}
+        initialData={editingQualification}
+        isEditing={!!editingQualification}
       />
 
       <EmployeeTypes/>

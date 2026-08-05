@@ -20,7 +20,6 @@ import { createEducationRow, getEducationCompletionValues } from '../../../../..
 import './Step2.css';
 
 const ADD_NEW_QUALIFICATION = '__ADD_NEW__';
-const DEFAULT_QUALIFICATIONS = ['SSC', 'Diploma', 'HSC', 'Degree'];
 
 const createNewEducation = () => createEducationRow();
 
@@ -241,10 +240,8 @@ function Step2({ formikProps, setFile, removeFile, setEducationFile, activeSecti
     } catch {
       qualifications = [];
     }
+    // Options come purely from the Qualification config — see OnboardingSections.
     const byName = new Map<string, any>();
-    DEFAULT_QUALIFICATIONS.forEach((name) =>
-      byName.set(name.toLowerCase(), { value: name, label: name, name, isDefault: true })
-    );
     qualifications.forEach((q: any) => {
       if (!q?.name) return;
       byName.set(q.name.toLowerCase(), { value: q.id, label: q.name, name: q.name });

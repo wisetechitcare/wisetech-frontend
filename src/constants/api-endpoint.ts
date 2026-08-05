@@ -169,6 +169,8 @@ export const EMPLOYEE = {
     UPDATE_EDUCATIONAL_DETAILS_BY_ID: "api/employee/educational-details",
     GET_QUALIFICATION_MASTER: "api/employee/qualification-master",
     CREATE_QUALIFICATION_MASTER: "api/employee/qualification-master",
+    UPDATE_QUALIFICATION_MASTER: (id: string) => `api/employee/qualification-master/${id}`,
+    DELETE_QUALIFICATION_MASTER: (id: string) => `api/employee/qualification-master/${id}`,
     CREATE_REJOIN_HISTORY: "api/employee/rejoin-history",
     FETCH_REJOIN_HISTORY: "api/employee/rejoin-history?employeeId=",
     UPDATE_REJOIN_HISTORY_BY_ID: "api/employee/rejoin-history",

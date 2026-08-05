@@ -38,7 +38,6 @@ import "../../wizard/steps/Step2.css";
 import { createEducationRow } from "@utils/educationUtils";
 
 const ADD_NEW_QUALIFICATION = "__ADD_NEW__";
-const DEFAULT_QUALIFICATIONS = ["SSC", "Diploma", "HSC", "Degree"];
 
 const createNewFamilyMember = () => ({
   name: "",
@@ -132,10 +131,11 @@ export const EducationSection: React.FC<OnboardingSectionsProps> = ({
     } catch {
       qualifications = [];
     }
+    // Options come purely from the Qualification config now. The four defaults that
+    // used to be merged in here (SSC/HSC/Diploma/Degree) were frontend-only, so they
+    // could not be renamed or removed and selecting one stored a bare label instead of
+    // an id. They are real rows in qualification_master now — nothing is hardcoded.
     const byName = new Map<string, any>();
-    DEFAULT_QUALIFICATIONS.forEach((name) =>
-      byName.set(name.toLowerCase(), { value: name, label: name, name, isDefault: true })
-    );
     qualifications.forEach((q: any) => {
       if (!q?.name) return;
       byName.set(q.name.toLowerCase(), { value: q.id, label: q.name, name: q.name });

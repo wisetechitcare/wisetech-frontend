@@ -142,6 +142,14 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
         country={initialCountry}
         value={normalizedFieldValue}
         disableCountryCode
+        // Without these the library re-guesses the country from the DIGITS on every
+        // render, and `disableCountryCode` hands it a bare national number to guess
+        // from — so 9594107173 read as Myanmar (+95) and 1546547841 as US (+1),
+        // painting a foreign flag next to "+91" and formatting to that country's mask.
+        // The country is ours to decide (resolved from the stored dial code, then
+        // owned by the user's dropdown choice); the value must never influence it.
+        disableInitialCountryGuess
+        disableCountryGuess
         onChange={(phoneValue: string, countryData: any) => {
           const dialCode = countryData?.dialCode || defaultCountry;
 
