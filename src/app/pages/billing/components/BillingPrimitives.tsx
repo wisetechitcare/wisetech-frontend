@@ -95,6 +95,11 @@ export const BILLING_STATUS_TONES: Record<string, SemanticTone> = {
   // outstanding, cyan once it is collected and the invoice is due, success at the
   // end. READY_FOR_PROFORMA / PAYMENT_PENDING / PROFORMA_GENERATED are already
   // above and deliberately not repeated.
+  // Proforma version lifecycle. SUPERSEDED is neutral, not danger — being
+  // replaced by a newer revision is the system working, not a problem.
+  CLIENT_ACCEPTED: "success",
+  CLIENT_REJECTED: "danger",
+  SUPERSEDED: "neutral",
   PROFORMA_DRAFT: "neutral",
   PROFORMA_SENT: "indigo",
   CLIENT_VIEWED: "indigo",

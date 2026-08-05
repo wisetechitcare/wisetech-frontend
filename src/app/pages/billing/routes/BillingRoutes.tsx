@@ -32,6 +32,7 @@ const AccountsBillingReviewPage = lazy(() => import("../accounts-queue/AccountsB
 // The template-driven document editor. Lazy on its own chunk — it carries the A4
 // preview surface and is only reached from a proforma row.
 const DocumentEditorPage = lazy(() => import("../documents/DocumentEditorPage"));
+const ProformaDetailPage = lazy(() => import("../proformas/ProformaDetailPage"));
 
 const PAGES: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
     dashboard: BillingDashboard,
@@ -90,9 +91,15 @@ const BillingRoutes: React.FC = () => {
                     <Route path="operations/:id" element={<Suspensed><BillingOperationDetailPage /></Suspensed>} />
                 )}
 
-                {/* The proforma document editor. Keeps the Proformas tab highlighted. */}
+                {/* Proforma repository. `/edit` is the document editor (drafts only);
+                    the bare id is the read-only repository record with its revision
+                    chain. Two URLs because they are two jobs — managing the chain and
+                    editing one version of it. */}
                 {allowed("billing.proformas") && (
-                    <Route path="proformas/:id" element={<Suspensed><DocumentEditorPage /></Suspensed>} />
+                    <>
+                        <Route path="proformas/:id/edit" element={<Suspensed><DocumentEditorPage /></Suspensed>} />
+                        <Route path="proformas/:id" element={<Suspensed><ProformaDetailPage /></Suspensed>} />
+                    </>
                 )}
 
                 {/* Unknown or blocked sub-path → the default tab, never a blank shell. */}

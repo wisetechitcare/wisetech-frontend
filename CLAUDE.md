@@ -86,6 +86,15 @@ Design doc: [../BILLING_OPERATIONS.md](../BILLING_OPERATIONS.md). Pages under `p
 - Each KPI tile is a saved query — clicking filters the table beneath it. Statistics share the list's scoping so the two can't disagree.
 - Reuses `BillingTable`, `BillingTimeline`, `BillingStatsCard`, `BillingStatusBadge`, `BillingPageHeader`. New status tones go in `BILLING_STATUS_TONES`, not in the page.
 
+## Proforma Management (built)
+Design doc: [../PROFORMA_MANAGEMENT.md](../PROFORMA_MANAGEMENT.md). Pages under `pages/billing/proformas/`, client in `services/proformas.ts`.
+
+- **Two URLs, two jobs:** `/billing/proformas/:id` is the read-only repository record (revision chain, compare, activity); `/billing/proformas/:id/edit` is the document editor. Don't merge them.
+- The tree groups revisions under their parent and **pages by document, not version** — one proforma with six revisions must not eat a page.
+- Status buttons come from the server's `allowedStatuses` per version. Never hardcode the lifecycle in the UI.
+- "Archived" is a switch, not a status option — the list is a deliberate either/or so the count is trustworthy.
+- The Document tab renders the version's **stored HTML** via `DocumentSheet`. Never re-render a version for display.
+
 ## Document Engine (built — Proforma live)
 Design doc: [../DOCUMENT_ENGINE.md](../DOCUMENT_ENGINE.md). Pages under `pages/billing/documents/`, client in `services/documents.ts`.
 

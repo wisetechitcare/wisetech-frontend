@@ -661,6 +661,25 @@ export const BILLING_OPERATION = {
     ADD_NOTE: "api/billing/operations/:id/notes",
 }
 
+// Proforma repository — MANAGEMENT ONLY. Generation lives on the Accounts Queue
+// path; there is deliberately no create route here.
+export const PROFORMA = {
+    LIST: "api/billing/proformas",
+    GET_BY_ID: "api/billing/proformas/:id",
+    VERSIONS: "api/billing/proformas/:id/versions",
+    REVISION: "api/billing/proformas/:id/revision",
+    TIMELINE: "api/billing/proformas/:id/timeline",
+    ACTIVITY: "api/billing/proformas/:id/activity",
+    COMPARE: "api/billing/proformas/:id/compare/:versionId",
+    PREVIEW: "api/billing/proformas/:id/versions/:versionId/preview",
+    VERSION_STATUS: "api/billing/proformas/:id/versions/:versionId/status",
+    DELETE_VERSION: "api/billing/proformas/:id/versions/:versionId",
+    ACCESS: "api/billing/proformas/:id/access",
+    DUPLICATE: "api/billing/proformas/:id/duplicate",
+    ARCHIVE: "api/billing/proformas/:id/archive",
+    RESTORE: "api/billing/proformas/:id/restore",
+}
+
 // Document engine — kind-agnostic. Proforma, Tax Invoice, Quotation, PO, Credit
 // Note, Debit Note, Payment Receipt and Delivery Note all use these same paths;
 // the kind is a field on the request, never a URL segment.

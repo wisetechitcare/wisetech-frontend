@@ -61,7 +61,9 @@ const AccountsBillingReviewPage: React.FC = () => {
    */
   const openProforma = useMutation({
     mutationFn: () => openDocument({ kind: "PROFORMA", subjectId: id }),
-    onSuccess: (payload) => navigate(`/billing/proformas/${payload.document.id}`),
+    // Straight into the editor: generating exists to produce a document someone
+    // then edits. The bare id is the repository record, which is a different job.
+    onSuccess: (payload) => navigate(`/billing/proformas/${payload.document.id}/edit`),
     onError: (error: any) =>
       toast({
         icon: "error",
