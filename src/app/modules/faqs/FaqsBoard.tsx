@@ -143,6 +143,20 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
         return () => observer.disconnect();
     }, [sections, showRail, stickyOffset]);
 
+    /**
+     * The section the header's "Add question" files into.
+     *
+     * It used to be `sections[0]`, so the dialog always said "Attendance" no
+     * matter what you were reading — the button lied about where the question
+     * would land. This follows the scroll-spy / rail selection, so the action
+     * matches the section in view. Falls back to the first section before the
+     * observer has reported anything (page not yet scrolled).
+     */
+    const targetSection = useMemo(
+        () => sections.find((section) => section.id === activeSection) ?? sections[0],
+        [sections, activeSection],
+    );
+
     const scrollToSection = useCallback((id: string) => {
         setActiveSection(id);
         sectionRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -221,12 +235,28 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
             className="mx-auto flex w-full max-w-[1200px] flex-col gap-4 [--faq-head:0px] [--faq-shell:44px] [@media(min-width:1025px)]:[--faq-shell:118px]"
         >
             {/* ── Sticky header: title, count, action, search, mobile chips ──
-                One block so it pins as a unit. Translucent + blurred rather than
-                transparent, otherwise the list scrolls visibly through it. */}
+                One block so it pins as a unit.
+
+                OPAQUE, not glass. A sticky bar is a layer the content passes
+                UNDER — the reader must never see two competing texts in the same
+                pixels. The kit's glass surfaces are translucent by design, which
+                is right for a panel sitting still and wrong for one the whole
+                page scrolls beneath. `disableBlur` takes the opaque fallback, and
+                the shadow gives the layer an edge so it reads as in front. */}
             <GlassCard
                 ref={stickyHeadRef}
                 preset="section"
-                className="sticky top-[var(--faq-shell)] z-30 flex flex-col gap-3"
+                disableBlur
+                sx={{
+                    position: 'sticky',
+                    top: 'var(--faq-shell)',
+                    zIndex: 30,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1.5,
+                    bgcolor: 'background.paper',
+                    boxShadow: '0 6px 16px -10px rgba(16,24,40,0.45)',
+                }}
             >
                 {!embedded && (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -247,9 +277,9 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                         Sections
                                     </WtButton>
                                 )}
-                                {sections.length > 0 && (
+                                {targetSection && (
                                     <WtButton
-                                        onClick={() => setEditor({ section: sections[0], faq: null })}
+                                        onClick={() => targetSection && setEditor({ section: targetSection, faq: null })}
                                         startIcon={<KTIcon iconName="plus" className="fs-5 text-white" />}
                                     >
                                         Add question
