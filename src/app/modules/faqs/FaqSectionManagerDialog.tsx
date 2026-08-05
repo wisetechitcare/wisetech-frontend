@@ -6,7 +6,7 @@ import ReorderableGroup, { DragHandle } from '@app/modules/common/components/Reo
 // surface, one look. Do not reach past this barrel into individual kit files.
 import {
     TRIO, WtButton, WtIconButton, GlassDialog, GlassHeader, GlassSurface,
-    SettingsSection, StatTile, StatusBadge, IconBox, IconPicker, TonePicker,
+    SettingsSection, StatTile, StatusBadge, IconBox, IconPicker, WtColorPicker,
     confirmDialog, toast,
 } from '@app/modules/common/components/ui';
 import { readConflict, useFaqCategories } from './useFaqCategories';
@@ -17,6 +17,7 @@ import {
     FAQ_TONE_CHOICES,
     resolveIcon,
     resolveTone,
+    resolveToneTrio,
     type FaqCategory,
 } from './types';
 
@@ -202,7 +203,7 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
                         onReorder={(next) => void persistOrder(next)}
                         renderItem={(category, handleProps) => {
                             const index = categories.findIndex((row) => row.id === category.id);
-                            const tone = TRIO[resolveTone(category.tone)];
+                            const tone = resolveToneTrio(category.tone);
                             return (
                                 <GlassSurface
                                     variant="thin"
@@ -286,7 +287,7 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
                     and the save button are visible the moment the level opens. */}
                 {draft && (
                     <SettingsSection
-                        tone={TRIO[resolveTone(draft.tone)]}
+                        tone={resolveToneTrio(draft.tone)}
                         icon={draft.icon}
                         title={draft.id ? 'Edit section' : 'New section'}
                         description="Name it, then pick how it should look on the board."
@@ -296,6 +297,7 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
                                 autoFocus
                                 size="small"
                                 label="Section name"
+                                required
                                 placeholder="e.g. Onboarding"
                                 value={draft.name}
                                 onChange={(event) => setDraft({ ...draft, name: event.target.value })}
@@ -320,8 +322,11 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
 
                             <Box>
                                 <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'text.secondary', mb: 1 }}>Colour</Typography>
-                                <TonePicker label="Section colour" value={draft.tone} options={FAQ_TONE_CHOICES}
-                                    onChange={(tone) => setDraft({ ...draft, tone })} />
+                                <WtColorPicker
+                                    label="Section colour"
+                                    value={draft.tone}
+                                    onChange={(tone) => setDraft({ ...draft, tone })}
+                                />
                             </Box>
 
                             <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.25} justifyContent="flex-end">

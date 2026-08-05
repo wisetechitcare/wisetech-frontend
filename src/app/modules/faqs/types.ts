@@ -1,4 +1,4 @@
-import { TONE_NAMES, type ToneName } from '@app/modules/common/components/ui';
+import { TONE_NAMES, TRIO, isHexColor, type ToneName, type Trio } from '@app/modules/common/components/ui';
 
 /**
  * FAQ domain contract.
@@ -79,9 +79,25 @@ export const FAQ_TONE_CHOICES: readonly ToneName[] = TONE_NAMES;
 export const isToneName = (value: unknown): value is ToneName =>
     typeof value === 'string' && (FAQ_TONE_CHOICES as readonly string[]).includes(value);
 
-/** Resolve a category's tone to something the kit can actually style. */
-export const resolveTone = (tone: string | null | undefined): ToneName =>
-    isToneName(tone) ? tone : DEFAULT_SECTION_TONE;
+/**
+ * Resolve a category's stored tone to the name the editor round-trips.
+ * A custom hex is returned verbatim — see resolveToneTrio for rendering.
+ */
+export const resolveTone = (tone: string | null | undefined): string =>
+    isToneName(tone) || isHexColor(tone) ? tone : DEFAULT_SECTION_TONE;
+
+/**
+ * The {fg, bg, border} triple a section renders with.
+ *
+ * A palette tone maps to the kit's TRIO, so it matches every other surface.
+ * A custom hex derives its own tint using the same 8%/24% alpha the kit's icon
+ * buttons use, so a bespoke colour still sits in the same visual language
+ * rather than being a flat block of unrelated colour.
+ */
+export const resolveToneTrio = (tone: string | null | undefined): Trio => {
+    if (isHexColor(tone)) return { c: tone, bg: `${tone}14`, bd: `${tone}3D` };
+    return TRIO[isToneName(tone) ? tone : DEFAULT_SECTION_TONE];
+};
 
 export const resolveIcon = (icon: string | null | undefined): string =>
     icon && icon.trim() ? icon : DEFAULT_SECTION_ICON;

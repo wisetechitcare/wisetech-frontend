@@ -4,8 +4,12 @@ import { KTIcon } from '@metronic/helpers';
 import { TRIO } from './patterns';
 
 /**
- * IconPicker / TonePicker — the canonical "choose one from a small visual set"
- * controls. Domain-agnostic: nothing here knows what the choice is FOR.
+ * IconPicker — the canonical "choose one glyph from a curated set" control.
+ * Domain-agnostic: nothing here knows what the choice is FOR.
+ *
+ * Colour selection lives in WtColorPicker, which offers the same palette PLUS
+ * a custom colour. TonePicker was palette-only and is gone rather than kept as
+ * a second, weaker way to do the same thing.
  *
  * Both were first written inline in the FAQ section editor. They are the kind of
  * control that reappears the moment any other feature lets an admin brand a
@@ -63,56 +67,6 @@ export function IconPicker({ value, onChange, options, label, size = 36 }: IconP
                         }}
                     >
                         <KTIcon iconName={icon} className="fs-5" />
-                    </Box>
-                );
-            })}
-        </Box>
-    );
-}
-
-export interface TonePickerProps {
-    value: string;
-    onChange: (tone: ToneName) => void;
-    /** Defaults to the kit's full palette. */
-    options?: readonly ToneName[];
-    label: string;
-    size?: number;
-}
-
-export function TonePicker({ value, onChange, options = TONE_NAMES, label, size = 36 }: TonePickerProps) {
-    return (
-        <Box role="radiogroup" aria-label={label} sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-            {options.map((tone) => {
-                const selected = value === tone;
-                return (
-                    <Box
-                        key={tone}
-                        component="button"
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        aria-label={tone}
-                        title={tone}
-                        onClick={() => onChange(tone)}
-                        sx={{
-                            width: size,
-                            height: size,
-                            display: 'grid',
-                            placeItems: 'center',
-                            borderRadius: '10px',
-                            cursor: 'pointer',
-                            bgcolor: TRIO[tone].c,
-                            color: '#fff',
-                            border: '2px solid',
-                            borderColor: selected ? 'text.primary' : 'transparent',
-                            transform: selected ? 'scale(1.08)' : 'none',
-                            transition: 'transform .15s, border-color .15s',
-                            '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
-                        }}
-                    >
-                        {/* A tick keeps the selection visible without relying on colour
-                            alone, which fails WCAG 1.4.1 for colour-blind users. */}
-                        {selected && <KTIcon iconName="check" className="fs-7" />}
                     </Box>
                 );
             })}

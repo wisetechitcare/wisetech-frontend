@@ -5,6 +5,7 @@ import {
 import type { TransitionProps } from '@mui/material/transitions';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { T, GlassVariant, VividTone, ThemeMode, label } from './tokens';
+import { toTitleCase } from './text';
 import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
 import { WtCloseButton } from './tw/WtCloseButton';
@@ -182,7 +183,7 @@ export function GlassHeader({
         )}
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontWeight: 700, fontSize: { xs: 15.5, sm: 17 }, lineHeight: 1.25, color: gradient ? '#fff' : label(mode, 'primary') }}>
-            {title}
+            {toTitleCase(title)}
           </Typography>
           {subtitle && (
             <Typography sx={{ fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: gradient ? 'rgba(255,255,255,0.72)' : label(mode, 'secondary') }}>

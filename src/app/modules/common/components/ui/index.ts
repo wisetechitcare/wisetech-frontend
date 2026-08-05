@@ -29,8 +29,14 @@ export {
 export type { Trio } from './patterns';
 // Choose-one-from-a-visual-set controls, for any feature that lets an admin
 // brand a record (section icon/colour, status colour, category icon).
-export { IconPicker, TonePicker, TONE_NAMES } from './SwatchPicker';
-export type { ToneName, IconPickerProps, TonePickerProps } from './SwatchPicker';
+export { IconPicker, TONE_NAMES } from './SwatchPicker';
+export type { ToneName, IconPickerProps } from './SwatchPicker';
+// Palette + custom colour in one control. Supersedes TonePicker (palette only)
+// and the raw <input type="color"> in the holiday and appearance forms.
+export { WtColorPicker, KIT_SWATCHES, isHexColor, resolveSwatchHex } from './WtColorPicker';
+export type { WtColorPickerProps, ColorSwatch } from './WtColorPicker';
+// Headline capitalisation, applied by the kit's heading components.
+export { toTitleCase } from './text';
 // The accent-topped configuration card every settings/config engine is built
 // from (Leave Policy, Sandwich Leave, FAQ sections). Owns the frame — surface,
 // accent rule, icon tile, header, spacing — so those screens stop drifting apart.

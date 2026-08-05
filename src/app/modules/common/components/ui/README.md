@@ -42,7 +42,8 @@ are built from.
 | Icon tile | `IconBox` | a styled `<div>` around a `KTIcon` |
 | List layout | `AutoGrid` + `ListHeader` | per-feature grid breakpoints |
 | Reorder | `ReorderableGroup` + `DragHandle` | up/down buttons |
-| Icon / colour choice | `IconPicker` / `TonePicker` | an inline grid of buttons |
+| Icon choice | `IconPicker` | an inline grid of buttons |
+| Colour choice | `WtColorPicker` | `<input type="color">`, an inline swatch grid |
 | Single-select modal | `OptionPickerDialog` | a bespoke option list |
 | Date / time | `WtDateField` / `WtDateTimeField` / `TimeWheelField` | `<input type="date">` |
 | Wizard | `WtStepper` | hand-rolled circles |
@@ -112,6 +113,25 @@ Rules:
 - Two-up layouts: `Box` with
   `gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }`, so they stack on phones.
 - Group a set of fields under an `Eyebrow` inside a `GlassSurface variant="thin"`.
+- **Mark every required field with `required`.** MUI renders the `*` on the
+  label itself, so it sits with the field and is announced by screen readers —
+  never hand-write an asterisk in the label string.
+
+## Colour
+
+`WtColorPicker` — the kit palette plus a custom colour, in one control. It
+supersedes `TonePicker` (palette only) and the raw `<input type="color">` that
+the Public Holiday and Appearance forms still use with banned Bootstrap classes.
+
+It does NOT use `<input type="color">`. That opens the browser's own popup,
+which is chrome — square-cornered, OS-styled, and light-on-white in dark mode
+however the app is themed. Same reason `<input type="date">` is banned. The
+expanded palette is an MUI `Popover`, so radius, borders and dark mode all
+follow the theme.
+
+Stored values are either a palette name (`blue`) or a hex (`#1E3A8A`). A palette
+name is preferred where it fits, because it carries the kit's coordinated
+`{fg, bg, border}` triple; a hex derives its own tint with the same alphas.
 
 ## Two traps that have bitten this codebase
 

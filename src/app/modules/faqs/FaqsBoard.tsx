@@ -14,7 +14,7 @@ import { FaqAccordionItem } from './FaqAccordionItem';
 import { FaqEditorDialog } from './FaqEditorDialog';
 import { useFaqs } from './useFaqs';
 import { FaqSectionManagerDialog } from './FaqSectionManagerDialog';
-import { resolveIcon, resolveSectionKey, resolveTone, type Faq, type FaqSection } from './types';
+import { resolveIcon, resolveSectionKey, resolveTone, resolveToneTrio, type Faq, type FaqSection } from './types';
 
 export interface FaqsBoardProps {
     /**
@@ -419,7 +419,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                     >
                         {sections.map((section) => {
                             const active = activeSection === section.id;
-                            const tone = TRIO[resolveTone(section.tone)];
+                            const tone = resolveToneTrio(section.tone);
                             return (
                                 <Box
                                     key={section.id}
@@ -486,7 +486,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                     {!isLoading && !noResults && sections.map((section) => {
                         // While searching, hide sections with nothing to show.
                         if (searching && section.faqs.length === 0) return null;
-                        const tone = TRIO[resolveTone(section.tone)];
+                        const tone = resolveToneTrio(section.tone);
 
                         return (
                             <Box

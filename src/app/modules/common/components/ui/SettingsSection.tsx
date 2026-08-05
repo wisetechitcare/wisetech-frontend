@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Stack } from '@mui/material';
 import { GlassSurface } from './glass';
 import { IconBox, type Trio } from './patterns';
+import { toTitleCase } from './text';
 import { Typography } from '@mui/material';
 
 /**
@@ -67,7 +68,7 @@ export function SettingsSection({
 
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.25 }}>
-                        {title}
+                        {toTitleCase(title)}
                     </Typography>
                     {description && (
                         <Typography sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.5, mt: 0.25 }}>

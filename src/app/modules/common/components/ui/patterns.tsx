@@ -14,6 +14,7 @@ import { Box, Typography, Tooltip, useTheme } from '@mui/material';
 import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import { KTIcon } from '@metronic/helpers';
 import { GlassSurface } from './glass';
+import { toTitleCase } from './text';
 
 /** Accent tone: foreground / fill / border — drives IconBox, StatusBadge, StatTile, and keylines. */
 export type Trio = { c: string; bg: string; bd: string };
@@ -106,7 +107,7 @@ export function SectionHead({ tone, icon, title, desc }: { tone: Trio; icon: str
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
       <IconBox icon={icon} trio={tone} size={40} fs="fs-2" />
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.25 }}>{title}</Typography>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.25 }}>{toTitleCase(title)}</Typography>
         {desc && <Typography sx={{ fontSize: 13, color: 'text.secondary', lineHeight: 1.5, mt: 0.25 }}>{desc}</Typography>}
       </Box>
     </Box>
