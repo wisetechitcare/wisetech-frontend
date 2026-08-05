@@ -3,8 +3,8 @@ import { KTIcon } from '@metronic/helpers';
 import { GlassCard } from '@app/modules/common/components/ui/tw/Glass';
 import { WtButton, WtIconButton } from '@app/modules/common/components/ui/tw/Buttons';
 import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
-import { ToolbarFilterSelect, FILTER_TONES } from '@app/modules/common/components/ui/ToolbarFilterSelect';
-import { ALL_ORGS, toCompanyIdParam, useOrgScope } from '@hooks/useOrgScope';
+import { InputAdornment, MenuItem, Stack, TextField } from '@mui/material';
+import { toCompanyIdParam, useOrgScope } from '@hooks/useOrgScope';
 import { IconBox } from '@app/modules/common/components/ui/tw/Patterns';
 import { BRAND, TRIO } from '@app/modules/common/components/ui/tw/tokens';
 import { confirmDialog, toast } from '@app/modules/common/components/ui/feedback';
@@ -258,44 +258,85 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                     </div>
                 )}
 
-                {/* Search + organization scope share a row: both narrow the same
-                    list, so they belong together rather than in separate bands.
-                    The scope control hides itself when the family has one org. */}
-                {/* mt-2.5 is clearance, not decoration: ToolbarFilterSelect's
-                    floating label sits ~9px ABOVE the field, so without it the
-                    label collides with the header text above. */}
-                <div className="mt-2.5 flex flex-col gap-2.5 sm:flex-row sm:items-center">
+                {/* Toolbar: scope + search. Both narrow the same list, so they
+                    belong on one row rather than in separate bands.
+
+                    Both are MUI `TextField size="small"`, per the Sandwich Leave
+                    rule editor. That is not only for consistency — a TextField
+                    manages its own label space, so the label can never collide
+                    with the content above it the way a hand-positioned floating
+                    label does. The scope control hides itself for a single-org
+                    family, since a filter with one option is noise. */}
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1.5}
+                    sx={{ mt: 1.5 }}
+                >
                     {hasChoice && (
-                        <div className="w-full sm:w-72 sm:shrink-0">
-                            {/* The app's standard toolbar filter — identical control,
-                                label treatment and active-tint as the Sub Organization
-                                filter on payroll and employee screens. */}
-                            <ToolbarFilterSelect
-                                label="Sub Organization"
-                                icon="bi-building"
-                                value={scopeId}
-                                onChange={setScopeId}
-                                options={selectOptions}
-                                minWidth={0}
-                                theme={scopeId !== ALL_ORGS ? FILTER_TONES.blue : undefined}
-                            />
-                        </div>
+                        <TextField
+                            select
+                            label="Sub Organization"
+                            size="small"
+                            value={scopeId}
+                            onChange={(event) => setScopeId(event.target.value)}
+                            sx={{ width: { xs: '100%', sm: 260 }, flexShrink: 0 }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <KTIcon iconName="office-bag" className="fs-6" />
+                                    </InputAdornment>
+                                ),
+                            }}
+                            // Long org names must ellipsize inside the control
+                            // rather than spill past it. minWidth:0 is what lets
+                            // the flex child shrink below its content width.
+                            SelectProps={{
+                                sx: {
+                                    '& .MuiSelect-select': {
+                                        minWidth: 0,
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                    },
+                                },
+                            }}
+                        >
+                            {selectOptions.map((option) => (
+                                <MenuItem key={option.value} value={option.value} sx={{ fontSize: 13.5 }}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </TextField>
                     )}
 
-                    <div className="relative flex-1">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                        <KTIcon iconName="magnifier" className="fs-6" />
-                    </span>
-                    <input
-                        type="search"
+                    <TextField
+                        label="Search"
+                        size="small"
+                        fullWidth
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                         placeholder="Search questions and answers…"
-                        aria-label="Search FAQs"
-                        className="h-[38px] w-full rounded-xl border border-[#E6E9EE] bg-white pl-10 pr-3.5 text-[14px] text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/15 dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-100 dark:placeholder:text-slate-500"
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <KTIcon iconName="magnifier" className="fs-6" />
+                                </InputAdornment>
+                            ),
+                            endAdornment: search ? (
+                                <InputAdornment position="end">
+                                    {/* tw twin: numeric `size`, not MUI's `sx`. */}
+                                    <WtIconButton
+                                        title="Clear search"
+                                        size={26}
+                                        onClick={() => setSearch('')}
+                                    >
+                                        <KTIcon iconName="cross" className="fs-7" />
+                                    </WtIconButton>
+                                </InputAdornment>
+                            ) : undefined,
+                        }}
                     />
-                    </div>
-                </div>
+                </Stack>
 
                 {/* ── Mobile section chips ─────────────────────────────────── */}
                 {showRail && (

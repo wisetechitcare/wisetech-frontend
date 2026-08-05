@@ -82,6 +82,37 @@ The benchmark is `LeavePolicyModal.tsx` and `SandwhichLeave.tsx`. Follow it:
 Colour comes from `TRIO` — never a raw hex. A section's tone drives its accent
 rule, its `IconBox` and its `WtSwitch` together.
 
+## Form fields
+
+Plain MUI `TextField`, `size="small"`, label **notched into the border**. No
+bespoke field styling — the theme owns it, so every form matches and dark mode
+works without being handled per screen. The reference is the Sandwich Leave
+rule editor.
+
+```tsx
+<TextField label="Rule name" size="small" fullWidth
+           placeholder="e.g. Diwali Bridge" value={v} onChange={…} />
+
+<TextField label="Description" size="small" fullWidth multiline minRows={2} … />
+
+<TextField select label="Category" size="small" value={v} onChange={…}>
+  <MenuItem value="custom">Custom</MenuItem>
+</TextField>
+```
+
+Rules:
+- **Never** a `<label>` stacked above an input, and never a hand-styled
+  `<input className="…border rounded-xl…">`. That is what made the FAQ editor
+  look like a different app.
+- Errors and character counters go in **`helperText`**, with `error` for the
+  state — they then share the field's baseline and recolour together, instead
+  of being a separate row kept in sync by hand.
+- `select` variants are a `TextField select` with `MenuItem` children, not a
+  bare `Select` — you get the same label treatment for free.
+- Two-up layouts: `Box` with
+  `gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }`, so they stack on phones.
+- Group a set of fields under an `Eyebrow` inside a `GlassSurface variant="thin"`.
+
 ## Two traps that have bitten this codebase
 
 **1. Metronic squares your corners.** `style.react.scss` / `style.scss` are

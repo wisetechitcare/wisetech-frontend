@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Box, CircularProgress, Stack, TextField } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui/tw/Glass';
-import { WtButton } from '@app/modules/common/components/ui/tw/Buttons';
-import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
+// Same MUI glass kit as the Leave Policy / Sandwich Leave benchmark.
+import { WtButton, GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
 import { FAQ_ANSWER_MAX, FAQ_QUESTION_MAX, type Faq } from './types';
 
 export interface FaqEditorDialogProps {
@@ -22,10 +22,17 @@ export interface FaqEditorDialogProps {
  * different validation rules (one Formik+Yup, one uncontrolled useState with a
  * silent 400-char truncation, one with no length rule at all).
  *
+ * Fields follow the Sandwich Leave rule editor: plain MUI `TextField`,
+ * `size="small"`, label notched into the border, `multiline` for prose. No
+ * bespoke field styling — the theme owns it, so these inputs match every other
+ * form in the app and stay correct in dark mode for free.
+ *
  * Limits mirror the server schema exactly (FAQ_QUESTION_MAX / FAQ_ANSWER_MAX),
  * so the client can never compose a payload the API will reject for length.
  */
-export function FaqEditorDialog({ open, sectionTitle, sectionIcon, faq, saving, onClose, onSave }: FaqEditorDialogProps) {
+export function FaqEditorDialog({
+    open, sectionTitle, sectionIcon, faq, saving, onClose, onSave,
+}: FaqEditorDialogProps) {
     const [question, setQuestion] = useState('');
     const [answer, setAnswer] = useState('');
     const [touched, setTouched] = useState(false);
@@ -43,17 +50,9 @@ export function FaqEditorDialog({ open, sectionTitle, sectionIcon, faq, saving, 
 
     const trimmedQuestion = question.trim();
     const trimmedAnswer = answer.trim();
-    const questionError = !trimmedQuestion
-        ? 'Question is required'
-        : question.length > FAQ_QUESTION_MAX
-            ? `Keep it under ${FAQ_QUESTION_MAX} characters`
-            : '';
-    const answerError = !trimmedAnswer
-        ? 'Answer is required'
-        : answer.length > FAQ_ANSWER_MAX
-            ? `Keep it under ${FAQ_ANSWER_MAX} characters`
-            : '';
-    const canSave = !questionError && !answerError && !saving;
+    const questionError = touched && !trimmedQuestion ? 'Question is required' : '';
+    const answerError = touched && !trimmedAnswer ? 'Answer is required' : '';
+    const canSave = Boolean(trimmedQuestion) && Boolean(trimmedAnswer) && !saving;
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -62,92 +61,84 @@ export function FaqEditorDialog({ open, sectionTitle, sectionIcon, faq, saving, 
         await onSave({ question: trimmedQuestion, answer: trimmedAnswer });
     };
 
-    const fieldClass =
-        'w-full rounded-xl border border-[#E6E9EE] bg-white px-3.5 py-2.5 text-[14px] text-slate-900 ' +
-        'placeholder:text-slate-400 outline-none transition-colors ' +
-        'focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/15 ' +
-        'dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-100 dark:placeholder:text-slate-500';
-
     return (
         <GlassDialog
             open={open}
             onClose={onClose}
-            maxWidth="md"
+            maxWidth="sm"
             fullWidth
             header={
                 <GlassHeader
                     title={isEdit ? 'Edit question' : 'Add a question'}
                     subtitle={sectionTitle}
-                    icon={<KTIcon iconName={sectionIcon} className="fs-1 text-white" />}
+                    icon={<KTIcon iconName={sectionIcon} className="fs-1" />}
                     onClose={onClose}
                 />
             }
         >
-            <form className="flex flex-col gap-5 p-5 sm:p-6" onSubmit={handleSubmit} noValidate>
-                <div className="flex flex-col gap-1.5">
-                    <label htmlFor="faq-question" className="text-[13px] font-semibold text-slate-700 dark:text-slate-200">
-                        Question <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                        id="faq-question"
-                        className={fieldClass}
+            <Box
+                component="form"
+                onSubmit={handleSubmit}
+                noValidate
+                sx={{ p: { xs: 2, sm: 2.75 } }}
+            >
+                <Stack spacing={2.5}>
+                    <TextField
+                        autoFocus
+                        label="Question"
+                        required
                         value={question}
                         onChange={(event) => setQuestion(event.target.value)}
                         onBlur={() => setTouched(true)}
                         placeholder="e.g. How do I apply for casual leave?"
-                        maxLength={FAQ_QUESTION_MAX}
-                        aria-invalid={Boolean(touched && questionError)}
-                        aria-describedby="faq-question-help"
-                        autoFocus
+                        inputProps={{ maxLength: FAQ_QUESTION_MAX }}
+                        error={Boolean(questionError)}
+                        // The counter lives in helperText so it shares the field's
+                        // baseline and turns red with the error, instead of being a
+                        // separate row that has to be kept in sync by hand.
+                        helperText={questionError || `${question.length}/${FAQ_QUESTION_MAX}`}
+                        fullWidth
+                        size="small"
                     />
-                    <div id="faq-question-help" className="flex justify-between gap-3 text-[12px]">
-                        <span className="text-rose-500">{touched ? questionError : ''}</span>
-                        <span className="shrink-0 tabular-nums text-slate-400">
-                            {question.length}/{FAQ_QUESTION_MAX}
-                        </span>
-                    </div>
-                </div>
 
-                <div className="flex flex-col gap-1.5">
-                    <label htmlFor="faq-answer" className="text-[13px] font-semibold text-slate-700 dark:text-slate-200">
-                        Answer <span className="text-rose-500">*</span>
-                    </label>
-                    <textarea
-                        id="faq-answer"
-                        className={`${fieldClass} min-h-[160px] resize-y leading-relaxed`}
+                    <TextField
+                        label="Answer"
+                        required
                         value={answer}
                         onChange={(event) => setAnswer(event.target.value)}
                         onBlur={() => setTouched(true)}
                         placeholder={'Write the answer in plain language.\n\nStart a line with - or • for bullet points.'}
-                        rows={7}
-                        maxLength={FAQ_ANSWER_MAX}
-                        aria-invalid={Boolean(touched && answerError)}
-                        aria-describedby="faq-answer-help"
+                        inputProps={{ maxLength: FAQ_ANSWER_MAX }}
+                        error={Boolean(answerError)}
+                        helperText={
+                            answerError ||
+                            `Line breaks are preserved; lines starting with - or • render as bullets. · ${answer.length}/${FAQ_ANSWER_MAX}`
+                        }
+                        multiline
+                        minRows={6}
+                        maxRows={14}
+                        fullWidth
+                        size="small"
                     />
-                    <div id="faq-answer-help" className="flex justify-between gap-3 text-[12px]">
-                        <span className={touched && answerError ? 'text-rose-500' : 'text-slate-400'}>
-                            {touched && answerError ? answerError : 'Line breaks are preserved; lines starting with - or • render as bullets.'}
-                        </span>
-                        <span className="shrink-0 tabular-nums text-slate-400">
-                            {answer.length}/{FAQ_ANSWER_MAX}
-                        </span>
-                    </div>
-                </div>
 
-                <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
-                    <WtButton ghost type="button" onClick={onClose} className="w-full sm:w-auto">
-                        Cancel
-                    </WtButton>
-                    <WtButton
-                        type="submit"
-                        disabled={!canSave}
-                        startIcon={saving ? <Spinner size={14} color="#fff" /> : undefined}
-                        className="w-full sm:w-auto"
+                    <Stack
+                        direction={{ xs: 'column-reverse', sm: 'row' }}
+                        spacing={1.25}
+                        justifyContent="flex-end"
                     >
-                        {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add question'}
-                    </WtButton>
-                </div>
-            </form>
+                        <WtButton ghost type="button" onClick={onClose}>
+                            Cancel
+                        </WtButton>
+                        <WtButton
+                            type="submit"
+                            disabled={!canSave}
+                            startIcon={saving ? <CircularProgress size={14} sx={{ color: 'inherit' }} /> : undefined}
+                        >
+                            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add question'}
+                        </WtButton>
+                    </Stack>
+                </Stack>
+            </Box>
         </GlassDialog>
     );
 }

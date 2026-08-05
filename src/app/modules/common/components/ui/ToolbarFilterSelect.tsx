@@ -73,13 +73,16 @@ export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
             <InputLabel
                 shrink
                 sx={{
-                    fontSize: 11,
+                    // Do NOT override MUI's shrink transform. It positions the label
+                    // AND sizes the notch in the outline together, assuming the
+                    // default scale(0.75). Forcing scale(1) renders a bigger label
+                    // into a notch cut for a smaller one, so it overflows the field
+                    // and collides with whatever sits above. Set the size instead
+                    // and let MUI scale it: 14.5 * 0.75 ≈ 11px rendered.
+                    fontSize: 14.5,
                     fontWeight: 700,
-                    letterSpacing: '0.6px',
+                    letterSpacing: '0.5px',
                     textTransform: 'uppercase',
-                    // MUI scales a shrunk label to 0.75; undo it so the declared
-                    // size is the rendered size and the tracking stays readable.
-                    transform: 'translate(12px, -9px) scale(1)',
                     color: 'text.secondary',
                     '&.Mui-focused': { color: theme?.icon ?? 'primary.main' },
                 }}
