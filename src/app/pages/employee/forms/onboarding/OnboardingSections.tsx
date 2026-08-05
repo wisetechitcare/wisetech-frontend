@@ -44,7 +44,6 @@ const createNewFamilyMember = () => ({
   name: "",
   relationship: "",
   mobileNumber: "",
-  dateOfBirth: "",
 });
 
 const createNewWorkExp = () => ({

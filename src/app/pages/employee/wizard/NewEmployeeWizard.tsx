@@ -215,7 +215,7 @@ const STEP_SECTIONS: Record<number, string[]> = {
 // missing/invalid required field, on every step, not just step 1.
 const SECTION_FIELD_KEYS: Record<number, Record<string, string[]>> = {
   1: {
-    "personal-info": ["firstName", "lastName", "dateOfBirth", "gender", "nickName", "maritalStatus", "anniversary", "bloodGroup"],
+    "personal-info": ["firstName", "lastName", "dateOfBirth", "gender", "maritalStatus", "anniversary", "bloodGroup"],
     "contact-info": ["personalEmailId", "personalPhoneNumber", "alternatePhoneNumber", "personalPhoneNumberExtension", "linkedInProfileUrl", "instagramProfileUrl", "facebookProfileUrl"],
     education: ["educationalInfo"],
     family: ["familyInfo"],
@@ -304,7 +304,6 @@ const calculateProfileCompletion = (values: any) => {
   const trackedFields: Array<{ value: any; key: string }> = [
     { value: values.firstName, key: "firstName" },
     { value: values.lastName, key: "lastName" },
-    { value: values.nickName, key: "nickName" },
     { value: values.dateOfBirth, key: "dateOfBirth" },
     { value: values.gender, key: "gender" },
     { value: values.maritalStatus, key: "maritalStatus" },
@@ -315,7 +314,6 @@ const calculateProfileCompletion = (values: any) => {
     { value: family.name, key: "familyInfo" },
     { value: family.relationship, key: "familyInfo" },
     { value: family.mobileNumber, key: "familyInfo" },
-    { value: family.dateOfBirth, key: "familyInfo" },
     { value: emergency.emergencyContactName, key: "emergencyDetails" },
     { value: emergency.emergencyContactNumber, key: "emergencyDetails" },
     { value: bank.accountNumber, key: "bankInfo" },
@@ -362,7 +360,6 @@ const newEmployeeWizardSchema = [
       .min(4, "Last name must be at least 4 characters")
       .max(20, "Last name must be at most 20 characters")
       .matches(employeeOnBardingFormRegexes["lastName"], "Last name can only contain alphabetic characters"),
-    nickName: optionalString(),
     gender: Yup.string().required().label("Gender"),
     maritalStatus: optionalString().label("Marital Status"),
     dateOfBirth: Yup.string().required().label("Date Of Birth"),
@@ -463,12 +460,10 @@ const newEmployeeWizardSchema = [
         mobileNumber: Yup.string().required().label("Member Phone Number")
           .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
           .matches(employeeOnBardingFormRegexes["familyInfo.mobileNumber"], "Phone Number can only contain numeric characters"),
-        // Date of Birth stays optional per requirement.
-        dateOfBirth: optionalString().label("Date of Birth"),
       }),
-      // At least one family member is required: Name, Relation and Phone are mandatory
-      // for each relative row (Date of Birth stays optional). The wizard seeds one blank
-      // row, so the user must complete it before leaving the Family section.
+      // At least one family member is required: Name, Relation and Phone are all
+      // mandatory for each relative row. The wizard seeds one blank row, so the
+      // user must complete it before leaving the Family section.
     ).required().label("Family info"),
     emergencyDetails: Yup.object({
       bloodGroup: optionalString().label("Blood Group"),
@@ -629,12 +624,12 @@ const onboardingSchema = Yup.object().shape(allSchemaFields);
 
 const createDefaultEducationInfo = () => createEducationRow();
 
-const createDefaultFamilyInfo = () => ({ name: "", relationship: "", mobileNumber: "", dateOfBirth: "" });
+const createDefaultFamilyInfo = () => ({ name: "", relationship: "", mobileNumber: "" });
 
 const hasEducationInfo = hasStartedEducationInfo;
 
 const hasFamilyInfo = (familyMember: any) =>
-  Boolean(familyMember?.name || familyMember?.relationship || familyMember?.mobileNumber || familyMember?.dateOfBirth);
+  Boolean(familyMember?.name || familyMember?.relationship || familyMember?.mobileNumber);
 
 const withDefaultEducationInfo = (educationalInfo: any) =>
   Array.isArray(educationalInfo) && educationalInfo.length > 0
@@ -646,7 +641,7 @@ const withDefaultFamilyInfo = (familyInfo: any) =>
 
 const initialState = {
   method: "0", avatar: "", firstName: "", isAdmin: "0", isEmployeeActive: "1",
-  lastName: "", nickName: "", gender: "", maritalStatus: "", reportsToId: "",
+  lastName: "", gender: "", maritalStatus: "", reportsToId: "",
   dateOfBirth: "", bloodGroup: "", personalEmailId: "", personalPhoneNumber: "",
   alternatePhoneNumber: "", personalPhoneNumberExtension: "", linkedInProfileUrl: "",
   instagramProfileUrl: "", facebookProfileUrl: "", hobbies: "", notes: "", meal: "",
@@ -661,7 +656,7 @@ const initialState = {
     presentState: "", presentCity: "", presentPostalCode: "",
   },
   organizationId: "", subOrganizationId: "",
-  designationId: "", departmentId: "", branchId: "", teamId: "", roomOrBlock: "",
+  designationId: "", departmentId: "", branchId: "", teamId: "",
   employeeTypeId: "", employeeTypeConfigId: "", workingMethodId: "", shift: "",
   experienceLevel: "", employeeLevelId: "", companyEmailId: "", companyPhoneNumber: "",
   companyPhoneExtension: "", sourceOfHire: "", referredBy: "", dateOfJoining: "",
@@ -730,10 +725,10 @@ const saveNewEmployee = async (values: any, userId: string) => {
     dateOfJoining, ctcInLpa, gender, designationId, branchId, dateOfExit,
     employeeTypeId, employeeTypeConfigId, maritalStatus, sourceOfHireId,
     workingMethodId, departmentId, companyEmailId, referredById, method,
-    nickName, employeeCode, companyPhoneNumber, companyPhoneExtension,
+    employeeCode, companyPhoneNumber, companyPhoneExtension,
     employeeStatusId, employeeStatusConfigId, avatar, meal, reportsToId,
     anniversary, documentFields, documentInfo, appRole, isAdmin, rejoinHistory,
-    teamId, roomOrBlock, shift, experienceLevel, employeeLevelId,
+    teamId, shift, experienceLevel, employeeLevelId,
     allowOverTime,
     professionalFeesEnabled, professionalFeesAmount,
     professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
@@ -788,12 +783,12 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...(companyEmailId && { companyEmailId }), ...(referredById && { referredById }),
     ...(companyPhoneNumber && { companyPhoneNumber }),
     ...(companyPhoneExtension && { companyPhoneExtension }),
-    ...(employeeCode && { employeeCode }), ...(nickName && { nickName }),
+    ...(employeeCode && { employeeCode }),
     ...(dateOfExit && { dateOfExit }),
     ...(vegMealPreference && { vegMealPreference }),
     ...(nonVegMealPreference && { nonVegMealPreference }),
     ...(veganMealPreference && { veganMealPreference }),
-    ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
+    ...(teamId && { teamId }),
     ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
     ...(employeeLevelId && { employeeLevelId }),
     ...(allowOverTime && { allowOverTime }),
@@ -842,7 +837,6 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
       () => createEmergencyContacts(filledFamilyInfo.map((el: any) => ({
         ...(el.name && { name: el.name }),
         ...(el.mobileNumber && { mobileNumber: el.mobileNumber }),
-        ...(el.dateOfBirth && { dateOfBirth: el.dateOfBirth }),
         ...(el.relationship && { relation: el.relationship }),
         employeeId,
       }))),
@@ -1281,12 +1275,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     const {
       employeeId, dateOfJoining, ctcInLpa, gender, designationId, branchId, dateOfExit,
       employeeTypeId, employeeTypeConfigId, maritalStatus, sourceOfHireId, workingMethodId,
-      departmentId, companyEmailId, referredById, method, nickName, employeeCode,
+      departmentId, companyEmailId, referredById, method, employeeCode,
       companyPhoneNumber, companyPhoneExtension, employeeStatusId, employeeStatusConfigId,
       avatar, meal, anniversary, reportsToId,
       allowOverTime, professionalFeesEnabled, professionalFeesAmount,
       professionalFeesPercentage, professionalFeesType, isAdmin, rejoinHistory, teamId,
-      roomOrBlock, shift, experienceLevel, employeeLevelId, isHiddenFromStaff: isHiddenFromStaffEdit,
+      shift, experienceLevel, employeeLevelId, isHiddenFromStaff: isHiddenFromStaffEdit,
       tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
       retentionEnabled, retentionType, retentionAmount,
       retentionPercentage, retentionStartDate, retentionEndDate,
@@ -1343,11 +1337,11 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(aadharNumber && { aadharNumber }), ...(aadharCardPath && { aadharCardPath }),
       ...(panNumber && { panNumber }), ...(panCardPath && { panCardPath }),
       ...(anniversary && { anniversary }), ...(referredById && { referredById }),
-      ...(nickName && { nickName }), ...(dateOfExit && { dateOfExit }),
+      ...(dateOfExit && { dateOfExit }),
       ...(vegMealPreference && { vegMealPreference }),
       ...(nonVegMealPreference && { nonVegMealPreference }),
       ...(veganMealPreference && { veganMealPreference }),
-      ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
+      ...(teamId && { teamId }),
       ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
       ...(employeeLevelId && { employeeLevelId }),
       // Leave Settings section removed — no longer needed
@@ -1390,7 +1384,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       reqPromise.push(() => e?.id ? updateEducationalDetails(e.id, buildEducationPayload(e)) : createEducationalDetails([buildEducationPayload(e, employeeId)].filter(Boolean))));
 
     familyInfo.filter((f: any) => f?.id || hasFamilyInfo(f)).forEach((f: any) =>
-      reqPromise.push(() => f?.id ? updateEmergencyContact(f.id, f) : createEmergencyContacts([{ ...(f.name && { name: f.name }), ...(f.mobileNumber && { mobileNumber: f.mobileNumber }), ...(f.dateOfBirth && { dateOfBirth: f.dateOfBirth }), ...(f.relationship && { relation: f.relationship }), employeeId }])));
+      reqPromise.push(() => f?.id ? updateEmergencyContact(f.id, f) : createEmergencyContacts([{ ...(f.name && { name: f.name }), ...(f.mobileNumber && { mobileNumber: f.mobileNumber }), ...(f.relationship && { relation: f.relationship }), employeeId }])));
 
     const filteredRejoinHistory = rejoinHistory?.filter((r: any) => r.dateOfReJoining || r.dateOfReExit || r.reason);
     await deleteAllRejoinHistoryByEmployeeId(employeeId);
@@ -1662,7 +1656,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         bloodGroup: wizardData?.users?.bloodGroup || wizardData?.bloodGroup || "",
         ...(wizardData?.employeeTypeConfigId && { employeeTypeConfigId: wizardData.employeeTypeConfigId }),
         ...(wizardData?.employeeStatusConfigId && { employeeStatusConfigId: wizardData.employeeStatusConfigId }),
-        teamId: wizardData?.teamId || "", roomOrBlock: wizardData?.roomOrBlock || "",
+        teamId: wizardData?.teamId || "",
         shift: wizardData?.shift || "", experienceLevel: wizardData?.experienceLevel || "",
         employeeLevelId: wizardData?.employeeLevelId || "",
         linkedInProfileUrl: wizardData?.users?.linkedInProfileUrl || "",

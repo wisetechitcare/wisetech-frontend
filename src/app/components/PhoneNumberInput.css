@@ -23,9 +23,9 @@
   border-color: #f1416c !important;
 }
 
-/* Input field – leave room for the 56px flag button. padding-left is a few px past the
-   button's own width so the dropdown caret icon at its right edge doesn't visually
-   overlap the "+91" prefix at the start of the typed value.
+/* Input field – leave room for the flag button, which now carries the dial code too and
+   so is sized from --phone-dial-w (set inline per dial code). The number starts clear of
+   the dropdown caret at the button's right edge.
    Selector specificity note: the wizard's global Step2.css has
    `.ob-wizard-root input[type="tel"] { padding: ... !important }`, which — being a
    class+type+attribute selector — outranks a plain `.phone-input-field` class selector
@@ -44,7 +44,7 @@
   font-family: inherit !important;
   color: inherit !important;
   border-radius: 0 8px 8px 0 !important;
-  padding-left: 68px !important;
+  padding-left: calc(56px + var(--phone-dial-w, 3ch) + 12px) !important;
 }
 
 .phone-input-container .form-control::placeholder,
@@ -61,7 +61,7 @@
   background: transparent !important;
 }
 
-/* Flag dropdown button */
+/* Flag dropdown button — holds flag + dial code + caret, so it grows with the code */
 .phone-input-container .flag-dropdown,
 .phone-input-button {
   border: none !important;
@@ -70,7 +70,7 @@
   border-radius: 8px 0 0 8px !important;
   top: 0 !important;
   bottom: 0 !important;
-  width: 56px !important;
+  width: calc(56px + var(--phone-dial-w, 3ch)) !important;
   position: absolute !important;
 }
 
@@ -80,9 +80,45 @@
   border-radius: 8px 0 0 8px !important;
   padding: 0 8px 0 10px !important;
   height: 44px !important;
-  width: 56px !important;
+  width: calc(56px + var(--phone-dial-w, 3ch)) !important;
   display: flex !important;
   align-items: center !important;
+  gap: 6px !important;
+}
+
+/* The library ships .flag absolutely positioned and .arrow nudged with `left: 20px`,
+   which only works in its original fixed-width button. Both are made static so they
+   become real flex items and the row can lay out; `order` puts the code between them,
+   since the injected ::after would otherwise land after the caret in DOM order. */
+.phone-input-container .selected-flag .flag {
+  position: static !important;
+  top: auto !important;
+  margin-top: 0 !important;
+  order: 1 !important;
+  flex: 0 0 auto !important;
+}
+.phone-input-container .selected-flag::after {
+  content: var(--phone-dial-code, '');
+  order: 2;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #3f4254;
+  line-height: 1;
+  white-space: nowrap;
+}
+.phone-input-container .selected-flag .arrow {
+  position: static !important;
+  top: auto !important;
+  left: auto !important;
+  margin: 0 0 0 auto !important;
+  order: 3 !important;
+  flex: 0 0 auto !important;
+}
+
+/* Disabled inputs shouldn't advertise a clickable-looking code */
+.phone-input-container .selected-flag[aria-disabled='true']::after,
+.phone-number-input.is-disabled .selected-flag::after {
+  color: #a1a5b7;
 }
 
 .phone-input-container .selected-flag:hover,

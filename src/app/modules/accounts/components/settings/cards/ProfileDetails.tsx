@@ -33,7 +33,6 @@ const mealPreferencesRadioBtns: RadioButton[] = [
 ];
 
 const initialState = {
-  nickName: "",
   meal: "",
   startTime: "",
   endTime: "",
@@ -132,7 +131,6 @@ const ProfileDetails: React.FC = () => {
     const digitalSignaturePath = docUploaded?.filter((file: any) => (file.documentId == "digitalSignature"));
 
     const payload = {
-      ...(values.nickName && { nickName: values.nickName }),
       ...(avatar?.[0]?.path && { avatar: avatar[0].path }),
       ...(digitalSignaturePath?.[0]?.path && { digitalSignaturePath: digitalSignaturePath[0].path }),
       ...(workSchedule && { workSchedule }),
@@ -170,12 +168,11 @@ const ProfileDetails: React.FC = () => {
 
   useEffect(() => {
     if (!profile) return;
-    const { nickName, workSchedule, digitalSignaturePath, vegMealPreference, nonVegMealPreference, veganMealPreference } = profile;
+    const { workSchedule, digitalSignaturePath, vegMealPreference, nonVegMealPreference, veganMealPreference } = profile;
     const splitWorkSchedule = workSchedule?.split('-');
     setDefaultState((prevState: any) => {
       return {
         ...prevState,
-        nickName,
         startTime: (Array.isArray(splitWorkSchedule) && splitWorkSchedule?.length>=1) ? splitWorkSchedule[0]?.trim() : "",
         endTime: (Array.isArray(splitWorkSchedule) && splitWorkSchedule?.length>=2) ? splitWorkSchedule[1]?.trim(): "",
         meal: vegMealPreference ? "0" : nonVegMealPreference ? "1" : veganMealPreference ? "2" : "",
@@ -214,13 +211,6 @@ const ProfileDetails: React.FC = () => {
                         hidden={true}
                         path={avatar}
                         setFile={addFileToState} />
-                    </div>
-                  </div>
-
-                  <div className='row mb-6'>
-                    <label className='col-lg-4 col-form-label fw-bold fs-6'>Nick Name</label>
-                    <div className='col-lg-8'>
-                      <TextInput isRequired={false} formikField='nickName' placeholder='Nick Name' />
                     </div>
                   </div>
 

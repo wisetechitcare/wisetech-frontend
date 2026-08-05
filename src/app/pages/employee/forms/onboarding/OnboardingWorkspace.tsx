@@ -191,7 +191,6 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
               "avatar",
               "firstName",
               "lastName",
-              "nickName",
               "dateOfBirth",
               "gender",
               "maritalStatus",

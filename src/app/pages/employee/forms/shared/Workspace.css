@@ -573,6 +573,17 @@
   line-height: 1;
   display: block;
 }
+/* With a real photo the frame becomes a plain circular mask. The rounded-square
+   chrome above (white fill, 14px radius, brand underline) is designed around the
+   placeholder ICON — behind a circular photo its corners peeked out and the
+   ::after bar cut across the bottom of the face, which read as "off-centre". */
+.wizard-header-avatar--photo {
+  border-radius: 50%;
+  background: transparent;
+  padding: 0;
+  overflow: hidden;
+}
+.wizard-header-avatar--photo::after { content: none; }
 
 /* T.sectionTitle — Barlow 700, tightened tracking. */
 .wizard-title {

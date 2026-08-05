@@ -1,6 +1,5 @@
 import { X } from "lucide-react";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
-import DateInput from "@app/modules/common/inputs/DateInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 
 function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
@@ -37,9 +36,9 @@ function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
       </div>
 
       <div className="d-flex flex-column gap-4">
-        {/* Row 1: Name, Relation */}
+        {/* Name, Relation, Phone — the three details actually captured for a relative. */}
         <div className="row g-3">
-          <div className="col-lg-6 col-md-6 col-sm-12">
+          <div className="col-lg-4 col-md-6 col-sm-12">
             <TextInput
               isRequired={true}
               label="Name"
@@ -48,7 +47,7 @@ function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
             />
           </div>
 
-          <div className="col-lg-6 col-md-6 col-sm-12">
+          <div className="col-lg-4 col-md-6 col-sm-12">
             <TextInput
               isRequired={true}
               label="Relation"
@@ -56,27 +55,14 @@ function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
               formikField={`${element}.relationship`}
             />
           </div>
-        </div>
 
-        {/* Row 2: Phone, Date of Birth */}
-        <div className="row g-3">
-          <div className="col-lg-6 col-md-6 col-sm-12">
+          <div className="col-lg-4 col-md-6 col-sm-12">
             <PhoneNumberInput
               label="Phone"
               isRequired={true}
               formikField={`${element}.mobileNumber`}
               formikProps={formikProps}
               placeholder="Phone number"
-            />
-          </div>
-
-          <div className="col-lg-6 col-md-6 col-sm-12">
-            <DateInput
-              formikField={`${element}.dateOfBirth`}
-              isRequired={false}
-              formikProps={formikProps}
-              inputLabel="Date of Birth"
-              placeHolder="Date of Birth"
             />
           </div>
         </div>

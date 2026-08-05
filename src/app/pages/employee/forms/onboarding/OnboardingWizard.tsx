@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useFormikContext } from "formik";
 import { toast } from "react-toastify";
 import { ChevronRight, ChevronLeft, ExpandMore } from "@mui/icons-material";
@@ -155,6 +155,16 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const isGroupExpanded = (groupId: string) =>
     manualExpanded[groupId] ?? groupId === activeGroup?.id;
 
+  // Crossing into a different group re-asserts the accordion: the group owning the
+  // active section opens, every other one closes. `manualExpanded` is an override
+  // that never expired, so a group the user had toggled by hand stayed pinned open
+  // even after Continue moved on to the next one — leaving two groups expanded.
+  // Clearing it on a group change hands control back to the activeGroup default,
+  // while manual toggles still work freely WITHIN the current group.
+  useEffect(() => {
+    setManualExpanded({});
+  }, [activeGroup?.id]);
+
   const scrollCanvasTop = useCallback(() => {
     document.querySelector(".wizard-step-canvas")?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
@@ -271,7 +281,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       <div className="wizard-header">
         <div className="wizard-header-left">
           <div className="wizard-title-row">
-            <div className="wizard-header-avatar">
+            <div className={`wizard-header-avatar${values.avatar ? " wizard-header-avatar--photo" : ""}`}>
               {values.avatar ? (
                 <img src={values.avatar} alt="Profile" className="ob-header-avatar-img" />
               ) : (

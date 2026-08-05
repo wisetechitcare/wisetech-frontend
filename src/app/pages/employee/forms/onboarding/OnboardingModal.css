@@ -380,9 +380,14 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   border-radius: 50%;
   display: block;
-  border: 3px solid rgba(255, 255, 255, 0.2);
+  /* border-box so the ring is drawn INSIDE the 48px frame. As content-box the
+     border added 6px to a box already sized 100%, overflowing the frame and
+     shifting the picture up-left. The frame's own border is the visible ring. */
+  box-sizing: border-box;
+  border: none;
 }
 
 .ob-header-chip {

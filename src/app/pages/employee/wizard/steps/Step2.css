@@ -1136,23 +1136,34 @@
   font-size: 0.6875rem; font-weight: 600; border-radius: 50%;
 }
 .ob-dropzone-preview:hover .ob-dropzone-preview-overlay { opacity: 1; }
-.ob-photo-remove-btn {
-  position: absolute; top: 8px; right: 8px;
-  width: 24px; height: 24px; border-radius: 50%;
-  background: var(--ob-danger); color: #fff; border: 2px solid #fff;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; z-index: 10; box-shadow: var(--ob-shadow-sm); transition: transform var(--ob-tr);
+/* Photo actions — a labelled row under the avatar. Wraps to one-per-line rather
+   than letting the labels squash, so it survives the 180px column and mobile. */
+.ob-photo-actions {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 8px; width: 100%;
 }
-.ob-photo-remove-btn:hover { transform: scale(1.15); }
-
-.ob-photo-view-btn {
-  position: absolute; top: 8px; left: 8px;
-  width: 24px; height: 24px; border-radius: 50%;
-  background: var(--ob-accent); color: #fff; border: 2px solid #fff;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; z-index: 10; box-shadow: var(--ob-shadow-sm); transition: transform var(--ob-tr);
+.ob-photo-action-btn {
+  flex: 1 1 auto; min-width: 78px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  height: 30px; padding: 0 10px; border-radius: var(--ob-r);
+  border: 1.5px solid var(--ob-border); background: var(--ob-surface);
+  color: var(--ob-text-2); font-family: var(--ob-font);
+  font-size: 0.72rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1;
+  cursor: pointer; outline: none; user-select: none; white-space: nowrap;
+  transition: all var(--ob-tr);
 }
-.ob-photo-view-btn:hover { transform: scale(1.15); }
+.ob-photo-action-btn:hover {
+  border-color: var(--ob-accent); color: var(--ob-accent); background: var(--ob-accent-soft);
+}
+.ob-photo-action-btn:focus-visible {
+  border-color: var(--ob-accent); box-shadow: 0 0 0 3px var(--ob-accent-ring);
+}
+.ob-photo-action-btn--danger:hover {
+  border-color: var(--ob-danger); color: var(--ob-danger); background: transparent;
+}
+.ob-photo-action-btn--danger:focus-visible {
+  border-color: var(--ob-danger); box-shadow: none;
+}
 
 /* Image preview modal styling */
 .ob-photo-view-modal {

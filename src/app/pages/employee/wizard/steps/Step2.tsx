@@ -25,7 +25,7 @@ const DEFAULT_QUALIFICATIONS = ['SSC', 'Diploma', 'HSC', 'Degree'];
 const createNewEducation = () => createEducationRow();
 
 const createNewFamilyMember = () => ({
-  name: '', relationship: '', mobileNumber: '', dateOfBirth: '',
+  name: '', relationship: '', mobileNumber: '',
 });
 
 /* ── completion helpers ── */
@@ -36,7 +36,7 @@ export const COMPLETION_FNS: Record<string, (v: any) => { filled: number; total:
   'personal-info': (v) => ({ filled: countFilled([v.firstName, v.lastName, v.dateOfBirth, v.gender]), total: 4 }),
   'contact-info':  (v) => ({ filled: countFilled([v.personalEmailId, v.personalPhoneNumber]), total: 2 }),
   'education':     (v) => { const e = v.educationalInfo?.[0]; return e ? { filled: countFilled(getEducationCompletionValues(e)), total: 4 } : { filled: 0, total: 4 }; },
-  'family':        (v) => { const f = v.familyInfo?.[0]; return f ? { filled: countFilled([f.name, f.relationship, f.mobileNumber, f.dateOfBirth]), total: 4 } : { filled: 0, total: 4 }; },
+  'family':        (v) => { const f = v.familyInfo?.[0]; return f ? { filled: countFilled([f.name, f.relationship, f.mobileNumber]), total: 3 } : { filled: 0, total: 3 }; },
   'emergency':     (v) => ({ filled: countFilled([v.emergencyDetails?.emergencyContactName, v.emergencyDetails?.emergencyContactNumber]), total: 2 }),
   'bank':          (v) => ({ filled: countFilled([v.bankInfo?.accountNumber, v.bankInfo?.accountName, v.bankInfo?.ifscCode]), total: 3 }),
   'address':       (v) => ({ filled: countFilled([v.addressInfo?.permanentAddressLine1, v.addressInfo?.permanentCity, v.addressInfo?.permanentCountry, v.addressInfo?.permanentPostalCode]), total: 4 }),
@@ -57,7 +57,7 @@ export const NAV_SECTIONS = [
    Used to auto-navigate to the first unfilled required field on validation. */
 export const SECTION_OF_FIELD: Record<string, string> = {
   firstName: 'personal-info', lastName: 'personal-info', dateOfBirth: 'personal-info',
-  gender: 'personal-info', nickName: 'personal-info', maritalStatus: 'personal-info',
+  gender: 'personal-info', maritalStatus: 'personal-info',
   bloodGroup: 'personal-info', avatar: 'personal-info',
   personalEmailId: 'contact-info', personalPhoneNumber: 'contact-info',
   alternatePhoneNumber: 'contact-info', personalPhoneNumberExtension: 'contact-info',

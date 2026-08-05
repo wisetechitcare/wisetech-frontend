@@ -108,28 +108,15 @@ function BasicInfo({ formikProps }: { formikProps: any }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Row 1 – First Name / Last Name */}
+      {/* Row 1 – First Name / Last Name / DOB */}
       <div className="row g-3">
-        <div className="col-lg-6 col-md-6 col-sm-12">
+        <div className="col-lg-4 col-md-6 col-sm-12">
           <TextInput isRequired label="First Name" formikField="firstName" margin="mb-0" />
         </div>
-        <div className="col-lg-6 col-md-6 col-sm-12">
+        <div className="col-lg-4 col-md-6 col-sm-12">
           <TextInput isRequired label="Last Name" formikField="lastName" margin="mb-0" />
         </div>
-      </div>
-
-      {/* Row 2 – Nickname / DOB */}
-      <div className="row g-3">
-        <div className="col-lg-6 col-md-6 col-sm-12">
-          <div>
-            <label className="ob-label">
-              Nickname
-              <Tooltip text="This is what colleagues will call you on a daily basis." />
-            </label>
-            <TextInput isRequired={false} formikField="nickName" margin="mb-0" />
-          </div>
-        </div>
-        <div className="col-lg-6 col-md-6 col-sm-12">
+        <div className="col-lg-4 col-md-6 col-sm-12">
           <DateInput
             formikField="dateOfBirth"
             isRequired
@@ -141,9 +128,13 @@ function BasicInfo({ formikProps }: { formikProps: any }) {
         </div>
       </div>
 
-      {/* Row 3 – Gender & Marital Status */}
+      {/* Row 2 – Gender / Marital Status / Anniversary.
+          Anniversary is a SIBLING column, not nested inside Marital Status. Nesting
+          halved the marital column on "Married", squeezing its two pills onto two
+          lines and pushing the row out of alignment. As siblings each control keeps a
+          full column, and the row simply goes 2-up → 3-up when the date appears. */}
       <div className="row g-3">
-        <div className="col-lg-6 col-md-6 col-sm-12">
+        <div className={isMarried ? "col-lg-4 col-md-6 col-sm-12" : "col-lg-6 col-md-6 col-sm-12"}>
           <TogglePillGroup
             field="gender"
             label="Gender"
@@ -151,29 +142,25 @@ function BasicInfo({ formikProps }: { formikProps: any }) {
             options={GENDER_OPTIONS}
           />
         </div>
-        <div className="col-lg-6 col-md-6 col-sm-12">
-          <div className="row g-2 align-items-start">
-            <div className={isMarried ? "col-lg-6 col-md-6 col-sm-12" : "col-12"}>
-              <TogglePillGroup
-                field="maritalStatus"
-                label="Marital Status"
-                options={MARITAL_OPTIONS}
-                tooltip="Used for HR records and leave policy calculations."
-              />
-            </div>
-            {isMarried && (
-              <div className="col-lg-6 col-md-6 col-sm-12">
-                <DateInput
-                  formikField="anniversary"
-                  isRequired={false}
-                  formikProps={formikProps}
-                  inputLabel="Anniversary Date"
-                  placeHolder="DD / MM / YYYY"
-                />
-              </div>
-            )}
-          </div>
+        <div className={isMarried ? "col-lg-4 col-md-6 col-sm-12" : "col-lg-6 col-md-6 col-sm-12"}>
+          <TogglePillGroup
+            field="maritalStatus"
+            label="Marital Status"
+            options={MARITAL_OPTIONS}
+            tooltip="Used for HR records and leave policy calculations."
+          />
         </div>
+        {isMarried && (
+          <div className="col-lg-4 col-md-6 col-sm-12">
+            <DateInput
+              formikField="anniversary"
+              isRequired={false}
+              formikProps={formikProps}
+              inputLabel="Anniversary Date"
+              placeHolder="DD / MM / YYYY"
+            />
+          </div>
+        )}
       </div>
 
     </div>

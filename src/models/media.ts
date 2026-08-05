@@ -30,7 +30,6 @@ export interface Department {
 
 export interface Employee {
     id: string;
-    nickName: string | null;
     method: number;
     companyId: string;
     allowOverTime: boolean;

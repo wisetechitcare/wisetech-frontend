@@ -24,7 +24,7 @@ interface ConfigFormProps {
   onSuccess?: () => void;
   initialData?: OrganizationConfigItem | null;
   isEditing?: boolean;
-  type: "SHIFT" | "WORKING_TYPE" | "ROOM_BLOCK";
+  type: "SHIFT" | "WORKING_TYPE";
   title: string;
 }
 
@@ -91,8 +91,6 @@ const OrganizationConfigureForm: React.FC<ConfigFormProps> = ({
         return "Shift Name";
       case "WORKING_TYPE":
         return "Working Location Type Name";
-      case "ROOM_BLOCK":
-        return "Room/Block Name";
       default:
         return "Name";
     }
@@ -104,8 +102,6 @@ const OrganizationConfigureForm: React.FC<ConfigFormProps> = ({
         return "Enter shift name";
       case "WORKING_TYPE":
         return "Enter working location type name";
-      case "ROOM_BLOCK":
-        return "Enter room/block name";
       default:
         return "Enter name";
     }
