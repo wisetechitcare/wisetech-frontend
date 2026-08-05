@@ -143,7 +143,7 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
                 <GlassHeader
                     title="Manage FAQ sections"
                     subtitle="Rename, recolour, reorder or add sections"
-                    icon={<KTIcon iconName="abstract-26" className="fs-1 text-white" />}
+                    icon={<KTIcon iconName="category" className="fs-1 text-white" />}
                     onClose={onClose}
                 />
             }

@@ -21,6 +21,11 @@ const CTA: Record<WtCtaTone, string> = {
   success: 'from-[#16a34a] to-[#15803d] shadow-[0_1px_2px_rgba(22,163,74,0.35),0_10px_22px_-10px_rgba(22,163,74,0.65),inset_0_1px_0_rgba(255,255,255,0.14)] hover:shadow-[0_2px_4px_rgba(22,163,74,0.35),0_14px_26px_-10px_rgba(22,163,74,0.75),inset_0_1px_0_rgba(255,255,255,0.14)]',
 };
 
+// RADIUS: all three variants share `rounded-xl` (12px) deliberately.
+// They used to differ — CTA 12px, INVERTED 10px, GHOST 8px — which is
+// invisible in isolation but obvious the moment two of them sit side by side
+// in an action row, as a secondary next to a primary always does. One radius
+// for one component.
 const CTA_BASE =
   'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white ' +
   'bg-gradient-to-br transition-[transform,box-shadow,background] duration-150 ease-[cubic-bezier(.22,.61,.36,1)] ' +
@@ -29,13 +34,13 @@ const CTA_BASE =
   'dark:disabled:!bg-white/10 dark:disabled:text-white/40';
 
 const GHOST =
-  'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-500 ' +
+  'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-500 ' +
   'transition-colors duration-150 hover:bg-slate-100 hover:text-slate-800 select-none ' +
   'disabled:cursor-not-allowed disabled:text-slate-300 ' +
   'dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white dark:disabled:text-white/30';
 
 const INVERTED =
-  'inline-flex items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-sm font-semibold text-[#1E3A8A] ' +
+  'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#1E3A8A] ' +
   'bg-white border border-blue-100 shadow-[0_1px_2px_rgba(16,24,40,0.06)] ' +
   'transition-[transform,box-shadow,background,border-color] duration-150 ease-[cubic-bezier(.22,.61,.36,1)] ' +
   'hover:bg-[#EAF0FA] hover:border-blue-200 hover:-translate-y-px active:translate-y-0 active:scale-[.98] select-none ' +

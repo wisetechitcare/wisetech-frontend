@@ -235,7 +235,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                     <WtButton
                                         inverted
                                         onClick={() => setManagingSections(true)}
-                                        startIcon={<KTIcon iconName="abstract-26" className="fs-5" />}
+                                        startIcon={<KTIcon iconName="category" className="fs-5" />}
                                     >
                                         Sections
                                     </WtButton>
