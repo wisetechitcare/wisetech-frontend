@@ -154,14 +154,25 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
             fullWidth
             header={
                 <GlassHeader
-                    title="FAQ sections"
-                    subtitle="Rename, recolour, reorder or add sections"
-                    icon={<KTIcon iconName="category" className="fs-1" />}
+                    title={draft ? (draft.id ? 'Edit section' : 'New section') : 'FAQ sections'}
+                    subtitle={draft ? 'Name it, then pick how it looks on the board' : 'Rename, recolour, reorder or add sections'}
+                    icon={<KTIcon iconName={draft ? draft.icon : 'category'} className="fs-1" />}
+                    // Drill-in rather than a form appended below the list. With six
+                    // sections the editor fell past the fold, so the fields and the
+                    // save button were off-screen at the moment of use. The kit's
+                    // own guidance is to use onBack for a second level instead of
+                    // stacking dialogs -- the list and the editor are now separate
+                    // levels, each of which fits.
+                    onBack={draft ? () => setDraft(null) : undefined}
+                    backLabel="Back to sections"
                     onClose={onClose}
                 />
             }
         >
             <Box sx={{ p: { xs: 2, sm: 2.75 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* ── Level 1: the section list ──────────────────────────── */}
+                {!draft && (
+                <>
                 {/* Summary row — same StatTile grid the Leave Policy engine opens with. */}
                 <Grid container spacing={{ xs: 1.25, sm: 2 }}>
                     <Grid item xs={6} md={4}>
@@ -260,8 +271,20 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
                     />
                 )}
 
-                {/* Create / edit — one SettingsSection, the same block the config engines use. */}
-                {draft ? (
+                <WtButton
+                    onClick={() => setDraft({ ...EMPTY_DRAFT })}
+                    startIcon={<KTIcon iconName="plus" className="fs-5" />}
+                    sx={{ alignSelf: 'flex-start' }}
+                >
+                    Add section
+                </WtButton>
+                </>
+                )}
+
+                {/* ── Level 2: create / edit ─────────────────────────────────
+                    Replaces the list rather than sitting under it, so the fields
+                    and the save button are visible the moment the level opens. */}
+                {draft && (
                     <SettingsSection
                         tone={TRIO[resolveTone(draft.tone)]}
                         icon={draft.icon}
@@ -313,14 +336,6 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
                             </Stack>
                         </Stack>
                     </SettingsSection>
-                ) : (
-                    <WtButton
-                        onClick={() => setDraft({ ...EMPTY_DRAFT })}
-                        startIcon={<KTIcon iconName="plus" className="fs-5" />}
-                        sx={{ alignSelf: 'flex-start' }}
-                    >
-                        Add section
-                    </WtButton>
                 )}
             </Box>
         </GlassDialog>
