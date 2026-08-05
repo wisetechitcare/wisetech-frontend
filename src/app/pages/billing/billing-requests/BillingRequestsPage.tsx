@@ -128,12 +128,14 @@ const BillingRequestsPage: React.FC = () => {
       header: "Request No",
       width: 145,
       searchValue: (r) => r.requestNumber,
+      sortValue: (r) => r.requestNumber,
       render: (r) => <Typography sx={{ fontSize: 13, fontWeight: 700 }}>{r.requestNumber}</Typography>,
     },
     {
       key: "project",
       header: "Project",
       searchValue: (r) => projectName(r),
+      sortValue: (r) => projectName(r),
       render: (r) => (
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontSize: 13, fontWeight: 600, wordBreak: "break-word" }}>{projectName(r)}</Typography>
@@ -148,6 +150,7 @@ const BillingRequestsPage: React.FC = () => {
       header: "Client",
       width: 160,
       searchValue: (r) => clientName(r),
+      sortValue: (r) => clientName(r),
       render: (r) => <Typography sx={{ fontSize: 12.5 }}>{clientName(r)}</Typography>,
     },
     {
@@ -155,6 +158,7 @@ const BillingRequestsPage: React.FC = () => {
       header: "Requested By",
       width: 140,
       searchValue: (r) => r.requestedByName,
+      sortValue: (r) => r.requestedAt ?? r.createdAt,
       render: (r) => (
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontSize: 12.5 }}>{r.requestedByName ?? "—"}</Typography>
@@ -169,6 +173,7 @@ const BillingRequestsPage: React.FC = () => {
       header: "Items",
       width: 70,
       align: "right",
+      sortValue: (r) => r.items.length,
       render: (r) => <Typography sx={{ fontSize: 12.5 }}>{r.items.length}</Typography>,
     },
     {
@@ -176,6 +181,7 @@ const BillingRequestsPage: React.FC = () => {
       header: "%",
       width: 70,
       align: "right",
+      sortValue: (r) => Number(r.totalPercentage) || 0,
       render: (r) => <Typography sx={{ fontSize: 12.5 }}>{Number(r.totalPercentage) || 0}%</Typography>,
     },
     {
@@ -183,6 +189,7 @@ const BillingRequestsPage: React.FC = () => {
       header: "Amount",
       width: 130,
       align: "right",
+      sortValue: (r) => Number(r.totalAmount) || 0,
       render: (r) => (
         <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
           {formatCurrencyDecimal(Number(r.totalAmount) || 0)}
@@ -193,6 +200,7 @@ const BillingRequestsPage: React.FC = () => {
       key: "status",
       header: "Status",
       width: 155,
+      sortValue: (r) => r.status,
       render: (r) => <BillingStatusBadge status={r.status} />,
     },
   ];

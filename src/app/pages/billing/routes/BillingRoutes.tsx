@@ -26,6 +26,7 @@ const BillingReportsPage = lazy(() => import("../reports/BillingReportsPage"));
 const BillingSettingsPage = lazy(() => import("../settings/BillingSettingsPage"));
 const BillingRequestDetailPage = lazy(() => import("../billing-requests/BillingRequestDetailPage"));
 const BillingRequestFormPage = lazy(() => import("../billing-requests/BillingRequestFormPage"));
+const AccountsBillingReviewPage = lazy(() => import("../accounts-queue/AccountsBillingReviewPage"));
 
 const PAGES: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
     dashboard: BillingDashboard,
@@ -71,6 +72,11 @@ const BillingRoutes: React.FC = () => {
                         <Route path="requests/:id/edit" element={<Suspensed><BillingRequestFormPage /></Suspensed>} />
                         <Route path="requests/:id" element={<Suspensed><BillingRequestDetailPage /></Suspensed>} />
                     </>
+                )}
+
+                {/* Read-only Accounts review. Keeps the Accounts Queue tab highlighted. */}
+                {allowed("billing.accounts") && (
+                    <Route path="accounts/:id" element={<Suspensed><AccountsBillingReviewPage /></Suspensed>} />
                 )}
 
                 {/* Unknown or blocked sub-path → the default tab, never a blank shell. */}

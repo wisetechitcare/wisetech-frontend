@@ -216,11 +216,76 @@ export const getBillableProjects = async (): Promise<BillableProject[]> => {
   return data?.projects ?? [];
 };
 
+// ─── Accounts queue ──────────────────────────────────────────────────────────
+// The queue is a WORK QUEUE, not another request list: it is filtered server-side to
+// approved-and-not-yet-converted, so rejected, cancelled and already-converted requests
+// can never appear regardless of what the client asks for.
+
+/** A queue row: a billing request plus who finally signed it off. */
+export interface AccountsQueueRow extends BillingRequest {
+  approvedByName?: string | null;
+  approvalLevels?: number;
+}
+
+/** The project's billing position — derived, never stored, so it can't go stale. */
+export interface ProjectBillingSummary {
+  projectContractValue: number;
+  /** Raised on this project BEFORE the request being reviewed. */
+  alreadyBilled: number;
+  thisRequestAmount: number;
+  /** Everything raised, including the request being reviewed. */
+  billedTotal: number;
+  projectRemainingValue: number;
+  requestCount: number;
+}
+
+export interface AccountsQueueItem extends AccountsQueueRow {
+  financials: ProjectBillingSummary;
+}
+
+export interface AccountsQueueStatistics {
+  pendingCount: number;
+  pendingAmount: number;
+  convertedCount: number;
+  oldestApprovedAt?: string | null;
+  oldestRequestNumber?: string | null;
+  /** How long the front of the queue has waited — the number that says whether Accounts
+   *  is keeping up, which a raw count never does. */
+  oldestWaitingDays?: number | null;
+}
+
+export interface AccountsQueueFilters {
+  projectId?: string;
+  clientId?: string;
+  requestedById?: string;
+  search?: string;
+  approvedFrom?: string;
+  approvedTo?: string;
+  minAmount?: number;
+  maxAmount?: number;
+}
+
 /** Approved requests with no proforma yet — the only thing Accounts ever sees. */
-export const getAccountsBillingQueue = async (): Promise<BillingRequest[]> => {
+export const getAccountsBillingQueue = async (
+  filters: AccountsQueueFilters = {},
+): Promise<AccountsQueueRow[]> => {
   const endpoint = `${API_BASE_URL}/${BILLING_REQUEST.ACCOUNTS_QUEUE}`;
-  const { data } = await axios.get(endpoint);
+  const { data } = await axios.get(endpoint, { params: filters });
   return data?.billingRequests ?? [];
+};
+
+/** Read-only review payload: the request, its approver, and the project's billing position. */
+export const getAccountsQueueItem = async (id: string): Promise<AccountsQueueItem> => {
+  const endpoint = `${API_BASE_URL}/${BILLING_REQUEST.ACCOUNTS_QUEUE_ITEM.replace(":id", id)}`;
+  const { data } = await axios.get(endpoint);
+  return data?.billingRequest;
+};
+
+/** Shares the queue's own filter, so the tiles can never disagree with the rows. */
+export const getAccountsQueueStatistics = async (): Promise<AccountsQueueStatistics> => {
+  const endpoint = `${API_BASE_URL}/${BILLING_REQUEST.ACCOUNTS_QUEUE_STATS}`;
+  const { data } = await axios.get(endpoint);
+  return data?.statistics;
 };
 
 export const generateProforma = async (id: string, proformaId?: string | null) => {

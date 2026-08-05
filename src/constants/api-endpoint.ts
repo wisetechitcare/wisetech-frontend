@@ -641,8 +641,10 @@ export const BILLING_REQUEST = {
     HISTORY: "api/billing/requests/:id/history",
     BILLABLE_DELIVERABLES: "api/billing/requests/billable-deliverables",
     BILLABLE_PROJECTS: "api/billing/requests/billable-projects",
-    ACCOUNTS_QUEUE: "api/accounts/billing-queue",
-    GENERATE_PROFORMA: "api/accounts/billing-queue/:id/generate-proforma",
+    ACCOUNTS_QUEUE: "api/billing/accounts-queue",
+    ACCOUNTS_QUEUE_ITEM: "api/billing/accounts-queue/:id",
+    ACCOUNTS_QUEUE_STATS: "api/billing/accounts-queue/statistics",
+    GENERATE_PROFORMA: "api/billing/accounts-queue/:id/generate-proforma",
 }
 
 // Meeting Schedules (project-type → area brackets → meetings) — configured under Lead
