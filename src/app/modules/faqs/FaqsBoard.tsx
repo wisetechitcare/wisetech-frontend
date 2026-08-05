@@ -261,7 +261,10 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                 {/* Search + organization scope share a row: both narrow the same
                     list, so they belong together rather than in separate bands.
                     The scope control hides itself when the family has one org. */}
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                {/* mt-2.5 is clearance, not decoration: ToolbarFilterSelect's
+                    floating label sits ~9px ABOVE the field, so without it the
+                    label collides with the header text above. */}
+                <div className="mt-2.5 flex flex-col gap-2.5 sm:flex-row sm:items-center">
                     {hasChoice && (
                         <div className="w-full sm:w-65 sm:shrink-0">
                             {/* The app's standard toolbar filter — identical control,
@@ -289,7 +292,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                         onChange={(event) => setSearch(event.target.value)}
                         placeholder="Search questions and answers…"
                         aria-label="Search FAQs"
-                        className="w-full rounded-xl border border-[#E6E9EE] bg-white py-2.5 pl-10 pr-3.5 text-[14px] text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/15 dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-100 dark:placeholder:text-slate-500"
+                        className="h-[38px] w-full rounded-xl border border-[#E6E9EE] bg-white pl-10 pr-3.5 text-[14px] text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/15 dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-100 dark:placeholder:text-slate-500"
                     />
                     </div>
                 </div>

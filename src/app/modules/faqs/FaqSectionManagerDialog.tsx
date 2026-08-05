@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Box, CircularProgress, Grid, Stack, TextField, Typography } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
+import ReorderableGroup, { DragHandle } from '@app/modules/common/components/ReorderableGroup';
 // Same MUI glass kit as the Leave Policy / Sandwich Leave benchmark — one import
 // surface, one look. Do not reach past this barrel into individual kit files.
 import {
@@ -119,16 +120,22 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
         }
     };
 
+    /** Single persist path — drag and keyboard nudge both land here. */
+    const persistOrder = async (ordered: FaqCategory[]) => {
+        try {
+            await reorderCategories(ordered.map((category) => category.id));
+        } catch {
+            toast({ title: 'Could not reorder sections', icon: 'error' });
+        }
+    };
+
+    /** Keyboard reorder from the drag handle's ArrowUp/ArrowDown. */
     const move = async (index: number, direction: -1 | 1) => {
         const next = [...categories];
         const target = index + direction;
         if (target < 0 || target >= next.length) return;
         [next[index], next[target]] = [next[target], next[index]];
-        try {
-            await reorderCategories(next.map((category) => category.id));
-        } catch {
-            toast({ title: 'Could not reorder sections', icon: 'error' });
-        }
+        await persistOrder(next);
     };
 
     const toggleActive = async (category: FaqCategory) => {
@@ -174,12 +181,19 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
                         <Typography sx={{ fontSize: 13.5, color: 'text.secondary' }}>Loading sections…</Typography>
                     </Stack>
                 ) : (
-                    <Stack spacing={1.25}>
-                        {categories.map((category, index) => {
+                    <ReorderableGroup
+                        items={categories}
+                        getItemId={(category) => category.id}
+                        axis="y"
+                        withHandle
+                        disabled={isSaving || categories.length < 2}
+                        itemStyle={{ marginBottom: 10 }}
+                        onReorder={(next) => void persistOrder(next)}
+                        renderItem={(category, handleProps) => {
+                            const index = categories.findIndex((row) => row.id === category.id);
                             const tone = TRIO[resolveTone(category.tone)];
                             return (
                                 <GlassSurface
-                                    key={category.id}
                                     variant="thin"
                                     radius={12}
                                     sx={{
@@ -191,6 +205,16 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
                                         opacity: category.isActive ? 1 : 0.55,
                                     }}
                                 >
+                                    {/* Grip only — the row carries its own buttons, so drag must
+                                        not start from the whole row. The handle is focusable and
+                                        ArrowUp/Down reorders, which is what lets this list drop
+                                        visible move-up/move-down buttons without losing keyboard
+                                        access. */}
+                                    <DragHandle
+                                        handleProps={handleProps}
+                                        disabled={isSaving || categories.length < 2}
+                                        onNudge={(direction) => void move(index, direction)}
+                                    />
                                     <IconBox icon={resolveIcon(category.icon)} trio={tone} size={36} fs="fs-3" />
 
                                     <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -215,14 +239,6 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
                                     </Box>
 
                                     <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
-                                        <WtIconButton sx={COMPACT_ICON_BTN} title={`Move ${category.name} up`}
-                                            disabled={index === 0 || isSaving} onClick={() => void move(index, -1)}>
-                                            <KTIcon iconName="arrow-up" className="fs-7" />
-                                        </WtIconButton>
-                                        <WtIconButton sx={COMPACT_ICON_BTN} title={`Move ${category.name} down`}
-                                            disabled={index === categories.length - 1 || isSaving} onClick={() => void move(index, 1)}>
-                                            <KTIcon iconName="arrow-down" className="fs-7" />
-                                        </WtIconButton>
                                         <WtIconButton sx={COMPACT_ICON_BTN} color={category.isActive ? TRIO.green.c : TRIO.slate.c}
                                             title={category.isActive ? `Visible — hide ${category.name}` : `Hidden — show ${category.name}`}
                                             onClick={() => void toggleActive(category)}>
@@ -240,8 +256,8 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
                                     </Stack>
                                 </GlassSurface>
                             );
-                        })}
-                    </Stack>
+                        }}
+                    />
                 )}
 
                 {/* Create / edit — one SettingsSection, the same block the config engines use. */}
