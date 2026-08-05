@@ -93,6 +93,11 @@ export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
                 label={label}
                 notched
                 displayEmpty
+                // The full value stays reachable on hover once the label ellipsizes.
+                renderValue={(selected) => {
+                    const match = options.find((option) => option.value === selected);
+                    return <span title={match?.label}>{match?.label ?? ''}</span>;
+                }}
                 startAdornment={
                     <span
                         className="mr-2 grid shrink-0 place-items-center"
@@ -127,6 +132,15 @@ export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
                         alignItems: 'center',
                         py: 0,
                         pl: 1.5,
+                        // Long values (a full sub-organisation name) must ellipsize
+                        // inside the control rather than spill past it into whatever
+                        // sits alongside. `minWidth: 0` is what actually allows the
+                        // flex child to shrink below its content width — without it
+                        // the other rules do nothing.
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                     },
                 }}
                 MenuProps={{ PaperProps: { sx: { borderRadius: '10px', mt: 0.5 } } }}

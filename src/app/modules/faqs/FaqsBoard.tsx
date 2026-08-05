@@ -266,7 +266,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                     label collides with the header text above. */}
                 <div className="mt-2.5 flex flex-col gap-2.5 sm:flex-row sm:items-center">
                     {hasChoice && (
-                        <div className="w-full sm:w-65 sm:shrink-0">
+                        <div className="w-full sm:w-72 sm:shrink-0">
                             {/* The app's standard toolbar filter — identical control,
                                 label treatment and active-tint as the Sub Organization
                                 filter on payroll and employee screens. */}
@@ -276,7 +276,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                 value={scopeId}
                                 onChange={setScopeId}
                                 options={selectOptions}
-                                minWidth={220}
+                                minWidth={0}
                                 theme={scopeId !== ALL_ORGS ? FILTER_TONES.blue : undefined}
                             />
                         </div>
