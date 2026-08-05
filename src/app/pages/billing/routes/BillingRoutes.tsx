@@ -24,6 +24,8 @@ const PaymentsPage = lazy(() => import("../payments/PaymentsPage"));
 const InvoicesPage = lazy(() => import("../invoices/InvoicesPage"));
 const BillingReportsPage = lazy(() => import("../reports/BillingReportsPage"));
 const BillingSettingsPage = lazy(() => import("../settings/BillingSettingsPage"));
+const BillingRequestDetailPage = lazy(() => import("../billing-requests/BillingRequestDetailPage"));
+const BillingRequestFormPage = lazy(() => import("../billing-requests/BillingRequestFormPage"));
 
 const PAGES: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
     dashboard: BillingDashboard,
@@ -59,6 +61,17 @@ const BillingRoutes: React.FC = () => {
                         />
                     );
                 })}
+
+                {/* Billing-request sub-pages. Declared before the catch-all and with the
+                    literal "new" ahead of ":id" so it is never read as a request id.
+                    They keep the module's tab bar — Billing Requests stays highlighted. */}
+                {allowed("billing.requests") && (
+                    <>
+                        <Route path="requests/new" element={<Suspensed><BillingRequestFormPage /></Suspensed>} />
+                        <Route path="requests/:id/edit" element={<Suspensed><BillingRequestFormPage /></Suspensed>} />
+                        <Route path="requests/:id" element={<Suspensed><BillingRequestDetailPage /></Suspensed>} />
+                    </>
+                )}
 
                 {/* Unknown or blocked sub-path → the default tab, never a blank shell. */}
                 <Route path="*" element={<Navigate to={billingDefaultPath(allowed)} replace />} />

@@ -12,7 +12,6 @@ import {
   BillingEmptyState, BillingLoadingState, type BillingTimelineStep,
 } from "@pages/billing/components";
 import NewBillingRequestDialog from "@pages/employee/billing/NewBillingRequestDialog";
-import BillingRequestDetailDialog from "@pages/employee/billing/BillingRequestDetailDialog";
 
 /**
  * Project → Billing.
@@ -30,7 +29,6 @@ const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [showNew, setShowNew] = useState(false);
-  const [detailId, setDetailId] = useState<string | null>(null);
 
   const queryKey = ["billing-requests", projectId];
   const { data: requests = [], isLoading } = useQuery({
@@ -42,7 +40,7 @@ const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
   const summary = useMemo(() => {
     const sum = (rows: BillingRequest[]) => rows.reduce((s, r) => s + (Number(r.totalAmount) || 0), 0);
     const inApproval = requests.filter((r) => r.status === "PENDING_APPROVAL" || r.status === "SUBMITTED");
-    const withAccounts = requests.filter((r) => r.status === "APPROVED" || r.status === "SENT_TO_ACCOUNTS");
+    const withAccounts = requests.filter((r) => r.status === "APPROVED" || r.status === "READY_FOR_PROFORMA" || r.status === "SENT_TO_ACCOUNTS");
     const proformad = requests.filter((r) => r.status === "PROFORMA_GENERATED");
     return {
       total: sum(requests),
@@ -77,7 +75,7 @@ const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
           }
           if (r.proformaGeneratedAt) {
             steps.push({ key: `${r.id}-proforma`, label: "Proforma generated", state: "done", at: r.proformaGeneratedAt });
-          } else if (r.status === "APPROVED" || r.status === "SENT_TO_ACCOUNTS") {
+          } else if (r.status === "APPROVED" || r.status === "READY_FOR_PROFORMA" || r.status === "SENT_TO_ACCOUNTS") {
             steps.push({ key: `${r.id}-queue`, label: "With Accounts, awaiting proforma", state: "current" });
           }
           return steps;
@@ -174,18 +172,20 @@ const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
                         <BillingStatusBadge status={r.status} />
                       </Stack>
                       <Typography sx={{ fontSize: 11.5, color: "text.secondary", wordBreak: "break-word" }}>
-                        {r.stageName} · {formatDate(r.requestedAt ?? r.createdAt)}
+                        {r.stageName ?? `${new Set(r.items.map((i) => i.stageName)).size} stages`} · {formatDate(r.requestedAt ?? r.createdAt)}
                       </Typography>
                     </Box>
                     <Typography sx={{ fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
                       {formatCurrencyDecimal(Number(r.totalAmount) || 0)}
                     </Typography>
+                    {/* Read-only tab: clicking through goes to the Billing module, which
+                        owns the record. Nothing is edited from here. */}
                     <WtIconButton
-                      title="View"
-                      onClick={() => setDetailId(r.id)}
+                      title="Open in Billing"
+                      onClick={() => navigate(`/billing/requests/${r.id}`)}
                       sx={{ width: 30, height: 30, borderRadius: "8px", flexShrink: 0 }}
                     >
-                      <KTIcon iconName="eye" className="fs-6" />
+                      <KTIcon iconName="exit-right-corner" className="fs-6" />
                     </WtIconButton>
                   </Stack>
                 ))}
@@ -206,7 +206,6 @@ const BillingSection: React.FC<{ lead?: any }> = ({ lead }) => {
         onClose={() => setShowNew(false)}
         onCreated={() => qc.invalidateQueries({ queryKey })}
       />
-      <BillingRequestDetailDialog requestId={detailId} onClose={() => setDetailId(null)} />
     </Stack>
   );
 };

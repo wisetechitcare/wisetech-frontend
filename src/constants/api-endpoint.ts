@@ -630,13 +630,17 @@ export const PROJECT_EXECUTION = {
 // Billing Request — the bridge from execution to finance. Approve/reject/send-back are
 // NOT here: they go through the existing approval endpoints and Approval Inbox.
 export const BILLING_REQUEST = {
-    CREATE: "api/billing-requests",
-    LIST: "api/billing-requests",
-    GET_BY_ID: "api/billing-requests/:id",
-    UPDATE: "api/billing-requests/:id",
-    DELETE: "api/billing-requests/:id",
-    SUBMIT: "api/billing-requests/:id/submit",
-    BILLABLE_DELIVERABLES: "api/billing-requests/stages/:stageId/billable-deliverables",
+    CREATE: "api/billing/requests",
+    LIST: "api/billing/requests",
+    GET_BY_ID: "api/billing/requests/:id",
+    UPDATE: "api/billing/requests/:id",
+    DELETE: "api/billing/requests/:id",
+    SUBMIT: "api/billing/requests/:id/submit",
+    CANCEL: "api/billing/requests/:id/cancel",
+    DUPLICATE: "api/billing/requests/:id/duplicate",
+    HISTORY: "api/billing/requests/:id/history",
+    BILLABLE_DELIVERABLES: "api/billing/requests/billable-deliverables",
+    BILLABLE_PROJECTS: "api/billing/requests/billable-projects",
     ACCOUNTS_QUEUE: "api/accounts/billing-queue",
     GENERATE_PROFORMA: "api/accounts/billing-queue/:id/generate-proforma",
 }

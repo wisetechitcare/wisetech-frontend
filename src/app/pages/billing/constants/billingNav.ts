@@ -37,6 +37,11 @@ export const billingDefaultPath = (isVisible: (key: string) => boolean): string 
     return `${BILLING_BASE}/${first.path}`;
 };
 
-/** Resolve the active tab index from a pathname. -1 when none matches. */
+/**
+ * Resolve the active tab index from a pathname. -1 when none matches.
+ *
+ * Uses `startsWith`, so a sub-page like /billing/requests/:id keeps Billing Requests
+ * highlighted rather than dropping the whole bar.
+ */
 export const activeBillingTabIndex = (pathname: string, tabs: BillingTabDef[]): number =>
     tabs.findIndex((t) => pathname.startsWith(`${BILLING_BASE}/${t.path}`));

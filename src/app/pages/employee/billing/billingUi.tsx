@@ -15,6 +15,9 @@ export const STATUS_META: Record<BillingRequestStatus, { label: string; tone: Se
     PENDING_APPROVAL: { label: "Pending Approval", tone: "warning" },
     APPROVED: { label: "Approved", tone: "success" },
     REJECTED: { label: "Rejected", tone: "danger" },
+    CANCELLED: { label: "Cancelled", tone: "neutral" },
+    READY_FOR_PROFORMA: { label: "Ready For Proforma", tone: "cyan" },
+    // Deprecated alias for READY_FOR_PROFORMA — same tone so old rows read identically.
     SENT_TO_ACCOUNTS: { label: "With Accounts", tone: "cyan" },
     PROFORMA_GENERATED: { label: "Proforma Generated", tone: "success" },
 };

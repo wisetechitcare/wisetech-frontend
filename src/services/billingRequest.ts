@@ -18,6 +18,9 @@ export type BillingRequestStatus =
   | "PENDING_APPROVAL"
   | "APPROVED"
   | "REJECTED"
+  | "CANCELLED"
+  | "READY_FOR_PROFORMA"
+  /** Deprecated alias for READY_FOR_PROFORMA, still held by older rows. */
   | "SENT_TO_ACCOUNTS"
   | "PROFORMA_GENERATED";
 
@@ -41,15 +44,18 @@ export interface BillingRequest {
   id: string;
   requestNumber: string;
   leadId: string;
-  projectStageId: string;
+  /** Null when the request spans several stages — each item carries its own stage. */
+  projectStageId?: string | null;
   status: BillingRequestStatus;
-  stageName: string;
+  stageName?: string | null;
   stageAmount: number | string;
   totalPercentage: number | string;
   totalAmount: number | string;
   remarks?: string | null;
   requestedById: string;
   requestedByName?: string | null;
+  projectManagerId?: string | null;
+  cancelledAt?: string | null;
   requestedAt?: string | null;
   approvalInstanceId?: string | null;
   approvedAt?: string | null;
@@ -88,20 +94,38 @@ export interface BillableCandidate {
 }
 
 export interface BillingRequestPayload {
+  /** Preferred — a request may span several stages of one project. */
+  projectId?: string;
+  /** Single-stage entry point (the project's Billing tab). */
   projectStageId?: string;
   deliverableIds?: string[];
   remarks?: string | null;
 }
 
-/** Selectable + blocked deliverables. Blocked rows are shown greyed WITH the reason —
- *  hiding them silently reads as data loss. */
+/** One entry in a request's own activity trail. Approver decisions come from the approval
+ *  framework separately — this never duplicates them. */
+export interface BillingRequestActivity {
+  id: string;
+  type: string;
+  message: string;
+  actorId?: string | null;
+  actorName?: string | null;
+  createdAt: string;
+}
+
+/**
+ * Selectable + blocked deliverables. Blocked rows are shown greyed WITH the reason —
+ * hiding them silently reads as data loss.
+ *
+ * Scope by `projectId` to build a multi-stage request, or by `stageId` for a single one.
+ */
 export const getBillableDeliverables = async (
-  stageId: string,
+  scope: { projectId?: string; stageId?: string },
   excludeRequestId?: string,
 ): Promise<{ selectable: BillableCandidate[]; blocked: BillableCandidate[] }> => {
-  const endpoint = `${API_BASE_URL}/${BILLING_REQUEST.BILLABLE_DELIVERABLES.replace(":stageId", stageId)}`;
+  const endpoint = `${API_BASE_URL}/${BILLING_REQUEST.BILLABLE_DELIVERABLES}`;
   const { data } = await axios.get(endpoint, {
-    params: excludeRequestId ? { excludeRequestId } : undefined,
+    params: { ...scope, ...(excludeRequestId ? { excludeRequestId } : {}) },
   });
   return { selectable: data?.selectable ?? [], blocked: data?.blocked ?? [] };
 };
@@ -148,6 +172,48 @@ export const submitBillingRequest = async (id: string): Promise<BillingRequest> 
   const endpoint = `${API_BASE_URL}/${BILLING_REQUEST.SUBMIT.replace(":id", id)}`;
   const { data } = await axios.post(endpoint);
   return data?.billingRequest;
+};
+
+/** Cancel — keeps the record and its history, unlike delete. Blocked once an approver
+ *  has acted, same gate as delete. */
+export const cancelBillingRequest = async (id: string): Promise<BillingRequest> => {
+  const endpoint = `${API_BASE_URL}/${BILLING_REQUEST.CANCEL.replace(":id", id)}`;
+  const { data } = await axios.post(endpoint);
+  return data?.billingRequest;
+};
+
+/** Copy into a fresh draft. Deliverables billed elsewhere since are skipped, and the
+ *  count comes back so the caller can say so. */
+export const duplicateBillingRequest = async (
+  id: string,
+): Promise<{ billingRequest: BillingRequest; skipped: number }> => {
+  const endpoint = `${API_BASE_URL}/${BILLING_REQUEST.DUPLICATE.replace(":id", id)}`;
+  const { data } = await axios.post(endpoint);
+  return { billingRequest: data?.billingRequest, skipped: data?.skipped ?? 0 };
+};
+
+/** The request's own activity trail, oldest first. */
+export const getBillingRequestHistory = async (id: string): Promise<BillingRequestActivity[]> => {
+  const endpoint = `${API_BASE_URL}/${BILLING_REQUEST.HISTORY.replace(":id", id)}`;
+  const { data } = await axios.get(endpoint);
+  return data?.history ?? [];
+};
+
+/** A project with at least one completed, billable, unclaimed deliverable. */
+export interface BillableProject {
+  id: string;
+  title?: string | null;
+  prefix?: string | null;
+  originalProjectPrefix?: string | null;
+  clientName?: string | null;
+  billableCount: number;
+}
+
+/** Projects the user can actually raise a request against — not every project. */
+export const getBillableProjects = async (): Promise<BillableProject[]> => {
+  const endpoint = `${API_BASE_URL}/${BILLING_REQUEST.BILLABLE_PROJECTS}`;
+  const { data } = await axios.get(endpoint);
+  return data?.projects ?? [];
 };
 
 /** Approved requests with no proforma yet — the only thing Accounts ever sees. */

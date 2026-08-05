@@ -46,7 +46,7 @@ const NewBillingRequestDialog: React.FC<{
 
   const { data: candidates, isLoading: candidatesLoading } = useQuery({
     queryKey: ["billing-candidates", stageId],
-    queryFn: () => getBillableDeliverables(stageId),
+    queryFn: () => getBillableDeliverables({ stageId }),
     enabled: open && !!stageId,
   });
 

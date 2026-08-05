@@ -72,6 +72,9 @@ export const BILLING_STATUS_TONES: Record<string, SemanticTone> = {
   PENDING_APPROVAL: "warning",
   APPROVED: "success",
   REJECTED: "danger",
+  CANCELLED: "neutral",
+  READY_FOR_PROFORMA: "cyan",
+  // Deprecated alias for READY_FOR_PROFORMA — same tone so old rows read identically.
   SENT_TO_ACCOUNTS: "cyan",
   PROFORMA_GENERATED: "success",
   // Proforma
