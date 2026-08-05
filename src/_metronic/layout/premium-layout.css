@@ -1373,3 +1373,63 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
     display: none !important;
   }
 }
+
+/* =============================================================================
+   WORKSPACE SHELL — the legacy rail steps aside inside /workspace/* ONLY
+   `body[data-workspace-shell='true']` is stamped by
+   components/workspace/useWorkspaceChrome.ts on mount and removed on unmount, so
+   these rules apply on the shell's own routes and nowhere else. Every other route
+   keeps the sidebar exactly as it is today — nothing here is persisted and no user
+   preference is touched.
+
+   A SEPARATE attribute from `data-nav-transform` on purpose: NavTransformContext
+   already owns that one and rewrites it from its own layout effect, so a second
+   writer would be a race decided by whichever effect re-ran last. These two can
+   both apply at once without conflict.
+
+   MUST STAY AT THE END OF THIS FILE. This selector, the NAV TRANSFORM block above
+   and the collapsed rule near the top all compute to (0,1,1), so when a user is
+   collapsed AND/OR transformed AND inside the workspace, only source order decides
+   which --wt-aside-eff wins. The workspace must win: inside the shell the dock is
+   the navigation, whatever the other two flags say.
+
+   Scoped >=992px, matching the rest of this file: below that the rail is already a
+   drawer and BottomNav is the navigation surface, so there is nothing to hide.
+   ========================================================================== */
+@media (min-width: 992px) {
+  body[data-workspace-shell='true'] {
+    --wt-aside-eff: 0px;
+  }
+
+  /* Hidden, NOT unmounted — #kt_aside is the mobile drawer's target element and
+     DrawerComponent binds by scanning the DOM, so removing it would leave the
+     mobile hamburger a silently dead button. */
+  body[data-workspace-shell='true'] .aside {
+    display: none !important;
+  }
+
+  /* The brand cell sizes off --wt-aside-eff too, so at 0px it would collapse and
+     take the logo (and .wt-aside-toggle, absolutely positioned on it) with it.
+     Give the cell its intrinsic width back — the logo is the way home. */
+  body[data-workspace-shell='true'] .header .header-brand {
+    width: auto !important;
+    min-width: 0;
+    padding: 0 18px !important;
+    border-right: 1px solid var(--nav-line) !important;
+  }
+
+  /* A collapse chevron for a rail that is not there is a dead control. */
+  body[data-workspace-shell='true'] .wt-aside-toggle {
+    display: none !important;
+  }
+
+  /* Collapsed + workspace: the collapsed rules swap the wordmark for the square
+     favicon mark, which is meaningless with no rail to be narrow. */
+  body[data-workspace-shell='true'] .wt-logo-full {
+    display: block !important;
+  }
+
+  body[data-workspace-shell='true'] .wt-logo-square {
+    display: none !important;
+  }
+}
