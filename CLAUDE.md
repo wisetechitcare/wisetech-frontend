@@ -78,6 +78,14 @@ Single source of truth: `src/utils/dateFormats.ts`.
 ## Billing module (partly built)
 Plan: [../BILLING/INDEX.md](../BILLING/INDEX.md). The project Billing tab already exists as a placeholder — `pages/employee/entity/detail/sections/BillingSection.tsx`, registered in `detail/facets.ts` and rendered from `EntityDetailPage.tsx`. It predates the UI standard (raw divs, hardcoded hex), so **replace it wholesale rather than extending it**.
 
+## Billing Operations (built)
+Design doc: [../BILLING_OPERATIONS.md](../BILLING_OPERATIONS.md). Pages under `pages/billing/operations/`, client in `services/billingOperations.ts`.
+
+- **Monitoring, not editing.** Project/client/deliverable/amount data is read-only on these screens. The only write is the status transition, and its dropdown is populated from the server's `allowedTransitions` — never hardcode the status list in the UI.
+- **Server-side filter/sort/pagination.** Don't switch the list to client-side paging: the totals have to be right across pages, that's the whole point of the screen.
+- Each KPI tile is a saved query — clicking filters the table beneath it. Statistics share the list's scoping so the two can't disagree.
+- Reuses `BillingTable`, `BillingTimeline`, `BillingStatsCard`, `BillingStatusBadge`, `BillingPageHeader`. New status tones go in `BILLING_STATUS_TONES`, not in the page.
+
 ## Document Engine (built — Proforma live)
 Design doc: [../DOCUMENT_ENGINE.md](../DOCUMENT_ENGINE.md). Pages under `pages/billing/documents/`, client in `services/documents.ts`.
 

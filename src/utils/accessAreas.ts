@@ -34,6 +34,7 @@ export const ACCESS_AREAS: AccessArea[] = [
       { module: "billing.dashboard", label: "Dashboard" },
       { module: "billing.requests", label: "Billing Requests" },
       { module: "billing.accounts", label: "Accounts Queue" },
+      { module: "billing.operations", label: "Billing Operations" },
       { module: "billing.proformas", label: "Proformas" },
       { module: "billing.payments", label: "Payments" },
       { module: "billing.invoices", label: "Tax Invoices" },

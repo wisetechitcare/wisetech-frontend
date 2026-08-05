@@ -647,6 +647,20 @@ export const BILLING_REQUEST = {
     GENERATE_PROFORMA: "api/billing/accounts-queue/:id/generate-proforma",
 }
 
+// Billing Operations — the Accounts workspace. One operation follows one approved
+// billing request through proforma → payment → invoice → closure.
+export const BILLING_OPERATION = {
+    LIST: "api/billing/operations",
+    STATISTICS: "api/billing/operations/statistics",
+    WORKFLOW: "api/billing/operations/workflow",
+    GET_BY_ID: "api/billing/operations/:id",
+    UPDATE_STATUS: "api/billing/operations/:id/status",
+    TIMELINE: "api/billing/operations/:id/timeline",
+    ACTIVITY: "api/billing/operations/:id/activity",
+    DOCUMENTS: "api/billing/operations/:id/documents",
+    ADD_NOTE: "api/billing/operations/:id/notes",
+}
+
 // Document engine — kind-agnostic. Proforma, Tax Invoice, Quotation, PO, Credit
 // Note, Debit Note, Payment Receipt and Delivery Note all use these same paths;
 // the kind is a field on the request, never a URL segment.

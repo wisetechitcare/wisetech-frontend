@@ -89,6 +89,23 @@ export const BILLING_STATUS_TONES: Record<string, SemanticTone> = {
   ARCHIVED: "neutral",
   FAILED: "danger",
   PENDING: "warning",
+  // Billing Operations workflow. Tones follow the STAGE, so the list reads as
+  // three coloured bands (proforma → payment → invoice) rather than fifteen
+  // unrelated chips: indigo while the proforma is in play, warning while money is
+  // outstanding, cyan once it is collected and the invoice is due, success at the
+  // end. READY_FOR_PROFORMA / PAYMENT_PENDING / PROFORMA_GENERATED are already
+  // above and deliberately not repeated.
+  PROFORMA_DRAFT: "neutral",
+  PROFORMA_SENT: "indigo",
+  CLIENT_VIEWED: "indigo",
+  PARTIALLY_PAID: "warning",
+  FULLY_PAID: "success",
+  PAYMENT_VERIFIED: "success",
+  READY_FOR_INVOICE: "cyan",
+  INVOICE_GENERATED: "cyan",
+  INVOICE_SENT: "indigo",
+  COMPLETED: "success",
+  ON_HOLD: "warning",
 };
 
 const humanise = (status: string) =>

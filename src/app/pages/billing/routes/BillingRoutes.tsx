@@ -19,6 +19,8 @@ import { BILLING_TABS, billingDefaultPath } from "../constants/billingNav";
 const BillingDashboard = lazy(() => import("../dashboard/BillingDashboard"));
 const BillingRequestsPage = lazy(() => import("../billing-requests/BillingRequestsPage"));
 const AccountsQueuePage = lazy(() => import("../accounts-queue/AccountsQueuePage"));
+const BillingOperationsPage = lazy(() => import("../operations/BillingOperationsPage"));
+const BillingOperationDetailPage = lazy(() => import("../operations/BillingOperationDetailPage"));
 const ProformasPage = lazy(() => import("../proformas/ProformasPage"));
 const PaymentsPage = lazy(() => import("../payments/PaymentsPage"));
 const InvoicesPage = lazy(() => import("../invoices/InvoicesPage"));
@@ -35,6 +37,7 @@ const PAGES: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
     dashboard: BillingDashboard,
     requests: BillingRequestsPage,
     accounts: AccountsQueuePage,
+    operations: BillingOperationsPage,
     proformas: ProformasPage,
     payments: PaymentsPage,
     invoices: InvoicesPage,
@@ -80,6 +83,11 @@ const BillingRoutes: React.FC = () => {
                 {/* Read-only Accounts review. Keeps the Accounts Queue tab highlighted. */}
                 {allowed("billing.accounts") && (
                     <Route path="accounts/:id" element={<Suspensed><AccountsBillingReviewPage /></Suspensed>} />
+                )}
+
+                {/* One operation, end to end. Keeps the Billing Operations tab highlighted. */}
+                {allowed("billing.operations") && (
+                    <Route path="operations/:id" element={<Suspensed><BillingOperationDetailPage /></Suspensed>} />
                 )}
 
                 {/* The proforma document editor. Keeps the Proformas tab highlighted. */}
