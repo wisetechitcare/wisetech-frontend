@@ -27,6 +27,10 @@ export {
   AutoGrid, ListHeader,
 } from './patterns';
 export type { Trio } from './patterns';
+// Choose-one-from-a-visual-set controls, for any feature that lets an admin
+// brand a record (section icon/colour, status colour, category icon).
+export { IconPicker, TonePicker, TONE_NAMES } from './SwatchPicker';
+export type { ToneName, IconPickerProps, TonePickerProps } from './SwatchPicker';
 // The accent-topped configuration card every settings/config engine is built
 // from (Leave Policy, Sandwich Leave, FAQ sections). Owns the frame — surface,
 // accent rule, icon tile, header, spacing — so those screens stop drifting apart.

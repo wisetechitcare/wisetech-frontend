@@ -6,9 +6,9 @@ import ReorderableGroup, { DragHandle } from '@app/modules/common/components/Reo
 // surface, one look. Do not reach past this barrel into individual kit files.
 import {
     TRIO, WtButton, WtIconButton, GlassDialog, GlassHeader, GlassSurface,
-    SettingsSection, StatTile, StatusBadge, IconBox, confirmDialog, toast,
+    SettingsSection, StatTile, StatusBadge, IconBox, IconPicker, TonePicker,
+    confirmDialog, toast,
 } from '@app/modules/common/components/ui';
-import { IconPicker, TonePicker } from '@app/modules/common/components/ui/tw/SwatchPicker';
 import { readConflict, useFaqCategories } from './useFaqCategories';
 import {
     FAQ_CATEGORY_DESCRIPTION_MAX,

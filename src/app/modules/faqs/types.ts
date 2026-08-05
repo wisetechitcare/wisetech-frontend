@@ -1,4 +1,4 @@
-import type { ToneName } from '@app/modules/common/components/ui/tw/tokens';
+import { TONE_NAMES, type ToneName } from '@app/modules/common/components/ui';
 
 /**
  * FAQ domain contract.
@@ -73,10 +73,8 @@ export const FAQ_ICON_CHOICES: readonly string[] = [
     'information-5', 'filter', 'magnifier',
 ] as const;
 
-/** Tones offered by the section picker — the kit's palette, nothing else. */
-export const FAQ_TONE_CHOICES: readonly ToneName[] = [
-    'blue', 'green', 'purple', 'amber', 'rose', 'cyan', 'slate',
-] as const;
+/** The kit's full palette — derived, so adding a tone to TRIO reaches FAQs too. */
+export const FAQ_TONE_CHOICES: readonly ToneName[] = TONE_NAMES;
 
 export const isToneName = (value: unknown): value is ToneName =>
     typeof value === 'string' && (FAQ_TONE_CHOICES as readonly string[]).includes(value);
