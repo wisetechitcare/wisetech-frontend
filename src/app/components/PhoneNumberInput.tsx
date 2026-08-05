@@ -24,13 +24,18 @@ const getDigits = (value?: string) => (value || '').replace(/\D/g, '');
 const normalizePath = (value?: string) => value?.replace(/\[(\d+)\]/g, '.$1');
 
 /**
- * The dial code now lives in the flag button, so the button — not the typed value —
- * is what tells the user which country they're on. On a fresh mount the library can
- * no longer infer that from the value (there's no `+91` in it any more), so we map a
- * stored dial code back to its flag. Only the INITIAL flag needs this: once mounted,
- * react-phone-input-2 owns the selection and any country the user picks is honoured,
- * mapped or not. An unmapped code just opens on the default flag — the stored code
- * itself is never altered by this lookup.
+ * The dial code now lives in the flag button, so the flag and the code sit side by side
+ * and MUST always agree — an Indian flag reading "+1" is worse than no code at all.
+ *
+ * On a fresh mount the library can no longer infer the country from the value (there's
+ * no `+91` in it any more), so a stored dial code is mapped back to its flag here.
+ * Consistency is guaranteed by making the resolved country the single source of BOTH:
+ * the flag comes from this map, and the code printed beside it is that country's dial
+ * code (via the inverse map) — never the raw stored value. A code outside the map
+ * therefore opens on the default flag AND shows the default code rather than pairing
+ * a wrong flag with a right number. After mount the library owns the selection, and
+ * onChange re-syncs the printed code from the country it reports, so any country the
+ * user picks stays matched whether it is in this map or not.
  */
 const DIAL_CODE_TO_ISO: Record<string, string> = {
   '91': 'in', '1': 'us', '44': 'gb', '971': 'ae', '966': 'sa', '974': 'qa',
@@ -42,6 +47,11 @@ const DIAL_CODE_TO_ISO: Record<string, string> = {
   '880': 'bd', '94': 'lk', '977': 'np', '92': 'pk', '7': 'ru', '90': 'tr',
   '55': 'br', '52': 'mx', '54': 'ar', '56': 'cl',
 };
+
+/** Inverse of the above. Safe to derive: every entry above is a 1:1 dial↔iso pair. */
+const ISO_TO_DIAL_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(DIAL_CODE_TO_ISO).map(([dial, iso]) => [iso, dial])
+);
 
 const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
   value = '',
@@ -71,14 +81,21 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
 
   const normalizedFieldValue = getDigits(fieldValue);
 
-  const currentDialCode = extensionField ? extensionValue : defaultCountry;
+  const storedDialCode = extensionField ? extensionValue : defaultCountry;
 
   // Flag country is fixed at mount: the prop is what react-phone-input-2 treats as the
   // INITIAL country, and re-feeding it on every render would snap the flag back and undo
   // a country the user just picked (any code outside the map above would bounce). After
   // mount the library owns the selection, and onChange keeps `extensionField` in step.
   const [initialCountry] = useState(
-    () => DIAL_CODE_TO_ISO[currentDialCode] || country
+    () => DIAL_CODE_TO_ISO[storedDialCode] || country
+  );
+
+  // The code printed in the button, seeded from the SAME country the flag opens on so
+  // the two can't contradict each other, then re-synced from whatever country the
+  // library reports on change — which is authoritative once the user has interacted.
+  const [currentDialCode, setCurrentDialCode] = useState(
+    () => ISO_TO_DIAL_CODE[initialCountry] || defaultCountry
   );
 
   // NOTE: the dial code is no longer part of the input's text — `disableCountryCode`
@@ -127,6 +144,9 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
         disableCountryCode
         onChange={(phoneValue: string, countryData: any) => {
           const dialCode = countryData?.dialCode || defaultCountry;
+
+          // Keep the printed code tied to the flag the library is actually showing.
+          setCurrentDialCode(dialCode);
 
           // `phoneValue` is the national number only — the dial code never enters the
           // input, so there is no prefix to strip and nothing to validate it against.
