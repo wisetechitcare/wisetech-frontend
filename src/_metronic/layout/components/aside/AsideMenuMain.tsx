@@ -41,11 +41,11 @@ export function AsideMenuMain() {
 
     if (item.type === 'section') {
       return (
-        <div className='menu-item' key={item.id}>
-          <div className='menu-content py-2'>
-            <span className='menu-section text-muted text-uppercase fs-5 ls-1 fw-semibold'>
-              {item.title}
-            </span>
+        // Top of the tree. Sizing/weight/casing come from `.menu-tree-section` in
+        // premium-layout.css so the three levels stay on one scale — no utility classes.
+        <div className='menu-item menu-tree-section' key={item.id}>
+          <div className='menu-content'>
+            <span className='menu-section'>{item.title}</span>
           </div>
         </div>
       );
@@ -91,9 +91,9 @@ export function AsideMenuMain() {
     <>
       {pinned.length > 0 && (
         <>
-          <div className='menu-item'>
-            <div className='menu-content py-2'>
-              <span className='menu-section text-muted text-uppercase fs-5 ls-1 fw-semibold'>Pinned</span>
+          <div className='menu-item menu-tree-section'>
+            <div className='menu-content'>
+              <span className='menu-section'>Pinned</span>
             </div>
           </div>
           {pinned.map((item) => (

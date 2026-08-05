@@ -29,10 +29,11 @@ const AsideMenuItemWithSub: FC<Props & WithChildren> = ({
   const {collapsed, setCollapsed} = useSidebarCollapse()
 
   return (
-    <div
-      className={clsx('menu-item menu-accordion', {'here show': isActive})}
-      data-kt-menu-trigger='click'
-    >
+    // Always `show`: the sidebar is a static tree, not an accordion. Dropping
+    // `data-kt-menu-trigger` unbinds KTMenu so nothing can collapse the group —
+    // `.menu-sub-accordion` is `display:none` until the parent carries `.show`
+    // (see assets/sass/core/components/menu/_base.scss), so the class pins it open.
+    <div className={clsx('menu-item menu-accordion menu-tree-group show', {here: isActive})}>
       <span
         className='menu-link'
         title={title}
@@ -57,12 +58,10 @@ const AsideMenuItemWithSub: FC<Props & WithChildren> = ({
           </span>
         )}
         {fontIcon && aside.menuIcon === 'font' && <i className={clsx('bi fs-5 menu-font-icon', fontIcon)}></i>}
-        <span className='menu-title fw-500'>{title}</span>
-        <span className='menu-arrow'></span>
+        {/* No `menu-arrow` — there is nothing to expand or collapse. */}
+        <span className='menu-title'>{title}</span>
       </span>
-      <div className={clsx('menu-sub menu-sub-accordion', {'menu-active-bg': isActive})}>
-        {children}
-      </div>
+      <div className='menu-sub menu-sub-accordion menu-tree-children'>{children}</div>
     </div>
   )
 }
