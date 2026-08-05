@@ -3,8 +3,8 @@ import { KTIcon } from '@metronic/helpers';
 import { GlassCard } from '@app/modules/common/components/ui/tw/Glass';
 import { WtButton, WtIconButton } from '@app/modules/common/components/ui/tw/Buttons';
 import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
-import SelectInput from '@app/modules/common/inputs/SelectInput';
-import { useOrgScope } from '@hooks/useOrgScope';
+import { ToolbarFilterSelect, FILTER_TONES } from '@app/modules/common/components/ui/ToolbarFilterSelect';
+import { ALL_ORGS, toCompanyIdParam, useOrgScope } from '@hooks/useOrgScope';
 import { IconBox } from '@app/modules/common/components/ui/tw/Patterns';
 import { BRAND, TRIO } from '@app/modules/common/components/ui/tw/tokens';
 import { confirmDialog, toast } from '@app/modules/common/components/ui/feedback';
@@ -44,7 +44,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
     const sectionType = resolveSectionKey(type);
     // Shared org filter — same hook, control and option order any other
     // company-scoped screen would use.
-    const { scopeId, setScopeId, selectOptions, selectedOption, hasChoice } = useOrgScope();
+    const { scopeId, setScopeId, selectOptions, hasChoice } = useOrgScope();
     const {
         sections,
         totalCount,
@@ -58,7 +58,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
         updateFaq,
         deleteFaq,
         isSaving,
-    } = useFaqs({ type: sectionType, scopeId });
+    } = useFaqs({ type: sectionType, scopeId: toCompanyIdParam(scopeId) });
 
     const [activeSection, setActiveSection] = useState<string | null>(null);
     const [editor, setEditor] = useState<{ section: FaqSection; faq: Faq | null } | null>(null);
@@ -264,13 +264,17 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     {hasChoice && (
                         <div className="w-full sm:w-65 sm:shrink-0">
-                            {/* The app's existing react-select input — same control,
-                                theming and menu behaviour as every other dropdown. */}
-                            <SelectInput
+                            {/* The app's standard toolbar filter — identical control,
+                                label treatment and active-tint as the Sub Organization
+                                filter on payroll and employee screens. */}
+                            <ToolbarFilterSelect
+                                label="Sub Organization"
+                                icon="bi-building"
+                                value={scopeId}
+                                onChange={setScopeId}
                                 options={selectOptions}
-                                placeholder="All organizations"
-                                value={selectedOption}
-                                passData={(value: string) => setScopeId(value)}
+                                minWidth={220}
+                                theme={scopeId !== ALL_ORGS ? FILTER_TONES.blue : undefined}
                             />
                         </div>
                     )}

@@ -21,7 +21,7 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { Image, OverlayTrigger, Tooltip, Alert, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { hasPermission } from "@utils/authAbac";
-import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTableFilters";
+import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import PeriodFilter from "@app/modules/common/components/PeriodFilter";

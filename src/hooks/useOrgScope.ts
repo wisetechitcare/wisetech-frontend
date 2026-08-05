@@ -19,8 +19,17 @@ import { fetchCompanyOverview } from '@services/company';
  * supplies data, it does not introduce another dropdown.
  */
 
-/** Sentinel for "every organization in the family". Never a real company id. */
-export const ALL_ORGS = '';
+/**
+ * Sentinel for "every organization in the family". Matches the `'All'` value the
+ * app's other toolbar filters already use, so this control behaves identically
+ * to the Sub Organization / Branch filters on payroll and employee screens.
+ * Callers translate it to "omit the companyId param" via `toCompanyIdParam`.
+ */
+export const ALL_ORGS = 'All';
+
+/** `'All'` means "send no companyId", which the API reads as the whole family. */
+export const toCompanyIdParam = (scopeId: string): string | undefined =>
+    scopeId && scopeId !== ALL_ORGS ? scopeId : undefined;
 
 export interface OrgScopeNode {
     id: string;
@@ -96,7 +105,7 @@ export interface UseOrgScopeOptions {
 }
 
 export function useOrgScope(options: UseOrgScopeOptions = {}) {
-    const { initialScopeId = ALL_ORGS, allLabel = 'All organizations', includeAll = true } = options;
+    const { initialScopeId = ALL_ORGS, allLabel = 'All Sub Organizations', includeAll = true } = options;
     const [scopeId, setScopeId] = useState(initialScopeId);
 
     const query = useQuery({

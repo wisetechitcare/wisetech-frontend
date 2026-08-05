@@ -4,9 +4,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { KTIcon } from "@metronic/helpers";
 import { fetchAllEmployees } from "@services/employee";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { actionsColumn, dateColumn, employeeColumn } from "@app/modules/common/components/table/columns";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { hasPermission } from "@utils/authAbac";
 import { usePermission } from "@hooks/usePermission";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -14,7 +14,7 @@ import { fetchAllBranches } from "@services/company";
 import Loader from "@app/modules/common/utils/Loader";
 import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employeeStatus";
 import StatusToggle from "@app/modules/common/components/StatusToggle";
-import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTableFilters";
+import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 
 type StatusType = "all" | "active" | "inactive";
@@ -45,14 +45,16 @@ const EmployeeListContent = () => {
 
   const navigate = useNavigate();
 
-  // Parse "X Years Y Months" to total months for sorting.
+  // Parse calculateTotalExperience() output to total months for sorting.
+  // It emits FOUR shapes — "2 Years 4 Months", "2 Years", "4 Months",
+  // "Less than 1 Month" (and "-") — so years and months must be matched
+  // independently. Requiring both in one pattern returned 0 for every row
+  // except the combined form, which made the comparator a no-op.
   const parseExperienceToMonths = (exp: string | null | undefined): number => {
-    if (!exp) return 0;
-    const match = exp.match(/(\d+)\s+Years?\s+(\d+)\s+Months?/i);
-    if (match) {
-      return parseInt(match[1], 10) * 12 + parseInt(match[2], 10);
-    }
-    return 0;
+    if (!exp || /less than/i.test(exp)) return 0;
+    const years = Number(exp.match(/(\d+)\s*Years?/i)?.[1] ?? 0);
+    const months = Number(exp.match(/(\d+)\s*Months?/i)?.[1] ?? 0);
+    return years * 12 + months;
   };
 
   // Save current page to sessionStorage whenever it changes
@@ -85,45 +87,21 @@ const EmployeeListContent = () => {
   // hidden (meta.defaultVisible: false) and stays available in the column
   // panel; users can still toggle any column, and their choice persists.
   const baseColumns = useMemo(() => [
-    {
-      accessorKey: "users",
+    // Keeps id "users" so existing saved column layouts carry over unchanged.
+    employeeColumn<any>({
+      id: "users",
       header: "Name",
-      Cell: ({ renderedCellValue, row }: any) => (
-        <div className="d-flex align-items-center gap-3">
-          <SmartAvatar
-            name={row.original.users}
-            id={row.original.id}
-            imageUrl={row.original.avatar}
-            size={40}
-            imageFit="cover"
-            status={row.original.employeeStatus === "Active" ? "active" : "inactive"}
-          />
-          <button
-            className="btn btn-link p-0 text-start text-decoration-none"
-            style={{
-              color: "inherit",
-              fontWeight: "600",
-              fontSize: "14px",
-            }}
-            onClick={() => {
-              navigate(`/employees/${row.original.id}`);
-            }}
-          >
-            {renderedCellValue}
-          </button>
-        </div>
-      ),
-    },
+      name: (r) => r.users,
+      avatarUrl: (r) => r.avatar,
+      status: (r) => (r.employeeStatus === "Active" ? "active" : "inactive"),
+      href: (r) => `/employees/${r.id}`,
+    }),
     {
       accessorKey: "departments",
       header: "Department",
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
-    {
-      accessorKey: "dateOfJoining",
-      header: "Date Of Joining",
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-    },
+    dateColumn({ accessorKey: "dateOfJoining", header: "Date Of Joining" }),
     {
       accessorKey: "experience",
       header: "Total Experience",
@@ -168,17 +146,12 @@ const EmployeeListContent = () => {
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
-  ], [navigate]);
+  ], []);
 
   // Memoize admin columns — all hidden by default (toggle on via the column
   // panel); only the Actions column stays visible for admins.
   const adminColumns = useMemo(() => [
-    {
-      accessorKey: "createdAt",
-      header: "Created On",
-      meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-    },
+    dateColumn({ accessorKey: "createdAt", header: "Created On", meta: { defaultVisible: false } }),
     // {
     //   accessorKey: "dateOfReJoining",
     //   header: "Date of Rejoining",
@@ -225,21 +198,14 @@ const EmployeeListContent = () => {
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
-    {
-      accessorKey: "dateOfExit",
-      header: "Date Of Exit",
-      meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-    },
+    dateColumn({ accessorKey: "dateOfExit", header: "Date Of Exit", meta: { defaultVisible: false } }),
     {
       accessorKey: "referredBy",
       header: "Referred By",
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
-    {
-      accessorKey: "actions",
-      header: "Actions",
+    actionsColumn({
       Cell: ({ row }: any) => (
         hasPermission(resourceNameMapWithCamelCase.employee, permissionConstToUseWithHasPermission.editOthers) ?
           <div className="d-flex gap-2">
@@ -260,7 +226,7 @@ const EmployeeListContent = () => {
           </div>
           : "Not Allowed"
       )
-    }
+    }),
   ], [handleEditClick, handleWhatsAppShare]);
 
   const canManageEmployees = usePermission('employees.manage.all');
