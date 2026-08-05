@@ -90,7 +90,10 @@ export const WtIconButton = forwardRef<HTMLButtonElement, WtIconButtonProps>(fun
       aria-label={title}
       title={title}
       className={cn(
-        'inline-grid place-items-center rounded-[10px] border transition-[transform,background,border-color,box-shadow] duration-150 ease-[cubic-bezier(.22,.61,.36,1)]',
+        // rounded-[10px]!: Metronic's global Bootstrap button rules are unlayered
+        // and outrank Tailwind's utility layer, squaring the corners off without
+        // the important flag. Same reason WtCloseButton carries it.
+        'inline-grid place-items-center rounded-[10px]! border transition-[transform,background,border-color,box-shadow] duration-150 ease-[cubic-bezier(.22,.61,.36,1)]',
         'hover:-translate-y-px active:translate-y-0 active:scale-[.94] disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0',
         'wt-iconbtn',
         className,

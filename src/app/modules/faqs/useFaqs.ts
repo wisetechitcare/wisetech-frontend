@@ -58,10 +58,16 @@ const toSections = (payload: unknown): FaqSection[] => {
 export interface UseFaqsOptions {
     /** Limit the board to one section, by slug. Omit for all sections. */
     type?: string;
+    /**
+     * Restrict to one organization in the caller's family. Empty/undefined means
+     * the whole family. Comes from `useOrgScope`, and is part of the cache key —
+     * each scope is a different server response, not a client-side slice.
+     */
+    scopeId?: string;
 }
 
 export function useFaqs(options: UseFaqsOptions = {}) {
-    const { type } = options;
+    const { type, scopeId } = options;
     const queryClient = useQueryClient();
     const [search, setSearch] = useState('');
 
@@ -71,8 +77,8 @@ export function useFaqs(options: UseFaqsOptions = {}) {
     const sectionKey = resolveSectionKey(type);
 
     const query = useQuery({
-        queryKey: [...FAQS_QUERY_KEY, sectionKey ?? 'all'],
-        queryFn: () => fetchAllFaqs(undefined, sectionKey),
+        queryKey: [...FAQS_QUERY_KEY, sectionKey ?? 'all', scopeId || 'family'],
+        queryFn: () => fetchAllFaqs(scopeId || undefined, sectionKey),
         select: toSections,
         staleTime: FAQ_STALE_TIME_MS,
     });
@@ -91,7 +97,10 @@ export function useFaqs(options: UseFaqsOptions = {}) {
     // will refresh every other client anyway, so a single refetch keeps all
     // viewers converged on one truth instead of drifting local copies.
     const createMutation = useMutation({
-        mutationFn: (input: { question: string; answer: string; categoryId: string }) => createNewFaq(input),
+        // A new question is filed under the organization currently in scope, so
+        // what you are looking at is what you are authoring for.
+        mutationFn: (input: { question: string; answer: string; categoryId: string }) =>
+            createNewFaq(scopeId ? { ...input, companyId: scopeId } : input),
         onSuccess: invalidate,
     });
 

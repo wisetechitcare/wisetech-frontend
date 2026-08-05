@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { KTIcon } from '@metronic/helpers';
+import { WtIconButton } from '@app/modules/common/components/ui/tw/Buttons';
+import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
 import type { Faq } from './types';
 
 /**
@@ -102,26 +104,27 @@ export function FaqAccordionItem({ faq, highlight, onEdit, onDelete }: FaqAccord
                 </button>
 
                 {(onEdit || onDelete) && (
-                    <div className="flex shrink-0 gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                    <div className="flex shrink-0 gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                         {onEdit && (
-                            <button
+                            <WtIconButton
                                 type="button"
+                                size={30}
+                                title={`Edit question: ${faq.question}`}
                                 onClick={() => onEdit(faq)}
-                                aria-label={`Edit question: ${faq.question}`}
-                                className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-slate-200"
                             >
-                                <KTIcon iconName="pencil" className="fs-6" />
-                            </button>
+                                <KTIcon iconName="pencil" className="fs-7" />
+                            </WtIconButton>
                         )}
                         {onDelete && (
-                            <button
+                            <WtIconButton
                                 type="button"
+                                size={30}
+                                color={TRIO.rose.c}
+                                title={`Delete question: ${faq.question}`}
                                 onClick={() => onDelete(faq)}
-                                aria-label={`Delete question: ${faq.question}`}
-                                className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/15 dark:hover:text-rose-400"
                             >
-                                <KTIcon iconName="trash" className="fs-6" />
-                            </button>
+                                <KTIcon iconName="trash" className="fs-7" />
+                            </WtIconButton>
                         )}
                     </div>
                 )}
@@ -136,7 +139,7 @@ export function FaqAccordionItem({ faq, highlight, onEdit, onDelete }: FaqAccord
                 }`}
             >
                 <div className="overflow-hidden">
-                    <div className="pl-[26px] pr-1 pt-2 text-[13.5px] leading-relaxed text-slate-600 dark:text-slate-300">
+                    <div className="pl-6.5 pr-1 pt-2 text-[13.5px] leading-relaxed text-slate-600 dark:text-slate-300">
                         {rendered.kind === 'bullets' ? (
                             <ul className="m-0 flex list-disc flex-col gap-1 pl-4">
                                 {rendered.lines.map((line, index) => (

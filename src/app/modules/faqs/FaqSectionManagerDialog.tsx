@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { KTIcon } from '@metronic/helpers';
 import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui/tw/Glass';
-import { WtButton } from '@app/modules/common/components/ui/tw/Buttons';
+import { WtButton, WtIconButton } from '@app/modules/common/components/ui/tw/Buttons';
 import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
 import { IconBox } from '@app/modules/common/components/ui/tw/Patterns';
+import { IconPicker, TonePicker } from '@app/modules/common/components/ui/tw/SwatchPicker';
 import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
 import { confirmDialog, toast } from '@app/modules/common/components/ui/feedback';
 import { readConflict, useFaqCategories } from './useFaqCategories';
@@ -177,52 +178,56 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
                                     </div>
                                 </div>
 
-                                <div className="flex shrink-0 items-center gap-0.5">
-                                    <button
+                                {/* All five are the kit's WtIconButton — one radius,
+                                    tint, press physics and title/aria wiring, shared
+                                    with every other icon action in the app. */}
+                                <div className="flex shrink-0 items-center gap-1">
+                                    <WtIconButton
                                         type="button"
+                                        size={32}
                                         onClick={() => void move(index, -1)}
                                         disabled={index === 0 || isSaving}
-                                        aria-label={`Move ${category.name} up`}
-                                        className="grid h-8 w-8 place-items-center rounded-[10px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-white/10"
+                                        title={`Move ${category.name} up`}
                                     >
-                                        <KTIcon iconName="arrow-up" className="fs-6" />
-                                    </button>
-                                    <button
+                                        <KTIcon iconName="arrow-up" className="fs-7" />
+                                    </WtIconButton>
+                                    <WtIconButton
                                         type="button"
+                                        size={32}
                                         onClick={() => void move(index, 1)}
                                         disabled={index === categories.length - 1 || isSaving}
-                                        aria-label={`Move ${category.name} down`}
-                                        className="grid h-8 w-8 place-items-center rounded-[10px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-white/10"
+                                        title={`Move ${category.name} down`}
                                     >
-                                        <KTIcon iconName="arrow-down" className="fs-6" />
-                                    </button>
-                                    <button
+                                        <KTIcon iconName="arrow-down" className="fs-7" />
+                                    </WtIconButton>
+                                    <WtIconButton
                                         type="button"
+                                        size={32}
+                                        color={category.isActive ? TRIO.green.c : TRIO.slate.c}
                                         onClick={() => void toggleActive(category)}
-                                        aria-label={category.isActive ? `Hide ${category.name}` : `Show ${category.name}`}
-                                        title={category.isActive ? 'Visible — click to hide' : 'Hidden — click to show'}
-                                        className="grid h-8 w-8 place-items-center rounded-[10px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10"
+                                        title={category.isActive ? `Visible — click to hide ${category.name}` : `Hidden — click to show ${category.name}`}
                                     >
-                                        <KTIcon iconName={category.isActive ? 'eye' : 'eye-slash'} className="fs-6" />
-                                    </button>
-                                    <button
+                                        <KTIcon iconName={category.isActive ? 'eye' : 'eye-slash'} className="fs-7" />
+                                    </WtIconButton>
+                                    <WtIconButton
                                         type="button"
+                                        size={32}
+                                        color={TRIO.blue.c}
                                         onClick={() => startEdit(category)}
-                                        aria-label={`Edit ${category.name}`}
-                                        className="grid h-8 w-8 place-items-center rounded-[10px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10"
+                                        title={`Edit ${category.name}`}
                                     >
-                                        <KTIcon iconName="pencil" className="fs-6" />
-                                    </button>
-                                    <button
+                                        <KTIcon iconName="pencil" className="fs-7" />
+                                    </WtIconButton>
+                                    <WtIconButton
                                         type="button"
+                                        size={32}
+                                        color={TRIO.rose.c}
                                         onClick={() => void handleDelete(category)}
                                         disabled={category.isSystem}
-                                        title={category.isSystem ? 'Built-in sections cannot be deleted — hide it instead' : 'Delete'}
-                                        aria-label={`Delete ${category.name}`}
-                                        className="grid h-8 w-8 place-items-center rounded-[10px] text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-slate-400 dark:hover:bg-rose-500/15"
+                                        title={category.isSystem ? 'Built-in sections cannot be deleted — hide it instead' : `Delete ${category.name}`}
                                     >
-                                        <KTIcon iconName="trash" className="fs-6" />
-                                    </button>
+                                        <KTIcon iconName="trash" className="fs-7" />
+                                    </WtIconButton>
                                 </div>
                             </div>
                         ))}
@@ -257,41 +262,22 @@ export function FaqSectionManagerDialog({ open, onClose }: FaqSectionManagerDial
 
                         <div className="flex flex-col gap-2">
                             <span className="text-[12px] font-semibold text-slate-600 dark:text-slate-300">Icon</span>
-                            <div className="flex flex-wrap gap-1.5">
-                                {FAQ_ICON_CHOICES.map((icon) => (
-                                    <button
-                                        key={icon}
-                                        type="button"
-                                        onClick={() => setDraft({ ...draft, icon })}
-                                        aria-label={icon}
-                                        aria-pressed={draft.icon === icon}
-                                        className={`grid h-9 w-9 place-items-center rounded-[10px] border transition-colors ${
-                                            draft.icon === icon
-                                                ? 'border-[#1E3A8A] bg-[#1E3A8A]/10 text-[#1E3A8A]'
-                                                : 'border-[#E6E9EE] text-slate-400 hover:text-slate-700 dark:border-[#30363d]'
-                                        }`}
-                                    >
-                                        <KTIcon iconName={icon} className="fs-5" />
-                                    </button>
-                                ))}
-                            </div>
+                            <IconPicker
+                                label="Section icon"
+                                value={draft.icon}
+                                options={FAQ_ICON_CHOICES}
+                                onChange={(icon) => setDraft({ ...draft, icon })}
+                            />
                         </div>
 
                         <div className="flex flex-col gap-2">
                             <span className="text-[12px] font-semibold text-slate-600 dark:text-slate-300">Colour</span>
-                            <div className="flex flex-wrap gap-1.5">
-                                {FAQ_TONE_CHOICES.map((tone) => (
-                                    <button
-                                        key={tone}
-                                        type="button"
-                                        onClick={() => setDraft({ ...draft, tone })}
-                                        aria-label={tone}
-                                        aria-pressed={draft.tone === tone}
-                                        className={`h-9 w-9 rounded-[10px] border-2 transition-transform ${draft.tone === tone ? 'scale-110 border-slate-900 dark:border-white' : 'border-transparent'}`}
-                                        style={{ backgroundColor: TRIO[tone].c }}
-                                    />
-                                ))}
-                            </div>
+                            <TonePicker
+                                label="Section colour"
+                                value={draft.tone}
+                                options={FAQ_TONE_CHOICES}
+                                onChange={(tone) => setDraft({ ...draft, tone })}
+                            />
                         </div>
 
                         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

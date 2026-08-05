@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KTIcon } from '@metronic/helpers';
 import { GlassCard } from '@app/modules/common/components/ui/tw/Glass';
-import { WtButton } from '@app/modules/common/components/ui/tw/Buttons';
+import { WtButton, WtIconButton } from '@app/modules/common/components/ui/tw/Buttons';
 import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
+import SelectInput from '@app/modules/common/inputs/SelectInput';
+import { useOrgScope } from '@hooks/useOrgScope';
 import { IconBox } from '@app/modules/common/components/ui/tw/Patterns';
-import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
+import { BRAND, TRIO } from '@app/modules/common/components/ui/tw/tokens';
 import { confirmDialog, toast } from '@app/modules/common/components/ui/feedback';
 import { FaqAccordionItem } from './FaqAccordionItem';
 import { FaqEditorDialog } from './FaqEditorDialog';
@@ -40,6 +42,9 @@ export interface FaqsBoardProps {
  */
 export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoardProps) {
     const sectionType = resolveSectionKey(type);
+    // Shared org filter — same hook, control and option order any other
+    // company-scoped screen would use.
+    const { scopeId, setScopeId, selectOptions, selectedOption, hasChoice } = useOrgScope();
     const {
         sections,
         totalCount,
@@ -53,7 +58,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
         updateFaq,
         deleteFaq,
         isSaving,
-    } = useFaqs({ type: sectionType });
+    } = useFaqs({ type: sectionType, scopeId });
 
     const [activeSection, setActiveSection] = useState<string | null>(null);
     const [editor, setEditor] = useState<{ section: FaqSection; faq: Faq | null } | null>(null);
@@ -253,7 +258,24 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                     </div>
                 )}
 
-                <div className="relative">
+                {/* Search + organization scope share a row: both narrow the same
+                    list, so they belong together rather than in separate bands.
+                    The scope control hides itself when the family has one org. */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    {hasChoice && (
+                        <div className="w-full sm:w-65 sm:shrink-0">
+                            {/* The app's existing react-select input — same control,
+                                theming and menu behaviour as every other dropdown. */}
+                            <SelectInput
+                                options={selectOptions}
+                                placeholder="All organizations"
+                                value={selectedOption}
+                                passData={(value: string) => setScopeId(value)}
+                            />
+                        </div>
+                    )}
+
+                    <div className="relative flex-1">
                     <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
                         <KTIcon iconName="magnifier" className="fs-6" />
                     </span>
@@ -265,6 +287,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                         aria-label="Search FAQs"
                         className="w-full rounded-xl border border-[#E6E9EE] bg-white py-2.5 pl-10 pr-3.5 text-[14px] text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/15 dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-100 dark:placeholder:text-slate-500"
                     />
+                    </div>
                 </div>
 
                 {/* ── Mobile section chips ─────────────────────────────────── */}
@@ -278,10 +301,10 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                     type="button"
                                     onClick={() => scrollToSection(section.id)}
                                     aria-current={active ? 'true' : undefined}
-                                    // !rounded-full: these sit inside Metronic's
+                                    // rounded-full!: these sit inside Metronic's
                                     // stylesheet, whose button rules would otherwise
                                     // square the corners off.
-                                    className={`!rounded-full shrink-0 whitespace-nowrap border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
+                                    className={`rounded-full! shrink-0 whitespace-nowrap border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
                                         active
                                             ? 'border-[#1E3A8A] bg-[#1E3A8A] text-white shadow-sm'
                                             : 'border-[#D8DEE7] bg-white text-slate-600 hover:border-[#1E3A8A]/40 dark:border-[#30363d] dark:bg-[#161b22] dark:text-slate-300'
@@ -304,7 +327,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                         // Pins below BOTH the shell tab bar and our sticky header.
                         // It was top-2 (8px) — i.e. behind the tab bar, which read
                         // as the rail disappearing on scroll.
-                        className="sticky top-[calc(var(--faq-shell)+var(--faq-head)+0.75rem)] hidden h-fit w-[210px] shrink-0 flex-col gap-0.5 rounded-2xl border border-[#E6E9EE] bg-white p-2 lg:flex dark:border-[#30363d] dark:bg-[#161b22]"
+                        className="sticky top-[calc(var(--faq-shell)+var(--faq-head)+0.75rem)] hidden h-fit w-52.5 shrink-0 flex-col gap-0.5 rounded-2xl border border-[#E6E9EE] bg-white p-2 lg:flex dark:border-[#30363d] dark:bg-[#161b22]"
                     >
                         {sections.map((section) => {
                             const active = activeSection === section.id;
@@ -314,7 +337,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                     type="button"
                                     onClick={() => scrollToSection(section.id)}
                                     aria-current={active ? 'true' : undefined}
-                                    className={`flex items-center gap-2.5 !rounded-full px-3 py-2 text-left text-[14px] transition-colors ${
+                                    className={`flex items-center gap-2.5 rounded-full! px-3 py-2 text-left text-[14px] transition-colors ${
                                         active
                                             ? 'bg-[#1E3A8A]/8 font-semibold text-[#1E3A8A] dark:bg-[#1E3A8A]/20 dark:text-slate-100'
                                             : 'font-medium text-slate-500 hover:bg-slate-100/70 dark:text-slate-400 dark:hover:bg-white/5'
@@ -388,14 +411,15 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                                 )}
                                             </div>
                                             {canManage && (
-                                                <button
+                                                <WtIconButton
                                                     type="button"
+                                                    size={32}
+                                                    color={BRAND.navy}
                                                     onClick={() => setEditor({ section, faq: null })}
-                                                    aria-label={`Add a question to ${section.title}`}
-                                                    className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-[#E6E9EE] text-slate-500 transition-colors hover:border-[#1E3A8A] hover:text-[#1E3A8A] dark:border-[#30363d] dark:text-slate-400"
+                                                    title={`Add a question to ${section.title}`}
                                                 >
-                                                    <KTIcon iconName="plus" className="fs-5" />
-                                                </button>
+                                                    <KTIcon iconName="plus" className="fs-6" />
+                                                </WtIconButton>
                                             )}
                                         </div>
 
