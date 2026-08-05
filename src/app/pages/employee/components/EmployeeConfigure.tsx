@@ -8,7 +8,11 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
 import EmployeeConfigureForm from "./EmployeeConfigureForm";
 import QualificationConfigureForm, { QualificationItem } from "./QualificationConfigureForm";
+import JobProfileConfigureForm, { JobProfileItem } from "./JobProfileConfigureForm";
 import { fetchQualificationMasters, deleteQualificationMaster } from "@services/employee";
+import { fetchDesignations, archiveDesignationById } from "@services/options";
+import { fetchCompanyOverview } from "@services/company";
+import { resolveActiveOrgId } from "@utils/activeOrg";
 import Loader from "@app/modules/common/utils/Loader";
 import EmployeeTypes from "@pages/company/masters/EmployeeTypes";
 import {
@@ -34,9 +38,10 @@ const EmployeeConfigure = () => {
   const [loading, setLoading] = useState(false);
 
   // Job Profile configurations
-  const [jobProfiles, setJobProfiles] = useState<EmployeeConfigItem[]>([]);
+  const [jobProfiles, setJobProfiles] = useState<JobProfileItem[]>([]);
   const [showJobProfileModal, setShowJobProfileModal] = useState(false);
-  const [editingJobProfile, setEditingJobProfile] = useState<EmployeeConfigItem | null>(null);
+  const [editingJobProfile, setEditingJobProfile] = useState<JobProfileItem | null>(null);
+  const [jobProfileCompanyId, setJobProfileCompanyId] = useState<string | undefined>(undefined);
 
   // Employee Type configurations
   const [employeeTypes, setEmployeeTypes] = useState<EmployeeConfigItem[]>([]);
@@ -86,7 +91,7 @@ const EmployeeConfigure = () => {
   };
 
   // Edit handlers
-  const handleJobProfileEdit = (jobProfile: EmployeeConfigItem) => {
+  const handleJobProfileEdit = (jobProfile: JobProfileItem) => {
     setEditingJobProfile(jobProfile);
     setShowJobProfileModal(true);
   };
@@ -140,18 +145,54 @@ const EmployeeConfigure = () => {
     }
   };
 
-  // Fetch job profiles
+  /**
+   * Job Profiles read from DESIGNATIONS — the table the onboarding "Job Profile"
+   * dropdown actually uses. This card previously listed employee_configurations
+   * (JOB_PROFILE), a separate table nothing consumed: anything created here never
+   * reached the form, and the real designations could not be edited from this screen.
+   * The column is `role`; it is mapped to `name` so ItemChip renders it unchanged.
+   */
   const fetchJobProfiles = async () => {
     try {
       setLoading(true);
-      const response = await fetchAllEmployeeConfigurations("JOB_PROFILE");
-      if (response?.data?.employeeConfigurations) {
-        setJobProfiles(response.data.employeeConfigurations);
+      const response = await fetchDesignations();
+      const rows = response?.data?.designations || [];
+      setJobProfiles(
+        rows.map((d: any) => ({
+          id: d.id,
+          name: d.role ?? d.name ?? "",
+          companyId: d.companyId,
+          isActive: d.isActive,
+        }))
+      );
+
+      // Creating one needs a companyId and the create schema requires it. Take it from
+      // an existing row; fall back to the active org when the list is still empty.
+      let resolved = rows[0]?.companyId as string | undefined;
+      if (!resolved) {
+        try {
+          const { data: { companyOverview } } = await fetchCompanyOverview();
+          resolved = resolveActiveOrgId(companyOverview) ?? undefined;
+        } catch {
+          resolved = undefined;
+        }
       }
+      setJobProfileCompanyId(resolved);
     } catch (error) {
       console.error("Error fetching job profiles:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleJobProfileDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation("Successfully deleted job profile");
+      if (!confirmed) return;
+      await archiveDesignationById(id);
+      fetchJobProfiles();
+    } catch (error) {
+      console.error("Error deleting job profile:", error);
     }
   };
 
@@ -363,7 +404,7 @@ const EmployeeConfigure = () => {
           {/* Job Profiles Section */}
           <ConfigSectionCard
             title="Job Profiles"
-            description="Define different job profiles for employees"
+            description="Options offered in the onboarding Job Profile picker (also shown as Designations under Organization Profile)"
             icon="bi-briefcase"
             iconColor="blue"
             badge={{ label: `${jobProfiles.length}`, color: C.info, bg: '#dbeafe' }}
@@ -380,7 +421,7 @@ const EmployeeConfigure = () => {
                       key={jobProfile.id}
                       item={jobProfile}
                       onEdit={handleJobProfileEdit}
-                      onDelete={(id: string) => handleDelete(id, 'JOB_PROFILE')}
+                      onDelete={handleJobProfileDelete}
                     />
                   ))}
                 </div>
@@ -644,15 +685,14 @@ const EmployeeConfigure = () => {
       </ConfigPageLayout>
 
       {/* Modals */}
-      {/* Job Profile Modal */}
-      <EmployeeConfigureForm
+      {/* Job Profile Modal — designations-backed, so it can't reuse EmployeeConfigureForm */}
+      <JobProfileConfigureForm
         show={showJobProfileModal}
         onClose={handleJobProfileModalClose}
         onSuccess={fetchJobProfiles}
         initialData={editingJobProfile}
         isEditing={!!editingJobProfile}
-        type="JOB_PROFILE"
-        title="Job Profile"
+        companyId={jobProfileCompanyId}
       />
 
       {/* Employee Type Modal */}

@@ -79,6 +79,7 @@ export const COMPANY = {
     CREATE_DESIGNATION: "api/company/designations",
     GET_ALL_DESIGNATION: "api/company/designations",
     UPDATE_DESIGNATION_BY_ID: "api/company/designations/:designationId",
+    ARCHIVE_DESIGNATION_BY_ID: (id: string) => `api/company/designations/${id}`,
     CREATE_BRANCHES: "api/company/branches",
     GET_ALL_BRANCHES: "api/company/branches",
     GET_BRANCH_BY_ID: "api/company/branch/:branchId",

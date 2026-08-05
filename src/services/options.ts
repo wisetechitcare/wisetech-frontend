@@ -177,6 +177,22 @@ export const updateDesignationById = async (designationId: string, payload: ICom
 
 }
 
+/**
+ * Retires a designation. The backend route is an ARCHIVE (it flips isActive), not a
+ * row delete — employees reference designationId, so removing the row would strip the
+ * job profile off their records. Retired designations drop out of the pickers.
+ */
+export const archiveDesignationById = async (designationId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.ARCHIVE_DESIGNATION_BY_ID(designationId)}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 
 // Fetch Onboarding Docs
 export const fetchOnboardingDocs = async (companyId: string) => {
