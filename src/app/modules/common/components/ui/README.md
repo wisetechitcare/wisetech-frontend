@@ -123,11 +123,12 @@ Rules:
 supersedes `TonePicker` (palette only) and the raw `<input type="color">` that
 the Public Holiday and Appearance forms still use with banned Bootstrap classes.
 
-It does NOT use `<input type="color">`. That opens the browser's own popup,
-which is chrome — square-cornered, OS-styled, and light-on-white in dark mode
-however the app is themed. Same reason `<input type="date">` is banned. The
-expanded palette is an MUI `Popover`, so radius, borders and dark mode all
-follow the theme.
+The custom swatch opens the browser's colour picker. Deliberate: it gives a
+real gradient + eyedropper on every platform, works on touch, is keyboard
+accessible, and adds nothing to the bundle. The popup is OS chrome and does not
+follow the app theme — accepted, because unlike `<input type="date">` it neither
+formats data by locale nor hides its value, so the mismatch is cosmetic and
+lasts only while picking.
 
 Stored values are either a palette name (`blue`) or a hex (`#1E3A8A`). A palette
 name is preferred where it fits, because it carries the kit's coordinated

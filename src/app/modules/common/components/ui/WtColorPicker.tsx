@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Box, Popover, Stack, TextField, Tooltip } from '@mui/material';
+import React, { useId, useMemo } from 'react';
+import { Box, Stack, TextField, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { TRIO, type Trio } from './patterns';
 
@@ -12,16 +12,17 @@ import { TRIO, type Trio } from './patterns';
  * banned by the UI standard, neither themed, and no palette to keep choices
  * coherent. Anything letting a user colour a record should use this.
  *
- * NO `<input type="color">`. That opens the BROWSER's own popup, which is
- * chrome: square-cornered, OS-styled, and light-on-white in dark mode however
- * the app is themed. It is the same reason this project bans
- * `<input type="date">` in favour of a themed picker — see CLAUDE.md.
+ * Three ways to choose, in increasing precision: the kit palette for the common
+ * case, the custom swatch for a free choice, and the hex field for an exact
+ * brand value.
  *
- * Instead: the kit palette, an expanded themed palette behind "More", and a hex
- * field for an exact brand value. Everything renders inside the app's own
- * surfaces, so radius, borders and dark mode all follow the theme. A curated
- * palette also produces better results than a free-form gradient — nobody needs
- * 16 million choices to colour a section.
+ * The custom swatch opens the BROWSER's colour picker. That is a deliberate
+ * trade-off, chosen over a themed in-app popover: it gives a real gradient +
+ * eyedropper on every platform, works on touch, is keyboard-accessible, and
+ * costs nothing in bundle size. The price is that the popup itself is OS chrome
+ * and does not follow the app theme — unlike `<input type="date">`, which is
+ * banned here, the colour popup neither formats data by locale nor hides its
+ * value, so the mismatch is cosmetic and confined to the moment of picking.
  *
  * Values are a palette entry's `value` (a kit tone name) or a hex string.
  */
@@ -65,21 +66,6 @@ export const resolveSwatchHex = (
     return match?.hex ?? fallback;
 };
 
-/**
- * Expanded choices behind "More" — five steps across the spectrum plus neutrals,
- * at a consistent saturation/lightness so any two sit together without clashing.
- * Curated rather than free-form: it keeps a tenant's colours inside a coherent
- * range while still feeling like a real choice.
- */
-export const EXTENDED_SWATCHES: readonly string[] = [
-    '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e',
-    '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1',
-    '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#64748b',
-    '#b91c1c', '#c2410c', '#b45309', '#4d7c0f', '#15803d', '#0f766e',
-    '#0e7490', '#0369a1', '#1d4ed8', '#4338ca', '#6d28d9', '#a21caf',
-    '#9f1239', '#334155', '#1e293b', '#78716c', '#a8a29e', '#0f172a',
-];
-
 export interface WtColorPickerProps {
     /** Stored value: a palette entry's `value`, or a hex. */
     value: string;
@@ -97,7 +83,7 @@ export interface WtColorPickerProps {
 export function WtColorPicker({
     value, onChange, palette = KIT_SWATCHES, label, allowCustom = true, size = 36, disabled,
 }: WtColorPickerProps) {
-    const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null);
+    const inputId = useId();
     const currentHex = useMemo(() => resolveSwatchHex(value, palette), [value, palette]);
     const isCustom = useMemo(
         () => isHexColor(value) && !palette.some((swatch) => swatch.hex.toLowerCase() === value.toLowerCase()),
@@ -144,15 +130,10 @@ export function WtColorPicker({
                 })}
 
                 {allowCustom && (
-                    <Tooltip title="More colours">
+                    <Tooltip title="Custom colour">
                         <Box
-                            component="button"
-                            type="button"
-                            aria-label={`${label} — more colours`}
-                            aria-haspopup="dialog"
-                            aria-expanded={Boolean(anchorEl)}
-                            disabled={disabled}
-                            onClick={(event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)}
+                            component="label"
+                            htmlFor={inputId}
                             sx={{
                                 width: size,
                                 height: size,
@@ -170,10 +151,22 @@ export function WtColorPicker({
                                     ? currentHex
                                     : 'conic-gradient(#ef4444,#f59e0b,#22c55e,#06b6d4,#3b82f6,#a855f7,#ef4444)',
                                 color: '#fff',
-                                '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
+                                '&:focus-within': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
                             }}
                         >
                             {isCustom && <KTIcon iconName="check" className="fs-7" />}
+                            {/* Visually hidden, but still a real focusable input so
+                                the swatch is reachable by keyboard. */}
+                            <Box
+                                component="input"
+                                id={inputId}
+                                type="color"
+                                aria-label={`${label} — custom colour`}
+                                disabled={disabled}
+                                value={currentHex}
+                                onChange={(event: React.ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
+                                sx={{ width: 0, height: 0, opacity: 0, position: 'absolute', pointerEvents: 'none' }}
+                            />
                         </Box>
                     </Tooltip>
                 )}
@@ -196,53 +189,6 @@ export function WtColorPicker({
                 />
             )}
 
-            {/* Expanded palette — an app surface, so it inherits the theme's
-                radius, border and dark mode. This is what the browser's own
-                colour popup cannot do. */}
-            <Popover
-                open={Boolean(anchorEl)}
-                anchorEl={anchorEl}
-                onClose={() => setAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                slotProps={{ paper: { sx: { borderRadius: '14px', p: 1.5, mt: 1 } } }}
-            >
-                <Box
-                    role="radiogroup"
-                    aria-label={`${label} — more colours`}
-                    sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 0.75 }}
-                >
-                    {EXTENDED_SWATCHES.map((hex) => {
-                        const selected = currentHex.toLowerCase() === hex.toLowerCase();
-                        return (
-                            <Box
-                                key={hex}
-                                component="button"
-                                type="button"
-                                role="radio"
-                                aria-checked={selected}
-                                aria-label={hex}
-                                title={hex}
-                                onClick={() => { onChange(hex); setAnchorEl(null); }}
-                                sx={{
-                                    width: 28,
-                                    height: 28,
-                                    display: 'grid',
-                                    placeItems: 'center',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    bgcolor: hex,
-                                    color: '#fff',
-                                    border: '2px solid',
-                                    borderColor: selected ? 'text.primary' : 'transparent',
-                                    '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
-                                }}
-                            >
-                                {selected && <KTIcon iconName="check" className="fs-8" />}
-                            </Box>
-                        );
-                    })}
-                </Box>
-            </Popover>
         </Stack>
     );
 }
