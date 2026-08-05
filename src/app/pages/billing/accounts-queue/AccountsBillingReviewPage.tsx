@@ -1,5 +1,5 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { Box, Divider, Stack, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
@@ -10,6 +10,7 @@ import { formatDate, formatDateTime } from "@utils/dateFormats";
 import {
   getAccountsQueueItem, getBillingRequestHistory, type AccountsQueueItem,
 } from "@services/billingRequest";
+import { openDocument } from "@services/documents";
 import {
   BillingPageHeader, BillingStatusBadge, BillingSummaryCard, BillingTimeline,
   BillingLoadingState, BillingEmptyState, BillingStatsCard, type BillingTimelineStep,
@@ -50,6 +51,22 @@ const AccountsBillingReviewPage: React.FC = () => {
     queryKey: ["billing-request", id, "history"],
     queryFn: () => getBillingRequestHistory(id),
     enabled: !!id,
+  });
+
+  /**
+   * Open (or re-open) this request's proforma and go to the document editor.
+   *
+   * The endpoint is find-or-create, so this page needs no "already generated?"
+   * branch — the rule lives on the server where it can actually be enforced.
+   */
+  const openProforma = useMutation({
+    mutationFn: () => openDocument({ kind: "PROFORMA", subjectId: id }),
+    onSuccess: (payload) => navigate(`/billing/proformas/${payload.document.id}`),
+    onError: (error: any) =>
+      toast({
+        icon: "error",
+        title: error?.response?.data?.message ?? "Could not open the proforma for this request",
+      }),
   });
 
   if (isLoading || !request) {
@@ -100,14 +117,16 @@ const AccountsBillingReviewPage: React.FC = () => {
             >
               Back to Queue
             </WtButton>
-            {/* Disabled until the Proforma module ships. */}
+            {/* Find-or-create, so clicking twice opens the same document rather than
+                burning a second proforma number. */}
             <WtButton
-              tone="primary" size="small" disabled
-              title="Proforma generation arrives in the next phase"
-              onClick={() => toast({ icon: "info", title: "Proforma generation is not implemented yet" })}
+              tone="primary" size="small"
+              disabled={openProforma.isPending}
+              title="Open the proforma for this request"
+              onClick={() => openProforma.mutate()}
               sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
             >
-              Generate Proforma
+              {openProforma.isPending ? "Opening…" : "Generate Proforma"}
             </WtButton>
           </Stack>
         }

@@ -75,8 +75,17 @@ Single source of truth: `src/utils/dateFormats.ts`.
 - Notifications: prefer the kit's `toast` / `confirmDialog` / `alertDialog` (`ui/feedback.ts`). react-toastify / sonner / sweetalert2 all exist from earlier eras; don't add new direct usages.
 - Heavy libs (PDF, charts, maps, xlsx) are code-split via `manualChunks` in `vite.config.ts`. Prefer lazy-loading heavy routes/components; don't import a vendor bundle into a hot common path.
 
-## Billing module (planned, not yet built)
+## Billing module (partly built)
 Plan: [../BILLING/INDEX.md](../BILLING/INDEX.md). The project Billing tab already exists as a placeholder — `pages/employee/entity/detail/sections/BillingSection.tsx`, registered in `detail/facets.ts` and rendered from `EntityDetailPage.tsx`. It predates the UI standard (raw divs, hardcoded hex), so **replace it wholesale rather than extending it**.
+
+## Document Engine (built — Proforma live)
+Design doc: [../DOCUMENT_ENGINE.md](../DOCUMENT_ENGINE.md). Pages under `pages/billing/documents/`, client in `services/documents.ts`.
+
+- **`DocumentSheet` injects server-rendered HTML and patches it — it does not re-implement the template.** The same HTML string is what the PDF prints, so a React version of the layout would immediately drift. Never build one.
+- Live editing writes `textContent` on `[data-field]` spans the server emitted. `textContent`, never `innerHTML` — typed text must never be parsed as markup.
+- The left panel (`DocumentPropertiesPanel`) is **built from the template's `fieldPolicy`**, not hardcoded. A template that adds a field gets an input for free; `fieldMeta.ts` only supplies the label/grouping (with a title-case fallback).
+- The A4 sheet is a fixed 210mm scaled by transform. Don't make it responsive — it is page geometry, not a layout.
+- Proforma is a `kind`, not a route. The list and editor work unchanged for Tax Invoice and the rest.
 
 ## Before saying a change is done
 Run `npx tsc --noEmit` (or a full `npm run build`) — it must pass clean. Run `npm run lint` on files you touched (warnings are informational; don't introduce new errors).

@@ -647,6 +647,24 @@ export const BILLING_REQUEST = {
     GENERATE_PROFORMA: "api/billing/accounts-queue/:id/generate-proforma",
 }
 
+// Document engine — kind-agnostic. Proforma, Tax Invoice, Quotation, PO, Credit
+// Note, Debit Note, Payment Receipt and Delivery Note all use these same paths;
+// the kind is a field on the request, never a URL segment.
+export const DOCUMENT = {
+    KINDS: "api/documents/kinds",
+    OPEN: "api/documents/open",
+    LIST: "api/documents",
+    GET_BY_ID: "api/documents/:id",
+    SAVE_DRAFT: "api/documents/:id",
+    PUBLISH: "api/documents/:id/publish",
+    REVISE: "api/documents/:id/revise",
+    CANCEL: "api/documents/:id/cancel",
+    PDF: "api/documents/:id/pdf",
+    VERSIONS: "api/documents/:id/versions",
+    EMAILS: "api/documents/:id/emails",
+    SEND_EMAIL: "api/documents/:id/email",
+}
+
 // Meeting Schedules (project-type → area brackets → meetings) — configured under Lead
 // Configuration and selected on a lead's meeting-schedule step.
 export const MEETING_SCHEDULE = {

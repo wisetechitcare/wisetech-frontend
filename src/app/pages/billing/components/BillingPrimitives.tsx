@@ -77,7 +77,8 @@ export const BILLING_STATUS_TONES: Record<string, SemanticTone> = {
   // Deprecated alias for READY_FOR_PROFORMA — same tone so old rows read identically.
   SENT_TO_ACCOUNTS: "cyan",
   PROFORMA_GENERATED: "success",
-  // Proforma
+  // Proforma / document engine
+  PUBLISHED: "indigo",
   GENERATED: "indigo",
   SENT: "cyan",
   VIEWED: "cyan",
