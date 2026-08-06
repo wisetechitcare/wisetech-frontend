@@ -109,6 +109,26 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
     setCountryProp(resolvedCountry);
   }, [resolvedCountry]);
 
+  /**
+   * The number is handed over one render later still — it CANNOT arrive with the country.
+   *
+   * updateCountry() ends with `formattedNumber: disableCountryCode ? "" : …`, i.e. it
+   * blanks the field outright when the dial code is being kept out of the input. And
+   * componentDidUpdate picks its branch with an if/ELSE — a changed country wins and the
+   * value branch never runs. Passing both at once therefore wiped the number, and the
+   * library re-rendered showing "+91 95941-07173" inline instead of in the button.
+   *
+   * Delivering the value on a LATER render lets the country settle first, then takes the
+   * value branch (updateFormattedNumber), which honours disableCountryCode and — with
+   * disableCountryGuess — keeps the country we just set. Typing afterwards flows through
+   * the same branch, so this only costs one extra render at mount.
+   */
+  const [valueProp, setValueProp] = useState('');
+  useEffect(() => {
+    if (!countryProp) return;
+    setValueProp(normalizedFieldValue);
+  }, [countryProp, normalizedFieldValue]);
+
   // The code printed in the button, seeded from the SAME country the flag opens on so
   // the two can't contradict each other, then re-synced from whatever country the
   // library reports on change — which is authoritative once the user has interacted.
@@ -158,7 +178,7 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
       )}
       <PhoneInput
         country={countryProp}
-        value={normalizedFieldValue}
+        value={valueProp}
         disableCountryCode
         // Stops the country being re-guessed from the digits as the user types. The
         // INITIAL guess is dodged by the deferred `countryProp` above — not by
