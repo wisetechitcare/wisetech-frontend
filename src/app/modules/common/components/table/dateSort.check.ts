@@ -1,11 +1,16 @@
 /**
- * Self-check for the date comparator. No test runner is installed, so run it
- * with the esbuild that already ships inside Vite:
+ * Self-check for the date comparator. No test runner is installed, so bundle it
+ * and pipe it into node:
  *
- *   npx esbuild src/app/modules/common/components/table/dateSort.check.ts \
+ *   pnpm exec esbuild src/app/modules/common/components/table/dateSort.check.ts \
  *     --bundle --platform=node --format=cjs | node
  *
- * Exits non-zero on failure. Add it to CI when a runner lands.
+ * esbuild is a declared devDependency for exactly this reason. It ships inside
+ * Vite anyway, but pnpm's strict node_modules does not expose a transitive
+ * dependency's binary — so relying on the hoisted copy (as `npx esbuild` did
+ * under npm) silently stops working.
+ *
+ * Exits non-zero on failure. Fold it into CI when a real runner lands.
  */
 
 import assert from "node:assert/strict";
