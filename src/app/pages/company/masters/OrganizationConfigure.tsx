@@ -7,6 +7,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
 import OrganizationConfigureForm from "./components/OrganizationConfigureForm";
+import { ActionIconButton } from "@app/modules/common/components/ui";
 import {
   ConfigPageLayout,
   ConfigSectionCard,
@@ -61,19 +62,11 @@ const NameChip: React.FC<NameChipProps> = ({ name, onEdit, onDelete }) => {
           {name}
         </span>
       </div>
-      <div style={{ display: 'flex', gap: '4px', flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
-        <button
-          onClick={onEdit}
-          style={{ background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
-        >
-          <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
-        </button>
-        <button
-          onClick={onDelete}
-          style={{ background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
-        >
-          <i className="bi bi-trash" style={{ fontSize: '11px' }} />
-        </button>
+      {/* Always visible: these used to sit at 0.35 opacity until hover, which read as
+          disabled and is unreachable on touch, where there is no hover at all. */}
+      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+        <ActionIconButton iconName="pencil" title="Edit" onClick={onEdit} size="sm" />
+        <ActionIconButton iconName="trash" title="Delete" tone="danger" onClick={onDelete} size="sm" />
       </div>
     </div>
   );

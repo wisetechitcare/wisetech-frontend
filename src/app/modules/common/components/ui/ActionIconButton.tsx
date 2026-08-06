@@ -18,7 +18,16 @@ export interface ActionIconButtonProps {
   onClick: () => void;
   tone?: ActionTone;
   disabled?: boolean;
+  /**
+   * "md" (40px) for cards and table rows; "sm" (30px) inside compact chips, where a
+   * 40px control would inflate the chip itself. Same tinted-square language either
+   * way — only the scale changes, so rows and chips still read as one system.
+   */
+  size?: 'sm' | 'md';
 }
+
+const SIZE_PX: Record<'sm' | 'md', number> = { sm: 30, md: 40 };
+const SIZE_ICON_CLASS: Record<'sm' | 'md', string> = { sm: 'fs-6', md: 'fs-4' };
 
 /**
  * Row/card action button: a tinted ~40px square holding a KTIcon.
@@ -37,8 +46,10 @@ export default function ActionIconButton({
   onClick,
   tone = 'indigo',
   disabled = false,
+  size = 'md',
 }: ActionIconButtonProps) {
   const color = TONE_COLOR[tone];
+  const px = SIZE_PX[size];
 
   return (
     <Tooltip title={title}>
@@ -50,9 +61,9 @@ export default function ActionIconButton({
           disabled={disabled}
           aria-label={title}
           sx={{
-            width: 40,
-            height: 40,
-            borderRadius: '10px',
+            width: px,
+            height: px,
+            borderRadius: size === 'sm' ? '8px' : '10px',
             color,
             bgcolor: `${color}1A`,
             border: `1px solid ${color}3D`,
@@ -60,7 +71,7 @@ export default function ActionIconButton({
             '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66` },
           }}
         >
-          <KTIcon iconName={iconName} className="fs-4" />
+          <KTIcon iconName={iconName} className={SIZE_ICON_CLASS[size]} />
         </IconButton>
       </span>
     </Tooltip>

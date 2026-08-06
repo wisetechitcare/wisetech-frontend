@@ -14,6 +14,7 @@ import { fetchDesignations, archiveDesignationById } from "@services/options";
 import { fetchCompanyOverview } from "@services/company";
 import { resolveActiveOrgId } from "@utils/activeOrg";
 import Loader from "@app/modules/common/utils/Loader";
+import { ActionIconButton } from "@app/modules/common/components/ui";
 import Departments from "@pages/company/Departments";
 import OrganizationConfigure from "@pages/company/masters/OrganizationConfigure";
 import {
@@ -379,41 +380,15 @@ const EmployeeConfigure = () => {
           {item.name}
         </span>
       </div>
-      <div style={{ display: 'flex', gap: SP.md, alignItems: 'center' }}>
-        <button
-          onClick={() => onEdit(item)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: C.primary,
-            cursor: 'pointer',
-            padding: '4px',
-            display: 'flex',
-            alignItems: 'center',
-            transition: 'color 0.2s ease',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = C.primaryMid)}
-          onMouseLeave={(e) => (e.currentTarget.style.color = C.primary)}
-        >
-          <i className="bi bi-pencil" style={{ fontSize: '16px' }} />
-        </button>
-        <button
+      <div style={{ display: 'flex', gap: SP.sm, alignItems: 'center', flexShrink: 0 }}>
+        <ActionIconButton iconName="pencil" title="Edit" onClick={() => onEdit(item)} size="sm" />
+        <ActionIconButton
+          iconName="trash"
+          title="Delete"
+          tone="danger"
           onClick={() => onDelete(item.id)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#dc3545',
-            cursor: 'pointer',
-            padding: '4px',
-            display: 'flex',
-            alignItems: 'center',
-            transition: 'color 0.2s ease',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = '#c82333')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = '#dc3545')}
-        >
-          <i className="bi bi-trash" style={{ fontSize: '16px' }} />
-        </button>
+          size="sm"
+        />
       </div>
     </div>
   );
