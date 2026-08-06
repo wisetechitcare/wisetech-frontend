@@ -35,7 +35,16 @@ const DEFAULT_CENTER: [number, number] = [19.076, 72.8777];
 export interface GeoPick {
   lat: number;
   lng: number;
+  /** Nominatim's full display_name — street through to country. */
   formatted: string;
+  /**
+   * Just the street line: house number, road, and the named place it sits in.
+   *
+   * `formatted` repeats the city, district, state, postcode and country that a form
+   * already collects in their own fields, so writing it into an "Address" input
+   * duplicates half the form. Callers that have those fields separately want this.
+   */
+  street: string;
   country: string;
   state: string;
   city: string;
@@ -66,10 +75,28 @@ const toGeoPick = (result: any): GeoPick => {
   const a = result?.address ?? {};
   const lat = Number(result?.lat);
   const lng = Number(result?.lon);
+
+  // Street line, most specific first. `name` catches a named building or complex that
+  // OSM records without a house number. Duplicates are dropped because Nominatim often
+  // repeats the same string across name/road/neighbourhood for a single-entity result.
+  const street = Array.from(
+    new Set(
+      [
+        result?.name,
+        [a.house_number, a.road].filter(Boolean).join(" "),
+        a.neighbourhood ?? a.residential,
+        a.suburb,
+      ]
+        .map((part) => (part ?? "").toString().trim())
+        .filter(Boolean)
+    )
+  ).join(", ");
+
   return {
     lat,
     lng,
     formatted: result?.display_name ?? "",
+    street,
     country: a.country ?? "",
     state: a.state ?? a.province ?? "",
     city: a.city ?? a.town ?? a.village ?? a.municipality ?? a.county ?? "",
@@ -127,7 +154,12 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, l
   }, []);
 
   const reverseGeocode = useCallback(async (pointLat: number, pointLng: number): Promise<any | null> => {
-    const res = await fetch(`${NOMINATIM}/reverse?format=jsonv2&addressdetails=1&lat=${pointLat}&lon=${pointLng}`);
+    // zoom=18 is building level. Nominatim defaults to it today, but the default is
+    // not contractual and a coarser one would silently start returning the suburb
+    // centroid instead of the address under the pin — state it explicitly.
+    const res = await fetch(
+      `${NOMINATIM}/reverse?format=jsonv2&addressdetails=1&zoom=18&lat=${pointLat}&lon=${pointLng}`
+    );
     const data = await res.json();
     return data?.address ? data : null;
   }, []);
@@ -188,6 +220,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, l
         lat: pointLat,
         lng: pointLng,
         formatted: "",
+        street: "",
         country: "",
         state: "",
         city: "",

@@ -295,7 +295,13 @@ function AddressInfo({ formikProps }: any) {
         }
 
         if (geo.postcode) setFieldValue(`addressInfo.${which}PostalCode`, geo.postcode);
-        if (geo.formatted) setFieldValue(`addressInfo.${which}AddressLine1`, geo.formatted);
+
+        // Street line only. `formatted` is Nominatim's display_name, which trails the
+        // city, district, state, pincode and country — every one of which has its own
+        // field below, so writing it here duplicated half the section. Falls back to
+        // the full string when OSM has no street detail for the point.
+        const line1 = geo.street || geo.formatted;
+        if (line1) setFieldValue(`addressInfo.${which}AddressLine1`, line1);
 
         const country = (countriesOption as Option[]).find((c) => eq(c.label, geo.country));
         if (!country) return;
