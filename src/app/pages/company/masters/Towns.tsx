@@ -1,4 +1,5 @@
 ﻿import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { ActionIconButton } from '@app/modules/common/components/ui';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { RootState } from '@redux/store';
 import { fetchCompanyOverview } from '@services/company';
@@ -91,13 +92,11 @@ function Towns() {
                     accessorKey: "actions",
                     header: "Actions",
                     Cell: ({ row }: any) => (
-                        <button
-                            className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                        <ActionIconButton
+                            iconName="pencil"
+                            title="Edit town"
                             onClick={() => handleEditClick(row.original.id)}
-                            style={{ cursor: 'pointer' }}
-                        >
-                            <i className="bi bi-pencil" style={{ fontSize: '16px' }} />
-                        </button>
+                        />
                     ),
                 });
             }
