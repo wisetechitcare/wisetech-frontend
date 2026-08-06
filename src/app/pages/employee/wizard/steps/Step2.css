@@ -1082,6 +1082,148 @@
 }
 
 /* ════════════════════════════════════════
+   ONBOARDING DOCUMENT ATTACHMENT CARD
+   One card per document type configured in Company → Onboarding Docs.
+   ════════════════════════════════════════ */
+.ob-doc-card {
+  width: 100%;
+  padding: 16px 18px;
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-r-md);
+  background: var(--ob-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+  transition: border-color var(--ob-tr), box-shadow var(--ob-tr);
+}
+
+.ob-doc-card:hover {
+  border-color: var(--ob-border-2);
+  box-shadow: var(--ob-shadow-xs);
+}
+
+.ob-doc-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ob-doc-card-icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--ob-r);
+  background: var(--ob-accent-soft);
+  color: var(--ob-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Turns green alongside the "Attached" pill, so state reads from either end of
+   the row rather than only from the pill on the far right. */
+.ob-doc-card-icon.is-attached {
+  background: var(--ob-success-soft);
+  color: var(--ob-success);
+}
+
+.ob-doc-card-name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--ob-font);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ob-text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Attached / not attached, so the state of a card is readable without opening
+   the file field — the whole point of the section is "what is on file". */
+.ob-doc-card-state {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: var(--ob-surface-2);
+  color: var(--ob-text-4);
+  border: 1px solid var(--ob-border);
+}
+
+.ob-doc-card-state.is-attached {
+  background: var(--ob-success-soft, #ecfdf5);
+  color: var(--ob-success, #059669);
+  border-color: transparent;
+}
+
+.ob-doc-card-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--ob-r);
+  background: var(--ob-accent-soft);
+  color: var(--ob-text-2);
+  font-size: 0.78rem;
+}
+
+/* Number beside attachment on desktop; the attachment takes the full width when
+   the type carries no identity number, instead of leaving a dead column. */
+.ob-doc-card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 16px;
+  align-items: end;
+}
+
+.ob-doc-card-body.is-file-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ob-doc-card-file {
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .ob-doc-card-body {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+}
+
+/* Nothing configured yet — say so and point at where it is configured, rather
+   than rendering a section that looks broken. */
+.ob-doc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 20px;
+  border: 1px dashed var(--ob-border-2);
+  border-radius: var(--ob-r-md);
+  background: var(--ob-surface-2);
+  text-align: center;
+}
+
+.ob-doc-empty-title {
+  font-family: var(--ob-font);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ob-text-2);
+}
+
+.ob-doc-empty-hint {
+  font-size: 0.78rem;
+  color: var(--ob-text-4);
+  max-width: 42ch;
+}
+
+/* ════════════════════════════════════════
    Education popover
    ════════════════════════════════════════ */
 .education-popover-anchor { position: relative; }
