@@ -21,6 +21,8 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import { useSelector } from "react-redux";
+import { RootState } from "@redux/store";
 import { useThemeMode } from "@metronic/partials";
 import { Box } from "@mui/material";
 import { KTIcon, PAGE_SIZE_OPTIONS, PageSizeOption } from "@metronic/helpers";
@@ -209,8 +211,19 @@ function MaterialTable({
   // Apply default sizing if not set
   const finalColumns = useMemo(
     () =>
-      columns.map((col: any) => ({
+      columns.map((col: any) => {
+        // "actions" / "avatar" have no backing row field, so MRT's sort, group
+        // and filter controls all operated on undefined — 42 of 68 such columns
+        // app-wide rendered a ⇅ affordance that did nothing. Defaults only:
+        // `...col` is spread afterwards, so a column can still opt back in.
+        const key = col.accessorKey ?? col.id;
+        const isNonDataColumn = key === "actions" || key === "avatar";
+
+        return {
         ...defaultColumnSizes,
+        ...(isNonDataColumn
+          ? { enableSorting: false, enableColumnActions: false, enableHiding: false }
+          : {}),
         ...col, // custom column values will override defaults
         Cell: (cellProps: any) => {
           const content = col.Cell
@@ -218,8 +231,8 @@ function MaterialTable({
             : cellProps.cell.getValue();
 
           const highlight = (text: any) => {
-            if (typeof text === "string" && globalFilterValue) {
-              return <HighlightMatch text={text} query={globalFilterValue} />;
+            if (typeof text === "string" && debouncedFilterValue) {
+              return <HighlightMatch text={text} query={debouncedFilterValue} />;
             }
             return text;
           };
@@ -242,9 +255,26 @@ function MaterialTable({
 
           return content;
         },
-      })),
-    [columns, globalFilterValue],
+        };
+      }),
+    // debouncedFilterValue, NOT the raw input: this memo rebuilds every column
+    // definition (and MRT's whole column model) on each keystroke otherwise.
+    // The rows it highlights are debounced too, so highlight and results now
+    // update on the same tick instead of the text leading the data.
+    [columns, debouncedFilterValue],
   );
+
+  /**
+   * Who owns the saved layout.
+   *
+   * `employeeId` is the preferences bucket key, and it was a required-in-practice
+   * prop that 23 of the 88 tables simply never passed — so those tables silently
+   * persisted nothing: sort a column, reload, gone. Every caller that does pass
+   * it passes the current user's own id, so resolve it here instead of asking 23
+   * more call sites to remember. The prop still wins when supplied.
+   */
+  const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
+  const prefsEmployeeId = employeeId ?? currentEmployeeId;
 
   const isMobile = useMediaQuery("(max-width:600px)");
 
@@ -428,7 +458,7 @@ function MaterialTable({
     updateGrouping,
     updateExpanded,
     resetPreferences,
-  } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting, persistPreferences);
+  } = useTablePreferences(tableName, finalColumns, prefsEmployeeId, defaultSorting, persistPreferences);
 
   // Surface the visible column keys to the parent once preferences resolve and on every
   // toggle. A column is visible unless its visibility flag is explicitly false.
@@ -1142,7 +1172,7 @@ function MaterialTable({
           )}
 
         <MaterialReactTable
-          key={`${tableName}-${employeeId}-${isInitialized}-${selectedSearchColumn}`}
+          key={`${tableName}-${prefsEmployeeId}-${isInitialized}-${selectedSearchColumn}`}
           getRowId={(row: any, index: number) => row.id ? String(row.id) : String(index)}
           renderDetailPanel={renderDetailPanel}
           state={{
