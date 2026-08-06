@@ -85,6 +85,22 @@ export interface MaterialTableProps {
   manualPagination?: boolean;
   rowCount?: number;
   onPaginationChange?: (pagination: any) => void;
+  /**
+   * Sort on the server instead of in the browser.
+   *
+   * REQUIRED whenever `manualPagination` is on and you want sorting to mean
+   * anything. With manual pagination the `data` prop holds only the current
+   * page, but MRT still sorts client-side by default — so clicking a header
+   * reorders just the visible rows while the UI implies the whole dataset was
+   * sorted. Setting this stops the local sort; pair it with `onSortingChange`
+   * and refetch with the new order.
+   *
+   * Defaults to false, so existing tables are unaffected until they opt in.
+   */
+  manualSorting?: boolean;
+  /** Fires with the resolved sorting state so the page can refetch. Preferences
+   *  are still persisted either way. */
+  onSortingChange?: (sorting: Array<{ id: string; desc: boolean }>) => void;
   paginationState?: { pageIndex: number; pageSize: number };
   isLoading?: boolean;
   layoutMode?: "grid" | "grid-no-grow" | "semantic";
@@ -172,6 +188,8 @@ function MaterialTable({
   manualPagination = false,
   rowCount,
   onPaginationChange,
+  manualSorting = false,
+  onSortingChange: onSortingChangeProp,
   paginationState,
   isLoading = false,
   layoutMode = "semantic",
@@ -275,6 +293,22 @@ function MaterialTable({
    */
   const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
   const prefsEmployeeId = employeeId ?? currentEmployeeId;
+
+  /**
+   * Server-paginated but client-sorted is a silent correctness bug: `data` holds
+   * only the current page, so a header click reorders the visible rows while the
+   * sort indicator implies the whole dataset. Same for the search box. Warn in
+   * dev rather than change behaviour, so existing tables keep working until each
+   * one is migrated to server-side sort.
+   */
+  useEffect(() => {
+    if (!import.meta.env.DEV || !manualPagination || manualSorting) return;
+    console.warn(
+      `[MaterialTable] "${tableName}" paginates on the server but sorts in the browser, ` +
+      `so sorting and search only affect the current page. Pass manualSorting + ` +
+      `onSortingChange and refetch with the new order.`,
+    );
+  }, [manualPagination, manualSorting, tableName]);
 
   const isMobile = useMediaQuery("(max-width:600px)");
 
@@ -1192,7 +1226,16 @@ function MaterialTable({
           onColumnOrderChange={updateColumnOrder}
           onColumnSizingChange={updateColumnSizing}
           onColumnPinningChange={updateColumnPinning}
-          onSortingChange={updateSorting}
+          manualSorting={manualSorting}
+          onSortingChange={(updater: any) => {
+            // Persist first (unchanged behaviour), then hand the page the
+            // resolved value. MRT passes either a value or an updater fn.
+            updateSorting(updater);
+            if (onSortingChangeProp) {
+              const next = typeof updater === "function" ? updater(preferences.sorting) : updater;
+              onSortingChangeProp(next ?? []);
+            }
+          }}
           onPaginationChange={onPaginationChange || updatePagination}
           onDensityChange={updateDensity}
           onExpandedChange={updateExpanded}
