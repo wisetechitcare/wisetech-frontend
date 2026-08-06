@@ -23,12 +23,12 @@ export const BILLING_BASE = "/billing";
 export const BILLING_TABS: BillingTabDef[] = [
     { path: "dashboard", title: "Dashboard", icon: "bi-speedometer2", accessKey: "billing.dashboard" },
     { path: "requests", title: "Billing Requests", icon: "bi-file-earmark-text", accessKey: "billing.requests" },
-    { path: "accounts", title: "Accounts Queue", icon: "bi-inbox", accessKey: "billing.accounts" },
     // The Accounts workspace: one row per approved request, carrying its whole
-    // financial journey. Sits immediately after the queue it consumes from.
+    // financial journey. Pre-filter with ?status=READY_FOR_PROFORMA to see the queue.
     { path: "operations", title: "Billing Operations", icon: "bi-diagram-3", accessKey: "billing.operations" },
     { path: "proformas", title: "Proformas", icon: "bi-receipt", accessKey: "billing.proformas" },
-    { path: "payments", title: "Payments", icon: "bi-cash-coin", accessKey: "billing.payments" },
+    // Record, verify and track client payments against issued proformas.
+    { path: "payments", title: "Payment Collection", icon: "bi-cash-coin", accessKey: "billing.payments" },
     { path: "invoices", title: "Tax Invoices", icon: "bi-receipt-cutoff", accessKey: "billing.invoices" },
     { path: "reports", title: "Reports", icon: "bi-graph-up", accessKey: "billing.reports" },
     { path: "settings", title: "Settings", icon: "bi-gear", accessKey: "billing.settings" },

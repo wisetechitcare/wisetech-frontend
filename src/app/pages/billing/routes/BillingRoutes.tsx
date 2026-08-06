@@ -18,29 +18,36 @@ import { BILLING_TABS, billingDefaultPath } from "../constants/billingNav";
 
 const BillingDashboard = lazy(() => import("../dashboard/BillingDashboard"));
 const BillingRequestsPage = lazy(() => import("../billing-requests/BillingRequestsPage"));
-const AccountsQueuePage = lazy(() => import("../accounts-queue/AccountsQueuePage"));
+const PaymentCollectionPage = lazy(() => import("../payments/PaymentCollectionPage"));
+const PaymentDetailPage = lazy(() => import("../payments/PaymentDetailPage"));
 const BillingOperationsPage = lazy(() => import("../operations/BillingOperationsPage"));
 const BillingOperationDetailPage = lazy(() => import("../operations/BillingOperationDetailPage"));
 const ProformasPage = lazy(() => import("../proformas/ProformasPage"));
-const PaymentsPage = lazy(() => import("../payments/PaymentsPage"));
 const InvoicesPage = lazy(() => import("../invoices/InvoicesPage"));
 const BillingReportsPage = lazy(() => import("../reports/BillingReportsPage"));
 const BillingSettingsPage = lazy(() => import("../settings/BillingSettingsPage"));
 const BillingRequestDetailPage = lazy(() => import("../billing-requests/BillingRequestDetailPage"));
 const BillingRequestFormPage = lazy(() => import("../billing-requests/BillingRequestFormPage"));
-const AccountsBillingReviewPage = lazy(() => import("../accounts-queue/AccountsBillingReviewPage"));
 // The template-driven document editor. Lazy on its own chunk — it carries the A4
 // preview surface and is only reached from a proforma row.
 const DocumentEditorPage = lazy(() => import("../documents/DocumentEditorPage"));
 const ProformaDetailPage = lazy(() => import("../proformas/ProformaDetailPage"));
+// Financial Reporting Center — one dedicated page per report card on the
+// landing page above. Each is its own chunk; nobody pays for all seven at once.
+const RevenueReportPage = lazy(() => import("../reports/RevenueReportPage"));
+const CollectionReportPage = lazy(() => import("../reports/CollectionReportPage"));
+const OutstandingReportPage = lazy(() => import("../reports/OutstandingReportPage"));
+const ReceivableReportPage = lazy(() => import("../reports/ReceivableReportPage"));
+const MonthlyReportPage = lazy(() => import("../reports/MonthlyReportPage"));
+const ClientReportPage = lazy(() => import("../reports/ClientReportPage"));
+const ProjectReportPage = lazy(() => import("../reports/ProjectReportPage"));
 
 const PAGES: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
     dashboard: BillingDashboard,
     requests: BillingRequestsPage,
-    accounts: AccountsQueuePage,
     operations: BillingOperationsPage,
     proformas: ProformasPage,
-    payments: PaymentsPage,
+    payments: PaymentCollectionPage,
     invoices: InvoicesPage,
     reports: BillingReportsPage,
     settings: BillingSettingsPage,
@@ -81,11 +88,6 @@ const BillingRoutes: React.FC = () => {
                     </>
                 )}
 
-                {/* Read-only Accounts review. Keeps the Accounts Queue tab highlighted. */}
-                {allowed("billing.accounts") && (
-                    <Route path="accounts/:id" element={<Suspensed><AccountsBillingReviewPage /></Suspensed>} />
-                )}
-
                 {/* One operation, end to end. Keeps the Billing Operations tab highlighted. */}
                 {allowed("billing.operations") && (
                     <Route path="operations/:id" element={<Suspensed><BillingOperationDetailPage /></Suspensed>} />
@@ -99,6 +101,27 @@ const BillingRoutes: React.FC = () => {
                     <>
                         <Route path="proformas/:id/edit" element={<Suspensed><DocumentEditorPage /></Suspensed>} />
                         <Route path="proformas/:id" element={<Suspensed><ProformaDetailPage /></Suspensed>} />
+                    </>
+                )}
+
+                {/* One payment collection, end to end. Keeps the Payment Collection tab
+                    highlighted. */}
+                {allowed("billing.payments") && (
+                    <Route path="payments/:id" element={<Suspensed><PaymentDetailPage /></Suspensed>} />
+                )}
+
+                {/* Financial Reporting Center. Each card on the Reports landing page
+                    navigates to one of these; Client/Project are drill-down-only
+                    (entered via ?clientId=/?projectId=, no picker of their own). */}
+                {allowed("billing.reports") && (
+                    <>
+                        <Route path="reports/revenue" element={<Suspensed><RevenueReportPage /></Suspensed>} />
+                        <Route path="reports/collections" element={<Suspensed><CollectionReportPage /></Suspensed>} />
+                        <Route path="reports/outstanding" element={<Suspensed><OutstandingReportPage /></Suspensed>} />
+                        <Route path="reports/receivables" element={<Suspensed><ReceivableReportPage /></Suspensed>} />
+                        <Route path="reports/monthly" element={<Suspensed><MonthlyReportPage /></Suspensed>} />
+                        <Route path="reports/client" element={<Suspensed><ClientReportPage /></Suspensed>} />
+                        <Route path="reports/project" element={<Suspensed><ProjectReportPage /></Suspensed>} />
                     </>
                 )}
 

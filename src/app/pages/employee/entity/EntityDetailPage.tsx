@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import { useDispatch } from 'react-redux';
@@ -56,7 +56,33 @@ const EntityDetailPage: React.FC = () => {
   const fromProjects = navState.isProject === true;
   const fromLeads = !fromProjects && navState.leadData != null;
 
-  const [activeTab, setActiveTab] = useState<string>(fromProjects ? 'projects' : 'leads');
+  // ── Tab lives in the URL (?tab=billing) ─────────────────────────────────────
+  //    Not cosmetic: a tab held only in component state cannot be linked to,
+  //    survives no refresh, and gives a page navigated away from nowhere to
+  //    return to. The Project Financial Workspace hands `?tab=billing` to Billing
+  //    as its return address, so this has to be addressable for "Back" to land
+  //    anywhere but the default tab.
+  //
+  //    Written with `replace` so flipping tabs does not stack history entries —
+  //    browser Back should leave the project, not walk back through its tabs.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTabState] = useState<string>(
+    searchParams.get('tab') || (fromProjects ? 'projects' : 'leads'),
+  );
+  const setActiveTab = useCallback(
+    (key: string) => {
+      setActiveTabState(key);
+      setSearchParams(
+        prev => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', key);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   const [lead, setLead] = useState<any | null>(null);
   const [company, setCompany] = useState<any | null>(null);
   const [contact, setContact] = useState<any | null>(null);

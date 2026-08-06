@@ -210,6 +210,28 @@ export const accessProforma = async (
   return data;
 };
 
+/**
+ * Download the Word export and trigger a browser save — built from the exact
+ * same stored HTML as the PDF (see `htmlWordConverter.ts`), so it's a binary
+ * stream, not a JSON link like `accessProforma`'s PDF path.
+ */
+export const downloadWord = async (id: string, versionId?: string): Promise<void> => {
+  const response = await axios.get(url(PROFORMA.DOWNLOAD_WORD, { id }), {
+    params: versionId ? { versionId } : undefined,
+    withCredentials: true,
+    responseType: "blob",
+  });
+  const disposition = response.headers["content-disposition"] as string | undefined;
+  const fileName = disposition?.match(/filename="(.+)"/)?.[1] ?? `${id}.doc`;
+
+  const href = window.URL.createObjectURL(response.data);
+  const link = document.createElement("a");
+  link.href = href;
+  link.download = fileName;
+  link.click();
+  window.URL.revokeObjectURL(href);
+};
+
 export const setVersionStatus = async (
   id: string, versionId: string, status: VersionStatus,
 ): Promise<ProformaVersion> => {

@@ -11,8 +11,18 @@ import {
   generateDocumentPdf, emailDocument, getDocumentVersions, getDocumentEmails,
 } from "@services/documents";
 import { BillingPageHeader, BillingStatusBadge, BillingLoadingState } from "../components";
+import { downloadWord } from "@services/proformas";
 import DocumentSheet from "./DocumentSheet";
 import DocumentPropertiesPanel from "./DocumentPropertiesPanel";
+
+/**
+ * Kinds a published document may be revised. Mirrors `revisable: false` in the
+ * backend's `KIND_REGISTRY` (`services/documents/registry.ts`) for the kinds
+ * actually reachable today — the server is the enforcement, this only avoids
+ * showing a button that would error. Keep the two in sync when a new
+ * non-revisable kind (Credit Note, Debit Note, Payment Receipt) goes live.
+ */
+const NON_REVISABLE_KINDS = new Set(["TAX_INVOICE"]);
 
 /**
  * Template-based document editor — the "edit the actual document" screen.
@@ -110,6 +120,12 @@ const DocumentEditorPage: React.FC = () => {
       toast({ icon: "error", title: error?.response?.data?.message ?? "Could not generate the PDF" }),
   });
 
+  const wordDownload = useMutation({
+    mutationFn: () => downloadWord(id),
+    onError: (error: any) =>
+      toast({ icon: "error", title: error?.response?.data?.message ?? "Could not download the Word file" }),
+  });
+
   const send = useMutation({
     mutationFn: () => emailDocument(id, email),
     onSuccess: () => {
@@ -125,6 +141,7 @@ const DocumentEditorPage: React.FC = () => {
   }
 
   const { document: doc, policy, html, isEditable } = data;
+  const isRevisable = !NON_REVISABLE_KINDS.has(doc.kind);
   const missingRequired = policy.required.filter((key) => !String(values[key] ?? "").trim());
 
   const askRevise = async () => {
@@ -152,7 +169,9 @@ const DocumentEditorPage: React.FC = () => {
               startIcon={<KTIcon iconName="arrow-left" className="fs-6" />}
               sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
             >
-              All Proformas
+              {/* Kind-agnostic: this editor opens for any registered document
+                  kind, not only Proforma. */}
+              All Documents
             </WtButton>
             {isEditable ? (
               <>
@@ -192,12 +211,23 @@ const DocumentEditorPage: React.FC = () => {
                   Download PDF
                 </WtButton>
                 <WtButton
-                  ghost size="small" onClick={askRevise}
-                  startIcon={<KTIcon iconName="pencil" className="fs-6" />}
+                  ghost size="small"
+                  onClick={() => wordDownload.mutate()}
+                  disabled={wordDownload.isPending}
+                  startIcon={<KTIcon iconName="file-down" className="fs-6" />}
                   sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
                 >
-                  Revise
+                  Download Word
                 </WtButton>
+                {isRevisable && (
+                  <WtButton
+                    ghost size="small" onClick={askRevise}
+                    startIcon={<KTIcon iconName="pencil" className="fs-6" />}
+                    sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
+                  >
+                    Revise
+                  </WtButton>
+                )}
                 <WtButton
                   tone="primary" size="small"
                   onClick={() => setTab(2)}
@@ -306,7 +336,7 @@ const DocumentEditorPage: React.FC = () => {
                 />
                 <TextField
                   size="small" fullWidth label="Subject"
-                  placeholder={`Proforma Invoice ${doc.documentNumber}`}
+                  placeholder={`${doc.template?.name ?? "Document"} ${doc.documentNumber}`}
                   value={email.subject}
                   onChange={(event) => setEmail((prev) => ({ ...prev, subject: event.target.value }))}
                   InputLabelProps={{ shrink: true }}

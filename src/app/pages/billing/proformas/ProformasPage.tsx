@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Box, FormControlLabel, MenuItem, Pagination, Stack, TextField, Typography,
@@ -11,7 +11,7 @@ import {
   type ProformaListParams, type ProformaVersion,
 } from "@services/proformas";
 import {
-  BillingPageHeader, BillingLoadingState, BillingEmptyState,
+  BillingPageHeader, BillingLoadingState, BillingEmptyState, ProjectFilterBanner,
 } from "../components";
 import ProformaTreeRow, { type VersionAction } from "./ProformaTreeRow";
 
@@ -56,8 +56,18 @@ const ProformasPage: React.FC = () => {
   const [archived, setArchived] = useState(false);
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Drill-down from a project's Financial Workspace arrives pre-filtered. Read it
+  // from the URL so the link is shareable and Back/Forward behave.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const projectId = searchParams.get("projectId") || undefined;
+  const clearProjectFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("projectId");
+    setSearchParams(next, { replace: true });
+  };
 
   const params: ProformaListParams = {
+    projectId,
     search: filters.search || undefined,
     status: (filters.status || undefined) as ProformaListParams["status"],
     sortBy: filters.sortBy as ProformaListParams["sortBy"],
@@ -136,7 +146,7 @@ const ProformasPage: React.FC = () => {
         action={
           <WtButton
             ghost size="small"
-            onClick={() => navigate("/billing/accounts")}
+            onClick={() => navigate("/billing/operations?status=READY_FOR_PROFORMA")}
             startIcon={<KTIcon iconName="inbox" className="fs-6" />}
             sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
           >
@@ -144,6 +154,14 @@ const ProformasPage: React.FC = () => {
           </WtButton>
         }
       />
+
+      {projectId && (
+        <ProjectFilterBanner
+          projectName={proformas[0]?.projectName}
+          onClear={clearProjectFilter}
+          onBackToProject={() => navigate(`/employee/lead/${projectId}?tab=billing`)}
+        />
+      )}
 
       {/* Filters. Archived is a switch, not a dropdown option: a repository that
           mixes live and archived rows by default is one nobody trusts the count of. */}

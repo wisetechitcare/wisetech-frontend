@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useReturnContext } from "@hooks/useReturnContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Box, Divider, FormControlLabel, MenuItem, Stack, Tab, Tabs, TextField, Typography,
@@ -12,7 +13,7 @@ import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
 import {
   getProforma, getProformaTimeline, getVersionPreview, compareVersions,
-  createRevision, accessProforma, setVersionStatus, archiveProforma, restoreProforma,
+  createRevision, accessProforma, downloadWord, setVersionStatus, archiveProforma, restoreProforma,
   type VersionStatus,
 } from "@services/proformas";
 import {
@@ -35,6 +36,9 @@ const ProformaDetailPage: React.FC = () => {
   const { id = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  // Falls back to this page\'s own parent when nobody handed us an origin,
+  // so arriving from the Billing list behaves exactly as it always did.
+  const back = useReturnContext({ pathname: "/billing/proformas", label: "Repository" });
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState(0);
@@ -126,6 +130,12 @@ const ProformaDetailPage: React.FC = () => {
       toast({ icon: "error", title: error?.response?.data?.message ?? "Could not open the document" }),
   });
 
+  const wordDownload = useMutation({
+    mutationFn: () => downloadWord(id, activeVersionId ?? undefined),
+    onError: (error: any) =>
+      toast({ icon: "error", title: error?.response?.data?.message ?? "Could not download the Word file" }),
+  });
+
   const changeStatus = useMutation({
     mutationFn: ({ versionId, status }: { versionId: string; status: VersionStatus }) =>
       setVersionStatus(id, versionId, status),
@@ -177,11 +187,11 @@ const ProformaDetailPage: React.FC = () => {
             {isArchived && <ToneChip tone="neutral" label="Archived" dense={false} />}
             <WtButton
               ghost size="small"
-              onClick={() => navigate("/billing/proformas")}
+              onClick={back.goBack}
               startIcon={<KTIcon iconName="arrow-left" className="fs-6" />}
               sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
             >
-              Repository
+              {back.label}
             </WtButton>
             <WtButton
               ghost size="small" disabled={access.isPending}
@@ -189,7 +199,15 @@ const ProformaDetailPage: React.FC = () => {
               startIcon={<KTIcon iconName="file-down" className="fs-6" />}
               sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
             >
-              Download
+              Download PDF
+            </WtButton>
+            <WtButton
+              ghost size="small" disabled={wordDownload.isPending}
+              onClick={() => wordDownload.mutate()}
+              startIcon={<KTIcon iconName="file-down" className="fs-6" />}
+              sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
+            >
+              Download Word
             </WtButton>
             <WtButton
               ghost size="small" disabled={access.isPending}

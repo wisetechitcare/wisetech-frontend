@@ -641,10 +641,6 @@ export const BILLING_REQUEST = {
     HISTORY: "api/billing/requests/:id/history",
     BILLABLE_DELIVERABLES: "api/billing/requests/billable-deliverables",
     BILLABLE_PROJECTS: "api/billing/requests/billable-projects",
-    ACCOUNTS_QUEUE: "api/billing/accounts-queue",
-    ACCOUNTS_QUEUE_ITEM: "api/billing/accounts-queue/:id",
-    ACCOUNTS_QUEUE_STATS: "api/billing/accounts-queue/statistics",
-    GENERATE_PROFORMA: "api/billing/accounts-queue/:id/generate-proforma",
 }
 
 // Billing Operations — the Accounts workspace. One operation follows one approved
@@ -659,6 +655,35 @@ export const BILLING_OPERATION = {
     ACTIVITY: "api/billing/operations/:id/activity",
     DOCUMENTS: "api/billing/operations/:id/documents",
     ADD_NOTE: "api/billing/operations/:id/notes",
+}
+
+// Financial Reporting Center — every route is read-only.
+export const BILLING_REPORT = {
+    DASHBOARD: "api/billing/reports/dashboard",
+    REVENUE: "api/billing/reports/revenue",
+    COLLECTIONS: "api/billing/reports/collections",
+    OUTSTANDING: "api/billing/reports/outstanding",
+    RECEIVABLES: "api/billing/reports/receivables",
+    MONTHLY: "api/billing/reports/monthly",
+    CLIENT: "api/billing/reports/client",
+    PROJECT: "api/billing/reports/project",
+}
+
+// Payment Collection — NO INVOICE ROUTE HERE, by design. `readyForInvoice` is
+// exposed on every payload for the next phase to filter on.
+export const PAYMENT = {
+    LIST: "api/billing/payments",
+    SYNC: "api/billing/payments",
+    STATISTICS: "api/billing/payments/statistics",
+    GET_BY_ID: "api/billing/payments/:id",
+    HISTORY: "api/billing/payments/:id/history",
+    RECORD: "api/billing/payments/:id/record",
+    UPDATE_TRANSACTION: "api/billing/payments/:id/transactions/:transactionId",
+    VERIFY: "api/billing/payments/:id/verify",
+    SET_VERIFICATION: "api/billing/payments/:id/verification",
+    ADD_ATTACHMENT: "api/billing/payments/:id/attachments",
+    GET_ATTACHMENT: "api/billing/payments/:id/attachments/:attachmentId",
+    DELETE_ATTACHMENT: "api/billing/payments/:id/attachments/:attachmentId",
 }
 
 // Proforma repository — MANAGEMENT ONLY. Generation lives on the Accounts Queue
@@ -678,6 +703,30 @@ export const PROFORMA = {
     DUPLICATE: "api/billing/proformas/:id/duplicate",
     ARCHIVE: "api/billing/proformas/:id/archive",
     RESTORE: "api/billing/proformas/:id/restore",
+    DOWNLOAD_WORD: "api/billing/proformas/:id/download-word",
+}
+
+// Project Financial Workspace (Project → Billing) — READ ONLY. Composes the
+// existing Billing services for one project; every write navigates into Billing.
+export const PROJECT_BILLING = {
+    WORKSPACE: "api/billing/projects/:projectId/workspace",
+}
+
+// Tax Invoice repository — MANAGEMENT ONLY. Generation lives on the Payment
+// Collection path; there is deliberately no create route here.
+export const TAX_INVOICE = {
+    LIST: "api/billing/tax-invoices",
+    GET_BY_ID: "api/billing/tax-invoices/:id",
+    VERSIONS: "api/billing/tax-invoices/:id/versions",
+    TIMELINE: "api/billing/tax-invoices/:id/timeline",
+    ACTIVITY: "api/billing/tax-invoices/:id/activity",
+    COMPARE: "api/billing/tax-invoices/:id/compare/:versionId",
+    PREVIEW: "api/billing/tax-invoices/:id/versions/:versionId/preview",
+    VERSION_STATUS: "api/billing/tax-invoices/:id/versions/:versionId/status",
+    ACCESS: "api/billing/tax-invoices/:id/access",
+    ARCHIVE: "api/billing/tax-invoices/:id/archive",
+    RESTORE: "api/billing/tax-invoices/:id/restore",
+    DOWNLOAD_WORD: "api/billing/tax-invoices/:id/download-word",
 }
 
 // Document engine — kind-agnostic. Proforma, Tax Invoice, Quotation, PO, Credit

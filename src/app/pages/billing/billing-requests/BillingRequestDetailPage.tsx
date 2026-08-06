@@ -1,6 +1,7 @@
-import React from "react";
+﻿import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
+import { useReturnContext } from "@hooks/useReturnContext";
 import { Box, Divider, Stack, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import { GlassCard, WtButton, ToneChip, TRIO } from "@app/modules/common/components/ui";
@@ -35,11 +36,14 @@ const Row: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value
 );
 
 const projectName = (r: BillingRequest) =>
-  r.lead?.title || r.lead?.originalProjectPrefix || r.lead?.prefix || "—";
+  r.lead?.title || r.lead?.originalProjectPrefix || r.lead?.prefix || "â€”";
 
 const BillingRequestDetailPage: React.FC = () => {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  // Falls back to this page\'s own parent when nobody handed us an origin,
+  // so arriving from the Billing list behaves exactly as it always did.
+  const back = useReturnContext({ pathname: "/billing/requests", label: "Back" });
 
   const { data: request, isLoading } = useQuery({
     queryKey: ["billing-request", id],
@@ -61,7 +65,7 @@ const BillingRequestDetailPage: React.FC = () => {
     );
   }
 
-  // Stages present in the snapshot — a request may span more than one.
+  // Stages present in the snapshot â€” a request may span more than one.
   const stageNames = [...new Set(request.items.map((i) => i.stageName).filter(Boolean))];
 
   const activitySteps: BillingTimelineStep[] = history.map((entry, index) => ({
@@ -80,18 +84,18 @@ const BillingRequestDetailPage: React.FC = () => {
         icon="file-added"
         trio={TRIO.green}
         title={request.requestNumber}
-        description={`${projectName(request)} · ${request.items.length} deliverable${request.items.length === 1 ? "" : "s"}`}
+        description={`${projectName(request)} Â· ${request.items.length} deliverable${request.items.length === 1 ? "" : "s"}`}
         action={
           <Stack direction="row" spacing={1} alignItems="center">
             <BillingStatusBadge status={request.status} dense={false} />
             <WtButton
               ghost
               size="small"
-              onClick={() => navigate("/billing/requests")}
+              onClick={back.goBack}
               startIcon={<KTIcon iconName="arrow-left" className="fs-6" />}
               sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
             >
-              Back
+              {back.label}
             </WtButton>
           </Stack>
         }
@@ -104,14 +108,14 @@ const BillingRequestDetailPage: React.FC = () => {
             <Typography sx={{ fontWeight: 700, fontSize: 14, mb: 1 }}>Project Summary</Typography>
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 0.75 }}>
               <Row label="Project" value={projectName(request)} />
-              <Row label="Client" value={request.lead?.company?.companyName || "—"} />
+              <Row label="Client" value={request.lead?.company?.companyName || "â€”"} />
               <Row
                 label={stageNames.length > 1 ? "Stages" : "Stage"}
-                value={stageNames.length ? stageNames.join(", ") : request.stageName || "—"}
+                value={stageNames.length ? stageNames.join(", ") : request.stageName || "â€”"}
               />
-              <Row label="Requested by" value={request.requestedByName ?? "—"} />
-              <Row label="Requested" value={request.requestedAt ? formatDate(request.requestedAt) : "—"} />
-              <Row label="Approved" value={request.approvedAt ? formatDate(request.approvedAt) : "—"} />
+              <Row label="Requested by" value={request.requestedByName ?? "â€”"} />
+              <Row label="Requested" value={request.requestedAt ? formatDate(request.requestedAt) : "â€”"} />
+              <Row label="Approved" value={request.approvedAt ? formatDate(request.approvedAt) : "â€”"} />
             </Box>
             {request.remarks && (
               <Box sx={{ mt: 1.25, p: 1.25, borderRadius: "10px", bgcolor: "action.hover" }}>
@@ -121,7 +125,7 @@ const BillingRequestDetailPage: React.FC = () => {
             )}
           </GlassCard>
 
-          {/* The frozen snapshot — rendered from item.*, never the live deliverable. */}
+          {/* The frozen snapshot â€” rendered from item.*, never the live deliverable. */}
           <GlassCard preset="section" sx={{ p: { xs: 1.5, sm: 2 } }}>
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
               <Typography sx={{ fontWeight: 700, fontSize: 14, flex: 1 }}>Deliverables</Typography>
@@ -169,17 +173,17 @@ const BillingRequestDetailPage: React.FC = () => {
             </Box>
           </GlassCard>
 
-          {/* Downstream documents — placeholders until those modules exist. */}
+          {/* Downstream documents â€” placeholders until those modules exist. */}
           <GlassCard preset="section" sx={{ p: { xs: 1.5, sm: 2 } }}>
             <Typography sx={{ fontWeight: 700, fontSize: 14, mb: 1 }}>Linked Documents</Typography>
             <Stack direction="row" flexWrap="wrap" gap={0.75}>
               <ToneChip
                 tone={request.proformaGeneratedAt ? "success" : "neutral"}
-                label={request.proformaGeneratedAt ? `Proforma ${formatDate(request.proformaGeneratedAt)}` : "Proforma — pending"}
+                label={request.proformaGeneratedAt ? `Proforma ${formatDate(request.proformaGeneratedAt)}` : "Proforma â€” pending"}
                 dense
               />
-              <ToneChip tone="neutral" label="Payment — not implemented" dense />
-              <ToneChip tone="neutral" label="Tax invoice — not implemented" dense />
+              <ToneChip tone="neutral" label="Payment â€” not implemented" dense />
+              <ToneChip tone="neutral" label="Tax invoice â€” not implemented" dense />
             </Stack>
           </GlassCard>
         </Stack>
@@ -227,3 +231,4 @@ const BillingRequestDetailPage: React.FC = () => {
 };
 
 export default BillingRequestDetailPage;
+

@@ -88,13 +88,32 @@ export const BILLING_STATUS_TONES: Record<string, SemanticTone> = {
   // Invoice / payment
   ARCHIVED: "neutral",
   FAILED: "danger",
-  PENDING: "warning",
+  // Shared by BillingRequestStatus.PENDING_APPROVAL's sibling states and Payment
+  // Collection's PENDING (no receipt yet) — both read as "nothing wrong, just
+  // waiting", so one neutral/warning-free tone serves both without a collision.
+  PENDING: "neutral",
   // Billing Operations workflow. Tones follow the STAGE, so the list reads as
   // three coloured bands (proforma → payment → invoice) rather than fifteen
   // unrelated chips: indigo while the proforma is in play, warning while money is
   // outstanding, cyan once it is collected and the invoice is due, success at the
   // end. READY_FOR_PROFORMA / PAYMENT_PENDING / PROFORMA_GENERATED are already
-  // above and deliberately not repeated.
+  // above and deliberately not repeated. PARTIALLY_PAID / FULLY_PAID are shared
+  // with Payment Collection's own payment-status enum below.
+  PARTIALLY_PAID: "warning",
+  FULLY_PAID: "success",
+  PAYMENT_VERIFIED: "success",
+  READY_FOR_INVOICE: "cyan",
+  INVOICE_GENERATED: "cyan",
+  INVOICE_SENT: "indigo",
+  COMPLETED: "success",
+  // Payment Collection. RECORDED is neutral (nothing wrong, just unchecked);
+  // NOT_VERIFIED shares that tone deliberately — an unverified receipt is not a
+  // problem, it is a queue.
+  OVERPAID: "indigo",
+  RECORDED: "neutral",
+  VERIFIED: "success",
+  NOT_VERIFIED: "neutral",
+  UNDER_REVIEW: "warning",
   // Proforma version lifecycle. SUPERSEDED is neutral, not danger — being
   // replaced by a newer revision is the system working, not a problem.
   CLIENT_ACCEPTED: "success",
@@ -103,13 +122,6 @@ export const BILLING_STATUS_TONES: Record<string, SemanticTone> = {
   PROFORMA_DRAFT: "neutral",
   PROFORMA_SENT: "indigo",
   CLIENT_VIEWED: "indigo",
-  PARTIALLY_PAID: "warning",
-  FULLY_PAID: "success",
-  PAYMENT_VERIFIED: "success",
-  READY_FOR_INVOICE: "cyan",
-  INVOICE_GENERATED: "cyan",
-  INVOICE_SENT: "indigo",
-  COMPLETED: "success",
   ON_HOLD: "warning",
 };
 

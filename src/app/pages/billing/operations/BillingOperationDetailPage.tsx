@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useReturnContext } from "@hooks/useReturnContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Box, Divider, MenuItem, Stack, Tab, Tabs, TextField, Typography,
@@ -44,6 +45,9 @@ const Row: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value
 const BillingOperationDetailPage: React.FC = () => {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  // Falls back to this page\'s own parent when nobody handed us an origin,
+  // so arriving from the Billing list behaves exactly as it always did.
+  const back = useReturnContext({ pathname: "/billing/operations", label: "All Operations" });
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState(0);
@@ -118,11 +122,11 @@ const BillingOperationDetailPage: React.FC = () => {
             <BillingStatusBadge status={operation.status} dense={false} />
             <WtButton
               ghost size="small"
-              onClick={() => navigate("/billing/operations")}
+              onClick={back.goBack}
               startIcon={<KTIcon iconName="arrow-left" className="fs-6" />}
               sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
             >
-              All Operations
+              {back.label}
             </WtButton>
             <WtButton
               ghost size="small"

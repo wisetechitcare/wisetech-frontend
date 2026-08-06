@@ -86,6 +86,14 @@ Design doc: [../BILLING_OPERATIONS.md](../BILLING_OPERATIONS.md). Pages under `p
 - Each KPI tile is a saved query — clicking filters the table beneath it. Statistics share the list's scoping so the two can't disagree.
 - Reuses `BillingTable`, `BillingTimeline`, `BillingStatsCard`, `BillingStatusBadge`, `BillingPageHeader`. New status tones go in `BILLING_STATUS_TONES`, not in the page.
 
+## Payment Collection (built)
+Design doc: [../PAYMENT_COLLECTION.md](../PAYMENT_COLLECTION.md). Pages under `pages/billing/payments/`, client in `services/payments.ts`.
+
+- **A "payment" row in the list IS a Billing Operation** — there's no separate payment-collection entity to fetch. Don't build a second data model for it.
+- **Every payment is its own transaction.** `RecordPaymentDialog` records ONE receipt and closes; recording payment 2 of 3 is opening it again. Never build a multi-line batch form here.
+- The overpayment checkbox only appears once amount actually exceeds outstanding (compared in paise, not floats) — don't show it unconditionally.
+- `readyForInvoice` and `invoiceNumber: null` are already on every payload — the Tax Invoice phase filters on the former and fills the latter. No shape change needed there.
+
 ## Proforma Management (built)
 Design doc: [../PROFORMA_MANAGEMENT.md](../PROFORMA_MANAGEMENT.md). Pages under `pages/billing/proformas/`, client in `services/proformas.ts`.
 
@@ -95,17 +103,30 @@ Design doc: [../PROFORMA_MANAGEMENT.md](../PROFORMA_MANAGEMENT.md). Pages under 
 - "Archived" is a switch, not a status option — the list is a deliberate either/or so the count is trustworthy.
 - The Document tab renders the version's **stored HTML** via `DocumentSheet`. Never re-render a version for display.
 
-## Document Engine (built — Proforma live)
-Design doc: [../DOCUMENT_ENGINE.md](../DOCUMENT_ENGINE.md). Pages under `pages/billing/documents/`, client in `services/documents.ts`.
+## Billing Document Engine (built — Proforma + Tax Invoice live)
+Design doc: [../BILLING_DOCUMENT_ENGINE.md](../BILLING_DOCUMENT_ENGINE.md) (this phase); [../DOCUMENT_ENGINE.md](../DOCUMENT_ENGINE.md) (original). Editor pages under `pages/billing/documents/`, client in `services/documents.ts`; repository pages under `pages/billing/proformas/`, client in `services/proformas.ts` (also serves the generic `/billing/documents` mount).
 
-- **`DocumentSheet` injects server-rendered HTML and patches it — it does not re-implement the template.** The same HTML string is what the PDF prints, so a React version of the layout would immediately drift. Never build one.
+- **`DocumentSheet` injects server-rendered HTML and patches it — it does not re-implement the template.** The same HTML string is what the PDF and Word export print, so a React version of the layout would immediately drift. Never build one.
 - Live editing writes `textContent` on `[data-field]` spans the server emitted. `textContent`, never `innerHTML` — typed text must never be parsed as markup.
 - The left panel (`DocumentPropertiesPanel`) is **built from the template's `fieldPolicy`**, not hardcoded. A template that adds a field gets an input for free; `fieldMeta.ts` only supplies the label/grouping (with a title-case fallback).
 - The A4 sheet is a fixed 210mm scaled by transform. Don't make it responsive — it is page geometry, not a layout.
-- Proforma is a `kind`, not a route. The list and editor work unchanged for Tax Invoice and the rest.
+- Proforma is a `kind`, not a route. The list and editor work unchanged for Tax Invoice and the rest — **generating a Tax Invoice reuses `openDocument({ kind: "TAX_INVOICE", subjectId })`, the exact call Proforma uses**; see the button on `PaymentDetailPage.tsx`'s Invoice panel, gated on `readyForInvoice`. Don't build a second generation flow for a new kind.
+- **`NON_REVISABLE_KINDS` in `DocumentEditorPage.tsx` mirrors the backend's `revisable: false` registry entries** — UI-only hint (hides the Revise button), the server is the actual enforcement. Keep the two lists in sync when a new non-revisable kind goes live.
+- `downloadWord()` (`services/proformas.ts`) streams a binary blob (`responseType: "blob"`), unlike `accessProforma`'s PDF path which returns a JSON presigned URL — don't conflate the two response shapes.
 
 ## Before saying a change is done
 Run `npx tsc --noEmit` (or a full `npm run build`) — it must pass clean. Run `npm run lint` on files you touched (warnings are informational; don't introduce new errors).
 
 ## Auto-verify hook
 A `PostToolUse` hook (`../.claude/settings.local.json` → `../.claude/hooks/typecheck.sh`) runs after any Edit/Write to a `.ts`/`.tsx` file in this project, in the background: whole-project `npx tsc --noEmit` plus `npx eslint --quiet` on just the edited file. Any type error or lint **error** (warnings excluded) is surfaced automatically.
+
+## Project Financial Workspace (built)
+Project → Billing. Pages under `pages/employee/entity/detail/sections/billing/`, client in `services/projectBilling.ts`. `sections/BillingSection.tsx` is now a 3-line adapter that passes `lead.id` in.
+
+- **A CONSUMER of Billing, never a copy.** One call to `/billing/projects/:id/workspace` returns every number pre-computed; documents are served by Billing's own access endpoint; **every write navigates INTO Billing**. Don't add a mutation here.
+- **The Billing tab is URL-addressable (`?tab=billing`)** — `EntityDetailPage` syncs `activeTab` to a search param (written with `replace`, so flipping tabs doesn't stack history). This is load-bearing: it's the return address handed to Billing. Don't revert it to plain `useState`.
+- **Return context** (`hooks/useReturnContext.ts`): the ORIGIN states where Back goes via `withReturnContext()`; the destination resolves it with `useReturnContext(fallback)`, falling back to its own parent. Wired into the Proforma/Payment/Request/Operation detail pages — arriving from a Billing list behaves exactly as before. Carried in `history.state`, not the URL: it's navigation bookkeeping, and a `?returnTo=` would make every detail link unshareable.
+- **Sections 3 (Timeline) and 10 (Activity Feed) are ONE dataset** — `ActivityFeed` renders both via a `variant`. Two components would be two places for the same list to go stale.
+- Proformas reuse `ProformaTreeRow` verbatim for revision grouping; the other three tables are `BillingTable` + a column set. Financial Summary is `BillingSummaryCard`. Nothing here re-implements a Billing primitive.
+- **Drill-down**: `ProformasPage`/`PaymentCollectionPage`/`InvoicesPage` now read `?projectId=` and show `ProjectFilterBanner` when filtered — a silent filter is the fastest way to make people distrust a list.
+- ⚠️ `capabilities` from the server is **advisory** (backend has no action-level write gates yet). It drives disabled states only — don't treat a hidden button as security.

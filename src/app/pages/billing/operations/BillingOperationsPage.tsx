@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Box, Pagination, Stack, TextField, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
@@ -88,11 +88,26 @@ const PAGE_SIZE = 25;
 
 const BillingOperationsPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState<Record<string, string>>({
     status: "", stage: "", dueState: "", sortBy: "lastActivityAt",
   });
   const [amounts, setAmounts] = useState({ minAmount: "", maxAmount: "" });
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const urlStatus = searchParams.get("status") || "";
+    const urlStage = searchParams.get("stage") || "";
+    const urlDueState = searchParams.get("dueState") || "";
+    const urlSortBy = searchParams.get("sortBy") || "lastActivityAt";
+    const urlMinAmount = searchParams.get("minAmount") || "";
+    const urlMaxAmount = searchParams.get("maxAmount") || "";
+
+    if (urlStatus || urlStage || urlDueState || urlSortBy !== "lastActivityAt" || urlMinAmount || urlMaxAmount) {
+      setFilters({ status: urlStatus, stage: urlStage, dueState: urlDueState, sortBy: urlSortBy });
+      setAmounts({ minAmount: urlMinAmount, maxAmount: urlMaxAmount });
+    }
+  }, [searchParams]);
 
   const params: OperationListParams = {
     status: (filters.status || undefined) as OperationListParams["status"],
@@ -228,7 +243,7 @@ const BillingOperationsPage: React.FC = () => {
         action={
           <WtButton
             ghost size="small"
-            onClick={() => navigate("/billing/accounts")}
+            onClick={() => navigate("/billing/operations?status=READY_FOR_PROFORMA")}
             startIcon={<KTIcon iconName="inbox" className="fs-6" />}
             sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
           >

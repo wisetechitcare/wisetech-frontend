@@ -23,3 +23,5 @@ export { default as BillingTimeline } from "./BillingTimeline";
 export type { BillingTimelineStep, BillingTimelineState } from "./BillingTimeline";
 
 export { default as BillingPageHeader } from "./BillingPageHeader";
+
+export { default as ProjectFilterBanner } from "./ProjectFilterBanner";
