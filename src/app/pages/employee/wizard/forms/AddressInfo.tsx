@@ -45,6 +45,17 @@ function AddressInfo({ formikProps }: any) {
     const { values: { addressInfo }, setFieldValue } = formikProps;
     const [isSameAddress, setIsSameAddress] = useState(false);
 
+    /**
+     * Where each block's pin sits. SmartLocationPicker is fully controlled — it derives
+     * the marker from its lat/lng props and keeps no state of its own, so without these
+     * `position` stays null and no pin is ever drawn, however many times you click.
+     *
+     * Local state rather than Formik: employee_address_details has nowhere to persist
+     * coordinates, and these exist only so the map can show where you clicked.
+     */
+    const [presentPin, setPresentPin] = useState<{ lat: number; lng: number } | null>(null);
+    const [permanentPin, setPermanentPin] = useState<{ lat: number; lng: number } | null>(null);
+
     const { employeeId } = useParams();
 
     useEffect(() => {
@@ -277,6 +288,12 @@ function AddressInfo({ formikProps }: any) {
         const eq = (a?: string, b?: string) =>
             !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
+        // Move the pin first: it must land where the user clicked even if the address
+        // behind it resolves to nothing we can map onto the dropdowns.
+        if (Number.isFinite(geo.lat) && Number.isFinite(geo.lng)) {
+            (isPresent ? setPresentPin : setPermanentPin)({ lat: geo.lat, lng: geo.lng });
+        }
+
         if (geo.postcode) setFieldValue(`addressInfo.${which}PostalCode`, geo.postcode);
         if (geo.formatted) setFieldValue(`addressInfo.${which}AddressLine1`, geo.formatted);
 
@@ -339,7 +356,11 @@ function AddressInfo({ formikProps }: any) {
 
     {/* Same picker the Lead form uses. It renders its own search box + map and hands
         back a resolved address; the fields below stay editable as the manual override. */}
-    <SmartLocationPicker onPick={(geo) => applyGeoPick("present", geo)} />
+    <SmartLocationPicker
+      lat={presentPin?.lat}
+      lng={presentPin?.lng}
+      onPick={(geo) => applyGeoPick("present", geo)}
+    />
 
     {/* Row 1: Address */}
     <div className="row g-3">
@@ -496,7 +517,11 @@ function AddressInfo({ formikProps }: any) {
         the current address, so a second map here would write values the checkbox then
         overwrites. */}
     {!isSameAddress && (
-      <SmartLocationPicker onPick={(geo) => applyGeoPick("permanent", geo)} />
+      <SmartLocationPicker
+        lat={permanentPin?.lat}
+        lng={permanentPin?.lng}
+        onPick={(geo) => applyGeoPick("permanent", geo)}
+      />
     )}
 
     {/* Row 1: Address */}
