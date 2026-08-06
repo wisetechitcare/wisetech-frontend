@@ -2,6 +2,21 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  /* Stacking anchor for the country dropdown. Raising only the inner (absolutely
+     positioned) list is not enough: it still paints inside THIS element's slot in the
+     parent's order, so a row rendered after the phone field — the social-URL row — drew
+     straight over it. Lifting the wrapper moves the whole subtree up together.
+     A flat 1 is enough to clear sibling rows (which are all `auto`) and is low enough
+     not to sit over the wizard's sticky header, footer or modals. */
+  position: relative;
+  z-index: 1;
+}
+
+/* While the list is actually open, clear anything else in the form outright. Scoped to
+   `.open` so a closed phone field never outranks a neighbouring popover or datepicker.
+   :has() is a progressive enhancement — the base z-index above already does the job. */
+.phone-number-input:has(.flag-dropdown.open) {
+  z-index: 1300;
 }
 
 /* Outer container – also gets .react-tel-input from the library */
