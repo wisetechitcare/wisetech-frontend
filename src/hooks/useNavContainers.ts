@@ -59,6 +59,9 @@ const SECTION_ICON: Record<string, string> = {
   'hr-section': 'bi-people',
   'crm-section': 'bi-person-rolodex',
   'projects-section': 'bi-kanban',
+  // Keeps the glyph the Organization group carried while it was a `sub`, so the
+  // promotion doesn't also change what users are looking for.
+  'organization-section': 'bi-house-fill',
   'admin-section': 'bi-gear',
 };
 

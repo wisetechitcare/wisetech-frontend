@@ -13,7 +13,7 @@ import { IReimbursementsFetch } from '@models/employee';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import ExportButton from '@app/modules/common/components/ExportButton';
 import SalaryPeriodToolbar from '@pages/employee/salary/components/SalaryPeriodToolbar';
-import { ToolbarFilterSelect } from '@pages/employee/salary/admin/SalaryTableFilters';
+import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { useRootOrgNames } from '@hooks/useRootOrgNames';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';

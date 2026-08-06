@@ -280,9 +280,20 @@ export const rejectAttendanceRequestLimitReset = async (requestId: string) => {
     }
 }
 
-export const fetchDocumentsField = async () => {
+/**
+ * The company's configured onboarding document types — the SAME list the
+ * Company → Onboarding Docs screen manages (`fetchOnboardingDocs`), read here so
+ * the wizard's Upload Documents section stays a view of that configuration
+ * rather than a second, drifting list.
+ *
+ * `companyId` is optional only as a safety net: the backend's `where` clause
+ * SKIPS an undefined companyId, so omitting it returns every company's document
+ * types. Always pass one when it can be resolved.
+ */
+export const fetchDocumentsField = async (companyId?: string) => {
     try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ONBOARDING_DOC_LIST}`;
+        const base = `${API_BASE_URL}/${EMPLOYEE.GET_ONBOARDING_DOC_LIST}`;
+        const endpoint = companyId ? `${base}?companyId=${encodeURIComponent(companyId)}` : base;
         const { data } = await axios.get(endpoint);
         return data;
     }

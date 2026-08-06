@@ -20,6 +20,7 @@ import GroupsRounded from '@mui/icons-material/GroupsRounded';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import InboxRounded from '@mui/icons-material/InboxRounded';
 import PaymentsRounded from '@mui/icons-material/PaymentsRounded';
+import PermMediaRounded from '@mui/icons-material/PermMediaRounded';
 import SettingsRounded from '@mui/icons-material/SettingsRounded';
 import SpeedRounded from '@mui/icons-material/SpeedRounded';
 import SwapHorizRounded from '@mui/icons-material/SwapHorizRounded';
@@ -59,6 +60,7 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-clock-history': HistoryRounded,
   'bi-clipboard-data': AssessmentRounded,
   'bi-house-fill': BusinessRounded,
+  'bi-images': PermMediaRounded,
   'bi-shield-lock': AdminPanelSettingsRounded,
   'bi-gear': SettingsRounded,
   // Section headers (assigned in useNavContainers, not present in the nav tree itself)

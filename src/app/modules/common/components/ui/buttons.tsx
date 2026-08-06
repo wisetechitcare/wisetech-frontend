@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { Button, ButtonProps, IconButton, IconButtonProps, Tooltip, useTheme } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { titleCaseNode } from './text';
 
 /**
  * Reusable button primitives for the premium UI kit — single source of truth for CTA physics.
@@ -108,7 +109,7 @@ export interface WtButtonProps extends ButtonProps {
 }
 
 export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function WtButton(
-  { tone = 'primary', ghost = false, inverted = false, sx, variant, ...rest }, ref,
+  { tone = 'primary', ghost = false, inverted = false, sx, variant, children, ...rest }, ref,
 ) {
   const dark = useTheme().palette.mode === 'dark';
   const base = ghost ? ghostSx : inverted ? invertedSx : ctaSx(tone);
@@ -120,7 +121,13 @@ export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function Wt
       // recipe → dark override → caller sx, so per-use tweaks (width, margins) always win
       sx={[base, darkOverride, ...(Array.isArray(sx) ? sx : [sx])].filter(Boolean) as SxProps<Theme>}
       {...rest}
-    />
+    >
+      {/* Labels are title-cased here so every button reads the same without
+          each call site remembering. Only a plain string is touched — a caller
+          passing nodes has already decided how it looks. WtIconButton is NOT
+          wrapped: its children are a glyph, not a label. */}
+      {titleCaseNode(children)}
+    </Button>
   );
 });
 

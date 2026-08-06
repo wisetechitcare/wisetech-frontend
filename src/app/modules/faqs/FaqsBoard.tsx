@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KTIcon } from '@metronic/helpers';
-import { GlassCard } from '@app/modules/common/components/ui/tw/Glass';
-import { WtButton } from '@app/modules/common/components/ui/tw/Buttons';
-import { Spinner } from '@app/modules/common/components/ui/tw/Spinner';
-import { IconBox } from '@app/modules/common/components/ui/tw/Patterns';
-import { TRIO } from '@app/modules/common/components/ui/tw/tokens';
-import { confirmDialog, toast } from '@app/modules/common/components/ui/feedback';
+import {
+    Box, Chip, CircularProgress, Divider, InputAdornment, MenuItem, Stack, TextField, Typography,
+} from '@mui/material';
+// Same MUI glass kit as the Leave Policy / Sandwich Leave benchmark — one import
+// surface, one look. Do not reach past this barrel into individual kit files.
+import {
+    TRIO, WtButton, WtIconButton, GlassCard, GlassSurface,
+    SettingsSection, IconBox, confirmDialog, toast,
+} from '@app/modules/common/components/ui';
+import { toCompanyIdParam, useOrgScope } from '@hooks/useOrgScope';
 import { FaqAccordionItem } from './FaqAccordionItem';
 import { FaqEditorDialog } from './FaqEditorDialog';
 import { useFaqs } from './useFaqs';
-import { FAQ_SECTION_BY_ID, resolveFaqType, type Faq, type FaqType } from './types';
+import { FaqSectionManagerDialog } from './FaqSectionManagerDialog';
+import { resolveIcon, resolveSectionKey, resolveTone, resolveToneTrio, type Faq, type FaqSection } from './types';
 
 export interface FaqsBoardProps {
     /**
@@ -38,7 +43,10 @@ export interface FaqsBoardProps {
  * is what made the previous board feel empty on wide screens.
  */
 export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoardProps) {
-    const sectionType = resolveFaqType(type);
+    const sectionType = resolveSectionKey(type);
+    // Shared org filter — same hook, control and option order any other
+    // company-scoped screen would use.
+    const { scopeId, setScopeId, selectOptions, hasChoice } = useOrgScope();
     const {
         sections,
         totalCount,
@@ -52,11 +60,12 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
         updateFaq,
         deleteFaq,
         isSaving,
-    } = useFaqs({ type: sectionType });
+    } = useFaqs({ type: sectionType, scopeId: toCompanyIdParam(scopeId) });
 
-    const [activeSection, setActiveSection] = useState<FaqType | null>(null);
-    const [editor, setEditor] = useState<{ sectionId: FaqType; faq: Faq | null } | null>(null);
-    const sectionRefs = useRef<Partial<Record<FaqType, HTMLElement | null>>>({});
+    const [activeSection, setActiveSection] = useState<string | null>(null);
+    const [editor, setEditor] = useState<{ section: FaqSection; faq: Faq | null } | null>(null);
+    const [managingSections, setManagingSections] = useState(false);
+    const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
     const showRail = !sectionType && sections.length > 1;
 
@@ -120,7 +129,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                     .filter((entry) => entry.isIntersecting)
                     .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
                 if (visible?.target instanceof HTMLElement) {
-                    const id = visible.target.dataset.sectionId as FaqType | undefined;
+                    const id = visible.target.dataset.sectionId;
                     if (id) setActiveSection(id);
                 }
             },
@@ -134,7 +143,21 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
         return () => observer.disconnect();
     }, [sections, showRail, stickyOffset]);
 
-    const scrollToSection = useCallback((id: FaqType) => {
+    /**
+     * The section the header's "Add question" files into.
+     *
+     * It used to be `sections[0]`, so the dialog always said "Attendance" no
+     * matter what you were reading — the button lied about where the question
+     * would land. This follows the scroll-spy / rail selection, so the action
+     * matches the section in view. Falls back to the first section before the
+     * observer has reported anything (page not yet scrolled).
+     */
+    const targetSection = useMemo(
+        () => sections.find((section) => section.id === activeSection) ?? sections[0],
+        [sections, activeSection],
+    );
+
+    const scrollToSection = useCallback((id: string) => {
         setActiveSection(id);
         sectionRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, []);
@@ -166,7 +189,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                     await updateFaq({ id: editor.faq.id, ...values });
                     toast({ title: 'Question updated', icon: 'success' });
                 } else {
-                    await createFaq({ ...values, type: editor.sectionId });
+                    await createFaq({ ...values, categoryId: editor.section.categoryId });
                     toast({ title: 'Question added', icon: 'success' });
                 }
                 setEditor(null);
@@ -212,11 +235,28 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
             className="mx-auto flex w-full max-w-[1200px] flex-col gap-4 [--faq-head:0px] [--faq-shell:44px] [@media(min-width:1025px)]:[--faq-shell:118px]"
         >
             {/* ── Sticky header: title, count, action, search, mobile chips ──
-                One block so it pins as a unit. Translucent + blurred rather than
-                transparent, otherwise the list scrolls visibly through it. */}
-            <div
+                One block so it pins as a unit.
+
+                OPAQUE, not glass. A sticky bar is a layer the content passes
+                UNDER — the reader must never see two competing texts in the same
+                pixels. The kit's glass surfaces are translucent by design, which
+                is right for a panel sitting still and wrong for one the whole
+                page scrolls beneath. `disableBlur` takes the opaque fallback, and
+                the shadow gives the layer an edge so it reads as in front. */}
+            <GlassCard
                 ref={stickyHeadRef}
-                className="sticky top-[var(--faq-shell)] z-30 -mx-1 flex flex-col gap-3 border-b border-[#E6E9EE] bg-white/95 px-1 pb-3 pt-3 backdrop-blur-md dark:border-[#30363d] dark:bg-[#0d1117]/95"
+                preset="section"
+                disableBlur
+                sx={{
+                    position: 'sticky',
+                    top: 'var(--faq-shell)',
+                    zIndex: 30,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1.5,
+                    bgcolor: 'background.paper',
+                    boxShadow: '0 6px 16px -10px rgba(16,24,40,0.45)',
+                }}
             >
                 {!embedded && (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -226,210 +266,311 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                             </h1>
                             <p className="m-0 mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">{headerSubtitle}</p>
                         </div>
-                        {canManage && !sectionType && (
-                            <WtButton
-                                onClick={() => setEditor({ sectionId: sections[0]?.id ?? 'general_rules', faq: null })}
-                                startIcon={<KTIcon iconName="plus" className="fs-5 text-white" />}
-                                className="shrink-0"
-                            >
-                                Add question
-                            </WtButton>
+                        {canManage && (
+                            <div className="flex shrink-0 gap-2">
+                                {!sectionType && (
+                                    <WtButton
+                                        inverted
+                                        onClick={() => setManagingSections(true)}
+                                        startIcon={<KTIcon iconName="category" className="fs-5" />}
+                                    >
+                                        Sections
+                                    </WtButton>
+                                )}
+                                {targetSection && (
+                                    <WtButton
+                                        onClick={() => targetSection && setEditor({ section: targetSection, faq: null })}
+                                        startIcon={<KTIcon iconName="plus" className="fs-5 text-white" />}
+                                    >
+                                        Add question
+                                    </WtButton>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
 
-                <div className="relative">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                        <KTIcon iconName="magnifier" className="fs-6" />
-                    </span>
-                    <input
-                        type="search"
+                {/* Toolbar: scope + search. Both narrow the same list, so they
+                    belong on one row rather than in separate bands.
+
+                    Both are MUI `TextField size="small"`, per the Sandwich Leave
+                    rule editor. That is not only for consistency — a TextField
+                    manages its own label space, so the label can never collide
+                    with the content above it the way a hand-positioned floating
+                    label does. The scope control hides itself for a single-org
+                    family, since a filter with one option is noise. */}
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1.5}
+                    sx={{ mt: 1.5 }}
+                >
+                    {hasChoice && (
+                        <TextField
+                            select
+                            label="Sub Organization"
+                            size="small"
+                            value={scopeId}
+                            onChange={(event) => setScopeId(event.target.value)}
+                            sx={{ width: { xs: '100%', sm: 260 }, flexShrink: 0 }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <KTIcon iconName="office-bag" className="fs-6" />
+                                    </InputAdornment>
+                                ),
+                            }}
+                            // Long org names must ellipsize inside the control
+                            // rather than spill past it. minWidth:0 is what lets
+                            // the flex child shrink below its content width.
+                            SelectProps={{
+                                sx: {
+                                    '& .MuiSelect-select': {
+                                        minWidth: 0,
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                    },
+                                },
+                            }}
+                        >
+                            {selectOptions.map((option) => (
+                                <MenuItem key={option.value} value={option.value} sx={{ fontSize: 13.5 }}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                    )}
+
+                    <TextField
+                        label="Search"
+                        size="small"
+                        fullWidth
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                         placeholder="Search questions and answers…"
-                        aria-label="Search FAQs"
-                        className="w-full rounded-xl border border-[#E6E9EE] bg-white py-2.5 pl-10 pr-3.5 text-[14px] text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/15 dark:border-[#30363d] dark:bg-[#0d1117] dark:text-slate-100 dark:placeholder:text-slate-500"
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <KTIcon iconName="magnifier" className="fs-6" />
+                                </InputAdornment>
+                            ),
+                            endAdornment: search ? (
+                                <InputAdornment position="end">
+                                    <WtIconButton
+                                        title="Clear search"
+                                        sx={{ width: 26, height: 26, borderRadius: '8px' }}
+                                        onClick={() => setSearch('')}
+                                    >
+                                        <KTIcon iconName="cross" className="fs-7" />
+                                    </WtIconButton>
+                                </InputAdornment>
+                            ) : undefined,
+                        }}
                     />
-                </div>
+                </Stack>
 
-                {/* ── Mobile section chips ─────────────────────────────────── */}
+                {/* Mobile section chips */}
                 {showRail && (
-                    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 lg:hidden">
-                        {sections.map((section) => {
-                            const meta = FAQ_SECTION_BY_ID[section.id];
-                            const active = activeSection === section.id;
-                            return (
-                                <button
-                                    key={section.id}
-                                    type="button"
-                                    onClick={() => scrollToSection(section.id)}
-                                    aria-current={active ? 'true' : undefined}
-                                    // !rounded-full: these sit inside Metronic's
-                                    // stylesheet, whose button rules would otherwise
-                                    // square the corners off.
-                                    className={`!rounded-full shrink-0 whitespace-nowrap border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
-                                        active
-                                            ? 'border-[#1E3A8A] bg-[#1E3A8A] text-white shadow-sm'
-                                            : 'border-[#D8DEE7] bg-white text-slate-600 hover:border-[#1E3A8A]/40 dark:border-[#30363d] dark:bg-[#161b22] dark:text-slate-300'
-                                    }`}
-                                >
-                                    {meta.title}
-                                    <span className="ml-1.5 tabular-nums opacity-60">{section.faqs.length}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-
-            <div className="flex gap-6">
-                {/* ── Desktop section rail ─────────────────────────────────── */}
-                {showRail && (
-                    <nav
-                        aria-label="FAQ sections"
-                        // Pins below BOTH the shell tab bar and our sticky header.
-                        // It was top-2 (8px) — i.e. behind the tab bar, which read
-                        // as the rail disappearing on scroll.
-                        className="sticky top-[calc(var(--faq-shell)+var(--faq-head)+0.75rem)] hidden h-fit w-[210px] shrink-0 flex-col gap-0.5 rounded-2xl border border-[#E6E9EE] bg-white p-2 lg:flex dark:border-[#30363d] dark:bg-[#161b22]"
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ mt: 1.5, overflowX: 'auto', pb: 0.5, display: { lg: 'none' } }}
                     >
                         {sections.map((section) => {
-                            const meta = FAQ_SECTION_BY_ID[section.id];
                             const active = activeSection === section.id;
                             return (
-                                <button
+                                <Chip
                                     key={section.id}
+                                    label={`${section.title} · ${section.faqs.length}`}
+                                    onClick={() => scrollToSection(section.id)}
+                                    aria-current={active ? 'true' : undefined}
+                                    color={active ? 'primary' : 'default'}
+                                    variant={active ? 'filled' : 'outlined'}
+                                    sx={{ flexShrink: 0, fontWeight: 600, fontSize: 13 }}
+                                />
+                            );
+                        })}
+                    </Stack>
+                )}
+            </GlassCard>
+
+            <Box sx={{ display: 'flex', gap: { xs: 0, lg: 3 } }}>
+                {/* Desktop section rail */}
+                {showRail && (
+                    <GlassSurface
+                        component="nav"
+                        aria-label="FAQ sections"
+                        variant="thin"
+                        radius={16}
+                        sx={{
+                            // Pins below BOTH the app shell tab bar and our own sticky
+                            // header - measured, not guessed, so the rail never slides
+                            // underneath either of them.
+                            position: 'sticky',
+                            top: 'calc(var(--faq-shell) + var(--faq-head) + 0.75rem)',
+                            alignSelf: 'flex-start',
+                            width: 216,
+                            flexShrink: 0,
+                            p: 1,
+                            display: { xs: 'none', lg: 'flex' },
+                            flexDirection: 'column',
+                            gap: 0.25,
+                        }}
+                    >
+                        {sections.map((section) => {
+                            const active = activeSection === section.id;
+                            const tone = resolveToneTrio(section.tone);
+                            return (
+                                <Box
+                                    key={section.id}
+                                    component="button"
                                     type="button"
                                     onClick={() => scrollToSection(section.id)}
                                     aria-current={active ? 'true' : undefined}
-                                    className={`flex items-center gap-2.5 !rounded-full px-3 py-2 text-left text-[14px] transition-colors ${
-                                        active
-                                            ? 'bg-[#1E3A8A]/8 font-semibold text-[#1E3A8A] dark:bg-[#1E3A8A]/20 dark:text-slate-100'
-                                            : 'font-medium text-slate-500 hover:bg-slate-100/70 dark:text-slate-400 dark:hover:bg-white/5'
-                                    }`}
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1.25,
+                                        px: 1.5,
+                                        py: 1,
+                                        border: 0,
+                                        borderRadius: '10px',
+                                        cursor: 'pointer',
+                                        font: 'inherit',
+                                        fontSize: 14,
+                                        textAlign: 'left',
+                                        transition: 'background-color .15s, color .15s',
+                                        color: active ? tone.c : 'text.secondary',
+                                        fontWeight: active ? 700 : 500,
+                                        bgcolor: active ? tone.bg : 'transparent',
+                                        '&:hover': { bgcolor: active ? tone.bg : 'action.hover' },
+                                    }}
                                 >
-                                    <KTIcon iconName={meta.icon} className="fs-6 shrink-0" />
-                                    <span className="min-w-0 flex-1 truncate">{meta.title}</span>
-                                    <span className="shrink-0 text-[12px] tabular-nums opacity-60">{section.faqs.length}</span>
-                                </button>
+                                    <KTIcon iconName={resolveIcon(section.icon)} className="fs-6" />
+                                    <Box component="span" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {section.title}
+                                    </Box>
+                                    <Box component="span" sx={{ flexShrink: 0, fontSize: 12, opacity: 0.65, fontVariantNumeric: 'tabular-nums' }}>
+                                        {section.faqs.length}
+                                    </Box>
+                                </Box>
                             );
                         })}
-                    </nav>
+                    </GlassSurface>
                 )}
 
-                {/* ── Sections ─────────────────────────────────────────────── */}
-                <div className="flex min-w-0 flex-1 flex-col gap-4">
+                {/* Sections */}
+                <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
                     {isLoading && (
-                        <div className="flex items-center justify-center gap-2.5 py-16 text-slate-500">
-                            <Spinner size={18} />
-                            <span className="text-[14px]">Loading FAQs…</span>
-                        </div>
+                        <Stack alignItems="center" justifyContent="center" spacing={1.5} sx={{ py: 8 }}>
+                            <CircularProgress size={22} />
+                            <Typography sx={{ fontSize: 13.5, color: 'text.secondary' }}>Loading FAQs...</Typography>
+                        </Stack>
                     )}
 
                     {!isLoading && noResults && (
-                        <GlassCard preset="section" className="flex flex-col items-center gap-2.5 py-12 text-center">
-                            <IconBox icon="magnifier" trio={TRIO.slate} size={44} />
-                            <div className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">
-                                No matches for “{search.trim()}”
-                            </div>
-                            <p className="m-0 max-w-sm text-[13px] text-slate-500 dark:text-slate-400">
-                                Try a shorter phrase, or clear the search to browse every section.
-                            </p>
-                            <WtButton ghost onClick={() => setSearch('')}>Clear search</WtButton>
-                        </GlassCard>
+                        <GlassSurface variant="thin" sx={{ p: 4, textAlign: 'center' }}>
+                            <Stack alignItems="center" spacing={1.5}>
+                                <IconBox icon="magnifier" trio={TRIO.slate} size={44} />
+                                <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary' }}>
+                                    No matches for &ldquo;{search.trim()}&rdquo;
+                                </Typography>
+                                <Typography sx={{ fontSize: 13, color: 'text.secondary', maxWidth: 380 }}>
+                                    Try a shorter phrase, or clear the search to browse every section.
+                                </Typography>
+                                <WtButton ghost onClick={() => setSearch('')}>Clear search</WtButton>
+                            </Stack>
+                        </GlassSurface>
                     )}
 
-                    {!isLoading &&
-                        !noResults &&
-                        sections.map((section) => {
-                            const meta = FAQ_SECTION_BY_ID[section.id];
-                            // While searching, hide sections with nothing to show.
-                            if (searching && section.faqs.length === 0) return null;
+                    {!isLoading && !noResults && sections.map((section) => {
+                        // While searching, hide sections with nothing to show.
+                        if (searching && section.faqs.length === 0) return null;
+                        const tone = resolveToneTrio(section.tone);
 
-                            return (
-                                <section
-                                    key={section.id}
-                                    data-section-id={section.id}
-                                    ref={(element) => { sectionRefs.current[section.id] = element; }}
-                                    aria-labelledby={`faq-section-${section.id}`}
-                                    // Clears the sticky stack, so clicking a chip
-                                    // lands the heading below the header instead of
-                                    // scrolling it underneath.
-                                    className="scroll-mt-[calc(var(--faq-shell)+var(--faq-head)+1rem)]"
-                                >
-                                    <GlassCard preset="section" accentEdge={meta.tone} className="flex flex-col gap-1">
-                                        <div className="flex items-start gap-3 pb-1">
-                                            <IconBox icon={meta.icon} trio={TRIO[meta.tone]} size={40} />
-                                            <div className="min-w-0 flex-1">
-                                                <h2
-                                                    id={`faq-section-${section.id}`}
-                                                    className="m-0 text-[15px] font-semibold text-slate-900 dark:text-slate-100"
-                                                >
-                                                    {meta.title}
-                                                    <span className="ml-2 text-[12px] font-medium tabular-nums text-slate-400">
-                                                        {section.faqs.length}
-                                                    </span>
-                                                </h2>
-                                                <p className="m-0 mt-0.5 text-[12.5px] text-slate-500 dark:text-slate-400">
-                                                    {meta.blurb}
-                                                </p>
-                                            </div>
+                        return (
+                            <Box
+                                key={section.id}
+                                component="section"
+                                data-section-id={section.id}
+                                ref={(element: HTMLElement | null) => { sectionRefs.current[section.id] = element; }}
+                                aria-labelledby={`faq-section-${section.id}`}
+                                // Clears the sticky stack, so choosing a rail item lands
+                                // the heading below the header rather than under it.
+                                sx={{ scrollMarginTop: 'calc(var(--faq-shell) + var(--faq-head) + 1rem)' }}
+                            >
+                                <SettingsSection
+                                    tone={tone}
+                                    icon={resolveIcon(section.icon)}
+                                    title={section.title}
+                                    description={section.description ?? undefined}
+                                    divided={section.faqs.length > 0}
+                                    action={
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                            <Typography sx={{ fontSize: 12.5, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
+                                                {section.faqs.length}
+                                            </Typography>
                                             {canManage && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setEditor({ sectionId: section.id, faq: null })}
-                                                    aria-label={`Add a question to ${meta.title}`}
-                                                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#E6E9EE] text-slate-500 transition-colors hover:border-[#1E3A8A] hover:text-[#1E3A8A] dark:border-[#30363d] dark:text-slate-400"
+                                                <WtIconButton
+                                                    title={`Add a question to ${section.title}`}
+                                                    color={tone.c}
+                                                    sx={{ width: 32, height: 32, borderRadius: '10px' }}
+                                                    onClick={() => setEditor({ section, faq: null })}
                                                 >
-                                                    <KTIcon iconName="plus" className="fs-5" />
-                                                </button>
+                                                    <KTIcon iconName="plus" className="fs-6" />
+                                                </WtIconButton>
                                             )}
-                                        </div>
-
-                                        {section.faqs.length === 0 ? (
-                                            <div className="flex flex-col items-center gap-2 py-8 text-center">
-                                                <p className="m-0 text-[13px] text-slate-400">
-                                                    Nothing here yet.
-                                                </p>
-                                                {canManage && (
-                                                    <WtButton
-                                                        ghost
-                                                        onClick={() => setEditor({ sectionId: section.id, faq: null })}
-                                                        startIcon={<KTIcon iconName="plus" className="fs-6" />}
-                                                    >
-                                                        Add the first question
-                                                    </WtButton>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="flex flex-col divide-y divide-slate-100 dark:divide-white/5">
-                                                {section.faqs.map((faq) => (
-                                                    <FaqAccordionItem
-                                                        key={faq.id}
-                                                        faq={faq}
-                                                        highlight={search}
-                                                        onEdit={canManage ? (target) => setEditor({ sectionId: section.id, faq: target }) : undefined}
-                                                        onDelete={canManage ? handleDelete : undefined}
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-                                    </GlassCard>
-                                </section>
-                            );
-                        })}
-                </div>
-            </div>
+                                        </Stack>
+                                    }
+                                >
+                                    {section.faqs.length === 0 ? (
+                                        <Stack alignItems="center" spacing={1} sx={{ py: 3 }}>
+                                            <Typography sx={{ fontSize: 13, color: 'text.disabled' }}>
+                                                Nothing here yet.
+                                            </Typography>
+                                            {canManage && (
+                                                <WtButton
+                                                    ghost
+                                                    onClick={() => setEditor({ section, faq: null })}
+                                                    startIcon={<KTIcon iconName="plus" className="fs-6" />}
+                                                >
+                                                    Add the first question
+                                                </WtButton>
+                                            )}
+                                        </Stack>
+                                    ) : (
+                                        <Stack divider={<Divider flexItem />}>
+                                            {section.faqs.map((faq) => (
+                                                <FaqAccordionItem
+                                                    key={faq.id}
+                                                    faq={faq}
+                                                    highlight={search}
+                                                    onEdit={canManage ? (target) => setEditor({ section, faq: target }) : undefined}
+                                                    onDelete={canManage ? handleDelete : undefined}
+                                                />
+                                            ))}
+                                        </Stack>
+                                    )}
+                                </SettingsSection>
+                            </Box>
+                        );
+                    })}
+                </Stack>
+            </Box>
 
             {editor && (
                 <FaqEditorDialog
                     open
-                    sectionId={editor.sectionId}
+                    sectionTitle={editor.section.title}
+                    sectionIcon={resolveIcon(editor.section.icon)}
                     faq={editor.faq}
                     saving={isSaving}
                     onClose={() => setEditor(null)}
                     onSave={handleSave}
                 />
             )}
+
+            <FaqSectionManagerDialog open={managingSections} onClose={() => setManagingSections(false)} />
         </div>
     );
 }

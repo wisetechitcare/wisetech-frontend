@@ -1,18 +1,16 @@
-import type { ToneName } from '@app/modules/common/components/ui/tw/tokens';
+import { TONE_NAMES, TRIO, isHexColor, type ToneName, type Trio } from '@app/modules/common/components/ui';
 
 /**
- * FAQ domain contract — THE single source of truth for the frontend.
+ * FAQ domain contract.
  *
- * Before this module there were two parallel FAQ implementations with two
- * different data shapes, two section lists and two type vocabularies; screens
- * disagreed about what a "section" was and one of them sent type keys the
- * backend enum did not contain. Everything FAQ-related now derives from here.
+ * Sections are DATA, not code. They used to be a hardcoded list here mirroring
+ * a Prisma enum, so renaming a section or adding one needed a migration and a
+ * deploy. They are now rows in `faq_categories` that each tenant owns, fetched
+ * with the FAQs themselves. Nothing in this module may hardcode a section again.
  *
- * `FaqType` mirrors the Prisma `FaqType` enum and `FAQ_SECTIONS` mirrors
- * `FAQ_SECTION_TITLES` in the backend's handlers/company.ts. Those two lists
- * must stay in step — adding a section means editing both.
+ * The only constants left are presentation *defaults* — used when a category
+ * has no icon or tone set — and the pickers' option lists.
  */
-export type FaqType = 'attendance' | 'leaves' | 'salary' | 'reimbursement' | 'general_rules' | 'loan';
 
 export interface Faq {
     id: string;
@@ -20,70 +18,107 @@ export interface Faq {
     answer: string;
 }
 
+/** A FAQ section as the API returns it, with its questions. */
 export interface FaqSection {
-    id: FaqType;
+    /** The stable slug. Kept as `id` for backward compatibility with older callers. */
+    id: string;
+    /** The real handle for writes, reordering and deletion. */
+    categoryId: string;
     title: string;
+    icon: string | null;
+    tone: string | null;
+    description: string | null;
+    displayOrder: number;
+    isSystem: boolean;
     faqs: Faq[];
 }
 
-export interface FaqSectionMeta {
-    id: FaqType;
-    title: string;
-    /** KTIcon (keenicons duotone) name — verified present in the icon font. */
-    icon: string;
-    tone: ToneName;
-    /** Shown under the section heading; orients the reader before they scan. */
-    blurb: string;
+/** A section as the management screen sees it — no questions, but a count and active flag. */
+export interface FaqCategory {
+    id: string;
+    slug: string;
+    name: string;
+    icon: string | null;
+    tone: string | null;
+    description: string | null;
+    displayOrder: number;
+    isActive: boolean;
+    /** Built-in sections: fully editable, but not deletable. */
+    isSystem: boolean;
+    faqCount: number;
 }
 
+export interface FaqCategoryInput {
+    name: string;
+    icon?: string | null;
+    tone?: string | null;
+    description?: string | null;
+    isActive?: boolean;
+}
+
+/** Fallbacks for a section whose icon/tone the admin never set. */
+export const DEFAULT_SECTION_ICON = 'questionnaire-tablet';
+export const DEFAULT_SECTION_TONE: ToneName = 'slate';
+
 /**
- * Section order, titles, iconography and tone — rendered identically by every
- * FAQ surface. Order here is the order on screen.
+ * Icons offered by the section picker.
+ *
+ * Every name is verified present in the keenicons duotone font — an unlisted
+ * name renders as an empty box, so this list is deliberately curated rather
+ * than free text.
  */
-export const FAQ_SECTIONS: readonly FaqSectionMeta[] = [
-    { id: 'attendance', title: 'Attendance', icon: 'time', tone: 'blue', blurb: 'Check-in, check-out, shifts and regularisation.' },
-    { id: 'leaves', title: 'Leaves', icon: 'calendar', tone: 'green', blurb: 'Leave types, balances, applying and approvals.' },
-    { id: 'salary', title: 'Salary', icon: 'dollar', tone: 'purple', blurb: 'Payslips, deductions, arrears and payout dates.' },
-    { id: 'reimbursement', title: 'Reimbursement', icon: 'bill', tone: 'amber', blurb: 'Claims, receipts, limits and settlement.' },
-    { id: 'loan', title: 'Loans', icon: 'wallet', tone: 'cyan', blurb: 'Eligibility, EMI deductions and repayment.' },
-    { id: 'general_rules', title: 'General Rules', icon: 'shield-tick', tone: 'slate', blurb: 'Company-wide policies and code of conduct.' },
+export const FAQ_ICON_CHOICES: readonly string[] = [
+    'questionnaire-tablet', 'time', 'calendar', 'dollar', 'wallet', 'bill',
+    'shield-tick', 'book', 'note-2', 'briefcase', 'percentage', 'abstract-26',
+    'information-5', 'filter', 'magnifier',
 ] as const;
 
-/** O(1) section lookup — avoids a linear scan per rendered row. */
-export const FAQ_SECTION_BY_ID: Readonly<Record<FaqType, FaqSectionMeta>> = Object.fromEntries(
-    FAQ_SECTIONS.map((section) => [section.id, section]),
-) as Record<FaqType, FaqSectionMeta>;
+/** The kit's full palette — derived, so adding a tone to TRIO reaches FAQs too. */
+export const FAQ_TONE_CHOICES: readonly ToneName[] = TONE_NAMES;
 
-export const FAQ_TYPES: readonly FaqType[] = FAQ_SECTIONS.map((section) => section.id);
-
-/** Narrows an arbitrary string (route param, legacy key, API value) to a FaqType. */
-export const isFaqType = (value: unknown): value is FaqType =>
-    typeof value === 'string' && Object.prototype.hasOwnProperty.call(FAQ_SECTION_BY_ID, value);
+export const isToneName = (value: unknown): value is ToneName =>
+    typeof value === 'string' && (FAQ_TONE_CHOICES as readonly string[]).includes(value);
 
 /**
- * Legacy type keys that predate this module and are NOT values of the backend
- * `FaqType` enum. Passing one through raised a Prisma validation error that
- * surfaced as a 500 on every load of the Attendance-Information tab, and a 400
- * on every create.
+ * Resolve a category's stored tone to the name the editor round-trips.
+ * A custom hex is returned verbatim — see resolveToneTrio for rendering.
+ */
+export const resolveTone = (tone: string | null | undefined): string =>
+    isToneName(tone) || isHexColor(tone) ? tone : DEFAULT_SECTION_TONE;
+
+/**
+ * The {fg, bg, border} triple a section renders with.
  *
- * `loan` used to live here too; it is now a real enum value and a real section
- * (migration 20260804120000), so it resolves directly. Mapping the remainder
- * here keeps every existing mount point working while the app speaks one
- * vocabulary. Remove an entry once its caller passes a real FaqType.
+ * A palette tone maps to the kit's TRIO, so it matches every other surface.
+ * A custom hex derives its own tint using the same 8%/24% alpha the kit's icon
+ * buttons use, so a bespoke colour still sits in the same visual language
+ * rather than being a flat block of unrelated colour.
  */
-const LEGACY_TYPE_ALIASES: Readonly<Record<string, FaqType>> = {
-    leaveAttendance: 'attendance',
+export const resolveToneTrio = (tone: string | null | undefined): Trio => {
+    if (isHexColor(tone)) return { c: tone, bg: `${tone}14`, bd: `${tone}3D` };
+    return TRIO[isToneName(tone) ? tone : DEFAULT_SECTION_TONE];
 };
 
-/**
- * Resolve any caller-supplied section key to a real FaqType.
- * Returns undefined for empty/unknown input, which means "all sections".
- */
-export const resolveFaqType = (value: unknown): FaqType | undefined => {
-    if (isFaqType(value)) return value;
-    if (typeof value === 'string' && LEGACY_TYPE_ALIASES[value]) return LEGACY_TYPE_ALIASES[value];
-    return undefined;
-};
+export const resolveIcon = (icon: string | null | undefined): string =>
+    icon && icon.trim() ? icon : DEFAULT_SECTION_ICON;
 
 export const FAQ_QUESTION_MAX = 300;
 export const FAQ_ANSWER_MAX = 4000;
+export const FAQ_CATEGORY_NAME_MAX = 100;
+export const FAQ_CATEGORY_DESCRIPTION_MAX = 255;
+
+/**
+ * Legacy section keys that predate the category model. They are matched against
+ * a category `slug` server-side; `leaveAttendance` never was one, so it is
+ * translated here. Everything else passes through untouched.
+ */
+const LEGACY_TYPE_ALIASES: Readonly<Record<string, string>> = {
+    leaveAttendance: 'attendance',
+};
+
+/** Normalise a caller-supplied section key to a slug the API will recognise. */
+export const resolveSectionKey = (value: unknown): string | undefined => {
+    if (typeof value !== 'string' || !value.trim()) return undefined;
+    const key = value.trim();
+    return LEGACY_TYPE_ALIASES[key] ?? key;
+};

@@ -631,6 +631,17 @@ const hasEducationInfo = hasStartedEducationInfo;
 const hasFamilyInfo = (familyMember: any) =>
   Boolean(familyMember?.name || familyMember?.relationship || familyMember?.mobileNumber);
 
+/**
+ * Is there anything to persist for this document row?
+ *
+ * The wizard now seeds ONE row per configured document type so every type gets an
+ * attachment field, whether or not it is filled in. Saving those unconditionally
+ * would write an empty EmployeeDocuments row per unattached type on every save.
+ * An already-saved row (`id`) always persists — that is how an edit reaches it.
+ */
+const hasDocumentInfo = (doc: any) =>
+  Boolean(doc?.id || doc?.path || doc?.fileName || doc?.identityNumber);
+
 const withDefaultEducationInfo = (educationalInfo: any) =>
   Array.isArray(educationalInfo) && educationalInfo.length > 0
     ? normalizeEducationRows(educationalInfo)
@@ -665,6 +676,11 @@ const initialState = {
   allowOverTime: "0",
   leaveAllocations: [] as any[],
   workExpInfo: [createDefaultWorkExpInfo()],
+  // The company's configured onboarding document types. Declared here (rather than
+  // only ever written by OnboardingWorkspace's effect) so the key survives Formik's
+  // `enableReinitialize` reset as an empty array instead of vanishing from `values`
+  // entirely — every `values.documentFields?.find(...)` below depends on it existing.
+  documentFields: [] as any[],
   documentInfo: [{ identityNumber: "", employeeId: "", documentId: "", path: "", fileName: "" }],
   roles: [] as any[],
   professionalFeesEnabled: "false", professionalFeesAmount: "",
@@ -844,7 +860,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
       () => createAddressDetails({ ...addressInfo, employeeId, ...(isSameAddress && { presentAddressLine1: undefined, presentAddressLine2: undefined, presentCountry: undefined, presentState: undefined, presentCity: undefined, presentPostalCode: undefined }) }),
       () => createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.bankName && { bankName: bankInfo.bankName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }),
       () => createEmergencyDetails({ ...(emergencyDetails.bloodGroup && { bloodGroup: emergencyDetails.bloodGroup }), ...(emergencyDetails.allergies && { allergies: emergencyDetails.allergies }), ...(emergencyDetails.emergencyContactName && { emergencyContactName: emergencyDetails.emergencyContactName }), ...(emergencyDetails.emergencyContactNumber && { emergencyContactNumber: emergencyDetails.emergencyContactNumber }), employeeId }),
-      () => createDocumentsDetails(documents.map((el: any) => ({ ...el, employeeId }))),
+      () => createDocumentsDetails(documents.filter(hasDocumentInfo).map((el: any) => ({ ...el, employeeId }))),
     ];
 
     const responses = await Promise.all(reqPromises.map((fn) => fn()));
@@ -1405,7 +1421,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ? updateEmergencyDetails(emergencyDetails.id, emergencyDetails)
       : createEmergencyDetails({ ...(emergencyDetails.bloodGroup && { bloodGroup: emergencyDetails.bloodGroup }), ...(emergencyDetails.allergies && { allergies: emergencyDetails.allergies }), ...(emergencyDetails.emergencyContactName && { emergencyContactName: emergencyDetails.emergencyContactName }), ...(emergencyDetails.emergencyContactNumber && { emergencyContactNumber: emergencyDetails.emergencyContactNumber }), employeeId }));
 
-    values.documentInfo.forEach((docInfo: any) =>
+    values.documentInfo.filter(hasDocumentInfo).forEach((docInfo: any) =>
       reqPromise.push(() => docInfo?.id ? updateDocumentDetails(docInfo?.id, { ...docInfo, employeeId }) : createDocumentsDetails([{ ...docInfo, employeeId }])));
 
     try {

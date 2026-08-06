@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useFormikContext } from "formik";
 import dayjs from "dayjs";
 
@@ -28,8 +28,9 @@ import {
 } from "@mui/icons-material";
 
 import { fetchDocumentsField } from "@services/employee";
-import { fetchOrganizationTree } from "@services/company";
+import { fetchCompanyOverview, fetchOrganizationTree } from "@services/company";
 import { fetchBranches } from "@services/options";
+import { resolveActiveOrgId } from "@utils/activeOrg";
 import OnboardingWizard, { OnboardingGroup } from "./OnboardingWizard";
 import * as S from "./OnboardingSections";
 import type { OnboardingSectionsProps } from "./OnboardingSections";
@@ -63,53 +64,122 @@ const createInitialDocumentInfo = (documentId: string) => ({
   fileName: "",
 });
 
+/**
+ * The row to show for one document type — i.e. what the employee already has on file.
+ *
+ * A type can own SEVERAL saved rows: every save without a row `id` inserts a new
+ * EmployeeDocuments record rather than updating, so re-uploading a document leaves the
+ * earlier rows behind. Taking the first match would surface whichever the API happened to
+ * return first — often an older, or empty, row — and the field would read "Not attached"
+ * on an employee who plainly has the document. Prefer rows that carry a file, newest
+ * first; the same "latest wins" rule the Aadhaar/PAN save path already applies.
+ */
+const pickSavedDocumentRow = (rows: any[], documentId: string) => {
+  const matches = rows.filter((r) => r?.documentId === documentId);
+  if (matches.length <= 1) return matches[0];
+
+  const weight = (r: any) => (r?.path || r?.fileName ? 2 : r?.identityNumber ? 1 : 0);
+  const time = (r: any) => new Date(r?.createdAt ?? 0).getTime() || 0;
+
+  return matches
+    .slice()
+    .sort((a, b) => weight(b) - weight(a) || time(b) - time(a))[0];
+};
+
 const fmtDate = (v?: string) => (v && dayjs(v).isValid() ? dayjs(v).format("DD MMM YYYY") : "");
 
 export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
 
-  // Enabled document types drive the Documents section. Fetched at wizard level
-  // (not on arrival at that section, as the legacy Step4 did) so sidebar
-  // completion and the summary are correct before the user ever gets there.
+  // ── The company's configured document types ──────────────────────────────
+  //
+  // Held in REACT state, not Formik, because it is server configuration rather
+  // than form data — and because Formik cannot hold it reliably: the wizard runs
+  // with `enableReinitialize`, so the moment the edit-mode employee record lands
+  // Formik resets `values` to `initialValues`, discarding anything an effect had
+  // written into it. `documentFields` was written exactly that way and wiped
+  // exactly that way, which is why Upload Documents rendered nothing but its
+  // notice on every existing employee. This state survives any number of resets;
+  // the sync effect below re-seeds Formik from it whenever one happens.
+  const [docConfig, setDocConfig] = useState<any[]>([]);
+
   useEffect(() => {
     let cancelled = false;
-    async function getAllDocFields() {
+
+    async function loadDocumentTypes() {
+      // Scope to the same organization the Company → Onboarding Docs screen
+      // writes to (its root org), so the wizard shows THIS company's document
+      // types. Unscoped, the backend's `where` clause skips the filter entirely
+      // and every company's types come back.
+      let companyId: string | undefined;
       try {
         const {
-          data: { documents },
-        } = await fetchDocumentsField();
+          data: { companyOverview },
+        } = await fetchCompanyOverview();
+        companyId = resolveActiveOrgId(companyOverview);
+      } catch {
+        // Fall through unscoped rather than showing nothing.
+      }
+
+      try {
+        const {
+          data: { documents = [] },
+        } = await fetchDocumentsField(companyId);
         if (cancelled) return;
-
-        const enabled = documents.filter((doc: any) => doc.isEnabled);
-        setFieldValue("documentFields", enabled, true);
-
-        const docInfo = values.documentInfo;
-        if (!docInfo || docInfo.length === 0 || docInfo.length !== enabled.length) {
-          setFieldValue(
-            "documentInfo",
-            enabled.map((doc: any) => createInitialDocumentInfo(doc.id)),
-            true
-          );
-        } else {
-          setFieldValue(
-            "documentInfo",
-            docInfo.map((doc: any, i: number) => ({
-              ...doc,
-              documentId: doc.documentId || enabled[i]?.id,
-            })),
-            true
-          );
-        }
+        // Disabled types are configuration that exists but is switched off — the
+        // wizard must not ask for them.
+        setDocConfig(documents.filter((doc: any) => doc.isEnabled));
       } catch {
         // A failed lookup must not break the wizard — the section renders empty.
       }
     }
-    getAllDocFields();
+
+    loadDocumentTypes();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Mirror the configuration into Formik, and KEEP it mirrored.
+  //
+  // Runs on every values change and repairs any divergence, so it covers all three
+  // ways the two can drift apart: the initial fetch, a reinitialize that wipes
+  // `documentFields`, and a document type added or removed in Onboarding Docs since
+  // this form was opened.
+  //
+  // `documentInfo` is rebuilt to one row per configured type, CARRYING OVER the
+  // employee's saved row for that type — that is what makes an existing upload show up
+  // pre-filled (file name, View link, identity number) instead of as an empty field on
+  // an employee who already submitted it. Rows for types no longer configured drop out
+  // of the form; they stay in the database untouched.
+  //
+  // Terminates because "in sync" is checked before writing: once written, the next pass
+  // matches and no further writes are made.
+  useEffect(() => {
+    if (docConfig.length === 0) return;
+
+    const fields = Array.isArray(values.documentFields) ? values.documentFields : [];
+    if (
+      fields.length !== docConfig.length ||
+      !docConfig.every((doc, i) => fields[i]?.id === doc.id)
+    ) {
+      setFieldValue("documentFields", docConfig, false);
+    }
+
+    const rows = Array.isArray(values.documentInfo) ? values.documentInfo : [];
+    if (
+      rows.length !== docConfig.length ||
+      !docConfig.every((doc, i) => rows[i]?.documentId === doc.id)
+    ) {
+      setFieldValue(
+        "documentInfo",
+        docConfig.map(
+          (doc) => pickSavedDocumentRow(rows, doc.id) ?? createInitialDocumentInfo(doc.id)
+        ),
+        false
+      );
+    }
+  }, [docConfig, values.documentFields, values.documentInfo, setFieldValue]);
 
   // `organizationId` has no column on the employee record — it is DERIVED:
   // branch → companyId → walk the org tree to find that node's root parent.

@@ -114,6 +114,11 @@ export const COMPANY = {
     POST_FAQ: "api/company/faq",
     UPDATE_FAQ_BY_ID: "api/company/faq/:faqId",
     DELETE_FAQ: "api/company/faq/",
+    GET_FAQ_CATEGORIES: "api/company/faq-categories",
+    POST_FAQ_CATEGORY: "api/company/faq-category",
+    UPDATE_FAQ_CATEGORY_BY_ID: "api/company/faq-category/:categoryId",
+    DELETE_FAQ_CATEGORY: "api/company/faq-category/:categoryId",
+    REORDER_FAQ_CATEGORIES: "api/company/faq-categories/reorder",
 
     POST_CONFIGURATION: "api/feature/config",
     GET_ANNOUNCEMENT_BY_ID: "api/company/announcement",
