@@ -14,16 +14,41 @@ import { fetchDesignations, archiveDesignationById } from "@services/options";
 import { fetchCompanyOverview } from "@services/company";
 import { resolveActiveOrgId } from "@utils/activeOrg";
 import Loader from "@app/modules/common/utils/Loader";
-import EmployeeTypes from "@pages/company/masters/EmployeeTypes";
+import Departments from "@pages/company/Departments";
+import OrganizationConfigure from "@pages/company/masters/OrganizationConfigure";
 import {
   ConfigPageLayout,
   ConfigSectionCard,
+  ConfigTabStrip,
   C,
   FONT,
   SP,
   RADIUS,
   KEYFRAMES,
 } from "@app/modules/configuration";
+
+/**
+ * Every list the onboarding form offers, in the order the form asks for them.
+ *
+ * Shifts, Departments and Job Profiles moved here from Organization → Configure:
+ * all three fill onboarding dropdowns, so editing them from a different module meant
+ * hunting across two screens both labelled "Configure". Towns stayed behind — it feeds
+ * a BRANCH, and onboarding only picks the finished branch.
+ */
+const CONFIG_TABS = [
+  { id: "job-profiles", label: "Job Profiles", icon: "bi-briefcase" },
+  { id: "departments", label: "Departments", icon: "bi-diagram-2" },
+  { id: "shifts", label: "Shifts", icon: "bi-clock" },
+  { id: "employee-types", label: "Employee Types", icon: "bi-people" },
+  { id: "experience-levels", label: "Experience Levels", icon: "bi-diagram-3" },
+  { id: "employee-status", label: "Employee Status", icon: "bi-check-circle" },
+  { id: "qualifications", label: "Qualifications", icon: "bi-mortarboard" },
+];
+
+/** Tabs whose card lives in THIS page's own ConfigPageLayout. */
+const OWN_TAB_IDS = CONFIG_TABS
+  .map((t) => t.id)
+  .filter((id) => id !== "departments" && id !== "shifts");
 
 interface EmployeeConfigItem {
   id: string;
@@ -36,6 +61,7 @@ interface EmployeeConfigItem {
 
 const EmployeeConfigure = () => {
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState(CONFIG_TABS[0].id);
 
   // Job Profile configurations
   const [jobProfiles, setJobProfiles] = useState<JobProfileItem[]>([]);
@@ -395,13 +421,28 @@ const EmployeeConfigure = () => {
   return (
     <>
       <style>{KEYFRAMES}</style>
+
+      <ConfigTabStrip
+        items={CONFIG_TABS}
+        activeId={activeTab}
+        onChange={setActiveTab}
+        label="Onboarding configuration"
+      />
+
+      {/* Departments and Shifts render their OWN ConfigPageLayout, so they sit outside
+          the one below — nesting them would stack two banners. */}
+      {activeTab === 'departments' && <Departments />}
+      {activeTab === 'shifts' && <OrganizationConfigure />}
+
+      {OWN_TAB_IDS.includes(activeTab) && (
       <ConfigPageLayout
         title="Employee Configuration"
-        subtitle="Manage job profiles, employee types, experience levels, statuses and qualifications"
+        subtitle="Options offered by the onboarding form's dropdowns"
         icon="bi-person-badge"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
           {/* Job Profiles Section */}
+          {activeTab === 'job-profiles' && (
           <ConfigSectionCard
             title="Job Profiles"
             description="Options offered in the onboarding Job Profile picker (also shown as Designations under Organization Profile)"
@@ -456,8 +497,10 @@ const EmployeeConfigure = () => {
               <i className="bi bi-plus me-2" /> New Job Profile
             </button>
           </ConfigSectionCard>
+          )}
 
           {/* Employee Types Section */}
+          {activeTab === 'employee-types' && (
           <ConfigSectionCard
             title="Employee Types"
             description="Classify employees by type (e.g., Full-time, Part-time)"
@@ -512,9 +555,11 @@ const EmployeeConfigure = () => {
               <i className="bi bi-plus me-2" /> New Employee Type
             </button>
           </ConfigSectionCard>
+          )}
 
           {/* Experience Levels Section — EMPLOYEE_LEVEL is the stored enum; the form
               labels this "Experience Level", so the UI matches that, not the enum. */}
+          {activeTab === 'experience-levels' && (
           <ConfigSectionCard
             title="Experience Levels"
             description="Options offered in the onboarding Experience Level picker"
@@ -569,8 +614,10 @@ const EmployeeConfigure = () => {
               <i className="bi bi-plus me-2" /> New Experience Level
             </button>
           </ConfigSectionCard>
+          )}
 
           {/* Employee Status Section */}
+          {activeTab === 'employee-status' && (
           <ConfigSectionCard
             title="Employee Status"
             description="Track employee employment status"
@@ -625,8 +672,10 @@ const EmployeeConfigure = () => {
               <i className="bi bi-plus me-2" /> New Employee Status
             </button>
           </ConfigSectionCard>
+          )}
 
           {/* Qualifications Section — drives the Education Details picker in onboarding */}
+          {activeTab === 'qualifications' && (
           <ConfigSectionCard
             title="Qualifications"
             description="Options offered in the onboarding Education Details picker"
@@ -681,8 +730,10 @@ const EmployeeConfigure = () => {
               <i className="bi bi-plus me-2" /> New Qualification
             </button>
           </ConfigSectionCard>
+          )}
         </div>
       </ConfigPageLayout>
+      )}
 
       {/* Modals */}
       {/* Job Profile Modal — designations-backed, so it can't reuse EmployeeConfigureForm */}
@@ -736,8 +787,6 @@ const EmployeeConfigure = () => {
         initialData={editingQualification}
         isEditing={!!editingQualification}
       />
-
-      <EmployeeTypes/>
     </>
   );
 };
