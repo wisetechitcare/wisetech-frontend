@@ -148,47 +148,14 @@ function Towns() {
               title="Towns"
               subtitle="Manage towns and geographical locations"
               icon="bi-geo-alt"
-              actions={
-                isAdmin ? (
-                  <button
-                    onClick={() => setShowModal(true)}
-                    style={{
-                      backgroundColor: C.primary,
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: RADIUS.md,
-                      padding: '8px 16px',
-                      fontFamily: FONT.body,
-                      fontWeight: 600,
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: `0 4px 12px ${C.primaryShadow}`,
-                      transition: 'all 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`;
-                    }}
-                  >
-                    <i className="bi bi-plus-lg" style={{ fontSize: '14px' }} />
-                    New Town
-                  </button>
-                ) : null
-              }
             >
               <ConfigSectionCard
                 title={`${data.length} Town${data.length !== 1 ? 's' : ''}`}
                 description="View and manage all towns and geographical locations"
                 icon="bi-pin-map"
-                iconColor="amber"
-                badge={{ label: `${data.length}`, color: C.amber, bg: C.amberLight }}
+                iconColor="primary"
+                primaryAction={isAdmin ? { label: 'New Town', icon: 'bi-plus-lg', onClick: () => setShowModal(true), variant: 'primary' } : undefined}
+                badge={{ label: `${data.length}`, color: C.primary, bg: C.primaryLight }}
                 loading={loading}
               >
                 <div style={{ marginTop: SP.md }}>

@@ -424,6 +424,7 @@ const EmployeeConfigure = () => {
             icon="bi-briefcase"
             iconColor="primary"
             badge={{ label: `${jobProfiles.length}`, color: C.primary, bg: C.primaryLight }}
+            primaryAction={{ label: 'New Job Profile', icon: 'bi-plus-lg', onClick: handleJobProfileModalOpen, variant: 'primary' }}
           >
             <div style={{ marginTop: SP.md }}>
               {jobProfiles.length === 0 ? (
@@ -443,34 +444,6 @@ const EmployeeConfigure = () => {
                 </div>
               )}
             </div>
-            <button
-              onClick={handleJobProfileModalOpen}
-              style={{
-                backgroundColor: C.primary,
-                color: '#fff',
-                border: 'none',
-                borderRadius: RADIUS.md,
-                padding: `${SP.sm} ${SP.lg}`,
-                fontFamily: FONT.body,
-                fontWeight: 600,
-                fontSize: '13px',
-                cursor: 'pointer',
-                marginTop: SP.lg,
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = C.primaryMid;
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = C.primary;
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <i className="bi bi-plus me-2" /> New Job Profile
-            </button>
           </ConfigSectionCard>
           )}
 
@@ -482,6 +455,7 @@ const EmployeeConfigure = () => {
             icon="bi-people"
             iconColor="primary"
             badge={{ label: `${employeeTypes.length}`, color: C.primary, bg: C.primaryLight }}
+            primaryAction={{ label: 'New Employee Type', icon: 'bi-plus-lg', onClick: handleEmployeeTypeModalOpen, variant: 'primary' }}
           >
             <div style={{ marginTop: SP.md }}>
               {employeeTypes.length === 0 ? (
@@ -501,34 +475,6 @@ const EmployeeConfigure = () => {
                 </div>
               )}
             </div>
-            <button
-              onClick={handleEmployeeTypeModalOpen}
-              style={{
-                backgroundColor: C.primary,
-                color: '#fff',
-                border: 'none',
-                borderRadius: RADIUS.md,
-                padding: `${SP.sm} ${SP.lg}`,
-                fontFamily: FONT.body,
-                fontWeight: 600,
-                fontSize: '13px',
-                cursor: 'pointer',
-                marginTop: SP.lg,
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = C.primaryMid;
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = C.primary;
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <i className="bi bi-plus me-2" /> New Employee Type
-            </button>
           </ConfigSectionCard>
           )}
 
@@ -541,6 +487,7 @@ const EmployeeConfigure = () => {
             icon="bi-diagram-3"
             iconColor="primary"
             badge={{ label: `${employeeLevels.length}`, color: C.primary, bg: C.primaryLight }}
+            primaryAction={{ label: 'New Experience Level', icon: 'bi-plus-lg', onClick: handleEmployeeLevelModalOpen, variant: 'primary' }}
           >
             <div style={{ marginTop: SP.md }}>
               {employeeLevels.length === 0 ? (
@@ -560,34 +507,6 @@ const EmployeeConfigure = () => {
                 </div>
               )}
             </div>
-            <button
-              onClick={handleEmployeeLevelModalOpen}
-              style={{
-                backgroundColor: C.primary,
-                color: '#fff',
-                border: 'none',
-                borderRadius: RADIUS.md,
-                padding: `${SP.sm} ${SP.lg}`,
-                fontFamily: FONT.body,
-                fontWeight: 600,
-                fontSize: '13px',
-                cursor: 'pointer',
-                marginTop: SP.lg,
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = C.primaryMid;
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = C.primary;
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <i className="bi bi-plus me-2" /> New Experience Level
-            </button>
           </ConfigSectionCard>
           )}
 
@@ -599,6 +518,7 @@ const EmployeeConfigure = () => {
             icon="bi-check-circle"
             iconColor="primary"
             badge={{ label: `${employeeStatuses.length}`, color: C.primary, bg: C.primaryLight }}
+            primaryAction={{ label: 'New Employee Status', icon: 'bi-plus-lg', onClick: handleEmployeeStatusModalOpen, variant: 'primary' }}
           >
             <div style={{ marginTop: SP.md }}>
               {employeeStatuses.length === 0 ? (
@@ -618,34 +538,6 @@ const EmployeeConfigure = () => {
                 </div>
               )}
             </div>
-            <button
-              onClick={handleEmployeeStatusModalOpen}
-              style={{
-                backgroundColor: C.primary,
-                color: '#fff',
-                border: 'none',
-                borderRadius: RADIUS.md,
-                padding: `${SP.sm} ${SP.lg}`,
-                fontFamily: FONT.body,
-                fontWeight: 600,
-                fontSize: '13px',
-                cursor: 'pointer',
-                marginTop: SP.lg,
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = C.primaryMid;
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = C.primary;
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <i className="bi bi-plus me-2" /> New Employee Status
-            </button>
           </ConfigSectionCard>
           )}
 
@@ -657,6 +549,7 @@ const EmployeeConfigure = () => {
             icon="bi-mortarboard"
             iconColor="primary"
             badge={{ label: `${qualifications.length}`, color: C.primary, bg: C.primaryLight }}
+            primaryAction={{ label: 'New Qualification', icon: 'bi-plus-lg', onClick: handleQualificationModalOpen, variant: 'primary' }}
           >
             <div style={{ marginTop: SP.md }}>
               {qualifications.length === 0 ? (
@@ -676,34 +569,6 @@ const EmployeeConfigure = () => {
                 </div>
               )}
             </div>
-            <button
-              onClick={handleQualificationModalOpen}
-              style={{
-                backgroundColor: C.primary,
-                color: '#fff',
-                border: 'none',
-                borderRadius: RADIUS.md,
-                padding: `${SP.sm} ${SP.lg}`,
-                fontFamily: FONT.body,
-                fontWeight: 600,
-                fontSize: '13px',
-                cursor: 'pointer',
-                marginTop: SP.lg,
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = C.primaryMid;
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = C.primary;
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <i className="bi bi-plus me-2" /> New Qualification
-            </button>
           </ConfigSectionCard>
           )}
         </div>
