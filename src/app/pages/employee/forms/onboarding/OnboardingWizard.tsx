@@ -185,6 +185,26 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     [leaves, leafStatus]
   );
 
+  /**
+   * Does this leaf actually STOP forward navigation?
+   *
+   * Only a section that declares `requiredFields` and is still missing one can.
+   * This is deliberately NOT `status !== "completed"`: `leafStatus` reports a
+   * purely optional section (Education, Work Experience, Leave Settings …) as
+   * "pending" until the user either fills something in or walks past it, and
+   * gating on that made every untouched optional section behave like a required
+   * one — the whole form was filled, every genuine requirement met, and clicking
+   * a later section in the rail still refused with "complete the required fields
+   * in the preceding sections". Nothing is required there, so nothing should block.
+   */
+  const isBlocking = useCallback(
+    (leaf: OnboardingLeaf) => {
+      const required = leaf.requiredFields ?? [];
+      return required.length > 0 && !required.every((f) => hasValue(values?.[f]));
+    },
+    [values]
+  );
+
   const completedCount = statuses.filter((s) => s === "completed").length;
   const progressPct = leaves.length ? Math.round((completedCount / leaves.length) * 100) : 0;
 
@@ -209,22 +229,32 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
   const handleSidebarClick = useCallback(
     (id: string, targetIdx: number) => {
+      // Backwards is always free — you can revisit anything you have passed.
       if (targetIdx <= activeIndex) {
         goToLeaf(id);
         return;
       }
-      // Check if there are any incomplete required sections before targetIdx
-      const precedingIncomplete = leaves
-        .slice(0, targetIdx)
-        .some((_, i) => statuses[i] !== "completed" && statuses[i] !== "active");
 
-      if (!precedingIncomplete) {
+      // Forwards: only a genuinely unmet REQUIREMENT earlier in the form stops
+      // the jump. The section on screen is exempt — Continue already guards it,
+      // and blocking here would strand the user on a section they are editing.
+      const blockerIdx = leaves
+        .slice(0, targetIdx)
+        .findIndex((leaf, i) => i !== activeIndex && isBlocking(leaf));
+
+      if (blockerIdx === -1) {
         goToLeaf(id);
-      } else {
-        toast.warning("Please complete the required fields in the preceding sections before proceeding.");
+        return;
       }
+
+      // Name the offending section and land on it. A bare "complete the
+      // preceding sections" left the user hunting through 19 entries for the
+      // one that was actually incomplete.
+      const blocker = leaves[blockerIdx];
+      toast.warning(`Complete the required fields in "${blocker.label}" first.`);
+      goToLeaf(blocker.id);
     },
-    [activeIndex, statuses, goToLeaf, leaves]
+    [activeIndex, goToLeaf, leaves, isBlocking]
   );
 
   const handleBack = () => {

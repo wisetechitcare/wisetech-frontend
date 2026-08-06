@@ -618,6 +618,22 @@ export const DocumentsSection: React.FC<OnboardingSectionsProps> = ({ formikProp
   const { values } = useFormikContext<any>();
   const documentFields: any[] = Array.isArray(values.documentFields) ? values.documentFields : [];
 
+  // The list is the company's Onboarding Docs configuration, mirrored into Formik by
+  // OnboardingWorkspace. Empty means none is configured (or enabled) — which is a real
+  // state to explain, not a blank panel: the section used to render its notice over
+  // nothing and read as broken.
+  if (documentFields.length === 0) {
+    return (
+      <div className="ob-doc-empty">
+        <span className="ob-doc-empty-title">No documents requested</span>
+        <span className="ob-doc-empty-hint">
+          Nothing is configured for this company yet. Add document types under
+          Organization → Onboarding Docs and they will appear here.
+        </span>
+      </div>
+    );
+  }
+
   return (
     <>
       <Notice tone="info" icon="bi-info-circle">
@@ -625,8 +641,8 @@ export const DocumentsSection: React.FC<OnboardingSectionsProps> = ({ formikProp
       </Notice>
 
       <div className="ob-repeating-section mt-4">
-        {documentFields.map((_: any, index: number) => (
-          <div key={`documentFields-${index}`}>
+        {documentFields.map((field: any, index: number) => (
+          <div key={field?.id ?? `documentFields-${index}`}>
             <Documents formikProps={formikProps} index={index} setFile={setFile} />
           </div>
         ))}
