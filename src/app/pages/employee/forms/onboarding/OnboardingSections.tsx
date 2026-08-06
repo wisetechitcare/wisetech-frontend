@@ -29,7 +29,6 @@ import WorkExperience from "../../wizard/forms/WorkExperience";
 import LeaveAllocationStep from "../../wizard/forms/LeaveAllocationStep";
 import AppSettings from "../../wizard/forms/AppSettings";
 import Documents from "../../wizard/forms/Documents";
-import { SignatureUploadField } from "./SignatureUploadField";
 
 // `ob-repeating-section` and the field-level `ob-*` rules the renderers above
 // rely on still live here. The obsolete shell classes it also carries
@@ -631,19 +630,6 @@ export const DocumentsSection: React.FC<OnboardingSectionsProps> = ({ formikProp
             <Documents formikProps={formikProps} index={index} setFile={setFile} />
           </div>
         ))}
-      </div>
-
-      {/* Signature Upload — linked to Reimbursement */}
-      <div className="mt-6 pt-6" style={{ borderTop: '1px solid #e5e7eb' }}>
-        <h4 className="mb-4" style={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
-          📝 Signature for Reimbursement Documents
-        </h4>
-        <Notice tone="info" icon="bi-info-circle">
-          Upload your signature (PNG, JPG, or PDF). This will be used on all reimbursement-related documents and approvals.
-        </Notice>
-        <div className="mt-4">
-          <SignatureUploadField formikProps={formikProps} setFile={setFile} />
-        </div>
       </div>
     </>
   );

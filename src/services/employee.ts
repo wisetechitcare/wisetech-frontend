@@ -696,29 +696,6 @@ export const uploadLeaveDocuments = async (files: File[]): Promise<LeaveDocument
 };
 
 /**
- * Record the employee's reimbursement signature. The file is uploaded through the
- * shared onboarding file pass first — this only persists the resulting S3 path so
- * reimbursement bills can render it.
- */
-export const saveEmployeeSignature = async (
-    employeeId: string,
-    signatureUrl: string,
-    fileName: string,
-    mimeType: string,
-) => {
-    const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_SIGNATURE}`;
-    const { data } = await axios.post(endpoint, { employeeId, signatureUrl, fileName, mimeType });
-    return data?.data?.signature ?? null;
-};
-
-/** Read back a stored signature so the onboarding form shows what is already on file. */
-export const fetchEmployeeSignature = async (employeeId: string) => {
-    const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_SIGNATURE}?employeeId=${employeeId}`;
-    const { data } = await axios.get(endpoint);
-    return data?.data?.signature ?? null;
-};
-
-/**
  * Fetch the current employee's multi-level leave approval chain (self-readable endpoint).
  * Returns rows ordered by level; approver names are resolved on the client.
  */
