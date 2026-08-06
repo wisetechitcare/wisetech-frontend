@@ -129,6 +129,11 @@ function trackTableNameCollision(tableName: string): () => void {
 function useTablePreferences(tableName: string, columns: any[], employeeId?: string, defaultSorting?: Array<{ id: string; desc: boolean }>, persist: boolean = true) {
     // Use refs to prevent recreating functions and causing loops
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    // Holds the not-yet-written save so unmount can flush it. Without this, a
+    // change made within the 500ms debounce window was silently lost: the
+    // cleanup below cleared the timer, so sorting a column and immediately
+    // navigating away never persisted the sort.
+    const pendingSaveRef = useRef<(() => Promise<void>) | null>(null);
     const isMountedRef = useRef(true);
     const initialLoadRef = useRef(false);
     
@@ -178,14 +183,21 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
             clearTimeout(saveTimeoutRef.current);
         }
 
-        // Set new timeout for debounced save
-        saveTimeoutRef.current = setTimeout(async () => {
+        // The write itself, captured so unmount can run it immediately instead
+        // of dropping it. Reassigned on every schedule, so it always closes over
+        // the newest preferences and never a stale employeeId/tableName.
+        pendingSaveRef.current = async () => {
+            pendingSaveRef.current = null;
             try {
                 await upsertUserTablePreferences(employeeId, tableName, newPreferences);
-                console.log("Preferences saved successfully for", tableName);
             } catch (error) {
                 console.error('Error saving table preferences:', error);
             }
+        };
+
+        // Set new timeout for debounced save
+        saveTimeoutRef.current = setTimeout(() => {
+            void pendingSaveRef.current?.();
         }, 500);
     }, [persist, employeeId, tableName, isInitialized]); // Stable dependencies only
 
@@ -441,6 +453,9 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
             if (saveTimeoutRef.current) {
                 clearTimeout(saveTimeoutRef.current);
             }
+            // Flush rather than drop. The request outlives this component, so a
+            // sort applied just before navigating away still reaches the server.
+            void pendingSaveRef.current?.();
         };
     }, []); // Empty dependency array - runs once
 
