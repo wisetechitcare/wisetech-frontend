@@ -194,6 +194,7 @@ export const EMPLOYEE = {
     LEAVES: "api/employee/leaves",
     GROUPED_LEAVES: "api/employee/leaves-grouped",
     UPLOAD_LEAVE_DOCUMENTS: "api/employee/leave/documents",
+    EMPLOYEE_SIGNATURE: "api/employee/signature",
     LEAVE_APPROVAL_CHAIN: "api/employee/leave/approval-chain",
     LEAVE_APPROVAL_STATUS: "api/employee/leave/approval-status",
     GET_WIZARD_DATA: "api/employee/wizard",

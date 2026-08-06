@@ -41,10 +41,12 @@ import {
   updateRejoinHistoryDetails,
   deleteAllRejoinHistoryByEmployeeId,
   fetchApprovalWorkflowConfigs,
+  saveEmployeeSignature,
 } from "@services/employee";
 import { fetchCompanyOverview } from "@services/company";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
+import { SIGNATURE_DOC_ID } from "../forms/onboarding/SignatureUploadField";
 
 /**
  * Professional Fees helpers
@@ -1162,6 +1164,20 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     }));
   };
 
+  // The signature rides along in the same `files` pass as the documents, but it has no
+  // `documentFields` row for its path to land in — so persist it against the employee
+  // explicitly. Without this the file reaches S3 and the path is then dropped, which is
+  // why an uploaded signature never survived a save.
+  const persistSignature = async (
+    uploaded: Array<{ documentId: string; path: string; fileName: string }>,
+    empId: string,
+  ) => {
+    const sig = uploaded.find((d) => d.documentId === SIGNATURE_DOC_ID);
+    if (!sig || !empId) return;
+    const mimeType = files[SIGNATURE_DOC_ID]?.type || "image/png";
+    await saveEmployeeSignature(empId, sig.path, sig.fileName, mimeType);
+  };
+
   const loadStepper = () => {
     const createdStepper = StepperComponent.createInsance(stepperRef.current as HTMLDivElement);
     if (!createdStepper) return;
@@ -1250,6 +1266,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     const documentInfo = values.documentInfo;
     const documentUploaded = await Promise.all(documentPromise);
+    await persistSignature(documentUploaded, values.employeeId);
     const filteredDocs = documentUploaded.filter((doc: any) => doc.documentId !== "userProfilePicture");
     documentUploaded.forEach((doc: any) => doc.documentId === "userProfilePicture" ? (values.avatar = doc.path) : null);
 
@@ -1528,6 +1545,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         await uploadEducationDocuments(values, savedUserId);
         const savedEmployeeId = await saveNewEmployee(values, savedUserId);
         if (!savedEmployeeId) throw new Error("Failed to save employee data");
+
+        // Needs the employee row to exist, so this runs after saveNewEmployee rather
+        // than alongside the other uploads.
+        await persistSignature(documentUploaded, savedEmployeeId);
 
         if (values.appRole) {
           try { await updateEmployeeRolesById(savedEmployeeId, { roleIds: [values.appRole] }); }
