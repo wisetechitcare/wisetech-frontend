@@ -6,13 +6,15 @@ export { FaqsBoard, default as default } from './FaqsBoard';
 export { FaqAccordionItem } from './FaqAccordionItem';
 export { FaqEditorDialog } from './FaqEditorDialog';
 export { useFaqs, FAQS_QUERY_KEY } from './useFaqs';
+export { FaqSectionManagerDialog } from './FaqSectionManagerDialog';
+export { useFaqCategories, FAQ_CATEGORIES_QUERY_KEY } from './useFaqCategories';
 export {
-    FAQ_SECTIONS,
-    FAQ_SECTION_BY_ID,
-    FAQ_TYPES,
+    FAQ_ICON_CHOICES,
+    FAQ_TONE_CHOICES,
     FAQ_QUESTION_MAX,
     FAQ_ANSWER_MAX,
-    isFaqType,
-    resolveFaqType,
+    resolveIcon,
+    resolveTone,
+    resolveSectionKey,
 } from './types';
-export type { Faq, FaqSection, FaqSectionMeta, FaqType } from './types';
+export type { Faq, FaqSection, FaqCategory, FaqCategoryInput } from './types';

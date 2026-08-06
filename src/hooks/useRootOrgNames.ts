@@ -37,3 +37,19 @@ export function useRootOrgNames(): Set<string> {
 
     return rootNames;
 }
+
+/**
+ * The root organization's name — the group the whole app belongs to (e.g.
+ * "WISETECH GROUP") — or `''` while it loads, if the fetch fails, or if no root
+ * org exists. Drives the sidebar's dynamic "<Org> Team" label.
+ *
+ * `GET /api/company/overview` is `protect`-only (no capability gate), so every
+ * authenticated employee resolves this. The org TREE endpoint would 403 for
+ * non-admins, which is why the label reads the flat overview instead.
+ */
+export function useRootOrgName(): string {
+    const rootNames = useRootOrgNames();
+    // Insertion order == row order from the API, so this is the first root org,
+    // matching a plain `.find(o => !o.parentOrganizationId)`.
+    return rootNames.values().next().value ?? '';
+}

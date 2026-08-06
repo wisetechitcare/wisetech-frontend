@@ -14,7 +14,7 @@ import { fetchAllBranches } from "@services/company";
 import Loader from "@app/modules/common/utils/Loader";
 import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employeeStatus";
 import StatusToggle from "@app/modules/common/components/StatusToggle";
-import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTableFilters";
+import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 
 type StatusType = "all" | "active" | "inactive";

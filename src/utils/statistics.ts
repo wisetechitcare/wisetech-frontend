@@ -3342,16 +3342,24 @@ const fetchWithRetry = async <T>(
     }
 };
 
+/**
+ * @param mode  'overall' (default) = the KPI-score leaderboard.
+ *              'no-late' = the qualification board: employees with ZERO late marks in the
+ *              period, allowing up to 1 leave day (paid or unpaid). Filtered server-side —
+ *              the overall response strips the factor breakdown out of `fullList`, so late
+ *              and leave counts are not available to filter on here.
+ */
 export const fetchLeaderboard = async (
     startDate: string,
     endDate: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    mode: 'overall' | 'no-late' = 'overall'
 ) => {
     try {
         const response = await axios.get(
             `${API_BASE_URL}/${EMPLOYEE.LEADERBOARD}`,
             {
-                params: { startDate, endDate },
+                params: mode === 'no-late' ? { startDate, endDate, mode } : { startDate, endDate },
                 signal
             }
         );
