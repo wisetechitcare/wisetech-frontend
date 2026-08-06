@@ -1,4 +1,5 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { dateColumn } from "@app/modules/common/components/table/columns";
 import { useMemo, useState, useEffect } from "react";
 import { MRT_ColumnDef } from "material-react-table";
 import { fetchPublicHolidays } from "@services/company";
@@ -44,11 +45,7 @@ function PublicHolidaysList() {
     }, [currentYear, country]);
 
     const columns = useMemo<MRT_ColumnDef<PublicHoliday>[]>(()=>[
-        {
-            accessorKey: 'date',
-            header: 'Holiday Date',
-            Cell: ({renderedCellValue})=> renderedCellValue,
-        },
+        dateColumn({ accessorKey: 'date', header: 'Holiday Date' }),
         {
             accessorKey: 'title',
             header: 'Holiday Name',

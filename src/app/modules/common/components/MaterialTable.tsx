@@ -23,10 +23,6 @@ import {
 } from "@mui/material";
 import { useThemeMode } from "@metronic/partials";
 import { Box } from "@mui/material";
-import Papa from "papaparse";
-import "jspdf-autotable";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 import { KTIcon, PAGE_SIZE_OPTIONS, PageSizeOption } from "@metronic/helpers";
 import SelectInput from "@app/modules/common/inputs/SelectInput";
 import { hasPermission } from "@utils/authAbac";
@@ -114,6 +110,14 @@ const defaultColumnSizes = {
   minSize: 80,
   maxSize: 1000,
 };
+
+// A column's identity: accessorKey, or `id` for id-only columns (a custom cell
+// backed by accessorFn — e.g. the "employee" column on the attendance boards, or
+// "route" on reimbursements). Keying on accessorKey alone dropped those columns
+// out of the search dropdown, out of the "All Columns" row text (so searching an
+// employee name on Daily Attendance matched nothing) and out of CSV/Excel export.
+// Mirrors the same helper in useTablePreferences.
+const colKey = (col: any): string | undefined => col.accessorKey ?? col.id;
 
 /**
  * A pinned column floats above the ones scrolling beneath it, but MRT sets `opacity: 0.97`
@@ -393,14 +397,12 @@ function MaterialTable({
     const excludedColumns = ["avatar", "actions"]; // Columns to exclude from search
 
     return columns
-      .filter(
-        (col: any) =>
-          col.accessorKey &&
-          !excludedColumns.includes(col.accessorKey) &&
-          col.header, // Must have a header to display
-      )
+      .filter((col: any) => {
+        const k = colKey(col);
+        return k && !excludedColumns.includes(k) && col.header; // Must have a header to display
+      })
       .map((col: any) => ({
-        value: col.accessorKey,
+        value: colKey(col),
         label: col.header,
         accessorKey: col.accessorKey,
         accessorFn: col.accessorFn,
@@ -425,7 +427,6 @@ function MaterialTable({
     updateDensity,
     updateGrouping,
     updateExpanded,
-    updateExportType,
     resetPreferences,
   } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting, persistPreferences);
 
@@ -449,10 +450,6 @@ function MaterialTable({
     onVisibleColumnsChange(visibleKeys);
   }, [isInitialized, preferences.columnVisibility, finalColumns, onVisibleColumnsChange]);
 
-  const [exportTypeSelected, setExportTypeSelected] = useState<string | null>(
-    null,
-  );
-  const [isExportInitialized, setIsExportInitialized] = useState(false);
   const [rowsAnchorEl, setRowsAnchorEl] = useState<null | HTMLElement>(null);
 
   // Mobile detection
@@ -493,27 +490,13 @@ function MaterialTable({
   //     }
   // }, [enableColumnSpecificSearch && filteredData.length, selectedSearchColumn, globalFilterValue]); // Only trigger on actual changes
 
-  useEffect(() => {
-    if (isInitialized && !isExportInitialized) {
-      setExportTypeSelected(preferences.exportType || null);
-      setIsExportInitialized(true);
-    }
-  }, [isInitialized, preferences.exportType, isExportInitialized]);
-
-  const handleExportChange = useCallback(
-    (value: string) => {
-      setExportTypeSelected(value);
-      updateExportType(value);
-    },
-    [updateExportType],
-  );
-
   // Memoized column lookup map for O(1) access (instead of O(n) .find() per row)
   const columnDefMap = useMemo(() => {
     const map = new Map<string, any>();
     effectiveSearchableColumns.forEach((col: any) => {
-      if (col.accessorKey) {
-        map.set(col.accessorKey, col);
+      // `value` is already the resolved identity (accessorKey ?? id).
+      if (col.value) {
+        map.set(col.value, col);
       }
     });
     return map;
@@ -641,27 +624,6 @@ function MaterialTable({
     setIsMobileSearchVisible((prev) => !prev);
   }, [enableColumnSpecificSearch]);
 
-  // Memoize pagination change handler to prevent infinite loops
-  const handlePaginationChange = useCallback(
-    (updaterOrValue: any) => {
-      if (manualPagination && onPaginationChange) {
-        // For manual pagination, call parent's handler
-        onPaginationChange(updaterOrValue);
-      }
-      // For client-side pagination, DON'T save to preferences to avoid infinite loops
-      // MaterialTable will manage pagination state internally via its own state
-    },
-    [manualPagination, onPaginationChange],
-  );
-
-
-  const exportOptions = useMemo(
-    () => [
-      { label: "CSV", value: "csv" },
-      { label: "Excel", value: "excel" },
-    ],
-    [],
-  );
 
   // Auto-build ExportButton columns from the table's column definitions.
   // Only columns currently visible in the table are exported — a column the
@@ -670,12 +632,20 @@ function MaterialTable({
   const autoExportCols = useMemo(() => {
     const vis = preferences.columnVisibility || {};
     return columns
-      .filter((col: any) => col.accessorKey && col.accessorKey !== 'actions')
-      .filter((col: any) => vis[col.accessorKey] !== false)
+      .filter((col: any) => {
+        const k = colKey(col);
+        return k && k !== 'actions' && vis[k] !== false;
+      })
       .map((col: any) => ({
-        key: col.accessorKey as string,
+        key: colKey(col) as string,
         header: col.header as string,
         type: 'text' as const,
+        // accessorFn columns have no raw row[key] to read (id-only ones) or hold a
+        // raw id the cell never shows (e.g. projectManagerId → manager names), so
+        // export through the same accessor the table renders from.
+        ...(col.accessorFn
+          ? { format: (_v: any, row: any) => String(col.accessorFn(row) ?? '') }
+          : {}),
       }));
   }, [columns, preferences.columnVisibility]);
 
@@ -760,40 +730,6 @@ function MaterialTable({
       }),
     [mode, globalTheme.palette.mode],
   );
-
-  const exportToCSV = useCallback(() => {
-    const csv = Papa.unparse(finalData);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    saveAs(blob, `${tableName}.csv`);
-  }, [finalData, tableName]);
-
-  const exportToExcel = useCallback(() => {
-    const worksheet = XLSX.utils.json_to_sheet(finalData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
-    const blob = new Blob([excelBuffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
-    });
-    saveAs(blob, `${tableName}.xlsx`);
-  }, [finalData, tableName]);
-
-  const exportTable = useCallback(() => {
-    switch (exportTypeSelected) {
-      case "csv":
-        exportToCSV();
-        break;
-      case "excel":
-        exportToExcel();
-        break;
-      default:
-        alert("Please select a type");
-        break;
-    }
-  }, [exportTypeSelected, exportToCSV, exportToExcel]);
 
   // Memoize the data to use for the table (prevents render-cycle logging)
   // MUST be before any early returns to comply with Rules of Hooks

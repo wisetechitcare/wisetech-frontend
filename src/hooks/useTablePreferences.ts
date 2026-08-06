@@ -97,6 +97,35 @@ function reconcilePrefsWithColumns(
     };
 }
 
+// `tableName` is the per-user preferences bucket key. Two tables sharing one
+// name reconcile against each other's column set on every mount and overwrite
+// each other's saved layout — LoanDetails shipped two such tables on the SAME
+// page, so they wrote in a loop. Nothing made that visible, so it survived.
+// Dev-only: count concurrently-mounted names and shout on the second one.
+const mountedTableNames = new Map<string, number>();
+
+/**
+ * Warn (dev only) when two live tables share a preferences bucket. Returns the
+ * cleanup that decrements the count on unmount.
+ */
+function trackTableNameCollision(tableName: string): () => void {
+    if (!import.meta.env.DEV) return () => {};
+    const next = (mountedTableNames.get(tableName) ?? 0) + 1;
+    mountedTableNames.set(tableName, next);
+    if (next > 1) {
+        console.error(
+            `[useTablePreferences] tableName "${tableName}" is mounted ${next} times at once. ` +
+            `These tables share one preferences bucket and will overwrite each other's ` +
+            `column layout and sorting. Give each table a unique tableName.`,
+        );
+    }
+    return () => {
+        const remaining = (mountedTableNames.get(tableName) ?? 1) - 1;
+        if (remaining > 0) mountedTableNames.set(tableName, remaining);
+        else mountedTableNames.delete(tableName);
+    };
+}
+
 function useTablePreferences(tableName: string, columns: any[], employeeId?: string, defaultSorting?: Array<{ id: string; desc: boolean }>, persist: boolean = true) {
     // Use refs to prevent recreating functions and causing loops
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -396,10 +425,16 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
         }
     }, [tableName, employeeId, defaultPreferences, isInitialized, persist]);
 
+    // Dev-only bucket-collision warning. Its own effect, keyed on tableName —
+    // the cleanup effect below deliberately runs once ([] deps), so folding this
+    // into it would either capture a stale name or clear a pending save on every
+    // tableName change (drill-down tables swap theirs).
+    useEffect(() => trackTableNameCollision(tableName), [tableName]);
+
     // Cleanup effect - SEPARATE from other effects
     useEffect(() => {
         isMountedRef.current = true;
-        
+
         return () => {
             isMountedRef.current = false;
             initialLoadRef.current = false; // Reset for potential remounts

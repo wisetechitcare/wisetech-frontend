@@ -468,7 +468,7 @@ function LoanDetails() {
               },
             },
           }}
-          tableName="PendingLoanData"
+          tableName="LoanDetailInstallments"
           employeeId={employeeIdCurrent}
           // resource={loanData}
           // viewOwn={viewOwn}
@@ -492,7 +492,7 @@ function LoanDetails() {
               },
             },
           }}
-          tableName="PendingLoanData"
+          tableName="LoanDetailPaymentChanges"
           employeeId={employeeIdCurrent}
           // resource={loanData}
           // viewOwn={viewOwn}
