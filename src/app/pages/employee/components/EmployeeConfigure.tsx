@@ -422,8 +422,8 @@ const EmployeeConfigure = () => {
             title="Job Profiles"
             description="Options offered in the onboarding Job Profile picker (also shown as Designations under Organization Profile)"
             icon="bi-briefcase"
-            iconColor="blue"
-            badge={{ label: `${jobProfiles.length}`, color: C.info, bg: '#dbeafe' }}
+            iconColor="primary"
+            badge={{ label: `${jobProfiles.length}`, color: C.primary, bg: C.primaryLight }}
           >
             <div style={{ marginTop: SP.md }}>
               {jobProfiles.length === 0 ? (
@@ -446,7 +446,7 @@ const EmployeeConfigure = () => {
             <button
               onClick={handleJobProfileModalOpen}
               style={{
-                backgroundColor: C.info,
+                backgroundColor: C.primary,
                 color: '#fff',
                 border: 'none',
                 borderRadius: RADIUS.md,
@@ -459,12 +459,12 @@ const EmployeeConfigure = () => {
                 transition: 'all 0.2s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#0066b3';
+                e.currentTarget.style.backgroundColor = C.primaryMid;
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 6px 18px ${C.infoShadowMd || 'rgba(0, 133, 219, 0.3)'}`;
+                e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = C.info;
+                e.currentTarget.style.backgroundColor = C.primary;
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = 'none';
               }}
@@ -480,8 +480,8 @@ const EmployeeConfigure = () => {
             title="Employee Types"
             description="Classify employees by type (e.g., Full-time, Part-time)"
             icon="bi-people"
-            iconColor="green"
-            badge={{ label: `${employeeTypes.length}`, color: C.success, bg: '#dcfce7' }}
+            iconColor="primary"
+            badge={{ label: `${employeeTypes.length}`, color: C.primary, bg: C.primaryLight }}
           >
             <div style={{ marginTop: SP.md }}>
               {employeeTypes.length === 0 ? (
@@ -504,7 +504,7 @@ const EmployeeConfigure = () => {
             <button
               onClick={handleEmployeeTypeModalOpen}
               style={{
-                backgroundColor: C.success,
+                backgroundColor: C.primary,
                 color: '#fff',
                 border: 'none',
                 borderRadius: RADIUS.md,
@@ -517,12 +517,12 @@ const EmployeeConfigure = () => {
                 transition: 'all 0.2s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#15803d';
+                e.currentTarget.style.backgroundColor = C.primaryMid;
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 6px 18px rgba(34, 197, 94, 0.3)`;
+                e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = C.success;
+                e.currentTarget.style.backgroundColor = C.primary;
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = 'none';
               }}
@@ -539,8 +539,8 @@ const EmployeeConfigure = () => {
             title="Experience Levels"
             description="Options offered in the onboarding Experience Level picker"
             icon="bi-diagram-3"
-            iconColor="purple"
-            badge={{ label: `${employeeLevels.length}`, color: '#7c3aed', bg: '#ede9fe' }}
+            iconColor="primary"
+            badge={{ label: `${employeeLevels.length}`, color: C.primary, bg: C.primaryLight }}
           >
             <div style={{ marginTop: SP.md }}>
               {employeeLevels.length === 0 ? (
@@ -563,7 +563,7 @@ const EmployeeConfigure = () => {
             <button
               onClick={handleEmployeeLevelModalOpen}
               style={{
-                backgroundColor: '#7c3aed',
+                backgroundColor: C.primary,
                 color: '#fff',
                 border: 'none',
                 borderRadius: RADIUS.md,
@@ -576,12 +576,12 @@ const EmployeeConfigure = () => {
                 transition: 'all 0.2s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#6d28d9';
+                e.currentTarget.style.backgroundColor = C.primaryMid;
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 6px 18px rgba(124, 58, 237, 0.3)`;
+                e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#7c3aed';
+                e.currentTarget.style.backgroundColor = C.primary;
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = 'none';
               }}
@@ -597,8 +597,8 @@ const EmployeeConfigure = () => {
             title="Employee Status"
             description="Track employee employment status"
             icon="bi-check-circle"
-            iconColor="amber"
-            badge={{ label: `${employeeStatuses.length}`, color: '#d97706', bg: '#fef3c7' }}
+            iconColor="primary"
+            badge={{ label: `${employeeStatuses.length}`, color: C.primary, bg: C.primaryLight }}
           >
             <div style={{ marginTop: SP.md }}>
               {employeeStatuses.length === 0 ? (
@@ -621,7 +621,7 @@ const EmployeeConfigure = () => {
             <button
               onClick={handleEmployeeStatusModalOpen}
               style={{
-                backgroundColor: '#d97706',
+                backgroundColor: C.primary,
                 color: '#fff',
                 border: 'none',
                 borderRadius: RADIUS.md,
@@ -634,12 +634,12 @@ const EmployeeConfigure = () => {
                 transition: 'all 0.2s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#b45309';
+                e.currentTarget.style.backgroundColor = C.primaryMid;
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 6px 18px rgba(217, 119, 6, 0.3)`;
+                e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#d97706';
+                e.currentTarget.style.backgroundColor = C.primary;
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = 'none';
               }}
@@ -655,8 +655,8 @@ const EmployeeConfigure = () => {
             title="Qualifications"
             description="Options offered in the onboarding Education Details picker"
             icon="bi-mortarboard"
-            iconColor="teal"
-            badge={{ label: `${qualifications.length}`, color: '#0d9488', bg: '#ccfbf1' }}
+            iconColor="primary"
+            badge={{ label: `${qualifications.length}`, color: C.primary, bg: C.primaryLight }}
           >
             <div style={{ marginTop: SP.md }}>
               {qualifications.length === 0 ? (
@@ -679,7 +679,7 @@ const EmployeeConfigure = () => {
             <button
               onClick={handleQualificationModalOpen}
               style={{
-                backgroundColor: '#0d9488',
+                backgroundColor: C.primary,
                 color: '#fff',
                 border: 'none',
                 borderRadius: RADIUS.md,
@@ -692,12 +692,12 @@ const EmployeeConfigure = () => {
                 transition: 'all 0.2s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#0f766e';
+                e.currentTarget.style.backgroundColor = C.primaryMid;
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 6px 18px rgba(13, 148, 136, 0.3)`;
+                e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#0d9488';
+                e.currentTarget.style.backgroundColor = C.primary;
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = 'none';
               }}
