@@ -34,6 +34,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { IReimbursementsCreate } from '@models/employee';
 import { useEventBus } from '@hooks/useEventBus';
+import { WtButton } from '@app/modules/common/components/ui';
 import { EVENT_KEYS } from '@constants/eventKeys';
 
 const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
@@ -1205,62 +1206,34 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
               resourceNameMapWithCamelCase.reimbursement,
               permissionConstToUseWithHasPermission.create
             ) && (
-                <button
+                // Same action, same emphasis as the one on the records bar below —
+                // this is the one the user sees once drafts exist, and the two must
+                // not disagree about how prominent "add a request" is.
+                <WtButton
+                  tone="accent"
+                  flat
                   onClick={handleNew}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '5px',
-                    padding: '7px 14px',
-                    border: '1.5px solid #e2e8f0',
-                    borderRadius: '6px',
-                    background: '#f8fafc',
-                    color: '#475569',
-                    fontWeight: 500,
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
+                  startIcon={<KTIcon iconName='plus' className='fs-3' />}
+                  sx={{ whiteSpace: 'nowrap' }}
                 >
-                  <KTIcon iconName='plus' className='fs-6' />
-                  <span>Add Reimbursement Request</span>
-                </button>
+                  Add Reimbursement Request
+                </WtButton>
               )}
             {drafts.length > 0 && (
-              <button
+              <WtButton
+                tone="success"
+                flat
                 onClick={handleSendForApproval}
                 disabled={submitting}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '5px',
-                  padding: '7px 14px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  background: '#16a34a',
-                  color: '#fff',
-                  fontWeight: 500,
-                  fontSize: '12px',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 2px 6px rgba(22, 163, 74, 0.2)',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap',
-                  opacity: submitting ? 0.7 : 1
-                }}
-                onMouseEnter={e => { if (!submitting) { (e.currentTarget as HTMLButtonElement).style.background = '#15803d'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(22, 163, 74, 0.3)'; } }}
-                onMouseLeave={e => { if (!submitting) { (e.currentTarget as HTMLButtonElement).style.background = '#16a34a'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(22, 163, 74, 0.2)'; } }}
-              >
-                {submitting
-                  ? <span className='spinner-border spinner-border-sm' style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
-                  : <KTIcon iconName='send' className='fs-6 text-white' />
+                startIcon={
+                  submitting
+                    ? <span className='spinner-border spinner-border-sm' style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
+                    : <KTIcon iconName='send' className='fs-3' />
                 }
-                <span>{submitting ? 'Submitting...' : 'Send for Approval'}</span>
-              </button>
+                sx={{ whiteSpace: 'nowrap' }}
+              >
+                {submitting ? 'Submitting...' : 'Send for Approval'}
+              </WtButton>
             )}
           </div>
         </div>
