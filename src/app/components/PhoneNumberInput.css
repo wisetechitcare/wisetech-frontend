@@ -59,7 +59,7 @@
   font-family: inherit !important;
   color: inherit !important;
   border-radius: 0 8px 8px 0 !important;
-  padding-left: calc(62px + var(--phone-dial-w, 3ch) + 12px) !important;
+  padding-left: calc(48px + var(--phone-dial-w, 3ch) + 14px) !important;
 }
 
 .phone-input-container .form-control::placeholder,
@@ -85,7 +85,7 @@
   border-radius: 8px 0 0 8px !important;
   top: 0 !important;
   bottom: 0 !important;
-  width: calc(62px + var(--phone-dial-w, 3ch)) !important;
+  width: calc(48px + var(--phone-dial-w, 3ch)) !important;
   position: absolute !important;
 }
 
@@ -95,10 +95,14 @@
   background: transparent !important;
   border-radius: 8px 0 0 8px !important;
   position: relative !important;
-  /* Right padding reserves a lane for the caret so the code can't run under it. */
-  padding: 0 22px 0 10px !important;
+  /* Right padding is the caret's lane: 6px gap after the code + ~4px glyph + 6px to the
+     divider. The box is sized to exactly that content, so the row reads as one evenly
+     spaced group — an oversized box left slack that pooled between the code and the
+     caret and pushed the caret hard against the divider.
+     10 (pad) + 16 (flag) + 6 (gap) + code + 16 (right lane) = 48px + code. */
+  padding: 0 16px 0 10px !important;
   height: 44px !important;
-  width: calc(62px + var(--phone-dial-w, 3ch)) !important;
+  width: calc(48px + var(--phone-dial-w, 3ch)) !important;
   display: flex !important;
   align-items: center !important;
   gap: 6px !important;
@@ -131,7 +135,7 @@
 .phone-input-container .selected-flag .arrow {
   position: absolute !important;
   top: 50% !important;
-  right: 8px !important;
+  right: 6px !important;
   left: auto !important;
   margin: -2px 0 0 0 !important;
 }
