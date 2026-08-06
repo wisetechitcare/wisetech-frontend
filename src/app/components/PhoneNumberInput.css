@@ -133,6 +133,16 @@
   border-radius: 8px 0 0 8px !important;
 }
 
+/* The open dropdown has to out-rank the fields BELOW it. The library only gives
+   .country-list `z-index: 1`, and it hangs off .flag-dropdown, which has none at all —
+   so later siblings in the form (the social-URL row) painted straight over it. Raising
+   the positioned ancestor as well as the list is what actually lifts it, since a
+   z-index on the list alone still sits inside its parent's paint order. Only while
+   `.open` so a closed field never steals stacking from anything else. */
+.phone-input-container .flag-dropdown.open {
+  z-index: 1300 !important;
+}
+
 /* Country list dropdown */
 .phone-input-container .country-list {
   border-radius: 10px !important;

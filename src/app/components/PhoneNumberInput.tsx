@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { ErrorMessage, FormikContext, getIn } from 'formik';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
@@ -83,19 +83,37 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
 
   const storedDialCode = extensionField ? extensionValue : defaultCountry;
 
-  // Flag country is fixed at mount: the prop is what react-phone-input-2 treats as the
-  // INITIAL country, and re-feeding it on every render would snap the flag back and undo
-  // a country the user just picked (any code outside the map above would bounce). After
-  // mount the library owns the selection, and onChange keeps `extensionField` in step.
-  const [initialCountry] = useState(
-    () => DIAL_CODE_TO_ISO[storedDialCode] || country
-  );
+  const [resolvedCountry] = useState(() => DIAL_CODE_TO_ISO[storedDialCode] || country);
+
+  /**
+   * The country is handed over one render LATE, and that timing is the whole trick.
+   *
+   * On first render react-phone-input-2 picks its country by guessing from the value's
+   * leading digits. With `disableCountryCode` that value is a bare national number, so
+   * 9594107173 guessed Myanmar (+95) and 1546547841 guessed US (+1) — a foreign flag
+   * beside "+91". Its `disableInitialCountryGuess` prop does NOT mean "use my country
+   * prop": it hard-sets selectedCountry to 0, leaving the sprite class as "flag " with
+   * no country, which is why the flag vanished entirely.
+   *
+   * componentDidUpdate takes a different path — a CHANGED country prop calls
+   * updateCountry(), which resolves from the ISO code and never looks at the digits. So
+   * mount with "" (nothing to guess, nothing rendered wrong) and set the real country
+   * immediately after. Combined with `disableCountryGuess`, which stops it re-guessing
+   * while typing, the number can never influence the flag again.
+   *
+   * It stays fixed from then on: re-feeding it every render would snap the flag back and
+   * undo a country the user picked from the dropdown.
+   */
+  const [countryProp, setCountryProp] = useState('');
+  useEffect(() => {
+    setCountryProp(resolvedCountry);
+  }, [resolvedCountry]);
 
   // The code printed in the button, seeded from the SAME country the flag opens on so
   // the two can't contradict each other, then re-synced from whatever country the
   // library reports on change — which is authoritative once the user has interacted.
   const [currentDialCode, setCurrentDialCode] = useState(
-    () => ISO_TO_DIAL_CODE[initialCountry] || defaultCountry
+    () => ISO_TO_DIAL_CODE[resolvedCountry] || defaultCountry
   );
 
   // NOTE: the dial code is no longer part of the input's text — `disableCountryCode`
@@ -139,16 +157,12 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
         </label>
       )}
       <PhoneInput
-        country={initialCountry}
+        country={countryProp}
         value={normalizedFieldValue}
         disableCountryCode
-        // Without these the library re-guesses the country from the DIGITS on every
-        // render, and `disableCountryCode` hands it a bare national number to guess
-        // from — so 9594107173 read as Myanmar (+95) and 1546547841 as US (+1),
-        // painting a foreign flag next to "+91" and formatting to that country's mask.
-        // The country is ours to decide (resolved from the stored dial code, then
-        // owned by the user's dropdown choice); the value must never influence it.
-        disableInitialCountryGuess
+        // Stops the country being re-guessed from the digits as the user types. The
+        // INITIAL guess is dodged by the deferred `countryProp` above — not by
+        // `disableInitialCountryGuess`, which blanks the country and loses the flag.
         disableCountryGuess
         onChange={(phoneValue: string, countryData: any) => {
           const dialCode = countryData?.dialCode || defaultCountry;
