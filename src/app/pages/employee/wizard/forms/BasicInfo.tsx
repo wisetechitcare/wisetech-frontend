@@ -131,10 +131,16 @@ function BasicInfo({ formikProps }: { formikProps: any }) {
       {/* Row 2 – Gender / Marital Status / Anniversary.
           Anniversary is a SIBLING column, not nested inside Marital Status. Nesting
           halved the marital column on "Married", squeezing its two pills onto two
-          lines and pushing the row out of alignment. As siblings each control keeps a
-          full column, and the row simply goes 2-up → 3-up when the date appears. */}
+          lines and pushing the row out of alignment.
+
+          The three columns are a FIXED third each, never resized by whether Anniversary
+          is showing. Widening them to halves when it's hidden would re-centre the row,
+          so Marital Status slid sideways every time the user toggled Married/Unmarried.
+          Held at a third, Gender stays under First Name and Marital Status under Last
+          Name in both states, and Anniversary simply fills or vacates the third slot
+          beneath Date of Birth — matching Row 1's columns exactly. */}
       <div className="row g-3">
-        <div className={isMarried ? "col-lg-4 col-md-6 col-sm-12" : "col-lg-6 col-md-6 col-sm-12"}>
+        <div className="col-lg-4 col-md-6 col-sm-12">
           <TogglePillGroup
             field="gender"
             label="Gender"
@@ -142,7 +148,7 @@ function BasicInfo({ formikProps }: { formikProps: any }) {
             options={GENDER_OPTIONS}
           />
         </div>
-        <div className={isMarried ? "col-lg-4 col-md-6 col-sm-12" : "col-lg-6 col-md-6 col-sm-12"}>
+        <div className="col-lg-4 col-md-6 col-sm-12">
           <TogglePillGroup
             field="maritalStatus"
             label="Marital Status"
