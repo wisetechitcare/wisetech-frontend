@@ -7,6 +7,7 @@ import { saveCountries } from "@redux/slices/locations";
 import LocationDropdown from "@app/modules/common/inputs/LocationDropdown";
 import { useParams } from "react-router-dom";
 import { Option } from "@models/dropdown";
+import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 
 // const presentAddress = {
 //     presentAddressLine1: "",
@@ -247,6 +248,77 @@ function AddressInfo({ formikProps }: any) {
         }
     }
 
+    /**
+     * Fill one address block from a map pin.
+     *
+     * Resolves the country → state → city chain DIRECTLY through the location APIs
+     * rather than setting the country and waiting for this component's effect cascade
+     * to fetch the levels below. The cascade is keyed on the `selected*` state, so
+     * driving it from here would mean writing a name, waiting a render for options to
+     * land, then matching — the pending-ref dance the Lead form has to do. Resolving
+     * inline keeps a pick to one deterministic pass.
+     *
+     * The pick is authoritative for whatever it can resolve and silent about the rest:
+     * an unmatched country leaves the dropdowns untouched, so a pin in a place the
+     * master list does not carry still fills the pincode and street rather than
+     * blanking what the user already typed.
+     *
+     * Geo gives NAMES; these fields store ISO2 codes for country/state and a plain
+     * name for city — hence the match-by-label lookups.
+     */
+    const applyGeoPick = async (which: "present" | "permanent", geo: GeoPick) => {
+        const isPresent = which === "present";
+        const setSelCountry = isPresent ? setSelectedPresentCountry : setSelectedPermanentCountry;
+        const setSelState = isPresent ? setSelectedPresentState : setSelectedPermanentState;
+        const setSelCity = isPresent ? setSelectedPresentCity : setSelectedPermanentCity;
+        const setStateOpts = isPresent ? setPresentStatesOptions : setPermanentStatesOptions;
+        const setCityOpts = isPresent ? setPresentCitiesOptions : setPermanentCitiesOptions;
+
+        const eq = (a?: string, b?: string) =>
+            !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+
+        if (geo.postcode) setFieldValue(`addressInfo.${which}PostalCode`, geo.postcode);
+        if (geo.formatted) setFieldValue(`addressInfo.${which}AddressLine1`, geo.formatted);
+
+        const country = (countriesOption as Option[]).find((c) => eq(c.label, geo.country));
+        if (!country) return;
+        setFieldValue(`addressInfo.${which}Country`, country.value);
+        setSelCountry(country);
+
+        try {
+            const statesResponse = await fetchAllStates(country.value);
+            const stateOpts: Option[] = (statesResponse || []).map((s: any) => ({
+                value: s.iso2,
+                label: s.name,
+            }));
+            setStateOpts(stateOpts as []);
+
+            const state = stateOpts.find((s) => eq(s.label, geo.state));
+            if (!state) return;
+            setFieldValue(`addressInfo.${which}State`, state.value);
+            setSelState(state);
+
+            const citiesResponse = await fetchAllCities(country.value, state.value);
+            const cityOpts: Option[] = (citiesResponse || []).map((c: any) => ({
+                value: c.name,
+                label: c.name,
+            }));
+            setCityOpts(cityOpts as []);
+
+            // Nominatim's "city" can be the town/village/suburb, so fall back to the
+            // locality before giving up on the city dropdown.
+            const city =
+                cityOpts.find((c) => eq(c.label, geo.city)) ||
+                cityOpts.find((c) => eq(c.label, geo.locality));
+            if (!city) return;
+            setFieldValue(`addressInfo.${which}City`, city.value);
+            setSelCity(city);
+        } catch (error) {
+            // A failed lookup must not lose the pincode/street already written above.
+            console.error("Could not resolve state/city for the picked location", error);
+        }
+    };
+
     return (
         <div className="d-flex flex-column gap-4">
   {/* Current Address Section */}
@@ -264,6 +336,10 @@ function AddressInfo({ formikProps }: any) {
     >
       Current Address
     </p>
+
+    {/* Same picker the Lead form uses. It renders its own search box + map and hands
+        back a resolved address; the fields below stay editable as the manual override. */}
+    <SmartLocationPicker onPick={(geo) => applyGeoPick("present", geo)} />
 
     {/* Row 1: Address */}
     <div className="row g-3">
@@ -415,6 +491,13 @@ function AddressInfo({ formikProps }: any) {
         <span className="form-check-label">Same as current address</span>
       </label>
     </div>
+
+    {/* Hidden while "same as current" is on — the fields below are being mirrored from
+        the current address, so a second map here would write values the checkbox then
+        overwrites. */}
+    {!isSameAddress && (
+      <SmartLocationPicker onPick={(geo) => applyGeoPick("permanent", geo)} />
+    )}
 
     {/* Row 1: Address */}
     <div className="row g-3">
