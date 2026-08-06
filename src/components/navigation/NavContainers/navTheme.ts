@@ -41,6 +41,11 @@ const ACCENTS = {
     iconWrap: 'bg-amber-50 text-amber-600 ring-1 ring-amber-100 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-400/20',
     hoverBorder: 'hover:border-amber-300 dark:hover:border-amber-500/50',
   },
+  teal: {
+    icon: 'text-teal-600 dark:text-teal-300',
+    iconWrap: 'bg-teal-50 text-teal-600 ring-1 ring-teal-100 dark:bg-teal-500/15 dark:text-teal-300 dark:ring-teal-400/20',
+    hoverBorder: 'hover:border-teal-300 dark:hover:border-teal-500/50',
+  },
 } as const satisfies Record<string, SectionAccent>;
 
 export type AccentName = keyof typeof ACCENTS;
@@ -51,6 +56,9 @@ const ACCENT_BY_SECTION: Record<string, AccentName> = {
   'hr-section': 'blue',
   'crm-section': 'emerald',
   'projects-section': 'purple',
+  // Teal, not amber: Organization now sits directly above App Settings in the rail,
+  // and two adjacent applications sharing an accent reads as one.
+  'organization-section': 'teal',
   'admin-section': 'amber',
 };
 

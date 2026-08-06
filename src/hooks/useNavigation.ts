@@ -283,14 +283,15 @@ export function useNavigation() {
       },
 
       // ── Projects ──────────────────────────────────────────────────────────
-      // Organization sits under this header in NAV_CONFIG (it precedes the next
-      // section marker), so `settings` is part of the header's condition — without
-      // it the group could render with no heading above it.
+      // Organization USED to sit under this header (it preceded the next section
+      // marker), which is why `settings` was part of the header's condition. It is
+      // now an application of its own, below — so this header answers for its own
+      // three subsections and nothing else.
       {
         type: 'section',
         id: 'projects-section',
         title: 'Projects',
-        visible: !isSectionBlocked('projects') || !isSectionBlocked('tasks') || !isSectionBlocked('timesheets') || !isSectionBlocked('settings'),
+        visible: !isSectionBlocked('projects') || !isSectionBlocked('tasks') || !isSectionBlocked('timesheets'),
       },
       {
         type: 'item',
@@ -326,52 +327,70 @@ export function useNavigation() {
         fontIcon: 'bi-clipboard-data',
         visible: !isSectionBlocked('timesheets') && isSubsectionVisible('timesheets.employees', hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
       },
+      // ── Organization ──────────────────────────────────────────────────────
+      // Was a collapsible `sub` ("Organization") sitting at the bottom of the
+      // Projects section, which made it a labelled CLUSTER inside the Projects
+      // workspace (useWorkspaceApps splits a container's entries into flat modules
+      // then grouped clusters). It is not a facet of Projects — it is org-wide
+      // configuration — so it is promoted to a section, i.e. an application of its
+      // own in the rail, the dock and the launcher, with its five pages as
+      // top-level modules.
+      //
+      // Nothing about WHO may see these rows changed: the section header carries
+      // the exact condition the `sub` did, and each row keeps its own check. The
+      // header's OR matters for the sidebar specifically — AsideMenuMain renders a
+      // section unless `visible === false`, so without it a user with none of these
+      // permissions would get a bare "Organization" heading over nothing. (The
+      // workspace is safe either way: useNavContainers drops empty containers.)
       {
-        type: 'sub',
-        id: 'admin-org',
-        to: '/company',
+        type: 'section',
+        id: 'organization-section',
         title: 'Organization',
-        fontIcon: 'bi-house-fill',
-        // Announcements left this group for top level, so it no longer counts
-        // toward whether the group has anything to show.
         visible: !isSectionBlocked('settings') && (anyChildGranted('settings') || hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-        children: [
-          {
-            type: 'item',
-            id: 'org-profile',
-            to: '/company/organisation-profile',
-            title: 'Organization Profile',
-            visible: isSubsectionVisible('settings.profile', hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'org-media',
-            to: '/company/media',
-            title: 'Media',
-            visible: isSubsectionVisible('settings.media', hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'org-onboarding',
-            to: '/company/onboardingDocs',
-            title: 'Onboarding Docs',
-            visible: isSubsectionVisible('settings.onboarding', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'org-teams',
-            to: '/company/teams',
-            title: 'Teams',
-            visible: isSubsectionVisible('settings.teams', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'org-emp-level',
-            to: '/company/employee-level-teams',
-            title: 'Employee-Level',
-            visible: isSubsectionVisible('settings.employeeLevel', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-          },
-        ]
+      },
+      // As `sub` children these rows carried no icon and inherited the group's
+      // glyph (ModuleGrid does that fallback for cluster children only). Top-level
+      // modules get no such fallback, so each now names its own — otherwise all
+      // five would render the generic folder placeholder.
+      {
+        type: 'item',
+        id: 'org-profile',
+        to: '/company/organisation-profile',
+        title: 'Organization Profile',
+        fontIcon: 'bi-house-fill',
+        visible: isSubsectionVisible('settings.profile', hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'org-media',
+        to: '/company/media',
+        title: 'Media',
+        fontIcon: 'bi-images',
+        visible: isSubsectionVisible('settings.media', hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'org-onboarding',
+        to: '/company/onboardingDocs',
+        title: 'Onboarding Docs',
+        fontIcon: 'bi-file-earmark-text',
+        visible: isSubsectionVisible('settings.onboarding', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'org-teams',
+        to: '/company/teams',
+        title: 'Teams',
+        fontIcon: 'bi-people',
+        visible: isSubsectionVisible('settings.teams', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'org-emp-level',
+        to: '/company/employee-level-teams',
+        title: 'Employee-Level',
+        fontIcon: 'bi-diagram-3',
+        visible: isSubsectionVisible('settings.employeeLevel', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
       },
 
       // ── App Settings ──────────────────────────────────────────────────────
