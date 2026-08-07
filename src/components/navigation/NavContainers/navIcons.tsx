@@ -11,6 +11,7 @@ import CampaignRounded from '@mui/icons-material/CampaignRounded';
 import CircleRounded from '@mui/icons-material/CircleRounded';
 import ContactPageRounded from '@mui/icons-material/ContactPageRounded';
 import ContactsRounded from '@mui/icons-material/ContactsRounded';
+import CreditCardRounded from '@mui/icons-material/CreditCardRounded';
 import DashboardRounded from '@mui/icons-material/DashboardRounded';
 import DescriptionRounded from '@mui/icons-material/DescriptionRounded';
 import EventAvailableRounded from '@mui/icons-material/EventAvailableRounded';
@@ -73,6 +74,7 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-grid-1x2': DashboardRounded,
   'bi-person-rolodex': ContactsRounded,
   'bi-kanban': ViewKanbanRounded,
+  'bi-credit-card': CreditCardRounded,
   'bi-folder': FolderRounded,
   'bi-record-circle': CircleRounded,
 };

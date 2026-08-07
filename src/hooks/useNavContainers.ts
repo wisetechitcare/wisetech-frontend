@@ -59,6 +59,7 @@ const SECTION_ICON: Record<string, string> = {
   'hr-section': 'bi-people',
   'crm-section': 'bi-person-rolodex',
   'projects-section': 'bi-kanban',
+  'payment-section': 'bi-credit-card',
   // Both keep the glyph their group carried while it was a `sub`, so the promotion
   // doesn't also change what users are looking for.
   'finance-section': 'bi-cash-coin',
@@ -73,6 +74,8 @@ interface DraftContainer {
   id: string;
   title: string;
   visible: boolean;
+  /** Survive pass 2's empty-container elimination — see NavigationItem.allowEmpty. */
+  allowEmpty: boolean;
   entries: NavEntry[];
 }
 
@@ -98,7 +101,7 @@ export function useNavContainers(): NavContainer[] {
 
   return useMemo(() => {
     // ── Pass 1: bucket the flat array into containers ────────────────────────
-    let open: DraftContainer = { id: GENERAL_ID, title: 'Overview', visible: true, entries: [] };
+    let open: DraftContainer = { id: GENERAL_ID, title: 'Overview', visible: true, allowEmpty: false, entries: [] };
     const drafts: DraftContainer[] = [open];
 
     for (const node of menu) {
@@ -107,7 +110,13 @@ export function useNavContainers(): NavContainer[] {
         // so pass 2 can drop it. Skipping here instead would drain every following
         // item into the PREVIOUS container — a user without CRM access would find
         // CRM links sitting inside HR & People.
-        open = { id: node.id, title: node.title, visible: node.visible !== false, entries: [] };
+        open = {
+          id: node.id,
+          title: node.title,
+          visible: node.visible !== false,
+          allowEmpty: node.allowEmpty === true,
+          entries: [],
+        };
         drafts.push(open);
         continue;
       }
@@ -136,8 +145,12 @@ export function useNavContainers(): NavContainer[] {
     }
 
     // ── Pass 2: finalise + drop hidden/empty containers ──────────────────────
+    // Empty means "every module was permission-gated away", so the container goes
+    // rather than offering a shell the user cannot use. A section flagged
+    // `allowEmpty` is empty by DESIGN — a department declared before its modules
+    // exist — and is kept.
     const containers: NavContainer[] = drafts
-      .filter((d) => d.visible && countLinks(d.entries) > 0)
+      .filter((d) => d.visible && (countLinks(d.entries) > 0 || d.allowEmpty))
       .map((d) => ({
         id: d.id,
         title: d.title,

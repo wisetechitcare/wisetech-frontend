@@ -51,6 +51,11 @@ const ACCENTS = {
     iconWrap: 'bg-rose-50 text-rose-600 ring-1 ring-rose-100 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-400/20',
     hoverBorder: 'hover:border-rose-300 dark:hover:border-rose-500/50',
   },
+  indigo: {
+    icon: 'text-indigo-600 dark:text-indigo-300',
+    iconWrap: 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100 dark:bg-indigo-500/15 dark:text-indigo-300 dark:ring-indigo-400/20',
+    hoverBorder: 'hover:border-indigo-300 dark:hover:border-indigo-500/50',
+  },
 } as const satisfies Record<string, SectionAccent>;
 
 export type AccentName = keyof typeof ACCENTS;
@@ -60,11 +65,12 @@ const ACCENT_BY_SECTION: Record<string, AccentName> = {
   'general-section': 'slate',
   'hr-section': 'blue',
   'crm-section': 'emerald',
-  'projects-section': 'purple',
-  // The rail runs slate · blue · emerald · purple · rose · teal · amber. Each new
-  // application takes a hue no other one uses — adjacent applications sharing an
-  // accent read as a single group, which is exactly what promoting them out of
+  // The rail runs slate · blue · emerald · indigo · purple · rose · teal · amber.
+  // Each application takes a hue no other one uses — adjacent applications sharing
+  // an accent read as a single group, which is exactly what promoting them out of
   // their parent was meant to undo.
+  'payment-section': 'indigo',
+  'projects-section': 'purple',
   'finance-section': 'rose',
   'organization-section': 'teal',
   'admin-section': 'amber',

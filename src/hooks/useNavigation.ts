@@ -25,6 +25,16 @@ export interface NavigationItem {
   hasBullet?: boolean;
   children?: NavigationItem[];
   visible?: boolean;
+  /**
+   * SECTIONS ONLY. Keep this section even when it holds no links.
+   *
+   * Containers with nothing in them are dropped (useNavContainers pass 2) so an
+   * application whose every module is permission-gated vanishes instead of
+   * offering an empty shell. Set this only for a section that is empty BY DESIGN
+   * — a department declared before its modules exist — never to paper over a
+   * permission result.
+   */
+  allowEmpty?: boolean;
 }
 
 export function useNavigation() {
@@ -102,7 +112,10 @@ export function useNavigation() {
       {
         type: 'section',
         id: 'hr-section',
-        title: 'HR & People',
+        // Section ids are the stable identity (icons, workspace slugs and accents are
+        // keyed off them); only the LABEL is renamed here, so /workspace/hr and every
+        // bookmark to it keep working.
+        title: 'HR Department',
         visible:
           !isSectionBlocked('attendance') ||
           !isSectionBlocked('users') ||
@@ -248,7 +261,26 @@ export function useNavigation() {
         visible: !isSectionBlocked('crm.contacts'),
       },
 
-      // ── Projects ──────────────────────────────────────────────────────────
+      // ── Payment Department ────────────────────────────────────────────────
+      // A deliberate PLACEHOLDER: it owns no routes yet, and sits above Project
+      // and Finance so the department exists in the information architecture
+      // before its modules do.
+      //
+      // `allowEmpty` is what makes it visible at all. useNavContainers drops any
+      // container with no links, which is correct for every other section — an
+      // application whose every module is permission-gated must vanish rather
+      // than offer an empty shell. This flag is the narrow opt-out for a section
+      // that is empty BY DESIGN rather than by permission, so that rule stays
+      // intact for the sections it protects.
+      {
+        type: 'section',
+        id: 'payment-section',
+        title: 'Payment Department',
+        visible: true,
+        allowEmpty: true,
+      },
+
+      // ── Project Department ────────────────────────────────────────────────
       // Organization USED to sit under this header (it preceded the next section
       // marker), which is why `settings` was part of the header's condition. It is
       // now an application of its own, below — so this header answers for its own
@@ -256,7 +288,7 @@ export function useNavigation() {
       {
         type: 'section',
         id: 'projects-section',
-        title: 'Projects',
+        title: 'Project Department',
         visible: !isSectionBlocked('projects') || !isSectionBlocked('tasks') || !isSectionBlocked('timesheets'),
       },
       {
@@ -294,7 +326,7 @@ export function useNavigation() {
         visible: !isSectionBlocked('timesheets') && isSubsectionVisible('timesheets.employees', hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
       },
 
-      // ── Finance ───────────────────────────────────────────────────────────
+      // ── Finance / Account Department ──────────────────────────────────────
       // Was a collapsible `sub` at the bottom of HR & People, so it rendered as a
       // labelled cluster inside that workspace. Loans, Reimbursements, Salary and
       // Increment are money, not people administration — and they have their own
@@ -310,7 +342,7 @@ export function useNavigation() {
       {
         type: 'section',
         id: 'finance-section',
-        title: 'Finance',
+        title: 'Finance/Account Department',
         visible: !isSectionBlocked('finance'),
       },
       // As `sub` children these rows carried no icon of their own and inherited the

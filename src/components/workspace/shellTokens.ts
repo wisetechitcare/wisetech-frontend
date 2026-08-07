@@ -414,3 +414,20 @@ export const CLUSTER_HEADING =
   'text-slate-400 dark:text-slate-500';
 
 export const CLUSTER_RULE = 'h-px flex-1 bg-slate-200 dark:bg-slate-800';
+
+/**
+ * An application declared ahead of its modules (see NavigationItem.allowEmpty).
+ *
+ * A dashed border rather than the solid one module cards use: this is a reserved
+ * space, and it should not read as a card that failed to load its contents.
+ */
+export const EMPTY_APP_WRAP =
+  'flex flex-col items-center gap-[6px] rounded-[14px] border border-dashed ' +
+  'border-slate-300 bg-slate-50/60 px-[24px] py-[44px] text-center ' +
+  'dark:border-slate-700 dark:bg-slate-900/40';
+
+export const EMPTY_APP_TITLE =
+  'text-[15px] font-semibold text-slate-600 dark:text-slate-300';
+
+export const EMPTY_APP_TEXT =
+  'max-w-[46ch] text-[13px] leading-[1.55] text-slate-500 dark:text-slate-400';
