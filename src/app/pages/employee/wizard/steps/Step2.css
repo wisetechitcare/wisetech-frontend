@@ -776,6 +776,25 @@
   transition: border-color var(--ob-tr), background var(--ob-tr), box-shadow var(--ob-tr);
   outline: none; width: 100%; letter-spacing: -0.01em;
 }
+/* …but NOT the input inside a MUI field. MUI renders its date/time inputs as
+   `type="text"`, so the rule above was giving them their own border, background and
+   full 44px height INSIDE the OutlinedInput that already draws all three — a second
+   box nested in the first, with the calendar adornment stranded outside it. That is
+   the "two overlapping fields" look on Date Started / Date Completed.
+
+   MUI owns the chrome for its own fields (.MuiOutlinedInput-root above sets the
+   height, radius and fill; .MuiOutlinedInput-notchedOutline sets the border), so the
+   inner input just has to carry text. Focus is included because the generic :focus
+   rule repaints the border and background too. */
+.ob-wizard-root .MuiInputBase-root input,
+.ob-wizard-root .MuiInputBase-root input:hover,
+.ob-wizard-root .MuiInputBase-root input:focus {
+  height: 100% !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
 .ob-wizard-root .form-control:hover:not(:focus),
 .ob-wizard-root input[type="text"]:hover:not(:focus),
 .ob-wizard-root input[type="email"]:hover:not(:focus) {
