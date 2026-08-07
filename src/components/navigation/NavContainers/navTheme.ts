@@ -65,12 +65,12 @@ const ACCENT_BY_SECTION: Record<string, AccentName> = {
   'general-section': 'slate',
   'hr-section': 'blue',
   'crm-section': 'emerald',
-  // The rail runs slate · blue · emerald · indigo · purple · rose · teal · amber.
+  // The rail runs slate · blue · emerald · purple · indigo · rose · teal · amber.
   // Each application takes a hue no other one uses — adjacent applications sharing
   // an accent read as a single group, which is exactly what promoting them out of
   // their parent was meant to undo.
-  'payment-section': 'indigo',
   'projects-section': 'purple',
+  'payment-section': 'indigo',
   'finance-section': 'rose',
   'organization-section': 'teal',
   'admin-section': 'amber',

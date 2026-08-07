@@ -60,8 +60,8 @@ const SECTION_ICON: Record<string, string> = {
   'crm-section': 'bi-person-rolodex',
   'projects-section': 'bi-kanban',
   'payment-section': 'bi-credit-card',
-  // Both keep the glyph their group carried while it was a `sub`, so the promotion
-  // doesn't also change what users are looking for.
+  // Finance and Organization keep the glyph their group carried while it was a
+  // `sub`, so the promotion doesn't also change what users are looking for.
   'finance-section': 'bi-cash-coin',
   'organization-section': 'bi-house-fill',
   'admin-section': 'bi-gear',

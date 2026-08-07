@@ -261,25 +261,6 @@ export function useNavigation() {
         visible: !isSectionBlocked('crm.contacts'),
       },
 
-      // ── Payment Department ────────────────────────────────────────────────
-      // A deliberate PLACEHOLDER: it owns no routes yet, and sits above Project
-      // and Finance so the department exists in the information architecture
-      // before its modules do.
-      //
-      // `allowEmpty` is what makes it visible at all. useNavContainers drops any
-      // container with no links, which is correct for every other section — an
-      // application whose every module is permission-gated must vanish rather
-      // than offer an empty shell. This flag is the narrow opt-out for a section
-      // that is empty BY DESIGN rather than by permission, so that rule stays
-      // intact for the sections it protects.
-      {
-        type: 'section',
-        id: 'payment-section',
-        title: 'Payment Department',
-        visible: true,
-        allowEmpty: true,
-      },
-
       // ── Project Department ────────────────────────────────────────────────
       // Organization USED to sit under this header (it preceded the next section
       // marker), which is why `settings` was part of the header's condition. It is
@@ -324,6 +305,25 @@ export function useNavigation() {
         title: 'Employees Timesheet',
         fontIcon: 'bi-clipboard-data',
         visible: !isSectionBlocked('timesheets') && isSubsectionVisible('timesheets.employees', hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
+      },
+
+      // ── Payment Department ────────────────────────────────────────────────
+      // A deliberate PLACEHOLDER: it owns no routes yet, and sits between Project
+      // and Finance so the department exists in the information architecture
+      // before its modules do.
+      //
+      // `allowEmpty` is what makes it visible at all. useNavContainers drops any
+      // container with no links, which is correct for every other section — an
+      // application whose every module is permission-gated must vanish rather
+      // than offer an empty shell. This flag is the narrow opt-out for a section
+      // that is empty BY DESIGN rather than by permission, so that rule stays
+      // intact for the sections it protects.
+      {
+        type: 'section',
+        id: 'payment-section',
+        title: 'Payment Department',
+        visible: true,
+        allowEmpty: true,
       },
 
       // ── Finance / Account Department ──────────────────────────────────────
