@@ -96,8 +96,9 @@ export function useNavigation() {
 
       // ── HR & People ───────────────────────────────────────────────────────
       // Flat, as in NAV_CONFIG: the old "Attendance & Leaves" and "People"
-      // wrapper groups are gone, and Reports/Finance no longer get their own
-      // section headers — KPI and Finance live under this one.
+      // wrapper groups are gone, and Reports no longer gets its own section
+      // header — KPI lives under this one. (Finance did too, until it became an
+      // application in its own right further down.)
       {
         type: 'section',
         id: 'hr-section',
@@ -107,7 +108,6 @@ export function useNavigation() {
           !isSectionBlocked('users') ||
           !isSectionBlocked('settings') ||
           !isSectionBlocked('reports') ||
-          !isSectionBlocked('finance') ||
           (!isSectionBlocked('recruitment') && can('recruitment.view.team')) ||
           (NEW_MY_TEAM_IA && (can('approvals.view.team') || can('approvals.approve.team') || can('approvals.manage.all'))),
       },
@@ -212,43 +212,9 @@ export function useNavigation() {
         fontIcon: 'bi-bar-chart',
         visible: !isSectionBlocked('reports') && isSubsectionVisible('reports.kpi', hasPermission(uiControlResourceNameMapWithCamelCase.kpiUnderReports, permissionConstToUseWithHasPermission.readOthers)),
       },
-      {
-        type: 'sub',
-        id: 'finance-group',
-        title: 'Finance',
-        fontIcon: 'bi-cash-coin',
-        visible: !isSectionBlocked('finance'),
-        children: [
-          {
-            type: 'item',
-            id: 'fin-loans',
-            to: '/finance/loans',
-            title: 'Loans',
-            visible: isSubsectionVisible('finance.loans', hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'fin-reimbursements',
-            to: '/finance/bills',
-            title: 'Reimbursements',
-            visible: isSubsectionVisible('finance.reimbursements', hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'fin-salary',
-            to: '/finance/salary',
-            title: 'Salary',
-            visible: isSubsectionVisible('finance.salary', hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'fin-increment',
-            to: '/finance/increment',
-            title: 'Increment',
-            visible: isSubsectionVisible('finance.increment', hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-        ]
-      },
+      // Finance used to sit here as a collapsible `sub`, which made it a labelled
+      // cluster inside the HR & People workspace. It is its own application now —
+      // see the Finance section between Projects and Organization below.
 
       // ── CRM ───────────────────────────────────────────────────────────────
       {
@@ -327,6 +293,63 @@ export function useNavigation() {
         fontIcon: 'bi-clipboard-data',
         visible: !isSectionBlocked('timesheets') && isSubsectionVisible('timesheets.employees', hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
       },
+
+      // ── Finance ───────────────────────────────────────────────────────────
+      // Was a collapsible `sub` at the bottom of HR & People, so it rendered as a
+      // labelled cluster inside that workspace. Loans, Reimbursements, Salary and
+      // Increment are money, not people administration — and they have their own
+      // `finance` permission section already, so the split follows a boundary the
+      // authorization model draws anyway.
+      //
+      // Placed between Projects and Organization, as requested.
+      //
+      // The header repeats the group's `!isSectionBlocked('finance')` check: the
+      // sidebar renders a section unless `visible === false`, so without it a user
+      // without finance access would get a bare "Finance" heading over nothing.
+      // (The workspace is safe either way — useNavContainers drops empty containers.)
+      {
+        type: 'section',
+        id: 'finance-section',
+        title: 'Finance',
+        visible: !isSectionBlocked('finance'),
+      },
+      // As `sub` children these rows carried no icon of their own and inherited the
+      // group's glyph, which ModuleGrid does for cluster children only. Top-level
+      // modules get no such fallback, so each names its own — otherwise all four
+      // would render the generic folder placeholder.
+      {
+        type: 'item',
+        id: 'fin-loans',
+        to: '/finance/loans',
+        title: 'Loans',
+        fontIcon: 'bi-cash-stack',
+        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.loans', hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'fin-reimbursements',
+        to: '/finance/bills',
+        title: 'Reimbursements',
+        fontIcon: 'bi-receipt',
+        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.reimbursements', hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'fin-salary',
+        to: '/finance/salary',
+        title: 'Salary',
+        fontIcon: 'bi-cash-coin',
+        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.salary', hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'fin-increment',
+        to: '/finance/increment',
+        title: 'Increment',
+        fontIcon: 'bi-graph-up-arrow',
+        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.increment', hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+      },
+
       // ── Organization ──────────────────────────────────────────────────────
       // Was a collapsible `sub` ("Organization") sitting at the bottom of the
       // Projects section, which made it a labelled CLUSTER inside the Projects
