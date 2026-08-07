@@ -3,11 +3,11 @@
 HRMS web client (Metronic-based admin theme). React 18 + TypeScript + Vite. Pairs with `../wisetech-backend`.
 
 ## Commands
-- Dev: `npm run dev` (Vite) · LAN: `npm run dev:host`
-- Build: `npm run build` (`tsc && vite build`) — **the build typechecks; it fails on any TS error.**
-- Typecheck only: `npx tsc --noEmit` — **primary verification gate; the project typechecks clean (0 errors), keep it that way.**
-- Lint: `npm run lint` (config in `.eslintrc.cjs`) · auto-fix: `npm run lint:fix`. The config is deliberately lean — style noise (`no-explicit-any`, unused vars, etc.) is OFF; only genuine-bug rules are errors (`react-hooks/rules-of-hooks`, unsafe optional chaining, `no-debugger`). `src/_metronic/**` is ignored as vendored. There are ~61 pre-existing real-bug errors in ~29 legacy files; don't add new ones.
-- Preview prod build: `npm run preview`
+- Dev: `pnpm run dev` (Vite) · LAN: `pnpm run dev:host`
+- Build: `pnpm run build` (`tsc && vite build`) — **the build typechecks; it fails on any TS error.**
+- Typecheck only: `pnpm exec tsc --noEmit` — **primary verification gate; the project typechecks clean (0 errors), keep it that way.**
+- Lint: `pnpm run lint` (config in `.eslintrc.cjs`) · auto-fix: `pnpm run lint:fix`. The config is deliberately lean — style noise (`no-explicit-any`, unused vars, etc.) is OFF; only genuine-bug rules are errors (`react-hooks/rules-of-hooks`, unsafe optional chaining, `no-debugger`). `src/_metronic/**` is ignored as vendored. There are ~61 pre-existing real-bug errors in ~29 legacy files; don't add new ones.
+- Preview prod build: `pnpm run preview`
 
 ## Architecture
 - Entry `src/main.tsx`. App code under `src/app/` (pages in `src/app/pages/`), shared `components/`, `hooks/`, `contexts/`.
@@ -26,7 +26,7 @@ The bar for every component: **reusable, responsive, accessible, theme-aware (li
 `.eslintrc.cjs` fails the build on banned primitives. Don't add `eslint-disable` to get around it; fix the code or the rule is pointless.
 - **`no-restricted-imports`** (always error, everywhere except the kit): importing `Switch` from `@mui/material`.
 - **`no-restricted-syntax`** (error): native `type="date"|"datetime-local"|"time"|"month"`, `<style>` blocks, Bootstrap component classes (`form-switch`, `form-control`, `btn btn-`, `card-body`, `badge badge-`), `toLocaleDateString()`.
-- **The ratchet** (`.eslint-ui-baseline.cjs`, auto-generated): 286 legacy files predate these rules and would make the build permanently red, so they emit *warnings* instead. **Every file not in that list errors.** New code can't regress; the list can only shrink. Regenerate after a burn-down pass with `npm run lint:ui:baseline`, and delete paths as you fix them — never add one.
+- **The ratchet** (`.eslint-ui-baseline.cjs`, auto-generated): 286 legacy files predate these rules and would make the build permanently red, so they emit *warnings* instead. **Every file not in that list errors.** New code can't regress; the list can only shrink. Regenerate after a burn-down pass with `pnpm run lint:ui:baseline`, and delete paths as you fix them — never add one.
 - Severity is split across two rules on purpose: the ratchet downgrades `no-restricted-syntax` for baselined files, so the raw-`Switch` ban lives in `no-restricted-imports` where the ratchet can't reach it.
 
 Current burn-down: **0 errors, ~1375 warnings.** The warnings are the migration backlog, not noise.
@@ -87,7 +87,7 @@ Single source of truth: `src/utils/dateFormats.ts`.
 Plan: [../BILLING/INDEX.md](../BILLING/INDEX.md). The project Billing tab already exists as a placeholder — `pages/employee/entity/detail/sections/BillingSection.tsx`, registered in `detail/facets.ts` and rendered from `EntityDetailPage.tsx`. It predates the UI standard (raw divs, hardcoded hex), so **replace it wholesale rather than extending it**.
 
 ## Before saying a change is done
-Run `npx tsc --noEmit` (or a full `npm run build`) — it must pass clean. Run `npm run lint` on files you touched (warnings are informational; don't introduce new errors).
+Run `pnpm exec tsc --noEmit` (or a full `pnpm run build`) — it must pass clean. Run `pnpm run lint` on files you touched (warnings are informational; don't introduce new errors).
 
 ## Auto-verify hook
-A `PostToolUse` hook (`../.claude/settings.local.json` → `../.claude/hooks/typecheck.sh`) runs after any Edit/Write to a `.ts`/`.tsx` file in this project, in the background: whole-project `npx tsc --noEmit` plus `npx eslint --quiet` on just the edited file. Any type error or lint **error** (warnings excluded) is surfaced automatically.
+A `PostToolUse` hook (`../.claude/settings.local.json` → `../.claude/hooks/typecheck.sh`) runs after any Edit/Write to a `.ts`/`.tsx` file in this project, in the background: whole-project `pnpm exec tsc --noEmit` plus `pnpm exec eslint --quiet` on just the edited file. Any type error or lint **error** (warnings excluded) is surfaced automatically.

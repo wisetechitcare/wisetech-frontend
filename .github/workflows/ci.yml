@@ -3,7 +3,7 @@ name: ✅ CI (typecheck + lint + build)
 # Gate for `main`: a PR cannot merge and a push cannot land unless this passes.
 # Wire this job as a REQUIRED status check in Settings → Branches → main.
 #
-# Note: the project has ~61 pre-existing ESLint *errors* in legacy files, so a
+# Note: the project has pre-existing ESLint *errors* in legacy files, so a
 # whole-repo lint gate would block every merge. Instead we hard-gate on
 # typecheck + build (both currently clean) and lint ONLY the files a PR changes,
 # so new errors block while legacy ones don't.
@@ -21,16 +21,20 @@ jobs:
         with:
           fetch-depth: 0 # needed to diff against the PR base
 
+      # Must come before setup-node: `cache: pnpm` needs pnpm on PATH.
+      # Version is read from the "packageManager" field in package.json.
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20 # Vite 7 requires Node >= 20.19
-          cache: npm
+          cache: pnpm
 
       - name: Install
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck (hard gate)
-        run: npx tsc --noEmit
+        run: pnpm exec tsc --noEmit
 
       - name: Lint changed files (errors block; warnings are informational)
         if: github.event_name == 'pull_request'
@@ -41,8 +45,8 @@ jobs:
             echo "No .ts/.tsx changes to lint."
           else
             echo "Linting changed files:"; echo "$files"
-            npx eslint --quiet $files
+            pnpm exec eslint --quiet $files
           fi
 
       - name: Build (hard gate)
-        run: npm run build
+        run: pnpm run build

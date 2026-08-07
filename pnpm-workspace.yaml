@@ -1,0 +1,17 @@
+# pnpm settings (pnpm 11 reads config from here, not package.json).
+# Not a monorepo — no `packages:` key.
+
+# pnpm blocks dependency install scripts by default. These need theirs:
+#   esbuild, @swc/core   -> Vite's bundler + the React SWC plugin (build breaks without)
+#   canvas               -> native addon behind react-pdf/pdfjs rendering
+#   @parcel/watcher      -> native file watcher
+#   puppeteer            -> downloads Chromium
+#   core-js, @fortawesome/fontawesome-free -> postinstall funding notices only
+allowBuilds:
+  esbuild: true
+  '@swc/core': true
+  canvas: true
+  '@parcel/watcher': true
+  puppeteer: true
+  core-js: true
+  '@fortawesome/fontawesome-free': true

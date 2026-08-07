@@ -15,7 +15,7 @@ fi
 # warnings are backlog, not a commit blocker.
 ts=$(printf '%s\n' "$staged" | grep -E '\.tsx?$' | grep -v '^src/_metronic/')
 if [ -n "$ts" ]; then
-  echo "$ts" | xargs npx eslint --quiet --no-error-on-unmatched-pattern || {
+  echo "$ts" | xargs pnpm exec eslint --quiet --no-error-on-unmatched-pattern || {
     echo "pre-commit: eslint errors - commit blocked"
     exit 1
   }
