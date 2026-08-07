@@ -16,6 +16,7 @@ import { successConfirmation, errorConfirmation } from '@utils/modal';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import dayjs from 'dayjs';
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
+import { usePermission } from '@hooks/usePermission';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -187,6 +188,10 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [downloadingBill, setDownloadingBill] = useState(false);
+
+  // The server now refuses these actions unless the caller is the batch's current approver (or an
+  // active delegate). Gate the buttons too, so the UI stops offering an action that will 403.
+  const canApprove = usePermission('approvals.approve.team');
 
   const pendingCount = batch?.reimbursements?.filter((r: any) => r.status === 0).length || 0;
   const batchIsPending = batch?.status === 0;
@@ -409,7 +414,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
         Cell: ({ row }: any) => {
           const r = row.original;
           const isProcessing = processingId === r.id;
-          if (!batchIsPending || r.status !== 0) {
+          if (!batchIsPending || r.status !== 0 || !canApprove) {
             return (
               <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 500, cursor: 'default', userSelect: 'none' }}>
                 No Actions Available
@@ -433,7 +438,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
         },
       },
     ];
-  }, [batchIsPending, processingId, handleIndividualAction, handleViewDocument, resolveClientType, detailTotal, visibleReimbursements]);
+  }, [batchIsPending, canApprove, processingId, handleIndividualAction, handleViewDocument, resolveClientType, detailTotal, visibleReimbursements]);
 
   const handleBulkAction = async (action: 'approve' | 'reject-all', reason?: string) => {
     if (!batch?.reimbursements?.length) return;
@@ -561,7 +566,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
             </div>
           )}
 
-          {batchIsPending && pendingCount > 0 && (
+          {batchIsPending && pendingCount > 0 && canApprove && (
             <div className='d-flex gap-3 mb-5 p-3 rounded' style={{ background: '#f8f9fa', border: '1px solid #e9ecef' }}>
               <span className='fw-semibold fs-7 text-dark align-self-center me-2'>Bulk Actions:</span>
               <button

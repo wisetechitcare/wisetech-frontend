@@ -615,6 +615,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   // Document preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Presigned URL for a receipt uploaded in this session but not yet saved as a draft.
+  const [justUploadedUrl, setJustUploadedUrl] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Dropdown option lists — same names as Reimbursement.tsx
@@ -1001,8 +1003,11 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       const form = new FormData();
       form.append('file', files[0]);
       try {
-        const { data: { path } } = await uploadUserAsset(form, userId, undefined, 'reimbursement-docs');
+        const { data: { path, previewUrl: signedUrl } } = await uploadUserAsset(form, userId, undefined, 'reimbursement-docs');
         formikProps.setFieldValue('document', path, true);
+        // Receipts are stored private, so `path` alone won't render. Saved drafts come back
+        // presigned from the API; this covers the gap before the draft is saved.
+        setJustUploadedUrl(signedUrl ?? path);
       } catch (error) {
         console.error('Failed to upload file. Please try again.');
       }
@@ -1539,7 +1544,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                             type='button'
                             className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
                             title='Preview document'
-                            onClick={() => setPreviewUrl(String(formikProps.values.document))}
+                            onClick={() => setPreviewUrl(justUploadedUrl ?? String(formikProps.values.document))}
                           >
                             <KTIcon iconName='eye' className='fs-3' />
                           </button>
