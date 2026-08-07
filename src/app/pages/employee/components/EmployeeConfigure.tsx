@@ -15,7 +15,8 @@ import { fetchCompanyOverview } from "@services/company";
 import { resolveActiveOrgId } from "@utils/activeOrg";
 import Loader from "@app/modules/common/utils/Loader";
 import { ActionIconButton } from "@app/modules/common/components/ui";
-import Departments from "@pages/company/Departments";
+import DepartmentConfigureForm, { DepartmentItem } from "./DepartmentConfigureForm";
+import { fetchAllDepartments, archiveDepartmentById } from "@services/company";
 import OrganizationConfigure from "@pages/company/masters/OrganizationConfigure";
 import {
   ConfigPageLayout,
@@ -47,9 +48,7 @@ const CONFIG_TABS = [
 ];
 
 /** Tabs whose card lives in THIS page's own ConfigPageLayout. */
-const OWN_TAB_IDS = CONFIG_TABS
-  .map((t) => t.id)
-  .filter((id) => id !== "departments" && id !== "shifts");
+const OWN_TAB_IDS = CONFIG_TABS.map((t) => t.id).filter((id) => id !== "shifts");
 
 interface EmployeeConfigItem {
   id: string;
@@ -84,6 +83,12 @@ const EmployeeConfigure = () => {
   const [employeeStatuses, setEmployeeStatuses] = useState<EmployeeConfigItem[]>([]);
   const [showEmployeeStatusModal, setShowEmployeeStatusModal] = useState(false);
   const [editingEmployeeStatus, setEditingEmployeeStatus] = useState<EmployeeConfigItem | null>(null);
+
+  // Departments — own table/endpoints, not employee_configurations.
+  const [departments, setDepartments] = useState<DepartmentItem[]>([]);
+  const [showDepartmentModal, setShowDepartmentModal] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<DepartmentItem | null>(null);
+  const [departmentCompanyId, setDepartmentCompanyId] = useState<string | undefined>(undefined);
 
   // Qualifications — own table/endpoints, not employee_configurations.
   const [qualifications, setQualifications] = useState<QualificationItem[]>([]);
@@ -212,6 +217,63 @@ const EmployeeConfigure = () => {
     }
   };
 
+  // Department handlers
+  const handleDepartmentModalOpen = () => setShowDepartmentModal(true);
+  const handleDepartmentModalClose = () => {
+    setShowDepartmentModal(false);
+    setEditingDepartment(null);
+  };
+  const handleDepartmentEdit = (department: DepartmentItem) => {
+    setEditingDepartment(department);
+    setShowDepartmentModal(true);
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      setLoading(true);
+      const response = await fetchAllDepartments();
+      const rows = response?.data?.departments || [];
+      setDepartments(
+        rows.map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          code: d.code,
+          description: d.description,
+          companyId: d.companyId,
+          isActive: d.isActive,
+        }))
+      );
+
+      // Same resolution as job profiles: the create schema requires a companyId, so
+      // take it from an existing row and fall back to the active org when empty.
+      let resolved = rows[0]?.companyId as string | undefined;
+      if (!resolved) {
+        try {
+          const { data: { companyOverview } } = await fetchCompanyOverview();
+          resolved = resolveActiveOrgId(companyOverview) ?? undefined;
+        } catch {
+          resolved = undefined;
+        }
+      }
+      setDepartmentCompanyId(resolved);
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDepartmentDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation("Successfully deleted department");
+      if (!confirmed) return;
+      await archiveDepartmentById(id);
+      fetchDepartments();
+    } catch (error) {
+      console.error("Error deleting department:", error);
+    }
+  };
+
   const handleJobProfileDelete = async (id: string) => {
     try {
       const confirmed = await deleteConfirmation("Successfully deleted job profile");
@@ -289,6 +351,7 @@ const EmployeeConfigure = () => {
     fetchEmployeeLevels();
     fetchEmployeeStatuses();
     fetchQualifications();
+    fetchDepartments();
   }, []);
 
   // Delete handler
@@ -404,9 +467,8 @@ const EmployeeConfigure = () => {
         label="Onboarding configuration"
       />
 
-      {/* Departments and Shifts render their OWN ConfigPageLayout, so they sit outside
-          the one below — nesting them would stack two banners. */}
-      {activeTab === 'departments' && <Departments />}
+      {/* Shifts still renders its OWN ConfigPageLayout, so it sits outside the one
+          below — nesting it would stack two banners. */}
       {activeTab === 'shifts' && <OrganizationConfigure />}
 
       {OWN_TAB_IDS.includes(activeTab) && (
@@ -439,6 +501,42 @@ const EmployeeConfigure = () => {
                       item={jobProfile}
                       onEdit={handleJobProfileEdit}
                       onDelete={handleJobProfileDelete}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </ConfigSectionCard>
+          )}
+
+          {/* Departments Section — a chip card like every other tab. This used to embed
+              the whole Departments PAGE, which brought its own banner and a full data
+              table (search, export, pagination), so one tab in the strip looked like a
+              different product. Code and description still exist — they live in the
+              edit dialog rather than as table columns. */}
+          {activeTab === 'departments' && (
+          <ConfigSectionCard
+            title="Departments"
+            description="Options offered in the onboarding Department picker"
+            icon="bi-diagram-2"
+            iconColor="primary"
+            badge={{ label: `${departments.length}`, color: C.primary, bg: C.primaryLight }}
+            loading={loading}
+            primaryAction={{ label: 'New Department', icon: 'bi-plus-lg', onClick: handleDepartmentModalOpen, variant: 'primary' }}
+          >
+            <div style={{ marginTop: SP.md }}>
+              {departments.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted }}>
+                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No departments created yet</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
+                  {departments.map((department) => (
+                    <ItemChip
+                      key={department.id}
+                      item={department}
+                      onEdit={handleDepartmentEdit}
+                      onDelete={handleDepartmentDelete}
                     />
                   ))}
                 </div>
@@ -617,6 +715,17 @@ const EmployeeConfigure = () => {
         isEditing={!!editingEmployeeStatus}
         type="EMPLOYEE_STATUS"
         title="Employee Status"
+      />
+
+      {/* Department Modal — departments carry a code and description, so they can't
+          reuse the name-only forms. */}
+      <DepartmentConfigureForm
+        show={showDepartmentModal}
+        onClose={handleDepartmentModalClose}
+        onSuccess={fetchDepartments}
+        initialData={editingDepartment}
+        isEditing={!!editingDepartment}
+        companyId={departmentCompanyId}
       />
 
       {/* Qualification Modal */}

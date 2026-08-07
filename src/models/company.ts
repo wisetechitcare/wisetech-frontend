@@ -167,6 +167,14 @@ export interface ICompanyDepartment {
     name: string;
     code: string;
     description?: string;
+    /**
+     * Both are REQUIRED by the create/update schemas (`departmentsSchema` and
+     * `updateDepartmentSchema` are `.strict(true)`), so a payload without them is
+     * rejected. They were missing here, which let callers type-check a request the
+     * server always refused — matching ICompanyDesignation, which already carries them.
+     */
+    companyId?: string;
+    isActive?: boolean;
 }
 
 export interface ICompanyDesignation {
