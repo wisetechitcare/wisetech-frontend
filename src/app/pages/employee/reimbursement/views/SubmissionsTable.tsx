@@ -22,6 +22,10 @@ import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { PeriodAlignment } from '../MaterialToggleReimbursement';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
+import StatusFilterChips, { countByStatus } from '../components/StatusFilterChips';
+import RecordsEmptyState, { findExpensesElsewhere } from '../components/RecordsEmptyState';
+import { resolveStatusNum as resolveStatus, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
+import { SkeletonTable } from '@app/modules/common/components/Skeleton';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -684,6 +688,11 @@ export interface SubmissionsTableProps {
    * they belonged to July.
    */
   mode?: 'expense' | 'submission';
+  /**
+   * Jumps the page period to another month. Supplied by whoever owns the period state, so
+   * the empty state can offer "you have 3 in May 2026" as something you can actually click.
+   */
+  onGoToPeriod?: (date: Dayjs) => void;
 }
 
 function SubmissionsTable({
@@ -697,8 +706,15 @@ function SubmissionsTable({
   viewOthers = false,
   checkOwnWithOthers = false,
   mode = 'expense',
+  onGoToPeriod,
 }: SubmissionsTableProps) {
   const [rows, setRows] = useState<any[]>([]);
+  // null = All. Defaults to All deliberately: a screen that silently narrows to approved is
+  // the bug this replaces.
+  const [statusFilter, setStatusFilter] = useState<StatusNum | null>(null);
+  // Every line the employee has, regardless of period — only used to tell an empty month
+  // where its expenses actually are.
+  const [allTimeLines, setAllTimeLines] = useState<any[]>([]);
   const [tableLoading, setTableLoading] = useState(true);
   const [detailBatchId, setDetailBatchId] = useState<string | null>(null);
   const [detailFilterStatus, setDetailFilterStatus] = useState<number | null>(null);
@@ -757,6 +773,20 @@ function SubmissionsTable({
         : await fetchAllReimbursementsForEmployee(scopedEmpId);
       const lines: any[] = (res?.data?.reimbursements || res?.reimbursements || [])
         .filter((r: any) => r.isActive !== false);
+
+      // Only fetched when the period view came back empty — this is purely so the empty state can
+      // say WHERE the expenses are, and it is not worth a second request on the normal path.
+      if (lines.length === 0 && range) {
+        try {
+          const allRes = await fetchAllReimbursementsForEmployee(scopedEmpId);
+          setAllTimeLines((allRes?.data?.reimbursements || allRes?.reimbursements || [])
+            .filter((r: any) => r.isActive !== false));
+        } catch {
+          setAllTimeLines([]); // the hint is a nicety; failing to load it must not break the page
+        }
+      } else {
+        setAllTimeLines(lines);
+      }
 
       const built: any[] = [];
       const ungrouped: any[] = [];
@@ -1070,16 +1100,50 @@ function SubmissionsTable({
     [rowsTotal, mode],
   );
 
+  // Status is a filter the user controls, defaulting to All. Six screens used to hard-code
+  // `status === 1`, which is the "it only shows if it's approved" report — rows were absent with
+  // nothing on screen to say so.
+  const statusCounts = useMemo(
+    () => countByStatus(rows.map((r) => ({ status: r._status })), resolveStatus),
+    [rows],
+  );
+
+  const visibleRows = useMemo(
+    () => (statusFilter === null ? rows : rows.filter((r) => resolveStatus(r._status) === statusFilter)),
+    [rows, statusFilter],
+  );
+
+  // Where else this employee has expenses, so an empty month can say so instead of implying
+  // the records are gone. Uses the unfiltered all-time set, not the current period.
+  const elsewhere = useMemo(
+    () => (period === 'monthly' ? findExpensesElsewhere(allTimeLines, date) : []),
+    [allTimeLines, period, date],
+  );
+
+  const periodLabel = period === 'monthly'
+    ? date.format('MMMM YYYY')
+    : period === 'yearly' ? `FY ${date.format('YYYY')}` : 'all time';
+
   return (
     <>
+      <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+        <StatusFilterChips value={statusFilter} onChange={setStatusFilter} counts={statusCounts} />
+      </div>
+
       {tableLoading ? (
-        <div className="d-flex justify-content-center py-10">
-          <span className="spinner-border text-primary" />
-        </div>
+        <SkeletonTable rows={5} cols={6} />
+      ) : visibleRows.length === 0 ? (
+        <RecordsEmptyState
+          periodLabel={periodLabel}
+          elsewhere={elsewhere}
+          onGoToPeriod={onGoToPeriod}
+          activeStatusFilter={statusFilter === null ? null : STATUS_LABEL[statusFilter]}
+          onClearStatusFilter={() => setStatusFilter(null)}
+        />
       ) : (
         <MaterialTable
           columns={columns}
-          data={rows}
+          data={visibleRows}
           tableName="Submissions"
           resource={resource}
           viewOwn={viewOwn}

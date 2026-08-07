@@ -1599,7 +1599,9 @@ function PaymentTab() {
         onClose={() => setDetailBatchId(null)}
         onBatchActionDone={() => setRefreshKey((k) => k + 1)}
         approvalInstanceId={detailApprovalInstanceId}
-        filterStatus={1}
+        // Was filterStatus={1}: the batch detail showed only approved lines, so pending and
+        // rejected siblings inside the same batch were invisible with nothing saying so.
+        filterStatus={null}
       />
 
       <MarkAsPaidModal

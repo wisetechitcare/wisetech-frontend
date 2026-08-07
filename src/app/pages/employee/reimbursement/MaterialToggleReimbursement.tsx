@@ -157,6 +157,12 @@ const MaterialToggleReimbursement = ({
         viewOwn={viewOwn}
         viewOthers={viewOthers}
         checkOwnWithOthers={checkOwnWithOthers}
+        // Lets the empty state jump to a month that actually has expenses.
+        onGoToPeriod={(next) => {
+          setMonth(next);
+          setYear(next);
+          onPeriodChange?.(alignment, next);
+        }}
       />
     </>
   );
