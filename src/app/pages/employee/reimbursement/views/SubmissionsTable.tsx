@@ -20,6 +20,7 @@ import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { PeriodAlignment } from '../MaterialToggleReimbursement';
+import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -813,14 +814,29 @@ function SubmissionsTable({
   // The period is a range of EXPENSE dates. An expense belongs to the month it was
   // incurred in — not the month its batch happened to be submitted or approved in.
   // Filtering batches by `submittedAt` is what put June expenses under July.
-  const range = useMemo(() => {
-    if (period === 'monthly') {
-      return { start: date.startOf('month').format('YYYY-MM-DD'), end: date.endOf('month').format('YYYY-MM-DD') };
-    }
-    if (period === 'yearly') {
-      return { start: date.startOf('year').format('YYYY-MM-DD'), end: date.endOf('year').format('YYYY-MM-DD') };
-    }
-    return null; // All Time
+  // Yearly is FISCAL, not calendar (OPEN_QUESTIONS Q2). The label above this table already read
+  // "fiscal" while the filter used the calendar year, so the two disagreed for every date in
+  // Jan-Mar. `generateFiscalYearFromGivenYear` reads the company's configured fiscal period, so
+  // it is async — hence state rather than a useMemo.
+  const [range, setRange] = useState<{ start: string; end: string } | null>(null);
+  const [rangeReady, setRangeReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRangeReady(false);
+    (async () => {
+      let next: { start: string; end: string } | null = null;
+      if (period === 'monthly') {
+        next = { start: date.startOf('month').format('YYYY-MM-DD'), end: date.endOf('month').format('YYYY-MM-DD') };
+      } else if (period === 'yearly') {
+        const { startDate, endDate } = await generateFiscalYearFromGivenYear(date);
+        next = { start: startDate, end: endDate };
+      }
+      if (cancelled) return;
+      setRange(next); // null for All Time
+      setRangeReady(true);
+    })();
+    return () => { cancelled = true; };
   }, [period, date]);
 
   const loadBatches = useCallback(async () => {
@@ -1024,8 +1040,12 @@ function SubmissionsTable({
   }, [mode, range, refreshKey, selectedEmployeeId, employeeId]);
 
   useEffect(() => {
+    // Wait for the (async, fiscal-aware) range before loading. `range` is null both while it is
+    // still resolving and for All Time, and loading on the former would fetch every row and then
+    // immediately refetch the real period.
+    if (!rangeReady) return;
     loadBatches();
-  }, [loadBatches]);
+  }, [loadBatches, rangeReady]);
 
   // Refresh when any reimbursement changes on any connected client (WebSocket)
   useEventBus(EVENT_KEYS.reimbursementChanged, () => { setRefreshKey((k) => k + 1); });

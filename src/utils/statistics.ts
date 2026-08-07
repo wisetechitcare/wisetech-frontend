@@ -3074,8 +3074,8 @@ export async function fetchMonthlyReimbursementsOfAllEmp(month: Dayjs) {
 }
 
 export async function fetchYearlyReimbursementsOfAllEmp(year: Dayjs) {
-    const startDate = (year.startOf('year').format('YYYY-MM-DD'));
-    const endDate = (year.endOf('year').format('YYYY-MM-DD'));
+    // Fiscal, not calendar (Q2). This surface was calendar-bounded while its label said fiscal.
+    const { startDate, endDate } = await generateFiscalYearFromGivenYear(year);
     const { data: { reimbursements: empYearlyReimbursements } } = await fetchReimbursementsForAllEmployees(startDate, endDate);
     empYearlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
         new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()

@@ -82,18 +82,16 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
     const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
     const [selectedApprovalInstanceId, setSelectedApprovalInstanceId] = useState<string | null>(null);
 
-    const getDateRange = useCallback(() => {
+    const getDateRange = useCallback(async () => {
         if (filter === 'monthly') {
             return {
                 startDate: currentDate.startOf('month').toISOString(),
                 endDate: currentDate.endOf('month').toISOString(),
             };
         }
+        // Fiscal, not calendar (Q2) — this table used the calendar year under a fiscal label.
         if (filter === 'yearly') {
-            return {
-                startDate: currentDate.startOf('year').toISOString(),
-                endDate: currentDate.endOf('year').toISOString(),
-            };
+            return generateFiscalYearFromGivenYear(currentDate);
         }
         return { startDate: undefined, endDate: undefined };
     }, [filter, currentDate]);
@@ -102,7 +100,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
         if (!employeeId) return;
         setLoading(true);
         try {
-            const { startDate, endDate } = getDateRange();
+            const { startDate, endDate } = await getDateRange();
             const data = await fetchReimbursementPayments(employeeId, startDate, endDate);
             const sorted = (data as any[]).sort(
                 (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),

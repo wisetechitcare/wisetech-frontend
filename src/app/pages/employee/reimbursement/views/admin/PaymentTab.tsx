@@ -50,18 +50,18 @@ function resolveStatusNum(s: any): number {
   return 0;
 }
 
-function getDateRange(filter: PeriodFilter, date: dayjs.Dayjs) {
+async function getDateRange(filter: PeriodFilter, date: dayjs.Dayjs) {
   if (filter === 'monthly') {
     return {
       startDate: date.startOf('month').toISOString(),
       endDate: date.endOf('month').toISOString(),
     };
   }
+  // Fiscal, not calendar (OPEN_QUESTIONS Q2). The data layer already computed fiscal bounds
+  // and the on-screen label already said "fiscal", while this filter used the calendar year —
+  // so label and data disagreed for every date in Jan-Mar. Payroll is fiscal; so is this.
   if (filter === 'yearly') {
-    return {
-      startDate: date.startOf('year').toISOString(),
-      endDate: date.endOf('year').toISOString(),
-    };
+    return generateFiscalYearFromGivenYear(date);
   }
   return { startDate: undefined, endDate: undefined };
 }
@@ -479,7 +479,7 @@ function PaymentDoneTable({
     }
     setPaymentsLoading(true);
     try {
-      const { startDate, endDate } = getDateRange(filter, currentDate);
+      const { startDate, endDate } = await getDateRange(filter, currentDate);
       const results = await Promise.all(
         paidEmployeeIds.map((id) =>
           fetchReimbursementPayments(id, startDate, endDate)
