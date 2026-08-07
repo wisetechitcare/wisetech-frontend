@@ -7,11 +7,11 @@ import { KTIcon } from '@metronic/helpers';
 import { IReimbursementsUpdate } from '@models/employee';
 import ReimbursementEditModal from '../components/ReimbursementEditModal';
 import {
-  fetchReimbursementBatches,
   fetchReimbursementBatchById,
   deleteEmployeeReimbursement,
   fetchApprovalInstanceByRequest,
   fetchAllReimbursementsForEmployee,
+  fetchReimbursementsForEmployee,
   downloadReimbursementBillPdf,
 } from '@services/employee';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
@@ -33,6 +33,11 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 // batch workflow; we group them into a synthetic "Legacy" submission so they
 // can never silently disappear from the UI.
 const UNGROUPED_BATCH_ID = '__ungrouped__';
+
+// A batch whose lines were decided individually is neither approved nor rejected as a
+// whole. Numeric so it can share the status column, out of range so it can never collide
+// with a real status (0 pending / 1 approved / 2 rejected).
+const MIXED_STATUS = 3;
 
 function fmtDate(d?: string) {
   if (!d) return 'N/A';
@@ -166,6 +171,12 @@ interface SubmissionDetailModalProps {
   filterStatus?: number | null;
   /** Raw reimbursements to render when batchId is the UNGROUPED sentinel (no real batch to fetch). */
   ungroupedReimbursements?: any[];
+  /**
+   * Ids of the lines the clicked row represents. A batch can span several expense months
+   * and the row only covers one of them, so the modal must show exactly this row's lines —
+   * otherwise opening a June row lists the batch's July expenses too.
+   */
+  visibleLineIds?: string[] | null;
 }
 
 function SubmissionDetailModal({
@@ -175,6 +186,7 @@ function SubmissionDetailModal({
   showEditDeleteOption,
   filterStatus,
   ungroupedReimbursements = [],
+  visibleLineIds = null,
 }: SubmissionDetailModalProps) {
   const [batch, setBatch] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -194,11 +206,20 @@ function SubmissionDetailModal({
   // When filterStatus is 1 (approved) or 2 (rejected), show only matching requests so
   // the popup reflects exactly which group was clicked in the submissions table.
   const displayedReimbursements = useMemo(() => {
+    // The clicked row covers one expense month of the batch; show exactly its lines.
+    if (visibleLineIds?.length) {
+      const wanted = new Set(visibleLineIds);
+      return reimbursements.filter((r) => wanted.has(r.id));
+    }
     if (filterStatus === 1 || filterStatus === 2) {
       return reimbursements.filter((r) => resolveStatusNum(r.status) === filterStatus);
     }
     return reimbursements;
-  }, [reimbursements, filterStatus]);
+  }, [reimbursements, filterStatus, visibleLineIds]);
+
+  // Say so when the batch holds more than what this row covers, so the totals in the
+  // modal and the row can differ without looking like a bug.
+  const hiddenLineCount = Math.max(0, reimbursements.length - displayedReimbursements.length);
 
   const detailTotal = useMemo(
     () => displayedReimbursements.reduce((sum, r) => sum + Number(r.amount || 0), 0),
@@ -569,6 +590,17 @@ function SubmissionDetailModal({
                   {displayedReimbursements.length} request{displayedReimbursements.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
                   ₹{fmtAmount(detailTotal)} total&nbsp;·&nbsp;Submitted{' '}
                   {fmtDate(batch.submittedAt)}
+                  {batch.approvedAt && (
+                    <>&nbsp;·&nbsp;Decided {fmtDate(batch.approvedAt)}</>
+                  )}
+                  {hiddenLineCount > 0 && (
+                    <>
+                      &nbsp;·&nbsp;
+                      <span className="text-primary">
+                        {hiddenLineCount} more expense{hiddenLineCount !== 1 ? 's' : ''} in this batch from other months
+                      </span>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -741,6 +773,16 @@ export interface SubmissionsTableProps {
   viewOwn?: boolean;
   viewOthers?: boolean;
   checkOwnWithOthers?: boolean;
+  /**
+   * Which date the period filters on — the two questions people actually ask:
+   *  - 'expense'    : "what did I spend in June?"  → rows are a batch's June lines only,
+   *                   so a batch spanning months appears in each month it touches.
+   *  - 'submission' : "what did I submit in June?" → one row per batch, whole batch, in
+   *                   the month it was submitted.
+   * Same data, two axes. Mixing them in one table is what made June expenses look like
+   * they belonged to July.
+   */
+  mode?: 'expense' | 'submission';
 }
 
 function SubmissionsTable({
@@ -753,11 +795,14 @@ function SubmissionsTable({
   viewOwn = false,
   viewOthers = false,
   checkOwnWithOthers = false,
+  mode = 'expense',
 }: SubmissionsTableProps) {
   const [rows, setRows] = useState<any[]>([]);
   const [tableLoading, setTableLoading] = useState(true);
   const [detailBatchId, setDetailBatchId] = useState<string | null>(null);
   const [detailFilterStatus, setDetailFilterStatus] = useState<number | null>(null);
+  // Lines behind the clicked row — the row is one expense month of a batch, not the batch.
+  const [detailLineIds, setDetailLineIds] = useState<string[] | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   // Reimbursements with no batch (batch_id = NULL) for the current scope/period.
   // Surfaced as a synthetic "Legacy" submission so orphaned records stay visible.
@@ -765,190 +810,218 @@ function SubmissionsTable({
 
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
-  const filterBatches = useCallback(
-    (allBatches: any[]) => {
-      let filtered = allBatches;
-
-      if (selectedEmployeeId) {
-        filtered = filtered.filter(
-          (b: any) =>
-            b.employee?.id === selectedEmployeeId || b.employeeId === selectedEmployeeId,
-        );
-      }
-
-      if (period === 'monthly') {
-        const monthStr = date.format('YYYY-MM');
-        filtered = filtered.filter(
-          (b: any) => b.submittedAt && dayjs(b.submittedAt).format('YYYY-MM') === monthStr,
-        );
-      } else if (period === 'yearly') {
-        const targetYear = date.year();
-        filtered = filtered.filter(
-          (b: any) => b.submittedAt && dayjs(b.submittedAt).year() === targetYear,
-        );
-      }
-
-      return filtered;
-    },
-    [period, date, selectedEmployeeId],
-  );
+  // The period is a range of EXPENSE dates. An expense belongs to the month it was
+  // incurred in — not the month its batch happened to be submitted or approved in.
+  // Filtering batches by `submittedAt` is what put June expenses under July.
+  const range = useMemo(() => {
+    if (period === 'monthly') {
+      return { start: date.startOf('month').format('YYYY-MM-DD'), end: date.endOf('month').format('YYYY-MM-DD') };
+    }
+    if (period === 'yearly') {
+      return { start: date.startOf('year').format('YYYY-MM-DD'), end: date.endOf('year').format('YYYY-MM-DD') };
+    }
+    return null; // All Time
+  }, [period, date]);
 
   const loadBatches = useCallback(async () => {
     setTableLoading(true);
+    const scopedEmpId = selectedEmployeeId || employeeId;
+    if (!scopedEmpId) {
+      setRows([]);
+      setUngroupedReimbursements([]);
+      setTableLoading(false);
+      return;
+    }
     try {
-      const res = await fetchReimbursementBatches();
-      const allBatches: any[] = res?.data?.batches || res?.batches || [];
-      const filtered = filterBatches(allBatches);
+      // Expense mode lets the server filter (the endpoint already filters on expenseDate).
+      // Submission mode filters on the BATCH's date, which the line query cannot express,
+      // so it pulls the employee's lines and filters the assembled batches below.
+      const res = (mode === 'expense' && range)
+        ? await fetchReimbursementsForEmployee(scopedEmpId, range.start, range.end)
+        : await fetchAllReimbursementsForEmployee(scopedEmpId);
+      const lines: any[] = (res?.data?.reimbursements || res?.reimbursements || [])
+        .filter((r: any) => r.isActive !== false);
 
-      const detailResults = await Promise.all(
-        filtered.map((b: any) =>
-          fetchReimbursementBatchById(b.id)
-            .then((r: any) => ({ batchMeta: b, batch: r?.data?.batch || r?.batch || null }))
-            .catch(() => ({ batchMeta: b, batch: null })),
-        ),
-      );
+      const built: any[] = [];
+      const ungrouped: any[] = [];
 
-      // Group into batch-level summary rows.
-      // Pending batches → 1 row. Completed batches → up to 2 rows (one per final status).
-      const groupedRows: any[] = [];
-      for (const { batchMeta, batch } of detailResults) {
-        const reimbursements: any[] = batch?.reimbursements ?? [];
-        const batchCompleted = batchMeta.status !== 0;
+      if (mode === 'submission') {
+        // One row per BATCH, whole batch, placed in the month it was submitted.
+        const byBatch = new Map<string, any[]>();
+        for (const r of lines) {
+          const batchId = r.batch?.id || r.batchId;
+          if (!batchId) {
+            ungrouped.push(r); // collect unbatched lines as legacy reimbursements
+            continue;
+          }
+          if (!byBatch.has(batchId)) byBatch.set(batchId, []);
+          byBatch.get(batchId)!.push(r);
+        }
 
-        if (!batchCompleted) {
-          groupedRows.push({
-            _batchId: batchMeta.id,
-            _submissionId: batchMeta.submissionId,
-            _submittedAt: batchMeta.submittedAt,
-            _status: 0,
-            _totalRequests: batchMeta.totalRequests ?? reimbursements.length,
-            _totalAmount: batchMeta.totalAmount ?? reimbursements.reduce((s: number, r: any) => s + Number(r.amount || 0), 0),
-            _paymentStatus: null,
-            _rejectReason: null,
+        for (const [batchId, items] of byBatch.entries()) {
+          const batch = items[0]?.batch ?? null;
+          const submittedAt = batch?.submittedAt ?? null;
+          if (range) {
+            if (!submittedAt) continue;
+            const d = dayjs(submittedAt).format('YYYY-MM-DD');
+            if (d < range.start || d > range.end) continue;
+          }
+
+          const statuses = new Set(items.map((r) => resolveStatusNum(r.status)));
+          // A batch can be decided line by line, so it is not always one status.
+          const status = statuses.size === 1 ? [...statuses][0] : MIXED_STATUS;
+          const approved = items.filter((r) => resolveStatusNum(r.status) === 1);
+
+          let paymentStatus: string | null = null;
+          if (approved.length) {
+            const paidCount = approved.filter((r) => r.paymentStatus === 'PAID').length;
+            const partialCount = approved.filter((r) => r.paymentStatus === 'PARTIAL').length;
+            if (paidCount === approved.length) paymentStatus = 'PAID';
+            else if (paidCount > 0 || partialCount > 0) paymentStatus = 'PARTIAL';
+            else paymentStatus = 'UNPAID';
+          }
+
+          const decidedTimes = items
+            .map((r) => r.approvedAt ?? batch?.approvedAt ?? null)
+            .filter(Boolean)
+            .map((d: string) => new Date(d).getTime());
+          const expenseTimes = items
+            .map((r) => r.expenseDate)
+            .filter(Boolean)
+            .map((d: string) => new Date(d).getTime());
+
+          built.push({
+            _batchId: batchId,
+            _submissionId: batch?.submissionId ?? batchId,
+            _submittedAt: submittedAt,
+            _approvedAt: decidedTimes.length ? new Date(Math.max(...decidedTimes)).toISOString() : null,
+            _status: status,
+            _totalRequests: items.length,
+            _totalAmount: items.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+            _paymentStatus: paymentStatus,
+            _rejectReason: items.find((r) => r.rejectReason)?.rejectReason ?? null,
+            _ungrouped: false,
+            // Whole batch - no month scoping, that is the point of this view.
+            _lineIds: null,
+            _expenseFrom: expenseTimes.length ? new Date(Math.min(...expenseTimes)).toISOString() : null,
+            _expenseTo: expenseTimes.length ? new Date(Math.max(...expenseTimes)).toISOString() : null,
           });
-        } else {
-          const statusGroups: Record<number, any[]> = {};
-          for (const r of reimbursements) {
-            const s = typeof r.status === 'number' ? r.status : 0;
-            if (!statusGroups[s]) statusGroups[s] = [];
-            statusGroups[s].push(r);
+        }
+      } else {
+        // Expense mode: group by batch, then by approval status inside it - one row per
+        // (batch, status) so a row's status, subtotal and payment state all mean one thing.
+        // A batch that spans several months contributes only THIS period's lines here.
+        const groups = new Map<string, any[]>();
+        for (const r of lines) {
+          const batchId = r.batch?.id || r.batchId;
+          if (!batchId) {
+            ungrouped.push(r); // collect unbatched lines as legacy reimbursements
+            continue;
+          }
+          const key = batchId + '::' + resolveStatusNum(r.status);
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key)!.push(r);
+        }
+
+        for (const [key, items] of groups.entries()) {
+          const batchId = key.slice(0, key.lastIndexOf('::'));
+          const status = Number(key.slice(key.lastIndexOf('::') + 2));
+          const batch = items[0]?.batch ?? null;
+
+          let paymentStatus: string | null = null;
+          if (status === 1) {
+            const paidCount = items.filter((r) => r.paymentStatus === 'PAID').length;
+            const partialCount = items.filter((r) => r.paymentStatus === 'PARTIAL').length;
+            if (paidCount === items.length) paymentStatus = 'PAID';
+            else if (paidCount > 0 || partialCount > 0) paymentStatus = 'PARTIAL';
+            else paymentStatus = 'UNPAID';
           }
 
-          for (const [statusStr, items] of Object.entries(statusGroups)) {
-            const status = Number(statusStr);
-            const totalAmount = items.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+          const decidedTimes = items
+            .map((r) => r.approvedAt ?? batch?.approvedAt ?? null)
+            .filter(Boolean)
+            .map((d: string) => new Date(d).getTime());
+          const expenseTimes = items
+            .map((r) => r.expenseDate)
+            .filter(Boolean)
+            .map((d: string) => new Date(d).getTime());
 
-            let paymentStatus: string | null = null;
-            if (status === 1) {
-              const paidCount = items.filter((r) => r.paymentStatus === 'PAID').length;
-              const partialCount = items.filter((r) => r.paymentStatus === 'PARTIAL').length;
-              if (paidCount === items.length) paymentStatus = 'PAID';
-              else if (paidCount > 0 || partialCount > 0) paymentStatus = 'PARTIAL';
-              else paymentStatus = 'UNPAID';
-            }
-
-            const rejectReason =
-              status === 2
-                ? items.find((r) => r.rejectReason)?.rejectReason ||
-                  items.find((r) => r.rejectionReason)?.rejectionReason ||
-                  null
-                : null;
-
-            groupedRows.push({
-              _batchId: batchMeta.id,
-              _submissionId: batchMeta.submissionId,
-              _submittedAt: batchMeta.submittedAt,
-              _status: status,
-              _totalRequests: items.length,
-              _totalAmount: totalAmount,
-              _paymentStatus: paymentStatus,
-              _rejectReason: rejectReason,
-            });
-          }
+          built.push({
+            _batchId: batchId,
+            _submissionId: batch?.submissionId ?? batchId,
+            _submittedAt: batch?.submittedAt ?? null,
+            _approvedAt: decidedTimes.length ? new Date(Math.max(...decidedTimes)).toISOString() : null,
+            _status: status,
+            _totalRequests: items.length,
+            _totalAmount: items.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+            _paymentStatus: paymentStatus,
+            _rejectReason: status === 2
+              ? items.find((r) => r.rejectReason)?.rejectReason ||
+                items.find((r) => r.rejectionReason)?.rejectionReason || null
+              : null,
+            _ungrouped: false,
+            // Ids of the lines this row represents - the detail modal shows exactly these,
+            // so opening a row from June never shows the batch's July lines.
+            _lineIds: items.map((r) => r.id),
+            _expenseFrom: expenseTimes.length ? new Date(Math.min(...expenseTimes)).toISOString() : null,
+            _expenseTo: expenseTimes.length ? new Date(Math.max(...expenseTimes)).toISOString() : null,
+          });
         }
       }
 
-      // ── Orphaned (legacy) reimbursements: batch_id = NULL ──────────────────
-      // These never went through the batch workflow, so the batch iteration
-      // above misses them entirely. Fetch reimbursements directly, keep the
-      // ones with no batch, and expose them as a synthetic "Legacy" submission.
-      const scopedEmpId = selectedEmployeeId || employeeId;
-      let orphanList: any[] = [];
-      const orphanRows: any[] = [];
-      if (scopedEmpId) {
-        try {
-          const res = await fetchAllReimbursementsForEmployee(scopedEmpId);
-          const all: any[] = res?.data?.reimbursements || res?.reimbursements || [];
-          orphanList = all.filter((r: any) => r.batchId == null && r.isActive !== false);
+      // Show ungrouped (unbatched) reimbursements as a synthetic "Legacy" row if any exist
+      if (ungrouped.length) {
+        const statuses = new Set(ungrouped.map((r) => resolveStatusNum(r.status)));
+        const status = statuses.size === 1 ? [...statuses][0] : MIXED_STATUS;
+        const approved = ungrouped.filter((r) => resolveStatusNum(r.status) === 1);
 
-          // Match the same period the batch rows are filtered by, but keyed on
-          // expenseDate since orphans have no submittedAt.
-          if (period === 'monthly') {
-            const monthStr = date.format('YYYY-MM');
-            orphanList = orphanList.filter(
-              (r: any) => r.expenseDate && dayjs(r.expenseDate).format('YYYY-MM') === monthStr,
-            );
-          } else if (period === 'yearly') {
-            const targetYear = date.year();
-            orphanList = orphanList.filter(
-              (r: any) => r.expenseDate && dayjs(r.expenseDate).year() === targetYear,
-            );
-          }
-
-          // Group into one summary row per approval status, mirroring completed batches.
-          const statusGroups: Record<number, any[]> = {};
-          for (const r of orphanList) {
-            const s = typeof r.status === 'number' ? r.status : 0;
-            if (!statusGroups[s]) statusGroups[s] = [];
-            statusGroups[s].push(r);
-          }
-          for (const [statusStr, items] of Object.entries(statusGroups)) {
-            const status = Number(statusStr);
-            const totalAmount = items.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-
-            let paymentStatus: string | null = null;
-            if (status === 1) {
-              const paidCount = items.filter((r) => r.paymentStatus === 'PAID').length;
-              const partialCount = items.filter((r) => r.paymentStatus === 'PARTIAL').length;
-              if (paidCount === items.length) paymentStatus = 'PAID';
-              else if (paidCount > 0 || partialCount > 0) paymentStatus = 'PARTIAL';
-              else paymentStatus = 'UNPAID';
-            }
-
-            const rejectReason =
-              status === 2
-                ? items.find((r) => r.rejectReason)?.rejectReason ||
-                  items.find((r) => r.rejectionReason)?.rejectionReason ||
-                  null
-                : null;
-
-            orphanRows.push({
-              _batchId: UNGROUPED_BATCH_ID,
-              _submissionId: 'Legacy',
-              _submittedAt: null,
-              _status: status,
-              _totalRequests: items.length,
-              _totalAmount: totalAmount,
-              _paymentStatus: paymentStatus,
-              _rejectReason: rejectReason,
-              _ungrouped: true,
-            });
-          }
-        } catch {
-          // Non-fatal: if the orphan fetch fails, still show the batch rows.
-          orphanList = [];
+        let paymentStatus: string | null = null;
+        if (approved.length) {
+          const paidCount = approved.filter((r) => r.paymentStatus === 'PAID').length;
+          const partialCount = approved.filter((r) => r.paymentStatus === 'PARTIAL').length;
+          if (paidCount === approved.length) paymentStatus = 'PAID';
+          else if (paidCount > 0 || partialCount > 0) paymentStatus = 'PARTIAL';
+          else paymentStatus = 'UNPAID';
         }
+
+        const expenseTimes = ungrouped
+          .map((r) => r.expenseDate)
+          .filter(Boolean)
+          .map((d: string) => new Date(d).getTime());
+
+        built.push({
+          _batchId: UNGROUPED_BATCH_ID,
+          _submissionId: 'Legacy (Not Submitted)',
+          _submittedAt: null,
+          _approvedAt: null,
+          _status: status,
+          _totalRequests: ungrouped.length,
+          _totalAmount: ungrouped.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+          _paymentStatus: paymentStatus,
+          _rejectReason: ungrouped.find((r) => r.rejectReason)?.rejectReason ?? null,
+          _ungrouped: true,
+          _lineIds: null,
+          _expenseFrom: expenseTimes.length ? new Date(Math.min(...expenseTimes)).toISOString() : null,
+          _expenseTo: expenseTimes.length ? new Date(Math.max(...expenseTimes)).toISOString() : null,
+        });
       }
 
-      setUngroupedReimbursements(orphanList);
-      setRows([...groupedRows, ...orphanRows]);
+      // Newest first on whichever axis this table is anchored to; unbatched always last.
+      built.sort((a, b) => {
+        if (a._ungrouped !== b._ungrouped) return a._ungrouped ? 1 : -1;
+        const key = mode === 'submission' ? '_submittedAt' : '_expenseFrom';
+        return String(b[key] ?? '').localeCompare(String(a[key] ?? ''));
+      });
+
+      setUngroupedReimbursements(ungrouped);
+      setRows(built);
     } catch {
       setRows([]);
       setUngroupedReimbursements([]);
     } finally {
       setTableLoading(false);
     }
-  }, [filterBatches, refreshKey, period, date, selectedEmployeeId, employeeId]);
+  }, [mode, range, refreshKey, selectedEmployeeId, employeeId]);
 
   useEffect(() => {
     loadBatches();
@@ -965,23 +1038,61 @@ function SubmissionsTable({
   const columns = useMemo<MRT_ColumnDef<any>[]>(
     () => [
       {
-        accessorKey: '_submittedAt',
-        header: 'Submission Date',
-        size: 160,
+        accessorKey: '_submissionId',
+        header: 'Batch ID',
+        size: 190,
         Cell: ({ row }: any) => (
-          <span className="text-dark fs-7">{fmtDate(row.original._submittedAt)}</span>
+          row.original._ungrouped ? (
+            <span className="text-muted fs-8 fst-italic">Unbatched</span>
+          ) : (
+            <span
+              style={{
+                display: 'inline-block', background: '#eef2ff', color: '#3730a3',
+                fontWeight: 700, fontSize: 11, padding: '3px 8px', borderRadius: 6,
+                fontFamily: 'monospace', letterSpacing: '0.03em',
+              }}
+            >
+              {row.original._submissionId}
+            </span>
+          )
         ),
         Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
       },
-
+      {
+        accessorKey: '_submittedAt',
+        header: 'Submitted On',
+        size: 140,
+        Cell: ({ row }: any) => (
+          <span className="text-dark fs-7">{fmtDate(row.original._submittedAt)}</span>
+        ),
+      },
       {
         accessorKey: '_totalRequests',
-        header: 'Total Requests',
-        size: 130,
+        header: 'Expenses',
+        size: 110,
         Cell: ({ row }: any) => (
           <span className="text-dark fs-7">{row.original._totalRequests}</span>
         ),
       },
+      // Only in the submission view: the months this batch's expenses fall in. It is the
+      // bridge between the two tables — this is why a batch submitted in August can show
+      // up under June in the records table.
+      ...(mode === 'submission' ? [{
+        accessorKey: '_expenseFrom',
+        header: 'Expense Period',
+        size: 170,
+        Cell: ({ row }: any) => {
+          const from = row.original._expenseFrom;
+          const to = row.original._expenseTo;
+          if (!from) return <span className="text-muted fs-7">-</span>;
+          const a = dayjs(from), b = dayjs(to ?? from);
+          return (
+            <span className="text-dark fs-7">
+              {a.isSame(b, 'month') ? a.format('MMM YYYY') : a.format('MMM YYYY') + ' - ' + b.format('MMM YYYY')}
+            </span>
+          );
+        },
+      }] : []),
       {
         accessorKey: '_totalAmount',
         header: 'Amount (₹)',
@@ -999,7 +1110,24 @@ function SubmissionsTable({
           const s = row.original._status;
           if (s === 1) return <span className="badge badge-light-success fw-semibold fs-8">Approved</span>;
           if (s === 2) return <span className="badge badge-light-danger fw-semibold fs-8">Rejected</span>;
+          if (s === MIXED_STATUS) {
+            return (
+              <Tooltip title="Some requests in this batch were approved, others rejected — open it to see which">
+                <span className="badge badge-light-info fw-semibold fs-8">Partly approved</span>
+              </Tooltip>
+            );
+          }
           return <span className="badge badge-light-warning fw-semibold fs-8">Pending</span>;
+        },
+      },
+      {
+        accessorKey: '_approvedAt',
+        header: 'Approved On',
+        size: 140,
+        Cell: ({ row }: any) => {
+          if (row.original._status === 0) return <span className="text-muted fs-7">Awaiting</span>;
+          if (!row.original._approvedAt) return <span className="text-muted fs-7">—</span>;
+          return <span className="text-dark fs-7">{fmtDate(row.original._approvedAt)}</span>;
         },
       },
       {
@@ -1007,8 +1135,10 @@ function SubmissionsTable({
         header: 'Payment Status',
         size: 145,
         Cell: ({ row }: any) => {
-          if (row.original._status !== 1) return <span className="text-muted fs-7">N/A</span>;
+          // Driven by whether anything in the row is approved, not by the row's own
+          // status — a partly-approved batch still has approved lines to pay.
           const ps = row.original._paymentStatus;
+          if (!ps) return <span className="text-muted fs-7">N/A</span>;
           if (ps === 'PAID')
             return <span className="badge badge-light-success text-success fw-bold px-3 py-2 fs-8">Paid</span>;
           if (ps === 'PARTIAL')
@@ -1017,7 +1147,7 @@ function SubmissionsTable({
         },
       },
     ],
-    [rowsTotal],
+    [rowsTotal, mode],
   );
 
   return (
@@ -1050,10 +1180,15 @@ function SubmissionsTable({
                 1: { bg: 'rgba(16,185,129,0.04)', border: '#10b981', hover: 'rgba(16,185,129,0.08)' },
                 2: { bg: 'rgba(239,68,68,0.04)', border: '#ef4444', hover: 'rgba(239,68,68,0.08)' },
                 0: { bg: 'rgba(245,158,11,0.04)', border: '#f59e0b', hover: 'rgba(245,158,11,0.08)' },
+                [MIXED_STATUS]: { bg: 'rgba(59,130,246,0.04)', border: '#3b82f6', hover: 'rgba(59,130,246,0.08)' },
               };
               const c = colorMap[s] ?? null;
               return {
-                onClick: () => { setDetailBatchId(row.original._batchId); setDetailFilterStatus(row.original._status ?? null); },
+                onClick: () => {
+                  setDetailBatchId(row.original._batchId);
+                  setDetailFilterStatus(row.original._status ?? null);
+                  setDetailLineIds(row.original._lineIds ?? null);
+                },
                 sx: {
                   cursor: 'pointer',
                   backgroundColor: c ? c.bg : undefined,
@@ -1072,8 +1207,9 @@ function SubmissionsTable({
       <SubmissionDetailModal
         batchId={detailBatchId}
         filterStatus={detailFilterStatus}
+        visibleLineIds={detailLineIds}
         ungroupedReimbursements={ungroupedReimbursements}
-        onClose={() => { setDetailBatchId(null); setDetailFilterStatus(null); }}
+        onClose={() => { setDetailBatchId(null); setDetailFilterStatus(null); setDetailLineIds(null); }}
         onRefresh={() => setRefreshKey((k) => k + 1)}
         onEdit={onEdit}
         showEditDeleteOption={showEditDeleteOption}

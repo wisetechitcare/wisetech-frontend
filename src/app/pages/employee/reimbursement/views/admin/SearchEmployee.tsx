@@ -247,6 +247,9 @@ function SearchEmployee() {
           employeeId={selectedEmployeeId}
           employeeCode={employeeCode}
           employeeName={employeeName}
+          // Follows this screen's period instead of carrying its own.
+          period={currentPeriod.alignment}
+          periodDate={currentPeriod.date}
         />
       )}
     </>

@@ -19,6 +19,13 @@ interface ReimbursementPaymentHistoryTableProps {
     employeeCode?: string;
     employeeName?: string;
     refreshKey?: number;
+    /**
+     * The page's period. Passed in so this table and the records table above it always
+     * describe the same window — they used to carry independent toggles, so the screen
+     * could show records for July next to payments for August.
+     */
+    period?: PeriodFilter;
+    periodDate?: dayjs.Dayjs;
 }
 
 const formatINR = (val: number) =>
@@ -52,9 +59,18 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
     employeeCode,
     employeeName,
     refreshKey,
+    period,
+    periodDate,
 }) => {
-    const [filter, setFilter] = useState<PeriodFilter>('monthly');
-    const [currentDate, setCurrentDate] = useState(dayjs());
+    const [ownFilter, setOwnFilter] = useState<PeriodFilter>('monthly');
+    const [ownDate, setOwnDate] = useState(dayjs());
+    // The page owns the period when it passes one; the local state is only the fallback
+    // for callers that render this table standalone.
+    const pageDriven = period !== undefined;
+    const filter = pageDriven ? period : ownFilter;
+    const currentDate = pageDriven && periodDate ? periodDate : ownDate;
+    const setFilter = setOwnFilter;
+    const setCurrentDate = setOwnDate;
     const [fiscalYearLabel, setFiscalYearLabel] = useState('');
     const [payments, setPayments] = useState<(IReimbursementPayment & Record<string, any>)[]>([]);
     const [batchSubmissionMap, setBatchSubmissionMap] = useState<Map<string, string>>(new Map());
@@ -313,10 +329,19 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
     return (
         <>
         <div className="mt-10">
-            <h2 className="mb-6">Reimbursement Payment History</h2>
+            <div className="mb-6">
+                <h2 className="mb-1">Reimbursement Payment History</h2>
+                <div className="text-muted fs-7">
+                    What you were <strong>paid</strong> in {periodLabel} — by payment date. A batch
+                    appears here once it has a payment recorded in this window.
+                </div>
+            </div>
             <div className="card shadow-sm">
                 <div className="card-body p-6">
-                    <div className="d-flex flex-md-row flex-column justify-content-lg-between align-items-lg-center gap-5 gap-lg-0 mb-3">
+                    <div
+                        className="d-flex flex-md-row flex-column justify-content-lg-between align-items-lg-center gap-5 gap-lg-0 mb-3"
+                        style={pageDriven ? { display: 'none' } : undefined}
+                    >
                         <PeriodTabs
                             value={filter}
                             options={[

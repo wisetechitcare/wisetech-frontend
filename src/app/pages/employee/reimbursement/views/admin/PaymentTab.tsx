@@ -112,19 +112,44 @@ function PeriodFilterBar({
   );
 }
 
-function filterByPeriod(batches: any[], filter: PeriodFilter, date: dayjs.Dayjs) {
-  if (filter === 'monthly') {
-    const monthStr = date.format('YYYY-MM');
-    return batches.filter(
-      (b) => b.submittedAt && dayjs(b.submittedAt).format('YYYY-MM') === monthStr,
-    );
-  }
-  if (filter === 'yearly') {
-    return batches.filter(
-      (b) => b.submittedAt && dayjs(b.submittedAt).year() === date.year(),
-    );
-  }
-  return batches;
+/**
+ * The two tables on this tab answer different questions and must not share one date axis:
+ *  - 'payment'    : "what was paid in this period?" → a batch belongs to the period its
+ *                   PAYMENT was recorded in, matching the employee Payment History contract
+ *                   ("a batch appears here once it has a payment recorded in this window").
+ *                   A batch paid across two months appears in both, exactly as it does there.
+ *  - 'submission' : "what do we still owe?" → the pending queue. Anchoring this on payment
+ *                   date would drop a partially-paid batch out of every month after its last
+ *                   payment, hiding money that is still outstanding.
+ */
+function paymentDatesOf(b: any): string[] {
+  return (b.payments ?? [])
+    .filter((p: any) => p.status === 'PAID' || p.status === 'PARTIAL')
+    .map((p: any) => p.paymentDate)
+    .filter(Boolean);
+}
+
+function filterByPeriod(
+  batches: any[],
+  filter: PeriodFilter,
+  date: dayjs.Dayjs,
+  axis: 'payment' | 'submission',
+) {
+  if (filter === 'allTime') return batches;
+
+  const inPeriod = (d: string) =>
+    filter === 'monthly'
+      ? dayjs(d).format('YYYY-MM') === date.format('YYYY-MM')
+      : dayjs(d).year() === date.year();
+
+  return batches.filter((b) => {
+    if (axis === 'payment') {
+      const paid = paymentDatesOf(b);
+      // No payment yet: submittedAt is the only date such a batch has.
+      if (paid.length) return paid.some(inPeriod);
+    }
+    return b.submittedAt ? inPeriod(b.submittedAt) : false;
+  });
 }
 
 // ── Pending Payment Table ──────────────────────────────────────────────────────
@@ -151,6 +176,7 @@ function PendingPaymentTable({
         batches.filter((b) => b.paymentStatus === 'UNPAID' || b.paymentStatus === 'PARTIAL'),
         filter,
         currentDate,
+        'submission',
       ),
     [batches, filter, currentDate],
   );
@@ -501,6 +527,7 @@ function PaymentDoneTable({
       batches.filter((b) => b.paymentStatus === 'PAID' || b.paymentStatus === 'PARTIAL'),
       filter,
       currentDate,
+      'payment',
     ).map((b) => ({
       id: b.id,
       batchId: b.id,
@@ -1399,6 +1426,9 @@ function PaymentTab() {
       const reimbursementIdsMap: Record<string, string[]> = {};
       const approvedTotalAmountMap: Record<string, number> = {};
       const paidAmountMap: Record<string, number> = {};
+      // Payment records live on the detail response only — getAll() does not include them.
+      // Carry them onto the batch so the period filter can group by payment date.
+      const paymentsMap: Record<string, any[]> = {};
 
       for (const { id, batch } of detailResults) {
         if (!batch) continue;
@@ -1412,6 +1442,7 @@ function PaymentTab() {
 
         // Compute paidAmount from the batch's payment records (included in getById response)
         const batchPayments: any[] = batch.payments || [];
+        paymentsMap[id] = batchPayments;
         const paidAmount = batchPayments
           .filter((p: any) => p.status === 'PAID' || p.status === 'PARTIAL')
           .reduce((sum: number, p: any) => sum + Number(p.amountPaid || 0), 0);
@@ -1442,6 +1473,7 @@ function PaymentTab() {
           ...b,
           paymentStatus: paymentStatusMap[b.id] ?? 'UNPAID',
           approvedReimbursementIds: reimbursementIdsMap[b.id] ?? [],
+          payments: paymentsMap[b.id] ?? [],
           totalAmount,
           paidAmount,
           remainingAmount,

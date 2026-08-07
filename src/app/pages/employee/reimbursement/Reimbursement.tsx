@@ -38,6 +38,7 @@ import { createPendingReimbursementDraft, updatePendingReimbursementDraft, updat
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import ReimbursementPaymentHistoryTable from "./components/ReimbursementPaymentHistoryTable";
+import SubmissionsTable from "./views/SubmissionsTable";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
 import eventBus from "@utils/EventBus";
@@ -107,6 +108,12 @@ function Reimbursement() {
   const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({ alignment: 'monthly', date: dayjs() });
+  // One label for all three section subtitles, so they always name the same window.
+  const periodLabel = currentPeriod.alignment === 'monthly'
+    ? currentPeriod.date.format('MMMM YYYY')
+    : currentPeriod.alignment === 'yearly'
+      ? currentPeriod.date.format('YYYY')
+      : 'all time';
   const [showEditDeleteOption, setShowEditDeleteOption] = useState(true);
   const [refreshFlag, setRefreshFlag] = useState(false);
   const [pendingDraftsCount, setPendingDraftsCount] = useState(0);
@@ -669,8 +676,15 @@ function Reimbursement() {
       {/* Divider */}
       <div style={{ borderColor: '#e9ecef', borderWidth: '2px' }} />
 
-      <div className="d-flex justify-content-between align-items-center my-6">
-        <h2 className="mb-0">My Reimbursement Records</h2>
+      {/* Each table below answers a different question and is anchored on a different
+          date. Saying so in the subtitle is what stops "why is my June expense under
+          July?" — the three axes are expense date, submission date and payment date. */}
+      <div className="my-6">
+        <h2 className="mb-1">My Reimbursement Records</h2>
+        <div className="text-muted fs-7">
+          What you <strong>spent</strong> in {periodLabel} — by expense date. A batch appears in
+          every month it has expenses in, showing only that month's lines.
+        </div>
       </div>
       <MaterialToggleReimbursement
         toggleItemsActions={toggleItemsActions}
@@ -754,11 +768,36 @@ function Reimbursement() {
       />
 
       {employeeId && (
+        <>
+          <div className="mt-10 mb-6">
+            <h2 className="mb-1">Submission Batches</h2>
+            <div className="text-muted fs-7">
+              What you <strong>submitted</strong> in {periodLabel} — by submission date. One row
+              per batch, whole batch, whichever months its expenses belong to.
+            </div>
+          </div>
+          <SubmissionsTable
+            mode="submission"
+            period={currentPeriod.alignment}
+            date={currentPeriod.date}
+            selectedEmployeeId={employeeId}
+            resource={resourceNameMapWithCamelCase.reimbursement}
+            viewOwn={true}
+            viewOthers={false}
+          />
+        </>
+      )}
+
+      {employeeId && (
         <ReimbursementPaymentHistoryTable
           employeeId={employeeId}
           employeeCode={employeeCode}
           employeeName={employeeName}
           refreshKey={statsRefreshKey}
+          // Follows the page's period instead of carrying its own — the screen used to
+          // show records for one month next to payments for another.
+          period={currentPeriod.alignment}
+          periodDate={currentPeriod.date}
         />
       )}
 
