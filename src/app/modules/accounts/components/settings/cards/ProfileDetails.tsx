@@ -39,6 +39,18 @@ const initialState = {
   digitalSignaturePath: "",
 }
 
+/**
+ * Stored file name per upload slot on this form.
+ *
+ * `sectionName` is what the Media table records as the file's name, and it is what
+ * Profile → Documents lists. Both uploads here used to be sent as 'avatar', so a
+ * signature appeared as a second "avatar" — indistinguishable from the profile photo.
+ */
+const ASSET_NAMES: Record<string, string> = {
+  userProfilePicture: "avatar",
+  digitalSignature: "signature",
+};
+
 const flatPickrOpt = {
   enableTime: true,
   noCalendar: true,
@@ -106,7 +118,12 @@ const ProfileDetails: React.FC = () => {
       formData.append('file', fileData);
 
       try {
-        const { data: { path } } = await uploadUserAsset(formData, userId, 'avatar', 'profile');
+        // Name the stored file after what it actually IS. `sectionName` becomes the
+        // file's name in the Media table, and this form uploads BOTH the profile
+        // photo and the signature — hardcoding 'avatar' meant a signature was filed
+        // under "avatar" in Profile → Documents, which reads as a second profile
+        // picture rather than the signature it is.
+        const { data: { path } } = await uploadUserAsset(formData, userId, ASSET_NAMES[docId] ?? docId, 'profile');
         return {
           documentId: docId,
           path: path,

@@ -2,12 +2,16 @@ import { IconButton, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { T } from './tokens';
 
-export type ActionTone = 'brand' | 'indigo' | 'danger';
+export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success';
 
 const TONE_COLOR: Record<ActionTone, string> = {
   brand: T.color.brand,
   indigo: T.color.indigo,
   danger: T.color.danger,
+  // For row actions that hand off to an outside channel (share to WhatsApp, send)
+  // — the affirmative counterpart to `danger`, so those buttons stop being a raw
+  // FontAwesome glyph in a Bootstrap `btn-icon`.
+  success: T.color.success,
 };
 
 export interface ActionIconButtonProps {

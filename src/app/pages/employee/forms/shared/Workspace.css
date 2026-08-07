@@ -541,14 +541,20 @@
 .wizard-title-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: clamp(0.75rem, 0.6rem + 0.4vw, 1.125rem);
   min-width: 0;
 }
 
+/* One size drives the whole avatar — the frame, its radius, the placeholder icon
+   and the brand underline are all fractions of it, so it stays in proportion at
+   any width instead of needing a fixed set per breakpoint. Fluid rather than a
+   fixed 48px: the old size read as a thumbnail beside a 1.375rem title on a large
+   monitor. Floor 3rem, ceiling 4.25rem. */
 .wizard-header-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+  --wt-avatar-size: clamp(3rem, 2.4rem + 1.6vw, 4.25rem);
+  width: var(--wt-avatar-size);
+  height: var(--wt-avatar-size);
+  border-radius: calc(var(--wt-avatar-size) * 0.29);
   flex-shrink: 0;
   display: grid;
   place-items: center;
@@ -562,14 +568,16 @@
 .wizard-header-avatar::after {
   content: "";
   position: absolute;
-  left: 10px; right: 10px; bottom: 6px;
-  height: 3px;
+  left: calc(var(--wt-avatar-size) * 0.21);
+  right: calc(var(--wt-avatar-size) * 0.21);
+  bottom: calc(var(--wt-avatar-size) * 0.125);
+  height: calc(var(--wt-avatar-size) * 0.0625);
   border-radius: 999px;
   background: #1E3A8A;            /* T.color.brand */
   opacity: 0.85;
 }
 .wizard-header-avatar i {
-  font-size: 23px;
+  font-size: calc(var(--wt-avatar-size) * 0.48);
   line-height: 1;
   display: block;
 }
@@ -979,6 +987,11 @@
 
 .wizard-step-canvas {
   flex: 1;
+  /* A flex child defaults to `min-width: auto`, i.e. it refuses to shrink below its
+     content's intrinsic width. The form grids inside are wide, so the canvas held the
+     row open and pushed the summary panel past the right edge, where `.wizard-layout`
+     (overflow: hidden) clipped it — the summary's values were cut off mid-word. */
+  min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
@@ -1303,10 +1316,12 @@
   color: var(--wt-gray-900);
   font-weight: 600;
   text-align: right;
-  max-width: 58%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wraps rather than truncating. The panel is the one place an admin checks what
+     they actually entered, so a half-shown email or account number defeats it; the
+     panel scrolls, so an extra line costs nothing. */
+  min-width: 0;
+  max-width: 62%;
+  overflow-wrap: anywhere;
 }
 
 .wt-summary-row-value.wt-val-strong {
@@ -1614,13 +1629,10 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+  /* Mobile only has to restate the one variable — radius, icon and underline
+     follow from it. */
   .wizard-header-avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-  }
-  .wizard-header-avatar i {
-    font-size: 18px;
+    --wt-avatar-size: 2.75rem;
   }
   .wizard-title {
     font-size: 1rem;

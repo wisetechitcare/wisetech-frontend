@@ -481,12 +481,17 @@ function EducationalInfo({
               </div>
             )}
 
+            {/* Only `isUploading` disables this. It used to also disable on `!userId`,
+                i.e. throughout the entire CREATE flow — but `handleAcademicFile` has
+                always had a branch for exactly that case (hold the file, upload it once
+                the user exists, which `uploadEducationDocuments` then does on save).
+                The control was locked in front of a path that was already built, so an
+                academic certificate simply could not be attached during onboarding. */}
             <ObFileUpload
               accept=".pdf,.jpg,.jpeg,.png"
               hint="PDF, JPG or PNG — max 5MB"
-              disabled={isUploading || !userId}
+              disabled={isUploading}
               existingFileName={education.fileName || getFileNameFromUrl(education.filePath)}
-              onDisabledClick={() => setShowInfo(true)}
               onChange={handleAcademicFile}
             />
             {isUploading && <small className="text-primary">Uploading...</small>}

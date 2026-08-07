@@ -60,64 +60,90 @@
 
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  max-width: min(680px, calc(100vw - 32px));
+  gap: 0.875rem;
+  /* Reads as a real notice rather than a caption: the previous 0.76rem body with a
+     0.75-opacity sub line was unreadable on a large monitor, and the box shrank to
+     match it. Sizes step up with the viewport but never below ~13px. */
+  max-width: min(780px, calc(100vw - 32px));
   margin: 0;
-  padding: 0.625rem 0.875rem;
+  padding: 0.875rem 1.125rem;
 
-  border: 1px solid var(--wt-warning-border, rgba(245, 166, 35, 0.3));
-  border-radius: var(--wt-radius-sm, 8px);
+  border: 1px solid var(--wt-warning-border, rgba(245, 166, 35, 0.4));
+  border-left: 4px solid #f59e0b;
+  border-radius: var(--wt-radius-md, 10px);
   background: var(--wt-warning-light, #fffbeb); /* C.warningLight */
-  box-shadow: var(--wt-shadow-lg, 0 8px 28px rgba(0, 0, 0, 0.08));
+  box-shadow: var(--wt-shadow-lg, 0 10px 32px rgba(0, 0, 0, 0.12));
 
-  font-size: 0.76rem;
+  font-size: clamp(0.875rem, 0.82rem + 0.2vw, 0.95rem);
   font-weight: 500;
-  line-height: 1.4;
-  color: #92400e;
+  line-height: 1.45;
+  color: #78350f;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-icon {
   flex-shrink: 0;
-  font-size: 0.95rem;
+  font-size: 1.35rem;
+  color: #b45309;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-text {
   flex: 1;
   min-width: 0;
+  font-weight: 600;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-sub {
-  opacity: 0.75;
+  /* Its own line: the sub used to run on after the headline at the same size and
+     3/4 opacity, which is what made the whole strip read as one grey smudge. */
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.875em;
+  font-weight: 400;
+  color: #92400e;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-discard,
 .onboarding-wizard-modal .ob-draft-notice-close {
   flex-shrink: 0;
-  border: none;
-  background: none;
-  padding: 0;
   cursor: pointer;
-  color: #92400e;
+  color: #78350f;
   font-weight: 700;
-  font-size: 0.74rem;
 }
 
+/* An outlined button, not underlined text — it destroys the restored draft, so it
+   should look like something you press deliberately. */
 .onboarding-wizard-modal .ob-draft-notice-discard {
-  text-decoration: underline;
+  border: 1px solid rgba(180, 83, 9, 0.45);
+  border-radius: var(--wt-radius-sm, 8px);
+  background: transparent;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8125rem;
   white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-discard:hover {
-  opacity: 0.75;
+  background: #b45309;
+  color: #fff;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-close {
   display: inline-flex;
-  opacity: 0.6;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1rem;
+  opacity: 0.65;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-close:hover {
   opacity: 1;
+  background: rgba(180, 83, 9, 0.12);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -383,7 +409,7 @@
   object-position: center;
   border-radius: 50%;
   display: block;
-  /* border-box so the ring is drawn INSIDE the 48px frame. As content-box the
+  /* border-box so the ring is drawn INSIDE the frame. As content-box the
      border added 6px to a box already sized 100%, overflowing the frame and
      shifting the picture up-left. The frame's own border is the visible ring. */
   box-sizing: border-box;

@@ -147,6 +147,18 @@ export function useNavigation() {
         fontIcon: 'bi-file-earmark-text',
         visible: !isSectionBlocked('users') && hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers),
       },
+      {
+        // Everyone's own file, alongside "My Attendance & Leaves". Deliberately
+        // ungated: it resolves to the signed-in employee server-side, so there is no
+        // permission to check — and the company-wide Documents entry above is the one
+        // that needs the readOthers gate.
+        type: 'item',
+        id: 'my-documents',
+        to: '/my-documents',
+        title: 'My Documents',
+        fontIcon: 'bi-folder2-open',
+        visible: !isSectionBlocked('users'),
+      },
       // Promoted out of the Organization group to top level, as in NAV_CONFIG.
       {
         type: 'item',

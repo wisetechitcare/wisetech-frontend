@@ -8,8 +8,8 @@
 export { default as ConfigPageLayout } from './ConfigPageLayout';
 export type { ConfigPageLayoutProps, ConfigTab, ConfigBreadcrumb } from './ConfigPageLayout';
 
-export { default as ConfigTabStrip } from './ConfigTabStrip';
-export type { ConfigTabStripProps, ConfigTabStripItem } from './ConfigTabStrip';
+export { default as ConfigSectionRail } from './ConfigSectionRail';
+export type { ConfigSectionRailProps, ConfigRailGroup, ConfigRailItem } from './ConfigSectionRail';
 
 export { default as ConfigSectionCard } from './ConfigSectionCard';
 export type { ConfigSectionCardProps, ConfigSectionCardAction } from './ConfigSectionCard';

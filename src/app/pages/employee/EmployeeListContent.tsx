@@ -15,7 +15,10 @@ import Loader from "@app/modules/common/utils/Loader";
 import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employeeStatus";
 import StatusToggle from "@app/modules/common/components/StatusToggle";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
+import { ActionIconButton } from "@app/modules/common/components/ui";
+import { Stack } from "@mui/material";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
+import EmployeeIdCardDialog from "./components/idcard/EmployeeIdCardDialog";
 
 type StatusType = "all" | "active" | "inactive";
 
@@ -42,6 +45,9 @@ const EmployeeListContent = () => {
   });
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const rootOrgNames = useRootOrgNames();
+  // Which employee's ID card is on screen. Held as {id, name} rather than a boolean
+  // so the dialog can title itself before its own fetch resolves.
+  const [idCardTarget, setIdCardTarget] = useState<{ id: string; name: string } | null>(null);
 
   const navigate = useNavigate();
 
@@ -77,6 +83,10 @@ const EmployeeListContent = () => {
 
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
+  }, []);
+
+  const handleGenerateIdCard = useCallback((employee: any) => {
+    setIdCardTarget({ id: employee.id, name: employee.users });
   }, []);
 
   // Memoize base columns to prevent recreation on every render.
@@ -242,26 +252,29 @@ const EmployeeListContent = () => {
       header: "Actions",
       Cell: ({ row }: any) => (
         hasPermission(resourceNameMapWithCamelCase.employee, permissionConstToUseWithHasPermission.editOthers) ?
-          <div className="d-flex gap-2">
-            <button
-              className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
-              onClick={() => handleEditClick(row.original.id)}
+          <Stack direction="row" spacing={1}>
+            <ActionIconButton
+              iconName="pencil"
               title="Edit Employee"
-            >
-              <KTIcon iconName='pencil' className='fs-3' />
-            </button>
-            <button
-              className='btn btn-icon btn-bg-light btn-active-color-success btn-sm'
-              onClick={() => handleWhatsAppShare(row.original)}
+              onClick={() => handleEditClick(row.original.id)}
+            />
+            <ActionIconButton
+              iconName="whatsapp"
               title="Share on WhatsApp"
-            >
-              <i className="fab fa-whatsapp fs-3 text-success"></i>
-            </button>
-          </div>
+              tone="success"
+              onClick={() => handleWhatsAppShare(row.original)}
+            />
+            <ActionIconButton
+              iconName="badge"
+              title="Generate ID Card"
+              tone="brand"
+              onClick={() => handleGenerateIdCard(row.original)}
+            />
+          </Stack>
           : "Not Allowed"
       )
     }
-  ], [handleEditClick, handleWhatsAppShare]);
+  ], [handleEditClick, handleWhatsAppShare, handleGenerateIdCard]);
 
   const canManageEmployees = usePermission('employees.manage.all');
 
@@ -498,6 +511,17 @@ const EmployeeListContent = () => {
         enableColumnSpecificSearch={true}
       />
     </div>
+
+    {/* Mounted only while a card is open, so closing it drops the (photo-heavy)
+        payload from the tree instead of keeping every previewed card alive. */}
+    {idCardTarget && (
+      <EmployeeIdCardDialog
+        open
+        employeeId={idCardTarget.id}
+        employeeName={idCardTarget.name}
+        onClose={() => setIdCardTarget(null)}
+      />
+    )}
   </>
 );
 };

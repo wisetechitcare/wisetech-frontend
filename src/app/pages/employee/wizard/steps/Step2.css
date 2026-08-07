@@ -1288,7 +1288,13 @@
 .ob-photo-label    { font-size: 0.75rem; font-weight: 600; color: var(--ob-text-3); text-align: center; line-height: 1.3; }
 .ob-photo-sublabel { font-size: 0.68rem; color: var(--ob-text-4); text-align: center; line-height: 1.4; margin-top: 2px; max-width: 130px; }
 .ob-dropzone-preview { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; }
-.ob-dropzone-preview img { width: 100%; height: 100%; object-fit: cover !important; border-radius: 50%; }
+/* object-position anchors the cover-crop to the TOP. A portrait photo is taller
+   than this square circle, and the default `center` trims the top and bottom
+   equally — which cuts the top of the head off. Anchoring to the top keeps the
+   face whole and trims from the torso. A square photo (what the cropper below
+   now produces) is unaffected either way. Mirrored on the ID card SVG, which
+   uses preserveAspectRatio="xMidYMin slice" for the same reason. */
+.ob-dropzone-preview img { width: 100%; height: 100%; object-fit: cover !important; object-position: center top; border-radius: 50%; }
 .ob-dropzone-preview-overlay {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.4); color: #fff;

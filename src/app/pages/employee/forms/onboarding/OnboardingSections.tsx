@@ -67,6 +67,8 @@ export interface OnboardingSectionsProps {
   setFile: (docId: string, file: any) => void;
   removeFile?: (docId: string) => void;
   setEducationFile?: (index: number, file: any) => void;
+  /** Holds the bank proof until the employee exists to attach it to. */
+  setBankFile?: (file: any) => void;
   /**
    * Object-URL preview of a just-picked profile photo. Owned by the HOST, not
    * this section — the wizard renders one section at a time, so a preview held

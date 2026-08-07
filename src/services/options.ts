@@ -274,6 +274,42 @@ export const fetchSrcOfHire = async () => {
     }
 }
 
+/* ── Source of hire management ────────────────────────────────────────────────
+   The list used to be editable ONLY through a "+ Add" button inside the
+   onboarding form, so it could be appended to while hiring somebody and never
+   corrected or pruned. These back the Employees → Configure section. */
+
+export const createSingleSourceOfHire = async (payload: { source: string; companyId: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.CREATE_SOURCE_OF_HIRE_ONE}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const updateSourceOfHire = async (id: string, payload: { source: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.UPDATE_SOURCE_OF_HIRE}/${id}`;
+        const { data } = await axios.put(endpoint, payload);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const deleteSourceOfHire = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.DELETE_SOURCE_OF_HIRE}/${id}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+
 export const fetchWorkingMethods = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${OPTIONS.GET_WORKING_METHODS}`;

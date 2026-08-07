@@ -29,7 +29,7 @@ are built from.
 |---|---|---|
 | Button | `WtButton` (`ghost` = cancel, `inverted` = secondary) | `<button className="btn">` |
 | Icon action | `WtIconButton` | a hand-rolled `<button>` with `place-items-center` |
-| Edit / delete on a row, card or chip | `ActionIconButton` (`size="sm"` in chips) | a `bi bi-pencil` / `bi bi-trash` in a bare `<button>` |
+| Edit / delete / share on a row, card or chip | `ActionIconButton` (`size="sm"` in chips; `tone="success"` for share/send) | a `bi bi-pencil` / `fab fa-whatsapp` in a bare `<button>` |
 | Close (×) | `WtCloseButton` (`ui/tw/WtCloseButton`) | a `&times;` in an `IconButton` |
 | Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` | a bespoke `<select>` or `FormControl` |
 | Dropdown (in a form) | `DropdownInput` (Formik) | react-select directly |
