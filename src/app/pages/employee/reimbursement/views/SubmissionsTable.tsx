@@ -21,6 +21,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { PeriodAlignment } from '../MaterialToggleReimbursement';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
+import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -57,108 +58,6 @@ function resolveStatusNum(status: any): number {
 }
 
 // ── Document Preview Modal ─────────────────────────────────────────────────────
-
-interface DocumentPreviewModalProps {
-  url: string;
-  onClose: () => void;
-}
-
-function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
-  const cleanUrl = url.split('?')[0].toLowerCase();
-  const isImage = /\.(png|jpe?g|gif|webp|svg|bmp)$/.test(cleanUrl);
-  const isPdf = cleanUrl.endsWith('.pdf');
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
-
-  const modalContent = (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.65)' }}
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Document preview"
-    >
-      <div
-        className="d-flex flex-column bg-white rounded shadow overflow-hidden"
-        style={{ width: 'min(75vw, 900px)', height: 'min(78vh, 710px)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="d-flex align-items-center justify-content-between px-4 py-3 border-bottom bg-light flex-shrink-0">
-          <div className="d-flex align-items-center gap-2 text-gray-700 fw-semibold fs-7 text-truncate">
-            <KTIcon iconName="document" className="fs-4 text-primary" />
-            <span className="text-truncate" style={{ maxWidth: 560 }}>
-              {url.split('/').pop()?.split('?')[0] ?? 'Document'}
-            </span>
-          </div>
-          <div className="d-flex align-items-center gap-2 flex-shrink-0">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-sm btn-light btn-active-light-primary d-flex align-items-center gap-1"
-              title="Open in new tab"
-            >
-              <KTIcon iconName="exit-right-corner" className="fs-5" />
-              <span className="d-none d-sm-inline">Open in tab</span>
-            </a>
-            <button
-              className="btn btn-sm btn-icon btn-light btn-active-light-danger"
-              onClick={onClose}
-              title="Close preview (Esc)"
-            >
-              <KTIcon iconName="cross" className="fs-2" />
-            </button>
-          </div>
-        </div>
-        <div
-          className="flex-grow-1 overflow-hidden bg-light d-flex align-items-center justify-content-center"
-          style={{ minHeight: 0 }}
-        >
-          {isImage ? (
-            <img
-              src={url}
-              alt="Document preview"
-              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', padding: '1rem', userSelect: 'none' }}
-            />
-          ) : isPdf ? (
-            <iframe
-              src={url}
-              title="PDF preview"
-              style={{ width: '100%', height: '100%', border: 'none' }}
-              allow="fullscreen"
-            />
-          ) : (
-            <div className="d-flex flex-column align-items-center gap-3 p-5 text-center w-100 h-100">
-              <iframe
-                src={url}
-                title="Document preview"
-                style={{ width: '100%', flex: 1, border: 'none', borderRadius: 8, minHeight: 0 }}
-                allow="fullscreen"
-              />
-              <p className="text-muted fs-7 mb-0">
-                If the document does not display,{' '}
-                <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary">
-                  open it in a new tab
-                </a>.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  return ReactDOM.createPortal(modalContent, document.body);
-}
 
 // ── Submission Detail Modal ────────────────────────────────────────────────────
 
@@ -373,6 +272,7 @@ function SubmissionDetailModal({
             className="btn btn-icon btn-active-color-primary btn-sm"
             onClick={() => handleViewDocument(renderedCellValue)}
             disabled={!renderedCellValue}
+            aria-label={renderedCellValue ? 'Preview receipt' : 'No receipt attached'}
             title={renderedCellValue ? 'Preview document' : 'No document attached'}
           >
             {renderedCellValue ? (
@@ -494,7 +394,7 @@ function SubmissionDetailModal({
                     {resEdit && (
                       <button
                         className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
-                        title="Edit"
+                        aria-label="Edit" title="Edit"
                         onClick={() => {
                           const cleaned = Object.fromEntries(
                             Object.entries(r).filter(([, v]) => v != null),
@@ -513,7 +413,7 @@ function SubmissionDetailModal({
                     {resDelete && (
                       <button
                         className="btn btn-icon btn-active-color-primary btn-sm w-4"
-                        title="Delete"
+                        aria-label="Delete" title="Delete"
                         disabled={isDeleting}
                         onClick={() => handleDelete(r.id)}
                       >

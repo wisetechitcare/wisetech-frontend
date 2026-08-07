@@ -1264,7 +1264,7 @@ function MarkAsPaidModal({
                 <button
                   type="button"
                   className="btn btn-icon btn-active-color-primary btn-sm"
-                  title="Save (Enter)"
+                  aria-label="Save (Enter)" title="Save (Enter)"
                   onClick={handleAmountSave}
                 >
                   <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt="Save" />
@@ -1272,7 +1272,7 @@ function MarkAsPaidModal({
                 <button
                   type="button"
                   className="btn btn-icon btn-active-color-primary btn-sm"
-                  title="Cancel (Esc)"
+                  aria-label="Cancel (Esc)" title="Cancel (Esc)"
                   onClick={handleAmountCancel}
                 >
                   <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt="Cancel" />
@@ -1319,7 +1319,7 @@ function MarkAsPaidModal({
                 type="button"
                 className="btn btn-icon btn-sm p-0 d-flex align-items-center justify-content-center flex-shrink-0 me-2"
                 style={{ width: 32, height: 32, borderRadius: '50%', background: '#fff', border: '1.5px solid #e2e8f0' }}
-                title="Edit Amount"
+                aria-label="Edit Amount" title="Edit Amount"
                 onClick={() => { setAmountInput(String(editedAmount)); setAmountEditing(true); }}
               >
                 <KTIcon iconName="pencil" className="fs-6 text-gray-500" />

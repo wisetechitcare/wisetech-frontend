@@ -17,6 +17,8 @@ import {
   submitReimbursementBatch,
 } from '@services/employee';
 import { uploadUserAsset } from '@services/uploader';
+import ReimbursementKpiRow from './components/ReimbursementKpiRow';
+import DocumentPreviewModal from './components/DocumentPreviewModal';
 import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
 import { getReimbursementProjectOptions, getAllProjectStatuses } from '@services/projects';
@@ -77,261 +79,10 @@ let initialState = {
 
 // ── Document Preview Modal (identical to Monthly.tsx) ─────────────────────────
 
-interface DocumentPreviewModalProps { url: string; onClose: () => void; }
-
-function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
-  const cleanUrl = url.split('?')[0].toLowerCase();
-  const isImage = /\.(png|jpe?g|gif|webp|svg|bmp)$/.test(cleanUrl);
-  const isPdf = cleanUrl.endsWith('.pdf');
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
-
-  const modalContent = (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.65)' }}
-      onClick={onClose} role='dialog' aria-modal='true' aria-label='Document preview'
-    >
-      <div
-        className='d-flex flex-column bg-white rounded shadow overflow-hidden'
-        style={{ width: 'min(75vw, 900px)', height: 'min(78vh, 710px)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className='d-flex align-items-center justify-content-between px-4 py-3 border-bottom bg-light flex-shrink-0'>
-          <div className='d-flex align-items-center gap-2 text-gray-700 fw-semibold fs-7 text-truncate'>
-            <KTIcon iconName='document' className='fs-4 text-primary' />
-            <span className='text-truncate' style={{ maxWidth: 560 }}>
-              {url.split('/').pop()?.split('?')[0] ?? 'Document'}
-            </span>
-          </div>
-          <div className='d-flex align-items-center gap-2 flex-shrink-0'>
-            <a href={url} target='_blank' rel='noopener noreferrer'
-              className='btn btn-sm btn-light btn-active-light-primary d-flex align-items-center gap-1' title='Open in new tab'>
-              <KTIcon iconName='exit-right-corner' className='fs-5' />
-              <span className='d-none d-sm-inline'>Open in tab</span>
-            </a>
-            <button className='btn btn-sm btn-icon btn-light btn-active-light-danger' onClick={onClose} title='Close preview (Esc)'>
-              <KTIcon iconName='cross' className='fs-2' />
-            </button>
-          </div>
-        </div>
-        <div className='flex-grow-1 overflow-hidden bg-light d-flex align-items-center justify-content-center' style={{ minHeight: 0 }}>
-          {isImage ? (
-            <img src={url} alt='Document preview' style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', padding: '1rem', userSelect: 'none' }} />
-          ) : isPdf ? (
-            <iframe src={url} title='PDF preview' style={{ width: '100%', height: '100%', border: 'none' }} allow='fullscreen' />
-          ) : (
-            <div className='d-flex flex-column align-items-center gap-3 p-5 text-center w-100 h-100'>
-              <iframe src={url} title='Document preview' style={{ width: '100%', flex: 1, border: 'none', borderRadius: 8, minHeight: 0 }} allow='fullscreen' />
-              <p className='text-muted fs-7 mb-0'>
-                If the document does not display,{' '}
-                <a href={url} target='_blank' rel='noopener noreferrer' className='text-primary'>open it in a new tab</a>.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  return ReactDOM.createPortal(modalContent, document.body);
-}
-
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function fmtAmount(n: number | string) {
   return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
-}
-
-function fmtAmountRounded(n: number) {
-  return Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-
-// ── KPI icons ──────────────────────────────────────────────────────────────────
-
-const KpiIconRequests = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <line x1="8" y1="17" x2="12" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
-const KpiIconAmount = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <circle cx="12" cy="15" r="1.5" fill="currentColor" />
-  </svg>
-);
-
-const KpiIconApproved = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const KpiIconApprovedAmount = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <path d="M9 15l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const KpiIconPending = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-    <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const KpiIconPendingAmount = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <polyline points="14 14 14 12 12 12 12 16 14 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const KpiIconRejected = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
-const KpiIconRejectedAmount = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <line x1="10" y1="13.5" x2="14" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <line x1="14" y1="13.5" x2="10" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
-const KpiIconPaymentPaid = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <path d="M7 15l2.5 2.5L17 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const KpiIconPaymentRemaining = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <circle cx="12" cy="15" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-    <path d="M12 13.5V15h1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-  </svg>
-);
-
-// ── Compact KPI card (salary-module style) ─────────────────────────────────────
-
-interface ReimbKpiCardProps {
-  label: string;
-  value: string | number;
-  accent: string;
-  iconBg: string;
-  iconBorder: string;
-  icon: React.ReactNode;
-  loading: boolean;
-}
-
-function ReimbKpiCard({ label, value, accent, iconBg, iconBorder, icon, loading }: ReimbKpiCardProps) {
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        height: { xs: 76, md: 80 },
-        p: { xs: '12px 13px', md: '13px 14px' },
-        borderRadius: '16px',
-        background: 'linear-gradient(180deg, #ffffff 0%, #fcfdff 100%)',
-        border: '1px solid #e9eef5',
-        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 16px rgba(15, 23, 42, 0.035)',
-        transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-        display: 'flex',
-        alignItems: 'stretch',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 2px 4px rgba(15, 23, 42, 0.04), 0 14px 22px rgba(15, 23, 42, 0.055)',
-          borderColor: iconBorder,
-        },
-      }}
-    >
-      <Stack direction="row" alignItems="flex-start" spacing={1.5} sx={{ width: '100%', minWidth: 0 }}>
-        <Box
-          sx={{
-            width: 38,
-            height: 38,
-            flex: '0 0 38px',
-            borderRadius: '11px',
-            display: 'grid',
-            placeItems: 'center',
-            color: accent,
-            backgroundColor: iconBg,
-            border: `1px solid ${iconBorder}`,
-          }}
-        >
-          {icon}
-        </Box>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              display: 'block',
-              color: '#64748b',
-              fontWeight: 700,
-              fontSize: '0.72rem',
-              lineHeight: 1.2,
-              mb: 0.35,
-              letterSpacing: 0,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {label}
-          </Typography>
-          {loading
-            ? <Skeleton width={60} height={22} />
-            : (
-              <Typography
-                sx={{
-                  color: '#0f172a',
-                  fontSize: { xs: '0.9rem', md: '0.96rem' },
-                  fontWeight: 800,
-                  lineHeight: 1.25,
-                  whiteSpace: 'normal',
-                  wordBreak: 'break-word',
-                  overflowWrap: 'break-word',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  minHeight: '38px',
-                }}
-              >
-                {value}
-              </Typography>
-            )
-          }
-        </Box>
-      </Stack>
-    </Paper>
-  );
 }
 
 // ── Employee profile card (left panel) ────────────────────────────────────────
@@ -507,24 +258,25 @@ export function EmployeeDetailsSection({
   const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee);
   const employee = employeeProp !== undefined ? employeeProp : currentEmployee;
 
-  // Kept as two semantically distinct groups — request counts vs. money amounts —
-  // instead of one mixed 10-card grid, so each row reads as one unit (plain counts
-  // vs. currency) rather than a count tile awkwardly sharing a row with amount tiles.
-  const countCards: ReimbKpiCardProps[] = [
-    { label: 'Total Requests', value: totalRequests, accent: '#7c3aed', iconBg: '#f5f3ff', iconBorder: '#ede9fe', icon: <KpiIconRequests />, loading: overviewLoading },
-    { label: 'Total Approved Requests', value: approvedRequests, accent: '#16a34a', iconBg: '#f0fdf4', iconBorder: '#dcfce7', icon: <KpiIconApproved />, loading: overviewLoading },
-    { label: 'Total Pending Requests', value: pendingRequests, accent: '#d97706', iconBg: '#fffbeb', iconBorder: '#fef3c7', icon: <KpiIconPending />, loading: overviewLoading },
-    { label: 'Total Rejected Requests', value: rejectedRequests, accent: '#dc2626', iconBg: '#fef2f2', iconBorder: '#fecaca', icon: <KpiIconRejected />, loading: overviewLoading },
-  ];
-
-  const amountCards: ReimbKpiCardProps[] = [
-    { label: 'Total Requested Amount', value: `₹${fmtAmountRounded(totalRequestedAmount)}`, accent: '#2563eb', iconBg: '#eff6ff', iconBorder: '#dbeafe', icon: <KpiIconAmount />, loading: overviewLoading },
-    { label: 'Total Approved Amount', value: `₹${fmtAmountRounded(approvedAmount)}`, accent: '#0891b2', iconBg: '#ecfeff', iconBorder: '#cffafe', icon: <KpiIconApprovedAmount />, loading: overviewLoading },
-    { label: 'Total Pending Amount', value: `₹${fmtAmountRounded(pendingAmount)}`, accent: '#ea580c', iconBg: '#fff7ed', iconBorder: '#ffedd5', icon: <KpiIconPendingAmount />, loading: overviewLoading },
-    { label: 'Total Rejected Amount', value: `₹${fmtAmountRounded(rejectedAmount)}`, accent: '#e11d48', iconBg: '#fff1f2', iconBorder: '#ffe4e6', icon: <KpiIconRejectedAmount />, loading: overviewLoading },
-    { label: 'Total Paid Amount', value: `₹${fmtAmountRounded(paidAmount)}`, accent: '#059669', iconBg: '#ecfdf5', iconBorder: '#a7f3d0', icon: <KpiIconPaymentPaid />, loading: overviewLoading },
-    { label: 'Total Remaining Amount', value: `₹${fmtAmountRounded(remainingAmount)}`, accent: '#b45309', iconBg: '#fefce8', iconBorder: '#fef08a', icon: <KpiIconPaymentRemaining />, loading: overviewLoading },
-  ];
+  // Ten tiles became four cards.
+  //
+  // The ten were five count/amount pairs split into separate boxes — "24 approved" in one tile
+  // and "₹98,000 approved" in another, with the reader left to pair them. `YearlyKpiCard` renders
+  // a value with a footer strip beneath it, so each pair is one card, and the row reads in the
+  // order an expense actually moves: submitted, approved, awaiting, paid.
+  //
+  // Rejected loses its dedicated tiles. It is a terminal state you look up when it happens, not a
+  // number worth a quarter of the page every day — the records table below carries it as a status
+  // chip with a live count, which is also where the reason lives.
+  const kpis = {
+    totalAmount: totalRequestedAmount,
+    totalRequests,
+    approvedAmount,
+    approvedCount: approvedRequests,
+    pendingAmount,
+    pendingCount: pendingRequests,
+    paidAmount,
+  };
 
   return (
     <Box sx={{ width: '100%', mb: 4 }}>
@@ -556,18 +308,7 @@ export function EmployeeDetailsSection({
           >
             <ReimbEmployeeProfileCard employee={employee} />
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0 }}>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))', xl: 'repeat(5, minmax(0, 1fr))' },
-                  gap: 1.25,
-                  gridAutoRows: { xs: '76px', md: '80px' },
-                }}
-              >
-                {[...countCards, ...amountCards].map((card) => (
-                  <ReimbKpiCard key={card.label} {...card} />
-                ))}
-              </Box>
+              <ReimbursementKpiRow kpis={kpis} loading={overviewLoading} />
             </Box>
           </Box>
         </Paper>
@@ -1146,6 +887,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
           className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
           onClick={() => { if (row.original.document) setPreviewUrl(row.original.document); }}
           disabled={!row.original.document}
+          aria-label={row.original.document ? 'Preview receipt' : 'No receipt attached'}
           title={row.original.document ? 'Preview document' : 'No document attached'}
         >
           {row.original.document
@@ -1166,6 +908,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
           <button
             className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
             onClick={() => handleEdit(row.original)}
+            aria-label='Edit this expense'
             title='Edit'
           >
             <KTIcon iconName='pencil' className='inline fs-4 text-red-500' />
@@ -1173,6 +916,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
           <button
             className='btn btn-icon btn-active-color-primary btn-sm w-4'
             onClick={() => handleDelete(row.original.id)}
+            aria-label='Delete this expense'
             title='Delete'
           >
             <KTIcon iconName='trash' className='inline fs-4 text-red-500' />
@@ -1543,7 +1287,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                           <button
                             type='button'
                             className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
-                            title='Preview document'
+                            aria-label='Preview document' title='Preview document'
                             onClick={() => setPreviewUrl(justUploadedUrl ?? String(formikProps.values.document))}
                           >
                             <KTIcon iconName='eye' className='fs-3' />
@@ -1551,7 +1295,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                           <button
                             type='button'
                             className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
-                            title='Remove document'
+                            aria-label='Remove document' title='Remove document'
                             onClick={() => {
                               formikProps.setFieldValue('document', '');
                               if (fileInputRef.current) fileInputRef.current.value = '';

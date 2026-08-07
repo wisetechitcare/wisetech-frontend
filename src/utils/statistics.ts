@@ -3001,8 +3001,18 @@ export async function fetchEmpMonthlyReimbursements(month: Dayjs, empId = store.
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
-            expenseDate: formattedDate,
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
@@ -3033,8 +3043,18 @@ export async function fetchEmpYearlyReimbursements(year: Dayjs, empId = store.ge
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
-            expenseDate: formattedDate,
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
@@ -3061,10 +3081,21 @@ export async function fetchMonthlyReimbursementsOfAllEmp(month: Dayjs) {
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
             ID: data?.employee?.employeeCode,
-            name: `${data.employee?.users?.firstName} ${data.employee?.users?.lastName}`,
-            expenseDate: formattedDate,
+            name: [data.employee?.users?.firstName, data.employee?.users?.lastName]
+                .filter(Boolean).join(' ').trim() || 'N/A',  // P1-6: was "undefined undefined"
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
@@ -3092,10 +3123,21 @@ export async function fetchYearlyReimbursementsOfAllEmp(year: Dayjs) {
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
             ID: data.employee?.employeeCode,
-            name: `${data.employee?.users?.firstName} ${data.employee?.users?.lastName}`,
-            expenseDate: formattedDate,
+            name: [data.employee?.users?.firstName, data.employee?.users?.lastName]
+                .filter(Boolean).join(' ').trim() || 'N/A',  // P1-6: was "undefined undefined"
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
@@ -3121,10 +3163,21 @@ export async function fetchAllTimeReimbursementsOfAllEmp() {
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
             ID: data.employee?.employeeCode,
-            name: `${data.employee?.users?.firstName} ${data.employee?.users?.lastName}`,
-            expenseDate: formattedDate,
+            name: [data.employee?.users?.firstName, data.employee?.users?.lastName]
+                .filter(Boolean).join(' ').trim() || 'N/A',  // P1-6: was "undefined undefined"
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
@@ -3160,8 +3213,18 @@ export async function fetchEmpAlltimeReimbursements(empId = store.getState().emp
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
-            expenseDate: formattedDate,
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
