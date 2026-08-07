@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import {
   navIcon, sectionAccent,
   CLUSTER_HEADING, CLUSTER_RULE, CLUSTER_WRAP,
+  EMPTY_APP_TEXT, EMPTY_APP_TITLE, EMPTY_APP_WRAP,
   MODULE_CELL, MODULE_GLYPH, MODULE_GRID, MODULE_ICON_SIZE, MODULE_LABEL, MODULE_TEXT,
   TILE_BADGE,
 } from '../shellTokens';
@@ -82,6 +83,24 @@ export function ModuleGrid({ app }: { app: WorkspaceApp }) {
   // One continuous sequence across the whole grid — clusters continue the count rather than
   // restarting it, so the reveal reads as one wave instead of several starting at once.
   let order = 0;
+
+  // Only a section flagged `allowEmpty` reaches here with nothing in it (useNavContainers
+  // drops the rest), so this is a department declared ahead of its modules — not an access
+  // failure, and it must not read like one. Without this the page renders as blank canvas,
+  // indistinguishable from something that failed to load.
+  if (app.modules.length === 0 && app.clusters.length === 0) {
+    return (
+      <div className={EMPTY_APP_WRAP}>
+        <div role="heading" aria-level={2} className={EMPTY_APP_TITLE}>
+          No modules yet
+        </div>
+        <p className={EMPTY_APP_TEXT}>
+          {app.title} is set up, but nothing has been added to it yet. Its modules will
+          appear here once they are available.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-9">

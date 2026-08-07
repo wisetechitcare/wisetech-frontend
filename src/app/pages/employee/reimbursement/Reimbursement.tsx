@@ -36,6 +36,7 @@ import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropd
 import { uploadUserAsset } from "@services/uploader";
 import { createPendingReimbursementDraft, updatePendingReimbursementDraft, updateReimbursementById, downloadEmployeePeriodBillPdf } from "@services/employee";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
+import { WtButton } from "@app/modules/common/components/ui";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import ReimbursementPaymentHistoryTable from "./components/ReimbursementPaymentHistoryTable";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
@@ -687,68 +688,40 @@ function Reimbursement() {
               resourceNameMapWithCamelCase.reimbursement,
               permissionConstToUseWithHasPermission.create
             ) && (
-                <button
+                // The PRIMARY action of this screen, and it used to be the quietest
+                // thing on it — a grey ghost button that disappeared next to the red
+                // Download slip, so "add a request" read as secondary to "download a
+                // slip". `tone="accent"` is the kit's bright blue CTA, so the emphasis
+                // comes from the design system rather than another hardcoded hex.
+                <WtButton
+                  tone="accent"
+                  flat
                   onClick={() => pendingPageRef.current?.openAddModal()}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '5px',
-                    padding: '7px 14px',
-                    border: '1.5px solid #e2e8f0',
-                    borderRadius: '6px',
-                    background: '#f8fafc',
-                    color: '#475569',
-                    fontWeight: 500,
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
+                  startIcon={<KTIcon iconName='plus' className='fs-3' />}
+                  sx={{ whiteSpace: 'nowrap' }}
                 >
-                  <KTIcon iconName='plus' className='fs-6' />
-                  <span>Add Reimbursement Request</span>
-                </button>
+                  Add Reimbursement Request
+                </WtButton>
               )}
-            <button
+            {/* Converted alongside it: leaving this one hand-styled would pair a
+                46px kit CTA with a 12px inline button on the same row. `danger`
+                keeps its red identity, now from the kit's tone rather than #d32f2f.
+                `flat` on both — two glowing CTAs this close bloom into each other. */}
+            <WtButton
+              tone="danger"
+              flat
               onClick={handleDownloadBill}
               disabled={downloadingBill}
               title="Download Reimbursement Slip"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '5px',
-                padding: '7px 14px',
-                border: 'none',
-                borderRadius: '6px',
-                background: '#d32f2f',
-                color: '#fff',
-                fontWeight: 500,
-                fontSize: '12px',
-                cursor: downloadingBill ? 'not-allowed' : 'pointer',
-                opacity: downloadingBill ? 0.6 : 1,
-                boxShadow: '0 2px 6px rgba(211,47,47,0.2)',
-                transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={e => { if (!downloadingBill) { (e.currentTarget as HTMLButtonElement).style.background = '#b71c1c'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(211,47,47,0.3)'; } }}
-              onMouseLeave={e => { if (!downloadingBill) { (e.currentTarget as HTMLButtonElement).style.background = '#d32f2f'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(211,47,47,0.2)'; } }}
+              startIcon={
+                downloadingBill
+                  ? <span className="spinner-border spinner-border-sm" style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
+                  : <KTIcon iconName="file-down" className="fs-3" />
+              }
+              sx={{ whiteSpace: 'nowrap' }}
             >
-              {downloadingBill ? (
-                <>
-                  <span className="spinner-border spinner-border-sm" style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <>
-                  <KTIcon iconName="file-down" className="fs-6 text-white" />
-                  <span>Download Reimbursement Slip</span>
-                </>
-              )}
-            </button>
+              {downloadingBill ? 'Generating...' : 'Download Reimbursement Slip'}
+            </WtButton>
           </div>
         }
       />
