@@ -8,11 +8,8 @@ import Reimbursement from "./Reimbursement";
 import AllEmployee from "./views/admin/AllEmployee";
 import SearchEmployee from "./views/admin/SearchEmployee";
 import PaymentTab from "./views/admin/PaymentTab";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "@redux/store";
+import { useDispatch } from "react-redux";
 import ReimbursementConfiguration from "./views/admin/ReimbursementConfiguration";
-import overviewIcon from '../../../../_metronic/assets/sidepanelicons/overview.svg'
-import { leadsIcons, loanIcons, reimbursementsIcons } from "@metronic/assets/sidepanelicons";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -23,9 +20,6 @@ function AdminAndEmployeeReimbursementViewer() {
   const location = useLocation();
 
   const [activeTab, setActiveTab] = useState(0);
-  const isAdmin = useSelector(
-    (state: RootState) => state.auth.currentUser.isAdmin
-  );
   useEffect(()=>{
     dispatch(fetchRolesAndPermissions() as any);
   },[])

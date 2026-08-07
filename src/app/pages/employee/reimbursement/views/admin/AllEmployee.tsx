@@ -180,7 +180,7 @@ function AllEmployee() {
       emp.totalRequests += 1;
       emp.totalRequestAmount += amount;
 
-      if (r.status === 'Approved' || r.status === 1) {
+      if (r.status === 'Approved') {
         emp.totalApprovedAmount += amount;
         emp.approvedCount += 1;
         if (r.paymentStatus === 'PAID') {
@@ -188,10 +188,10 @@ function AllEmployee() {
         } else {
           emp.totalRemainingAmount += amount;
         }
-      } else if (r.status === 'Pending' || r.status === 0) {
+      } else if (r.status === 'Pending') {
         emp.totalPendingAmount += amount;
         emp.pendingCount += 1;
-      } else if (r.status === 'Rejected' || r.status === 2) {
+      } else if (r.status === 'Rejected') {
         emp.totalRejectedAmount += amount;
         emp.rejectedCount += 1;
       }
@@ -224,23 +224,6 @@ function AllEmployee() {
       return statusMatch && subOrgMatch;
     });
   }, [employeeSummaries, statusFilter, subOrgFilter]);
-
-  // ── Card totals ───────────────────────────────────────────────────────────
-
-  const cardTotals = useMemo(() => {
-    return filteredSummaries.reduce(
-      (acc, emp) => {
-        acc.totalRequestAmount += emp.totalRequestAmount;
-        acc.totalApprovedAmount += emp.totalApprovedAmount;
-        acc.totalPendingAmount += emp.totalPendingAmount;
-        acc.totalRejectedAmount += emp.totalRejectedAmount;
-        acc.totalPaidAmount += emp.totalPaidAmount;
-        acc.totalRemainingAmount += emp.totalRemainingAmount;
-        return acc;
-      },
-      { totalRequestAmount: 0, totalApprovedAmount: 0, totalPendingAmount: 0, totalRejectedAmount: 0, totalPaidAmount: 0, totalRemainingAmount: 0 }
-    );
-  }, [filteredSummaries]);
 
   // ── Table data ────────────────────────────────────────────────────────────
 
@@ -409,12 +392,12 @@ function AllEmployee() {
 
       {/* Summary cards */}
       <ReimbursementSummaryCard
-        totalRequestAmount={cardTotals.totalRequestAmount}
-        totalApprovedAmount={cardTotals.totalApprovedAmount}
-        totalPendingAmount={cardTotals.totalPendingAmount}
-        totalRejectedAmount={cardTotals.totalRejectedAmount}
-        totalPaidAmount={cardTotals.totalPaidAmount}
-        totalRemainingAmount={cardTotals.totalRemainingAmount}
+        totalRequestAmount={columnTotals.totalRequestAmount}
+        totalApprovedAmount={columnTotals.totalApprovedAmount}
+        totalPendingAmount={columnTotals.totalPendingAmount}
+        totalRejectedAmount={columnTotals.totalRejectedAmount}
+        totalPaidAmount={columnTotals.totalPaidAmount}
+        totalRemainingAmount={columnTotals.totalRemainingAmount}
         isLoading={isLoading}
       />
 

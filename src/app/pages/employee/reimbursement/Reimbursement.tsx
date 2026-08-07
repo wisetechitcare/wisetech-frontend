@@ -15,7 +15,6 @@ import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
 import MaterialToggleReimbursement, {
   PeriodAlignment,
-  ToggleItemsCallBackFunctions,
 } from "./MaterialToggleReimbursement";
 import { UsersListWrapper } from "@app/modules/apps/user-management/users-list/UsersList";
 import {
@@ -167,12 +166,6 @@ function Reimbursement() {
   const [selectedProject, setSelectedProject] = useState<Option | null>(null);
   // IDs of project statuses that are considered "On Ongoing" — loaded from DB on mount
   const [ongoingStatusIds, setOngoingStatusIds] = useState<string[]>([]);
-
-  const toggleItemsActions: ToggleItemsCallBackFunctions = {
-    monthly: function (month: Dayjs): void { /* handled by onPeriodChange */ },
-    yearly: function (year: Dayjs): void { /* handled by onPeriodChange */ },
-    allTime: function (): void { /* handled by onPeriodChange */ },
-  };
 
   // ── Shared stats calculator ────────────────────────────────────────────────
   const applyStats = (data: IReimbursementsFetch[]) => {
@@ -687,13 +680,11 @@ function Reimbursement() {
         </div>
       </div>
       <MaterialToggleReimbursement
-        toggleItemsActions={toggleItemsActions}
         onPeriodChange={handlePeriodChange}
         showEditDeleteOption={true}
         resource={resourceNameMapWithCamelCase.reimbursement}
         viewOwn={true}
         viewOthers={false}
-        viewMode="submissions"
         selectedEmployeeId={employeeId}
         actionSlot={
           <div className="d-flex align-items-center gap-3">

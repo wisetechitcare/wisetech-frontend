@@ -12,7 +12,6 @@ import {
 } from "@utils/statistics";
 import MaterialToggleReimbursement, {
   PeriodAlignment,
-  ToggleItemsCallBackFunctions,
 } from "../../MaterialToggleReimbursement";
 import { EmployeeDetailsSection } from "../../PendingReimbursementsPage";
 import AllEmployeesSearchDropdown from "@app/modules/common/components/AllEmployeesSearchDropdown";
@@ -35,7 +34,6 @@ function SearchEmployee() {
   const [remainingAmount, setRemainingAmount] = useState(0);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
-  const [showEditDeleteOption] = useState(true);
   const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({
     alignment: 'monthly',
     date: dayjs(),
@@ -52,12 +50,6 @@ function SearchEmployee() {
   const employeeName = (selectedEmployee as any)?.users
     ? `${(selectedEmployee as any).users.firstName ?? ''} ${(selectedEmployee as any).users.lastName ?? ''}`.trim()
     : '';
-
-  const toggleItemsActions: ToggleItemsCallBackFunctions = {
-    monthly: function (): void { /* handled by onPeriodChange */ },
-    yearly: function (): void { /* handled by onPeriodChange */ },
-    allTime: function (): void { /* handled by onPeriodChange */ },
-  };
 
   const applyStats = (data: IReimbursementsFetch[]) => {
     let totalAmount = 0, totalRequest = 0, approvedCount = 0, rejectedCount = 0, pendingCount = 0;
@@ -197,15 +189,13 @@ function SearchEmployee() {
       </div>
 
       <MaterialToggleReimbursement
-        toggleItemsActions={toggleItemsActions}
         onPeriodChange={handlePeriodChange}
-        showEditDeleteOption={showEditDeleteOption}
+        showEditDeleteOption={true}
         selectedEmployeeId={selectedEmployeeId}
         resource={resourceNameMapWithCamelCase.reimbursement}
         viewOthers={true}
         viewOwn={true}
         checkOwnWithOthers={true}
-        viewMode="submissions"
         actionSlot={
           <button
             className="btn d-flex align-items-center gap-2 px-3"
