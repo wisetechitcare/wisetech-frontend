@@ -17,8 +17,9 @@ import Loader from "@app/modules/common/utils/Loader";
 import { ActionIconButton } from "@app/modules/common/components/ui";
 import DepartmentConfigureForm, { DepartmentItem } from "./DepartmentConfigureForm";
 import WorkingTypeConfigureForm, { WorkingTypeItem } from "./WorkingTypeConfigureForm";
+import OnboardingDocConfigureForm, { OnboardingDocItem } from "./OnboardingDocConfigureForm";
 import { fetchAllDepartments, archiveDepartmentById } from "@services/company";
-import { fetchWorkingMethods, deleteWorkingMethodById } from "@services/options";
+import { fetchWorkingMethods, deleteWorkingMethodById, fetchOnboardingDocs } from "@services/options";
 import OrganizationConfigure from "@pages/company/masters/OrganizationConfigure";
 import {
   ConfigPageLayout,
@@ -46,7 +47,7 @@ const CONFIG_TABS = [
   { id: "working-types", label: "Working Location Types", icon: "bi-geo" },
   { id: "employee-types", label: "Employee Types", icon: "bi-people" },
   { id: "experience-levels", label: "Experience Levels", icon: "bi-diagram-3" },
-  { id: "employee-status", label: "Employee Status", icon: "bi-check-circle" },
+  { id: "onboarding-docs", label: "Onboarding Documents", icon: "bi-file-earmark-text" },
   { id: "qualifications", label: "Qualifications", icon: "bi-mortarboard" },
 ];
 
@@ -82,10 +83,6 @@ const EmployeeConfigure = () => {
   const [showEmployeeLevelModal, setShowEmployeeLevelModal] = useState(false);
   const [editingEmployeeLevel, setEditingEmployeeLevel] = useState<EmployeeConfigItem | null>(null);
 
-  // Employee Status configurations
-  const [employeeStatuses, setEmployeeStatuses] = useState<EmployeeConfigItem[]>([]);
-  const [showEmployeeStatusModal, setShowEmployeeStatusModal] = useState(false);
-  const [editingEmployeeStatus, setEditingEmployeeStatus] = useState<EmployeeConfigItem | null>(null);
 
   // Working location types — company_working_methods, its own endpoints.
   const [workingTypes, setWorkingTypes] = useState<WorkingTypeItem[]>([]);
@@ -99,6 +96,12 @@ const EmployeeConfigure = () => {
   const [editingDepartment, setEditingDepartment] = useState<DepartmentItem | null>(null);
   const [departmentCompanyId, setDepartmentCompanyId] = useState<string | undefined>(undefined);
 
+  // Onboarding documents — the uploads the onboarding form asks a new joiner for.
+  const [onboardingDocs, setOnboardingDocs] = useState<OnboardingDocItem[]>([]);
+  const [showOnboardingDocModal, setShowOnboardingDocModal] = useState(false);
+  const [editingOnboardingDoc, setEditingOnboardingDoc] = useState<OnboardingDocItem | null>(null);
+  const [onboardingDocCompanyId, setOnboardingDocCompanyId] = useState<string | undefined>(undefined);
+
   // Qualifications — own table/endpoints, not employee_configurations.
   const [qualifications, setQualifications] = useState<QualificationItem[]>([]);
   const [showQualificationModal, setShowQualificationModal] = useState(false);
@@ -108,7 +111,6 @@ const EmployeeConfigure = () => {
   const handleJobProfileModalOpen = () => setShowJobProfileModal(true);
   const handleEmployeeTypeModalOpen = () => setShowEmployeeTypeModal(true);
   const handleEmployeeLevelModalOpen = () => setShowEmployeeLevelModal(true);
-  const handleEmployeeStatusModalOpen = () => setShowEmployeeStatusModal(true);
 
   // Modal close handlers
   const handleJobProfileModalClose = () => {
@@ -126,11 +128,6 @@ const EmployeeConfigure = () => {
     setEditingEmployeeLevel(null);
   };
 
-  const handleEmployeeStatusModalClose = () => {
-    setShowEmployeeStatusModal(false);
-    setEditingEmployeeStatus(null);
-  };
-
   // Edit handlers
   const handleJobProfileEdit = (jobProfile: JobProfileItem) => {
     setEditingJobProfile(jobProfile);
@@ -145,11 +142,6 @@ const EmployeeConfigure = () => {
   const handleEmployeeLevelEdit = (employeeLevel: EmployeeConfigItem) => {
     setEditingEmployeeLevel(employeeLevel);
     setShowEmployeeLevelModal(true);
-  };
-
-  const handleEmployeeStatusEdit = (employeeStatus: EmployeeConfigItem) => {
-    setEditingEmployeeStatus(employeeStatus);
-    setShowEmployeeStatusModal(true);
   };
 
   // Qualification handlers
@@ -221,6 +213,49 @@ const EmployeeConfigure = () => {
       setJobProfileCompanyId(resolved);
     } catch (error) {
       console.error("Error fetching job profiles:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Onboarding document handlers
+  const handleOnboardingDocModalOpen = () => setShowOnboardingDocModal(true);
+  const handleOnboardingDocModalClose = () => {
+    setShowOnboardingDocModal(false);
+    setEditingOnboardingDoc(null);
+  };
+  const handleOnboardingDocEdit = (doc: OnboardingDocItem) => {
+    setEditingOnboardingDoc(doc);
+    setShowOnboardingDocModal(true);
+  };
+
+  const fetchOnboardingDocuments = async (company?: string) => {
+    try {
+      setLoading(true);
+      // This endpoint is company-scoped, so it needs the id up front rather than
+      // falling back after an empty list the way the others do.
+      let owner = company || onboardingDocCompanyId;
+      if (!owner) {
+        const { data: { companyOverview } } = await fetchCompanyOverview();
+        owner = resolveActiveOrgId(companyOverview) ?? undefined;
+        setOnboardingDocCompanyId(owner);
+      }
+      if (!owner) return;
+
+      const response = await fetchOnboardingDocs(owner);
+      const rows = response?.data?.documents || [];
+      // The column is `fieldName`; mapped to `name` so ItemChip renders it unchanged.
+      setOnboardingDocs(
+        rows.map((d: any) => ({
+          id: d.id,
+          name: d.fieldName,
+          isEnabled: d.isEnabled,
+          hasIdentityNumber: d.hasIdentityNumber,
+          companyId: d.companyId,
+        }))
+      );
+    } catch (error) {
+      console.error("Error fetching onboarding documents:", error);
     } finally {
       setLoading(false);
     }
@@ -368,49 +403,34 @@ const EmployeeConfigure = () => {
   };
 
   // Fetch employee statuses
-  const fetchEmployeeStatuses = async () => {
-    try {
-      setLoading(true);
-      const response = await fetchAllEmployeeConfigurations("EMPLOYEE_STATUS");
-      if (response?.data?.employeeConfigurations) {
-        setEmployeeStatuses(response.data.employeeConfigurations);
-      }
-    } catch (error) {
-      console.error("Error fetching employee statuses:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Event bus listeners
   useEventBus(EVENT_KEYS.employeeConfigCreated, () => {
     fetchJobProfiles();
     fetchEmployeeTypes();
     fetchEmployeeLevels();
-    fetchEmployeeStatuses();
   });
 
   useEventBus(EVENT_KEYS.employeeConfigUpdated, () => {
     fetchJobProfiles();
     fetchEmployeeTypes();
     fetchEmployeeLevels();
-    fetchEmployeeStatuses();
   });
 
   useEffect(() => {
     fetchJobProfiles();
     fetchEmployeeTypes();
     fetchEmployeeLevels();
-    fetchEmployeeStatuses();
     fetchQualifications();
     fetchDepartments();
     fetchWorkingTypes();
+    fetchOnboardingDocuments();
   }, []);
 
   // Delete handler
   const handleDelete = async (
     id: string,
-    type: "JOB_PROFILE" | "EMPLOYEE_TYPE" | "EMPLOYEE_LEVEL" | "EMPLOYEE_STATUS"
+    type: "JOB_PROFILE" | "EMPLOYEE_TYPE" | "EMPLOYEE_LEVEL"
   ) => {
     try {
       const confirmed = await deleteConfirmation(
@@ -431,8 +451,6 @@ const EmployeeConfigure = () => {
         case "EMPLOYEE_LEVEL":
           fetchEmployeeLevels();
           break;
-        case "EMPLOYEE_STATUS":
-          fetchEmployeeStatuses();
           break;
       }
     } catch (error) {
@@ -697,29 +715,36 @@ const EmployeeConfigure = () => {
           </ConfigSectionCard>
           )}
 
-          {/* Employee Status Section */}
-          {activeTab === 'employee-status' && (
+          {/* Onboarding Documents — the uploads the onboarding form asks a new joiner
+              for. Moved here from Organization → Onboarding Docs: they drive a step of
+              this form, so configuring them from another module meant leaving the
+              screen you were setting up.
+
+              Replaces the Employee Status card, which configured a list nothing read —
+              no dropdown rendered it, no employee had one set. */}
+          {activeTab === 'onboarding-docs' && (
           <ConfigSectionCard
-            title="Employee Status"
-            description="Track employee employment status"
-            icon="bi-check-circle"
+            title="Onboarding Documents"
+            description="Documents the onboarding form asks a new employee to upload"
+            icon="bi-file-earmark-text"
             iconColor="primary"
-            badge={{ label: `${employeeStatuses.length}`, color: C.primary, bg: C.primaryLight }}
-            primaryAction={{ label: 'New Employee Status', icon: 'bi-plus-lg', onClick: handleEmployeeStatusModalOpen, variant: 'primary' }}
+            badge={{ label: `${onboardingDocs.length}`, color: C.primary, bg: C.primaryLight }}
+            loading={loading}
+            primaryAction={{ label: 'New Onboarding Document', icon: 'bi-plus-lg', onClick: handleOnboardingDocModalOpen, variant: 'primary' }}
           >
             <div style={{ marginTop: SP.md }}>
-              {employeeStatuses.length === 0 ? (
+              {onboardingDocs.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted }}>
-                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No employee statuses created yet</p>
+                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No onboarding documents created yet</p>
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
-                  {employeeStatuses.map((employeeStatus) => (
+                  {onboardingDocs.map((doc) => (
                     <ItemChip
-                      key={employeeStatus.id}
-                      item={employeeStatus}
-                      onEdit={handleEmployeeStatusEdit}
-                      onDelete={(id: string) => handleDelete(id, 'EMPLOYEE_STATUS')}
+                      key={doc.id}
+                      item={doc}
+                      onEdit={handleOnboardingDocEdit}
+                      onDelete={undefined}
                     />
                   ))}
                 </div>
@@ -795,15 +820,14 @@ const EmployeeConfigure = () => {
         title="Experience Level"
       />
 
-      {/* Employee Status Modal */}
-      <EmployeeConfigureForm
-        show={showEmployeeStatusModal}
-        onClose={handleEmployeeStatusModalClose}
-        onSuccess={fetchEmployeeStatuses}
-        initialData={editingEmployeeStatus}
-        isEditing={!!editingEmployeeStatus}
-        type="EMPLOYEE_STATUS"
-        title="Employee Status"
+      {/* Onboarding Document Modal */}
+      <OnboardingDocConfigureForm
+        show={showOnboardingDocModal}
+        onClose={handleOnboardingDocModalClose}
+        onSuccess={() => fetchOnboardingDocuments()}
+        initialData={editingOnboardingDoc}
+        isEditing={!!editingOnboardingDoc}
+        companyId={onboardingDocCompanyId}
       />
 
       {/* Working Location Type Modal */}

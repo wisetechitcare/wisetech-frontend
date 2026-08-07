@@ -368,14 +368,10 @@ export function useNavigation() {
         fontIcon: 'bi-images',
         visible: isSubsectionVisible('settings.media', hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
       },
-      {
-        type: 'item',
-        id: 'org-onboarding',
-        to: '/company/onboardingDocs',
-        title: 'Onboarding Docs',
-        fontIcon: 'bi-file-earmark-text',
-        visible: isSubsectionVisible('settings.onboarding', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-      },
+      // Onboarding Docs moved to HR & People → Employees → Configure, alongside the
+      // rest of the onboarding configuration. Listing it here as well would put the
+      // same screen in two modules, which is the wandering this consolidation removes.
+      // The route still resolves, so existing bookmarks keep working.
       {
         type: 'item',
         id: 'org-teams',
