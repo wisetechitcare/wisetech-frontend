@@ -177,6 +177,22 @@ export const updateDesignationById = async (designationId: string, payload: ICom
 
 }
 
+/**
+ * Retires a designation. The backend route is an ARCHIVE (it flips isActive), not a
+ * row delete — employees reference designationId, so removing the row would strip the
+ * job profile off their records. Retired designations drop out of the pickers.
+ */
+export const archiveDesignationById = async (designationId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.ARCHIVE_DESIGNATION_BY_ID(designationId)}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 
 // Fetch Onboarding Docs
 export const fetchOnboardingDocs = async (companyId: string) => {
@@ -258,10 +274,85 @@ export const fetchSrcOfHire = async () => {
     }
 }
 
+/* ── Source of hire management ────────────────────────────────────────────────
+   The list used to be editable ONLY through a "+ Add" button inside the
+   onboarding form, so it could be appended to while hiring somebody and never
+   corrected or pruned. These back the Employees → Configure section. */
+
+export const createSingleSourceOfHire = async (payload: { source: string; companyId: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.CREATE_SOURCE_OF_HIRE_ONE}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const updateSourceOfHire = async (id: string, payload: { source: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.UPDATE_SOURCE_OF_HIRE}/${id}`;
+        const { data } = await axios.put(endpoint, payload);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const deleteSourceOfHire = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.DELETE_SOURCE_OF_HIRE}/${id}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+
 export const fetchWorkingMethods = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${OPTIONS.GET_WORKING_METHODS}`;
         const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+/** Single create. The bulk POST /working-methods seeds a company; this adds one. */
+export const createWorkingMethod = async (payload: { type: string; companyId: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.CREATE_WORKING_METHOD}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const updateWorkingMethodById = async (id: string, payload: { type: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.UPDATE_WORKING_METHOD(id)}`;
+        const { data } = await axios.put(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+/**
+ * Deletes outright — this table has no isActive column. The server refuses while any
+ * employee or attendance record still points at it, because every relation to it is
+ * `onDelete: Cascade` and an unguarded delete would take attendance history with it.
+ */
+export const deleteWorkingMethodById = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.DELETE_WORKING_METHOD(id)}`;
+        const { data } = await axios.delete(endpoint);
         return data;
     }
     catch (err) {

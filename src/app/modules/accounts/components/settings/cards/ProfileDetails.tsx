@@ -33,12 +33,23 @@ const mealPreferencesRadioBtns: RadioButton[] = [
 ];
 
 const initialState = {
-  nickName: "",
   meal: "",
   startTime: "",
   endTime: "",
   digitalSignaturePath: "",
 }
+
+/**
+ * Stored file name per upload slot on this form.
+ *
+ * `sectionName` is what the Media table records as the file's name, and it is what
+ * Profile → Documents lists. Both uploads here used to be sent as 'avatar', so a
+ * signature appeared as a second "avatar" — indistinguishable from the profile photo.
+ */
+const ASSET_NAMES: Record<string, string> = {
+  userProfilePicture: "avatar",
+  digitalSignature: "signature",
+};
 
 const flatPickrOpt = {
   enableTime: true,
@@ -107,7 +118,12 @@ const ProfileDetails: React.FC = () => {
       formData.append('file', fileData);
 
       try {
-        const { data: { path } } = await uploadUserAsset(formData, userId, 'avatar', 'profile');
+        // Name the stored file after what it actually IS. `sectionName` becomes the
+        // file's name in the Media table, and this form uploads BOTH the profile
+        // photo and the signature — hardcoding 'avatar' meant a signature was filed
+        // under "avatar" in Profile → Documents, which reads as a second profile
+        // picture rather than the signature it is.
+        const { data: { path } } = await uploadUserAsset(formData, userId, ASSET_NAMES[docId] ?? docId, 'profile');
         return {
           documentId: docId,
           path: path,
@@ -132,7 +148,6 @@ const ProfileDetails: React.FC = () => {
     const digitalSignaturePath = docUploaded?.filter((file: any) => (file.documentId == "digitalSignature"));
 
     const payload = {
-      ...(values.nickName && { nickName: values.nickName }),
       ...(avatar?.[0]?.path && { avatar: avatar[0].path }),
       ...(digitalSignaturePath?.[0]?.path && { digitalSignaturePath: digitalSignaturePath[0].path }),
       ...(workSchedule && { workSchedule }),
@@ -170,12 +185,11 @@ const ProfileDetails: React.FC = () => {
 
   useEffect(() => {
     if (!profile) return;
-    const { nickName, workSchedule, digitalSignaturePath, vegMealPreference, nonVegMealPreference, veganMealPreference } = profile;
+    const { workSchedule, digitalSignaturePath, vegMealPreference, nonVegMealPreference, veganMealPreference } = profile;
     const splitWorkSchedule = workSchedule?.split('-');
     setDefaultState((prevState: any) => {
       return {
         ...prevState,
-        nickName,
         startTime: (Array.isArray(splitWorkSchedule) && splitWorkSchedule?.length>=1) ? splitWorkSchedule[0]?.trim() : "",
         endTime: (Array.isArray(splitWorkSchedule) && splitWorkSchedule?.length>=2) ? splitWorkSchedule[1]?.trim(): "",
         meal: vegMealPreference ? "0" : nonVegMealPreference ? "1" : veganMealPreference ? "2" : "",
@@ -214,13 +228,6 @@ const ProfileDetails: React.FC = () => {
                         hidden={true}
                         path={avatar}
                         setFile={addFileToState} />
-                    </div>
-                  </div>
-
-                  <div className='row mb-6'>
-                    <label className='col-lg-4 col-form-label fw-bold fs-6'>Nick Name</label>
-                    <div className='col-lg-8'>
-                      <TextInput isRequired={false} formikField='nickName' placeholder='Nick Name' />
                     </div>
                   </div>
 

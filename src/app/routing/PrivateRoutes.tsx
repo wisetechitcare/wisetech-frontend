@@ -24,7 +24,11 @@ const Overview = lazy(() => import('@pages/company/Overview'))
 const NewEmployeeWizard = lazy(() => import('@pages/employee/wizard/NewEmployeeWizard'))
 const Branches = lazy(() => import('@pages/company/Branches'))
 const Departments = lazy(() => import('@pages/company/Departments'))
-const Document = lazy(() => import('@pages/employee/Document'))
+// Documents module. The HR directory and one employee's wall are separate routes;
+// `MyDocumentsPage` is the same wall scoped to the signed-in employee.
+const DocumentsDirectory = lazy(() => import('@pages/employee/documents/DocumentsDirectory'))
+const EmployeeDocumentsPage = lazy(() => import('@pages/employee/documents/EmployeeDocumentsPage'))
+const MyDocumentsPage = lazy(() => import('@pages/employee/documents/MyDocumentsPage'))
 const Branding = lazy(() => import('@pages/company/organisation/Branding'))
 const Designations = lazy(() => import('@pages/company/Designation'))
 const OnBoardingDocs = lazy(() => import('@pages/company/OnboardingDocs'))
@@ -362,13 +366,32 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
+        {/* HR directory + one employee's wall. Both are cross-employee views, so both
+            sit behind the same readOthers gate the nav entry uses; the API enforces it
+            again per employee. */}
         {hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers) && <Route
           path='/employee/documents'
           element={
             <SuspensedView>
-              <Document />
+              <DocumentsDirectory />
             </SuspensedView>}
         />}
+        {hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers) && <Route
+          path='/employee/documents/:employeeId'
+          element={
+            <SuspensedView>
+              <EmployeeDocumentsPage />
+            </SuspensedView>}
+        />}
+        {/* Every employee has their own documents — no permission gate, because the
+            server resolves "me" from the token and can only ever return their own. */}
+        <Route
+          path='/my-documents'
+          element={
+            <SuspensedView>
+              <MyDocumentsPage />
+            </SuspensedView>}
+        />
         {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
           path='/company/organisation-profile'
           element={

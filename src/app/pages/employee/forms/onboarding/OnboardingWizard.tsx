@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useFormikContext } from "formik";
 import { toast } from "react-toastify";
 import { ChevronRight, ChevronLeft, ExpandMore } from "@mui/icons-material";
@@ -23,6 +23,14 @@ export interface OnboardingLeaf {
   fields: string[];
   /** Subset of `fields` that must have a value for the leaf to count complete. */
   requiredFields?: string[];
+  /**
+   * Requirement that a list of field names cannot express — e.g. "all three approval
+   * chains have a Level 1 approver", where one populated key is not the same as the
+   * section being complete. When present it REPLACES `requiredFields` for both the
+   * completion state and the block on moving forward, so a section whose requirement
+   * is structural stops behaving like an optional one.
+   */
+  isComplete?: (values: any) => boolean;
   render: (props: OnboardingSectionsProps) => React.ReactNode;
 }
 
@@ -44,6 +52,12 @@ export interface OnboardingWizardProps {
   onCancel: () => void;
   onFinalSave: () => void;
   submitText: string;
+  /**
+   * The pristine, blank form. Used to tell a value the ADMIN entered from a default
+   * the form shipped with — without it, switch defaults make untouched sections
+   * report themselves complete.
+   */
+  defaultValues?: any;
   summaryTitle?: string;
   summaryRows?: (values: any) => Array<{
     label: string;
@@ -51,6 +65,18 @@ export interface OnboardingWizardProps {
     isStrong?: boolean;
   }>;
 }
+
+/**
+ * Identity and foreign-key fields the wizard fills in itself. A seeded-but-empty
+ * education row still carries a `rowId`, and every document row is created with the
+ * `documentId` of the type it stands for — so scanning every cell reported those rows
+ * as "real content", and Education Details and Upload Documents went green before the
+ * user had typed a character or attached a file. A machine key is never evidence that
+ * a human filled something in.
+ */
+const IDENTITY_KEYS = new Set([
+  "rowId", "id", "_id", "key", "uuid", "documentId", "employeeId",
+]);
 
 /** Does a Formik value count as "filled"? Mirrors WizardSidebar's `hasValue`. */
 const hasValue = (v: any): boolean => {
@@ -60,14 +86,73 @@ const hasValue = (v: any): boolean => {
     if (v.length === 0) return false;
     // An array of objects counts only when at least one row has real content —
     // the wizard seeds blank rows, which must not read as completed.
-    return v.some((row) =>
-      row && typeof row === "object"
-        ? Object.values(row).some((cell) => hasValue(cell))
-        : hasValue(row)
-    );
+    return v.some((row) => hasValue(row));
   }
-  if (typeof v === "object") return Object.values(v).some((cell) => hasValue(cell));
+  if (typeof v === "object") {
+    return Object.entries(v).some(([key, cell]) => !IDENTITY_KEYS.has(key) && hasValue(cell));
+  }
   return true;
+};
+
+/**
+ * Take the user to the thing that is blocking them.
+ *
+ * Telling someone "complete the required fields in this section" and leaving them to
+ * find it is the difference between a form that guides and one that scolds — on a
+ * long section the offending field is often off-screen entirely. This resolves the
+ * first error to a real DOM node, scrolls it into view and focuses it.
+ *
+ * `fieldPath` is a Formik path, which may be nested (`addressInfo.presentCity`) or
+ * indexed (`familyInfo.0.name`), so several selectors are tried before giving up.
+ * The last resort is the section's own inline error text — that is what catches a
+ * structural requirement like Approval Settings, which has no single input to blame.
+ */
+const focusFieldOrError = (fieldPath: string | null) => {
+  const candidates: string[] = [];
+  if (fieldPath) {
+    candidates.push(`[name="${fieldPath}"]`);
+    // Formik's dotted path vs the bracketed name an array field may render with.
+    candidates.push(`[name="${fieldPath.replace(/\.(\d+)\./g, "[$1].")}"]`);
+    candidates.push(`#${CSS.escape(fieldPath)}`);
+    candidates.push(`[name^="${fieldPath}"]`);
+  }
+  // Any inline error currently on screen, in document order.
+  candidates.push("[data-required-error]", ".text-danger", "[aria-invalid='true']");
+
+  for (const selector of candidates) {
+    let element: HTMLElement | null = null;
+    try {
+      element = document.querySelector(selector) as HTMLElement | null;
+    } catch {
+      continue; // A malformed selector must not stop the remaining attempts.
+    }
+    if (!element) continue;
+
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Only inputs take focus; scrolling an error message into view is enough.
+    if (typeof (element as HTMLInputElement).focus === "function" && element.tagName !== "DIV") {
+      element.focus({ preventScroll: true });
+    }
+    return;
+  }
+};
+
+/** First error path inside a Formik error tree, as a dotted path. */
+const firstErrorPath = (errors: any, prefix = ""): string | null => {
+  if (!errors) return null;
+  if (typeof errors === "string") return prefix || null;
+  if (Array.isArray(errors)) {
+    for (let i = 0; i < errors.length; i += 1) {
+      if (errors[i]) return firstErrorPath(errors[i], `${prefix}.${i}`);
+    }
+    return null;
+  }
+  if (typeof errors === "object") {
+    const keys = Object.keys(errors);
+    if (!keys.length) return null;
+    return firstErrorPath(errors[keys[0]], prefix ? `${prefix}.${keys[0]}` : keys[0]);
+  }
+  return prefix || null;
 };
 
 const ParentProgressBadge = ({ completed, total, active, complete, error, index }: any) => {
@@ -128,6 +213,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   onCancel,
   onFinalSave,
   submitText,
+  defaultValues,
   summaryTitle = "Summary",
   summaryRows,
 }) => {
@@ -155,35 +241,69 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const isGroupExpanded = (groupId: string) =>
     manualExpanded[groupId] ?? groupId === activeGroup?.id;
 
+  // Crossing into a different group re-asserts the accordion: the group owning the
+  // active section opens, every other one closes. `manualExpanded` is an override
+  // that never expired, so a group the user had toggled by hand stayed pinned open
+  // even after Continue moved on to the next one — leaving two groups expanded.
+  // Clearing it on a group change hands control back to the activeGroup default,
+  // while manual toggles still work freely WITHIN the current group.
+  useEffect(() => {
+    setManualExpanded({});
+  }, [activeGroup?.id]);
+
   const scrollCanvasTop = useCallback(() => {
     document.querySelector(".wizard-step-canvas")?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
+  /**
+   * Is this section's data actually there? Pure data question — no notion of where
+   * the user is standing, which is what the progress figure needs. `leafStatus`
+   * below layers the visual states (active / error) on top of this.
+   */
+  const isLeafFilled = useCallback(
+    (leaf: OnboardingLeaf): boolean => {
+      if (leaf.isComplete) return leaf.isComplete(values);
+      const required = leaf.requiredFields ?? [];
+      if (required.length > 0) return required.every((f) => hasValue(values?.[f]));
+      if (leaf.fields.length === 0) return true;
+
+      // "Has a value" is not the same as "someone entered something". A brand-new
+      // form already carries `professionalFeesEnabled: "false"`, `tds2Type: "FIXED"`
+      // and similar switch defaults, so Financial Config reported itself complete
+      // before the admin had seen it — an empty form opened at 16%. A field counts
+      // only once it DIFFERS from the pristine form.
+      //
+      // Compared against the blank-form defaults rather than Formik's
+      // `initialValues`, which in edit mode is the loaded employee — that would make
+      // every existing employee read as 0% complete.
+      return leaf.fields.some((f) => {
+        const current = values?.[f];
+        if (!hasValue(current)) return false;
+        if (!defaultValues || !(f in defaultValues)) return true;
+        return JSON.stringify(current) !== JSON.stringify(defaultValues[f]);
+      });
+    },
+    [values, defaultValues]
+  );
+
   const leafStatus = useCallback(
-    (leaf: OnboardingLeaf, index: number): LeafStatus => {
+    (leaf: OnboardingLeaf): LeafStatus => {
       const hasError = leaf.fields.some(
         (f) => (errors as any)?.[f] && (touched as any)?.[f]
       );
       if (hasError) return "error";
       if (leaf.id === activeLeafId) return "active";
 
-      const required = leaf.requiredFields ?? [];
-      if (required.length > 0) {
-        return required.every((f) => hasValue(values?.[f])) ? "completed" : "pending";
-      }
-      // No hard requirement: complete once the user has engaged with it, or has
-      // simply moved past it — otherwise optional sections sit "pending" forever.
-      if (leaf.fields.length === 0) return "completed";
-      if (leaf.fields.some((f) => hasValue(values?.[f]))) return "completed";
-      return index < activeIndex ? "completed" : "pending";
+      // Green means "there is data here", nothing else. It used to also count
+      // `index < activeIndex` — a section went green just for being scrolled past,
+      // so clicking Continue through an empty form drove the progress bar up with
+      // nothing filled in.
+      return isLeafFilled(leaf) ? "completed" : "pending";
     },
-    [errors, touched, values, activeLeafId, activeIndex]
+    [errors, touched, activeLeafId, isLeafFilled]
   );
 
-  const statuses = useMemo(
-    () => leaves.map((leaf, i) => leafStatus(leaf, i)),
-    [leaves, leafStatus]
-  );
+  const statuses = useMemo(() => leaves.map((leaf) => leafStatus(leaf)), [leaves, leafStatus]);
 
   /**
    * Does this leaf actually STOP forward navigation?
@@ -199,13 +319,17 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
    */
   const isBlocking = useCallback(
     (leaf: OnboardingLeaf) => {
+      if (leaf.isComplete) return !leaf.isComplete(values);
       const required = leaf.requiredFields ?? [];
       return required.length > 0 && !required.every((f) => hasValue(values?.[f]));
     },
     [values]
   );
 
-  const completedCount = statuses.filter((s) => s === "completed").length;
+  // Counted from the data, not from `statuses` — a section you are standing IN
+  // reports "active", so counting statuses left the last section you filled out of
+  // the total until you navigated away from it.
+  const completedCount = leaves.filter((leaf) => isLeafFilled(leaf)).length;
   const progressPct = leaves.length ? Math.round((completedCount / leaves.length) * 100) : 0;
 
   const goToLeaf = useCallback(
@@ -274,9 +398,23 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       )
     );
 
-    if (blocked) {
+    // A structural requirement has no Yup rule to trip — `approvalChains` is a plain
+    // object the schema says nothing about — so Continue walked straight past a section
+    // that was visibly marked required. Only leaves that opt in via `isComplete` are
+    // checked here; `requiredFields` keeps flowing through the schema as before.
+    const incomplete = Boolean(activeLeaf?.isComplete) && isBlocking(activeLeaf);
+
+    if (blocked || incomplete) {
       ownFields.forEach((f) => setFieldTouched(f, true));
       toast.error("Please complete the required fields in this section before continuing.");
+
+      // Then take them to it. Touching the fields above is what renders the inline
+      // errors, so this runs on the next frame — the element to scroll to does not
+      // exist until React has painted them.
+      const offending = ownFields
+        .map((field) => firstErrorPath((formErrors as any)?.[field], field))
+        .find(Boolean) ?? null;
+      window.requestAnimationFrame(() => focusFieldOrError(offending));
       return;
     }
 
@@ -295,15 +433,22 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
   const rows = summaryRows ? summaryRows(values) : [];
 
+  // Same precedence the Personal Details section uses: a just-picked photo shows
+  // from the host's object URL immediately, before any upload round-trip, and
+  // `values.avatar` (the saved URL) takes over once there is no pending file.
+  // Reading `values.avatar` alone left the header on the placeholder icon until
+  // the whole employee was saved and refetched.
+  const headerAvatar = sectionProps?.profilePhotoPreview || values.avatar;
+
   return (
     <div className="enterprise-wizard ob-wizard-root" data-form-module="onboarding">
       {/* ═══ STICKY HEADER ═══════════════════════════════════════════════ */}
       <div className="wizard-header">
         <div className="wizard-header-left">
           <div className="wizard-title-row">
-            <div className="wizard-header-avatar">
-              {values.avatar ? (
-                <img src={values.avatar} alt="Profile" className="ob-header-avatar-img" />
+            <div className={`wizard-header-avatar${headerAvatar ? " wizard-header-avatar--photo" : ""}`}>
+              {headerAvatar ? (
+                <img src={headerAvatar} alt="Profile" className="ob-header-avatar-img" />
               ) : (
                 <i className="bi bi-person-badge" />
               )}

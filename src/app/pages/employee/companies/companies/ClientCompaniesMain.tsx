@@ -119,7 +119,7 @@ const ClientCompaniesMain = ({
               const emp = ref.internalReferenceEmployee;
               if (!emp) return ref.internalReferenceEmployeeId;
               if (emp.users) return `${emp.users.firstName} ${emp.users.lastName}`;
-              return emp.nickName || ref.internalReferenceEmployeeId;
+              return ref.internalReferenceEmployeeId;
             })
             .join(", ") || "N/A";
         const externalRefs =

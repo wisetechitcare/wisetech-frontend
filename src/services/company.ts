@@ -349,6 +349,22 @@ export const updateDepartmentById = async (departmentId: string, payload: ICompa
     }
 }
 
+/**
+ * Retires a department. The route is an ARCHIVE (it flips isActive), not a row delete —
+ * employees reference departmentId, so removing the row would strip the department off
+ * their records. Retired departments drop out of the pickers.
+ */
+export const archiveDepartmentById = async (departmentId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.ARCHIVE_DEPARTMENT_BY_ID(departmentId)}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const fetchConfiguration = async (
     module: string,
     startDate?: string,

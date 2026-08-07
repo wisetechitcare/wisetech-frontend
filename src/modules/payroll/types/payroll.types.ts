@@ -68,7 +68,7 @@ export interface PayrollArrear {
     arrearDirection: 'POSITIVE' | 'NEGATIVE';
     status: 'PENDING' | 'APPROVED' | 'INCLUDED_IN_PAYROLL' | 'PROCESSED' | 'VOIDED';
     notes?: string;
-    employee?: { id: string; nickName: string; companyEmailId: string };
+    employee?: { id: string; companyEmailId: string };
 }
 
 // 'PAID' = a salary that has received payment; it is immutable (frozen against payroll

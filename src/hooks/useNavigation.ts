@@ -160,6 +160,18 @@ export function useNavigation() {
         fontIcon: 'bi-file-earmark-text',
         visible: !isSectionBlocked('users') && hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers),
       },
+      {
+        // Everyone's own file, alongside "My Attendance & Leaves". Deliberately
+        // ungated: it resolves to the signed-in employee server-side, so there is no
+        // permission to check — and the company-wide Documents entry above is the one
+        // that needs the readOthers gate.
+        type: 'item',
+        id: 'my-documents',
+        to: '/my-documents',
+        title: 'My Documents',
+        fontIcon: 'bi-folder2-open',
+        visible: !isSectionBlocked('users'),
+      },
       // Promoted out of the Organization group to top level, as in NAV_CONFIG.
       {
         type: 'item',
@@ -423,14 +435,10 @@ export function useNavigation() {
         fontIcon: 'bi-images',
         visible: isSubsectionVisible('settings.media', hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
       },
-      {
-        type: 'item',
-        id: 'org-onboarding',
-        to: '/company/onboardingDocs',
-        title: 'Onboarding Docs',
-        fontIcon: 'bi-file-earmark-text',
-        visible: isSubsectionVisible('settings.onboarding', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-      },
+      // Onboarding Docs moved to HR & People → Employees → Configure, alongside the
+      // rest of the onboarding configuration. Listing it here as well would put the
+      // same screen in two modules, which is the wandering this consolidation removes.
+      // The route still resolves, so existing bookmarks keep working.
       {
         type: 'item',
         id: 'org-teams',

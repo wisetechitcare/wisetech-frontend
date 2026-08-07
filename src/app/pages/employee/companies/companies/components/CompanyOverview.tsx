@@ -11,7 +11,7 @@ import dayjs from "dayjs";
 const auditName = (rel: any): string => {
   if (!rel) return "N/A";
   const full = [rel?.users?.firstName, rel?.users?.lastName].filter(Boolean).join(" ").trim();
-  return full || rel?.nickName || "N/A";
+  return full || "N/A";
 };
 interface OverviewProps {
   company: Company;

@@ -12,6 +12,9 @@ export * from './buttons';
 export { WtSwitch, WtSwitchField, wtSwitchSx } from './switch';
 export type { WtSwitchProps, WtSwitchFieldProps, WtSwitchSize } from './switch';
 export { ToneChip, toneAlpha } from './chips';
+
+export { default as ActionIconButton } from './ActionIconButton';
+export type { ActionIconButtonProps, ActionTone } from './ActionIconButton';
 export type { ToneChipProps } from './chips';
 export {
   glassSx, GlassSurface, GlassDialog, GlassHeader, GlassCard, GlassTransition,

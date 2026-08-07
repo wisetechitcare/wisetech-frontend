@@ -132,7 +132,7 @@ const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, onRemo
 
   return (
     <div className="ob-photo-section ob-photo-section--vertical">
-      {/* Drop zone wrapped so remove button can sit outside the clipped circle */}
+      {/* Wrapper keeps the circle from shrinking inside the flex column */}
       <div className="ob-dropzone-wrapper">
         <div
           {...getRootProps()}
@@ -164,31 +164,35 @@ const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, onRemo
           )}
         </div>
 
-        {hasPhoto && (
-          <>
-            <button
-              type="button"
-              className="ob-photo-view-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowModal(true);
-              }}
-              aria-label="View photo"
-            >
-              <Eye size={12} />
-            </button>
-            <button
-              type="button"
-              className="ob-photo-remove-btn"
-              onClick={removePhoto}
-              aria-label="Remove photo"
-            >
-              <X size={12} />
-            </button>
-          </>
-        )}
       </div>
-      
+
+      {/* Photo actions live BELOW the circle, not floating on top of it — labelled
+          buttons read as controls, whereas the old overlay dots read as decoration
+          and clipped against the avatar's rounded edge. Only rendered with a photo. */}
+      {hasPhoto && (
+        <div className="ob-photo-actions">
+          <button
+            type="button"
+            className="ob-photo-action-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowModal(true);
+            }}
+          >
+            <Eye size={13} />
+            <span>Preview</span>
+          </button>
+          <button
+            type="button"
+            className="ob-photo-action-btn ob-photo-action-btn--danger"
+            onClick={removePhoto}
+          >
+            <X size={13} />
+            <span>Remove</span>
+          </button>
+        </div>
+      )}
+
       {/* Helper text below drop zone */}
       <div className="ob-photo-meta">
         <p className="ob-photo-meta-title">Profile Photo</p>

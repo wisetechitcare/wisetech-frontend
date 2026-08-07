@@ -594,6 +594,28 @@ export const createQualificationMaster = async (payload: { name: string }) => {
     }
 }
 
+export const updateQualificationMaster = async (id: string, payload: { name: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_QUALIFICATION_MASTER(id)}`;
+        const { data } = await axios.put(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const deleteQualificationMaster = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.DELETE_QUALIFICATION_MASTER(id)}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const updateRejoinHistoryDetails = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_REJOIN_HISTORY_BY_ID}?id=${id}`;
@@ -659,6 +681,185 @@ export const fetchEmployeeProfileData = async (employeeId: string) => {
         throw err;
     }
 }
+
+/* ── Document vault ───────────────────────────────────────────────────────────
+   Two reads behind the Documents module. The directory is the HR landing list;
+   the vault is everything held on ONE person, joined server-side from the five
+   tables that each store a file next to the data it belongs to. */
+
+export interface DocumentsDirectoryEntry {
+    id: string;
+    /** Human-facing code (e.g. "WT-60"). */
+    employeeCode: string | null;
+    name: string;
+    avatar: string | null;
+    dateOfJoining: string | null;
+    dateOfExit: string | null;
+    jobProfile: string | null;
+    branch: { id: string; name: string } | null;
+    subOrganization: { id: string; name: string } | null;
+    documentCount: number;
+    lastUpdatedAt: string | null;
+}
+
+export type VaultDocumentCategory = 'onboarding' | 'identity' | 'signature' | 'bank' | 'education';
+
+export interface VaultDocument {
+    id: string;
+    category: VaultDocumentCategory;
+    title: string;
+    subtitle: string | null;
+    path: string;
+    fileName: string | null;
+    identityNumber: string | null;
+    uploadedAt: string | null;
+}
+
+export interface DocumentVault {
+    employee: {
+        id: string;
+        /** Human-facing code (e.g. "WT-60"). */
+        employeeCode: string | null;
+        name: string;
+        email: string | null;
+        avatar: string | null;
+        jobProfile: string | null;
+        dateOfJoining: string | null;
+        dateOfExit: string | null;
+        branch: { id: string; name: string } | null;
+        subOrganization: { id: string; name: string } | null;
+    };
+    documents: VaultDocument[];
+}
+
+export const fetchDocumentsDirectory = async (params: {
+    subOrganizationId?: string;
+    branchId?: string;
+    search?: string;
+    /** 'active' (still employed) or 'inactive' (has left). Omit for everyone. */
+    status?: 'active' | 'inactive';
+} = {}) => {
+    try {
+        const query = new URLSearchParams();
+        if (params.subOrganizationId) query.set('subOrganizationId', params.subOrganizationId);
+        if (params.branchId) query.set('branchId', params.branchId);
+        if (params.search) query.set('search', params.search);
+        if (params.status) query.set('status', params.status);
+
+        const suffix = query.toString() ? `?${query}` : '';
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_DOCUMENTS_DIRECTORY}${suffix}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/**
+ * `employeeId` may be the literal "me", which the backend resolves to the caller.
+ * That is what the employee's OWN Documents screen uses — it never sends an id, so
+ * it can never be pointed at somebody else.
+ */
+export const fetchDocumentVault = async (employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_DOCUMENT_VAULT}/${employeeId}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/* ── Employee ID card ─────────────────────────────────────────────────────────
+   The print-ready card for one employee, every field sourced from the onboarding
+   record. The photo and org logo arrive as base64 `data:` URIs rather than S3 URLs
+   — the card is rasterised to PNG through a <canvas> for the download, and a
+   cross-origin image would taint that canvas and make `toBlob()` throw. */
+export interface EmployeeIdCardDetails {
+    id: string;
+    fullName: string;
+    employeeCode: string | null;
+    designation: string | null;
+    department: string | null;
+    branch: string | null;
+    /** ISO `YYYY-MM-DD`. Format for display with `formatDate` at the render site. */
+    dateOfJoining: string | null;
+    phone: string | null;
+    email: string | null;
+    bloodGroup: string | null;
+    emergencyContactName: string | null;
+    emergencyContactNumber: string | null;
+    photo: string | null;
+    isActive: boolean;
+}
+
+export interface EmployeeIdCardOrganization {
+    name: string | null;
+    logo: string | null;
+    /**
+     * The logo's intrinsic dimensions, read server-side from its header. The card
+     * needs them to size the logo box itself: SVG's own auto-fitting aligns a raster
+     * logo and an SVG logo differently, so two sub-organizations whose marks are in
+     * different formats would not share a left edge. Null when unreadable — the card
+     * then falls back to letting the browser fit it.
+     */
+    logoWidth: number | null;
+    logoHeight: number | null;
+}
+
+export interface EmployeeIdCardPayload {
+    employee: EmployeeIdCardDetails;
+    organization: EmployeeIdCardOrganization;
+}
+
+/**
+ * `employeeId` may be the literal "me", which the backend resolves to the caller —
+ * that is how an employee pulls their own card without a cross-employee permission.
+ */
+export const fetchEmployeeIdCard = async (employeeId: string): Promise<EmployeeIdCardPayload> => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_ID_CARD}/${employeeId}`;
+        const { data } = await axios.get(endpoint);
+        return data.data as EmployeeIdCardPayload;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/**
+ * Every document for one employee as a single zip.
+ *
+ * The archive is built on the SERVER — zipping in the browser would mean fetching
+ * each file from S3 with JavaScript, which needs a CORS grant per origin and fails
+ * outright on any object that is not public. Comes back as a blob so the caller can
+ * hand it straight to a download.
+ */
+/**
+ * One document's bytes, served from our own origin as an attachment.
+ *
+ * Not a direct S3 link: the browser IGNORES `<a download>` on a cross-origin URL and
+ * navigates to the file instead, so a PDF opened in a tab rather than saving. The API
+ * resolves the key from the employee's own vault and sets Content-Disposition.
+ */
+export const downloadDocumentFile = async (employeeId: string, documentId: string): Promise<Blob> => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_DOCUMENT_FILE}/${employeeId}/file/${encodeURIComponent(documentId)}`;
+        const { data } = await axios.get(endpoint, { responseType: 'blob' });
+        return data as Blob;
+    } catch (err) {
+        throw err;
+    }
+};
+
+export const downloadDocumentArchive = async (employeeId: string): Promise<Blob> => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_DOCUMENT_ARCHIVE}/${employeeId}/archive`;
+        const { data } = await axios.get(endpoint, { responseType: 'blob' });
+        return data as Blob;
+    } catch (err) {
+        throw err;
+    }
+};
 
 export const fetchEmployeeDocuments = async (employeeId: string) => {
     try {

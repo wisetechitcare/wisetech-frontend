@@ -2,6 +2,21 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  /* Stacking anchor for the country dropdown. Raising only the inner (absolutely
+     positioned) list is not enough: it still paints inside THIS element's slot in the
+     parent's order, so a row rendered after the phone field — the social-URL row — drew
+     straight over it. Lifting the wrapper moves the whole subtree up together.
+     A flat 1 is enough to clear sibling rows (which are all `auto`) and is low enough
+     not to sit over the wizard's sticky header, footer or modals. */
+  position: relative;
+  z-index: 1;
+}
+
+/* While the list is actually open, clear anything else in the form outright. Scoped to
+   `.open` so a closed phone field never outranks a neighbouring popover or datepicker.
+   :has() is a progressive enhancement — the base z-index above already does the job. */
+.phone-number-input:has(.flag-dropdown.open) {
+  z-index: 1300;
 }
 
 /* Outer container – also gets .react-tel-input from the library */
@@ -23,9 +38,9 @@
   border-color: #f1416c !important;
 }
 
-/* Input field – leave room for the 56px flag button. padding-left is a few px past the
-   button's own width so the dropdown caret icon at its right edge doesn't visually
-   overlap the "+91" prefix at the start of the typed value.
+/* Input field – leave room for the flag button, which now carries the dial code too and
+   so is sized from --phone-dial-w (set inline per dial code). The number starts clear of
+   the dropdown caret at the button's right edge.
    Selector specificity note: the wizard's global Step2.css has
    `.ob-wizard-root input[type="tel"] { padding: ... !important }`, which — being a
    class+type+attribute selector — outranks a plain `.phone-input-field` class selector
@@ -44,7 +59,7 @@
   font-family: inherit !important;
   color: inherit !important;
   border-radius: 0 8px 8px 0 !important;
-  padding-left: 68px !important;
+  padding-left: calc(48px + var(--phone-dial-w, 3ch) + 14px) !important;
 }
 
 .phone-input-container .form-control::placeholder,
@@ -61,7 +76,7 @@
   background: transparent !important;
 }
 
-/* Flag dropdown button */
+/* Flag dropdown button — holds flag + dial code + caret, so it grows with the code */
 .phone-input-container .flag-dropdown,
 .phone-input-button {
   border: none !important;
@@ -70,25 +85,81 @@
   border-radius: 8px 0 0 8px !important;
   top: 0 !important;
   bottom: 0 !important;
-  width: 56px !important;
+  width: calc(48px + var(--phone-dial-w, 3ch)) !important;
   position: absolute !important;
 }
 
-/* Selected flag area inside the button */
+/* Selected flag area inside the button — lays out as [flag] [+code], with the caret
+   pinned to the right edge. `position: relative` makes this the caret's anchor. */
 .phone-input-container .selected-flag {
   background: transparent !important;
   border-radius: 8px 0 0 8px !important;
-  padding: 0 8px 0 10px !important;
+  position: relative !important;
+  /* Right padding is the caret's lane: 6px gap after the code + ~4px glyph + 6px to the
+     divider. The box is sized to exactly that content, so the row reads as one evenly
+     spaced group — an oversized box left slack that pooled between the code and the
+     caret and pushed the caret hard against the divider.
+     10 (pad) + 16 (flag) + 6 (gap) + code + 16 (right lane) = 48px + code. */
+  padding: 0 16px 0 10px !important;
   height: 44px !important;
-  width: 56px !important;
+  width: calc(48px + var(--phone-dial-w, 3ch)) !important;
   display: flex !important;
   align-items: center !important;
+  gap: 6px !important;
+}
+
+/* The library absolutely positions .flag out of the flow; make it a real flex item so
+   the dial code can sit beside it rather than on top of it. */
+.phone-input-container .selected-flag .flag {
+  position: static !important;
+  top: auto !important;
+  margin-top: 0 !important;
+  flex: 0 0 auto !important;
+}
+
+.phone-input-container .selected-flag::after {
+  content: var(--phone-dial-code, '');
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #3f4254;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* The caret is a CHILD of .flag, and the library clears the 16px flag by nudging it
+   with `left: 20px` off its relative origin. Once .flag joins the flex row that offset
+   no longer lands anywhere sensible — dropping it (as a plain `left: auto`) collapses
+   the caret back onto the flag image, drawing a triangle over the top-right corner of
+   the flag. Pinning it absolutely to the button's right edge fixes the position for
+   good, and works whether the caret is nested inside .flag or a sibling of it. */
+.phone-input-container .selected-flag .arrow {
+  position: absolute !important;
+  top: 50% !important;
+  right: 6px !important;
+  left: auto !important;
+  margin: -2px 0 0 0 !important;
+}
+
+/* Disabled inputs shouldn't advertise a clickable-looking code */
+.phone-input-container .selected-flag[aria-disabled='true']::after,
+.phone-number-input.is-disabled .selected-flag::after {
+  color: #a1a5b7;
 }
 
 .phone-input-container .selected-flag:hover,
 .phone-input-container .flag-dropdown.open .selected-flag {
   background: rgba(0, 0, 0, 0.03) !important;
   border-radius: 8px 0 0 8px !important;
+}
+
+/* The open dropdown has to out-rank the fields BELOW it. The library only gives
+   .country-list `z-index: 1`, and it hangs off .flag-dropdown, which has none at all —
+   so later siblings in the form (the social-URL row) painted straight over it. Raising
+   the positioned ancestor as well as the list is what actually lifts it, since a
+   z-index on the list alone still sits inside its parent's paint order. Only while
+   `.open` so a closed field never steals stacking from anything else. */
+.phone-input-container .flag-dropdown.open {
+  z-index: 1300 !important;
 }
 
 /* Country list dropdown */
