@@ -285,6 +285,45 @@ export const fetchWorkingMethods = async () => {
     }
 }
 
+/** Single create. The bulk POST /working-methods seeds a company; this adds one. */
+export const createWorkingMethod = async (payload: { type: string; companyId: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.CREATE_WORKING_METHOD}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const updateWorkingMethodById = async (id: string, payload: { type: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.UPDATE_WORKING_METHOD(id)}`;
+        const { data } = await axios.put(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+/**
+ * Deletes outright — this table has no isActive column. The server refuses while any
+ * employee or attendance record still points at it, because every relation to it is
+ * `onDelete: Cascade` and an unguarded delete would take attendance history with it.
+ */
+export const deleteWorkingMethodById = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.DELETE_WORKING_METHOD(id)}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const fetchAllReimbursementTypes = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${OPTIONS.GET_ALL_REIMBURSEMENT_TYPES}`;

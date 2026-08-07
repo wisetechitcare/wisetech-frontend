@@ -5,7 +5,7 @@ import {
 import { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { deleteConfirmation } from "@utils/modal";
+import { deleteConfirmation, errorConfirmation } from "@utils/modal";
 import EmployeeConfigureForm from "./EmployeeConfigureForm";
 import QualificationConfigureForm, { QualificationItem } from "./QualificationConfigureForm";
 import JobProfileConfigureForm, { JobProfileItem } from "./JobProfileConfigureForm";
@@ -16,7 +16,9 @@ import { resolveActiveOrgId } from "@utils/activeOrg";
 import Loader from "@app/modules/common/utils/Loader";
 import { ActionIconButton } from "@app/modules/common/components/ui";
 import DepartmentConfigureForm, { DepartmentItem } from "./DepartmentConfigureForm";
+import WorkingTypeConfigureForm, { WorkingTypeItem } from "./WorkingTypeConfigureForm";
 import { fetchAllDepartments, archiveDepartmentById } from "@services/company";
+import { fetchWorkingMethods, deleteWorkingMethodById } from "@services/options";
 import OrganizationConfigure from "@pages/company/masters/OrganizationConfigure";
 import {
   ConfigPageLayout,
@@ -41,6 +43,7 @@ const CONFIG_TABS = [
   { id: "job-profiles", label: "Job Profiles", icon: "bi-briefcase" },
   { id: "departments", label: "Departments", icon: "bi-diagram-2" },
   { id: "shifts", label: "Shifts", icon: "bi-clock" },
+  { id: "working-types", label: "Working Location Types", icon: "bi-geo" },
   { id: "employee-types", label: "Employee Types", icon: "bi-people" },
   { id: "experience-levels", label: "Experience Levels", icon: "bi-diagram-3" },
   { id: "employee-status", label: "Employee Status", icon: "bi-check-circle" },
@@ -83,6 +86,12 @@ const EmployeeConfigure = () => {
   const [employeeStatuses, setEmployeeStatuses] = useState<EmployeeConfigItem[]>([]);
   const [showEmployeeStatusModal, setShowEmployeeStatusModal] = useState(false);
   const [editingEmployeeStatus, setEditingEmployeeStatus] = useState<EmployeeConfigItem | null>(null);
+
+  // Working location types — company_working_methods, its own endpoints.
+  const [workingTypes, setWorkingTypes] = useState<WorkingTypeItem[]>([]);
+  const [showWorkingTypeModal, setShowWorkingTypeModal] = useState(false);
+  const [editingWorkingType, setEditingWorkingType] = useState<WorkingTypeItem | null>(null);
+  const [workingTypeCompanyId, setWorkingTypeCompanyId] = useState<string | undefined>(undefined);
 
   // Departments — own table/endpoints, not employee_configurations.
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
@@ -214,6 +223,49 @@ const EmployeeConfigure = () => {
       console.error("Error fetching job profiles:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Working location type handlers
+  const handleWorkingTypeModalOpen = () => setShowWorkingTypeModal(true);
+  const handleWorkingTypeModalClose = () => {
+    setShowWorkingTypeModal(false);
+    setEditingWorkingType(null);
+  };
+  const handleWorkingTypeEdit = (workingType: WorkingTypeItem) => {
+    setEditingWorkingType(workingType);
+    setShowWorkingTypeModal(true);
+  };
+
+  const fetchWorkingTypes = async () => {
+    try {
+      setLoading(true);
+      const response = await fetchWorkingMethods();
+      const rows = response?.data?.workingMethods || [];
+      // The column is `type`; mapped to `name` so ItemChip renders it unchanged.
+      setWorkingTypes(
+        rows.map((w: any) => ({ id: w.id, name: w.type, companyId: w.companyId }))
+      );
+      setWorkingTypeCompanyId(rows[0]?.companyId);
+    } catch (error) {
+      console.error("Error fetching working location types:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWorkingTypeDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation("Successfully deleted working location type");
+      if (!confirmed) return;
+      await deleteWorkingMethodById(id);
+      fetchWorkingTypes();
+    } catch (error: any) {
+      // The server refuses while employees or attendance still reference it — that
+      // message names the count, so show it rather than failing silently.
+      errorConfirmation(
+        error?.response?.data?.message || "Could not delete this working location type."
+      );
     }
   };
 
@@ -352,6 +404,7 @@ const EmployeeConfigure = () => {
     fetchEmployeeStatuses();
     fetchQualifications();
     fetchDepartments();
+    fetchWorkingTypes();
   }, []);
 
   // Delete handler
@@ -545,6 +598,42 @@ const EmployeeConfigure = () => {
           </ConfigSectionCard>
           )}
 
+          {/* Working Location Types — company_working_methods. This list had no
+              management screen at all: only a bulk seed endpoint existed, so whatever
+              a company shipped with could never be changed. The WORKING_TYPE entry
+              under Organization Config looks like it belongs to this field but feeds
+              nothing. */}
+          {activeTab === 'working-types' && (
+          <ConfigSectionCard
+            title="Working Location Types"
+            description="Options offered in the onboarding Working Location Type picker"
+            icon="bi-geo"
+            iconColor="primary"
+            badge={{ label: `${workingTypes.length}`, color: C.primary, bg: C.primaryLight }}
+            loading={loading}
+            primaryAction={{ label: 'New Working Location Type', icon: 'bi-plus-lg', onClick: handleWorkingTypeModalOpen, variant: 'primary' }}
+          >
+            <div style={{ marginTop: SP.md }}>
+              {workingTypes.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted }}>
+                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No working location types created yet</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
+                  {workingTypes.map((workingType) => (
+                    <ItemChip
+                      key={workingType.id}
+                      item={workingType}
+                      onEdit={handleWorkingTypeEdit}
+                      onDelete={handleWorkingTypeDelete}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </ConfigSectionCard>
+          )}
+
           {/* Employee Types Section */}
           {activeTab === 'employee-types' && (
           <ConfigSectionCard
@@ -715,6 +804,16 @@ const EmployeeConfigure = () => {
         isEditing={!!editingEmployeeStatus}
         type="EMPLOYEE_STATUS"
         title="Employee Status"
+      />
+
+      {/* Working Location Type Modal */}
+      <WorkingTypeConfigureForm
+        show={showWorkingTypeModal}
+        onClose={handleWorkingTypeModalClose}
+        onSuccess={fetchWorkingTypes}
+        initialData={editingWorkingType}
+        isEditing={!!editingWorkingType}
+        companyId={workingTypeCompanyId}
       />
 
       {/* Department Modal — departments carry a code and description, so they can't
