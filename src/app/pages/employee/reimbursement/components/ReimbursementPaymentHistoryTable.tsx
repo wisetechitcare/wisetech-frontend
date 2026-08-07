@@ -28,11 +28,14 @@ interface ReimbursementPaymentHistoryTableProps {
     periodDate?: dayjs.Dayjs;
 }
 
+// Rows and footers render the SAME column, so they must agree to the paisa. `formatINR`
+// used maximumFractionDigits: 0 while the row formatter used 2 — a footer literally did not
+// equal the sum of the rows above it.
 const formatINR = (val: number) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 
 function fmtAmount(n: number | string) {
-    return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtDate(d?: string) {
@@ -310,7 +313,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                     <span
                         className="fw-bolder fs-6"
                         style={{
-                            color: Number(renderedCellValue) > 0.005 ? '#1E3A8A' : '#16a34a',
+                            color: Number(renderedCellValue) > 0 ? '#1E3A8A' : '#16a34a',
                         }}
                     >
                         ₹{fmtAmount(Number(renderedCellValue))}

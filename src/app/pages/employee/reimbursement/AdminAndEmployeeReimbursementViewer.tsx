@@ -12,6 +12,7 @@ import { useDispatch } from "react-redux";
 import ReimbursementConfiguration from "./views/admin/ReimbursementConfiguration";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
+import { can } from "@utils/can";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 
 
@@ -47,12 +48,16 @@ function AdminAndEmployeeReimbursementViewer() {
       component: <SearchEmployee />,
       icon: 'bi-search',
     }]:[]),
-    ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
+    // Payment and Configure are WRITE surfaces — recording payouts, and rewriting expense
+    // categories and per-employee spending limits. All five tabs used to gate on `readOthers`
+    // (`finance.view.team`), so anyone who could view the team could also pay and reconfigure.
+    // These two now require an explicit finance write grant.
+    ...(can('finance.manage.team') ? [{
       title: "Payment",
       component: <PaymentTab />,
       icon: 'bi-credit-card',
     }]:[]),
-    ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
+    ...(can('finance.manage.all') ? [{
       title: "Configure",
       component: <ReimbursementConfiguration />,
       icon: 'bi-gear',

@@ -173,7 +173,9 @@ function Reimbursement() {
     let approvedAmt = 0, pendingAmt = 0, rejectedAmt = 0, paidAmt = 0, remainingAmt = 0;
     data.forEach((ele) => {
       if (ele.id) {
-        const amt = parseInt(ele.amount ?? "0");
+        // `amount` is a Decimal(10,2) serialised as a string. parseInt("1234.75") -> 1234,
+        // so every KPI below was short by up to ₹0.99 per row, compounding with row count.
+        const amt = Number(ele.amount ?? 0) || 0;
         totalAmount += amt;
         totalRequest += 1;
         if (ele.status === "Pending") {

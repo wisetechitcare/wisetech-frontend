@@ -24,7 +24,7 @@ import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 
 function fmtAmount(n: number | string) {
-  return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  return Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtDate(d?: string) {
@@ -32,11 +32,15 @@ function fmtDate(d?: string) {
   return dayjs(d).format('DD MMM YYYY');
 }
 
+// Rows and footers render the SAME column, so they must agree to the paisa. `formatINR`
+// used maximumFractionDigits: 0 while the row formatter used 2 — a footer literally did not
+// equal the sum of the rows above it.
 const formatINR = (val: number) =>
   new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(val);
 
 function resolveStatusNum(s: any): number {
@@ -626,7 +630,7 @@ function PaymentDoneTable({
       size: 210,
       Cell: ({ row, renderedCellValue }: any) => (
         <span className="fw-bolder fs-6" style={{
-          color: Number(row.original.totalRemainingAmount) > 0.005 ? '#1E3A8A' : '#16a34a',
+          color: Number(row.original.totalRemainingAmount) > 0 ? '#1E3A8A' : '#16a34a',
         }}>
           ₹{fmtAmount(Number(renderedCellValue))}
         </span>
@@ -1015,7 +1019,9 @@ function MarkAsPaidModal({
       setAmountError('Enter a valid amount greater than 0');
       return;
     }
-    if (val > remainingAmount + 0.005) {
+    // The server now compares with exact Decimal arithmetic, so a client-side epsilon would
+    // accept an amount the server then rejects. Compare exactly on both sides.
+    if (val > remainingAmount) {
       setAmountError(`Amount cannot exceed remaining balance of ₹${fmtAmount(remainingAmount)}`);
       return;
     }
@@ -1039,7 +1045,7 @@ function MarkAsPaidModal({
     }
   };
 
-  const isPartial = editedAmount < remainingAmount - 0.005;
+  const isPartial = editedAmount < remainingAmount;
 
   return (
     <Modal show={!!batch} onHide={onClose} centered>
@@ -1514,7 +1520,7 @@ function PaymentTab() {
       return;
     }
     const remaining = Number(batch.remainingAmount ?? batch.totalAmount ?? 0);
-    const isPartial = amount < remaining - 0.005;
+    const isPartial = amount < remaining;
 
     try {
       await createReimbursementPayment({

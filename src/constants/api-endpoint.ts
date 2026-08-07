@@ -233,7 +233,6 @@ export const EMPLOYEE = {
     GET_REIMBURSEMENT_PAYMENTS: "api/employee/reimbursement/payment",
     DELETE_REIMBURSEMENT_PAYMENT: "api/employee/reimbursement/payment",
     UPDATE_REIMBURSEMENT_PAYMENT: "api/employee/reimbursement/payment",
-    CREATE_ADVANCE_REIMBURSEMENT_PAYMENT: "api/employee/reimbursement/advance-payment",
     GET_EMPLOYEE_DISCRETIONARY_BALANCE: "api/employee/discretionary-balance/:id",
     EMAIL_ATTENDANCE_REQUEST_LIMIT_RESET: "api/employee/email/attendance-request-limit-reset",
     GET_ATTENDANCE_REQUEST_LIMIT_RESET_REQUESTS: "api/employee/attendance-request-limit-reset/requests",

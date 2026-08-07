@@ -2168,23 +2168,6 @@ export const updateReimbursementPaymentById = async (id: string, payload: {
     }
 }
 
-export const createAdvanceReimbursementPayment = async (payload: {
-    employeeId: string;
-    amountPaid: number;
-    paymentDate: string;
-    paymentMethod: string;
-    transactionId?: string;
-    remarks?: string;
-}) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_ADVANCE_REIMBURSEMENT_PAYMENT}`;
-        const { data } = await axios.post(endpoint, payload);
-        return data?.data?.payment;
-    } catch (err) {
-        throw err;
-    }
-}
-
 export const getAllEmployeeWithMonthDailyHourlySalary = async (id?: string, date?: string) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE_WITH_MONTH_DAILY_HOURLY_SALARY}`;

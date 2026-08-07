@@ -3,6 +3,7 @@ import { C, FONT, RADIUS, ConfigSectionCard } from "@app/modules/configuration";
 import { IReimbursementEmployeeLimit } from "@models/employee";
 import { fetchReimbursementEmployeeLimits } from "@services/options";
 import { updateEmployee } from "@services/employee";
+import { can } from "@utils/can";
 import { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
@@ -105,6 +106,12 @@ function ReimbursementEmployeeLimit() {
 
   const handleSave = useCallback(
     async (row: IReimbursementEmployeeLimit) => {
+      // Rewriting an employee's spending limit had no permission gate at all — reachable by
+      // anyone who could open this tab, which until now meant anyone with `finance.view.team`.
+      if (!can("finance.manage.all")) {
+        setEditError("You are not authorized to change spending limits.");
+        return;
+      }
       const trimmed = editValue.trim();
       if (trimmed === "") {
         setEditError("Amount is required.");
