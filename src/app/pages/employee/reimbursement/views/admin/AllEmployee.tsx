@@ -19,6 +19,7 @@ import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { Box } from '@mui/material';
 import ReimbursementSummaryCard from './ReimbursementSummaryCard';
+import LoadErrorState from '../../components/LoadErrorState';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 
@@ -71,6 +72,7 @@ function AllEmployee() {
   const [fiscalYear, setFiscalYear] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [reimbursements, setReimbursements] = useState<IReimbursementsFetch[]>([]);
+  const [loadError, setLoadError] = useState(false);
   const [employeeDetailMap, setEmployeeDetailMap] = useState<Map<string, EmployeeDetail>>(new Map());
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
   const [subOrgFilter, setSubOrgFilter] = useState('All');
@@ -124,6 +126,7 @@ function AllEmployee() {
       setReimbursements(data);
     } catch {
       setReimbursements([]);
+      setLoadError(true);
     } finally {
       setIsLoading(false);
     }
@@ -404,6 +407,9 @@ function AllEmployee() {
       {/* Employee-wise reimbursement table */}
       <div className="mt-5">
         <h1>{tableHeading}</h1>
+        {loadError && !isLoading ? (
+          <LoadErrorState what="employee reimbursements" onRetry={fetchReimbursements} />
+        ) : (
         <MaterialTable
           renderTopToolbarRightActions={() => <FilterToolbar />}
           renderExportActions={() => (
@@ -553,6 +559,7 @@ function AllEmployee() {
             }),
           }}
         />
+        )}
       </div>
     </>
   );

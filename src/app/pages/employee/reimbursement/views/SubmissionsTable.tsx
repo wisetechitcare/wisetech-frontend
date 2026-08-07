@@ -24,6 +24,7 @@ import { generateFiscalYearFromGivenYear } from '@utils/file';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import StatusFilterChips, { countByStatus } from '../components/StatusFilterChips';
 import RecordsEmptyState, { findExpensesElsewhere } from '../components/RecordsEmptyState';
+import LoadErrorState from '../components/LoadErrorState';
 import { resolveStatusNum as resolveStatus, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
 import { SkeletonTable } from '@app/modules/common/components/Skeleton';
 import { Dayjs } from 'dayjs';
@@ -712,6 +713,8 @@ function SubmissionsTable({
   // null = All. Defaults to All deliberately: a screen that silently narrows to approved is
   // the bug this replaces.
   const [statusFilter, setStatusFilter] = useState<StatusNum | null>(null);
+  // A failed fetch used to set rows to [], which renders exactly like an empty month.
+  const [loadError, setLoadError] = useState(false);
   // Every line the employee has, regardless of period — only used to tell an empty month
   // where its expenses actually are.
   const [allTimeLines, setAllTimeLines] = useState<any[]>([]);
@@ -757,6 +760,7 @@ function SubmissionsTable({
 
   const loadBatches = useCallback(async () => {
     setTableLoading(true);
+    setLoadError(false);
     const scopedEmpId = selectedEmployeeId || employeeId;
     if (!scopedEmpId) {
       setRows([]);
@@ -964,6 +968,7 @@ function SubmissionsTable({
     } catch {
       setRows([]);
       setUngroupedReimbursements([]);
+      setLoadError(true);
     } finally {
       setTableLoading(false);
     }
@@ -1132,6 +1137,8 @@ function SubmissionsTable({
 
       {tableLoading ? (
         <SkeletonTable rows={5} cols={6} />
+      ) : loadError ? (
+        <LoadErrorState what="your expenses" onRetry={() => setRefreshKey((k) => k + 1)} />
       ) : visibleRows.length === 0 ? (
         <RecordsEmptyState
           periodLabel={periodLabel}

@@ -8,6 +8,7 @@ import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
+import LoadErrorState from './LoadErrorState';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
@@ -76,6 +77,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
     const setCurrentDate = setOwnDate;
     const [fiscalYearLabel, setFiscalYearLabel] = useState('');
     const [payments, setPayments] = useState<(IReimbursementPayment & Record<string, any>)[]>([]);
+    const [historyError, setHistoryError] = useState(false);
     const [batchSubmissionMap, setBatchSubmissionMap] = useState<Map<string, string>>(new Map());
     const [batchApprovalMap, setBatchApprovalMap] = useState<Map<string, string | null>>(new Map());
     const [loading, setLoading] = useState(false);
@@ -135,6 +137,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
             setBatchApprovalMap(new Map(entries.map((e) => [e.id, e.approvalInstanceId])));
         } catch {
             setPayments([]);
+            setHistoryError(true);
         } finally {
             setLoading(false);
         }
@@ -366,6 +369,8 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                         <div className="d-flex justify-content-center align-items-center py-12">
                             <div className="spinner-border text-primary" role="status" />
                         </div>
+                    ) : historyError ? (
+                        <LoadErrorState what="your payment history" onRetry={loadPayments} />
                     ) : (
                         <MaterialTable
                             data={batchRows}

@@ -466,6 +466,9 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                   <label className="mb-3 fw-bold">Upload Reimbursement Bill</label>
                   <input
                     type="file"
+                    // Opens the camera directly on a phone instead of a file browser — a receipt is
+                    // something you photograph, not something you already have on disk.
+                    capture="environment"
                     accept="image/*,application/pdf"
                     className="form-control form-control-lg form-control-solid"
                     onChange={(e) => uploadFile(e, formikProps, 5 * 1024 * 1024)}

@@ -435,6 +435,7 @@ function PaymentDoneTable({
   const [filter, setFilter] = useState<PeriodFilter>('monthly');
   const [currentDate, setCurrentDate] = useState(dayjs());
   const [payments, setPayments] = useState<any[]>([]);
+  const [paymentsError, setPaymentsError] = useState(false);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
 
   const employeeMap = useMemo(() => {
@@ -511,6 +512,7 @@ function PaymentDoneTable({
       );
     } catch {
       setPayments([]);
+      setPaymentsError(true);
     } finally {
       setPaymentsLoading(false);
     }
@@ -1405,6 +1407,7 @@ function MarkAsPaidModal({
 
 function PaymentTab() {
   const [batches, setBatches] = useState<any[]>([]);
+  const [batchesError, setBatchesError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [detailBatchId, setDetailBatchId] = useState<string | null>(null);
   const [detailApprovalInstanceId, setDetailApprovalInstanceId] = useState<string | null>(null);
@@ -1489,6 +1492,7 @@ function PaymentTab() {
       setBatches(enriched);
     } catch {
       setBatches([]);
+      setBatchesError(true);
     } finally {
       setLoading(false);
     }

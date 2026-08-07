@@ -19,6 +19,7 @@ import {
 import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow from './components/ReimbursementKpiRow';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
+import LoadErrorState from './components/LoadErrorState';
 import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
 import { getReimbursementProjectOptions, getAllProjectStatuses } from '@services/projects';
@@ -345,6 +346,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
 
   const [drafts, setDrafts] = useState<any[]>([]);
+  // A failed fetch used to render as "no drafts", which is indistinguishable from success.
+  const [draftsError, setDraftsError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -393,6 +396,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       setDrafts(res?.data?.drafts || res?.drafts || []);
     } catch {
       setDrafts([]);
+      setDraftsError(true);
     } finally {
       setLoading(false);
     }
@@ -1015,8 +1019,12 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         </div>
       )}
 
+      {draftsError && !loading && (
+        <LoadErrorState what="your unsubmitted drafts" onRetry={loadDrafts} />
+      )}
+
       {/* Table — only shown when there are drafts or while loading */}
-      {(loading || drafts.length > 0) && (
+      {!draftsError && (loading || drafts.length > 0) && (
         <MaterialTable
           data={drafts}
           columns={columns}
@@ -1230,6 +1238,9 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                     <input
                       ref={fileInputRef}
                       type='file'
+                      // Opens the camera directly on a phone instead of a file browser — a receipt is
+                      // something you photograph, not something you already have on disk.
+                      capture='environment'
                       accept='image/*,application/pdf'
                       className='d-none'
                       onChange={(event) => uploadFile(event, formikProps, 5 * 1024 * 1024)}
