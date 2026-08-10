@@ -10,6 +10,22 @@ interface State {
   error: Error | null;
   componentStack: string;
   showStack: boolean;
+  /** Short code shown to the user and logged with the report, so a support call can find it. */
+  reference: string;
+  reported: boolean;
+}
+
+/**
+ * A short, sayable reference for one crash.
+ *
+ * Not an id from anywhere — a user reading it down a phone line is the entire use case, so it is
+ * six characters with no lookalikes rather than a UUID nobody will transcribe correctly.
+ */
+function makeReference(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // no I/O/0/1
+  let out = '';
+  for (let i = 0; i < 6; i += 1) out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return out;
 }
 
 // Neutral slate palette for the error surface — intentionally not the pink
@@ -30,26 +46,125 @@ const EXTRA_KEYFRAMES = `
 `;
 
 class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { hasError: false, error: null, componentStack: '', showStack: false };
+  state: State = {
+    hasError: false, error: null, componentStack: '', showStack: false,
+    reference: '', reported: false,
+  };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
-    return { hasError: true, error, componentStack: '' };
+    return { hasError: true, error, componentStack: '', reference: makeReference() };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('Page crashed (caught by ErrorBoundary):', error, info?.componentStack);
     this.setState({ componentStack: info?.componentStack || '' });
+    this.report(error, info?.componentStack || '');
+  }
+
+  /**
+   * Send the crash to the server.
+   *
+   * A crash that only reaches the user's own console is not reported — nobody who could fix it
+   * ever learns it happened, which is how a page stays broken for weeks. Fire-and-forget on
+   * purpose: a failure to report must never turn one crash into two.
+   */
+  private report(error: Error, componentStack: string) {
+    if (this.state.reported) return;
+    this.setState({ reported: true });
+    try {
+      const body = JSON.stringify({
+        reference: this.state.reference,
+        message: String(error?.message ?? '').slice(0, 500),
+        stack: String(error?.stack ?? '').slice(0, 4000),
+        componentStack: componentStack.slice(0, 2000),
+        path: window.location.pathname,
+        userAgent: navigator.userAgent.slice(0, 200),
+      });
+      // `keepalive` so the report survives the user immediately navigating away, which is
+      // exactly what people do when a page breaks.
+      fetch('/api/client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        keepalive: true,
+        body,
+      }).catch(() => undefined);
+    } catch {
+      // See above.
+    }
   }
 
   render() {
     if (!this.state.hasError) return this.props.children;
 
-    // Production: swallow the crash silently — render nothing in place of the
-    // crashed page. The detailed fallback dialog (error message + stack trace)
-    // is a dev-only debugging aid and must never reach end users.
-    if (!import.meta.env.DEV) return null;
+    const { error, componentStack, showStack, reference } = this.state;
 
-    const { error, componentStack, showStack } = this.state;
+    // Production used to `return null` here — a literal blank page. The crash was invisible to
+    // the user (who saw an empty screen and assumed the app had hung) and invisible to us
+    // (nothing was reported anywhere). Users still must not see a stack trace, so production
+    // gets the same shell with the diagnostics removed and a reference code in their place.
+    if (!import.meta.env.DEV) {
+      return (
+        <div style={{
+          minHeight: '60vh', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          padding: SP.xl, backgroundColor: C.bgPage, fontFamily: FONT.body,
+        }}>
+          <style>{KEYFRAMES}{EXTRA_KEYFRAMES}</style>
+          <div className='err-card' style={{
+            width: '100%', maxWidth: 460, textAlign: 'center',
+            backgroundColor: C.bgCard, borderRadius: RADIUS.lg,
+            border: '1px solid ' + C.border, padding: SP.xl,
+            boxShadow: '0 8px 32px rgba(24,28,50,0.08)',
+          }}>
+            <div style={{
+              width: 44, height: 44, margin: '0 auto', borderRadius: RADIUS.md,
+              background: 'linear-gradient(135deg, ' + SLATE.dark + ' 0%, ' + SLATE.mid + ' 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <i className='bi bi-exclamation-triangle' style={{ fontSize: 20, color: '#fff' }} />
+            </div>
+            <h3 style={{
+              fontFamily: FONT.heading, fontWeight: 700, fontSize: 18,
+              color: C.textPrimary, margin: SP.lg + ' 0 ' + SP.sm + ' 0',
+            }}>
+              This page could not be loaded
+            </h3>
+            <p style={{ fontSize: 13.5, color: C.textSecondary, lineHeight: 1.6, margin: 0 }}>
+              Something went wrong and the problem has been reported. The rest of the
+              application is unaffected — reload to try again.
+            </p>
+            <div style={{
+              margin: SP.lg + ' 0', padding: SP.sm + ' ' + SP.md,
+              backgroundColor: C.bgSection, border: '1px solid ' + C.border,
+              borderRadius: RADIUS.md, display: 'inline-block',
+            }}>
+              <span style={{ fontSize: 11, color: C.textMuted, letterSpacing: '0.6px' }}>REFERENCE</span>
+              <div style={{
+                fontFamily: "'Fira Code', 'Consolas', monospace",
+                fontSize: 15, fontWeight: 700, color: C.textPrimary, letterSpacing: '1.5px',
+              }}>
+                {reference}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: SP.md, justifyContent: 'center' }}>
+              <button type='button' onClick={() => window.history.back()} style={{ ...BTN.secondary, padding: '9px 20px' }}>
+                <i className='bi bi-arrow-left' style={{ fontSize: 13 }} />
+                Go back
+              </button>
+              <button type='button' onClick={() => window.location.reload()} style={{ ...BTN.primary, padding: '9px 20px' }}>
+                <i className='bi bi-arrow-clockwise' style={{ fontSize: 13 }} />
+                Reload page
+              </button>
+            </div>
+          </div>
+          <p style={{ marginTop: SP.lg, fontSize: 12, color: C.textMuted, textAlign: 'center' }}>
+            If this keeps happening, quote reference <b>{reference}</b> to your administrator.
+          </p>
+        </div>
+      );
+    }
+
     const stackLines = componentStack.split('\n').filter(Boolean).slice(0, 6);
 
     return (
