@@ -12,6 +12,8 @@ import { getSocket } from '@utils/socketClient';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
 import dayjs from 'dayjs';
+import Swal from 'sweetalert2';
+import { WtButton } from '@app/modules/common/components/ui/buttons';
 import { getApprovalDomain } from './domains/registry';
 // Direct module import (not the ui/ barrel) — the barrel drags Swal/glass/notifications into this
 // file's type+bundle graph for one chip.
@@ -389,6 +391,8 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
   const [steps, setSteps] = useState<ApprovalStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
+  const [bulkRunning, setBulkRunning] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<ApprovalStep | null>(null);
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
   /** Row-click detail — the registry resolves WHICH component renders it. */
@@ -515,6 +519,38 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     : !domainTypes.includes('reimbursement');
 
   const columns = useMemo<MRT_ColumnDef<ApprovalStep>[]>(() => [
+    // Selection column, pending tab only — the other tabs have nothing to decide, and a checkbox
+    // that does nothing is worse than no checkbox.
+    ...(activeTab === 'pending' ? [{
+      id: 'select',
+      header: '',
+      size: 48,
+      enableSorting: false,
+      enableColumnActions: false,
+      Header: () => (
+        <input
+          type='checkbox'
+          className='form-check-input'
+          aria-label='Select all requests on this page'
+          checked={allSelected}
+          onChange={toggleAll}
+        />
+      ),
+      Cell: ({ row }: any) => {
+        const ds = row.original as DisplayStep;
+        if (ds._splitStatus) return null;   // a split display row is not itself decidable
+        return (
+          <input
+            type='checkbox'
+            className='form-check-input'
+            aria-label='Select this request'
+            checked={!!selectedIds[ds._uid]}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            onChange={(e) => setSelectedIds((prev) => ({ ...prev, [ds._uid]: e.target.checked }))}
+          />
+        );
+      },
+    } as MRT_ColumnDef<ApprovalStep>] : []),
     {
       accessorKey: 'requester',
       header: 'Requested By',
@@ -863,6 +899,56 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     return result;
   }, [steps, activeTab, batchDetailsMap]);
 
+  // ── Bulk approve, across employees ──────────────────────────────────────────
+  //
+  // Bulk approve already existed WITHIN a single batch, so an approver facing thirty ₹60 fares
+  // from twelve people still had to open twelve batches to clear them. Selection lives here
+  // rather than in the shared MaterialTable because teaching that wrapper about row selection
+  // would change every table in the app.
+  const selectableSteps = displaySteps.filter((s) => !s._splitStatus);
+  const selectedSteps = selectableSteps.filter((s) => selectedIds[s._uid]);
+  const allSelected = selectableSteps.length > 0 && selectedSteps.length === selectableSteps.length;
+
+  const toggleAll = () =>
+    setSelectedIds(allSelected ? {} : Object.fromEntries(selectableSteps.map((s) => [s._uid, true])));
+
+  const approveSelected = async () => {
+    const total = selectedSteps.length;
+    if (total === 0) return;
+    const confirmed = await Swal.fire({
+      title: `Approve ${total} request${total === 1 ? '' : 's'}?`,
+      text: 'Every selected request will be approved. This cannot be undone in bulk.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: `Approve ${total}`,
+      cancelButtonText: 'Cancel',
+    });
+    if (!confirmed.isConfirmed) return;
+
+    setBulkRunning(true);
+    // Sequential, not Promise.all: each decision writes an audit row and may settle an approval
+    // instance, and a partial failure must leave the successful ones committed rather than
+    // ambiguous. Slower, and correct.
+    let failed = 0;
+    for (const step of selectedSteps) {
+      try {
+        await processApprovalAction(step.instance.id, 'approve');
+      } catch {
+        failed += 1;
+      }
+    }
+    setSelectedIds({});
+    setBulkRunning(false);
+    if (failed === 0) {
+      successConfirmation(`${total} request${total === 1 ? '' : 's'} approved.`, 'Approved!');
+    } else {
+      errorConfirmation(
+        `${total - failed} approved, ${failed} could not be. The failures are still in your queue.`,
+      );
+    }
+    await load();
+  };
+
   if (!canApprove) {
     return (
       <div className='card'>
@@ -902,6 +988,25 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           <KTIcon iconName='arrows-circle' className='fs-5' />{loading ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
+
+      {selectedSteps.length > 0 && (
+        <div
+          className='d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4'
+          style={{ padding: '10px 14px', borderRadius: 10, background: '#eff6ff', border: '1px solid #dbeafe' }}
+        >
+          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e3a8a' }}>
+            {selectedSteps.length} selected
+          </span>
+          <div className='d-flex align-items-center gap-2'>
+            <WtButton ghost size='small' onClick={() => setSelectedIds({})} disabled={bulkRunning}>
+              Clear
+            </WtButton>
+            <WtButton size='small' onClick={approveSelected} disabled={bulkRunning}>
+              {bulkRunning ? 'Approving…' : `Approve ${selectedSteps.length}`}
+            </WtButton>
+          </div>
+        </div>
+      )}
 
       <MaterialTable
         data={displaySteps}

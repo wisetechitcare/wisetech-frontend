@@ -20,6 +20,7 @@ import MaterialTable from '@app/modules/common/components/MaterialTable';
 import Swal from 'sweetalert2';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { fmtDate, fmtAmount, formatINR, resolveStatusNum } from '../../utils/reimbursementFormat';
+import PaymentDetailPanel from '../../components/PaymentDetailPanel';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
@@ -148,14 +149,22 @@ function PendingPaymentTable({
   loading,
   onMarkAsPaid,
   onRowClick,
+  filter,
+  currentDate,
+  setFilter,
+  setCurrentDate,
 }: {
   batches: any[];
   loading: boolean;
   onMarkAsPaid: (batch: any) => Promise<void>;
   onRowClick: (batchId: string) => void;
+  filter: PeriodFilter;
+  currentDate: dayjs.Dayjs;
+  // Dispatch, not a plain setter — the navigation arrows call these with updater
+  // functions (`d => d.add(1, 'month')`).
+  setFilter: React.Dispatch<React.SetStateAction<PeriodFilter>>;
+  setCurrentDate: React.Dispatch<React.SetStateAction<dayjs.Dayjs>>;
 }) {
-  const [filter, setFilter] = useState<PeriodFilter>('monthly');
-  const [currentDate, setCurrentDate] = useState(dayjs());
   const [markingId, setMarkingId] = useState<string | null>(null);
 
   // Show UNPAID and PARTIALLY_PAID (PARTIAL) batches
@@ -234,6 +243,18 @@ function PendingPaymentTable({
           >
             {renderedCellValue}
           </button>
+        ),
+      },
+      {
+        id: 'approvedOn',
+        header: 'Approved On',
+        size: 130,
+        accessorFn: (row: any) => row.approvedAt ?? null,
+        // There was no approved-by or approved-on column anywhere in the module — only
+        // "Payment Made By" — so nobody could see who had cleared a payout for payment.
+        // The data exists since Phase 3 stamped approvedAt + decidedBy.
+        Cell: ({ row }: any) => (
+          <span className='fs-7 text-gray-700'>{fmtDate(row.original.approvedAt)}</span>
         ),
       },
       {
@@ -412,13 +433,21 @@ function PaymentDoneTable({
   batches,
   loading: batchesLoading,
   onRowClick,
+  filter,
+  currentDate,
+  setFilter,
+  setCurrentDate,
 }: {
   batches: any[];
   loading: boolean;
   onRowClick: (batchId: string) => void;
+  filter: PeriodFilter;
+  currentDate: dayjs.Dayjs;
+  // Dispatch, not a plain setter — the navigation arrows call these with updater
+  // functions (`d => d.add(1, 'month')`).
+  setFilter: React.Dispatch<React.SetStateAction<PeriodFilter>>;
+  setCurrentDate: React.Dispatch<React.SetStateAction<dayjs.Dayjs>>;
 }) {
-  const [filter, setFilter] = useState<PeriodFilter>('monthly');
-  const [currentDate, setCurrentDate] = useState(dayjs());
   const [payments, setPayments] = useState<any[]>([]);
   const [paymentsError, setPaymentsError] = useState(false);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
@@ -665,115 +694,9 @@ function PaymentDoneTable({
             tableName="PaymentDone"
             showColumnFooter={true}
             enableStatusColorCoding={false}
-            renderDetailPanel={({ row }: any) => {
-              const rowPayments: any[] = row.original.payments || [];
-              if (rowPayments.length === 0) {
-                return (
-                  <div style={{
-                    padding: '20px 24px',
-                    backgroundColor: '#fafafa',
-                    borderTop: '1px solid #e0e0e0',
-                    color: '#9e9e9e',
-                    fontSize: 13,
-                    fontStyle: 'italic',
-                  }}>
-                    No payment records found for this period.
-                  </div>
-                );
-              }
-
-              const detailHeaders = [
-                { label: 'Payment Date', width: '28%' },
-                { label: 'Payment Made By', width: '28%' },
-                { label: 'Method', width: '22%' },
-                { label: 'Amount Paid', width: '22%' },
-              ];
-
-              return (
-                <div style={{ backgroundColor: '#f5f5f5', borderTop: '2px solid #e0e0e0' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#eeeeee' }}>
-                        {detailHeaders.map(({ label, width }) => (
-                          <th
-                            key={label}
-                            style={{
-                              width,
-                              padding: '9px 16px',
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: '#616161',
-                              letterSpacing: '0.05em',
-                              textTransform: 'uppercase',
-                              textAlign: 'left',
-                              whiteSpace: 'nowrap',
-                              borderBottom: '1px solid #e0e0e0',
-                              borderRight: '1px solid #e0e0e0',
-                            }}
-                          >
-                            {label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rowPayments.map((p: any, i: number) => (
-                        <tr
-                          key={i}
-                          style={{
-                            backgroundColor: '#ffffff',
-                            borderBottom: '1px solid #eeeeee',
-                            transition: 'background-color 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
-                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ffffff')}
-                        >
-                          <td style={{ padding: '10px 16px', borderRight: '1px solid #eeeeee' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <div style={{
-                                width: 30, height: 30, borderRadius: 6,
-                                backgroundColor: '#e8f5e9', flexShrink: 0,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              }}>
-                                <KTIcon iconName="calendar-8" className="fs-5 text-success" />
-                              </div>
-                              <span style={{ fontSize: 13, fontWeight: 600, color: '#212121' }}>
-                                {fmtDate(p.paymentDate)}
-                              </span>
-                            </div>
-                          </td>
-                          <td style={{ padding: '10px 16px', borderRight: '1px solid #eeeeee' }}>
-                            <span style={{ fontSize: 13, fontWeight: 500, color: '#424242' }}>
-                              {p.paymentMadeBy || 'N/A'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px 16px', borderRight: '1px solid #eeeeee' }}>
-                            <span style={{
-                              display: 'inline-block',
-                              padding: '3px 10px',
-                              borderRadius: 4,
-                              fontSize: 11,
-                              fontWeight: 700,
-                              letterSpacing: '0.04em',
-                              backgroundColor: '#e3f2fd',
-                              color: '#1565c0',
-                              textTransform: 'uppercase',
-                            }}>
-                              {String(p.paymentMethod || 'CASH').replace(/_/g, ' ')}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px 16px' }}>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: '#2e7d32' }}>
-                              {formatINR(Number(p.amountPaid || 0))}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              );
-            }}
+            renderDetailPanel={({ row }: any) => (
+              <PaymentDetailPanel payments={row.original.payments || []} />
+            )}
             muiTableProps={{
               muiTableBodyRowProps: ({ row }: any) => ({
                 onClick: () => onRowClick(row.original.batchId),
@@ -871,6 +794,9 @@ function KpiCard({
 }
 
 function PaymentKpiCards({ batches, loading }: { batches: any[]; loading: boolean }) {
+  // `batches` here is the PERIOD-SCOPED set. These cards used to be computed from every batch
+  // ever while sitting directly above tables showing a single month, so the cards and the rows
+  // described different populations and the period arrows moved one but not the other.
   const pending = batches.filter((b) => b.paymentStatus === 'UNPAID' || b.paymentStatus === 'PARTIAL');
   const pendingAmount = pending.reduce((s, b) => s + Number(b.remainingAmount ?? 0), 0);
   const paidAmount = batches.reduce((s, b) => s + Number(b.paidAmount ?? 0), 0);
@@ -1085,6 +1011,10 @@ function MarkAsPaidModal({
               onChange={(v) => { if (v && v.isValid()) setDate(v); }}
               format="DD/MM/YYYY"
               maxDate={dayjs()}
+              // A payment could be dated into any past month, silently reopening a period
+              // finance had already reported. Floored to the start of the current month; the
+              // full month-end close is Phase 8.
+              minDate={dayjs().startOf('month')}
               slotProps={{
                 textField: {
                   fullWidth: true,
@@ -1429,6 +1359,11 @@ function MarkAsPaidModal({
 // ── Main PaymentTab ────────────────────────────────────────────────────────────
 
 function PaymentTab() {
+  // ONE period for this whole screen. The pending and paid sections each used to own a copy, so
+  // the two tables and the KPI row could be showing three different months at once, and the
+  // arrows on one table moved nothing else.
+  const [filter, setFilter] = useState<PeriodFilter>('monthly');
+  const [currentDate, setCurrentDate] = useState(dayjs());
   const [batches, setBatches] = useState<any[]>([]);
   const [batchesError, setBatchesError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1580,10 +1515,22 @@ function PaymentTab() {
     (b) => b.paymentStatus === 'UNPAID' || b.paymentStatus === 'PARTIAL',
   ).length;
 
+  // What either table can show for the selected period — a batch is in scope if it was submitted
+  // in the period (pending table's axis) or paid in it (paid table's axis), so the cards above
+  // describe the same population as the rows below.
+  const periodBatches = useMemo(() => {
+    const inScope = [
+      ...filterByPeriod(batches, filter, currentDate, 'submission'),
+      ...filterByPeriod(batches, filter, currentDate, 'payment'),
+    ];
+    const seen = new Set<string>();
+    return inScope.filter((b) => (seen.has(b.id) ? false : (seen.add(b.id), true)));
+  }, [batches, filter, currentDate]);
+
   return (
     <div>
       {/* KPI overview — always shown */}
-      <PaymentKpiCards batches={batches} loading={loading} />
+      <PaymentKpiCards batches={periodBatches} loading={loading} />
 
       {/* Pending Payment — only shown when there are pending entries */}
       {!loading && pendingCount > 0 && (
@@ -1603,6 +1550,10 @@ function PaymentTab() {
             loading={loading}
             onMarkAsPaid={handleMarkAsPaid}
             onRowClick={handleRowClick}
+            filter={filter}
+            currentDate={currentDate}
+            setFilter={setFilter}
+            setCurrentDate={setCurrentDate}
           />
         </div>
       )}
@@ -1620,6 +1571,10 @@ function PaymentTab() {
           batches={batches}
           loading={loading}
           onRowClick={handleRowClick}
+          filter={filter}
+          currentDate={currentDate}
+          setFilter={setFilter}
+          setCurrentDate={setCurrentDate}
         />
       </div>
 

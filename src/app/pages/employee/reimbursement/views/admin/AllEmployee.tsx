@@ -272,10 +272,17 @@ function AllEmployee() {
   }, [alignment, month, fiscalYear]);
 
   const tableHeading = useMemo(() => {
-    if (alignment === 'monthly') return 'Monthly Reimbursements';
-    if (alignment === 'yearly') return 'Yearly Reimbursements';
-    return 'All Time Reimbursements';
-  }, [alignment]);
+    const period = alignment === 'monthly' ? 'Monthly'
+      : alignment === 'yearly' ? 'Yearly' : 'All Time';
+    // The status filter defaults to 'Active', so these totals silently omit anyone who has left
+    // — and someone reading a headline number had no way to know a population was missing from
+    // it. Whether ex-employees belong in the total is a policy question; making the filter
+    // visible in the heading is not, so the number always says who it counted.
+    const scope = statusFilter === 'Active' ? ' (current employees)'
+      : statusFilter === 'Deactive' ? ' (past employees)'
+      : ' (all employees)';
+    return `${period} Reimbursements${scope}`;
+  }, [alignment, statusFilter]);
 
   const exportFilename = useMemo(() => {
     if (alignment === 'monthly') return `reimbursements-${month.format('MMM-YYYY').toLowerCase()}`;

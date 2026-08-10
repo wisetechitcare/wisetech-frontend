@@ -9,6 +9,7 @@ import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { fmtDate, fmtAmount, formatINR } from '../utils/reimbursementFormat';
+import PaymentDetailPanel from './PaymentDetailPanel';
 import LoadErrorState from './LoadErrorState';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { useEventBus } from '@hooks/useEventBus';
@@ -383,178 +384,16 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                                     sx: { cursor: 'pointer', '&:hover td': { backgroundColor: '#F8FAFC' } },
                                 }),
                             }}
-                            renderDetailPanel={({ row }: any) => {
-                                const rowPayments: any[] = row.original.payments || [];
-                                if (rowPayments.length === 0) {
-                                    return (
-                                        <div
-                                            style={{
-                                                padding: '20px 24px',
-                                                backgroundColor: '#fafafa',
-                                                borderTop: '1px solid #e0e0e0',
-                                                color: '#9e9e9e',
-                                                fontSize: 13,
-                                                fontStyle: 'italic',
-                                            }}
-                                        >
-                                            No payment records found for this period.
-                                        </div>
-                                    );
-                                }
-
-                                const detailHeaders = [
-                                    { label: 'Payment Date', width: '28%' },
-                                    { label: 'Payment Made By', width: '28%' },
-                                    { label: 'Method', width: '22%' },
-                                    { label: 'Amount Paid', width: '22%' },
-                                ];
-
-                                return (
-                                    <div style={{ backgroundColor: '#f5f5f5', borderTop: '2px solid #e0e0e0' }}>
-                                        <table
-                                            style={{
-                                                width: '100%',
-                                                borderCollapse: 'collapse',
-                                                tableLayout: 'fixed',
-                                            }}
-                                        >
-                                            <thead>
-                                                <tr style={{ backgroundColor: '#eeeeee' }}>
-                                                    {detailHeaders.map(({ label, width }) => (
-                                                        <th
-                                                            key={label}
-                                                            style={{
-                                                                width,
-                                                                padding: '9px 16px',
-                                                                fontSize: 11,
-                                                                fontWeight: 700,
-                                                                color: '#616161',
-                                                                letterSpacing: '0.05em',
-                                                                textTransform: 'uppercase',
-                                                                textAlign: 'left',
-                                                                whiteSpace: 'nowrap',
-                                                                borderBottom: '1px solid #e0e0e0',
-                                                                borderRight: '1px solid #e0e0e0',
-                                                            }}
-                                                        >
-                                                            {label}
-                                                        </th>
-                                                    ))}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {rowPayments.map((p: any, i: number) => (
-                                                    <tr
-                                                        key={i}
-                                                        style={{
-                                                            backgroundColor: '#ffffff',
-                                                            borderBottom: '1px solid #eeeeee',
-                                                            transition: 'background-color 0.15s ease',
-                                                        }}
-                                                        onMouseEnter={(e) =>
-                                                            (e.currentTarget.style.backgroundColor = '#f5f5f5')
-                                                        }
-                                                        onMouseLeave={(e) =>
-                                                            (e.currentTarget.style.backgroundColor = '#ffffff')
-                                                        }
-                                                    >
-                                                        <td
-                                                            style={{
-                                                                padding: '10px 16px',
-                                                                borderRight: '1px solid #eeeeee',
-                                                            }}
-                                                        >
-                                                            <div
-                                                                style={{
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    gap: 10,
-                                                                }}
-                                                            >
-                                                                <div
-                                                                    style={{
-                                                                        width: 30,
-                                                                        height: 30,
-                                                                        borderRadius: 6,
-                                                                        backgroundColor: '#e8f5e9',
-                                                                        flexShrink: 0,
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'center',
-                                                                    }}
-                                                                >
-                                                                    <KTIcon
-                                                                        iconName="calendar-8"
-                                                                        className="fs-5 text-success"
-                                                                    />
-                                                                </div>
-                                                                <span
-                                                                    style={{
-                                                                        fontSize: 13,
-                                                                        fontWeight: 600,
-                                                                        color: '#212121',
-                                                                    }}
-                                                                >
-                                                                    {fmtDate(p.paymentDate)}
-                                                                </span>
-                                                            </div>
-                                                        </td>
-                                                        <td
-                                                            style={{
-                                                                padding: '10px 16px',
-                                                                borderRight: '1px solid #eeeeee',
-                                                            }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    fontSize: 13,
-                                                                    fontWeight: 500,
-                                                                    color: '#424242',
-                                                                }}
-                                                            >
-                                                                {p._paymentMadeBy || 'N/A'}
-                                                            </span>
-                                                        </td>
-                                                        <td
-                                                            style={{
-                                                                padding: '10px 16px',
-                                                                borderRight: '1px solid #eeeeee',
-                                                            }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    display: 'inline-block',
-                                                                    padding: '3px 10px',
-                                                                    borderRadius: 4,
-                                                                    fontSize: 11,
-                                                                    fontWeight: 700,
-                                                                    letterSpacing: '0.04em',
-                                                                    backgroundColor: '#e3f2fd',
-                                                                    color: '#1565c0',
-                                                                    textTransform: 'uppercase',
-                                                                }}
-                                                            >
-                                                                {String(p.paymentMethod || 'CASH').replace(/_/g, ' ')}
-                                                            </span>
-                                                        </td>
-                                                        <td style={{ padding: '10px 16px' }}>
-                                                            <span
-                                                                style={{
-                                                                    fontSize: 14,
-                                                                    fontWeight: 700,
-                                                                    color: '#2e7d32',
-                                                                }}
-                                                            >
-                                                                {formatINR(Number(p.amountPaid || 0))}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                );
-                            }}
+                            renderDetailPanel={({ row }: any) => (
+                              // Same panel the admin Payment tab renders. This markup
+                              // existed twice and the copies had already drifted.
+                              <PaymentDetailPanel
+                                payments={(row.original.payments || []).map((p: any) => ({
+                                  ...p,
+                                  paymentMadeBy: p._paymentMadeBy,
+                                }))}
+                              />
+                            )}
                         />
                     )}
                 </div>
