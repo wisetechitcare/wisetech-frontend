@@ -1,6 +1,23 @@
 # pnpm settings (pnpm 11 reads config from here, not package.json).
 # Not a monorepo — no `packages:` key.
 
+# Security floors for TRANSITIVE dependencies — none of these are imported directly;
+# they arrive via vite/postcss, sass, svgo, socket.io-client and assorted build tooling.
+# Each pins to the lowest patched version named in the advisory, so resolution stays as
+# close as possible to what the parent expects. Every entry was verified against a full
+# `pnpm run build` before landing. Re-check with `pnpm audit --audit-level high` after
+# any dependency change; drop an entry once its parents have moved past it.
+overrides:
+  nth-check: '>=2.0.1'        # ReDoS via inefficient regex complexity
+  brace-expansion: '>=2.1.2'  # DoS via exponential-time expansion
+  js-yaml: '>=4.3.0'          # quadratic CPU from YAML merge-key chains
+  immutable: '>=5.1.8'        # List 32-bit trie overflow -> unrecoverable corruption
+  fast-uri: '>=3.1.4'         # host confusion via literal backslash
+  postcss: '>=8.5.18'         # arbitrary file read / information disclosure
+  minimatch: '>=9.0.7'        # ReDoS via repeated wildcards (stays in-major: estree is already on 9.x)
+  socket.io-parser: '>=4.2.7' # zero-attachment memory exhaustion
+  nanoid: '>=3.3.16'          # non-secure generator can loop indefinitely
+
 # pnpm blocks dependency install scripts by default. These need theirs:
 #   esbuild, @swc/core   -> Vite's bundler + the React SWC plugin (build breaks without)
 #   canvas               -> native addon behind react-pdf/pdfjs rendering

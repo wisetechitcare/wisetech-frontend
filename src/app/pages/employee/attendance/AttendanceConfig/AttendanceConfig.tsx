@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Grid } from '@mui/material';
 import { LeaveTypesBalanceModal } from './component/LeaveTypesBalance';
 import SandwichLeave from '@pages/company/settings/SandwhichLeave';
+import WorkCalendarSettings from '@pages/company/settings/WorkCalendarSettings';
 import { LeavePolicyModal } from '@pages/company/settings/LeavePolicy';
 import AddonLeavesModal from './component/AddonLeavesModal';
 import DailyShiftTimeModal from './component/DailyShiftTimeModal';
@@ -229,6 +230,7 @@ const AttendanceConfig: React.FC = () => {
   const [showDailyShiftModal,   setShowDailyShiftModal]   = useState(false);
   const [showOtherSettingsModal, setShowOtherSettingsModal] = useState(false);
   const [showSandwichModal,      setShowSandwichModal]      = useState(false);
+  const [showWorkCalendarModal,  setShowWorkCalendarModal]  = useState(false);
   const [showAppearanceModal,    setShowAppearanceModal]    = useState(false);
   const [showAddonLeavesModal,   setShowAddonLeavesModal]   = useState(false);
   const [showLeaveTypesModal,    setShowLeaveTypesModal]    = useState(false);
@@ -694,6 +696,17 @@ const AttendanceConfig: React.FC = () => {
                     onAction={() => setShowLeavePolicyModal(true)}
                   />
                 </Grid>
+                <Grid item xs={12} md={6}>
+                  <ConfigSettingsRow
+                    label="Work Calendar"
+                    description="Weekly pattern, alternate Saturdays, holidays and one-off day changes"
+                    icon="bi-calendar3"
+                    iconColor="green"
+                    actionLabel="Configure"
+                    actionIcon="bi-arrow-right"
+                    onAction={() => setShowWorkCalendarModal(true)}
+                  />
+                </Grid>
               </Grid>
             </div>
           )}
@@ -768,6 +781,9 @@ const AttendanceConfig: React.FC = () => {
         onClose={() => { setShowOtherSettingsModal(false); loadOtherSettingsData(); }}
         mountKey={otherSettingsKey}
       />
+
+      {/* Work Calendar — weekly pattern + the exceptions that override it */}
+      <WorkCalendarSettings open={showWorkCalendarModal} onClose={() => setShowWorkCalendarModal(false)} />
 
       {/* Sandwich Leave — self-contained GlassDialog */}
       <SandwichLeave open={showSandwichModal} showSandWhichLeaveModal={(v: boolean) => setShowSandwichModal(v)} />

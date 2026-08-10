@@ -505,6 +505,11 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                         employee.status,
                         employee.isWeekendOrHoliday
                     ),
+                    // Drives the master switch's holiday/weekend legs. `skipColoring`
+                    // alone does NOT cover this row: a day that was actually WORKED has
+                    // status Present / Working on weekend, neither of which that helper
+                    // treats as a neutral row.
+                    isWeekendOrHoliday: employee.isWeekendOrHoliday === true,
                     // Server-computed late-night waiver (same rule payroll applies).
                     lateWaived: (employee as any).lateWaived === true,
                 });

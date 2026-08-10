@@ -344,8 +344,10 @@ function Overview({ date, range }: OverviewProps) {
         const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
         const isOnSite = workingMethod?.includes("onsite");
 
-        // If on-site settings is ON, skip on-site employees from late check-in
-        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+        // Master switch — all THREE legs (on-site, holiday, weekend), matching the backend
+        // ladder. It used to test only `isOnSite`, so this card reported late check-ins on
+        // the very days `extraRows` below was counting as Extra Days.
+        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
         const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
         const graceTime = parseGraceTime(graceTimeStr);
 
@@ -371,10 +373,11 @@ function Overview({ date, range }: OverviewProps) {
 
         const attendanceDate = new Date(att.checkOut);
 
-        // If on-site settings is ON, skip on-site employees from early check-out
+        // Master switch — all three legs, same as `lateRows`. A weekend/holiday check-out
+        // is not an early check-out; there is no shift to be early against.
         const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
         const isOnSite = workingMethod?.includes("onsite");
-        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
 
         // Get shift for this date
         const shift = getShiftForDate(attendanceDate);
@@ -516,9 +519,14 @@ function Overview({ date, range }: OverviewProps) {
     // Roster minus present minus on-leave — the SAME set the Absent modal lists.
     // It used to be `total − present − onLeave` arithmetic against a different present
     // source than every other card, so the card and its own list could disagree.
-    const dailyAbsentEmployees = allEmployees.filter(
-        (emp) => emp?._id && !dailyPresentIds.has(emp._id) && !dailyLeaveIds.has(emp._id),
-    );
+    // Nobody is absent on a day the company does not work: the range path below already
+    // skipped non-working days, this daily path did not, so a weekend/holiday reported
+    // the whole roster minus whoever happened to come in.
+    const dailyAbsentEmployees = checkIfWeekendOrHoliday(date.toDate())
+        ? []
+        : allEmployees.filter(
+            (emp) => emp?._id && !dailyPresentIds.has(emp._id) && !dailyLeaveIds.has(emp._id),
+        );
 
     // ── Grouping ────────────────────────────────────────────────────────────────
     // The stat lists are per-OCCURRENCE (one row per offending day). On a single day that
@@ -767,8 +775,8 @@ function Overview({ date, range }: OverviewProps) {
                         const workingMethod = empAttendance.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
                         const isOnSite = workingMethod?.includes("onsite");
 
-                        // If on-site settings is ON, skip on-site employees from late check-in
-                        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+                        // Master switch — all three legs; keep in step with `lateRows`.
+                        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
                         const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
                         const graceTime = parseGraceTime(graceTimeStr);
 
@@ -811,10 +819,10 @@ function Overview({ date, range }: OverviewProps) {
 
                         const attendanceDate = new Date(empAttendance.checkOut);
 
-                        // If on-site settings is ON, skip on-site employees from early check-out
+                        // Master switch — all three legs; keep in step with `earlyRows`.
                         const workingMethod = empAttendance.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
                         const isOnSite = workingMethod?.includes("onsite");
-                        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+                        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
 
                         // Get shift for this date
                         const shift = getShiftForDate(attendanceDate);

@@ -94,6 +94,13 @@ export default defineConfig({
             'vendor-react': ['react', 'react-dom', 'react-router-dom', 'react-redux'],
             'vendor-mui': ['@mui/material', '@mui/icons-material', '@mui/x-date-pickers'],
             'vendor-charts': ['apexcharts', 'react-apexcharts', 'recharts', 'chart.js'],
+            // echarts + its renderer zrender were 2.9MB — 39% of the ENTRY chunk —
+            // because manualChunks returns undefined for anything unlisted and unmatched
+            // node_modules fall into the default (entry) chunk. Only 6 lazy routes import
+            // echarts-for-react, so every other user was downloading it for nothing.
+            // Its own group, not vendor-charts: grouping it with apexcharts/recharts would
+            // make the 21 apexcharts screens pull echarts too.
+            'vendor-echarts': ['echarts', 'echarts-for-react', 'zrender'],
             'vendor-pdf': ['@react-pdf/renderer'],
             'vendor-forms': ['formik', 'react-hook-form', 'yup', 'zod'],
             'vendor-table': ['material-react-table', 'react-table', '@tanstack/react-query'],

@@ -707,6 +707,21 @@ export const SANDWICH_RULE = {
     AUDIT_LOG: "api/sandwich-rules/:id/audit",
 };
 
+export const WORK_CALENDAR = {
+    LIST: "api/work-calendars",
+    CREATE: "api/work-calendars",
+    GET: "api/work-calendars/:id",
+    UPDATE: "api/work-calendars/:id",
+    DEACTIVATE: "api/work-calendars/:id",
+    REPLACE_RULES: "api/work-calendars/:id/rules",
+    LIST_EXCEPTIONS: "api/work-calendars/exceptions",
+    CREATE_EXCEPTION: "api/work-calendars/exceptions",
+    UPDATE_EXCEPTION: "api/work-calendars/exceptions/:id",
+    DELETE_EXCEPTION: "api/work-calendars/exceptions/:id",
+    BULK_GENERATE: "api/work-calendars/exceptions/bulk-generate",
+    PREVIEW_IMPACT: "api/work-calendars/preview-impact",
+};
+
 export const SUBCOMPANY_SERVICES = {
     CREATE: 'api/lead-project-companies/sub-company/:subCompanyId/services',
     UPDATE: 'api/lead-project-companies/sub-company/:subCompanyId/services',
