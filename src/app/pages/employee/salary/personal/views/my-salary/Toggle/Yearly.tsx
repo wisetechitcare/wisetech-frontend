@@ -61,13 +61,13 @@ const parseCurrencyOrNumber = (value: unknown): number => {
 /**
  * The single paid/unpaid verdict used for salary and for each statutory head.
  * Rupee-driven — the stored status strings disagree with the ledger too often.
- * Half a rupee of slack absorbs rounding between the two sides.
+ * 1 rupee of slack absorbs rounding between the two sides.
  */
 const payState = (due: number, paid: number): PayState => {
     if (due <= 0 && paid <= 0) return 'None';
     if (paid <= 0) return 'Unpaid';
-    if (paid - due > 0.5) return 'Extra Paid';
-    if (due - paid > 0.5) return 'Partial';
+    if (paid - due > 1) return 'Extra Paid';
+    if (due - paid > 1) return 'Partial';
     return 'Paid';
 };
 

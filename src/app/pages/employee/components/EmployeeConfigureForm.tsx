@@ -98,7 +98,7 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
       case "EMPLOYEE_TYPE":
         return "Employee Type Name";
       case "EMPLOYEE_LEVEL":
-        return "Employee Level Name";
+        return "Experience Level Name";
       case "EMPLOYEE_STATUS":
         return "Employee Status Name";
       default:
@@ -113,7 +113,7 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
       case "EMPLOYEE_TYPE":
         return "Enter employee type name";
       case "EMPLOYEE_LEVEL":
-        return "Enter employee level name";
+        return "Enter experience level name";
       case "EMPLOYEE_STATUS":
         return "Enter employee status name";
       default:

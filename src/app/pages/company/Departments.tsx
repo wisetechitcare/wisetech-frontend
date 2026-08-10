@@ -1,4 +1,5 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import { ActionIconButton } from '@app/modules/common/components/ui';
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues, useFormikContext } from "formik";
@@ -118,13 +119,11 @@ function Departments() {
                 accessorKey: "actions",
                 header: "Actions",
                 Cell: ({ row }: any) => (
-                    <button
-                        className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                    <ActionIconButton
+                        iconName="pencil"
+                        title="Edit department"
                         onClick={() => handleEditClick(row.original.id)}
-                        style={{ cursor: 'pointer' }}
-                    >
-                        <i className="bi bi-pencil" style={{ fontSize: '16px' }} />
-                    </button>
+                    />
                 ),
             });
         }
@@ -196,49 +195,16 @@ function Departments() {
               title="Departments"
               subtitle="Manage departments and organizational structure"
               icon="bi-diagram-3"
-              actions={
-                isAdmin && hasPermission(resourceNameMapWithCamelCase.department, permissionConstToUseWithHasPermission.create) ? (
-                  <button
-                    onClick={() => setShow(true)}
-                    style={{
-                      backgroundColor: C.primary,
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: RADIUS.md,
-                      padding: '8px 16px',
-                      fontFamily: FONT.body,
-                      fontWeight: 600,
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: `0 4px 12px ${C.primaryShadow}`,
-                      transition: 'all 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`;
-                    }}
-                  >
-                    <i className="bi bi-plus-lg" style={{ fontSize: '14px' }} />
-                    New Department
-                  </button>
-                ) : null
-              }
             >
               {hasPermission(resourceNameMapWithCamelCase.department, permissionConstToUseWithHasPermission.readOthers) && (
                 <ConfigSectionCard
                   title={`${departments.length} Department${departments.length !== 1 ? 's' : ''}`}
                   description="View and manage all departments in your organization"
                   icon="bi-folder2-open"
-                  iconColor="purple"
-                  badge={{ label: `${departments.length}`, color: C.purple, bg: C.purpleLight }}
+                  iconColor="primary"
+                  badge={{ label: `${departments.length}`, color: C.primary, bg: C.primaryLight }}
                   loading={loading}
+                  primaryAction={isAdmin && hasPermission(resourceNameMapWithCamelCase.department, permissionConstToUseWithHasPermission.create) ? { label: 'New Department', icon: 'bi-plus-lg', onClick: () => setShow(true), variant: 'primary' } : undefined}
                 >
                   <div style={{ marginTop: SP.md }}>
                     <MaterialTable

@@ -93,7 +93,6 @@ const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
     departments,
     designations,
     branches,
-    nickName,
     dateOfJoining,
     dateOfExit,
     companyPhoneNumber,
@@ -251,7 +250,6 @@ Location: ${branches?.address || 'N/A'}`;
         {/* Personal Details */}
         <DetailCard icon={<i className="bi bi-person" aria-hidden></i>} title="Personal Details">
           <DetailRow label="Full Name" value={`${users.firstName} ${users.lastName}`.trim() || "-NA-"} />
-          <DetailRow label="Nickname" value={nickName || "-NA-"} />
           <DetailRow label="Date of Birth" value={formatDate(users.dateOfBirth)} />
           <DetailRow label="Gender" value={getGender(gender)} />
           <DetailRow label="Marital Status" value={getMaritalStatus(maritalStatus)} />

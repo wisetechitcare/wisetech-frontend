@@ -57,9 +57,6 @@ interface RadioInputProps {
   radioBtns: RadioButton[];
   formikField: string;
   customCss?: string;
-  /** Suppress this input's own error message — use when several RadioInputs share one
-   *  formikField (e.g. a radio group split across inputs) and the error should render once
-   *  at the group level instead of duplicated per input. */
   hideError?: boolean;
 }
 
@@ -72,89 +69,74 @@ function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss 
         </label>
       )}
 
-      <div className={`d-flex gap-4 ${customCss}`}>
+      <div className={`ob-pill-group ${customCss}`} role="group">
         {radioBtns.map((radioBtn: RadioButton, index: number) => (
-          <label key={`${radioBtn.value}-${index}`} className="radio-container">
-            <Field name={formikField}>
-              {({ field, form }: any) => {
-                const current = field.value;
-                // Never report "checked" when the field is unset — String(null) === "null"
-                // collides with no option, but boolean coercion ensures clean rendering.
-                const isChecked =
-                  current !== null &&
-                  current !== undefined &&
-                  current !== "" &&
-                  String(current) === String(radioBtn.value);
-                return (
-                  <input
-                    className="form-check-input"
-                    type="radio"
-                    name={formikField}
-                    value={String(radioBtn.value)}
-                    checked={isChecked}
-                    onChange={() => {
-                      form.setFieldValue(formikField, radioBtn.value);
-                    }}
-                  />
-                );
-              }}
-            </Field>
-            <span className="custom-radio"></span>
-            <span className="px-2">{radioBtn.label}</span>
-          </label>
+          <Field name={formikField} key={`${radioBtn.value}-${index}`}>
+            {({ field, form }: any) => {
+              const current = field.value;
+              const isChecked =
+                current !== null &&
+                current !== undefined &&
+                current !== "" &&
+                String(current) === String(radioBtn.value);
+              return (
+                <button
+                  type="button"
+                  className={`ob-pill${isChecked ? " selected" : ""}`}
+                  onClick={() => {
+                    form.setFieldValue(formikField, radioBtn.value);
+                  }}
+                  aria-pressed={isChecked}
+                >
+                  {radioBtn.label}
+                </button>
+              );
+            }}
+          </Field>
         ))}
       </div>
 
       {!hideError && <HighlightErrors isRequired={isRequired} formikField={formikField} />}
 
       <style>{`
-        .radio-container {
-          position: relative;
+        .ob-pill-group {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .ob-pill {
           display: flex;
           align-items: center;
-          cursor: pointer;
-          font-size: 14px;
-          font-family: 'Inter', sans-serif;
-          font-weight: 400;
-          color: #252f4a;
-          line-height: 1;
-        }
-
-        .radio-container input[type="radio"] {
-          position: absolute;
-          opacity: 0;
-          cursor: pointer;
-          width: 0;
-          height: 0;
-        }
-
-        /* custom radio circle */
-        .custom-radio {
-          flex-shrink: 0;
-          height: 20px;
-          width: 20px;
-          border-radius: 50%;
-          background-color: #EEF1F7;
-          border: 2px solid #d1d5e0;
-          display: inline-flex;
-          align-items: center;
           justify-content: center;
-          transition: all 0.2s ease-in-out;
+          gap: 6px;
+          height: 38px;
+          padding: 0 16px;
+          border-radius: var(--ob-r, 8px);
+          border: 1.5px solid var(--ob-border, #cbd5e1);
+          background: var(--ob-surface, #fff);
+          color: var(--ob-text-2, #64748b);
+          font-size: 0.8375rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all var(--ob-tr, 150ms cubic-bezier(0.4,0,0.2,1));
+          outline: none;
+          user-select: none;
+          font-family: var(--ob-font, 'Inter', sans-serif);
+          letter-spacing: -0.01em;
         }
-
-        /* When checked, show red fill */
-        .radio-container input[type="radio"]:checked ~ .custom-radio {
-          background-color: #F1CCCC;
-          border-color: #1E3A8A;
+        .ob-pill:hover {
+          border-color: var(--ob-accent, #1e3a8a);
+          color: var(--ob-accent, #1e3a8a);
+          background: var(--ob-accent-soft, rgba(30, 58, 138, 0.05));
         }
-
-        /* inner dot */
-        .radio-container input[type="radio"]:checked ~ .custom-radio::after {
-          content: "";
-          width: 9px;
-          height: 9px;
-          border-radius: 50%;
-          background: #1E3A8A;
+        .ob-pill.selected {
+          border-color: var(--ob-accent, #1e3a8a);
+          background: var(--ob-accent, #1e3a8a);
+          color: #fff;
+          box-shadow: 0 3px 12px var(--ob-accent-ring, rgba(30, 58, 138, 0.15));
+        }
+        .ob-pill.selected:hover {
+          background: var(--ob-accent-hover, #1b357d);
         }
       `}</style>
     </div>

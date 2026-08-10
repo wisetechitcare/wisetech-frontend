@@ -1,17 +1,27 @@
 /* Premium Smart Workspace Design System Styles */
 
+/* ───────────────────────────────────────────────────────────────────────────
+   All colour in this file mirrors the premium UI-kit tokens `T`
+   (`@app/modules/common/components/ui/tokens` → LEGACY_UIKIT in
+   `@app/theme/tokens`) — the WiseTech navy brand plus the left→right brand
+   gradient `T.color.brandGradientLeftToRight` that MaterialHeaderTab uses.
+   CSS cannot import the TS object, so each value is pinned here with the token
+   it mirrors named in a comment — the same convention
+   `_metronic/layout/premium-layout.css` uses. Change it there, mirror it here.
+   ─────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --workspace-primary-hsl: 215, 60%, 45%;     /* Unified Slate Blue */
-  --workspace-success-hsl: 145, 65%, 38%;     /* Teal Green */
-  --workspace-warning-hsl: 38, 92%, 50%;      /* Golden Amber */
-  --workspace-danger-hsl: 350, 75%, 48%;      /* Rose Red */
-  --workspace-bg-light: #f8fafc;
-  --workspace-card-bg: rgba(255, 255, 255, 0.85);
-  --workspace-border: rgba(226, 232, 240, 0.8);
-  --workspace-text-dark: #0f172a;
-  --workspace-text-muted: #64748b;
-  --glass-shadow: 0 8px 32px 0 rgba(148, 163, 184, 0.08);
-  --premium-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --workspace-primary-hsl: 224, 64%, 33%;     /* T.color.brand   #1E3A8A */
+  --workspace-success-hsl: 157, 45%, 34%;     /* T.color.success #2F7D5F */
+  --workspace-warning-hsl: 31, 60%, 41%;      /* T.color.warning #A66A2A */
+  --workspace-danger-hsl: 5, 58%, 44%;        /* T.color.danger  #B23A30 */
+  --workspace-bg-light: #F6F7F9;              /* T.color.panel */
+  --workspace-card-bg: #FFFFFF;               /* T.color.surface */
+  --workspace-border: #E6E9EE;                /* T.color.line */
+  --workspace-text-dark: #1B2230;             /* T.color.ink */
+  --workspace-text-muted: #5A6573;            /* T.color.inkSoft */
+  --glass-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 2px 6px rgba(16,24,40,0.06); /* T.shadow.card */
+  --premium-transition: all 0.26s cubic-bezier(0.4, 0, 0.2, 1); /* T.motion.duration.standard + easing.standard */
 }
 
 /* 3-Panel Main Layout Container */
@@ -76,11 +86,11 @@
 
 /* Progress Meter Dashboard */
 .progress-dashboard {
-  background: linear-gradient(135deg, hsl(var(--workspace-primary-hsl)), hsl(225, 65%, 52%));
+  background: linear-gradient(135deg, var(--wt-primary), var(--wt-primary-mid));
   color: white;
   border-radius: 12px;
   padding: 1.25rem;
-  box-shadow: 0 4px 15px rgba(27, 85, 221, 0.2);
+  box-shadow: 0 4px 15px var(--wt-primary-shadow-md);
 }
 
 .progress-header {
@@ -153,7 +163,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #cbd5e1;
+  background-color: var(--workspace-border);
   flex-shrink: 0;
   transition: var(--premium-transition);
 }
@@ -179,7 +189,7 @@
 
 @keyframes pulse-danger {
   0% { transform: scale(1); }
-  50% { transform: scale(1.15); box-shadow: 0 0 6px rgba(220, 38, 38, 0.4); }
+  50% { transform: scale(1.15); box-shadow: 0 0 6px hsla(var(--workspace-danger-hsl), 0.4); }
   100% { transform: scale(1); }
 }
 
@@ -204,7 +214,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 1.5rem;
-  background-color: #fafbfd;
+  background-color: var(--wt-gray-50);
   border-bottom: 1px solid var(--workspace-border);
   cursor: pointer;
   user-select: none;
@@ -212,7 +222,7 @@
 }
 
 .workspace-accordion-header:hover {
-  background-color: #f1f5f9;
+  background-color: var(--wt-gray-100);
 }
 
 .workspace-accordion-title {
@@ -221,7 +231,7 @@
   gap: 0.75rem;
   font-size: 1.05rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--workspace-text-dark);
 }
 
 .workspace-accordion-indicator {
@@ -249,7 +259,7 @@
 }
 
 .commercials-thead {
-  background-color: #f8fafc;
+  background-color: var(--wt-gray-50);
   border-bottom: 2px solid var(--workspace-border);
 }
 
@@ -269,7 +279,7 @@
 }
 
 .commercials-tr:hover {
-  background-color: rgba(248, 250, 252, 0.5);
+  background-color: var(--wt-gray-50);
 }
 
 .commercials-td {
@@ -280,7 +290,7 @@
 .commercials-input {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--workspace-border);
   border-radius: 6px;
   font-size: 0.875rem;
   transition: var(--premium-transition);
@@ -293,7 +303,7 @@
 }
 
 .commercials-summary {
-  background-color: #f8fafc;
+  background-color: var(--wt-gray-50);
   padding: 1rem;
   border-top: 2px solid var(--workspace-border);
   display: flex;
@@ -388,48 +398,61 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Brand Primary (Burgundy/Red — preserving project theme) */
-  --wt-primary:           #8B1A2F;
-  --wt-primary-dark:      #6B1323;
-  --wt-primary-mid:       #a02035;
-  --wt-primary-light:     rgba(139, 26, 47, 0.07);
-  --wt-primary-border:    rgba(139, 26, 47, 0.18);
+  /* ── Brand Primary — WiseTech Navy Brand (T.color.brand*) */
+  --wt-primary:           #1E3A8A;                    /* T.color.brand */
+  --wt-primary-mid:       #2C56C4;                    /* T.color.brandGradientLeftToRight start */
+  --wt-primary-dark:      #15265C;                    /* T.color.brandGradientLeftToRight end */
+  --wt-primary-light:     #E9EEF8;                    /* T.color.brandSoft */
+  --wt-primary-border:    rgba(30, 58, 138, 0.16);    /* T.color.brandRing */
+  --wt-primary-shadow:    rgba(30, 58, 138, 0.15);    /* navy shadow */
+  --wt-primary-shadow-md: rgba(30, 58, 138, 0.22);    /* navy shadow md */
 
-  /* ── Semantic Colors */
-  --wt-success:           #15803d;
-  --wt-success-light:     rgba(21, 128, 61, 0.08);
-  --wt-success-border:    rgba(21, 128, 61, 0.25);
-  --wt-warning:           #b45309;
-  --wt-error:             #dc2626;
-  --wt-error-light:       rgba(220, 38, 38, 0.08);
+  /* ── Semantic Colors — C.success / warning / danger / info */
+  --wt-success:           #17c964;                    /* C.success */
+  --wt-success-light:     #f0fdf4;                    /* C.successLight */
+  --wt-success-border:    rgba(23, 201, 100, 0.28);
+  --wt-warning:           #f5a623;                    /* C.warning */
+  --wt-warning-light:     #fffbeb;                    /* C.warningLight */
+  --wt-warning-border:    rgba(245, 166, 35, 0.30);
+  --wt-error:             #f1416c;                    /* C.danger */
+  --wt-error-light:       #fff5f8;                    /* C.dangerLight */
+  --wt-error-border:      rgba(241, 65, 108, 0.28);
+  --wt-info:              #0085db;                    /* C.info */
+  --wt-info-light:        #e1f0fa;                    /* C.infoLight */
 
-  /* ── Neutral Palette */
-  --wt-white:             #ffffff;
-  --wt-gray-50:           #f9fafb;
-  --wt-gray-100:          #f3f4f6;
-  --wt-gray-150:          #eff0f2;
-  --wt-gray-200:          #e5e7eb;
-  --wt-gray-300:          #d1d5db;
-  --wt-gray-400:          #9ca3af;
-  --wt-gray-500:          #6b7280;
-  --wt-gray-600:          #4b5563;
-  --wt-gray-700:          #374151;
-  --wt-gray-800:          #1f2937;
-  --wt-gray-900:          #111827;
+  /* ── Neutral Palette — C surfaces / borders / text. The 150/600/700 steps
+        are interpolations; every other step is a token verbatim. */
+  --wt-white:             #ffffff;                    /* C.bgCard */
+  --wt-gray-50:           #f8f9fa;                    /* C.bgSection */
+  --wt-gray-100:          #f7f8fc;                    /* C.bgPage */
+  --wt-gray-150:          #eef0f6;                    /* derived hairline */
+  --wt-gray-200:          #E1E3EA;                    /* C.border */
+  --wt-gray-300:          #d1d3e2;                    /* C.borderDark */
+  --wt-gray-400:          #A1A5B7;                    /* C.textMuted */
+  --wt-gray-500:          #7E8299;                    /* C.textSecondary */
+  --wt-gray-600:          #5E6278;                    /* derived */
+  --wt-gray-700:          #3F4254;                    /* derived */
+  --wt-gray-800:          #181C32;                    /* C.textPrimary */
+  --wt-gray-900:          #181C32;                    /* C.textPrimary */
 
-  /* ── Shadows */
-  --wt-shadow-xs:         0 1px 2px rgba(0,0,0,0.05);
-  --wt-shadow-sm:         0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-  --wt-shadow-md:         0 4px 12px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
-  --wt-shadow-lg:         0 10px 30px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04);
-  --wt-shadow-primary:    0 4px 14px rgba(139, 26, 47, 0.28);
+  /* ── Shadows — C.shadow* */
+  --wt-shadow-xs:         0 1px 3px rgba(0,0,0,0.06);   /* C.shadowSm */
+  --wt-shadow-sm:         0 1px 3px rgba(0,0,0,0.06);   /* C.shadowSm */
+  --wt-shadow-md:         0 4px 16px rgba(0,0,0,0.04);  /* C.shadowCard */
+  --wt-shadow-lg:         0 8px 28px rgba(0,0,0,0.08);  /* C.shadowCardHover */
+  --wt-shadow-modal:      0 24px 48px rgba(0,0,0,0.12); /* C.shadowModal */
+  --wt-shadow-primary:    0 4px 12px rgba(157, 65, 65, 0.15); /* BTN.primary boxShadow */
 
-  /* ── Motion */
+  /* ── Typography — FONT.heading / FONT.body */
+  --wt-font-heading:      'Barlow', sans-serif;
+  --wt-font-body:         'Inter', sans-serif;
+
+  /* ── Motion — MOTION.easing.standard / MOTION.duration */
   --wt-ease:              cubic-bezier(0.4, 0, 0.2, 1);
-  --wt-transition:        all 0.18s var(--wt-ease);
-  --wt-transition-slow:   all 0.35s var(--wt-ease);
+  --wt-transition:        all 0.15s var(--wt-ease);    /* MOTION.duration.quick */
+  --wt-transition-slow:   all 0.4s var(--wt-ease);     /* MOTION.duration.emphasized */
 
-  /* ── Layout */
+  /* ── Layout — RADIUS.lg / RADIUS.md / RADIUS.sm */
   --wt-radius:            12px;
   --wt-radius-sm:         8px;
   --wt-radius-xs:         6px;
@@ -449,7 +472,7 @@
   height: 100%;
   min-height: 100vh;
   background: var(--wt-gray-50);
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--wt-font-body);
   color: var(--wt-gray-900);
   overflow: hidden;
   position: relative;
@@ -465,22 +488,26 @@
   justify-content: space-between;
   padding: 0 2rem;
   height: var(--wt-header-height);
-  background:
-    radial-gradient(120% 140% at 0% 0%, rgba(30, 58, 138, 0.06) 0%, rgba(30, 58, 138, 0) 55%),
-    var(--wt-white);
-  border-bottom: 1px solid var(--wt-gray-200);
+  /* T.color.brandGradientLeftToRight */
+  background: linear-gradient(90deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: var(--wt-shadow-sm);
   flex-shrink: 0;
   z-index: 60;
   position: relative;
 }
-/* Slim accent strip along the top edge of the header. */
+/* Slim highlight along the top edge — reads as a crisp lit edge on the navy. */
 .wizard-header::before {
   content: "";
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--wt-primary) 0%, #c0556a 45%, rgba(30, 58, 138, 0.15) 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.32) 0%,
+    rgba(255, 255, 255, 0.14) 55%,
+    rgba(255, 255, 255, 0) 100%
+  );
 }
 
 .wizard-header-left {
@@ -496,17 +523,17 @@
   gap: 0.35rem;
   font-size: 0.74rem;
   font-weight: 500;
-  color: var(--wt-gray-400);
+  color: rgba(255, 255, 255, 0.7);
   letter-spacing: 0.02em;
 }
 
 .wizard-breadcrumb .wt-bc-sep {
-  color: var(--wt-gray-300);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 0.7rem;
 }
 
 .wizard-breadcrumb .wt-bc-active {
-  color: var(--wt-primary);
+  color: #ffffff;
   font-weight: 600;
 }
 
@@ -514,50 +541,70 @@
 .wizard-title-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: clamp(0.75rem, 0.6rem + 0.4vw, 1.125rem);
   min-width: 0;
 }
 
+/* One size drives the whole avatar — the frame, its radius, the placeholder icon
+   and the brand underline are all fractions of it, so it stays in proportion at
+   any width instead of needing a fixed set per breakpoint. Fluid rather than a
+   fixed 48px: the old size read as a thumbnail beside a 1.375rem title on a large
+   monitor. Floor 3rem, ceiling 4.25rem. */
 .wizard-header-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+  --wt-avatar-size: clamp(3rem, 2.4rem + 1.6vw, 4.25rem);
+  width: var(--wt-avatar-size);
+  height: var(--wt-avatar-size);
+  border-radius: calc(var(--wt-avatar-size) * 0.29);
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  color: var(--wt-primary);
+  color: #1E3A8A;                 /* T.color.brand */
   background: #ffffff;
-  border: 1px solid var(--wt-gray-200);
-  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(8, 15, 40, 0.28);
   position: relative;
 }
 /* subtle brand ring at the bottom for a crisp, premium edge */
 .wizard-header-avatar::after {
   content: "";
   position: absolute;
-  left: 10px; right: 10px; bottom: 6px;
-  height: 3px;
+  left: calc(var(--wt-avatar-size) * 0.21);
+  right: calc(var(--wt-avatar-size) * 0.21);
+  bottom: calc(var(--wt-avatar-size) * 0.125);
+  height: calc(var(--wt-avatar-size) * 0.0625);
   border-radius: 999px;
-  background: var(--wt-primary);
+  background: #1E3A8A;            /* T.color.brand */
   opacity: 0.85;
 }
 .wizard-header-avatar i {
-  font-size: 23px;
+  font-size: calc(var(--wt-avatar-size) * 0.48);
   line-height: 1;
   display: block;
 }
+/* With a real photo the frame becomes a plain circular mask. The rounded-square
+   chrome above (white fill, 14px radius, brand underline) is designed around the
+   placeholder ICON — behind a circular photo its corners peeked out and the
+   ::after bar cut across the bottom of the face, which read as "off-centre". */
+.wizard-header-avatar--photo {
+  border-radius: 50%;
+  background: transparent;
+  padding: 0;
+  overflow: hidden;
+}
+.wizard-header-avatar--photo::after { content: none; }
 
+/* T.sectionTitle — Barlow 700, tightened tracking. */
 .wizard-title {
-  font-size: 1.45rem;
-  font-weight: 800;
-  color: var(--wt-gray-900);
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #ffffff;
   margin: 0;
-  line-height: 1.15;
-  font-family: 'Barlow', 'Inter', sans-serif;
+  line-height: 1.2;
+  font-family: var(--wt-font-heading);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.3px;
 }
 
 .wizard-subtitle {
@@ -566,7 +613,7 @@
   flex-wrap: wrap;
   gap: 0.45rem;
   font-size: 0.72rem;
-  color: var(--wt-gray-500);
+  color: rgba(255, 255, 255, 0.85);
   margin: 6px 0 0;
   font-weight: 500;
 }
@@ -582,15 +629,15 @@
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  background: var(--wt-gray-100);
-  color: var(--wt-gray-700);
-  border: 1px solid var(--wt-gray-200);
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   white-space: nowrap;
 }
 .wizard-meta-chip.is-accent {
-  background: linear-gradient(135deg, rgba(30, 58, 138, 0.12), rgba(30, 58, 138, 0.05));
-  color: var(--wt-primary);
-  border-color: rgba(30, 58, 138, 0.28);
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.4);
 }
 .wizard-meta-chip i { font-size: 0.74rem; line-height: 1; opacity: 0.9; }
 
@@ -635,14 +682,17 @@
   box-shadow: var(--wt-shadow-primary);
 }
 
+/* Config pages lighten the primary on hover (C.primaryMid) and deepen on press. */
 .wt-btn-primary:hover:not(:disabled) {
-  background: var(--wt-primary-dark);
-  border-color: var(--wt-primary-dark);
+  background: var(--wt-primary-mid);
+  border-color: var(--wt-primary-mid);
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(139, 26, 47, 0.32);
+  box-shadow: 0 6px 18px var(--wt-primary-shadow-md);
 }
 
 .wt-btn-primary:active:not(:disabled) {
+  background: var(--wt-primary-dark);
+  border-color: var(--wt-primary-dark);
   transform: translateY(0);
   box-shadow: var(--wt-shadow-primary);
 }
@@ -701,6 +751,7 @@
   flex: 1;
   overflow: hidden;
   min-height: 0;
+  position: relative;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -733,7 +784,7 @@
 
 /* Progress Area — Premium Gradient Card */
 .wt-progress-card {
-  background: linear-gradient(135deg, var(--wt-primary) 0%, var(--wt-primary-dark) 100%);
+  background: linear-gradient(135deg, #1E3A8A 0%, #15265C 100%);
   border-radius: var(--wt-radius);
   padding: 1.125rem 1.125rem 1.25rem;
   color: white;
@@ -936,6 +987,11 @@
 
 .wizard-step-canvas {
   flex: 1;
+  /* A flex child defaults to `min-width: auto`, i.e. it refuses to shrink below its
+     content's intrinsic width. The form grids inside are wide, so the canvas held the
+     row open and pushed the summary panel past the right edge, where `.wizard-layout`
+     (overflow: hidden) clipped it — the summary's values were cut off mid-word. */
+  min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
@@ -999,13 +1055,15 @@
   font-weight: 700;
 }
 
+/* T.sectionTitle */
 .wt-step-page-title {
-  font-size: 1.3rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: var(--wt-gray-900);
   margin: 0 0 0.2rem 0;
-  font-family: 'Barlow', 'Inter', sans-serif;
-  line-height: 1.25;
+  font-family: var(--wt-font-heading);
+  letter-spacing: -0.3px;
+  line-height: 1.2;
 }
 
 .wt-step-page-subtitle {
@@ -1039,8 +1097,8 @@
 }
 
 .wt-section-card.wt-section-danger {
-  border-color: rgba(220, 38, 38, 0.3);
-  background: rgba(254, 242, 242, 0.4);
+  border-color: var(--wt-error-border);
+  background: var(--wt-error-light);   /* C.dangerLight */
 }
 
 .wt-section-card.wt-section-info {
@@ -1123,6 +1181,65 @@
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--wt-gray-200) transparent;
+  transition: width 0.25s ease, min-width 0.25s ease;
+}
+
+.wizard-summary-panel.is-collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+  border-left: none !important;
+  overflow: hidden !important;
+}
+
+.wt-summary-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wt-summary-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--wt-gray-400);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.wt-summary-toggle-btn:hover {
+  background: var(--wt-gray-100);
+  color: var(--wt-gray-700);
+}
+
+.wt-summary-expand-floating {
+  position: absolute;
+  top: 90px;
+  right: 0;
+  width: 24px;
+  height: 40px;
+  background: var(--wt-white);
+  border: 1px solid var(--wt-gray-200);
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 99;
+  box-shadow: -2px 2px 6px rgba(0, 0, 0, 0.06);
+  color: var(--wt-gray-500);
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.wt-summary-expand-floating:hover {
+  background: var(--wt-gray-50);
+  color: var(--wt-gray-800);
+  width: 28px;
 }
 
 .wizard-summary-panel::-webkit-scrollbar { width: 4px; }
@@ -1199,10 +1316,12 @@
   color: var(--wt-gray-900);
   font-weight: 600;
   text-align: right;
-  max-width: 58%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wraps rather than truncating. The panel is the one place an admin checks what
+     they actually entered, so a half-shown email or account number defeats it; the
+     panel scrolls, so an extra line costs nothing. */
+  min-width: 0;
+  max-width: 62%;
+  overflow-wrap: anywhere;
 }
 
 .wt-summary-row-value.wt-val-strong {
@@ -1212,11 +1331,11 @@
 
 .wt-summary-warning {
   padding: 0.625rem 0.75rem;
-  background: rgba(180, 83, 9, 0.07);
-  border: 1px solid rgba(180, 83, 9, 0.2);
+  background: var(--wt-warning-light);
+  border: 1px solid var(--wt-warning-border);
   border-radius: var(--wt-radius-sm);
   font-size: 0.72rem;
-  color: var(--wt-warning);
+  color: #92400e;
   font-weight: 500;
   line-height: 1.4;
 }
@@ -1247,25 +1366,25 @@
 }
 
 .wt-export-pdf {
-  color: #dc2626;
-  border-color: rgba(220,38,38,0.25);
-  background: rgba(254,242,242,0.5);
+  color: var(--wt-error);              /* C.danger */
+  border-color: var(--wt-error-border);
+  background: var(--wt-error-light);   /* C.dangerLight */
 }
 
 .wt-export-pdf:hover {
-  background: rgba(220,38,38,0.08);
-  border-color: rgba(220,38,38,0.4);
+  background: rgba(241, 65, 108, 0.08);
+  border-color: rgba(241, 65, 108, 0.4);
 }
 
 .wt-export-docx {
-  color: #1d4ed8;
-  border-color: rgba(29,78,216,0.22);
-  background: rgba(239,246,255,0.5);
+  color: var(--wt-info);               /* C.info */
+  border-color: rgba(0, 133, 219, 0.22);
+  background: var(--wt-info-light);    /* C.infoLight */
 }
 
 .wt-export-docx:hover {
-  background: rgba(29,78,216,0.07);
-  border-color: rgba(29,78,216,0.35);
+  background: rgba(0, 133, 219, 0.08);
+  border-color: rgba(0, 133, 219, 0.35);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -1380,8 +1499,8 @@
 
 /* Conversion Banner */
 .wt-conversion-banner {
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  border: 1px solid #86efac;
+  background: var(--wt-success-light);   /* C.successLight */
+  border: 1px solid var(--wt-success-border);
   border-radius: var(--wt-radius);
   padding: 1.25rem 1.5rem;
 }
@@ -1419,8 +1538,8 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.2rem 0.6rem;
-  background: white;
-  border: 1px solid #86efac;
+  background: var(--wt-white);
+  border: 1px solid var(--wt-success-border);
   border-radius: 999px;
   font-size: 0.7rem;
   font-weight: 600;
@@ -1433,11 +1552,11 @@
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.625rem 0.875rem;
-  background: rgba(30, 64, 175, 0.05);
-  border: 1px solid rgba(30, 64, 175, 0.15);
+  background: var(--wt-info-light);      /* C.infoLight */
+  border: 1px solid rgba(0, 133, 219, 0.15);
   border-radius: var(--wt-radius-sm);
   font-size: 0.72rem;
-  color: #1e40af;
+  color: #0058a8;
   font-weight: 500;
   line-height: 1.4;
 }
@@ -1510,13 +1629,10 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+  /* Mobile only has to restate the one variable — radius, icon and underline
+     follow from it. */
   .wizard-header-avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-  }
-  .wizard-header-avatar i {
-    font-size: 18px;
+    --wt-avatar-size: 2.75rem;
   }
   .wizard-title {
     font-size: 1rem;
@@ -1662,10 +1778,13 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/* LEAD WIZARD FULLSCREEN MODAL OVERRIDES                                      */
+/* WIZARD FULLSCREEN MODAL OVERRIDES                                           */
+/* `.wt-wizard-modal` is the module-agnostic hook (Contact, …); the historical  */
+/* `.lead-wizard-modal` class is kept so the Lead wizard is untouched.          */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 .lead-wizard-modal .modal-dialog,
+.wt-wizard-modal .modal-dialog,
 .lead-wizard-dialog {
   margin: 0 !important;
   max-width: 100% !important;
@@ -1673,27 +1792,31 @@
   height: 100vh !important;
 }
 
-.lead-wizard-modal .modal-content {
+.lead-wizard-modal .modal-content,
+.wt-wizard-modal .modal-content {
   border: none !important;
   border-radius: 0 !important;
   height: 100vh !important;
   overflow: hidden !important;
 }
 
-.lead-wizard-modal .modal-body {
+.lead-wizard-modal .modal-body,
+.wt-wizard-modal .modal-body {
   padding: 0 !important;
   height: 100vh !important;
   overflow: hidden !important;
 }
 
-.lead-wizard-modal .enterprise-wizard {
+.lead-wizard-modal .enterprise-wizard,
+.wt-wizard-modal .enterprise-wizard {
   height: 100vh !important;
   min-height: 100vh !important;
 }
 
 /* The wizard form wrapper must fill the body so the wizard's sticky footer
    (Cancel / Back / Save) stays pinned and visible. */
-.lead-wizard-modal .modal-body > form {
+.lead-wizard-modal .modal-body > form,
+.wt-wizard-modal .modal-body > form {
   height: 100%;
   min-height: 0;
   display: flex;
@@ -1705,12 +1828,298 @@
    overflow-y:visible for the inline page usage, which would clip content
    here). Also pad the bottom so the last field clears the fixed footer bar. */
 @media (max-width: 768px) {
-  .lead-wizard-modal .enterprise-wizard {
+  .lead-wizard-modal .enterprise-wizard,
+  .wt-wizard-modal .enterprise-wizard {
     overflow: hidden !important;
   }
-  .lead-wizard-modal .wizard-step-canvas {
+  .lead-wizard-modal .wizard-step-canvas,
+  .wt-wizard-modal .wizard-step-canvas {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     padding-bottom: 5rem;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  SHARED SECTION PRIMITIVES                                                  */
+/*  Small, reusable pieces every module's step sections compose from, so a      */
+/*  section never has to hand-roll an inline-create link, a toggle row or a     */
+/*  sub-group divider. Introduced with the Contact wizard.                      */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Inline "+ New X" affordance rendered under a dropdown. */
+.wt-inline-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.375rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--wt-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: var(--wt-transition);
+}
+
+.wt-inline-add:hover {
+  color: var(--wt-primary-dark);
+  text-decoration: underline;
+}
+
+.wt-inline-add:disabled {
+  color: var(--wt-gray-400);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* Field-level helper / warning text under an input. */
+.wt-field-hint {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--wt-gray-500);
+}
+
+.wt-field-hint.is-warning { color: var(--wt-warning); }
+.wt-field-hint.is-error   { color: var(--wt-error); }
+
+/* Secondary heading inside a section card — divides "similar items" into
+   labelled sub-groups without spawning another card. */
+.wt-subgroup-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--wt-gray-500);
+}
+
+.wt-subgroup-heading::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--wt-gray-150);
+}
+
+/* Switch row: label + description on the left, control on the right. */
+.wt-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--wt-gray-200);
+  border-radius: var(--wt-radius-sm);
+  background: var(--wt-gray-50);
+  transition: var(--wt-transition);
+}
+
+.wt-toggle-row:hover { border-color: var(--wt-gray-300); background: var(--wt-white); }
+.wt-toggle-row.is-on { border-color: var(--wt-primary-border); background: var(--wt-primary-light); }
+
+.wt-toggle-row-title {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--wt-gray-800);
+}
+
+.wt-toggle-row-sub {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--wt-gray-500);
+}
+
+/* Selectable card used for radio-style choices (e.g. portal visibility). */
+.wt-choice-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--wt-gray-200);
+  border-radius: var(--wt-radius-sm);
+  background: var(--wt-white);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--wt-transition);
+}
+
+.wt-choice-card:hover { border-color: var(--wt-gray-300); box-shadow: var(--wt-shadow-xs); }
+
+.wt-choice-card.is-selected {
+  border-color: var(--wt-primary);
+  background: var(--wt-primary-light);
+  box-shadow: 0 0 0 1px var(--wt-primary-border);
+}
+
+.wt-choice-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--wt-gray-100);
+  color: var(--wt-gray-500);
+  font-size: 0.8rem;
+}
+
+.wt-choice-card.is-selected .wt-choice-card-icon {
+  background: var(--wt-primary);
+  color: var(--wt-white);
+}
+
+.wt-choice-card-title {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--wt-gray-800);
+}
+
+.wt-choice-card-sub {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--wt-gray-500);
+}
+
+/* Avatar uploader (profile photo). */
+.wt-avatar-uploader {
+  display: flex;
+  align-items: center;
+  gap: 1.125rem;
+  flex-wrap: wrap;
+}
+
+.wt-avatar-frame {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px dashed var(--wt-gray-300);
+  background: var(--wt-gray-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--wt-transition);
+}
+
+.wt-avatar-frame:hover { border-color: var(--wt-primary); background: var(--wt-primary-light); }
+.wt-avatar-frame.has-image { border-style: solid; border-color: var(--wt-gray-200); }
+
+.wt-avatar-frame img { width: 100%; height: 100%; object-fit: cover; }
+
+.wt-avatar-frame-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  background: rgba(24, 28, 50, 0.55);   /* C.textPrimary @ 55% */
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: var(--wt-transition);
+}
+
+.wt-avatar-frame:hover .wt-avatar-frame-overlay { opacity: 1; }
+
+/* Read-only recap grid used by the final review step. */
+.wt-recap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.75rem 1.25rem;
+}
+
+.wt-recap-item {
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--wt-gray-150);
+  border-radius: var(--wt-radius-xs);
+  background: var(--wt-gray-50);
+}
+
+.wt-recap-label {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wt-gray-500);
+}
+
+.wt-recap-value {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--wt-gray-800);
+  overflow-wrap: anywhere;
+}
+
+.wt-recap-value.is-empty { color: var(--wt-gray-400); font-weight: 500; font-style: italic; }
+
+/* Chips (services, tags) rendered read-only in recaps/summaries. */
+.wt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.15rem 0.25rem 0.15rem 0;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--wt-primary-light);
+  color: var(--wt-primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* Non-blocking notice strip inside a section card (duplicate contact, etc.). */
+.wt-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--wt-radius-xs);
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.wt-notice.is-warning {
+  border: 1px solid var(--wt-warning-border);
+  background: var(--wt-warning-light);   /* C.warningLight */
+  color: #92400e;
+}
+
+.wt-notice.is-info {
+  border: 1px solid var(--wt-primary-border);
+  background: var(--wt-primary-light);
+  color: var(--wt-primary-dark);
+}
+
+.wt-notice.is-success {
+  border: 1px solid var(--wt-success-border);
+  background: var(--wt-success-light);
+  color: var(--wt-success);
 }

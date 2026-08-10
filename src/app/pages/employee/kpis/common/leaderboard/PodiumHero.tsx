@@ -116,9 +116,30 @@ const PodiumHero: React.FC<PodiumHeroProps> = ({ entries, allEntries }) => {
 
           <div style={{ marginTop: rank === 1 ? 8 : 6 }}>
             <span style={{ fontSize: rank === 1 ? S.score1 : S.score, fontWeight: 800, color: SCORE_COLOR, letterSpacing: "-0.5px" }}>
-              {entry.score.toFixed(2)}
+              {/* Days are whole counts — "25/25", not "25.00". */}
+              {entry.metricSuffix
+                ? `${entry.score}${entry.maxScore != null ? `/${entry.maxScore}` : ""}`
+                : entry.score.toFixed(2)}
             </span>
           </div>
+          {entry.isConcession ? (
+            <div
+              style={{
+                marginTop: 4,
+                display: "inline-block",
+                fontSize: S.label,
+                fontWeight: 700,
+                color: "#B08421",
+                background: "#FEF7E6",
+                border: "1px solid #F0DCA8",
+                borderRadius: 999,
+                padding: "1px 8px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {entry.leaveDays === 0.5 ? "½ leave" : `${entry.leaveDays ?? 1} leave`}
+            </div>
+          ) : null}
           <div
             style={{
               fontSize: S.label,
@@ -129,7 +150,7 @@ const PodiumHero: React.FC<PodiumHeroProps> = ({ entries, allEntries }) => {
               marginTop: 1,
             }}
           >
-            {rank === 1 ? "Elite Score" : "KPI Score"}
+            {entry.metricSuffix ?? (rank === 1 ? "Elite Score" : "KPI Score")}
           </div>
         </div>
 
@@ -229,7 +250,41 @@ const PodiumHero: React.FC<PodiumHeroProps> = ({ entries, allEntries }) => {
                   </div>
                 ) : null}
               </div>
-              <span style={{ fontSize: 15, fontWeight: 800, color: SCORE_COLOR, flexShrink: 0 }}>{e.score.toFixed(2)}</span>
+              <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0 }}>
+                {/* No-Late board lists everyone — a row that missed out shows why, in red. */}
+                {e.qualified === false && e.disqualifyReason ? (
+                  <span
+                    style={{
+                      fontSize: 9.5, fontWeight: 700, color: "#D9214E", background: "#FAE8E6",
+                      border: "1px solid rgba(217,33,78,0.18)", borderRadius: 999, padding: "1px 7px",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {e.disqualifyReason}
+                  </span>
+                ) : null}
+                {e.isConcession ? (
+                  <span
+                    style={{
+                      fontSize: 9.5, fontWeight: 700, color: "#B08421", background: "#FEF7E6",
+                      border: "1px solid #F0DCA8", borderRadius: 999, padding: "1px 7px", whiteSpace: "nowrap",
+                    }}
+                  >
+                    {e.leaveDays === 0.5 ? "½ leave" : `${e.leaveDays ?? 1} leave`}
+                  </span>
+                ) : null}
+                <span
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 800,
+                    color: e.qualified === false ? "#D9214E" : SCORE_COLOR,
+                  }}
+                >
+                  {e.metricSuffix
+                    ? `${e.score}${e.maxScore != null ? `/${e.maxScore}` : ""}`
+                    : e.score.toFixed(2)}
+                </span>
+              </div>
             </div>
           );
         })}

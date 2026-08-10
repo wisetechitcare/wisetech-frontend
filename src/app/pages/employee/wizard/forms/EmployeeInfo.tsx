@@ -19,7 +19,6 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
     const [workingMethodOptions, setWorkingMethodOptions] = useState([]);
     const [teamOptions, setTeamOptions] = useState([]);
     const [employeeLevelOptions, setEmployeeLevelOptions] = useState([]);
-    const [roomBlockOptions, setRoomBlockOptions] = useState([]);
     const [shiftOptions, setShiftOptions] = useState([]);
     const [experienceLevelOptions, setExperienceLevelOptions] = useState([]);
 
@@ -92,21 +91,6 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
             setEmployeeLevelOptions(options);
         }
 
-        async function getRoomBlocks() {
-            try {
-                const response = await fetchAllOrganizationConfigurations("ROOM_BLOCK");
-                if (response?.data?.organizationConfigurations) {
-                    const options = response.data.organizationConfigurations.map((config: any) => ({
-                        value: config.id,
-                        label: config.name
-                    }));
-                    setRoomBlockOptions(options);
-                }
-            } catch (error) {
-                console.error("Error fetching room blocks:", error);
-            }
-        }
-
         async function getShifts() {
             try {
                 const response = await fetchAllOrganizationConfigurations("SHIFT");
@@ -145,7 +129,6 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
         getAllEmployeeTypes();
         getTeams();
         getEmployeeLevels();
-        getRoomBlocks();
         getShifts();
         getExperienceLevels();
     }, []);
@@ -193,10 +176,10 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
     // which re-adds the "Organization is a required field" error even right after
     // an organization is picked. setValues validates once with all fields updated.
     const handleOrgChange = (opt: any) => {
-        setValues({ ...values, organizationId: opt?.value || '', subOrganizationId: '', branchId: '' });
+        setValues((prev: any) => ({ ...prev, organizationId: opt?.value || '', subOrganizationId: '', branchId: '' }), true);
     };
     const handleSubOrgChange = (opt: any) => {
-        setValues({ ...values, subOrganizationId: opt?.value || '', branchId: '' });
+        setValues((prev: any) => ({ ...prev, subOrganizationId: opt?.value || '', branchId: '' }), true);
     };
 
     return (
@@ -249,9 +232,6 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
       <DropDownInput isRequired={true} formikField="teamId" inputLabel="Team" options={teamOptions} />
-    </div>
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      <DropDownInput isRequired={false} formikField="roomOrBlock" inputLabel="Room/Block" options={roomBlockOptions} />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
       <DropDownInput isRequired={false} formikField="shift" inputLabel="Shift" options={shiftOptions} />

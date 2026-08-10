@@ -173,6 +173,24 @@ const NavigationButtons: React.FC<{
   </div>
 );
 
+/**
+ * The id set a lead occupies for one chart dimension (service / category /
+ * sub-category). Mirrors the analytics queries: a lead is counted once per join
+ * row, and the primary scalar only counts when it has NO join rows. An empty
+ * result is the "__NA__" bucket.
+ */
+const dimensionIds = (
+  scalarId: string | null | undefined,
+  relation: any[] | null | undefined,
+  pickId: (row: any) => string | undefined,
+): string[] => {
+  const joined = Array.isArray(relation)
+    ? relation.map(pickId).filter((id): id is string => Boolean(id))
+    : [];
+  if (joined.length) return [...new Set(joined)];
+  return scalarId ? [scalarId] : [];
+};
+
 // ─── Stage badge (All view) ────────────────────────────────────────────────────
 
 const StageBadge: React.FC<{ row: any }> = ({ row }) => {
@@ -626,14 +644,18 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
               lead?.company?.companyName ||
               lead?.leadTeams?.[0]?.company?.companyName ||
               "",
-            // Chart drill-downs group by these SCALARS (projectServiceId / projectCategoryId /
-            // projectSubCategoryId — see getLeadsBy*Analytics, which bucket a null scalar as
-            // "NA"). Do NOT fall back to the leadServices/leadCategories relations here: a
-            // relation fallback would misfile null-scalar rows under a real value and desync
-            // the table count from the chart.
+            // Display scalars — the table columns show ONE value, the primary field.
             service: lead?.projectServiceId || "",
             category: lead?.projectCategoryId || "",
             subCategory: lead?.projectSubCategoryId || "",
+            // Drill-down matching sets. A lead can carry MANY services/categories/
+            // sub-categories via the join tables, so the chart counts it once per
+            // join row (getLeadsBy*Analytics). These mirror that rule exactly —
+            // join rows when present, else the scalar, else empty (the "__NA__"
+            // bucket) — so the drill-down count always equals the bar it came from.
+            serviceIds: dimensionIds(lead?.projectServiceId, lead?.services, (r: any) => r?.serviceId),
+            categoryIds: dimensionIds(lead?.projectCategoryId, lead?.leadCategories, (r: any) => r?.category?.id),
+            subCategoryIds: dimensionIds(lead?.projectSubCategoryId, lead?.leadSubCategories, (r: any) => r?.subcategory?.id),
             status: lead?.status || null,
             poStatus: lead?.poStatus || null,
             assignedTo: lead?.assignedToId || "",
@@ -912,7 +934,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         Cell: ({ cell }: { cell: any }) =>
           projectSubcategories?.find((s: any) => s.id === cell.getValue())?.name || "N/A",
       },
-      {
+      // Hide Lead Status column when viewing team projects (only show project details)
+      ...(teamId ? [] : [{
         accessorKey: "status",
         header: "Lead Status",
         size: 130,
@@ -931,14 +954,15 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             "N/A"
           );
         },
-      },
-      {
+      }]),
+      // Hide Assigned To when viewing team projects (only show project details)
+      ...(teamId ? [] : [{
         accessorKey: "assignedTo",
         header: "Assigned To",
         size: 150,
         Cell: ({ cell }: { cell: any }) =>
           allemployees?.find((e: any) => e.employeeId === cell.getValue())?.employeeName || "N/A",
-      },
+      }]),
     ];
 
     // Lead-pipeline-only columns: hidden in project views to avoid clutter.
@@ -1046,19 +1070,21 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           accessorFn: (row: any) => pmNames(row) || "",
           Cell: ({ row }: { row: any }) => pmNames(row.original) || "N/A",
         },
-        {
+        // Hide Team column when viewing team projects
+        ...(teamId ? [] : [{
           accessorKey: "projectTeamName",
           header: "Team",
           size: 140,
           Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
-        },
-        {
+        }]),
+        // Hide Project Cost column when viewing team projects
+        ...(teamId ? [] : [{
           accessorKey: "projectCost",
           header: "Project Cost",
           size: 130,
           Cell: ({ cell }: { cell: any }) =>
             cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
-        },
+        }]),
         {
           accessorKey: "projectRate",
           header: "Rate",
@@ -1302,13 +1328,16 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           ? (scopeProject ? !item.projectStatus?.id : !item.status?.id)
           : (scopeProject ? item.projectStatus?.id === statusId : item.status?.id === statusId),
       );
+    // service / category / sub-category are MULTI-VALUED (join tables), so match
+    // against the row's full id set — matching the single display scalar would
+    // drop every lead whose extra categories put it on the bar that was clicked.
     if (serviceId)
       rows = rows?.filter((item: any) =>
-        serviceId === NA ? !item.service : item.service === serviceId,
+        serviceId === NA ? !item.serviceIds?.length : item.serviceIds?.includes(serviceId),
       );
     if (categoryId)
       rows = rows?.filter((item: any) =>
-        categoryId === NA ? !item.category : item.category === categoryId,
+        categoryId === NA ? !item.categoryIds?.length : item.categoryIds?.includes(categoryId),
       );
     if (referralId)
       rows = rows?.filter((item: any) =>
@@ -1324,7 +1353,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       );
     if (subCategoryId)
       rows = rows?.filter((item: any) =>
-        subCategoryId === NA ? !item.subCategory : item.subCategory === subCategoryId,
+        subCategoryId === NA
+          ? !item.subCategoryIds?.length
+          : item.subCategoryIds?.includes(subCategoryId),
       );
     if (companyTypeId)
       rows = rows?.filter((item: any) =>

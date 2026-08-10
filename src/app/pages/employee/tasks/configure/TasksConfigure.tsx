@@ -13,6 +13,7 @@
 //   deleteStakeholderService,
 // } from "@services/projects";
 
+import { ActionIconButton } from '@app/modules/common/components/ui';
 import {
   getAllTasksStatus,
   createTasksStatus,
@@ -364,42 +365,16 @@ const TasksConfigure = () => {
           {item.name}
         </span>
       </div>
-      <div style={{ display: 'flex', gap: SP.xs, flexShrink: 0 }}>
-        <button
-          onClick={() => onEdit(item)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: C.info,
-            cursor: 'pointer',
-            padding: '4px',
-            display: 'flex',
-            alignItems: 'center',
-            transition: 'color 0.2s ease',
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.color = C.primary}
-          onMouseLeave={(e) => e.currentTarget.style.color = C.info}
-        >
-          <i className="bi bi-pencil" style={{ fontSize: '14px' }} />
-        </button>
+      <div style={{ display: 'flex', gap: SP.xs, alignItems: 'center', flexShrink: 0 }}>
+        <ActionIconButton iconName="pencil" title="Edit" onClick={() => onEdit(item)} size="sm" />
         {showDelete && (
-          <button
+          <ActionIconButton
+            iconName="trash"
+            title="Delete"
+            tone="danger"
             onClick={() => onDelete(item.id)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: C.danger,
-              cursor: 'pointer',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              transition: 'color 0.2s ease',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#c41e3a'}
-            onMouseLeave={(e) => e.currentTarget.style.color = C.danger}
-          >
-            <i className="bi bi-trash" style={{ fontSize: '14px' }} />
-          </button>
+            size="sm"
+          />
         )}
       </div>
     </div>

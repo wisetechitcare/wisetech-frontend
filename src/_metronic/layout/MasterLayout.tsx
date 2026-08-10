@@ -8,6 +8,7 @@ import {Content} from './components/Content'
 import {PageDataProvider} from './core'
 import {SidebarCollapseProvider} from './core/SidebarCollapseContext'
 import {PinnedMenuProvider} from './core/PinnedMenuContext'
+import {NavTransformProvider} from '@/contexts/NavTransformContext'
 import {ActivityDrawer, DrawerMessenger, InviteUsers, UpgradePlan} from '../partials'
 import {MenuComponent} from '../assets/ts/components'
 import {BottomNav} from '@components/navigation/BottomNavigation'
@@ -25,6 +26,9 @@ const MasterLayout = () => {
 
   return (
     <PageDataProvider>
+      {/* Scoped to the layout, not App — the unmount cleanup strips
+          `data-nav-transform` on logout so the auth screens never carry it. */}
+      <NavTransformProvider>
       <SidebarCollapseProvider>
       <PinnedMenuProvider>
       <div className='page d-flex flex-row flex-column-fluid'>
@@ -33,6 +37,11 @@ const MasterLayout = () => {
           <HeaderWrapper />
 
           <div id='kt_content' className='content d-flex flex-column flex-column-fluid p-0 m-0'>
+            {/* The legacy "← All navigation" bar is gone. It existed because Transform mode
+                had no standing navigation of its own; the workspace shell's application rail
+                is that navigation now, and on Home the bar was pointing at the very screen
+                you were already looking at. Its breadcrumb lives in WorkspaceHeader. */}
+
             <div className='post d-flex flex-column-fluid p-0 m-0' id='kt_post'>
               <Content>
                 <Outlet />
@@ -62,6 +71,7 @@ const MasterLayout = () => {
       <ScrollTop />
       </PinnedMenuProvider>
       </SidebarCollapseProvider>
+      </NavTransformProvider>
     </PageDataProvider>
   )
 }

@@ -92,6 +92,7 @@
     "react-dom": "^18.2.0",
     "react-draggable": "^4.4.6",
     "react-dropzone": "^14.2.3",
+    "react-easy-crop": "^6.2.3",
     "react-flatpickr": "^3.10.13",
     "react-hook-form": "^7.51.0",
     "react-inlinesvg": "4.1.0",

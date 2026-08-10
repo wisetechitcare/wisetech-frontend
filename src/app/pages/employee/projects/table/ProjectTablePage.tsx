@@ -366,7 +366,6 @@ const ProjectTablePage = () => {
               lead?.projectSubCategoryId || lead?.leadSubCategories?.[0]?.subcategory?.id || "N/A",
             status: lead?.status || null,
             poStatus: lead?.poStatus || null,
-            assignedTo: lead?.assignedToId || "N/A",
             contact: lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "N/A",
             createdAt: lead?.createdAt ? new Date(lead.createdAt).toISOString() : new Date().toISOString(),
             updatedAt: lead?.updatedAt ? new Date(lead.updatedAt).toISOString() : new Date().toISOString(),
@@ -646,9 +645,8 @@ const ProjectTablePage = () => {
       {
         accessorKey: "projectManagerId",
         header: "Project Manager",
-        meta: { defaultVisible: false },
+        meta: { defaultVisible: true },
         size: 160,
-        // Sort/group on the resolved names rather than the raw manager UUIDs.
         accessorFn: (row: any) => pmNames(row) || "",
         Cell: ({ row }: { row: any }) => pmNames(row.original) || "N/A",
       },
@@ -658,13 +656,6 @@ const ProjectTablePage = () => {
         meta: { defaultVisible: false },
         size: 140,
         Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
-      },
-      {
-        accessorKey: "assignedTo",
-        header: "Assigned To",
-        size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          allemployees?.find((e: any) => e.employeeId === cell.getValue())?.employeeName || "N/A",
       },
       {
         accessorKey: "service",
@@ -728,10 +719,6 @@ const ProjectTablePage = () => {
         format: (_val: any, row: any) => pmNames(row),
       },
       { key: 'projectTeamName', header: 'Team', type: 'text' as const },
-      {
-        key: 'assignedTo', header: 'Assigned To', type: 'text' as const,
-        format: (val: any) => allemployees?.find((e: any) => e.employeeId === val)?.employeeName || '',
-      },
       { key: 'service', header: 'Service', type: 'text' as const },
     ],
     [allemployees],

@@ -29,6 +29,12 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
 
     const [file, setFile] = useState("");
     const [fileName, setFileName] = useState("");
+    // The employee's canonical avatar / signature URLs, used to name stored files by
+    // what they are rather than by the name they were uploaded under.
+    const [knownAssetPaths, setKnownAssetPaths] = useState<{ avatar: string; signature: string }>({
+        avatar: "",
+        signature: "",
+    });
     const handleViewDocument = (documentPath: string, documentName: string) => {
         setFile(documentPath);
         setFileName(documentName);
@@ -78,7 +84,14 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                 try {
                     const response = await fetchCurrentEmployeeByEmpId(currentEmployeeId);
                     if(response?.hasError) return;
-                    setUserId(response?.data?.employee?.userId);
+                    const employee = response?.data?.employee;
+                    setUserId(employee?.userId);
+                    // Kept so a stored file can be identified by WHAT IT IS rather than
+                    // by the name it happens to carry — see `resolveDisplayName`.
+                    setKnownAssetPaths({
+                        avatar: employee?.avatar || "",
+                        signature: employee?.digitalSignaturePath || "",
+                    });
                 } catch (error) {
                     console.error("Failed to fetch documents", error);
                 }
@@ -96,6 +109,23 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                     if (response?.hasError) return;
 
                     const { media = [] } = response?.data || {};
+
+                    /**
+                     * What this file should be CALLED.
+                     *
+                     * Both profile uploads used to be stored under the name "avatar",
+                     * so a signature was listed as a second profile picture. New
+                     * uploads carry the right name, but every file already on S3 is
+                     * still called "avatar" — and the two are indistinguishable by name.
+                     * They are not indistinguishable by PATH, though: the employee
+                     * record points at exactly which URL is the avatar and which is the
+                     * signature, so matching on that names old rows correctly too.
+                     */
+                    const resolveDisplayName = (fileName: string, path: string) => {
+                        if (path && path === knownAssetPaths.signature) return "Signature";
+                        if (path && path === knownAssetPaths.avatar) return "Profile Photo";
+                        return fileName;
+                    };
 
                     const formattedDocuments = media.map(({ fileName, createdAt, path, id, size }: any) => {
                         // Detect category from file path
@@ -116,7 +146,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
 
                         return {
                             id,
-                            fileName,
+                            fileName: resolveDisplayName(fileName, path),
                             status,
                             size,
                             fileUrl: path,
@@ -133,7 +163,9 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
         };
 
         fetchData();
-    }, [userId]);
+        // Re-runs when the known paths land: they arrive from a separate fetch, and
+        // without them every row would fall back to its raw stored name.
+    }, [userId, knownAssetPaths]);
 
     // Group documents by folder
     const folders = [

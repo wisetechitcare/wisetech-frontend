@@ -24,61 +24,72 @@ export const convertDirectSourceData = (
 ): ChartData[] => {
   if (!directSourceApiData || directSourceApiData.length === 0) return [];
 
-  // If no specific source is selected, show all statuses with their total counts
+  // If no specific source is selected, show all direct sources with their total counts
   if (!selectedSource || selectedSource === "" || selectedSource === "all") {
-    const result = directSourceApiData
-      .map((statusItem, index) => {
-        const totalCount =
-          statusItem.leadsData?.reduce(
-            (sum: number, lead: any) => sum + (lead.count || 0),
-            0
-          ) || 0;
-        const totalBudget =
-          statusItem.leadsData?.reduce(
-            (sum: number, lead: any) => sum + (lead.budget || 0),
-            0
-          ) || 0;
-        return {
-          label: statusItem.name,
-          value: totalCount,
-          color: statusItem.color || "#3B82F6",
-          totalCost: totalBudget,
-          id: statusItem.id || `status-${index}`,
-        };
-      })
-      .filter((item) => item.value > 0);
+    const directSourceMap = new Map();
+
+    directSourceApiData.forEach((statusItem) => {
+      if (statusItem.leadsData) {
+        statusItem.leadsData.forEach((lead: any) => {
+          const key = lead.name;
+          if (directSourceMap.has(key)) {
+            const existing = directSourceMap.get(key);
+            directSourceMap.set(key, {
+              ...existing,
+              value: existing.value + (lead.count || 0),
+              totalCost: existing.totalCost + (lead.budget || 0),
+            });
+          } else {
+            directSourceMap.set(key, {
+              label: lead.name,
+              value: lead.count || 0,
+              color: lead.color || "#3B82F6",
+              totalCost: lead.budget || 0,
+              id: lead.id || `direct-source-${key}`,
+            });
+          }
+        });
+      }
+    });
+
+    const result = Array.from(directSourceMap.values()).filter(
+      (item) => item.value > 0
+    );
     return result;
   }
 
-  // When a specific status is selected, return that status with its total count
-  const selectedStatusData = directSourceApiData.find(
-    (item) => item.name === selectedSource
+  // When a specific source is selected, return that source with its total count
+  const directSourceMap = new Map();
+  directSourceApiData.forEach((statusItem) => {
+    if (statusItem.leadsData) {
+      statusItem.leadsData.forEach((lead: any) => {
+        const key = lead.name;
+        if (key === selectedSource) {
+          if (directSourceMap.has(key)) {
+            const existing = directSourceMap.get(key);
+            directSourceMap.set(key, {
+              ...existing,
+              value: existing.value + (lead.count || 0),
+              totalCost: existing.totalCost + (lead.budget || 0),
+            });
+          } else {
+            directSourceMap.set(key, {
+              label: lead.name,
+              value: lead.count || 0,
+              color: lead.color || "#3B82F6",
+              totalCost: lead.budget || 0,
+              id: lead.id || `direct-source-${key}`,
+            });
+          }
+        }
+      });
+    }
+  });
+
+  const result = Array.from(directSourceMap.values()).filter(
+    (item) => item.value > 0
   );
-  if (selectedStatusData) {
-    const totalCount =
-      selectedStatusData.leadsData?.reduce(
-        (sum: number, lead: any) => sum + (lead.count || 0),
-        0
-      ) || 0;
-    const totalBudget =
-      selectedStatusData.leadsData?.reduce(
-        (sum: number, lead: any) => sum + (lead.budget || 0),
-        0
-      ) || 0;
-
-    const result = [
-      {
-        label: selectedStatusData.name, // return the status name, not lead source name
-        value: totalCount,
-        color: selectedStatusData.color || "#3B82F6",
-        totalCost: totalBudget,
-        id: selectedStatusData.id,
-      },
-    ].filter((item) => item.value > 0);
-    return result;
-  }
-
-  return [];
+  return result;
 };
 
 export const convertReferralSourceData = (

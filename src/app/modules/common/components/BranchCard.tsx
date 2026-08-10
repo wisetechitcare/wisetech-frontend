@@ -1,6 +1,7 @@
-import { Card, Box, Stack, Typography, Button, IconButton, Tooltip, Divider } from '@mui/material';
+import { Card, Box, Stack, Typography, Button, Divider } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { T } from '@app/modules/common/components/ui/tokens';
+import ActionIconButton from '@app/modules/common/components/ui/ActionIconButton';
 
 export interface BranchCardProps {
   branch: any;
@@ -24,15 +25,6 @@ export default function BranchCard({
   branch, isAdmin, canManage, onViewEmployees, onManageDevices, onPromote, onEdit, onDelete,
 }: BranchCardProps) {
   const employees = branch?._count?.Employees ?? 0;
-
-  // Larger, tactile admin action buttons (tinted ~40px hit-targets) so edit/delete
-  // aren't cramped micro-icons on any screen.
-  const actionBtnSx = (tone: string) => ({
-    width: 40, height: 40, borderRadius: '10px', color: tone,
-    bgcolor: `${tone}1A`, border: `1px solid ${tone}3D`,
-    transition: 'background-color .15s, border-color .15s',
-    '&:hover': { bgcolor: `${tone}30`, borderColor: `${tone}66` },
-  });
 
   return (
     <Card
@@ -96,15 +88,19 @@ export default function BranchCard({
 
         {isAdmin && canManage && (
           <Stack direction="row" spacing={0.75}>
-            <Tooltip title="Promote to sub-organization">
-              <IconButton sx={actionBtnSx(T.color.brand)} onClick={onPromote}><KTIcon iconName="arrow-up-right" className="fs-4" /></IconButton>
-            </Tooltip>
-            <Tooltip title="Edit branch">
-              <IconButton sx={actionBtnSx(T.color.indigo)} onClick={onEdit}><KTIcon iconName="pencil" className="fs-4" /></IconButton>
-            </Tooltip>
-            <Tooltip title="Delete branch">
-              <IconButton sx={actionBtnSx(T.color.danger)} onClick={onDelete}><KTIcon iconName="trash" className="fs-4" /></IconButton>
-            </Tooltip>
+            <ActionIconButton
+              iconName="arrow-up-right"
+              title="Promote to sub-organization"
+              tone="brand"
+              onClick={onPromote}
+            />
+            <ActionIconButton iconName="pencil" title="Edit branch" onClick={onEdit} />
+            <ActionIconButton
+              iconName="trash"
+              title="Delete branch"
+              tone="danger"
+              onClick={onDelete}
+            />
           </Stack>
         )}
       </Stack>
