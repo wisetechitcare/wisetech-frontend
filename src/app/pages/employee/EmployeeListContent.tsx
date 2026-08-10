@@ -15,7 +15,7 @@ import Loader from "@app/modules/common/utils/Loader";
 import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employeeStatus";
 import StatusToggle from "@app/modules/common/components/StatusToggle";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
-import { ActionIconButton } from "@app/modules/common/components/ui";
+import { ActionIconButton, WhatsAppIcon } from "@app/modules/common/components/ui";
 import { Stack } from "@mui/material";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import EmployeeIdCardDialog from "./components/idcard/EmployeeIdCardDialog";
@@ -259,7 +259,7 @@ const EmployeeListContent = () => {
               onClick={() => handleEditClick(row.original.id)}
             />
             <ActionIconButton
-              iconName="whatsapp"
+              icon={<WhatsAppIcon size={17} />}
               title="Share on WhatsApp"
               tone="success"
               onClick={() => handleWhatsAppShare(row.original)}

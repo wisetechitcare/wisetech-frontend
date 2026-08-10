@@ -2,9 +2,10 @@ import { useCallback, useRef, useState } from "react";
 import { Box, CircularProgress, Stack, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, WtButton, toast } from "@app/modules/common/components/ui";
+import { GlassDialog, GlassHeader, WhatsAppIcon, WtButton, toast } from "@app/modules/common/components/ui";
 import { fetchEmployeeIdCard } from "@services/employee";
 import { downloadBlob, svgToPngBlob, toFileNameStem } from "@utils/svgExport";
+import { canShareFileType, shareFile, whatsAppShareUrl } from "@utils/webShare";
 import EmployeeIdCard from "./EmployeeIdCard";
 
 /**
@@ -26,6 +27,14 @@ import EmployeeIdCard from "./EmployeeIdCard";
 /** Print-grade export. 1000 SVG units × 3 = 3000px across an 85.6mm card ≈ 300 DPI. */
 const EXPORT_SCALE = 3;
 
+/**
+ * Sharing renders at 2× instead. Messaging apps re-compress anything they receive, so
+ * the extra pixels buy nothing — and the smaller canvas rasterises fast enough to stay
+ * inside the click's transient user activation window, which `navigator.share()`
+ * requires. At 2000px wide the card is still sharper than any phone screen.
+ */
+const SHARE_SCALE = 2;
+
 export interface EmployeeIdCardDialogProps {
   open: boolean;
   onClose: () => void;
@@ -38,6 +47,7 @@ export interface EmployeeIdCardDialogProps {
 export default function EmployeeIdCardDialog({ open, onClose, employeeId, employeeName }: EmployeeIdCardDialogProps) {
   const cardRef = useRef<SVGSVGElement>(null);
   const [downloading, setDownloading] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["employee-id-card", employeeId],
@@ -65,6 +75,63 @@ export default function EmployeeIdCardDialog({ open, onClose, employeeId, employ
       });
     } finally {
       setDownloading(false);
+    }
+  }, [data]);
+
+  /**
+   * Share the card to WhatsApp as an image.
+   *
+   * Where the platform supports it, the rendered PNG is handed to the OS share sheet
+   * already attached — the user picks WhatsApp and it arrives as a normal image
+   * message. A page cannot post into a chat without that pick; the sheet is the
+   * platform's consent step and no browser lets a site skip it.
+   *
+   * Where it isn't supported (desktop Firefox, older browsers) the card is downloaded
+   * and WhatsApp Web opens with the caption prefilled, for the user to attach. That
+   * window is opened BEFORE the first `await`: once the click's user activation has
+   * been spent rasterising, popup blockers reject it.
+   */
+  const handleWhatsAppShare = useCallback(async () => {
+    if (!cardRef.current || !data) return;
+
+    const { fullName, employeeCode, designation } = data.employee;
+    const caption = [fullName, designation, data.organization.name].filter(Boolean).join(" · ");
+    const fileName = `${toFileNameStem(`${fullName}${employeeCode ? `-${employeeCode}` : ""}`, "employee")}-ID-Card.png`;
+
+    const canShare = canShareFileType("image/png");
+    // `noopener` means Chrome hands back null even on success, so the tab's fate is
+    // not observable — the fallback toast is worded to hold either way.
+    if (!canShare) window.open(whatsAppShareUrl(caption), "_blank", "noopener,noreferrer");
+
+    setSharing(true);
+    try {
+      const blob = await svgToPngBlob(cardRef.current, { scale: SHARE_SCALE });
+
+      if (canShare) {
+        const outcome = await shareFile({
+          file: new File([blob], fileName, { type: "image/png" }),
+          title: "Employee ID Card",
+          text: caption,
+        });
+        // 'dismissed' is the user closing the sheet — say nothing, they know.
+        if (outcome === "shared" || outcome === "dismissed") return;
+      }
+
+      downloadBlob(blob, fileName);
+      toast({
+        icon: "info",
+        title: "Card ready to attach",
+        text: "This browser can't hand files to WhatsApp directly, so the card was saved to your device — attach it in WhatsApp to send it.",
+        timer: 4600,
+      });
+    } catch (err) {
+      toast({
+        icon: "error",
+        title: "Share failed",
+        text: (err as Error)?.message || "The card could not be shared. Please try again.",
+      });
+    } finally {
+      setSharing(false);
     }
   }, [data]);
 
@@ -126,18 +193,39 @@ export default function EmployeeIdCardDialog({ open, onClose, employeeId, employ
               at standard ID-card size (85.6 × 54&nbsp;mm, ~300&nbsp;DPI).
             </Typography>
 
+            {/* Both CTAs are `flat`: the kit's coloured glow is tuned for ONE hero
+                button on a surface, and side by side the green and navy halos bloom
+                into each other. */}
             <Stack
               direction={{ xs: "column-reverse", sm: "row" }}
               spacing={1.25}
               justifyContent="flex-end"
               sx={{ pt: 0.5 }}
             >
-              <WtButton ghost onClick={onClose} fullWidth={false} sx={{ width: { xs: "100%", sm: "auto" } }}>
+              <WtButton ghost onClick={onClose} sx={{ width: { xs: "100%", sm: "auto" } }}>
                 Close
               </WtButton>
               <WtButton
+                tone="success"
+                flat
+                onClick={handleWhatsAppShare}
+                disabled={sharing || downloading}
+                startIcon={
+                  sharing
+                    ? <CircularProgress size={16} sx={{ color: "inherit" }} />
+                    // Inline SVG, not the KTIcon font: the duotone glyph paints its
+                    // main layer at 40% opacity, which left the mark barely visible
+                    // on the green button. Solid white here, the standard treatment.
+                    : <WhatsAppIcon size={19} />
+                }
+                sx={{ width: { xs: "100%", sm: "auto" } }}
+              >
+                {sharing ? "Preparing…" : "Share on WhatsApp"}
+              </WtButton>
+              <WtButton
+                flat
                 onClick={handleDownload}
-                disabled={downloading}
+                disabled={downloading || sharing}
                 startIcon={
                   downloading
                     ? <CircularProgress size={16} sx={{ color: "inherit" }} />
