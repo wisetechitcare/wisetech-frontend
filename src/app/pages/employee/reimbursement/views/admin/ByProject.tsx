@@ -17,7 +17,6 @@ import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { summariseReimbursements } from '../../utils/reimbursementSummary';
 import { formatINR, NO_VALUE, projectTitle } from '../../utils/reimbursementFormat';
-import { clickableRowProps, CLICKABLE_ROW_SX } from '../../utils/rowInteraction';
 import LoadErrorState from '../../components/LoadErrorState';
 import RecordsEmptyState from '../../components/RecordsEmptyState';
 
@@ -216,15 +215,6 @@ function ByProject() {
                                 totalLabel='TOTAL'
                             />
                         )}
-                        muiTableProps={{
-                            muiTableBodyRowProps: ({ row }: any) => ({
-                                ...clickableRowProps(
-                                    () => undefined,
-                                    `${row.original.projectName}: ${formatINR(row.original.totalAmount)} claimed`,
-                                ),
-                                sx: CLICKABLE_ROW_SX,
-                            }),
-                        }}
                     />
                 )}
             </div>
