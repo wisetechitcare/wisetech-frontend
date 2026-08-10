@@ -25,6 +25,23 @@ export const ACCESS_AREAS: AccessArea[] = [
   },
   { module: "crm.leads", label: "Leads" },
   { module: "projects", label: "Projects" },
+  {
+    // Billing is a top-level ERP module, not a project sub-area — its children are the
+    // module's own tabs, so an admin can block, say, Settings without hiding Billing.
+    module: "billing",
+    label: "Billing",
+    children: [
+      { module: "billing.dashboard", label: "Dashboard" },
+      { module: "billing.requests", label: "Billing Requests" },
+      { module: "billing.accounts", label: "Accounts Queue" },
+      { module: "billing.operations", label: "Billing Operations" },
+      { module: "billing.proformas", label: "Proformas" },
+      { module: "billing.payments", label: "Payments" },
+      { module: "billing.invoices", label: "Tax Invoices" },
+      { module: "billing.reports", label: "Reports" },
+      { module: "billing.settings", label: "Settings" },
+    ],
+  },
   { module: "crm.companies", label: "Companies" },
   { module: "crm.contacts", label: "Contacts" },
   {

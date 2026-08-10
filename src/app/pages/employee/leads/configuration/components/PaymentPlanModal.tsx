@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
 import PercentageConfigurationTable from "../../lead/components/PercentageConfigurationTable";
+import StageDeliverablesEditor from "./StageDeliverablesEditor";
 import { createPaymentPlan, updatePaymentPlan } from "@services/paymentPlan";
 import { showSuccess, showError } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -18,7 +19,12 @@ interface PaymentPlanModalProps {
 // Shape expected by PercentageConfigurationTable (it reads `config_key` for the label
 // and `value` for the percentage). We adapt to/from our PaymentPlanStage model here so
 // the polished table (drag-reorder, auto-fix, live total badge) can be reused as-is.
+//
+// `id` rides along untouched — the table copies rows by spread, so it survives edits,
+// reorders and auto-fix. Sending it back on save is what keeps a stage's row (and the
+// deliverables configured under it) alive instead of being recreated under a new id.
 interface StageRow {
+  id?: string;
   config_key: string;
   configKey: string;
   config_type: string;
@@ -37,7 +43,8 @@ const DEFAULT_STAGES: { name: string; percentage: number }[] = [
   { name: "Procurement, Installation & Commissioning (Part-2)", percentage: 5 },
 ];
 
-const toRow = (name: string, percentage: number | string): StageRow => ({
+const toRow = (name: string, percentage: number | string, id?: string): StageRow => ({
+  ...(id ? { id } : {}),
   config_key: name,
   configKey: name,
   config_type: "percentage",
@@ -72,7 +79,7 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
         (initialData.stages || [])
           .slice()
           .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-          .map((s) => toRow(s.name, s.percentage)),
+          .map((s) => toRow(s.name, s.percentage, s.id)),
       );
     } else {
       setName("");
@@ -116,6 +123,7 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
     }
 
     const stages: PaymentPlanStage[] = rows.map((r, idx) => ({
+      ...(r.id ? { id: r.id } : {}),
       name: String(r.config_key || "").trim(),
       percentage: parseFloat(String(r.value)) || 0,
       sortOrder: idx,
@@ -155,7 +163,10 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
   if (!show) return null;
 
   return (
-    <Modal show={show} onHide={onClose} centered size="lg" scrollable>
+    // enforceFocus={false}: the deliverable editor opens a MUI dialog, which portals to
+    // document.body — outside this modal's DOM. Bootstrap's focus trap would otherwise
+    // steal focus back on every click/keystroke, making those inputs untypable.
+    <Modal show={show} onHide={onClose} centered size="lg" scrollable enforceFocus={false}>
       <Modal.Header closeButton style={{ borderBottom: "none", paddingBottom: 8 }}>
         <Modal.Title style={{ fontWeight: 600, fontSize: 18, color: "#1a1a1a" }}>
           {isEditing ? "Edit" : "New"} Payment Plan
@@ -223,6 +234,14 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
             {roundedTotal}% {isTotalValid ? "✓" : "(must equal 100%)"}
           </span>
         </div>
+
+        {/* Deliverables are configuration under each stage — they never surface on a
+            lead, which keeps showing plan → stages only. Saved every action, so they
+            do NOT ride along with this modal's Save button. */}
+        <div className="separator separator-dashed my-5" />
+        <StageDeliverablesEditor
+          stages={rows.map((r) => ({ id: r.id, name: String(r.config_key || "").trim() || "Untitled stage" }))}
+        />
       </Modal.Body>
 
       <Modal.Footer style={{ borderTop: "none" }}>

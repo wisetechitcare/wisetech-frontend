@@ -40,11 +40,36 @@ export interface LeadCancellationReason {
 
 /** A single stage within a payment plan (e.g. "Advance", 30%). */
 export interface PaymentPlanStage {
+  /** Send this back when saving an existing stage so the row — and the deliverables
+   *  configured under it — survive the update instead of being recreated. */
   id?: string;
   name: string;
   /** Percentage of the total commercial cost. All stages in a plan sum to 100. */
   percentage: number | string;
   sortOrder?: number;
+}
+
+/**
+ * A work item configured under a payment-plan stage (e.g. "Site Survey"). Pure
+ * configuration — no status, owner or progress; a project takes a copy of these when a
+ * lead converts. Deliberately NOT surfaced anywhere in the lead workflow.
+ */
+export interface PaymentPlanStageDeliverable {
+  id: string;
+  stageId: string;
+  name: string;
+  description?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Create/update payload for a deliverable. PATCH honours only the keys present. */
+export interface DeliverablePayload {
+  name?: string;
+  description?: string | null;
+  isActive?: boolean;
 }
 
 /** A reusable, stage-wise fee break-up plan ("payment method"). */
