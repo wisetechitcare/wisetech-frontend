@@ -21,7 +21,8 @@ import ReimbursementKpiRow, { ReimbursementPaymentProgress } from './components/
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
 import { ReimbursementDraft, ReimbursementOption } from './utils/reimbursementTypes';
-import { fmtAmount } from './utils/reimbursementFormat';
+import { useReimbursementFormLookups } from './hooks/useReimbursementFormLookups';
+import { fmtAmount, projectTitle } from './utils/reimbursementFormat';
 import LoadErrorState from './components/LoadErrorState';
 import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
@@ -344,24 +345,14 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Dropdown option lists — same names as Reimbursement.tsx
-  const [reimbursementOptions, setReimbursementOptions] = useState<ReimbursementOption[]>([]);
-  // companyTypeOptions is scoped to types actually used as a project's File Location;
-  // allCompanyTypeOptions is the full master list, kept only to resolve labels for
-  // legacy reimbursements whose saved type/company predates that scoping.
-  const [companyTypeOptions, setCompanyTypeOptions] = useState<Option[]>([]);
-  const [allCompanyTypeOptions, setAllCompanyTypeOptions] = useState<Option[]>([]);
-  const [allClientCompanies, setAllClientCompanies] = useState<any[]>([]);
-  const [filteredCompanies, setFilteredCompanies] = useState<any[]>([]);
-  // Full project list (title + fileLocationCompanyType/fileLocationCompany), loaded once.
-  // Powers the Project dropdown's direct-search + Company Type/Name reverse-autofill.
-  const [allProjects, setAllProjects] = useState<any[]>([]);
-  const [projectOptions, setProjectOptions] = useState<Option[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(false);
-  const [selectedReimbursementFor, setSelectedReimbursementFor] = useState<Option | null>(null);
-  const [selectedClientType, setSelectedClientType] = useState<Option | null>(null);
-  const [selectedClientCompany, setSelectedClientCompany] = useState<Option | null>(null);
-  const [selectedProject, setSelectedProject] = useState<Option | null>(null);
-  const [ongoingStatusIds, setOngoingStatusIds] = useState<string[]>([]);
+  // One hook for the whole lookup cascade — see hooks/useReimbursementFormLookups.
+  const {
+    reimbursementOptions, companyTypeOptions, filteredCompanies, projectOptions, projectsLoading,
+    selectedReimbursementFor, selectedClientType, selectedClientCompany, selectedProject,
+    handleCategoryChange, handleClientTypeChange, handleClientCompanyChange, handleProjectChange,
+    reset: resetLookups,
+  } = useReimbursementFormLookups(currentReimbursement);
+
 
   // Table lookup resolvers
   const { resolveClientType, resolveClientCompany, resolveProject } = useReimbursementLookups(drafts);
@@ -396,173 +387,9 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   // Reimbursement types use fetchAllReimbursementTypesFromDb (the working utility),
   // loaded independently so a failure here doesn't block company type loading.
 
-  const fetchAllReimbursementsTypesData = async () => {
-    const reimbursementResponse = await fetchAllReimbursementTypesFromDb();
-    const opts = reimbursementResponse.map((r: any) => ({
-      value: r.id,
-      label: r.type,
-      icon: r.icon,
-      // Needed for the live cap warning under the Amount field.
-      amountLimit: r.amountLimit ?? null,
-      // Owned by the category config now — the form no longer guesses from the name.
-      requiresLocation: r.requiresLocation ?? true,
-    })).sort((a: any, b: any) => a.label.localeCompare(b.label));
-    setReimbursementOptions(opts);
-  };
-
-  const loadClientTypeAndCompanyData = async () => {
-    setProjectsLoading(true);
-    try {
-      // allSettled so one failing lookup can't blank the whole form — each
-      // dropdown that CAN load still loads.
-      const results = await Promise.allSettled([
-        getAllCompanyTypes(),
-        getAllClientCompanies(),
-        getAllProjectStatuses(),
-        getReimbursementProjectOptions(),
-      ]);
-      const val = (r: PromiseSettledResult<any>) => (r.status === "fulfilled" ? r.value : undefined);
-      const [typesResR, companiesResR, statusesResR, projectsResR] = results;
-      const typesRes = val(typesResR) || {};
-      const companiesRes = val(companiesResR) || {};
-      const statusesRes = val(statusesResR) || {};
-      const projectsRes = val(projectsResR) || {};
-      const types = (typesRes.companyTypes || []).map((ct: any) => ({
-        value: ct.id,
-        label: ct.name,
-      })).sort((a: Option, b: Option) => a.label.localeCompare(b.label));
-      setAllCompanyTypeOptions(types);
-
-      const companies =
-        companiesRes?.data?.companies ||
-        companiesRes?.clientCompanies ||
-        companiesRes?.data?.clientCompanies ||
-        companiesRes?.companies ||
-        [];
-      setAllClientCompanies(companies);
-
-      const projects = projectsRes?.data?.projects || projectsRes?.projects || [];
-      setAllProjects(projects);
-
-      // Company Type/Name options are scoped to only those actually set as a
-      // project's File Location In Computer Folder — not the full client-company
-      // master list — per the "fetch from File Location" flow requirement.
-      const usedTypeIds = new Set(
-        projects.map((p: any) => p.fileLocationCompanyType).filter(Boolean)
-      );
-      setCompanyTypeOptions(types.filter((t: Option) => usedTypeIds.has(t.value)));
-
-      const allStatuses: any[] = statusesRes?.projectStatuses || [];
-      const ids = allStatuses
-        .filter((s: any) => s.name?.trim().toLowerCase() === 'on ongoing')
-        .map((s: any) => s.id);
-      setOngoingStatusIds(ids);
-    } catch (err) {
-      console.error('Failed to load client data', err);
-    } finally {
-      setProjectsLoading(false);
-    }
-  };
-
-  // Company Name options for a given Company Type — scoped to companies actually
-  // used as a project's File Location under that type.
-  const computeFilteredCompaniesForType = (typeId: string) => {
-    const usedCompanyIds = new Set(
-      allProjects
-        .filter((p: any) => p.fileLocationCompanyType === typeId)
-        .map((p: any) => p.fileLocationCompany)
-        .filter(Boolean)
-    );
-    return allClientCompanies
-      .filter((c: any) => c.companyTypeId === typeId && usedCompanyIds.has(c.id))
-      .sort((a: any, b: any) => a.companyName.localeCompare(b.companyName));
-  };
-
-  useEffect(() => {
-    fetchAllReimbursementsTypesData();
-    loadClientTypeAndCompanyData();
-  }, []);
-
-  // ── Reactive edit-mode restoration (identical to Reimbursement.tsx) ────────
-  // Runs whenever editMode, currentReimbursement, or any loaded array changes.
-
-  useEffect(() => {
-    if (!editMode || !currentReimbursement) return;
-    if (allCompanyTypeOptions.length === 0 || allClientCompanies.length === 0) return;
-
-    const rec = currentReimbursement;
-
-    // 1. Reimbursement For — preserve full option object so icon renders correctly
-    if (rec.reimbursementTypeId && reimbursementOptions.length > 0) {
-      const match = reimbursementOptions.find((o: any) => o.value === rec.reimbursementTypeId);
-      if (match) {
-        setSelectedReimbursementFor({ value: match.value, label: match.label, ...(match.icon && { icon: match.icon }) } as any);
-      }
-    }
-
-    // 2. Company Type — resolved against the FULL master list (not the File-Location-scoped
-    // one) so editing an older reimbursement never shows a blank Type.
-    if (rec.clientTypeId) {
-      const ctMatch = allCompanyTypeOptions.find((c) => c.value === rec.clientTypeId);
-      if (ctMatch) setSelectedClientType({ value: ctMatch.value, label: ctMatch.label });
-
-      let filtered = computeFilteredCompaniesForType(rec.clientTypeId);
-
-      // 3. Company Name — legacy data may reference a company that isn't (yet) a File
-      // Location company for any project; still show it so editing doesn't drop it.
-      if (rec.clientCompanyId) {
-        const ccMatch = allClientCompanies.find((c: any) => c.id === rec.clientCompanyId);
-        if (ccMatch) {
-          setSelectedClientCompany({ value: ccMatch.id, label: ccMatch.companyName });
-          if (!filtered.some((c: any) => c.id === ccMatch.id)) {
-            filtered = [...filtered, ccMatch].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName));
-          }
-        }
-      }
-      setFilteredCompanies(filtered);
-    }
-  }, [editMode, currentReimbursement, allCompanyTypeOptions, allClientCompanies, reimbursementOptions]);
-
-  // ── Project options — always derived locally from the bulk project list so the field
-  // can be searched directly regardless of Company Type/Name selection. Picking a Company
-  // Type/Name narrows the list; picking a Project directly reverse-autofills them instead.
-  useEffect(() => {
-    if (allProjects.length === 0) {
-      setProjectOptions([]);
-      return;
-    }
-    let list = allProjects;
-    if (selectedClientCompany?.value) {
-      list = list.filter((p: any) => p.fileLocationCompany === selectedClientCompany.value);
-    } else if (selectedClientType?.value) {
-      list = list.filter((p: any) => p.fileLocationCompanyType === selectedClientType.value);
-    }
-    const keepId = editMode ? currentReimbursement?.projectId : undefined;
-    list = list.filter((p: any) => (p.status?.id && ongoingStatusIds.includes(p.status.id)) || p.id === keepId);
-
-    const opts: Option[] = [...list]
-      .sort((a: any, b: any) => (a.title || "").localeCompare(b.title || ""))
-      .map((p: any) => ({
-        value: p.id,
-        label: p.projectPrefix ? `${p.projectPrefix} - ${p.title}` : p.title,
-      }));
-    setProjectOptions(opts);
-
-    if (editMode && currentReimbursement?.projectId) {
-      const projMatch = opts.find((o) => o.value === currentReimbursement.projectId);
-      if (projMatch) setSelectedProject(projMatch);
-    }
-  }, [allProjects, selectedClientType, selectedClientCompany, ongoingStatusIds, editMode, currentReimbursement]);
-
-  // ── Handlers — identical flow to Reimbursement.tsx ────────────────────────
-
   const handleNew = () => {
-    setSelectedReimbursementFor(null);
-    setSelectedClientType(null);
-    setSelectedClientCompany(null);
-    setSelectedProject(null);
-    setFilteredCompanies([]);
-    // projectOptions is NOT reset here — it's owned by the reactive effect above,
+    resetLookups();
+// projectOptions is NOT reset here — it's owned by the reactive effect above,
     // which recomputes it from allProjects/selectedClientType/selectedClientCompany.
     // Clearing it imperatively here left it stuck empty on a fresh "Add" open,
     // since selectedClientType/selectedClientCompany are already null at rest and
@@ -577,12 +404,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   handleNewRef.current = handleNew;
 
   const handleEdit = (draft: any) => {
-    setSelectedReimbursementFor(null);
-    setSelectedClientType(null);
-    setSelectedClientCompany(null);
-    setSelectedProject(null);
-    setFilteredCompanies([]);
-    // projectOptions is left alone here too — see handleNew for why.
+    resetLookups();
+// projectOptions is left alone here too — see handleNew for why.
 
     setCurrentReimbursement(draft);
     setEditMode(true);
@@ -644,7 +467,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       actions.setFieldValue('description', '');
       actions.setTouched({});
       actions.setSubmitting(false);
-      setSelectedReimbursementFor(null);
+      resetLookups();
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       setFormLoading(false);
@@ -659,51 +482,6 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   ) => {
     setFieldValue(formikField, selectedOption ? selectedOption.value : '');
     setSelectedOptionState(selectedOption || null);
-  };
-
-  const handleClientTypeChange = (option: any, setFieldValue: (f: string, v: any) => void) => {
-    setSelectedClientType(option);
-    setFieldValue('clientTypeId', option?.value || '');
-    setSelectedClientCompany(null);
-    setFieldValue('clientCompanyId', '');
-    setSelectedProject(null);
-    setFieldValue('projectId', '');
-    setFilteredCompanies(option?.value ? computeFilteredCompaniesForType(option.value) : []);
-  };
-
-  const handleClientCompanyChange = (option: any, setFieldValue: (f: string, v: any) => void) => {
-    setSelectedClientCompany(option);
-    setFieldValue('clientCompanyId', option?.value || '');
-    // Reset project — the reactive projectOptions effect repopulates it for the new company.
-    setSelectedProject(null);
-    setFieldValue('projectId', '');
-  };
-
-  // Reverse autofill: picking a Project directly (independent of Company Type/Name)
-  // backfills Company Type + Company Name from that project's File Location fields.
-  const handleProjectChange = (option: any, setFieldValue: (f: string, v: any) => void) => {
-    setSelectedProject(option);
-    setFieldValue('projectId', option?.value || '');
-    if (!option?.value) return;
-
-    const proj = allProjects.find((p: any) => p.id === option.value);
-    if (!proj) return;
-
-    if (proj.fileLocationCompanyType) {
-      const typeMatch = allCompanyTypeOptions.find((t) => t.value === proj.fileLocationCompanyType);
-      if (typeMatch) {
-        setSelectedClientType(typeMatch);
-        setFieldValue('clientTypeId', typeMatch.value);
-        setFilteredCompanies(computeFilteredCompaniesForType(typeMatch.value));
-      }
-    }
-    if (proj.fileLocationCompany) {
-      const companyMatch = allClientCompanies.find((c: any) => c.id === proj.fileLocationCompany);
-      if (companyMatch) {
-        setSelectedClientCompany({ value: companyMatch.id, label: companyMatch.companyName });
-        setFieldValue('clientCompanyId', companyMatch.id);
-      }
-    }
   };
 
   const uploadFile = async (
@@ -813,8 +591,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       size: 200,
       enableColumnActions: false,
       Cell: ({ row }) => {
-        const found = allProjects.find((p: any) => p.id === row.original.projectId);
-        return <span>{row.original.project?.title || found?.title || resolveProject(row.original.projectId) || 'N/A'}</span>;
+        return <span>{projectTitle(row.original, resolveProject)}</span>;
       },
     },
     {
@@ -904,7 +681,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         </div>
       ),
     },
-  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount, allProjects]);
+  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -1153,9 +930,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                   <div className='col-lg-6 mb-7'>
                     <ReimbursementDropdown
                       isRequired={true}
-                      handleChange={(option: any) => {
-                        handleChange(option, 'reimbursementTypeId', setSelectedReimbursementFor, formikProps.setFieldValue);
-                      }}
+                      handleChange={(option: any) => handleCategoryChange(option, formikProps.setFieldValue)}
                       formikField='reimbursementTypeId'
                       inputLabel='Reimbursement For'
                       options={reimbursementOptions}
