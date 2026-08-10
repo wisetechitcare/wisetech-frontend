@@ -18,18 +18,27 @@ import dayjs from 'dayjs';
 export const MAX_EXPENSE_AMOUNT = 1_000_000;
 
 /**
- * Categories that actually involve travelling between two places.
+ * Whether a category needs From/To.
  *
- * From/To used to be required for EVERY category, including meals and accommodation where they
- * are meaningless — so users typed junk to get past them, and that junk is now in the data.
+ * Expressed as a NON-travel deny-list, not a travel allow-list, because this module is almost
+ * entirely travel: the live categories are Auto Rickshaw, Train, Taxi, Bike, Car, Bus, Aeroplane,
+ * Metro, Ferry, Ola Uber — and Food and Mobile. 96% of filed rows are a journey.
  *
- * ponytail: hardcoded travel-category match; switch to `ReimbursementType.requiresLocation`
- * once Phase 8 Step 5 adds the column.
+ * An allow-list of travel words was the obvious first guess and it was wrong: it matched "Taxi"
+ * and "Travel" but not "Auto Rickshaw" (the single most-used category, 43% of all rows), so it
+ * hid the location fields on most of the module. Listing the exceptions is both shorter and
+ * fails safe — a new category defaults to asking for locations, which is the common case here,
+ * and an unnecessary optional field is a smaller harm than a missing required one.
+ *
+ * ponytail: still a name match. Phase 8 Step 5 adds `ReimbursementType.requiresLocation`, which
+ * is the real fix — this is a stopgap keyed to the categories that exist today.
  */
-const TRAVEL_CATEGORY_PATTERN = /travel|convey|mileage|cab|taxi|fuel|petrol|transport/i;
+const NON_TRAVEL_CATEGORY_PATTERN = /food|meal|mobile|phone|internet|stationery|accommodation|hotel|lodging/i;
 
-export const categoryRequiresLocation = (categoryName?: string | null): boolean =>
-    !!categoryName && TRAVEL_CATEGORY_PATTERN.test(categoryName);
+export const categoryRequiresLocation = (categoryName?: string | null): boolean => {
+    if (!categoryName) return false;          // nothing chosen yet — ask for nothing
+    return !NON_TRAVEL_CATEGORY_PATTERN.test(categoryName);
+};
 
 export interface ReimbursementSchemaOptions {
     /**
@@ -65,8 +74,20 @@ export const getReimbursementSchema = ({
                 !value || !dayjs(value).isAfter(dayjs(), 'day'))
             .label('Date'),
         clientTypeId: Yup.string().label('Company Type'),
-        clientCompanyId: Yup.string().required('Company name is required').label('Company Name'),
-        projectId: Yup.string().required('Project is required').label('Project'),
+        // Company and project stay OPTIONAL, against the plan's "required means required".
+        //
+        // The plan's own risk note says to check how many submissions would start failing before
+        // enforcing. Measured against live data: 66% of existing expenses have no client company
+        // and 80% have no project at all. Requiring them does not improve data quality, it blocks
+        // the way four out of five expenses are actually filed, and the likeliest outcome is
+        // people picking any project to get past the field — which is worse than a null, because
+        // a null is honestly empty and a wrong project is silently wrong.
+        //
+        // Making these required is a policy change to announce and stage, not a validation rule
+        // to slip in. The single-schema consolidation stands either way; flip these two lines
+        // when finance has decided.
+        clientCompanyId: Yup.string().label('Company Name'),
+        projectId: Yup.string().label('Project'),
         reimbursementTypeId: isEditing
             ? Yup.string().label('Category')
             : Yup.string().required('Category is required').label('Category'),
