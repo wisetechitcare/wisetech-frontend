@@ -35,11 +35,14 @@ const reimbursementTypeSchema = Yup.object({
     .label("Amount Limit"),
 });
 
-let initialState: { type: string; icon: string; amountLimit: number | null } = {
+// A factory, not a shared mutable object. This was a module-level `let` reassigned in
+// handleNew, so every mount of this form shared one object — two open tabs meant one form's
+// edits became the other's defaults.
+const makeCategoryInitialState = (): { type: string; icon: string; amountLimit: number | null } => ({
   type: "",
   icon: "",
   amountLimit: null,
-};
+});
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -298,7 +301,7 @@ function Settings() {
   };
 
   const handleNew = () => {
-    initialState = { type: "", icon: "", amountLimit: null };
+    // (nothing to reset — makeCategoryInitialState() returns fresh values each render)
     setPreviewIconValue("");
     setSelectedReimbursement(null);
     setShow(true);
@@ -421,7 +424,7 @@ function Settings() {
         <Modal.Body style={{ paddingTop: "8px" }}>
           <Formik
             initialValues={
-              editMode && selectedReimbursement ? selectedReimbursement : initialState
+              editMode && selectedReimbursement ? selectedReimbursement : makeCategoryInitialState()
             }
             onSubmit={handleSubmit}
             validationSchema={reimbursementTypeSchema}

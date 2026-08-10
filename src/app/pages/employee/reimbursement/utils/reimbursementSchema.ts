@@ -107,6 +107,47 @@ export const makeReimbursementInitialState = () => ({
 });
 
 /**
+ * The limit an amount breaches, as the user types.
+ *
+ * `isExceedingLimit` is computed once at create, persisted, and then surfaced days later as a red
+ * row an approver discovers — the person who could still have done something about it never saw
+ * it. This returns the message to show under the Amount field instead.
+ *
+ * Two caps apply and the tighter one wins: the employee's per-request limit and the category's
+ * own limit. Naming the cap matters — "over your limit" is not actionable, "₹240 over the ₹1,000
+ * Travel cap" is.
+ *
+ * ponytail: reads the two existing limit fields. Phase 8 replaces this with the real policy
+ * engine (WARN / JUSTIFY / BLOCK, monthly and annual caps) — this is the surface it renders into.
+ */
+export const describeLimitBreach = (
+    amount: number | string | undefined,
+    limits: { perRequest?: number | string | null; category?: number | string | null; categoryName?: string | null },
+): string | null => {
+    const value = Number(amount ?? 0);
+    if (!Number.isFinite(value) || value <= 0) return null;
+
+    const candidates: Array<{ cap: number; label: string }> = [];
+    const perRequest = Number(limits.perRequest ?? NaN);
+    if (Number.isFinite(perRequest) && perRequest > 0) {
+        candidates.push({ cap: perRequest, label: 'your per-request limit' });
+    }
+    const category = Number(limits.category ?? NaN);
+    if (Number.isFinite(category) && category > 0) {
+        candidates.push({ cap: category, label: `the ${limits.categoryName || 'category'} cap` });
+    }
+    if (candidates.length === 0) return null;
+
+    // The tighter cap is the one that will actually stop this claim.
+    const tightest = candidates.reduce((a, b) => (a.cap <= b.cap ? a : b));
+    if (value <= tightest.cap) return null;
+
+    const over = value - tightest.cap;
+    const inr = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+    return `${inr(over)} over ${tightest.label} of ${inr(tightest.cap)}`;
+};
+
+/**
  * Flags a likely duplicate: same category, same day, same amount.
  *
  * Advisory only — two cab rides on one day are a real thing, so this warns and never blocks.

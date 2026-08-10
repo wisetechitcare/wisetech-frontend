@@ -12,6 +12,7 @@ import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropd
 import { updateReimbursementById } from "@services/employee";
 import { uploadUserAsset } from "@services/uploader";
 import { errorConfirmation } from "@utils/modal";
+import { getReimbursementSchema, categoryRequiresLocation } from "../utils/reimbursementSchema";
 import { getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
 import { getReimbursementProjectOptions, getAllProjectStatuses } from "@services/projects";
 import { fetchAllReimbursementTypesFromDb } from "@utils/statistics";
@@ -20,26 +21,9 @@ import eventBus from "@utils/EventBus";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 
-const editSchema = Yup.object({
-  expenseDate: Yup.string().label("Date"),
-  clientTypeId: Yup.string().label("Company Type"),
-  clientCompanyId: Yup.string().label("Company Name"),
-  projectId: Yup.string().label("Project"),
-  reimbursementTypeId: Yup.string().label("Reimbursement For"),
-  amount: Yup.number()
-    .required()
-    .label("Amount")
-    .min(1, "Amount must be greater than 0")
-    .max(1000000, "Amount must be less than 10,00,000"),
-  description: Yup.string().label("Note"),
-  document: Yup.string().label("Reference Document"),
-  fromLocation: Yup.string()
-    .matches(/^[a-zA-Z\s]*$/, "From Location must contain only alphabets")
-    .label("From Location"),
-  toLocation: Yup.string()
-    .matches(/^[a-zA-Z\s]*$/, "To Location must contain only alphabets")
-    .label("To Location"),
-});
+// The schema lives in utils/reimbursementSchema — this file used to carry a third copy
+// that made every field optional, so the admin edit path could clear values the other
+// two entry points insist on.
 
 interface Props {
   show: boolean;
@@ -312,7 +296,9 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
       : dayjs().format("YYYY-MM-DD"),
     clientTypeId: reimbursement.clientTypeId || "",
     clientCompanyId: reimbursement.clientCompanyId || "",
-    projectId: reimbursement.projectId || "",
+    // Lead-as-master: batch-created rows carry leadId and a NULL projectId, so seeding from
+    // projectId alone blanked the project every time this modal opened on a submitted row.
+    projectId: (reimbursement as any).leadId || reimbursement.projectId || "",
     reimbursementTypeId: reimbursement.reimbursementTypeId || "",
     fromLocation: reimbursement.fromLocation || "",
     toLocation: reimbursement.toLocation || "",
@@ -327,7 +313,15 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
         <Modal.Title>Edit Reimbursement Request</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <Formik initialValues={initialValues} validationSchema={editSchema} onSubmit={handleSubmit} enableReinitialize>
+        <Formik
+          initialValues={initialValues}
+          validationSchema={getReimbursementSchema({
+            isEditing: true,
+            categoryName: selectedReimbursementFor?.label,
+          })}
+          onSubmit={handleSubmit}
+          enableReinitialize
+        >
           {(formikProps) => (
             <Form className="d-flex flex-column" noValidate>
               <div className="row">
@@ -427,6 +421,9 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                 </div>
               </div>
 
+              {/* Travel categories only — requiring From/To on meals is why so many rows carry
+                  junk locations. */}
+              {categoryRequiresLocation(selectedReimbursementFor?.label) && (
               <div className="row">
                 <div className="col-lg-6">
                   <label className="form-label fw-bold">From Location</label>
@@ -435,9 +432,6 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                     className={`form-control form-control-lg form-control-solid${formikProps.touched.fromLocation && formikProps.errors.fromLocation ? " is-invalid" : ""}`}
                     placeholder="From Location"
                     {...formikProps.getFieldProps("fromLocation")}
-                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                      if (!/^[a-zA-Z\s]$/.test(e.key) && !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key)) e.preventDefault();
-                    }}
                   />
                   {formikProps.touched.fromLocation && formikProps.errors.fromLocation && (
                     <div className="fv-plugins-message-container">
@@ -452,9 +446,6 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                     className={`form-control form-control-lg form-control-solid${formikProps.touched.toLocation && formikProps.errors.toLocation ? " is-invalid" : ""}`}
                     placeholder="To Location"
                     {...formikProps.getFieldProps("toLocation")}
-                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                      if (!/^[a-zA-Z\s]$/.test(e.key) && !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key)) e.preventDefault();
-                    }}
                   />
                   {formikProps.touched.toLocation && formikProps.errors.toLocation && (
                     <div className="fv-plugins-message-container">
@@ -464,6 +455,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                 </div>
               </div>
 
+              )}
               <div className="row">
                 <div className="col-lg-12">
                   <label className="mb-3 fw-bold">Upload Reimbursement Bill</label>

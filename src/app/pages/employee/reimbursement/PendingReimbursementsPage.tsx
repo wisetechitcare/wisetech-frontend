@@ -38,7 +38,7 @@ import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { IReimbursementsCreate } from '@models/employee';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation } from './utils/reimbursementSchema';
+import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation, describeLimitBreach } from './utils/reimbursementSchema';
 
 const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 
@@ -314,6 +314,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   onDraftsChange,
 }, ref) {
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
+  // Per-request cap for the live limit warning under the Amount field.
+  const perRequestLimit = useSelector((state: RootState) => (state.employee.currentEmployee as any)?.reimbursementLimitPerRequest);
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
 
   const [drafts, setDrafts] = useState<any[]>([]);
@@ -393,6 +395,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       value: r.id,
       label: r.type,
       icon: r.icon,
+      // Needed for the live cap warning under the Amount field.
+      amountLimit: r.amountLimit ?? null,
     })).sort((a: any, b: any) => a.label.localeCompare(b.label));
     setReimbursementOptions(opts);
   };
@@ -1156,6 +1160,25 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       formikField='amount'
                       inputValidation='decimal'
                     />
+                    {/* The cap, as the amount is typed. `isExceedingLimit` is computed once at
+                        create and surfaced days later as a red row an approver finds — by then
+                        the only person who could have acted on it is long gone. */}
+                    {(() => {
+                      const breach = describeLimitBreach(formikProps.values.amount, {
+                        perRequest: perRequestLimit,
+                        category: selectedReimbursementFor?.amountLimit,
+                        categoryName: selectedReimbursementFor?.label,
+                      });
+                      if (!breach) return null;
+                      return (
+                        <div style={{
+                          marginTop: -18, marginBottom: 18,
+                          fontSize: '0.78rem', fontWeight: 600, color: '#b45309',
+                        }}>
+                          {breach} — it can still be submitted, but expect a question.
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
