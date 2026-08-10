@@ -11,6 +11,7 @@ import { Modal } from 'react-bootstrap';
 import { getSocket } from '@utils/socketClient';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
+import dayjs from 'dayjs';
 import { getApprovalDomain } from './domains/registry';
 // Direct module import (not the ui/ barrel) — the barrel drags Swal/glass/notifications into this
 // file's type+bundle graph for one chip.
@@ -571,6 +572,49 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       } as MRT_ColumnDef<ApprovalStep>
       
     ] : []),
+    {
+      // Ageing. Nothing in this module could answer "what has been sitting longest" — there was
+      // no days-pending column anywhere, and the pending payment table had no date column at all.
+      // It needs no new data: `now − submittedAt`.
+      id: 'ageing',
+      header: 'Waiting',
+      size: 120,
+      accessorFn: (row: any) => {
+        const submitted = row.requestDetails?.submittedAt ?? row.instance?.createdAt;
+        return submitted ? dayjs().diff(dayjs(submitted), 'day') : -1;
+      },
+      sortingFn: 'basic',
+      Cell: ({ row }: any) => {
+        const submitted = row.original.requestDetails?.submittedAt ?? row.original.instance?.createdAt;
+        if (!submitted) return <span className='text-muted fs-7'>—</span>;
+        const days = dayjs().diff(dayjs(submitted), 'day');
+        // Thresholds, not a gradient: an approver needs to know whether this is fine, slipping,
+        // or overdue — three states they can act on, each with a word as well as a colour.
+        const tone = days >= 14
+          ? { color: '#dc2626', bg: '#fef2f2', label: 'Overdue' }
+          : days >= 7
+            ? { color: '#d97706', bg: '#fff7e8', label: 'Ageing' }
+            : { color: '#15803d', bg: '#ecfdf3', label: '' };
+        return (
+          <div className='d-flex align-items-center gap-2'>
+            <span className='fw-bold fs-7' style={{ color: tone.color }}>
+              {days === 0 ? 'Today' : `${days}d`}
+            </span>
+            {tone.label && (
+              <span
+                className='fw-bold'
+                style={{
+                  fontSize: 10, padding: '1px 7px', borderRadius: 999,
+                  color: tone.color, backgroundColor: tone.bg,
+                }}
+              >
+                {tone.label}
+              </span>
+            )}
+          </div>
+        );
+      },
+    } as MRT_ColumnDef<ApprovalStep>,
     {
       accessorKey: 'workflowType',
       header: 'Type',

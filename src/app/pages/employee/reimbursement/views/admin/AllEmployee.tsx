@@ -19,6 +19,7 @@ import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { Box } from '@mui/material';
 import ReimbursementSummaryCard from './ReimbursementSummaryCard';
+import { summariseReimbursements } from '../../utils/reimbursementSummary';
 import LoadErrorState from '../../components/LoadErrorState';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
@@ -178,26 +179,20 @@ function AllEmployee() {
         });
       }
 
+      // Accumulated per employee through the shared aggregator, so this tab and
+      // SearchEmployee can no longer report different totals for the same person.
+      const s = summariseReimbursements([r as any]);
       const emp = map.get(empId)!;
-      const amount = Number(r.amount || 0);
-      emp.totalRequests += 1;
-      emp.totalRequestAmount += amount;
-
-      if (r.status === 'Approved') {
-        emp.totalApprovedAmount += amount;
-        emp.approvedCount += 1;
-        if (r.paymentStatus === 'PAID') {
-          emp.totalPaidAmount += amount;
-        } else {
-          emp.totalRemainingAmount += amount;
-        }
-      } else if (r.status === 'Pending') {
-        emp.totalPendingAmount += amount;
-        emp.pendingCount += 1;
-      } else if (r.status === 'Rejected') {
-        emp.totalRejectedAmount += amount;
-        emp.rejectedCount += 1;
-      }
+      emp.totalRequests += s.totalRequests;
+      emp.totalRequestAmount += s.totalAmount;
+      emp.totalApprovedAmount += s.approvedAmount;
+      emp.approvedCount += s.approvedCount;
+      emp.totalPendingAmount += s.pendingAmount;
+      emp.pendingCount += s.pendingCount;
+      emp.totalRejectedAmount += s.rejectedAmount;
+      emp.rejectedCount += s.rejectedCount;
+      emp.totalPaidAmount += s.paidAmount;
+      emp.totalRemainingAmount += s.remainingAmount;
     }
 
     return Array.from(map.values());

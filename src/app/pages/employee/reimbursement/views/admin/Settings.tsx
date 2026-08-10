@@ -8,7 +8,7 @@ import {
 
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { deleteConfirmation, successConfirmation } from "@utils/modal";
+import { deleteConfirmation, successConfirmation, errorConfirmation } from "@utils/modal";
 import {
   createReimbursementType,
   deleteReimbursementTypeByItsId,
@@ -278,10 +278,16 @@ function Settings() {
 
   const handleDelete = async (rowDetails: IReimbursementTypeFetch) => {
     if (!rowDetails || !rowDetails.id) return;
-    const val = await deleteConfirmation("Reimbursement Type Deleted Successfully!");
-    if (val) {
+    // announce:false — the success alert used to fire on CONFIRM, before the delete ran, so a
+    // failed delete still told the user it had worked. Report what actually happened.
+    const val = await deleteConfirmation("Reimbursement Type Deleted Successfully!", "Delete", "Deleted", false);
+    if (!val) return;
+    try {
       await deleteReimbursementTypeByItsId(rowDetails?.id);
       setFetchAgain((prev) => !prev);
+      await successConfirmation("Reimbursement Type Deleted Successfully!");
+    } catch {
+      await errorConfirmation("Could not delete this category. It may still be in use.");
     }
   };
 

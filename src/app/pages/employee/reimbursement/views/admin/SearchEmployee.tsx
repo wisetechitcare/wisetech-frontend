@@ -20,6 +20,7 @@ import ReimbursementPaymentHistoryTable from "../../components/ReimbursementPaym
 import { downloadEmployeePeriodBillPdf } from "@services/employee";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { errorConfirmation } from "@utils/modal";
+import { summariseReimbursements } from "../../utils/reimbursementSummary";
 
 function SearchEmployee() {
   const [totalRequestedAmount, setTotalRequestedAmount] = useState(0);
@@ -52,32 +53,13 @@ function SearchEmployee() {
     : '';
 
   const applyStats = (data: IReimbursementsFetch[]) => {
-    let totalAmount = 0, totalRequest = 0, approvedCount = 0, rejectedCount = 0, pendingCount = 0;
-    let approvedAmt = 0, pendingAmt = 0, rejectedAmt = 0, paidAmt = 0, remainingAmt = 0;
-    data.forEach((ele) => {
-      if (ele.id) {
-        // `amount` is a Decimal(10,2) serialised as a string. parseInt("1234.75") -> 1234,
-        // so every KPI below was short by up to ₹0.99 per row, compounding with row count.
-        const amt = Number(ele.amount ?? 0) || 0;
-        totalAmount += amt;
-        totalRequest++;
-        if (ele.status === "Pending") {
-          pendingCount++;
-          pendingAmt += amt;
-        } else if (ele.status === "Rejected") {
-          rejectedCount++;
-          rejectedAmt += amt;
-        } else {
-          approvedCount++;
-          approvedAmt += amt;
-          if (ele.paymentStatus === 'PAID') {
-            paidAmt += amt;
-          } else {
-            remainingAmt += amt;
-          }
-        }
-      }
-    });
+    // One shared aggregator — this tab and AllEmployee used to compute different totals for
+    // the same employee. See utils/reimbursementSummary.ts.
+    const s = summariseReimbursements(data as any[]);
+    const { totalAmount, totalRequests: totalRequest, approvedCount, rejectedCount,
+      pendingCount, approvedAmount: approvedAmt, pendingAmount: pendingAmt,
+      rejectedAmount: rejectedAmt, paidAmount: paidAmt, remainingAmount: remainingAmt } = s;
+
     setTotalRequestedAmount(totalAmount);
     setTotalRequests(totalRequest);
     setApprovedRequests(approvedCount);

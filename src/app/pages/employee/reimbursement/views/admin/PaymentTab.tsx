@@ -985,11 +985,15 @@ function MarkAsPaidModal({
 }: {
   batch: any | null;
   onClose: () => void;
-  onConfirm: (method: string, date: string, amount: number) => Promise<void>;
+  onConfirm: (method: string, date: string, amount: number, transactionId: string, remarks: string) => Promise<void>;
 }) {
   const [date, setDate] = useState<dayjs.Dayjs>(dayjs());
   const [method, setMethod] = useState('CASH');
   const [amountEditing, setAmountEditing] = useState(false);
+  // The service has always accepted transactionId and remarks; the modal collected neither,
+  // so every BANK_TRANSFER was recorded with no UTR and nothing to reconcile against.
+  const [transactionId, setTransactionId] = useState('');
+  const [remarks, setRemarks] = useState('');
   const [amountInput, setAmountInput] = useState('');
   const [editedAmount, setEditedAmount] = useState(0);
   const [amountError, setAmountError] = useState('');
@@ -1005,6 +1009,8 @@ function MarkAsPaidModal({
       setAmountInput(String(remainingAmount));
       setDate(dayjs());
       setMethod('CASH');
+      setTransactionId('');
+      setRemarks('');
       setAmountEditing(false);
       setAmountError('');
     }
@@ -1041,7 +1047,7 @@ function MarkAsPaidModal({
   const handleConfirm = async () => {
     setSubmitting(true);
     try {
-      await onConfirm(method, date.format('YYYY-MM-DD'), editedAmount);
+      await onConfirm(method, date.format('YYYY-MM-DD'), editedAmount, transactionId.trim(), remarks.trim());
     } finally {
       setSubmitting(false);
     }
@@ -1355,6 +1361,36 @@ function MarkAsPaidModal({
             ))}
           </select>
         </div>
+
+        {/* Reference — required for a bank transfer, which is the case that needs reconciling. */}
+        <div className="mt-5">
+          <label className="fs-6 fw-semibold text-gray-700 mb-2 d-block">
+            {method === 'BANK_TRANSFER' ? 'UTR / Transaction reference' : 'Transaction reference'}
+            {method === 'BANK_TRANSFER' && <span className="text-danger"> *</span>}
+          </label>
+          <input
+            className="form-control"
+            value={transactionId}
+            onChange={(e) => setTransactionId(e.target.value)}
+            placeholder={method === 'BANK_TRANSFER' ? 'e.g. UTR123456789' : 'Optional'}
+            style={{ height: '44px', borderRadius: '8px', fontSize: '0.9rem', border: '1.5px solid #e2e8f0' }}
+          />
+          {method === 'BANK_TRANSFER' && !transactionId.trim() && (
+            <div className="fs-8 text-muted mt-1">Needed to reconcile this payout against the bank statement.</div>
+          )}
+        </div>
+
+        <div className="mt-5">
+          <label className="fs-6 fw-semibold text-gray-700 mb-2 d-block">Remarks</label>
+          <textarea
+            className="form-control"
+            rows={2}
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            placeholder="Optional note for the payment record"
+            style={{ borderRadius: '8px', fontSize: '0.9rem', border: '1.5px solid #e2e8f0', resize: 'vertical' }}
+          />
+        </div>
       </Modal.Body>
 
       {/* ── Footer ── */}
@@ -1384,7 +1420,9 @@ function MarkAsPaidModal({
             transition: 'all 0.15s ease',
           }}
           onClick={handleConfirm}
-          disabled={submitting || amountEditing || editedAmount <= 0}
+          // A bank transfer with no reference cannot be reconciled later, so it is not a
+          // valid payment record — block it here rather than accept an unusable row.
+          disabled={submitting || amountEditing || editedAmount <= 0 || (method === 'BANK_TRANSFER' && !transactionId.trim())}
         >
           {submitting ? (
             <>
@@ -1515,7 +1553,7 @@ function PaymentTab() {
     setMarkAsPaidBatch(batch);
   };
 
-  const handlePaymentConfirm = async (paymentMethod: string, paymentDate: string, amount: number) => {
+  const handlePaymentConfirm = async (paymentMethod: string, paymentDate: string, amount: number, transactionId: string, remarks: string) => {
     const batch = markAsPaidBatch;
     const reimbursementIds: string[] = batch.approvedReimbursementIds ?? [];
     if (!reimbursementIds.length) {
@@ -1533,6 +1571,8 @@ function PaymentTab() {
         amountPaid: amount,
         paymentDate,
         paymentMethod,
+        transactionId: transactionId || undefined,
+        remarks: remarks || undefined,
         reimbursementIds,
       });
       setMarkAsPaidBatch(null);
