@@ -8,6 +8,7 @@ import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
+import { fmtDate, fmtAmount, formatINR } from '../utils/reimbursementFormat';
 import LoadErrorState from './LoadErrorState';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { useEventBus } from '@hooks/useEventBus';
@@ -32,17 +33,11 @@ interface ReimbursementPaymentHistoryTableProps {
 // Rows and footers render the SAME column, so they must agree to the paisa. `formatINR`
 // used maximumFractionDigits: 0 while the row formatter used 2 — a footer literally did not
 // equal the sum of the rows above it.
-const formatINR = (val: number) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 
-function fmtAmount(n: number | string) {
-    return Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
-function fmtDate(d?: string) {
-    if (!d) return 'N/A';
-    return dayjs(d).format('DD MMM YYYY');
-}
+
+
+
 
 interface BatchRow {
     id: string;

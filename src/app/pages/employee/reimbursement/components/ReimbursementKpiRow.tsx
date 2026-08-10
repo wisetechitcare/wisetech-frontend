@@ -2,6 +2,7 @@ import { Box } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import YearlyKpiCard from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/YearlyKpiCard';
 import { SkeletonKpiCard } from '@app/modules/common/components/Skeleton';
+import PaymentProgressCard from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/PaymentProgressCard';
 import { formatINR } from '../utils/reimbursementFormat';
 
 /**
@@ -101,5 +102,42 @@ export default function ReimbursementKpiRow({
                 showSensitiveData={showSensitiveData}
             />
         </Box>
+    );
+}
+
+/**
+ * "₹76,000 of ₹98,000 approved has been paid."
+ *
+ * The four cards answer "how much", one number at a time. This answers the question people
+ * actually arrive with — am I owed anything, and how much of it is still coming — which the
+ * cards can only express by making the reader divide one by another.
+ *
+ * `PaymentProgressCard` already existed in the salary module with ZERO callers: finished,
+ * reviewed, and never wired to anything. Adopting it beat writing a second one.
+ */
+export function ReimbursementPaymentProgress({
+    approvedAmount,
+    paidAmount,
+    periodLabel,
+}: {
+    approvedAmount: number;
+    paidAmount: number;
+    periodLabel?: string;
+}) {
+    // Nothing approved means nothing to be owed — a 0% bar would read as "you have been paid
+    // nothing", which is a different and alarming statement.
+    if (!approvedAmount || approvedAmount <= 0) return null;
+
+    const percentPaid = Math.round((paidAmount / approvedAmount) * 100);
+    const remaining = Math.max(0, approvedAmount - paidAmount);
+
+    return (
+        <PaymentProgressCard
+            title="Reimbursement paid"
+            subtitle={periodLabel ? `Approved expenses, ${periodLabel}` : 'Approved expenses'}
+            percentPaid={percentPaid}
+            paidAmount={formatINR(paidAmount)}
+            remainingAmount={formatINR(remaining)}
+        />
     );
 }

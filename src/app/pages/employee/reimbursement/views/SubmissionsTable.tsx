@@ -25,6 +25,7 @@ import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import StatusFilterChips, { countByStatus } from '../components/StatusFilterChips';
 import RecordsEmptyState, { findExpensesElsewhere } from '../components/RecordsEmptyState';
 import LoadErrorState from '../components/LoadErrorState';
+import { fmtDate, fmtAmount, resolveStatusNum } from '../utils/reimbursementFormat';
 import { resolveStatusNum as resolveStatus, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
 import { SkeletonTable } from '@app/modules/common/components/Skeleton';
 import { Dayjs } from 'dayjs';
@@ -46,21 +47,11 @@ const UNGROUPED_BATCH_ID = '__ungrouped__';
 // with a real status (0 pending / 1 approved / 2 rejected).
 const MIXED_STATUS = 3;
 
-function fmtDate(d?: string) {
-  if (!d) return 'N/A';
-  return dayjs(d).format('DD MMM YYYY');
-}
 
-function fmtAmount(n: number | string) {
-  return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
-}
 
-function resolveStatusNum(status: any): number {
-  if (typeof status === 'number') return status;
-  if (status === 'Approved') return 1;
-  if (status === 'Rejected') return 2;
-  return 0;
-}
+
+
+
 
 // ── Document Preview Modal ─────────────────────────────────────────────────────
 

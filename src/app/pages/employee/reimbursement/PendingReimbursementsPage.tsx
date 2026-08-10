@@ -17,8 +17,10 @@ import {
   submitReimbursementBatch,
 } from '@services/employee';
 import { uploadUserAsset } from '@services/uploader';
-import ReimbursementKpiRow from './components/ReimbursementKpiRow';
+import ReimbursementKpiRow, { ReimbursementPaymentProgress } from './components/ReimbursementKpiRow';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
+import OverLimitChip from './components/OverLimitChip';
+import { fmtAmount } from './utils/reimbursementFormat';
 import LoadErrorState from './components/LoadErrorState';
 import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
@@ -53,9 +55,7 @@ const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function fmtAmount(n: number | string) {
-  return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
-}
+
 
 // ── Employee profile card (left panel) ────────────────────────────────────────
 
@@ -281,6 +281,12 @@ export function EmployeeDetailsSection({
             <ReimbEmployeeProfileCard employee={employee} />
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0 }}>
               <ReimbursementKpiRow kpis={kpis} loading={overviewLoading} />
+              {!overviewLoading && (
+                <ReimbursementPaymentProgress
+                  approvedAmount={approvedAmount}
+                  paidAmount={paidAmount}
+                />
+              )}
             </Box>
           </Box>
         </Paper>
@@ -821,9 +827,10 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       size: 110,
       enableColumnActions: false,
       Cell: ({ row }) => (
-        <span className={row.original.isExceedingLimit ? 'fw-bold fs-7' : 'text-dark fw-bold fs-7'}
-          style={row.original.isExceedingLimit ? { color: '#ef4444' } : undefined}>
-          {fmtAmount(row.original.amount)}
+        // Colour alone is not a status — the chip carries the word too.
+        <span className='d-inline-flex align-items-center gap-2'>
+          <span className='text-dark fw-bold fs-7'>{fmtAmount(row.original.amount)}</span>
+          {row.original.isExceedingLimit && <OverLimitChip />}
         </span>
       ),
       Footer: () => <span className='text-dark fw-bold fs-7'>{fmtAmount(totalAmount)}</span>,

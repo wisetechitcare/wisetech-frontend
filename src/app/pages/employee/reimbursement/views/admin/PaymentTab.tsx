@@ -19,36 +19,21 @@ import { BatchDetailModal } from '../../shared/ReimbursementBatchShared';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import Swal from 'sweetalert2';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
+import { fmtDate, fmtAmount, formatINR, resolveStatusNum } from '../../utils/reimbursementFormat';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 
-function fmtAmount(n: number | string) {
-  return Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
-function fmtDate(d?: string) {
-  if (!d) return 'N/A';
-  return dayjs(d).format('DD MMM YYYY');
-}
+
+
 
 // Rows and footers render the SAME column, so they must agree to the paisa. `formatINR`
 // used maximumFractionDigits: 0 while the row formatter used 2 — a footer literally did not
 // equal the sum of the rows above it.
-const formatINR = (val: number) =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(val);
 
-function resolveStatusNum(s: any): number {
-  if (typeof s === 'number') return s;
-  if (s === 'Approved') return 1;
-  if (s === 'Rejected') return 2;
-  return 0;
-}
+
+
 
 async function getDateRange(filter: PeriodFilter, date: dayjs.Dayjs) {
   if (filter === 'monthly') {

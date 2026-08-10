@@ -18,17 +18,15 @@ import dayjs from 'dayjs';
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { usePermission } from '@hooks/usePermission';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
+import OverLimitChip from '../components/OverLimitChip';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-export function fmtDate(d?: string) {
-  if (!d) return 'N/A';
-  return dayjs(d).format('DD MMM YYYY');
-}
-
-export function fmtAmount(n: number | string) {
-  return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
-}
+// Re-exported, not re-implemented. Other modules (DomainApprovalQueue) import fmtAmount from
+// this file, so the export surface stays while the behaviour comes from the one shared copy.
+// `export ... from` alone re-exports without binding locally, and this file uses both.
+import { fmtDate, fmtAmount } from '../utils/reimbursementFormat';
+export { fmtDate, fmtAmount };
 
 export function statusBadge(status: number) {
   if (status === 1) return <span className='badge badge-light-success fw-semibold fs-8'>Approved</span>;
@@ -278,8 +276,9 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
         header: 'Amount',
         enableColumnActions: false,
         Cell: ({ row }: any) => (
-          <span style={row.original.isExceedingLimit ? { color: '#ef4444', fontWeight: 600 } : undefined}>
-            ₹{fmtAmount(row.original.amount)}
+          <span className='d-inline-flex align-items-center gap-2'>
+            <span>₹{fmtAmount(row.original.amount)}</span>
+            {row.original.isExceedingLimit && <OverLimitChip />}
           </span>
         ),
         Footer: () => <span className='fw-bold'>₹{fmtAmount(detailTotal)}</span>,
