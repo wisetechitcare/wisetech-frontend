@@ -146,6 +146,12 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
         return companyIdRef.current;
     }, []);
 
+    // Sorting is server-side for the same reason paging and filtering are: `data` holds
+    // one page, so sorting it in the browser reorders ten rows while the header implies
+    // the whole queue. The table reports the resolved sort via onSortingChange.
+    const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([]);
+    const sortKey = sorting.length ? `${sorting[0].id}:${sorting[0].desc}` : '';
+
     // Fetch function for all attendance requests
     const fetchAllAttendanceRequests = useCallback(async (page: number, limit: number) => {
         const companyId = await resolveCompanyId();
@@ -153,13 +159,13 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
         // activeOnly is server-side for the same reason the period is: filtering a
         // ten-row page in the browser would leave the total count claiming rows the
         // table refuses to show.
-        const { data: { attendanceRequests, pagination: paginationData } } = await getAllAttendanceRequestByCompanyId(companyId, page, limit, periodParams, activeOnly);
+        const { data: { attendanceRequests, pagination: paginationData } } = await getAllAttendanceRequestByCompanyId(companyId, page, limit, periodParams, activeOnly, sorting[0]);
 
         return {
             data: attendanceRequests,
             totalRecords: paginationData?.totalRecords || attendanceRequests.length,
         };
-    }, [resolveCompanyId, periodParams, activeOnly]);
+    }, [resolveCompanyId, periodParams, activeOnly, sorting]);
 
     // Single hook for all attendance requests with server-side pagination
     const {
@@ -175,8 +181,10 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
         fetchFunction: fetchAllAttendanceRequests,
         initialPageSize: pageSize,
         transformData: transformAttendanceRequest,
-        // Changing the period must snap back to page 1 — see the hook's docs.
-        resetKey: rangeKey,
+        // Changing the period OR the sort must snap back to page 1 — see the hook's docs.
+        // Re-sorting while on page 5 would otherwise ask for page 5 of a reordered set,
+        // which is a different ten rows than the user expects to land on.
+        resetKey: `${rangeKey}|${sortKey}`,
     });
 
     useEventBus(EVENT_KEYS.attendanceRequestUpdated, (data) => {
@@ -505,6 +513,8 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
                 employeeId={employeeIdCurrent}
                 persistPreferences={false}
                 manualPagination={true}
+                manualSorting={true}
+                onSortingChange={setSorting}
                 rowCount={allTotalRecords}
                 onPaginationChange={setAllPagination}
                 paginationState={allPagination}

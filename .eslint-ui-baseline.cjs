@@ -1,4 +1,4 @@
-/* AUTO-GENERATED UI baseline — do not hand-edit; regenerate with `npm run lint:ui:baseline`.
+/* AUTO-GENERATED UI baseline — do not hand-edit; regenerate with `pnpm run lint:ui:baseline`.
  *
  * THE RATCHET: these files already contained banned Bootstrap component classes, <style>
  * blocks, or toLocaleDateString when the design-system rules landed. They are downgraded to

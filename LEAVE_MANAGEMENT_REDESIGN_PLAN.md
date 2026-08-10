@@ -174,7 +174,7 @@ Dir: `employee/attendance/admin/views/overview/`
 - [ ] Tokens only; a11y (focus-visible, icon-button labels) intact.
 - [ ] **Logic byte-for-byte unchanged** — same fetches/mutations/events/validation/permissions.
 - [ ] Feature parity: all actions + loading/empty/error states + `readOnly`.
-- [ ] `npx tsc --noEmit` clean **and** `npm run build` green.
+- [ ] `pnpm exec tsc --noEmit` clean **and** `pnpm run build` green.
 - [ ] Verified in a mobile viewport (≤400px) and a desktop viewport.
 - [ ] One focused commit.
 
@@ -184,7 +184,7 @@ Dir: `employee/attendance/admin/views/overview/`
 
 ```bash
 # every leave/approval component
-npx tsc --noEmit   # baseline must be clean before starting
+pnpm exec tsc --noEmit   # baseline must be clean before starting
 # enumerate surfaces:
 #   my-leaves:  src/app/pages/employee/attendance/personal/views/my-leaves/*.tsx
 #   approvals:  src/app/pages/my-team/Approvals/**/*.tsx  +  src/app/pages/approvals/*.tsx

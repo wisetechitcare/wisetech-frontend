@@ -2,11 +2,21 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
+import { visualizer } from 'rollup-plugin-visualizer'
 import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), tsconfigPaths(), tailwindcss()],
+  plugins: [
+    react(),
+    tsconfigPaths(),
+    tailwindcss(),
+    // Opt-in bundle analysis: `ANALYZE=1 pnpm run build` writes dist/stats.json.
+    // Off by default so normal builds are unaffected.
+    ...(process.env.ANALYZE
+      ? [visualizer({ filename: 'dist/stats.json', template: 'raw-data', gzipSize: true })]
+      : []),
+  ],
   server: {
     host: '0.0.0.0',
     port: 5173,

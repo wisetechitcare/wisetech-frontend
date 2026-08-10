@@ -1,6 +1,18 @@
 node_modules
 dist
+
+# Secrets & keys (never commit) — mirrors scripts/hooks/guard.mjs
 .env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.ppk
+src/keys/
+
 .claude
 .vscode
 # Claude Code agents and configuration

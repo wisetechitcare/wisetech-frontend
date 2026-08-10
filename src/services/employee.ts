@@ -1098,6 +1098,10 @@ export const fetchLeaveRequest = async (
     /** Exclude employees explicitly flagged inactive. Filtered in SQL — see the API's
      *  `activeEmployeeRelationFilter`. Off by default so existing callers are unchanged. */
     activeOnly?: boolean,
+    /** Sort the WHOLE result set in SQL. Required for a paginated table: without it the
+     *  browser only reorders the page it happens to be holding. Unknown columns are
+     *  ignored server-side (whitelist in utils/sortParams). */
+    sort?: { id: string; desc: boolean },
 ) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_LEAVE_REQUEST}`;
@@ -1106,6 +1110,10 @@ export const fetchLeaveRequest = async (
         if (status !== undefined) params.append('status', status.toString());
         if (page !== undefined) params.append('page', page.toString());
         if (limit !== undefined) params.append('limit', limit.toString());
+        if (sort?.id) {
+            params.append('sortBy', sort.id);
+            params.append('sortOrder', sort.desc ? 'desc' : 'asc');
+        }
         // Both or neither — the API rejects a half-specified window on purpose.
         if (range?.startDate && range?.endDate) {
             params.append('startDate', range.startDate);
@@ -1424,6 +1432,8 @@ export const getAllAttendanceRequestByCompanyId = async (
     range?: { startDate: string; endDate: string },
     /** Exclude employees explicitly flagged inactive. Filtered in SQL. Off by default. */
     activeOnly?: boolean,
+    /** Sort the WHOLE result set in SQL — see fetchLeaveRequest. */
+    sort?: { id: string; desc: boolean },
 ) => {
     try {
         const params = new URLSearchParams({ companyId, page: String(page), limit: String(limit) });
@@ -1433,6 +1443,10 @@ export const getAllAttendanceRequestByCompanyId = async (
             params.append('endDate', range.endDate);
         }
         if (activeOnly) params.append('activeOnly', 'true');
+        if (sort?.id) {
+            params.append('sortBy', sort.id);
+            params.append('sortOrder', sort.desc ? 'desc' : 'asc');
+        }
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_ATTENDANCE_REQUEST}?${params.toString()}`;
         const { data } = await axios.get(endpoint);
         return data;
