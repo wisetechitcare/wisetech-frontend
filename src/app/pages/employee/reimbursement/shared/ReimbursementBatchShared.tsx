@@ -19,6 +19,7 @@ import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { usePermission } from '@hooks/usePermission';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import { ReimbursementBatchDetail } from '../utils/reimbursementTypes';
+import { buildReimbursementLineColumns, withPreviewHandler } from '../components/reimbursementLineColumns';
 import OverLimitChip from '../components/OverLimitChip';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -154,7 +155,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     [visibleReimbursements],
   );
 
-  const { resolveClientType } = useReimbursementLookups(batch?.reimbursements ?? []);
+  const { resolveClientType, resolveClientCompany, resolveProject } = useReimbursementLookups(batch?.reimbursements ?? []);
 
   const handleViewDocument = useCallback((documentUrl: string) => {
     if (documentUrl) setPreviewUrl(documentUrl);
@@ -229,98 +230,11 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     };
 
     return [
-      {
-        accessorKey: 'expenseDate',
-        header: 'Date',
-        size: 150, minSize: 130, maxSize: 180,
-        enableColumnActions: false,
-        Cell: ({ row }: any) => (
-          <div>
-            <div style={{ fontWeight: 600, color: '#111827', fontSize: 13 }}>{fmtDate(row.original.expenseDate) || 'N/A'}</div>
-            {row.original.expenseDate && (
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{dayjs(row.original.expenseDate).format('dddd')}</div>
-            )}
-          </div>
-        ),
-        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
-      },
-      {
-        accessorKey: 'clientType',
-        header: 'Company Type',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => {
-          const r = row.original;
-          return r.clientCompany?.companyType?.name
-            || resolveClientType(r.clientCompany?.companyTypeId || r.clientTypeId);
-        },
-      },
-      {
-        accessorKey: 'client',
-        header: 'Company Name',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => row.original.clientCompany?.companyName || 'N/A',
-      },
-      {
-        accessorKey: 'project',
-        header: 'Project Name',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => row.original.project?.title || 'N/A',
-      },
-      {
-        accessorKey: 'type',
-        header: 'Type',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => row.original.reimbursementType?.type || 'N/A',
-      },
-      {
-        accessorKey: 'amount',
-        header: 'Amount',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => (
-          <span className='d-inline-flex align-items-center gap-2'>
-            <span>₹{fmtAmount(row.original.amount)}</span>
-            {row.original.isExceedingLimit && <OverLimitChip />}
-          </span>
-        ),
-        Footer: () => <span className='fw-bold'>₹{fmtAmount(detailTotal)}</span>,
-      },
-      {
-        accessorKey: 'fromLocation',
-        header: 'From Location',
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-      },
-      {
-        accessorKey: 'toLocation',
-        header: 'To Location',
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-      },
-      {
-        accessorKey: 'description',
-        header: 'Note',
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-      },
-      {
-        accessorKey: 'document',
-        header: 'Document',
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => (
-          <button
-            className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
-            onClick={() => handleViewDocument(renderedCellValue)}
-            disabled={!renderedCellValue}
-            aria-label={renderedCellValue ? 'Preview receipt' : 'No receipt attached'}
-            title={renderedCellValue ? 'Preview document' : 'No document attached'}
-          >
-            {renderedCellValue
-              ? <KTIcon iconName='eye' className='fs-3' />
-              : <i className='bi bi-file-earmark-x fs-3 text-danger'></i>}
-          </button>
-        ),
-      },
+      // The ten line columns are identical in both detail modals — one definition, two callers.
+      ...buildReimbursementLineColumns(
+        { resolveClientType, resolveClientCompany, resolveProject },
+        detailTotal,
+      ),
       {
         id: 'rowStatus',
         header: 'Status',
@@ -550,7 +464,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           ) : (
             <MaterialTable
               columns={detailColumns}
-              data={visibleReimbursements}
+              data={withPreviewHandler(visibleReimbursements, handleViewDocument)}
               tableName='BatchDetailReimbursements'
               hideFilters={false}
               hideExportCenter={false}

@@ -1389,13 +1389,10 @@ function PaymentTab() {
         (b: any) => resolveStatusNum(b.status) === 1,
       );
 
-      const detailResults = await Promise.all(
-        approvedBatches.map((b: any) =>
-          fetchReimbursementBatchById(b.id)
-            .then((r: any) => ({ id: b.id, batch: r?.data?.batch || r?.batch || null }))
-            .catch(() => ({ id: b.id, batch: null })),
-        ),
-      );
+      // No N+1 any more. The list endpoint returns each batch WITH its lines and its payments,
+      // so this used to issue one extra request per approved batch purely to read fields the
+      // first response can carry. One request now, whatever the batch count.
+      const detailResults = approvedBatches.map((b: any) => ({ id: b.id, batch: b }));
 
       const paymentStatusMap: Record<string, string> = {};
       const reimbursementIdsMap: Record<string, string[]> = {};

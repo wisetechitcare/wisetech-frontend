@@ -27,6 +27,7 @@ import RecordsEmptyState, { findExpensesElsewhere } from '../components/RecordsE
 import LoadErrorState from '../components/LoadErrorState';
 import { clickableRowProps, CLICKABLE_ROW_SX } from '../utils/rowInteraction';
 import { ReimbursementBatchDetail, ReimbursementLine } from '../utils/reimbursementTypes';
+import { buildReimbursementLineColumns, withPreviewHandler } from '../components/reimbursementLineColumns';
 import { fmtDate, fmtAmount, resolveStatusNum } from '../utils/reimbursementFormat';
 import { resolveStatusNum as resolveStatus, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
 import { SkeletonTable } from '@app/modules/common/components/Skeleton';
@@ -186,101 +187,11 @@ function SubmissionDetailModal({
 
   const detailColumns = useMemo<MRT_ColumnDef<any>[]>(
     () => [
-      {
-        accessorKey: 'expenseDate',
-        header: 'Date',
-        size: 150, minSize: 130, maxSize: 180,
-        enableColumnActions: false,
-        Cell: ({ row }: any) => (
-          <div>
-            <div style={{ fontWeight: 600, color: '#111827', fontSize: 13 }}>{fmtDate(row.original.expenseDate) || 'N/A'}</div>
-            {row.original.expenseDate && (
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{dayjs(row.original.expenseDate).format('dddd')}</div>
-            )}
-          </div>
-        ),
-        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
-      },
-      {
-        accessorKey: 'clientType',
-        header: 'Company Type',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => {
-          const r = row.original;
-          return (
-            r.clientCompany?.companyType?.name ||
-            resolveClientType(r.clientCompany?.companyTypeId || r.clientTypeId)
-          );
-        },
-      },
-      {
-        accessorKey: 'client',
-        header: 'Company Name',
-        enableColumnActions: false,
-        Cell: ({ row }: any) =>
-          row.original.clientCompany?.companyName ||
-          resolveClientCompany(row.original.clientCompanyId) ||
-          'N/A',
-      },
-      {
-        accessorKey: 'project',
-        header: 'Project Name',
-        enableColumnActions: false,
-        Cell: ({ row }: any) =>
-          row.original.lead?.title || row.original.project?.title || resolveProject(row.original.projectId) || 'N/A',
-      },
-      {
-        accessorKey: 'type',
-        header: 'Type',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => row.original.reimbursementType?.type || row.original.type || 'N/A',
-      },
-      {
-        accessorKey: 'amount',
-        header: 'Amount',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => `₹${fmtAmount(row.original.amount)}`,
-        Footer: () => <span className="fw-bold">₹{fmtAmount(detailTotal)}</span>,
-      },
-      {
-        accessorKey: 'fromLocation',
-        header: 'From Location',
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-      },
-      {
-        accessorKey: 'toLocation',
-        header: 'To Location',
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-      },
-      {
-        accessorKey: 'description',
-        header: 'Note',
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-      },
-      {
-        accessorKey: 'document',
-        header: 'Document',
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => (
-          <button
-            className="btn btn-icon btn-active-color-primary btn-sm"
-            onClick={() => handleViewDocument(renderedCellValue)}
-            disabled={!renderedCellValue}
-            aria-label={renderedCellValue ? 'Preview receipt' : 'No receipt attached'}
-            title={renderedCellValue ? 'Preview document' : 'No document attached'}
-          >
-            {renderedCellValue ? (
-              <KTIcon iconName="eye" className="fs-3" />
-            ) : (
-              <i className="bi bi-file-earmark-x fs-3 text-danger"></i>
-            )}
-          </button>
-        ),
-      },
+      // Same ten columns the approver's batch modal renders — one definition, two callers.
+      ...buildReimbursementLineColumns(
+        { resolveClientType, resolveClientCompany, resolveProject },
+        detailTotal,
+      ),
       {
         accessorKey: 'status',
         header: 'Status',
@@ -558,7 +469,7 @@ function SubmissionDetailModal({
           ) : (
             <MaterialTable
               columns={detailColumns}
-              data={displayedReimbursements}
+              data={withPreviewHandler(displayedReimbursements, handleViewDocument)}
               tableName="SubmissionDetailReimbursements"
               hideFilters={false}
               hideExportCenter={false}

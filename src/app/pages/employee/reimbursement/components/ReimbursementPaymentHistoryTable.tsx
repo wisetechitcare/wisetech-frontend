@@ -115,18 +115,25 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 ),
             ) as string[];
 
+            // Halved: this used to issue TWO requests per batch. The submission id was one of
+            // them, and the payment row has carried `batch.submissionId` since Phase 2 added the
+            // include — so that fetch was asking the server for a field already in hand. Only the
+            // approval instance still needs a round trip.
+            const submissionIdByBatch = new Map<string, string>();
+            for (const p of sorted as any[]) {
+                const id = p.batch?.id || p.batchId;
+                if (id && p.batch?.submissionId) submissionIdByBatch.set(id, p.batch.submissionId);
+            }
+
             const entries = await Promise.all(
                 uniqueBatchIds.map(async (id) => {
+                    const submissionId = submissionIdByBatch.get(id) || id;
                     try {
-                        const [batchRes, instanceRes] = await Promise.all([
-                            fetchReimbursementBatchById(id),
-                            fetchApprovalInstanceByRequest('ReimbursementBatch', id).catch(() => null),
-                        ]);
-                        const b = batchRes?.data?.batch || batchRes?.batch;
+                        const instanceRes = await fetchApprovalInstanceByRequest('ReimbursementBatch', id);
                         const instance = instanceRes?.data || instanceRes;
-                        return { id, submissionId: b?.submissionId || id, approvalInstanceId: instance?.id ?? null };
+                        return { id, submissionId, approvalInstanceId: instance?.id ?? null };
                     } catch {
-                        return { id, submissionId: id, approvalInstanceId: null };
+                        return { id, submissionId, approvalInstanceId: null };
                     }
                 }),
             );
