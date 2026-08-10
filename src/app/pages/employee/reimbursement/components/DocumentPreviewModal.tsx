@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { KTIcon } from '@metronic/helpers';
+import { WtButton, WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 /**
  * Receipt preview. The one copy.
@@ -65,23 +66,23 @@ export default function DocumentPreviewModal({ url, onClose }: DocumentPreviewMo
                         <span className="text-truncate">{filename}</span>
                     </div>
                     <div className="d-flex align-items-center gap-2 flex-shrink-0">
-                        <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-sm btn-light btn-active-light-primary d-flex align-items-center gap-1"
+                        <WtButton
+                            ghost
+                            size="small"
+                            // window.open rather than `component="a"`: WtButton is typed as a
+                            // button, and an anchor's props do not fit through it.
+                            onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+                            startIcon={<KTIcon iconName="exit-right-corner" className="fs-5" />}
                         >
-                            <KTIcon iconName="exit-right-corner" className="fs-5" />
-                            <span className="d-none d-sm-inline">Open in tab</span>
-                        </a>
-                        <button
-                            className="btn btn-sm btn-icon btn-light btn-active-light-danger"
+                            Open in tab
+                        </WtButton>
+                        <WtIconButton
+                            color="#dc2626"
                             onClick={onClose}
-                            aria-label="Close preview"
                             title="Close preview (Esc)"
                         >
                             <KTIcon iconName="cross" className="fs-2" />
-                        </button>
+                        </WtIconButton>
                     </div>
                 </div>
 

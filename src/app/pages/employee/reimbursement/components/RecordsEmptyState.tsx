@@ -1,4 +1,5 @@
 import { KTIcon } from '@metronic/helpers';
+import { WtButton } from '@app/modules/common/components/ui/buttons';
 import dayjs, { Dayjs } from 'dayjs';
 
 /**
@@ -112,14 +113,14 @@ export default function RecordsEmptyState({
 
             <div className="d-flex align-items-center justify-content-center gap-2 flex-wrap">
                 {isFiltered && onClearStatusFilter && (
-                    <button type="button" className="btn btn-sm btn-light-primary" onClick={onClearStatusFilter}>
+                    <WtButton ghost size="small" onClick={onClearStatusFilter}>
                         Show all statuses
-                    </button>
+                    </WtButton>
                 )}
                 {!isFiltered && onAddExpense && (
-                    <button type="button" className="btn btn-sm btn-light-primary" onClick={onAddExpense}>
+                    <WtButton size="small" onClick={onAddExpense}>
                         Add an expense
-                    </button>
+                    </WtButton>
                 )}
             </div>
         </div>

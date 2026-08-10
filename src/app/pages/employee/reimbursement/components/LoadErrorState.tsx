@@ -1,4 +1,5 @@
 import { KTIcon } from '@metronic/helpers';
+import { WtButton } from '@app/modules/common/components/ui/buttons';
 
 /**
  * Shown when a fetch failed.
@@ -49,9 +50,9 @@ export default function LoadErrorState({ what, onRetry }: LoadErrorStateProps) {
             </p>
 
             {onRetry && (
-                <button type="button" className="btn btn-sm btn-light-danger" onClick={onRetry}>
+                <WtButton tone="danger" size="small" onClick={onRetry}>
                     Try again
-                </button>
+                </WtButton>
             )}
         </div>
     );
