@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { IconButton, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { T } from './tokens';
@@ -15,8 +16,14 @@ const TONE_COLOR: Record<ActionTone, string> = {
 };
 
 export interface ActionIconButtonProps {
-  /** KTIcon name, e.g. "pencil" | "trash" | "arrow-up-right". */
-  iconName: string;
+  /** KTIcon name, e.g. "pencil" | "trash" | "arrow-up-right". Ignored when `icon` is set. */
+  iconName?: string;
+  /**
+   * A glyph node instead of a font icon — for marks the duotone font renders badly,
+   * such as the brand logos in `brandIcons` (its first layer is painted at 40%
+   * opacity, which washes a logo out). Inherits the tone colour via `currentColor`.
+   */
+  icon?: ReactNode;
   /** Tooltip text — also the accessible label. */
   title: string;
   onClick: () => void;
@@ -46,6 +53,7 @@ const SIZE_ICON_CLASS: Record<'sm' | 'md', string> = { sm: 'fs-6', md: 'fs-4' };
  */
 export default function ActionIconButton({
   iconName,
+  icon,
   title,
   onClick,
   tone = 'indigo',
@@ -75,7 +83,7 @@ export default function ActionIconButton({
             '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66` },
           }}
         >
-          <KTIcon iconName={iconName} className={SIZE_ICON_CLASS[size]} />
+          {icon ?? <KTIcon iconName={iconName ?? ''} className={SIZE_ICON_CLASS[size]} />}
         </IconButton>
       </span>
     </Tooltip>
