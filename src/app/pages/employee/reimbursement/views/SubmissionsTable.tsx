@@ -30,6 +30,7 @@ import { ReimbursementBatchDetail, ReimbursementLine } from '../utils/reimbursem
 import { buildReimbursementLineColumns, withPreviewHandler } from '../components/reimbursementLineColumns';
 import { fmtDate, fmtAmount, resolveStatusNum } from '../utils/reimbursementFormat';
 import { resolveStatusNum as resolveStatus, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
+import SubmissionMobileCard from '../components/SubmissionMobileCard';
 import { SkeletonTable } from '@app/modules/common/components/Skeleton';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
@@ -381,7 +382,16 @@ function SubmissionDetailModal({
 
   return (
     <>
-      <style>{`.submission-detail-modal { max-width: 90vw !important; width: 95vw; }`}</style>
+      {/*
+        * `max-width: 90vw; width: 95vw` is not responsive — it is 95% of whatever the screen is.
+        * On a 360px phone that is a 342px-wide dialog holding a multi-column table, with the
+        * 5% margin the only thing between the content and the edge. `min()` gives a phone the
+        * full width it needs and a desktop a dialog that stops growing.
+        */}
+      <style>{`
+        .submission-detail-modal { max-width: min(100%, 1140px) !important; margin: 0.5rem auto; }
+        @media (min-width: 576px) { .submission-detail-modal { margin: 1.75rem auto; } }
+      `}</style>
       <Modal
         show={!!batchId}
         onHide={onClose}
@@ -1062,6 +1072,18 @@ function SubmissionsTable({
           checkOwnWithOthers={checkOwnWithOthers}
           employeeId={employeeId}
           showColumnFooter={true}
+          // Narrow screens get cards instead of an eight-column horizontal scroller. Same
+          // click target as the wide table, so opening a submission works identically.
+          renderMobileCard={({ row }: any) => (
+            <SubmissionMobileCard
+              row={row.original}
+              onOpen={() => {
+                setDetailBatchId(row.original._batchId);
+                setDetailFilterStatus(row.original._status ?? null);
+                setDetailLineIds(row.original._lineIds ?? null);
+              }}
+            />
+          )}
           muiTableProps={{
             sx: {
               '& .MuiTableBody-root .MuiTableCell-root': {

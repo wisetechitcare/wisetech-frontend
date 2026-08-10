@@ -19,6 +19,7 @@ import {
   ThemeProvider,
   Tooltip,
   useMediaQuery,
+  Skeleton,
   useTheme,
 } from "@mui/material";
 import { useThemeMode } from "@metronic/partials";
@@ -93,6 +94,18 @@ interface MaterialTableProps {
   enableRowVirtualization?: boolean;
   muiTableContainerProps?: any;
   renderDetailPanel?: (props: { row: any; table: any }) => React.ReactNode;
+  /**
+   * Opt-in card mode for narrow screens.
+   *
+   * A data table on a 360px phone is a horizontal scroller: the reader sees two columns of a
+   * seven-column row and has to swipe to learn what any of it means. When this is supplied AND
+   * the viewport is narrow, the table body is replaced by a stack of cards, one per row, and the
+   * caller decides what a row looks like when it has 320px instead of 1200px.
+   *
+   * Off unless supplied, so no existing table changes. Toolbar, search and pagination are
+   * untouched — only the grid becomes a list.
+   */
+  renderMobileCard?: (props: { row: any; index: number }) => React.ReactNode;
   enableStatusColorCoding?: boolean;
   renderTopToolbarRightActions?: () => React.ReactNode;
   /** Replaces the bottom-left "Select Export File + Export" UI with custom content */
@@ -172,6 +185,7 @@ function MaterialTable({
   enableRowVirtualization = false,
   muiTableContainerProps: customMuiTableContainerProps,
   renderDetailPanel,
+  renderMobileCard,
   enableStatusColorCoding = true,
   renderTopToolbarRightActions,
   renderExportActions,
@@ -952,6 +966,38 @@ function MaterialTable({
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Card mode: the caller opted in and the viewport is narrow. Rendered instead of the table
+  // rather than alongside it, so the row data is laid out once, not hidden with CSS.
+  if (renderMobileCard && isMobile) {
+    return (
+      <ThemeProvider theme={tableTheme}>
+        <div className="pt-6 pb-3">
+          {isLoading ? (
+            <div className="d-flex flex-column gap-3">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} variant="rounded" height={104} sx={{ borderRadius: "12px" }} />
+              ))}
+            </div>
+          ) : (data ?? []).length === 0 ? (
+            // Defers to the table's own empty state so a narrow screen and a wide one say the
+            // same thing when there is nothing to show.
+            <div style={{ padding: "32px 16px", textAlign: "center", color: "#6B7280" }}>
+              No records found
+            </div>
+          ) : (
+            <div className="d-flex flex-column gap-3">
+              {(data ?? []).map((rowData: any, index: number) => (
+                <div key={rowData?.id ?? index}>
+                  {renderMobileCard({ row: { original: rowData, index }, index })}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </ThemeProvider>
     );
   }
 
