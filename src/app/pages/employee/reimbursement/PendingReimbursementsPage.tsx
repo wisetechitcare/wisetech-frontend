@@ -20,6 +20,7 @@ import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow, { ReimbursementPaymentProgress } from './components/ReimbursementKpiRow';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
+import { ReimbursementDraft, ReimbursementOption } from './utils/reimbursementTypes';
 import { fmtAmount } from './utils/reimbursementFormat';
 import LoadErrorState from './components/LoadErrorState';
 import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
@@ -324,7 +325,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   const perRequestLimit = useSelector((state: RootState) => (state.employee.currentEmployee as any)?.reimbursementLimitPerRequest);
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
 
-  const [drafts, setDrafts] = useState<any[]>([]);
+  const [drafts, setDrafts] = useState<ReimbursementDraft[]>([]);
   // A failed fetch used to render as "no drafts", which is indistinguishable from success.
   const [draftsError, setDraftsError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -343,7 +344,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Dropdown option lists — same names as Reimbursement.tsx
-  const [reimbursementOptions, setReimbursementOptions] = useState<any[]>([]);
+  const [reimbursementOptions, setReimbursementOptions] = useState<ReimbursementOption[]>([]);
   // companyTypeOptions is scoped to types actually used as a project's File Location;
   // allCompanyTypeOptions is the full master list, kept only to resolve labels for
   // legacy reimbursements whose saved type/company predates that scoping.

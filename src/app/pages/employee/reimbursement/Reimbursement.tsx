@@ -47,6 +47,7 @@ import { Select } from "@mui/material";
 import { getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
 import { getReimbursementProjectOptions, getAllProjectStatuses } from "@services/projects";
 import { getReimbursementSchema, makeReimbursementInitialState, categoryRequiresLocation } from "./utils/reimbursementSchema";
+import { ReimbursementOption } from "./utils/reimbursementTypes";
 
 
 
@@ -94,7 +95,7 @@ function Reimbursement() {
   }, []);
   const [show, setShow] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [reimbursementOptions, setReimbursementOptions] = useState<any[]>([]);
+  const [reimbursementOptions, setReimbursementOptions] = useState<ReimbursementOption[]>([]);
   const [selectedReimbursementFor, setSelectedReimbursementFor] =
     useState<Option | null>(null);
   const [loading, setLoading] = useState(false);

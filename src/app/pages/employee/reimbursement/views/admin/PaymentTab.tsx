@@ -21,6 +21,8 @@ import Swal from 'sweetalert2';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { fmtDate, fmtAmount, formatINR, resolveStatusNum } from '../../utils/reimbursementFormat';
 import PaymentDetailPanel from '../../components/PaymentDetailPanel';
+import { ReimbursementBatchDetail, ReimbursementPaymentRecord } from '../../utils/reimbursementTypes';
+import { clickableRowProps, CLICKABLE_ROW_SX } from '../../utils/rowInteraction';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
@@ -412,12 +414,15 @@ function PendingPaymentTable({
             enableStatusColorCoding={false}
             muiTableProps={{
               muiTableBodyRowProps: ({ row }: any) => ({
+                ...clickableRowProps(
+                  () => onRowClick(row.original._batch.id),
+                  `Open batch ${row.original.submissionId ?? ''}`.trim(),
+                ),
                 sx: {
-                  cursor: 'pointer',
+                  ...CLICKABLE_ROW_SX,
                   transition: 'background-color 0.12s ease',
                   '&:hover td': { backgroundColor: '#F8FAFC' },
                 },
-                onClick: () => onRowClick(row.original._batch.id),
               }),
             }}
           />
@@ -448,7 +453,7 @@ function PaymentDoneTable({
   setFilter: React.Dispatch<React.SetStateAction<PeriodFilter>>;
   setCurrentDate: React.Dispatch<React.SetStateAction<dayjs.Dayjs>>;
 }) {
-  const [payments, setPayments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<ReimbursementPaymentRecord[]>([]);
   const [paymentsError, setPaymentsError] = useState(false);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
 
@@ -699,8 +704,11 @@ function PaymentDoneTable({
             )}
             muiTableProps={{
               muiTableBodyRowProps: ({ row }: any) => ({
-                onClick: () => onRowClick(row.original.batchId),
-                sx: { cursor: 'pointer', '&:hover td': { backgroundColor: '#F8FAFC' } },
+                ...clickableRowProps(
+                  () => onRowClick(row.original.batchId),
+                  `Open batch ${row.original.submissionId ?? ''}`.trim(),
+                ),
+                sx: { ...CLICKABLE_ROW_SX, '&:hover td': { backgroundColor: '#F8FAFC' } },
               }),
             }}
           />
@@ -1364,7 +1372,7 @@ function PaymentTab() {
   // arrows on one table moved nothing else.
   const [filter, setFilter] = useState<PeriodFilter>('monthly');
   const [currentDate, setCurrentDate] = useState(dayjs());
-  const [batches, setBatches] = useState<any[]>([]);
+  const [batches, setBatches] = useState<ReimbursementBatchDetail[]>([]);
   const [batchesError, setBatchesError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [detailBatchId, setDetailBatchId] = useState<string | null>(null);

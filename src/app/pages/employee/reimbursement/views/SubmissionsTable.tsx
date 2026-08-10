@@ -25,6 +25,8 @@ import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import StatusFilterChips, { countByStatus } from '../components/StatusFilterChips';
 import RecordsEmptyState, { findExpensesElsewhere } from '../components/RecordsEmptyState';
 import LoadErrorState from '../components/LoadErrorState';
+import { clickableRowProps, CLICKABLE_ROW_SX } from '../utils/rowInteraction';
+import { ReimbursementBatchDetail, ReimbursementLine } from '../utils/reimbursementTypes';
 import { fmtDate, fmtAmount, resolveStatusNum } from '../utils/reimbursementFormat';
 import { resolveStatusNum as resolveStatus, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
 import { SkeletonTable } from '@app/modules/common/components/Skeleton';
@@ -66,7 +68,7 @@ interface SubmissionDetailModalProps {
   /** When 1 or 2, restricts the table to only show reimbursements with that approval status. */
   filterStatus?: number | null;
   /** Raw reimbursements to render when batchId is the UNGROUPED sentinel (no real batch to fetch). */
-  ungroupedReimbursements?: any[];
+  ungroupedReimbursements?: ReimbursementLine[];
   /**
    * Ids of the lines the clicked row represents. A batch can span several expense months
    * and the row only covers one of them, so the modal must show exactly this row's lines —
@@ -84,7 +86,7 @@ function SubmissionDetailModal({
   ungroupedReimbursements = [],
   visibleLineIds = null,
 }: SubmissionDetailModalProps) {
-  const [batch, setBatch] = useState<any>(null);
+  const [batch, setBatch] = useState<ReimbursementBatchDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -97,7 +99,7 @@ function SubmissionDetailModal({
 
   const isPartiallyApproved = approvalCurrentLevel > 1;
 
-  const reimbursements: any[] = batch?.reimbursements ?? [];
+  const reimbursements: ReimbursementLine[] = batch?.reimbursements ?? [];
 
   // When filterStatus is 1 (approved) or 2 (rejected), show only matching requests so
   // the popup reflects exactly which group was clicked in the submissions table.
@@ -708,7 +710,7 @@ function SubmissionsTable({
   const [loadError, setLoadError] = useState(false);
   // Every line the employee has, regardless of period — only used to tell an empty month
   // where its expenses actually are.
-  const [allTimeLines, setAllTimeLines] = useState<any[]>([]);
+  const [allTimeLines, setAllTimeLines] = useState<ReimbursementLine[]>([]);
   const [tableLoading, setTableLoading] = useState(true);
   const [detailBatchId, setDetailBatchId] = useState<string | null>(null);
   const [detailFilterStatus, setDetailFilterStatus] = useState<number | null>(null);
@@ -717,7 +719,7 @@ function SubmissionsTable({
   const [refreshKey, setRefreshKey] = useState(0);
   // Reimbursements with no batch (batch_id = NULL) for the current scope/period.
   // Surfaced as a synthetic "Legacy" submission so orphaned records stay visible.
-  const [ungroupedReimbursements, setUngroupedReimbursements] = useState<any[]>([]);
+  const [ungroupedReimbursements, setUngroupedReimbursements] = useState<ReimbursementLine[]>([]);
 
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
@@ -1166,13 +1168,13 @@ function SubmissionsTable({
               };
               const c = colorMap[s] ?? null;
               return {
-                onClick: () => {
+                ...clickableRowProps(() => {
                   setDetailBatchId(row.original._batchId);
                   setDetailFilterStatus(row.original._status ?? null);
                   setDetailLineIds(row.original._lineIds ?? null);
-                },
+                }, `Open submission ${row.original._submissionId ?? ''}`.trim()),
                 sx: {
-                  cursor: 'pointer',
+                  ...CLICKABLE_ROW_SX,
                   backgroundColor: c ? c.bg : undefined,
                   '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
                   transition: 'background-color 0.12s ease',

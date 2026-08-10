@@ -20,6 +20,7 @@ import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { Box } from '@mui/material';
 import ReimbursementSummaryCard from './ReimbursementSummaryCard';
 import { summariseReimbursements } from '../../utils/reimbursementSummary';
+import { clickableRowProps, CLICKABLE_ROW_SX } from '../../utils/rowInteraction';
 import LoadErrorState from '../../components/LoadErrorState';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
@@ -552,13 +553,17 @@ function AllEmployee() {
           enableColumnSpecificSearch={true}
           showColumnFooter={true}
           muiTableProps={{
-            muiTableBodyRowProps: ({ row }: any) => ({
-              onClick: () => {
-                const empId = row.original.employeeId;
-                if (empId) navigate('/finance/bills', { state: { goToSearchEmployee: true, employeeId: empId } });
-              },
-              sx: { cursor: row.original.employeeId ? 'pointer' : 'default' },
-            }),
+            muiTableBodyRowProps: ({ row }: any) => {
+              const empId = row.original.employeeId;
+              if (!empId) return { sx: { cursor: 'default' } };
+              return {
+                ...clickableRowProps(
+                  () => navigate('/finance/bills', { state: { goToSearchEmployee: true, employeeId: empId } }),
+                  `Open reimbursements for ${row.original.name ?? 'this employee'}`,
+                ),
+                sx: CLICKABLE_ROW_SX,
+              };
+            },
           }}
         />
         )}

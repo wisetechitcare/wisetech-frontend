@@ -18,6 +18,7 @@ import dayjs from 'dayjs';
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { usePermission } from '@hooks/usePermission';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
+import { ReimbursementBatchDetail } from '../utils/reimbursementTypes';
 import OverLimitChip from '../components/OverLimitChip';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -104,7 +105,7 @@ interface BatchDetailModalProps {
 }
 
 export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanceId, filterStatus }: BatchDetailModalProps) {
-  const [batch, setBatch] = useState<any>(null);
+  const [batch, setBatch] = useState<ReimbursementBatchDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [bulkProcessing, setBulkProcessing] = useState(false);

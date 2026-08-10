@@ -10,6 +10,7 @@ import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { fmtDate, fmtAmount, formatINR } from '../utils/reimbursementFormat';
 import PaymentDetailPanel from './PaymentDetailPanel';
+import { clickableRowProps, CLICKABLE_ROW_SX } from '../utils/rowInteraction';
 import LoadErrorState from './LoadErrorState';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { useEventBus } from '@hooks/useEventBus';
@@ -377,11 +378,11 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                             isLoading={loading}
                             muiTableProps={{
                                 muiTableBodyRowProps: ({ row }: any) => ({
-                                    onClick: () => {
+                                    ...clickableRowProps(() => {
                                         setSelectedApprovalInstanceId(row.original.approvalInstanceId ?? null);
                                         setSelectedBatchId(row.original.batchId);
-                                    },
-                                    sx: { cursor: 'pointer', '&:hover td': { backgroundColor: '#F8FAFC' } },
+                                    }, `Open payment details for ${row.original.submissionId ?? 'this batch'}`),
+                                    sx: { ...CLICKABLE_ROW_SX, '&:hover td': { backgroundColor: '#F8FAFC' } },
                                 }),
                             }}
                             renderDetailPanel={({ row }: any) => (
