@@ -11,6 +11,7 @@ import DateInput from "@app/modules/common/inputs/DateInput";
 import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropdown";
 import { updateReimbursementById } from "@services/employee";
 import { uploadUserAsset } from "@services/uploader";
+import { errorConfirmation } from "@utils/modal";
 import { getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
 import { getReimbursementProjectOptions, getAllProjectStatuses } from "@services/projects";
 import { fetchAllReimbursementTypesFromDb } from "@utils/statistics";
@@ -262,7 +263,9 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
   ) => {
     const { files } = event.target;
     if (files && files[0].size > maxSize) {
-      alert("File size should not exceed 5 MB");
+      // A raw browser alert() in a fully styled app. The server caps uploads at 10 MB
+      // anyway (Phase 0); this is the friendly early warning, not the enforcement.
+      errorConfirmation("That file is over 5 MB. Please attach a smaller receipt.");
       event.target.value = "";
       return;
     }

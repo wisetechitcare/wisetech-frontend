@@ -46,50 +46,11 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import { Select } from "@mui/material";
 import { getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
 import { getReimbursementProjectOptions, getAllProjectStatuses } from "@services/projects";
+import { getReimbursementSchema, makeReimbursementInitialState, categoryRequiresLocation } from "./utils/reimbursementSchema";
 
-const getReimbursementSchema = (currentReimbursement: IReimbursementsCreate) => {
-  return Yup.object({
-    expenseDate: currentReimbursement
-      ? Yup.string().label("Date")
-      : Yup.string().required().label("Date"),
-    clientTypeId: Yup.string().label("Company Type"),
-    clientCompanyId: Yup.string().required("Company Name is required").label("Company Name"),
-    projectId: Yup.string().required("Project Name is required").label("Project"),
-    reimbursementTypeId: currentReimbursement
-      ? Yup.string().label("Reimbursement For")
-      : Yup.string().required().label("Reimbursement For"),
-    amount: currentReimbursement
-      ? Yup.number()
-        .required()
-        .label("Amount")
-        .min(1, "Amount must be greater than 0")
-        .max(1000000, "Amount must be less than 10,00,000")
-      : Yup.number()
-        .required()
-        .label("Amount")
-        .min(1, "Amount must be greater than 0")
-        .max(1000000, "Amount must be less than 10,00,000"),
-    description: Yup.string().label("Note"),
-    document: currentReimbursement
-      ? Yup.string().label("Reference Document")
-      : Yup.string().label("Reference Document"),
-    fromLocation: Yup.string().required("From Location is required").matches(/^[a-zA-Z\s]*$/, "From Location must contain only alphabets").label("From Location"),
-    toLocation: Yup.string().required("To Location is required").matches(/^[a-zA-Z\s]*$/, "To Location must contain only alphabets").label("To Location"),
-  });
-};
 
-let initialState = {
-  expenseDate: dayjs().format("YYYY-MM-DD"),
-  clientTypeId: "",
-  clientCompanyId: "",
-  projectId: "",
-  reimbursementTypeId: "",
-  fromLocation: "",
-  toLocation: "",
-  amount: undefined,
-  document: "",
-  description: "",
-};
+
+
 
 function Reimbursement() {
   const [totalRequestedAmount, setTotalRequestedAmount] = useState(0);
@@ -400,18 +361,8 @@ function Reimbursement() {
     setFilteredCompanies([]);
     setProjectOptions([]);
 
-    initialState = {
-      expenseDate: dayjs().format("YYYY-MM-DD"),
-      clientTypeId: "",
-      clientCompanyId: "",
-      projectId: "",
-      reimbursementTypeId: "",
-      fromLocation: "",
-      toLocation: "",
-      amount: undefined,
-      document: "",
-      description: "",
-    };
+    // (initialState was a shared module-level object reassigned here — see
+    // utils/reimbursementSchema.makeReimbursementInitialState)
 
     setShow(true);
     setEditMode(false);
@@ -629,7 +580,9 @@ function Reimbursement() {
       target: { files },
     } = event;
     if (files && files[0].size > fileMaxUploadSize) {
-      alert("File size should not exceed 5 MB");
+      // A raw browser alert() in a fully styled app. The server caps uploads at 10 MB
+      // anyway (Phase 0); this is the friendly early warning, not the enforcement.
+      errorConfirmation("That file is over 5 MB. Please attach a smaller receipt.");
       event.target.value = "";
       return;
     }
@@ -803,7 +756,7 @@ function Reimbursement() {
         <Modal.Body>
           <Formik
             initialValues={{
-              ...initialState,
+              ...makeReimbursementInitialState(),
               ...(editMode &&
                 currentReimbursement && {
                 ...currentReimbursement,
@@ -816,7 +769,13 @@ function Reimbursement() {
               }),
             }}
             onSubmit={handleSubmit}
-            validationSchema={getReimbursementSchema(currentReimbursement)}
+            // The schema now depends on the chosen category: From/To are required for travel
+            // and not collected at all for meals, instead of being demanded everywhere and
+            // filled with junk to get past them.
+            validationSchema={getReimbursementSchema({
+              isEditing: !!currentReimbursement,
+              categoryName: selectedReimbursementFor?.label,
+            })}
           >
             {(formikProps) => {
               return (
@@ -941,7 +900,9 @@ function Reimbursement() {
                     </div>
                   </div>
 
-                  {/* Row 5: From Location + To Location */}
+                  {/* From/To render only for travel categories. Requiring them on meals and
+                      accommodation is why so many rows carry junk locations. */}
+                  {categoryRequiresLocation(selectedReimbursementFor?.label) && (
                   <div className="row">
                     <div className="col-lg-6">
                       <label className="form-label fw-bold required">From Location</label>
@@ -950,9 +911,6 @@ function Reimbursement() {
                         className={`form-control form-control-lg form-control-solid${formikProps.touched.fromLocation && formikProps.errors.fromLocation ? " is-invalid" : ""}`}
                         placeholder="From Location"
                         {...formikProps.getFieldProps("fromLocation")}
-                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                          if (!/^[a-zA-Z\s]$/.test(e.key) && !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key)) e.preventDefault();
-                        }}
                       />
                       {formikProps.touched.fromLocation && formikProps.errors.fromLocation && (
                         <div className="fv-plugins-message-container">
@@ -968,9 +926,6 @@ function Reimbursement() {
                         className={`form-control form-control-lg form-control-solid${formikProps.touched.toLocation && formikProps.errors.toLocation ? " is-invalid" : ""}`}
                         placeholder="To Location"
                         {...formikProps.getFieldProps("toLocation")}
-                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                          if (!/^[a-zA-Z\s]$/.test(e.key) && !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key)) e.preventDefault();
-                        }}
                       />
                       {formikProps.touched.toLocation && formikProps.errors.toLocation && (
                         <div className="fv-plugins-message-container">
@@ -979,6 +934,7 @@ function Reimbursement() {
                       )}
                     </div>
                   </div>
+                  )}
 
                   {/* Row 6: Document Upload */}
                   <div className="row">

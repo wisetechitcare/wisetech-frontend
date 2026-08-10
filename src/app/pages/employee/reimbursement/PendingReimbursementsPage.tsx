@@ -38,45 +38,16 @@ import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { IReimbursementsCreate } from '@models/employee';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation } from './utils/reimbursementSchema';
 
 const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 
 // ── Validation schema (mirrors Reimbursement.tsx exactly) ─────────────────────
 
-const getReimbursementSchema = (currentReimbursement: any) => {
-  return Yup.object({
-    expenseDate: currentReimbursement
-      ? Yup.string().label('Date')
-      : Yup.string().required().label('Date'),
-    clientTypeId: Yup.string().label('Company Type'),
-    clientCompanyId: Yup.string().label('Company Name'),
-    projectId: Yup.string().label('Project'),
-    reimbursementTypeId: currentReimbursement
-      ? Yup.string().label('Reimbursement For')
-      : Yup.string().required().label('Reimbursement For'),
-    amount: currentReimbursement
-      ? Yup.number().required().label('Amount').min(1, 'Amount must be greater than 0').max(1000000, 'Amount must be less than 10,00,000')
-      : Yup.number().required().label('Amount').min(1, 'Amount must be greater than 0').max(1000000, 'Amount must be less than 10,00,000'),
-    description: Yup.string().label('Note'),
-    document: Yup.string().label('Reference Document'),
-    fromLocation: Yup.string().matches(/^[a-zA-Z\s]*$/, 'From Location must contain only alphabets').label('From Location'),
-    toLocation: Yup.string().matches(/^[a-zA-Z\s]*$/, 'To Location must contain only alphabets').label('To Location'),
-  });
-};
+
 
 // Module-level mutable initial state — reset in handleNew exactly like Reimbursement.tsx
-let initialState = {
-  expenseDate: dayjs().format('YYYY-MM-DD'),
-  clientTypeId: '',
-  clientCompanyId: '',
-  projectId: '',
-  reimbursementTypeId: '',
-  fromLocation: '',
-  toLocation: '',
-  amount: undefined as number | undefined,
-  document: '',
-  description: '',
-};
+
 
 // ── Document Preview Modal (identical to Monthly.tsx) ─────────────────────────
 
@@ -584,18 +555,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     // since selectedClientType/selectedClientCompany are already null at rest and
     // setState with an unchanged value doesn't re-trigger that effect.
 
-    initialState = {
-      expenseDate: dayjs().format('YYYY-MM-DD'),
-      clientTypeId: '',
-      clientCompanyId: '',
-      projectId: '',
-      reimbursementTypeId: '',
-      fromLocation: '',
-      toLocation: '',
-      amount: undefined,
-      document: '',
-      description: '',
-    };
+    // (shared mutable initialState removed — makeReimbursementInitialState)
 
     setShow(true);
     setEditMode(false);
@@ -740,7 +700,9 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   ) => {
     const { target: { files } } = event;
     if (files && files[0].size > fileMaxUploadSize) {
-      alert('File size should not exceed 5 MB');
+      // A raw browser alert() in a fully styled app. The server caps uploads at 10 MB
+      // anyway (Phase 0); this is the friendly early warning, not the enforcement.
+      errorConfirmation("That file is over 5 MB. Please attach a smaller receipt.");
       event.target.value = '';
       return;
     }
@@ -1069,7 +1031,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         <Modal.Body>
           <Formik
             initialValues={{
-              ...initialState,
+              ...makeReimbursementInitialState(),
               ...(editMode &&
                 currentReimbursement && {
                 ...currentReimbursement,
@@ -1086,7 +1048,13 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
               }),
             }}
             onSubmit={handleSubmit}
-            validationSchema={getReimbursementSchema(currentReimbursement)}
+            // The schema now depends on the chosen category: From/To are required for travel
+            // and not collected at all for meals, instead of being demanded everywhere and
+            // filled with junk to get past them.
+            validationSchema={getReimbursementSchema({
+              isEditing: !!currentReimbursement,
+              categoryName: selectedReimbursementFor?.label,
+            })}
           >
             {(formikProps) => (
               <Form className='d-flex flex-column' noValidate id='pending_reimbursement_form'>
@@ -1191,7 +1159,36 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                   </div>
                 </div>
 
-                {/* Row 5: From Location + To Location */}
+                {/* Advisory duplicate check. Two cab rides on one day are a real thing, so this
+                    warns and never blocks — matched against the drafts already on screen rather
+                    than a new endpoint, because those are what the user is filing against. */}
+                {(() => {
+                  const dupe = findDuplicateCandidate(drafts, {
+                    expenseDate: formikProps.values.expenseDate,
+                    amount: formikProps.values.amount,
+                    reimbursementTypeId: formikProps.values.reimbursementTypeId,
+                  }, currentReimbursement?.id);
+                  if (!dupe) return null;
+                  return (
+                    <div className='row'>
+                      <div className='col-lg-12 mb-7'>
+                        <div style={{
+                          padding: '10px 14px', borderRadius: 10,
+                          background: '#fffbeb', border: '1px solid #fde68a',
+                          color: '#92400e', fontSize: '0.82rem', fontWeight: 600,
+                        }}>
+                          You already have a ₹{fmtAmount(dupe.amount ?? 0)} expense in this category on{' '}
+                          {dayjs(formikProps.values.expenseDate).format('DD MMM')}. Submit anyway if this is a separate claim.
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* From/To render only for categories that involve travelling between two
+                    places. They used to be required on every category, including meals and
+                    accommodation, so people typed junk to get past them. */}
+                {categoryRequiresLocation(selectedReimbursementFor?.label) && (
                 <div className='row'>
                   <div className='col-lg-6'>
                     <label className='form-label fw-bold'>From Location</label>
@@ -1200,9 +1197,6 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       className={`form-control form-control-lg form-control-solid${formikProps.touched.fromLocation && formikProps.errors.fromLocation ? ' is-invalid' : ''}`}
                       placeholder='From Location'
                       {...formikProps.getFieldProps('fromLocation')}
-                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                        if (!/^[a-zA-Z\s]$/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) e.preventDefault();
-                      }}
                     />
                     {formikProps.touched.fromLocation && formikProps.errors.fromLocation && (
                       <div className='fv-plugins-message-container'>
@@ -1217,9 +1211,6 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       className={`form-control form-control-lg form-control-solid${formikProps.touched.toLocation && formikProps.errors.toLocation ? ' is-invalid' : ''}`}
                       placeholder='To Location'
                       {...formikProps.getFieldProps('toLocation')}
-                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                        if (!/^[a-zA-Z\s]$/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) e.preventDefault();
-                      }}
                     />
                     {formikProps.touched.toLocation && formikProps.errors.toLocation && (
                       <div className='fv-plugins-message-container'>
@@ -1228,7 +1219,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                     )}
                   </div>
                 </div>
-
+                )}
                 {/* Row 6: Document Upload */}
                 <div className='row mb-7'>
                   <div className='col-lg-12'>
