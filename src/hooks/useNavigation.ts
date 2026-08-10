@@ -35,6 +35,19 @@ export interface NavigationItem {
    * permission result.
    */
   allowEmpty?: boolean;
+  /**
+   * This entry is a SHORTCUT to a route another section owns.
+   *
+   * The nav tree may legitimately surface one destination in two places — a
+   * manager's cluster linking straight to a page that lives in another
+   * department. Only one of them owns the route, though, and "where am I" has to
+   * have a single answer: without this flag the breadcrumb and the rail highlight
+   * resolve to whichever section happens to appear FIRST in the tree, which is why
+   * /finance/bills read as "HR Department > Reimbursements".
+   *
+   * Set it on the shortcut, never on the owner.
+   */
+  alias?: boolean;
 }
 
 export function useNavigation() {
@@ -193,7 +206,8 @@ export function useNavigation() {
           { type: 'item', id: 'tm-members', to: '/my-team/members', title: 'Members', visible: true },
           { type: 'item', id: 'tm-attendance', to: '/my-team/attendance', title: 'Attendance', visible: true },
           { type: 'item', id: 'tm-leaves', to: '/my-team/leaves', title: 'Leaves', visible: true },
-          { type: 'item', id: 'tm-reimbursements', to: '/finance/bills', title: 'Reimbursements', visible: true },
+          // Shortcut into Finance's route — Finance owns /finance/bills. See `alias`.
+          { type: 'item', id: 'tm-reimbursements', to: '/finance/bills', title: 'Reimbursements', visible: true, alias: true },
           { type: 'item', id: 'tm-salary', to: '/my-team/salary', title: 'Salary', visible: true },
           { type: 'item', id: 'tm-tasks', to: '/my-team/tasks', title: 'Tasks', visible: true },
           { type: 'item', id: 'tm-projects', to: '/my-team/projects', title: 'Projects', visible: true },
@@ -319,7 +333,7 @@ export function useNavigation() {
         visible: !isSectionBlocked('timesheets') && isSubsectionVisible('timesheets.employees', hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
       },
 
-      // ── Payment Department ────────────────────────────────────────────────
+      // ── Purchase Department ────────────────────────────────────────────────
       // A deliberate PLACEHOLDER: it owns no routes yet, and sits between Project
       // and Finance so the department exists in the information architecture
       // before its modules do.
@@ -332,8 +346,8 @@ export function useNavigation() {
       // intact for the sections it protects.
       {
         type: 'section',
-        id: 'payment-section',
-        title: 'Payment Department',
+        id: 'purchase-section',
+        title: 'Purchase Department',
         visible: true,
         allowEmpty: true,
       },

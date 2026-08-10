@@ -695,6 +695,8 @@ export interface DocumentsDirectoryEntry {
     avatar: string | null;
     dateOfJoining: string | null;
     dateOfExit: string | null;
+    /** Employment-window status, resolved server-side with the shared predicate. */
+    isCurrentlyActive: boolean;
     jobProfile: string | null;
     branch: { id: string; name: string } | null;
     subOrganization: { id: string; name: string } | null;

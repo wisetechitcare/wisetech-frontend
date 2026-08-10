@@ -33,6 +33,11 @@ function resolveActive(apps: WorkspaceApp[], pathname: string) {
     for (const cluster of [{ modules: app.modules }, ...app.clusters]) {
       for (const module of cluster.modules) {
         if (!module.to) continue;
+        // A shortcut points at a route another application owns. Matching on it made
+        // ownership depend on tree ORDER — /finance/bills resolved to HR, because HR's
+        // My Team cluster links to it and HR is declared first. The owner is the only
+        // entry that may answer this.
+        if (module.alias) continue;
         const hit = pathname === module.to || pathname.startsWith(`${module.to}/`);
         if (hit && module.to.length > bestLength) {
           bestLength = module.to.length;

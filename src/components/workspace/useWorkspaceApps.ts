@@ -25,7 +25,7 @@ import type { DockApp, WorkspaceApp, WorkspaceCluster, WorkspaceModule } from '.
  */
 
 const toModule = (link: {
-  id: string; title: string; to: string; fontIcon?: string; badgeCount?: number; exact: boolean;
+  id: string; title: string; to: string; fontIcon?: string; badgeCount?: number; exact: boolean; alias?: boolean;
 }): WorkspaceModule => ({
   id: link.id,
   title: link.title,
@@ -33,6 +33,7 @@ const toModule = (link: {
   fontIcon: link.fontIcon,
   badgeCount: link.badgeCount,
   exact: link.exact,
+  alias: link.alias,
 });
 
 function toApp(container: NavContainer): WorkspaceApp {
