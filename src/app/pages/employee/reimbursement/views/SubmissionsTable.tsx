@@ -608,6 +608,14 @@ export interface SubmissionsTableProps {
    * the empty state can offer "you have 3 in May 2026" as something you can actually click.
    */
   onGoToPeriod?: (date: Dayjs) => void;
+  /**
+   * Status filter driven from outside — the donut slice click.
+   *
+   * The chips keep owning the filter; this only pushes a new value in when the caller changes
+   * it. Making the filter fully controlled would mean every existing caller has to hold state
+   * it does not care about, for one feature.
+   */
+  externalStatusFilter?: StatusNum | null;
 }
 
 function SubmissionsTable({
@@ -622,11 +630,17 @@ function SubmissionsTable({
   checkOwnWithOthers = false,
   mode = 'expense',
   onGoToPeriod,
+  externalStatusFilter,
 }: SubmissionsTableProps) {
   const [rows, setRows] = useState<any[]>([]);
   // null = All. Defaults to All deliberately: a screen that silently narrows to approved is
   // the bug this replaces.
   const [statusFilter, setStatusFilter] = useState<StatusNum | null>(null);
+
+  // Adopt an externally-chosen filter (a donut slice) without taking ownership of the chips.
+  useEffect(() => {
+    if (externalStatusFilter !== undefined) setStatusFilter(externalStatusFilter);
+  }, [externalStatusFilter]);
   // A failed fetch used to set rows to [], which renders exactly like an empty month.
   const [loadError, setLoadError] = useState(false);
   // Every line the employee has, regardless of period — only used to tell an empty month

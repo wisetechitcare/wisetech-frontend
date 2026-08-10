@@ -38,6 +38,8 @@ import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import ReimbursementPaymentHistoryTable from "./components/ReimbursementPaymentHistoryTable";
 import SubmissionsTable from "./views/SubmissionsTable";
+import ReimbursementCharts from "./components/ReimbursementCharts";
+import { StatusNum } from "./utils/reimbursementFormat";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
 import eventBus from "@utils/EventBus";
@@ -260,6 +262,18 @@ function Reimbursement() {
 
   const [downloadingBill, setDownloadingBill] = useState(false);
 
+  // Twelve months of rows for the trend chart. Separate from the period fetch because a period
+  // fetch is one month; kept in its own state so changing period does not re-fetch it.
+  const [trendRows, setTrendRows] = useState<any[]>([]);
+  useEffect(() => {
+    fetchEmpAlltimeReimbursements()
+      .then((data: any) => setTrendRows(Array.isArray(data) ? data : []))
+      .catch(() => setTrendRows([]));
+  }, [employeeId, statsRefreshKey]);
+
+  /** Set by clicking a donut slice; pushed into the records table. */
+  const [chartStatusFilter, setChartStatusFilter] = useState<StatusNum | null>(null);
+
   const handleDownloadBill = async () => {
     if (!employeeId) {
       errorConfirmation('Employee information is unavailable.');
@@ -384,6 +398,26 @@ function Reimbursement() {
       {/* Divider */}
       <div style={{ borderColor: '#e9ecef', borderWidth: '2px' }} />
 
+      {/*
+        * Charts read `reimbursementData` — the SAME array the KPI cards above summarise — so the
+        * two cannot disagree. The trend is the one exception: twelve months needs twelve months
+        * of rows, which the period fetch does not have.
+        */}
+      <ReimbursementCharts
+        rows={reimbursementData}
+        trendRows={trendRows}
+        loading={overviewLoading}
+        onSelectMonth={(monthKey) => {
+          setChartStatusFilter(null);
+          handlePeriodChange('monthly', dayjs(`${monthKey}-01`));
+        }}
+        onSelectStatus={(status) =>
+          // Clicking the active slice again clears the filter — otherwise the only way out is
+          // to hunt for the chips, and a filter you cannot undo from where you set it is a trap.
+          setChartStatusFilter((current) => (current === status ? null : (status as StatusNum)))
+        }
+      />
+
       {/* Each table below answers a different question and is anchored on a different
           date. Saying so in the subtitle is what stops "why is my June expense under
           July?" — the three axes are expense date, submission date and payment date. */}
@@ -490,6 +524,7 @@ function Reimbursement() {
             resource={resourceNameMapWithCamelCase.reimbursement}
             viewOwn={true}
             viewOthers={false}
+            externalStatusFilter={chartStatusFilter}
           />
         </>
       )}

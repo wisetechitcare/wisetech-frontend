@@ -22,6 +22,8 @@ import ReimbursementSummaryCard from './ReimbursementSummaryCard';
 import { summariseReimbursements } from '../../utils/reimbursementSummary';
 import { clickableRowProps, CLICKABLE_ROW_SX } from '../../utils/rowInteraction';
 import LoadErrorState from '../../components/LoadErrorState';
+import LineItemExportButton from '../../components/LineItemExportButton';
+import ReimbursementCharts from '../../components/ReimbursementCharts';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 
@@ -412,6 +414,16 @@ function AllEmployee() {
       />
 
       {/* Employee-wise reimbursement table */}
+      {/*
+        * The SAME chart components the employee page uses, over the whole company's rows.
+        * Built once and shared, per the plan — a second implementation is how the admin total
+        * and the employee total start disagreeing.
+        *
+        * No month click-through here: the admin toolbar already owns the period, and a chart
+        * that silently moves a filter the toolbar is still displaying is worse than a static one.
+        */}
+      <ReimbursementCharts rows={reimbursements} loading={isLoading} />
+
       <div className="mt-5">
         <h1>{tableHeading}</h1>
         {loadError && !isLoading ? (
@@ -420,17 +432,28 @@ function AllEmployee() {
         <MaterialTable
           renderTopToolbarRightActions={() => <FilterToolbar />}
           renderExportActions={() => (
-            <ExportButton
-              data={tableData}
-              columns={exportColumns}
-              filename={exportFilename}
-              title={tableTitle}
-              subtitle="Employee-wise reimbursement summary by request status"
-              sheetName="Reimbursements"
-              showTotals
-              totalLabel="TOTAL"
-              disabled={tableData.length === 0}
-            />
+            // Two exports, because they answer different questions. The summary is one row per
+            // employee; the line-item export is one row per expense, which is what reconciling
+            // against a bank statement or answering an auditor actually needs — and until now
+            // the admin surface could only produce the aggregate.
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <ExportButton
+                data={tableData}
+                columns={exportColumns}
+                filename={exportFilename}
+                title={tableTitle}
+                subtitle="Employee-wise reimbursement summary by request status"
+                sheetName="Reimbursements"
+                showTotals
+                totalLabel="TOTAL"
+                disabled={tableData.length === 0}
+              />
+              <LineItemExportButton
+                rows={reimbursements}
+                periodLabel={periodLabel ?? 'all time'}
+                disabled={isLoading}
+              />
+            </div>
           )}
           columns={[
             {
