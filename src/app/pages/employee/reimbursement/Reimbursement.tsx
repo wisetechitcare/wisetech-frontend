@@ -775,7 +775,7 @@ function Reimbursement() {
             // filled with junk to get past them.
             validationSchema={getReimbursementSchema({
               isEditing: !!currentReimbursement,
-              categoryName: selectedReimbursementFor?.label,
+              category: selectedReimbursementFor,
             })}
           >
             {(formikProps) => {
@@ -903,7 +903,7 @@ function Reimbursement() {
 
                   {/* From/To render only for travel categories. Requiring them on meals and
                       accommodation is why so many rows carry junk locations. */}
-                  {categoryRequiresLocation(selectedReimbursementFor?.label) && (
+                  {categoryRequiresLocation(selectedReimbursementFor) && (
                   <div className="row">
                     <div className="col-lg-6">
                       <label className="form-label fw-bold required">From Location</label>

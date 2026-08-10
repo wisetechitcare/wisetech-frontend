@@ -5,4 +5,6 @@ export type Option = {
     icon?: string | null;
     /** Optional per-category spend cap, used for live limit feedback at entry. */
     amountLimit?: number | string | null;
+    /** Whether this category collects From/To. Owned by the category config, not guessed. */
+    requiresLocation?: boolean | null;
 };

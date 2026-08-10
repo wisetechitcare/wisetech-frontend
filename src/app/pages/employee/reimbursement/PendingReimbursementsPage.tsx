@@ -404,6 +404,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       icon: r.icon,
       // Needed for the live cap warning under the Amount field.
       amountLimit: r.amountLimit ?? null,
+      // Owned by the category config now — the form no longer guesses from the name.
+      requiresLocation: r.requiresLocation ?? true,
     })).sort((a: any, b: any) => a.label.localeCompare(b.label));
     setReimbursementOptions(opts);
   };
@@ -1065,7 +1067,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
             // filled with junk to get past them.
             validationSchema={getReimbursementSchema({
               isEditing: !!currentReimbursement,
-              categoryName: selectedReimbursementFor?.label,
+              category: selectedReimbursementFor,
             })}
           >
             {(formikProps) => (
@@ -1219,7 +1221,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 {/* From/To render only for categories that involve travelling between two
                     places. They used to be required on every category, including meals and
                     accommodation, so people typed junk to get past them. */}
-                {categoryRequiresLocation(selectedReimbursementFor?.label) && (
+                {categoryRequiresLocation(selectedReimbursementFor) && (
                 <div className='row'>
                   <div className='col-lg-6'>
                     <label className='form-label fw-bold'>From Location</label>

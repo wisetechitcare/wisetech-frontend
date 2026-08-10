@@ -20,24 +20,20 @@ export const MAX_EXPENSE_AMOUNT = 1_000_000;
 /**
  * Whether a category needs From/To.
  *
- * Expressed as a NON-travel deny-list, not a travel allow-list, because this module is almost
- * entirely travel: the live categories are Auto Rickshaw, Train, Taxi, Bike, Car, Bus, Aeroplane,
- * Metro, Ferry, Ola Uber — and Food and Mobile. 96% of filed rows are a journey.
+ * Reads `ReimbursementType.requiresLocation`, which the category configuration now owns. Two
+ * name-matching stopgaps preceded it and both were wrong in different directions: an allow-list
+ * of travel words matched "Taxi" but not "Auto Rickshaw" — the single most-used category — and
+ * the inverted deny-list that replaced it still guessed. Only the data knows which categories are
+ * journeys.
  *
- * An allow-list of travel words was the obvious first guess and it was wrong: it matched "Taxi"
- * and "Travel" but not "Auto Rickshaw" (the single most-used category, 43% of all rows), so it
- * hid the location fields on most of the module. Listing the exceptions is both shorter and
- * fails safe — a new category defaults to asking for locations, which is the common case here,
- * and an unnecessary optional field is a smaller harm than a missing required one.
- *
- * ponytail: still a name match. Phase 8 Step 5 adds `ReimbursementType.requiresLocation`, which
- * is the real fix — this is a stopgap keyed to the categories that exist today.
+ * Falls back to TRUE when the flag is absent, because this module is ~96% travel: an unnecessary
+ * optional field is a smaller harm than a missing required one.
  */
-const NON_TRAVEL_CATEGORY_PATTERN = /food|meal|mobile|phone|internet|stationery|accommodation|hotel|lodging/i;
-
-export const categoryRequiresLocation = (categoryName?: string | null): boolean => {
-    if (!categoryName) return false;          // nothing chosen yet — ask for nothing
-    return !NON_TRAVEL_CATEGORY_PATTERN.test(categoryName);
+export const categoryRequiresLocation = (
+    category?: { requiresLocation?: boolean | null; label?: string } | null,
+): boolean => {
+    if (!category) return false;                 // nothing chosen yet — ask for nothing
+    return category.requiresLocation !== false;
 };
 
 export interface ReimbursementSchemaOptions {
@@ -46,18 +42,15 @@ export interface ReimbursementSchemaOptions {
      * re-collected, so they are not re-required.
      */
     isEditing?: boolean;
-    /**
-     * Name of the selected category. Drives whether From/To are required at all.
-     * Undefined means "not yet chosen", which cannot require location fields.
-     */
-    categoryName?: string | null;
+    /** The selected category, carrying its own `requiresLocation` flag. */
+    category?: { requiresLocation?: boolean | null; label?: string } | null;
 }
 
 export const getReimbursementSchema = ({
     isEditing = false,
-    categoryName = null,
+    category = null,
 }: ReimbursementSchemaOptions = {}) => {
-    const needsLocation = categoryRequiresLocation(categoryName);
+    const needsLocation = categoryRequiresLocation(category);
 
     // Only alphabets, but validated rather than enforced by swallowing keystrokes — the forms
     // used to preventDefault in onKeyDown, which blocked IME composition and legitimate names

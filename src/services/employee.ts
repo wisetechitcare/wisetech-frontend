@@ -1258,7 +1258,7 @@ export const fetchReimbursementBatchById = async (batchId: string) => {
     return data;
 };
 
-export const processBatchRequestAction = async (batchId: string, requestId: string, action: 'approve' | 'reject', comments?: string) => {
+export const processBatchRequestAction = async (batchId: string, requestId: string, action: 'approve' | 'reject' | 'request-info', comments?: string) => {
     const { data } = await axios.put(`${API_BASE_URL}/${EMPLOYEE.PROCESS_BATCH_REQUEST}/${batchId}/requests/${requestId}`, { action, comments });
     return data;
 };

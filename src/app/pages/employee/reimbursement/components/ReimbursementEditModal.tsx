@@ -317,7 +317,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
           initialValues={initialValues}
           validationSchema={getReimbursementSchema({
             isEditing: true,
-            categoryName: selectedReimbursementFor?.label,
+            category: selectedReimbursementFor,
           })}
           onSubmit={handleSubmit}
           enableReinitialize
@@ -423,7 +423,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
 
               {/* Travel categories only — requiring From/To on meals is why so many rows carry
                   junk locations. */}
-              {categoryRequiresLocation(selectedReimbursementFor?.label) && (
+              {categoryRequiresLocation(selectedReimbursementFor) && (
               <div className="row">
                 <div className="col-lg-6">
                   <label className="form-label fw-bold">From Location</label>

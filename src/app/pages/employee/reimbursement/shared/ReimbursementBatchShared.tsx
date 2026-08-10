@@ -111,7 +111,8 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [bulkProcessing, setBulkProcessing] = useState(false);
 
-  const [rejectTarget, setRejectTarget] = useState<{ id: string; type: 'individual' | 'batch-reject-all' } | null>(null);
+  // Reject and request-info both need a comment, so they share the modal; `action` says which.
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; type: 'individual' | 'batch-reject-all'; action?: 'reject' | 'request-info' } | null>(null);
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [downloadingBill, setDownloadingBill] = useState(false);
@@ -174,7 +175,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
 
   useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadBatch(); });
 
-  const handleIndividualAction = useCallback(async (requestId: string, action: 'approve' | 'reject', comments?: string) => {
+  const handleIndividualAction = useCallback(async (requestId: string, action: 'approve' | 'reject' | 'request-info', comments?: string) => {
     if (!batchId) return;
     setProcessingId(requestId);
     try {
@@ -272,8 +273,16 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
                   : <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='' />}
               </button>
               <button className='btn btn-icon btn-sm' aria-label='Reject' title='Reject' disabled={isProcessing}
-                onClick={() => setRejectTarget({ id: r.id, type: 'individual' })}>
+                onClick={() => setRejectTarget({ id: r.id, type: 'individual', action: 'reject' })}>
                 <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='' />
+              </button>
+              {/* Ask, instead of refusing. Without this an approver needing one more detail can
+                  only reject — so "what is this for?" and "this is not claimable" were recorded
+                  as the same outcome, and the employee had to file the expense again. */}
+              <button className='btn btn-icon btn-sm' aria-label='Ask for more information'
+                title='Ask for more information' disabled={isProcessing}
+                onClick={() => setRejectTarget({ id: r.id, type: 'individual', action: 'request-info' })}>
+                <KTIcon iconName='question' className='fs-3 text-warning' />
               </button>
             </div>
           );
@@ -313,7 +322,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     setRejectSubmitting(true);
     try {
       if (rejectTarget.type === 'individual') {
-        await handleIndividualAction(rejectTarget.id, 'reject', reason);
+        await handleIndividualAction(rejectTarget.id, rejectTarget.action ?? 'reject', reason);
       } else {
         await handleBulkAction('reject-all', reason);
       }
@@ -517,7 +526,11 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
         onClose={() => setRejectTarget(null)}
         onConfirm={handleRejectConfirm}
         submitting={rejectSubmitting}
-        title={rejectTarget?.type === 'batch-reject-all' ? 'Reject Entire Batch' : 'Reject Request'}
+        title={
+          rejectTarget?.action === 'request-info' ? 'Ask for more information'
+            : rejectTarget?.type === 'batch-reject-all' ? 'Reject Entire Batch'
+            : 'Reject Request'
+        }
       />
 
       {previewUrl && (

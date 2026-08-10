@@ -21,7 +21,8 @@ interface StatusFilterChipsProps {
     counts: StatusCounts;
 }
 
-const ORDER: StatusNum[] = [STATUS.PENDING, STATUS.APPROVED, STATUS.REJECTED];
+// Needs-info sits next to pending because that is what it is — waiting on someone, not decided.
+const ORDER: StatusNum[] = [STATUS.PENDING, STATUS.NEEDS_INFO, STATUS.APPROVED, STATUS.REJECTED];
 
 export default function StatusFilterChips({ value, onChange, counts }: StatusFilterChipsProps) {
     const chip = (
@@ -84,13 +85,14 @@ export const countByStatus = (
     const counts: StatusCounts = {
         all: rows.length,
         [STATUS.PENDING]: 0,
+        [STATUS.NEEDS_INFO]: 0,
         [STATUS.APPROVED]: 0,
         [STATUS.REJECTED]: 0,
         [STATUS.MIXED]: 0,
     };
     for (const row of rows) {
         const s = resolve(row.status);
-        if (s === STATUS.PENDING || s === STATUS.APPROVED || s === STATUS.REJECTED) counts[s] += 1;
+        if (s in counts) counts[s] += 1;
     }
     return counts;
 };

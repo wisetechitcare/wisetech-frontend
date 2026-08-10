@@ -76,7 +76,10 @@ function AllEmployee() {
   const [reimbursements, setReimbursements] = useState<IReimbursementsFetch[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [employeeDetailMap, setEmployeeDetailMap] = useState<Map<string, EmployeeDetail>>(new Map());
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
+  // Defaults to All, not Active. Headline totals used to silently omit anyone who had left, so
+  // a period total did not match the money actually spent in that period — and nothing on screen
+  // said a population was missing. The heading names the scope either way.
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [subOrgFilter, setSubOrgFilter] = useState('All');
 
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
@@ -293,7 +296,8 @@ function AllEmployee() {
 
   // ── Filter toolbar ────────────────────────────────────────────────────────
 
-  const hasActiveFilters = statusFilter !== 'Active' || subOrgFilter !== 'All';
+  // 'All' is the default now, so it is not an active filter.
+  const hasActiveFilters = statusFilter !== 'All' || subOrgFilter !== 'All';
 
   const FilterToolbar = () => (
     <Box sx={{ display: 'flex', gap: '12px', rowGap: '16px', alignItems: 'center', px: 1, flexWrap: 'wrap' }}>

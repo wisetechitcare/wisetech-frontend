@@ -71,7 +71,15 @@ export const sumAmounts = (rows: Array<{ amount?: number | string | null }>): nu
 
 // ── Status ────────────────────────────────────────────────────────────────────
 
-export const STATUS = { PENDING: 0, APPROVED: 1, REJECTED: 2, MIXED: 3 } as const;
+export const STATUS = {
+    PENDING: 0,
+    APPROVED: 1,
+    REJECTED: 2,
+    /** The approver asked a question. Not a decision — the line is still live and editable. */
+    NEEDS_INFO: 3,
+    /** Display-only: a batch whose lines were decided differently. Never stored. */
+    MIXED: 9,
+} as const;
 export type StatusNum = (typeof STATUS)[keyof typeof STATUS];
 
 /**
@@ -82,6 +90,7 @@ export const resolveStatusNum = (status: unknown): StatusNum => {
     if (typeof status === 'number') return status as StatusNum;
     if (status === 'Approved') return STATUS.APPROVED;
     if (status === 'Rejected') return STATUS.REJECTED;
+    if (status === 'Needs Info' || status === 'NEEDS_INFO') return STATUS.NEEDS_INFO;
     return STATUS.PENDING;
 };
 
@@ -89,6 +98,7 @@ export const STATUS_LABEL: Record<StatusNum, string> = {
     [STATUS.PENDING]: 'Pending',
     [STATUS.APPROVED]: 'Approved',
     [STATUS.REJECTED]: 'Rejected',
+    [STATUS.NEEDS_INFO]: 'Needs info',
     [STATUS.MIXED]: 'Mixed',
 };
 
@@ -101,6 +111,8 @@ export const STATUS_TONE: Record<StatusNum, { color: string; bg: string }> = {
     [STATUS.PENDING]: { color: '#d97706', bg: '#fff7e8' },
     [STATUS.APPROVED]: { color: '#15803d', bg: '#ecfdf3' },
     [STATUS.REJECTED]: { color: '#dc2626', bg: '#fef2f2' },
+    // Amber like pending, because that is what it is — waiting, not refused.
+    [STATUS.NEEDS_INFO]: { color: '#b45309', bg: '#fffbeb' },
     [STATUS.MIXED]: { color: '#475569', bg: '#f1f5f9' },
 };
 
