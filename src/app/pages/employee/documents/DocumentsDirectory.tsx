@@ -199,7 +199,10 @@ const DocumentsDirectory: React.FC = () => {
           : row.documentCount > 0
             ? "Not dated"
             : "No documents",
-        statusText: row.dateOfExit ? "Inactive" : "Active",
+        // The server's verdict, not a second guess from `dateOfExit`. Deriving it
+        // here would disagree with the filter for anyone suspended, rehired, or
+        // holding a future exit date.
+        statusText: row.isCurrentlyActive ? "Active" : "Inactive",
       })),
     [rows]
   );
@@ -226,7 +229,7 @@ const DocumentsDirectory: React.FC = () => {
               imageUrl={row.original.avatar}
               size={36}
               imageFit="cover"
-              status={row.original.dateOfExit ? "inactive" : "active"}
+              status={row.original.isCurrentlyActive ? "active" : "inactive"}
             />
             <Box sx={{ minWidth: 0 }}>
               <Box

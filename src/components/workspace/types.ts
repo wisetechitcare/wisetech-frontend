@@ -26,6 +26,12 @@ export interface WorkspaceModule {
   badgeCount?: number;
   /** NavLink `end` — set when another module nests beneath this path. */
   exact: boolean;
+  /**
+   * A shortcut to a route another application owns. Rendered like any other module,
+   * but never used to answer "which application does this URL belong to" — see
+   * `resolveActive`.
+   */
+  alias?: boolean;
 }
 
 /** A labelled group of modules — rendered as a titled cluster INSIDE the workspace,

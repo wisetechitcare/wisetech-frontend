@@ -237,6 +237,23 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   // Groups start collapsed except the one holding the active leaf, so the rail
   // stays scannable instead of showing all 19 sections at once.
   const [manualExpanded, setManualExpanded] = useState<Record<string, boolean>>({});
+
+  /**
+   * Mobile only: is the section tree open?
+   *
+   * On a phone the tree cannot be permanently on screen — laid out flat it either
+   * ate half the viewport or, squeezed into a scrolling strip, showed whichever
+   * group happened to be leftmost rather than the one you are in. So it collapses
+   * behind a summary bar that always states the CURRENT position, and opens as a
+   * sheet when tapped. Desktop never reads this: the tree is always visible there.
+   */
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Any move closes the sheet — leaving it open over the section you just chose
+  // would hide the thing you navigated to.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [activeLeafId]);
   const [summaryCollapsed, setSummaryCollapsed] = useState(false);
   const isGroupExpanded = (groupId: string) =>
     manualExpanded[groupId] ?? groupId === activeGroup?.id;
@@ -483,8 +500,50 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
       {/* ═══ THREE-COLUMN LAYOUT ═════════════════════════════════════════ */}
       <div className="wizard-layout">
+        {/* ── MOBILE: position summary + disclosure ─────────────────────────
+            Display:none above the breakpoint, so desktop is untouched. It states
+            where you are — group, section, and how far through — and opens the
+            tree beneath it rather than competing with the form for space. */}
+        <button
+          type="button"
+          className="ob-mobile-nav-bar"
+          aria-expanded={mobileNavOpen}
+          aria-label={`Section ${activeIndex + 1} of ${leaves.length}. ${mobileNavOpen ? 'Hide' : 'Show'} all sections`}
+          onClick={() => setMobileNavOpen((open) => !open)}
+        >
+          {/* A ring, not a bar: it carries the percentage inside itself, so the
+              whole progress reading costs one 36px square instead of a tile. */}
+          <span className="ob-mnav-ring" aria-hidden>
+            <svg viewBox="0 0 36 36">
+              <circle className="ob-mnav-ring-track" cx="18" cy="18" r="15.5" />
+              <circle
+                className="ob-mnav-ring-fill"
+                cx="18"
+                cy="18"
+                r="15.5"
+                style={{ strokeDasharray: `${(progressPct / 100) * 97.4} 97.4` }}
+              />
+            </svg>
+            <span className="ob-mnav-ring-text">{progressPct}%</span>
+          </span>
+
+          <span className="ob-mnav-text">
+            <span className="ob-mnav-eyebrow">
+              {activeGroup?.label} · Step {activeIndex + 1} of {leaves.length}
+            </span>
+            <span className="ob-mnav-title">{activeLeaf?.title}</span>
+          </span>
+
+          <span className={`ob-mnav-chevron${mobileNavOpen ? " is-open" : ""}`} aria-hidden>
+            <ExpandMore fontSize="small" />
+          </span>
+        </button>
+
         {/* ── LEFT: the single tree timeline ───────────────────────────── */}
-        <aside className="wizard-nav-sidebar" aria-label="Onboarding sections">
+        <aside
+          className={`wizard-nav-sidebar${mobileNavOpen ? " is-mobile-open" : ""}`}
+          aria-label="Onboarding sections"
+        >
           <div className="wt-progress-card">
             <div className="wt-progress-label">Onboarding</div>
             <div className="wt-progress-percent">{progressPct}%</div>
