@@ -12,6 +12,8 @@
     "build": "tsc && cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "lint:fix": "eslint . --ext ts,tsx --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview",
     "lint:ui:baseline": "eslint \"src/**/*.{ts,tsx}\" -f json > .eslint-ui-tmp.json; node scripts/gen-ui-baseline.cjs < .eslint-ui-tmp.json; rm -f .eslint-ui-tmp.json"
   },
@@ -157,6 +159,7 @@
     "tailwindcss": "^4.3.2",
     "typescript": "^5.3.3",
     "vite": "^7.0.0",
-    "vite-tsconfig-paths": "^4.3.2"
+    "vite-tsconfig-paths": "^4.3.2",
+    "vitest": "^4.1.10"
   }
 }

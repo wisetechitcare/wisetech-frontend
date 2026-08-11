@@ -31,6 +31,7 @@ import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, Status } from "@constants/statistics";
 import useTablePreferences from "@hooks/useTablePreferences";
 import { fitColumnWidth } from "./fitColumnWidth";
+import { rowId, resolveSelectedRows, selectionSignature } from "./table/rowSelection";
 import {
   HighlightMatch,
   intelligentSearchFilterFn,
@@ -857,18 +858,14 @@ function MaterialTable({
     finalData,
   ]);
 
-  // Resolve the selection map back to rows. Must use the SAME identity as MRT's getRowId
-  // below (row.id, falling back to index) or the keys will not match and the selection
-  // will silently resolve to nothing.
-  const selectedRows = useMemo(() => {
-    if (!enableRowSelection) return [];
-    const selectedKeys = Object.keys(rowSelection).filter((k) => rowSelection[k]);
-    if (selectedKeys.length === 0) return [];
-    const keySet = new Set(selectedKeys);
-    return tableData.filter((row: any, index: number) =>
-      keySet.has(row?.id ? String(row.id) : String(index)),
-    );
-  }, [enableRowSelection, rowSelection, tableData]);
+  // Identity and resolution live in ./table/rowSelection and are unit-tested there. They
+  // are imported rather than inlined so the test covers THIS path: if row identity ever
+  // diverged from the getRowId handed to MRT below, the selection would resolve to an
+  // empty array and every bulk action would silently no-op.
+  const selectedRows = useMemo(
+    () => (enableRowSelection ? resolveSelectedRows(tableData, rowSelection) : []),
+    [enableRowSelection, rowSelection, tableData],
+  );
 
   // Surface the selection to the page. Gated on the resolved ids, not object identity —
   // tableData gets a fresh reference on every filter/sort pass, which would otherwise
@@ -876,7 +873,7 @@ function MaterialTable({
   const lastSelectionSigRef = useRef<string>("");
   useEffect(() => {
     if (!onSelectedRowsChange) return;
-    const sig = selectedRows.map((r: any) => r?.id ?? "").join(",");
+    const sig = selectionSignature(selectedRows);
     if (sig === lastSelectionSigRef.current) return;
     lastSelectionSigRef.current = sig;
     onSelectedRowsChange(selectedRows);
@@ -1285,7 +1282,7 @@ function MaterialTable({
 
         <MaterialReactTable
           key={`${tableName}-${prefsEmployeeId}-${isInitialized}-${selectedSearchColumn}`}
-          getRowId={(row: any, index: number) => row.id ? String(row.id) : String(index)}
+          getRowId={rowId}
           enableRowSelection={enableRowSelection}
           onRowSelectionChange={setRowSelection}
           renderDetailPanel={renderDetailPanel}
