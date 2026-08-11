@@ -29,6 +29,67 @@ export const fetchAllKpiScores = async (startDate: string, endDate: string) => {
   return data;
 };
 
+/** Filters the employee list understands server-side. All optional. */
+export interface EmployeeListParams {
+    isActive?: boolean;
+    branchId?: string;
+    companyId?: string;
+    departmentId?: string;
+    designationId?: string;
+    payType?: string;
+    search?: string;
+    sort?: { id: string; desc: boolean };
+}
+
+const employeeListQuery = (p: EmployeeListParams): URLSearchParams => {
+    const q = new URLSearchParams();
+    if (p.isActive !== undefined) q.append('isActive', String(p.isActive));
+    for (const k of ['branchId', 'companyId', 'departmentId', 'designationId', 'payType', 'search'] as const) {
+        const v = p[k];
+        if (v) q.append(k, v);
+    }
+    if (p.sort?.id) {
+        q.append('sortBy', p.sort.id);
+        q.append('sortOrder', p.sort.desc ? 'desc' : 'asc');
+    }
+    return q;
+};
+
+/**
+ * Server-paginated employee list.
+ *
+ * Separate from {@link fetchAllEmployees} on purpose — that one has 27 callers (pickers,
+ * lookups, dropdowns) that need every row, and the API only paginates when page/limit are
+ * actually sent. Returns `counts` for the status tabs, derived in SQL from the same
+ * filters, so they stay correct across pages.
+ */
+export const fetchEmployeesPage = async (page: number, limit: number, params: EmployeeListParams = {}) => {
+    try {
+        const q = employeeListQuery(params);
+        q.append('page', String(page));
+        q.append('limit', String(limit));
+        const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE}?${q.toString()}`);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/**
+ * Distinct filter-dropdown values, scoped by the same filters as the list.
+ * A paginated table can no longer build these from its loaded rows.
+ */
+export const fetchEmployeeFacets = async (params: EmployeeListParams = {}) => {
+    try {
+        const q = employeeListQuery(params);
+        const suffix = q.toString() ? `?${q.toString()}` : '';
+        const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE}/facets${suffix}`);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 export const fetchAllEmployees = async (isActive?: boolean) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE}`;

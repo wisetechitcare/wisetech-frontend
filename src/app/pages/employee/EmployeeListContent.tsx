@@ -276,12 +276,14 @@ const EmployeeListContent = () => {
         const employeeTypeMap: Record<string, string> = {};
 
         const allMappedEmployees = data.employees.map((obj: Record<string, any>) => {
-          let referredBy;
           const employeeNewStatus = getEmployeeStatusString(obj as any);
 
-          if (obj?.referredById && data.employees) {
-            referredBy = data.employees.find((employee: any) => employee.id === obj.referredById)
-          }
+          // Resolved by the API via the EmployeeReferredBy relation. This used to be a
+          // client-side join across the whole list — `employees.find(e => e.id === ...)` —
+          // which only works while the browser holds EVERY employee, and would silently
+          // render "N/A" for any referrer on another page once this list paginates.
+          const referredBy = obj.referredBy;
+
           return {
             ...obj,
             users: `${obj.users.firstName} ${obj.users.lastName}`,
@@ -300,7 +302,7 @@ const EmployeeListContent = () => {
             employeeStatus: employeeNewStatus,
             gender: obj.gender === 0 ? "Male" : (obj.gender === 1 ? "Female" : (obj.gender === 2 ? "Other" : "N/A")),
             maritalStatus: obj.maritalStatus ? "Unmarried" : (obj.maritalStatus === 0 ? "Married" : "N/A"),
-            referredBy: obj.referredById && referredBy ? `${referredBy.users.firstName} ${referredBy.users.lastName}` : "N/A",
+            referredBy: referredBy?.users ? `${referredBy.users.firstName} ${referredBy.users.lastName}` : "N/A",
             mealPreference: obj.veganMealPreference ? "Vegan" : obj.nonVegMealPreference ? "Non-Vegetarian" : obj.vegMealPreference ? "Vegetarian" : "N/A",
             avatar: obj.avatar || "",
           };
@@ -475,6 +477,10 @@ const EmployeeListContent = () => {
         tableName="EmployeesV5"
         employeeId={employeeId}
         enableColumnSpecificSearch={true}
+        // Pilot for bulk actions. Selecting rows makes the existing Export button act on
+        // just those rows — read-only, so the pattern gets proven before anything that
+        // writes. No other prop needed; the engine handles the rest.
+        enableRowSelection={true}
       />
     </div>
 
