@@ -479,7 +479,12 @@ function AllEmployee() {
         * No month click-through here: the admin toolbar already owns the period, and a chart
         * that silently moves a filter the toolbar is still displaying is worse than a static one.
         */}
-      <ReimbursementCharts rows={reimbursements} loading={isLoading} />
+      <ReimbursementCharts
+        rows={reimbursements}
+        grain={alignment}
+        anchor={alignment === 'yearly' ? year : month}
+        loading={isLoading}
+      />
 
       <div className="mt-5">
         <h1>{tableHeading}</h1>

@@ -18,6 +18,7 @@ import {
 } from '@services/employee';
 import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow from './components/ReimbursementKpiRow';
+import { solidToolbarButton, outlineToolbarButton, TOOLBAR_ROW } from './utils/toolbarButton';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
 import { ReimbursementDraft, ReimbursementOption } from './utils/reimbursementTypes';
@@ -701,35 +702,22 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
       {periodSlot}
 
-      {/* Action bar — only visible when inbox is shown */}
+      {/* Action bar — only visible when inbox is shown.
+          No `paddingRight` on the row: it pushed this row's right edge 1.25rem inside the
+          period bar's above, so the buttons on the two rows could never line up. */}
       {(loading || drafts.length > 0) && (
-        <div className='d-flex justify-content-between align-items-center mb-4' style={{ paddingRight: '1.25rem' }}>
+        <div className='d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4'>
           <h2 className='mb-0'>Reimbursement Request Inbox</h2>
-          <div className='d-flex gap-3'>
+          <div className={TOOLBAR_ROW}>
             {hasPermission(
               resourceNameMapWithCamelCase.reimbursement,
               permissionConstToUseWithHasPermission.create
             ) && (
                 <button
                   onClick={handleNew}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '5px',
-                    padding: '7px 14px',
-                    border: '1.5px solid #e2e8f0',
-                    borderRadius: '6px',
-                    background: '#f8fafc',
-                    color: '#475569',
-                    fontWeight: 500,
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
+                  style={outlineToolbarButton()}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
                 >
                   <KTIcon iconName='plus' className='fs-6' />
                   <span>Add Reimbursement Request</span>
@@ -739,26 +727,9 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
               <button
                 onClick={handleSendForApproval}
                 disabled={submitting}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '5px',
-                  padding: '7px 14px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  background: '#16a34a',
-                  color: '#fff',
-                  fontWeight: 500,
-                  fontSize: '12px',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 2px 6px rgba(22, 163, 74, 0.2)',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap',
-                  opacity: submitting ? 0.7 : 1
-                }}
-                onMouseEnter={e => { if (!submitting) { (e.currentTarget as HTMLButtonElement).style.background = '#15803d'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(22, 163, 74, 0.3)'; } }}
-                onMouseLeave={e => { if (!submitting) { (e.currentTarget as HTMLButtonElement).style.background = '#16a34a'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(22, 163, 74, 0.2)'; } }}
+                style={solidToolbarButton('#16a34a', 'rgba(22,163,74,0.2)', submitting)}
+                onMouseEnter={e => { if (!submitting) { e.currentTarget.style.background = '#15803d'; } }}
+                onMouseLeave={e => { if (!submitting) { e.currentTarget.style.background = '#16a34a'; } }}
               >
                 {submitting
                   ? <span className='spinner-border spinner-border-sm' style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />

@@ -3,8 +3,6 @@ import { KTIcon } from '@metronic/helpers';
 import dayjs from 'dayjs';
 import { IReimbursementPayment } from '@models/employee';
 import { fetchReimbursementPayments, fetchReimbursementBatchById, fetchApprovalInstanceByRequest } from '@services/employee';
-import PeriodTabs from '@app/modules/common/components/PeriodTabs';
-import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
@@ -24,12 +22,11 @@ interface ReimbursementPaymentHistoryTableProps {
     employeeName?: string;
     refreshKey?: number;
     /**
-     * The page's period. Passed in so this table and the records table above it always
-     * describe the same window — they used to carry independent toggles, so the screen
-     * could show records for July next to payments for August.
+     * The page's period — required, so this table can never describe a different window
+     * from the KPI cards and records above it.
      */
-    period?: PeriodFilter;
-    periodDate?: dayjs.Dayjs;
+    period: PeriodFilter;
+    periodDate: dayjs.Dayjs;
 }
 
 // Rows and footers render the SAME column, so they must agree to the paisa. `formatINR`

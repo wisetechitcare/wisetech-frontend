@@ -20,6 +20,7 @@ import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { PeriodAlignment } from '../components/ReimbursementPeriodBar';
+import { categoryName } from '../utils/reimbursementChartData';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import StatusFilterChips, { countByStatus } from '../components/StatusFilterChips';
@@ -616,6 +617,15 @@ export interface SubmissionsTableProps {
    * it does not care about, for one feature.
    */
   externalStatusFilter?: StatusNum | null;
+  /** Expense category driven from outside — a "Where It Went" click. Null shows everything. */
+  externalCategoryFilter?: string | null;
+  /** Clears that filter, from the chip this table renders for it. */
+  onClearCategoryFilter?: () => void;
+  /** Section heading, rendered on the same line as the status chips. */
+  title?: string;
+  subtitle?: React.ReactNode;
+  /** Hide the entire section if there's no data. */
+  hideIfEmpty?: boolean;
 }
 
 function SubmissionsTable({
@@ -631,6 +641,11 @@ function SubmissionsTable({
   mode = 'expense',
   onGoToPeriod,
   externalStatusFilter,
+  externalCategoryFilter = null,
+  onClearCategoryFilter,
+  title,
+  subtitle,
+  hideIfEmpty = false,
 }: SubmissionsTableProps) {
   const [rows, setRows] = useState<any[]>([]);
   // null = All. Defaults to All deliberately: a screen that silently narrows to approved is
@@ -781,6 +796,7 @@ function SubmissionsTable({
             _ungrouped: false,
             // Whole batch - no month scoping, that is the point of this view.
             _lineIds: null,
+            _categories: [...new Set(items.map(categoryName))],
             _expenseFrom: expenseTimes.length ? new Date(Math.min(...expenseTimes)).toISOString() : null,
             _expenseTo: expenseTimes.length ? new Date(Math.max(...expenseTimes)).toISOString() : null,
           });
@@ -841,6 +857,7 @@ function SubmissionsTable({
             // Ids of the lines this row represents - the detail modal shows exactly these,
             // so opening a row from June never shows the batch's July lines.
             _lineIds: items.map((r) => r.id),
+            _categories: [...new Set(items.map(categoryName))],
             _expenseFrom: expenseTimes.length ? new Date(Math.min(...expenseTimes)).toISOString() : null,
             _expenseTo: expenseTimes.length ? new Date(Math.max(...expenseTimes)).toISOString() : null,
           });
@@ -879,6 +896,7 @@ function SubmissionsTable({
           _rejectReason: ungrouped.find((r) => r.rejectReason)?.rejectReason ?? null,
           _ungrouped: true,
           _lineIds: null,
+          _categories: [...new Set(ungrouped.map(categoryName))],
           _expenseFrom: expenseTimes.length ? new Date(Math.min(...expenseTimes)).toISOString() : null,
           _expenseTo: expenseTimes.length ? new Date(Math.max(...expenseTimes)).toISOString() : null,
         });
@@ -1041,10 +1059,13 @@ function SubmissionsTable({
     [rows],
   );
 
-  const visibleRows = useMemo(
-    () => (statusFilter === null ? rows : rows.filter((r) => resolveStatus(r._status) === statusFilter)),
-    [rows, statusFilter],
-  );
+  const visibleRows = useMemo(() => {
+    let out = statusFilter === null ? rows : rows.filter((r) => resolveStatus(r._status) === statusFilter);
+    if (externalCategoryFilter) {
+      out = out.filter((r) => (r._categories as string[] | undefined)?.includes(externalCategoryFilter));
+    }
+    return out;
+  }, [rows, statusFilter, externalCategoryFilter]);
 
   // Where else this employee has expenses, so an empty month can say so instead of implying
   // the records are gone. Uses the unfiltered all-time set, not the current period.
@@ -1057,11 +1078,41 @@ function SubmissionsTable({
     ? date.format('MMMM YYYY')
     : period === 'yearly' ? `FY ${date.format('YYYY')}` : 'all time';
 
+  // Hide the entire section (heading + filter + table) if there's no data and hideIfEmpty is set.
+  if (hideIfEmpty && rows.length === 0) {
+    return null;
+  }
+
   return (
     <>
-      {/* Status filter rail, right-aligned. Sits immediately below the section heading. */}
-      <div className="d-flex align-items-center justify-content-end flex-wrap gap-3 mb-4">
-        <StatusFilterChips value={statusFilter} onChange={setStatusFilter} counts={statusCounts} />
+      {/* Heading and status rail share one line — the heading block used to sit in the page
+          above with its own margins, leaving a band of empty space beside the chips. */}
+      <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+        <div style={{ minWidth: 0 }}>
+          {title && <h2 className="mb-0 fs-4">{title}</h2>}
+          {subtitle && <div className="text-muted fs-8">{subtitle}</div>}
+        </div>
+        <div className="d-flex align-items-center flex-wrap gap-2">
+          {/* A filter set from a chart the reader may have scrolled past needs to say so here,
+              where the narrowed rows are — and be undoable from the same place. */}
+          {externalCategoryFilter && (
+            <button
+              type="button"
+              onClick={onClearCategoryFilter}
+              title="Clear category filter"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                border: '1px solid #c7d2fe', background: '#eef2ff', color: '#3730a3',
+                borderRadius: 999, padding: '3px 10px', fontSize: 11.5, fontWeight: 600,
+                cursor: onClearCategoryFilter ? 'pointer' : 'default',
+              }}
+            >
+              {externalCategoryFilter}
+              {onClearCategoryFilter && <span aria-hidden>✕</span>}
+            </button>
+          )}
+          <StatusFilterChips value={statusFilter} onChange={setStatusFilter} counts={statusCounts} />
+        </div>
       </div>
 
       {tableLoading ? (

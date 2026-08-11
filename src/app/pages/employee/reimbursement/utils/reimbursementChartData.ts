@@ -1,46 +1,52 @@
-import dayjs from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
 import { summariseReimbursements } from './reimbursementSummary';
-import { formatINR } from './reimbursementFormat';
+import { formatINR, resolveStatusNum, STATUS } from './reimbursementFormat';
 
 /**
  * Chart data, derived from the rows the page already has.
  *
- * The plan's risk table says charts and KPI cards must read the same aggregation or they will
- * disagree. This goes one step further: both are computed from the SAME in-memory rows by the
- * SAME `summariseReimbursements` used everywhere else, so disagreement is not merely unlikely,
- * it is unrepresentable. A second endpoint would have been the thing that creates the drift the
- * mitigation is worried about.
+ * The KPI cards and every chart are computed from the SAME in-memory rows by the SAME
+ * `summariseReimbursements` used everywhere else, so disagreement is not merely unlikely, it is
+ * unrepresentable. A second endpoint would have been the thing that creates the drift.
  *
- * Every bucket is keyed on `expenseDate` — when the money was spent. Bucketing on submission
- * date is the original reported bug (65 expenses under the wrong month, 129 invisible in their
- * own), and a chart is where a wrong month is least likely to be noticed and most likely to be
- * believed.
+ * Every bucket is keyed on `expenseDate` — when the money was spent. Bucketing on submission date
+ * is the original reported bug, and a chart is where a wrong month is least likely to be noticed
+ * and most likely to be believed.
  *
- * Pure functions with no React and no fetching, so the numbers are testable without a browser.
+ * One shape, three aggregations: the period toggle changes the buckets (week / month / year), not
+ * the chart. Pure functions, no React and no fetching, so the numbers are testable without a
+ * browser.
  */
 
+export type PeriodGrain = 'monthly' | 'yearly' | 'allTime';
+
 export interface TrendPoint {
-    month: string;
-    /** Sort/navigation key — `YYYY-MM`, the month the expenses were INCURRED. */
-    key: string;
+    label: string;
     /**
-     * Amounts are `null`, never `0`, for a month with no expenses.
+     * Where clicking this bar goes: `YYYY-MM` opens that month, `YYYY` opens that year, `null`
+     * means the bucket is smaller than any period the page can show (a week).
+     */
+    key: string | null;
+    /**
+     * Amounts are `null`, never `0`, for a bucket with nothing in it.
      *
      * recharts renders a gap for null and a floor-hugging bar for zero, and the two mean
      * completely different things: "you filed nothing in March" versus "you filed ₹0 in March".
-     * This is the salary module's existing convention (MonthlySalaryComparison).
      */
     approved: number | null;
     pending: number | null;
     rejected: number | null;
-    avg: number | null;
+    /** Paid-out money. A SUBSET of approved, so it is drawn as a line and never stacked. */
+    paid: number | null;
+    count: number;
+    total: number;
 }
 
 export interface StatusSlice {
     name: string;
     value: number;
     count: number;
-    /** The status filter this slice maps to, so clicking it can filter the table. */
+    /** The status filter this slice maps to, so clicking it can filter the tables. */
     status: number;
     color: string;
 }
@@ -49,6 +55,8 @@ export interface CategoryBar {
     name: string;
     value: number;
     count: number;
+    /** Share of the period's total spend, 0–100. */
+    pct: number;
 }
 
 const num = (v: unknown): number => {
@@ -56,86 +64,195 @@ const num = (v: unknown): number => {
     return Number.isFinite(n) ? n : 0;
 };
 
-/** Rows for one calendar month, keyed on when the money was spent. */
-const inMonth = (rows: any[], key: string): any[] =>
-    rows.filter((r) => dayjs(r?.expenseDate).isValid() && dayjs(r.expenseDate).format('YYYY-MM') === key);
+/** The one rule for what an expense is "for". Shared with the records table so both agree. */
+export const categoryName = (row: any): string =>
+    String(row?.reimbursementType?.type ?? row?.category ?? 'Uncategorised');
+
+const expenseDay = (row: any): Dayjs | null => {
+    const d = dayjs(row?.expenseDate);
+    return d.isValid() ? d : null;
+};
+
+const pointFor = (label: string, key: string | null, bucket: any[]): TrendPoint => {
+    if (bucket.length === 0) {
+        return { label, key, approved: null, pending: null, rejected: null, paid: null, count: 0, total: 0 };
+    }
+    const s = summariseReimbursements(bucket);
+    return {
+        label,
+        key,
+        approved: s.approvedAmount,
+        pending: s.pendingAmount,
+        rejected: s.rejectedAmount,
+        paid: s.paidAmount,
+        count: s.totalRequests,
+        total: s.totalAmount,
+    };
+};
 
 /**
- * Twelve months ending at `endMonth` inclusive.
+ * The trend, bucketed to match the selected period:
+ *   monthly  → Week 1..n of the selected month
+ *   yearly   → the twelve months of the selected financial year
+ *   allTime  → one bar per year the employee actually filed in
  *
- * Always twelve points, even when the employee filed in three of them — a trend that silently
- * drops empty months compresses the x-axis and makes a quiet year look busy.
+ * `fyStart` is the financial year's first month (April for most Indian orgs). It comes from the
+ * org's configured fiscal year rather than being assumed here.
  */
-export const buildTrend = (rows: any[], endMonth: dayjs.Dayjs = dayjs()): TrendPoint[] => {
-    const points: TrendPoint[] = [];
-
-    for (let back = 11; back >= 0; back -= 1) {
-        const m = endMonth.subtract(back, 'month');
-        const key = m.format('YYYY-MM');
-        const monthRows = inMonth(rows, key);
-
-        if (monthRows.length === 0) {
-            points.push({ month: m.format('MMM'), key, approved: null, pending: null, rejected: null, avg: null });
-            continue;
+export const buildTrend = (
+    rows: any[],
+    grain: PeriodGrain,
+    anchor: Dayjs,
+    fyStart?: Dayjs | null,
+): TrendPoint[] => {
+    if (grain === 'monthly') {
+        // Calendar weeks of the month: days 1-7, 8-14, ... A 28-day February has four, a 31-day
+        // month has five. Empty trailing weeks are kept so the month's shape stays honest.
+        const weeks = Math.ceil(anchor.daysInMonth() / 7);
+        const key = anchor.format('YYYY-MM');
+        const buckets: any[][] = Array.from({ length: weeks }, () => []);
+        for (const r of rows) {
+            const d = expenseDay(r);
+            if (!d || d.format('YYYY-MM') !== key) continue;
+            const idx = Math.min(weeks - 1, Math.floor((d.date() - 1) / 7));
+            buckets[idx].push(r);
         }
+        return buckets.map((bucket, i) => pointFor(`Week ${i + 1}`, null, bucket));
+    }
 
-        const s = summariseReimbursements(monthRows);
-        points.push({
-            month: m.format('MMM'),
-            key,
-            approved: s.approvedAmount,
-            pending: s.pendingAmount,
-            rejected: s.rejectedAmount,
-            // Average per expense, not per month — "you typically claim ₹X at a time" is the
-            // useful reading, and it is the one an employee can act on.
-            avg: s.totalRequests > 0 ? s.totalAmount / s.totalRequests : null,
+    if (grain === 'yearly') {
+        const start = fyStart ?? anchor.month(3).startOf('month'); // April, unless told otherwise
+        const byMonth = new Map<string, any[]>();
+        for (const r of rows) {
+            const d = expenseDay(r);
+            if (!d) continue;
+            const k = d.format('YYYY-MM');
+            if (!byMonth.has(k)) byMonth.set(k, []);
+            byMonth.get(k)!.push(r);
+        }
+        return Array.from({ length: 12 }, (_, i) => {
+            const m = start.add(i, 'month');
+            const k = m.format('YYYY-MM');
+            return pointFor(m.format('MMM'), k, byMonth.get(k) ?? []);
         });
     }
 
-    return points;
-};
-
-/** The three decision states, as a donut. Empty states are dropped rather than drawn as slivers. */
-export const buildStatusSlices = (rows: any[]): StatusSlice[] => {
-    const s = summariseReimbursements(rows);
-    return [
-        { name: 'Approved', value: s.approvedAmount, count: s.approvedCount, status: 1, color: '#16a34a' },
-        { name: 'Pending', value: s.pendingAmount, count: s.pendingCount, status: 0, color: '#d97706' },
-        { name: 'Rejected', value: s.rejectedAmount, count: s.rejectedCount, status: 2, color: '#dc2626' },
-    ].filter((slice) => slice.value > 0);
+    // All time — one bar per year with activity. An unbroken axis back to 2019 would be mostly
+    // empty; the years the employee actually filed in are the story.
+    const byYear = new Map<string, any[]>();
+    for (const r of rows) {
+        const d = expenseDay(r);
+        if (!d) continue;
+        const k = d.format('YYYY');
+        if (!byYear.has(k)) byYear.set(k, []);
+        byYear.get(k)!.push(r);
+    }
+    return [...byYear.keys()].sort().map((y) => pointFor(y, y, byYear.get(y)!));
 };
 
 /**
- * Top categories by spend.
- *
- * Everything past the cut is folded into "Other" rather than dropped — a bar chart that silently
- * omits a tail reads as a complete breakdown and its total does not match the KPI card.
+ * The lifecycle as a donut. The slices PARTITION the total claimed — paid and awaiting-payment
+ * split the approved money between them rather than both counting it, so the ring adds up to the
+ * centre figure and to the KPI cards.
  */
-export const buildCategoryBars = (rows: any[], top = 6): CategoryBar[] => {
+export const buildStatusSlices = (rows: any[]): StatusSlice[] => {
+    const s = summariseReimbursements(rows);
+
+    const approved = rows.filter((r) => resolveStatusNum(r?.status) === STATUS.APPROVED);
+    const paidCount = approved.filter((r) => r?.paymentStatus === 'PAID' || r?.paymentStatus === 'PARTIAL').length;
+
+    const needsInfo = rows.filter((r) => resolveStatusNum(r?.status) === STATUS.NEEDS_INFO);
+    const needsInfoAmount = needsInfo.reduce((sum, r) => sum + num(r?.amount), 0);
+
+    return [
+        { name: 'Paid', value: s.paidAmount, count: paidCount, status: STATUS.APPROVED, color: '#16a34a' },
+        { name: 'Awaiting payment', value: s.remainingAmount, count: approved.length - paidCount, status: STATUS.APPROVED, color: '#2563eb' },
+        { name: 'Awaiting approval', value: s.pendingAmount, count: s.pendingCount, status: STATUS.PENDING, color: '#d97706' },
+        { name: 'Needs info', value: needsInfoAmount, count: needsInfo.length, status: STATUS.NEEDS_INFO, color: '#b45309' },
+        { name: 'Rejected', value: s.rejectedAmount, count: s.rejectedCount, status: STATUS.REJECTED, color: '#dc2626' },
+    ].filter((slice) => slice.value > 0);
+};
+
+/** Spend by category, biggest first. The caller decides how many to show. */
+export const buildCategories = (rows: any[]): { items: CategoryBar[]; total: number } => {
     const byName = new Map<string, { value: number; count: number }>();
 
     for (const r of rows) {
-        const name = String(r?.reimbursementType?.type ?? r?.category ?? 'Uncategorised');
+        const name = categoryName(r);
         const entry = byName.get(name) ?? { value: 0, count: 0 };
         entry.value += num(r?.amount);
         entry.count += 1;
         byName.set(name, entry);
     }
 
-    const all = [...byName.entries()]
-        .map(([name, v]) => ({ name, ...v }))
+    const total = [...byName.values()].reduce((sum, v) => sum + v.value, 0);
+    const items = [...byName.entries()]
+        .map(([name, v]) => ({ name, ...v, pct: total > 0 ? (v.value / total) * 100 : 0 }))
         .sort((a, b) => b.value - a.value);
 
-    if (all.length <= top) return all;
+    return { items, total };
+};
 
-    const head = all.slice(0, top);
-    const tail = all.slice(top);
-    head.push({
-        name: `Other (${tail.length})`,
-        value: tail.reduce((sum, c) => sum + c.value, 0),
-        count: tail.reduce((sum, c) => sum + c.count, 0),
-    });
-    return head;
+export interface CycleTimes {
+    /** Submitted → approved, in days. Null when nothing has been approved yet. */
+    approval: number | null;
+    /** Approved → paid, in days. */
+    payment: number | null;
+    /** Submitted → paid, in days. Measured end to end, not by adding the two averages above —
+     *  they cover different sets of rows, so their sum would be a number nothing experienced. */
+    total: number | null;
+    /** How many rows each average is drawn from, so a 1-row average can be read as one. */
+    approvalCount: number;
+    paymentCount: number;
+}
+
+const daysBetween = (from: unknown, to: unknown): number | null => {
+    const a = dayjs(from as string);
+    const b = dayjs(to as string);
+    if (!from || !to || !a.isValid() || !b.isValid()) return null;
+    const days = b.diff(a, 'hour') / 24;
+    return days >= 0 ? days : null;
+};
+
+const mean = (xs: number[]): number | null =>
+    xs.length === 0 ? null : xs.reduce((sum, x) => sum + x, 0) / xs.length;
+
+/** When the money landed. The line's payment relation, falling back to nothing rather than guessing. */
+const paidOn = (row: any): string | null => row?.reimbursementPayment?.paymentDate ?? row?.paymentDate ?? null;
+
+/**
+ * How long a claim takes to clear, in days.
+ *
+ * Only rows that reached the stage count towards its average — a pending claim has no approval
+ * time, and including it as zero would report the queue as instant.
+ */
+export const buildCycleTimes = (rows: any[]): CycleTimes => {
+    const approvalDays: number[] = [];
+    const paymentDays: number[] = [];
+    const totalDays: number[] = [];
+
+    for (const row of rows) {
+        const submitted = row?.submittedAt ?? row?.batch?.submittedAt ?? null;
+        const approved = row?.approvedAt ?? row?.batch?.approvedAt ?? null;
+        const paid = paidOn(row);
+
+        if (resolveStatusNum(row?.status) === STATUS.APPROVED) {
+            const a = daysBetween(submitted, approved);
+            if (a !== null) approvalDays.push(a);
+        }
+        const p = daysBetween(approved, paid);
+        if (p !== null) paymentDays.push(p);
+        const t = daysBetween(submitted, paid);
+        if (t !== null) totalDays.push(t);
+    }
+
+    return {
+        approval: mean(approvalDays),
+        payment: mean(paymentDays),
+        total: mean(totalDays),
+        approvalCount: approvalDays.length,
+        paymentCount: paymentDays.length,
+    };
 };
 
 /** How many days a row has been waiting for a decision, or null if it is already decided. */
@@ -152,14 +269,13 @@ export const STALE_AFTER_DAYS = 14;
 /**
  * One sentence that does the interpretation the reader currently does by hand.
  *
- * Rules from the plan, and they are the whole design: ONE sentence, not a list — pick the single
- * most actionable fact. Name numbers, never adjectives ("5 requests worth ₹21,500", not "several
- * pending"). And if there is nothing worth flagging, say the good news rather than render an
- * empty strip, because a strip that appears only when something is wrong trains people to read
- * its absence as "not loaded yet".
+ * ONE sentence, not a list — the single most actionable fact, with numbers rather than adjectives
+ * ("5 requests worth ₹21,500", not "several pending"). When there is nothing to flag it says the
+ * good news, because a strip that appears only on bad news trains people to read its absence as
+ * "not loaded yet".
  *
- * Ordered by what the reader can actually do something about: stuck approvals first (chase
- * someone), then unpaid money (chase finance), then rejections (refile), then the good news.
+ * Ordered by what the reader can act on: stuck approvals (chase someone), unpaid money (chase
+ * finance), rejections (refile), then the good news.
  */
 export const buildInsight = (rows: any[]): { icon: string; text: string; tone: 'warn' | 'info' | 'good' } => {
     const s = summariseReimbursements(rows);
@@ -168,7 +284,6 @@ export const buildInsight = (rows: any[]): { icon: string; text: string; tone: '
         return { icon: '📄', text: 'No expenses filed for this period yet.', tone: 'info' };
     }
 
-    // 1. Stuck in approval — the only thing here that a human is actively sitting on.
     const stale = rows.filter((r) => (daysWaiting(r) ?? 0) >= STALE_AFTER_DAYS);
     if (stale.length > 0) {
         const amount = stale.reduce((sum, r) => sum + num(r?.amount), 0);
@@ -182,7 +297,6 @@ export const buildInsight = (rows: any[]): { icon: string; text: string; tone: '
         };
     }
 
-    // 2. Approved but unpaid. Nobody is blocking it; it is simply owed.
     if (s.remainingAmount > 0) {
         return {
             icon: '💸',
@@ -191,7 +305,6 @@ export const buildInsight = (rows: any[]): { icon: string; text: string; tone: '
         };
     }
 
-    // 3. Pending, but not yet stale — worth stating so the reader knows it is moving.
     if (s.pendingCount > 0) {
         return {
             icon: '🕒',
@@ -201,7 +314,6 @@ export const buildInsight = (rows: any[]): { icon: string; text: string; tone: '
         };
     }
 
-    // 4. Rejections, once nothing is outstanding — actionable as a refile.
     if (s.rejectedCount > 0) {
         return {
             icon: '⚠',
@@ -211,7 +323,6 @@ export const buildInsight = (rows: any[]): { icon: string; text: string; tone: '
         };
     }
 
-    // 5. The good news, said out loud.
     return {
         icon: '✅',
         tone: 'good',

@@ -1,58 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useEventBus } from "@hooks/useEventBus";
-import { EVENT_KEYS } from "@constants/eventKeys";
-import dayjs, { Dayjs } from "dayjs";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { IReimbursementsFetch } from "@models/employee";
-import {
-  fetchEmpAlltimeReimbursements,
-  fetchEmpMonthlyReimbursements,
-  fetchEmpYearlyReimbursements,
-} from "@utils/statistics";
-import ReimbursementPeriodBar, {
-  PeriodAlignment,
-} from "../../components/ReimbursementPeriodBar";
-import SubmissionsTable from "../SubmissionsTable";
-import { usePersistedState } from "@app/modules/common/hooks/usePersistedState";
-import { useDispatch } from "react-redux";
-import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { EmployeeDetailsSection } from "../../PendingReimbursementsPage";
 import AllEmployeesSearchDropdown from "@app/modules/common/components/AllEmployeesSearchDropdown";
-import { resourceNameMapWithCamelCase } from "@constants/statistics";
-import ReimbursementPaymentHistoryTable from "../../components/ReimbursementPaymentHistoryTable";
-import { downloadEmployeePeriodBillPdf } from "@services/employee";
-import { generateFiscalYearFromGivenYear } from "@utils/file";
-import { errorConfirmation } from "@utils/modal";
-import { summariseReimbursements } from "../../utils/reimbursementSummary";
+import ReimbursementWorkspace, { kpiProps } from "../ReimbursementWorkspace";
 
+/**
+ * Admin view of one employee's reimbursements. Identical to the employee's own screen below the
+ * header — same period, charts and tables — because both render ReimbursementWorkspace.
+ */
 function SearchEmployee() {
-  const [totalRequestedAmount, setTotalRequestedAmount] = useState(0);
-  const [totalRequests, setTotalRequests] = useState(0);
-  const [approvedRequests, setApprovedRequests] = useState(0);
-  const [rejectedRequests, setRejectedRequests] = useState(0);
-  const [pendingRequests, setPendingRequests] = useState(0);
-  const [approvedAmount, setApprovedAmount] = useState(0);
-  const [pendingAmount, setPendingAmount] = useState(0);
-  const [rejectedAmount, setRejectedAmount] = useState(0);
-  const [paidAmount, setPaidAmount] = useState(0);
-  const [remainingAmount, setRemainingAmount] = useState(0);
-  const [overviewLoading, setOverviewLoading] = useState(true);
-  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
-  // One period for this screen — KPI cards, records, and payments all read it.
-  const [alignment, setAlignment] = usePersistedState<PeriodAlignment>(
-    "reimbursementPeriodMode",
-    "monthly",
-    ["monthly", "yearly", "allTime"] as const
-  );
-  const [periodDate, setPeriodDate] = useState<Dayjs>(dayjs());
-  const currentPeriod = useMemo(() => ({ alignment, date: periodDate }), [alignment, periodDate]);
-  const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
-  const [downloadingBill, setDownloadingBill] = useState(false);
-
-  const selectedEmployee = useSelector(
-    (state: RootState) => state.employee.selectedEmployee
-  );
+  const selectedEmployee = useSelector((state: RootState) => state.employee.selectedEmployee);
   const selectedEmployeeId = selectedEmployee?.id;
 
   const employeeCode = (selectedEmployee as any)?.employeeCode || '';
@@ -60,198 +17,27 @@ function SearchEmployee() {
     ? `${(selectedEmployee as any).users.firstName ?? ''} ${(selectedEmployee as any).users.lastName ?? ''}`.trim()
     : '';
 
-  const applyStats = (data: IReimbursementsFetch[]) => {
-    // One shared aggregator — this tab and AllEmployee used to compute different totals for
-    // the same employee. See utils/reimbursementSummary.ts.
-    const s = summariseReimbursements(data as any[]);
-    const { totalAmount, totalRequests: totalRequest, approvedCount, rejectedCount,
-      pendingCount, approvedAmount: approvedAmt, pendingAmount: pendingAmt,
-      rejectedAmount: rejectedAmt, paidAmount: paidAmt, remainingAmount: remainingAmt } = s;
-
-    setTotalRequestedAmount(totalAmount);
-    setTotalRequests(totalRequest);
-    setApprovedRequests(approvedCount);
-    setRejectedRequests(rejectedCount);
-    setPendingRequests(pendingCount);
-    setApprovedAmount(approvedAmt);
-    setPendingAmount(pendingAmt);
-    setRejectedAmount(rejectedAmt);
-    setPaidAmount(paidAmt);
-    setRemainingAmount(remainingAmt);
-    setOverviewLoading(false);
-  };
-
-  useEffect(() => {
-    setOverviewLoading(true);
-    const { alignment, date } = currentPeriod;
-    const fetchPromise =
-      alignment === 'monthly' ? fetchEmpMonthlyReimbursements(date, selectedEmployeeId) :
-        alignment === 'yearly' ? fetchEmpYearlyReimbursements(date, selectedEmployeeId) :
-          fetchEmpAlltimeReimbursements(selectedEmployeeId);
-    fetchPromise.then((data) => {
-      applyStats(data);
-      setReimbursementData(data);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPeriod, selectedEmployeeId, statsRefreshKey]);
-
-  // Row-level actions gate on permissions (moved here from the period toggle).
-  const dispatch = useDispatch();
-  useEffect(() => {
-    dispatch(fetchRolesAndPermissions() as any);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Refresh stats when any reimbursement changes on any connected client (WebSocket)
-  useEventBus(EVENT_KEYS.reimbursementChanged, () => { setStatsRefreshKey((k) => k + 1); });
-
-  const handlePeriodChange = useCallback((nextAlignment: PeriodAlignment, date: Dayjs) => {
-    setOverviewLoading(true);
-    setAlignment(nextAlignment);
-    setPeriodDate(date);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleDownloadBill = async () => {
-    if (!selectedEmployeeId) {
-      errorConfirmation('Please select an employee first.');
-      return;
-    }
-
-    const hasApproved = reimbursementData.some((r) => r.status === 'Approved');
-    if (!hasApproved) {
-      errorConfirmation('No approved reimbursements found for the selected period.');
-      return;
-    }
-
-    setDownloadingBill(true);
-    try {
-      const { alignment, date } = currentPeriod;
-
-      let from: string | undefined;
-      let to: string | undefined;
-      let label = 'All Time';
-
-      if (alignment === 'monthly') {
-        from = date.startOf('month').format('YYYY-MM-DD');
-        to = date.endOf('month').format('YYYY-MM-DD');
-        label = date.format('MMM YYYY');
-      } else if (alignment === 'yearly') {
-        try {
-          const fy = await generateFiscalYearFromGivenYear(date);
-          from = fy.startDate ? dayjs(fy.startDate).format('YYYY-MM-DD') : date.startOf('year').format('YYYY-MM-DD');
-          to = fy.endDate ? dayjs(fy.endDate).format('YYYY-MM-DD') : date.endOf('year').format('YYYY-MM-DD');
-        } catch {
-          from = date.startOf('year').format('YYYY-MM-DD');
-          to = date.endOf('year').format('YYYY-MM-DD');
-        }
-        label = `FY ${date.format('YYYY')}`;
-      }
-
-      const blob = await downloadEmployeePeriodBillPdf(selectedEmployeeId, { from, to, label });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Reimbursement_Bill_${employeeCode || selectedEmployeeId}_${label.replace(/\s+/g, '_')}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('❌ PDF Download Error:', error);
-      errorConfirmation('Failed to download reimbursement bill. Please try again.');
-    } finally {
-      setDownloadingBill(false);
-    }
-  };
-
   return (
-    <>
-      <div className="mb-6">
-        <AllEmployeesSearchDropdown />
-      </div>
-      <EmployeeDetailsSection
-        totalRequests={totalRequests}
-        totalRequestedAmount={totalRequestedAmount}
-        approvedRequests={approvedRequests}
-        rejectedRequests={rejectedRequests}
-        pendingRequests={pendingRequests}
-        approvedAmount={approvedAmount}
-        pendingAmount={pendingAmount}
-        rejectedAmount={rejectedAmount}
-        paidAmount={paidAmount}
-        remainingAmount={remainingAmount}
-        overviewLoading={overviewLoading}
-        employee={selectedEmployee?.id ? selectedEmployee : null}
-      />
-
-      <ReimbursementPeriodBar
-        alignment={currentPeriod.alignment}
-        date={currentPeriod.date}
-        onChange={handlePeriodChange}
-        actionSlot={
-          <button
-            className="btn d-flex align-items-center gap-2 px-3"
-            style={{
-              height: '35px',
-              background: '#1E3A8A',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: 500,
-              cursor: downloadingBill ? 'not-allowed' : 'pointer',
-              pointerEvents: 'auto',
-            }}
-            onClick={handleDownloadBill}
-            disabled={downloadingBill}
-            title="Download Reimbursement Slip"
-          >
-            {downloadingBill ? (
-              <>
-                <span className="spinner-border spinner-border-sm" />
-                <span>Generating...</span>
-              </>
-            ) : (
-              <>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                <span>Download Reimbursement Slip</span>
-              </>
-            )}
-          </button>
-        }
-      />
-
-      <div className="my-6">
-        <h2 className="mb-0">Reimbursement Records</h2>
-      </div>
-
-      <SubmissionsTable
-        period={currentPeriod.alignment}
-        date={currentPeriod.date}
-        selectedEmployeeId={selectedEmployeeId}
-        showEditDeleteOption={true}
-        resource={resourceNameMapWithCamelCase.reimbursement}
-        viewOthers={true}
-        viewOwn={true}
-        checkOwnWithOthers={true}
-        onGoToPeriod={(next) => handlePeriodChange(currentPeriod.alignment, next)}
-      />
-
-      {selectedEmployeeId && (
-        <ReimbursementPaymentHistoryTable
-          employeeId={selectedEmployeeId}
-          employeeCode={employeeCode}
-          employeeName={employeeName}
-          // Follows this screen's period instead of carrying its own.
-          period={currentPeriod.alignment}
-          periodDate={currentPeriod.date}
-        />
+    <ReimbursementWorkspace
+      employeeId={selectedEmployeeId}
+      employeeCode={employeeCode}
+      employeeName={employeeName}
+      viewOthers={true}
+      checkOwnWithOthers={true}
+      renderHeader={({ summary, loading, periodBar }) => (
+        <>
+          <div className="mb-6">
+            <AllEmployeesSearchDropdown />
+          </div>
+          <EmployeeDetailsSection
+            {...kpiProps(summary)}
+            overviewLoading={loading}
+            employee={selectedEmployee?.id ? selectedEmployee : null}
+          />
+          {selectedEmployeeId && periodBar}
+        </>
       )}
-    </>
+    />
   );
 }
 

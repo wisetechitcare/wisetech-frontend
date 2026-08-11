@@ -58,7 +58,7 @@ export default function RecordsEmptyState({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
-                flexWrap: 'wrap',
+                flexWrap: 'nowrap',
                 px: 2,
                 py: 1.25,
                 borderRadius: '10px',
