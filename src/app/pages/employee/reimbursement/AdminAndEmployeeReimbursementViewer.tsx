@@ -6,7 +6,6 @@ import MaterialHeaderTab, {
 } from "@app/modules/common/components/MaterialHeaderTab";
 import Reimbursement from "./Reimbursement";
 import AllEmployee from "./views/admin/AllEmployee";
-import ByProject from "./views/admin/ByProject";
 import SearchEmployee from "./views/admin/SearchEmployee";
 import PaymentTab from "./views/admin/PaymentTab";
 import { useDispatch } from "react-redux";
@@ -63,17 +62,12 @@ function AdminAndEmployeeReimbursementViewer() {
       component: <Reimbursement />,
       icon: 'bi-receipt',
     }]:[]),
+    // Charts, then the employee table, then the per-project rollup — all three read one
+    // period-scoped fetch. "By Project" used to be a separate tab over the same data.
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
-      title: "Employees Reimbursements",
+      title: "Reimbursement Details",
       component: <AllEmployee />,
       icon: 'bi-receipt-cutoff',
-    }]:[]),
-    // Same read permission as the other cross-employee views — it answers "what has this
-    // PROJECT cost", which the module could never answer before, from data it already had.
-    ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
-      title: "By Project",
-      component: <ByProject />,
-      icon: 'bi-diagram-3',
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Search Employee",

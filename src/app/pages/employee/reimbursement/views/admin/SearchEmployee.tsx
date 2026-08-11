@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import dayjs, { Dayjs } from "dayjs";
@@ -10,9 +10,13 @@ import {
   fetchEmpMonthlyReimbursements,
   fetchEmpYearlyReimbursements,
 } from "@utils/statistics";
-import MaterialToggleReimbursement, {
+import ReimbursementPeriodBar, {
   PeriodAlignment,
-} from "../../MaterialToggleReimbursement";
+} from "../../components/ReimbursementPeriodBar";
+import SubmissionsTable from "../SubmissionsTable";
+import { usePersistedState } from "@app/modules/common/hooks/usePersistedState";
+import { useDispatch } from "react-redux";
+import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { EmployeeDetailsSection } from "../../PendingReimbursementsPage";
 import AllEmployeesSearchDropdown from "@app/modules/common/components/AllEmployeesSearchDropdown";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -35,10 +39,14 @@ function SearchEmployee() {
   const [remainingAmount, setRemainingAmount] = useState(0);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
-  const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({
-    alignment: 'monthly',
-    date: dayjs(),
-  });
+  // One period for this screen — KPI cards, records, and payments all read it.
+  const [alignment, setAlignment] = usePersistedState<PeriodAlignment>(
+    "reimbursementPeriodMode",
+    "monthly",
+    ["monthly", "yearly", "allTime"] as const
+  );
+  const [periodDate, setPeriodDate] = useState<Dayjs>(dayjs());
+  const currentPeriod = useMemo(() => ({ alignment, date: periodDate }), [alignment, periodDate]);
   const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
   const [downloadingBill, setDownloadingBill] = useState(false);
 
@@ -87,12 +95,21 @@ function SearchEmployee() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeriod, selectedEmployeeId, statsRefreshKey]);
 
+  // Row-level actions gate on permissions (moved here from the period toggle).
+  const dispatch = useDispatch();
+  useEffect(() => {
+    dispatch(fetchRolesAndPermissions() as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Refresh stats when any reimbursement changes on any connected client (WebSocket)
   useEventBus(EVENT_KEYS.reimbursementChanged, () => { setStatsRefreshKey((k) => k + 1); });
 
-  const handlePeriodChange = useCallback((alignment: PeriodAlignment, date: Dayjs) => {
+  const handlePeriodChange = useCallback((nextAlignment: PeriodAlignment, date: Dayjs) => {
     setOverviewLoading(true);
-    setCurrentPeriod({ alignment, date });
+    setAlignment(nextAlignment);
+    setPeriodDate(date);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDownloadBill = async () => {
@@ -168,18 +185,10 @@ function SearchEmployee() {
         employee={selectedEmployee?.id ? selectedEmployee : null}
       />
 
-      <div className="my-6">
-        <h2 className="mb-0">Reimbursement Records</h2>
-      </div>
-
-      <MaterialToggleReimbursement
-        onPeriodChange={handlePeriodChange}
-        showEditDeleteOption={true}
-        selectedEmployeeId={selectedEmployeeId}
-        resource={resourceNameMapWithCamelCase.reimbursement}
-        viewOthers={true}
-        viewOwn={true}
-        checkOwnWithOthers={true}
+      <ReimbursementPeriodBar
+        alignment={currentPeriod.alignment}
+        date={currentPeriod.date}
+        onChange={handlePeriodChange}
         actionSlot={
           <button
             className="btn d-flex align-items-center gap-2 px-3"
@@ -214,6 +223,22 @@ function SearchEmployee() {
             )}
           </button>
         }
+      />
+
+      <div className="my-6">
+        <h2 className="mb-0">Reimbursement Records</h2>
+      </div>
+
+      <SubmissionsTable
+        period={currentPeriod.alignment}
+        date={currentPeriod.date}
+        selectedEmployeeId={selectedEmployeeId}
+        showEditDeleteOption={true}
+        resource={resourceNameMapWithCamelCase.reimbursement}
+        viewOthers={true}
+        viewOwn={true}
+        checkOwnWithOthers={true}
+        onGoToPeriod={(next) => handlePeriodChange(currentPeriod.alignment, next)}
       />
 
       {selectedEmployeeId && (

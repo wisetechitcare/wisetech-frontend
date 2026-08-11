@@ -1266,7 +1266,6 @@ function MaterialTable({
             expanded: preferences.expanded,
             globalFilter: enableColumnSpecificSearch ? undefined : debouncedFilterValue,
             isLoading: isLoading,
-            showProgressBars: isLoading,
           }}
           onColumnVisibilityChange={updateColumnVisibility}
           onColumnOrderChange={updateColumnOrder}

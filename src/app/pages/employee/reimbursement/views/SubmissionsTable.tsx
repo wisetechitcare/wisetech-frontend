@@ -19,7 +19,7 @@ import { deleteConfirmation, errorConfirmation } from '@utils/modal';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
-import { PeriodAlignment } from '../MaterialToggleReimbursement';
+import { PeriodAlignment } from '../components/ReimbursementPeriodBar';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import StatusFilterChips, { countByStatus } from '../components/StatusFilterChips';
@@ -1059,7 +1059,8 @@ function SubmissionsTable({
 
   return (
     <>
-      <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+      {/* Status filter rail, right-aligned. Sits immediately below the section heading. */}
+      <div className="d-flex align-items-center justify-content-end flex-wrap gap-3 mb-4">
         <StatusFilterChips value={statusFilter} onChange={setStatusFilter} counts={statusCounts} />
       </div>
 

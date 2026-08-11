@@ -17,7 +17,7 @@ import {
   submitReimbursementBatch,
 } from '@services/employee';
 import { uploadUserAsset } from '@services/uploader';
-import ReimbursementKpiRow, { ReimbursementPaymentProgress } from './components/ReimbursementKpiRow';
+import ReimbursementKpiRow from './components/ReimbursementKpiRow';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
 import { ReimbursementDraft, ReimbursementOption } from './utils/reimbursementTypes';
@@ -283,12 +283,6 @@ export function EmployeeDetailsSection({
             <ReimbEmployeeProfileCard employee={employee} />
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0 }}>
               <ReimbursementKpiRow kpis={kpis} loading={overviewLoading} />
-              {!overviewLoading && (
-                <ReimbursementPaymentProgress
-                  approvedAmount={approvedAmount}
-                  paidAmount={paidAmount}
-                />
-              )}
             </Box>
           </Box>
         </Paper>
@@ -305,6 +299,8 @@ export interface PendingReimbursementsPageHandle {
 
 interface PendingReimbursementsPageProps extends Partial<EmployeeDetailsSectionProps> {
   onDraftsChange?: (count: number) => void;
+  /** The page's period selector — rendered directly under the KPI cards it drives. */
+  periodSlot?: React.ReactNode;
 }
 
 const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, PendingReimbursementsPageProps>(function PendingReimbursementsPage({
@@ -320,6 +316,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   remainingAmount = 0,
   overviewLoading = false,
   onDraftsChange,
+  periodSlot,
 }, ref) {
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   // Per-request cap for the live limit warning under the Amount field.
@@ -701,6 +698,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         remainingAmount={remainingAmount}
         overviewLoading={overviewLoading}
       />
+
+      {periodSlot}
 
       {/* Action bar — only visible when inbox is shown */}
       {(loading || drafts.length > 0) && (

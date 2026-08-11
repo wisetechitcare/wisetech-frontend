@@ -1,3 +1,4 @@
+import { Box, ButtonBase } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 import dayjs, { Dayjs } from 'dayjs';
@@ -48,82 +49,81 @@ export default function RecordsEmptyState({
     const isFiltered = Boolean(activeStatusFilter);
 
     return (
-        <div
-            style={{
-                padding: '2rem 1.5rem',
-                borderRadius: '14px',
-                backgroundColor: '#f8fafc',
-                border: '1px dashed #d6e0ea',
-                textAlign: 'center',
+        // One strip, not a panel. This used to be a centred stack — icon, headline, sentence,
+        // button — inside 2rem of padding, so an empty month left a ~230px hole and two empty
+        // sections filled a screen with nothing. Same words, laid along one line: it reads at a
+        // glance and the table below stays where the eye expects it.
+        <Box
+            sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                flexWrap: 'wrap',
+                px: 2,
+                py: 1.25,
+                borderRadius: '10px',
+                border: '1px dashed',
+                borderColor: 'divider',
+                bgcolor: 'action.hover',
             }}
         >
-            <div
-                style={{
-                    width: 38, height: 38, borderRadius: '11px', display: 'grid', placeItems: 'center',
-                    color: '#2563eb', backgroundColor: '#eff6ff', border: '1px solid #dbeafe',
-                    margin: '0 auto 0.875rem',
-                }}
+            <Box
                 aria-hidden="true"
+                sx={{
+                    width: 28, height: 28, borderRadius: '8px', display: 'grid', placeItems: 'center',
+                    flexShrink: 0, color: 'primary.main', bgcolor: 'background.paper',
+                    border: '1px solid', borderColor: 'divider',
+                }}
             >
-                <KTIcon iconName="document" className="fs-4" />
-            </div>
+                <KTIcon iconName="document" className="fs-6" />
+            </Box>
 
-            <p style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', marginBottom: '0.35rem' }}>
-                {isFiltered
-                    ? `No ${activeStatusFilter!.toLowerCase()} expenses in ${periodLabel}`
-                    : `No expenses dated ${periodLabel}`}
-            </p>
-
-            {/* The sentence this component exists for. */}
-            {!isFiltered && elsewhere.length > 0 && (
-                <p style={{ fontSize: '0.82rem', color: '#475569', marginBottom: '1rem', lineHeight: 1.55 }}>
-                    Expenses are dated by when the money was spent, not when you submitted them. You
-                    have{' '}
-                    {elsewhere.map((p, i) => (
-                        <span key={p.date.toISOString()}>
-                            {i > 0 && (i === elsewhere.length - 1 ? ' and ' : ', ')}
-                            <button
-                                type="button"
-                                onClick={() => onGoToPeriod?.(p.date)}
-                                style={{
-                                    background: 'none', border: 'none', padding: 0,
-                                    color: '#2563eb', fontWeight: 700, cursor: 'pointer',
-                                    textDecoration: 'underline', textUnderlineOffset: '2px',
-                                }}
-                            >
-                                {p.count} in {p.date.format('MMMM YYYY')}
-                            </button>
-                        </span>
-                    ))}
-                    .
-                </p>
-            )}
-
-            {!isFiltered && elsewhere.length === 0 && (
-                <p style={{ fontSize: '0.82rem', color: '#475569', marginBottom: '1rem', lineHeight: 1.55 }}>
-                    Expenses appear in the month they were incurred, whenever you submit them.
-                </p>
-            )}
-
-            {isFiltered && (
-                <p style={{ fontSize: '0.82rem', color: '#475569', marginBottom: '1rem', lineHeight: 1.55 }}>
-                    Other expenses in {periodLabel} are hidden by this filter.
-                </p>
-            )}
-
-            <div className="d-flex align-items-center justify-content-center gap-2 flex-wrap">
-                {isFiltered && onClearStatusFilter && (
-                    <WtButton ghost size="small" onClick={onClearStatusFilter}>
-                        Show all statuses
-                    </WtButton>
+            <Box sx={{ minWidth: 0, flex: '1 1 auto', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                    {isFiltered
+                        ? `No ${activeStatusFilter!.toLowerCase()} expenses in ${periodLabel}`
+                        : `No expenses in ${periodLabel}`}
+                </Box>
+                {((!isFiltered && elsewhere.length > 0) || isFiltered) && (
+                    <Box component="span" sx={{ color: 'text.secondary' }}>
+                        {' — '}
+                        {isFiltered ? (
+                            `other statuses are hidden by this filter.`
+                        ) : (
+                            <>
+                                found{' '}
+                                {elsewhere.map((p, i) => (
+                                    <span key={p.date.toISOString()}>
+                                        {i > 0 && (i === elsewhere.length - 1 ? ' and ' : ', ')}
+                                        <ButtonBase
+                                            onClick={() => onGoToPeriod?.(p.date)}
+                                            sx={{
+                                                font: 'inherit', fontWeight: 700, color: 'primary.main',
+                                                textDecoration: 'underline', textUnderlineOffset: '2px',
+                                                verticalAlign: 'baseline',
+                                            }}
+                                        >
+                                            {p.count} in {p.date.format('MMMM YYYY')}
+                                        </ButtonBase>
+                                    </span>
+                                ))}
+                            </>
+                        )}
+                    </Box>
                 )}
-                {!isFiltered && onAddExpense && (
-                    <WtButton size="small" onClick={onAddExpense}>
-                        Add an expense
-                    </WtButton>
-                )}
-            </div>
-        </div>
+            </Box>
+
+            {isFiltered && onClearStatusFilter && (
+                <WtButton ghost size="small" onClick={onClearStatusFilter}>
+                    Show all statuses
+                </WtButton>
+            )}
+            {!isFiltered && onAddExpense && (
+                <WtButton size="small" onClick={onAddExpense}>
+                    Add an expense
+                </WtButton>
+            )}
+        </Box>
     );
 }
 

@@ -24,6 +24,7 @@ import { clickableRowProps, CLICKABLE_ROW_SX } from '../../utils/rowInteraction'
 import LoadErrorState from '../../components/LoadErrorState';
 import LineItemExportButton from '../../components/LineItemExportButton';
 import ReimbursementCharts from '../../components/ReimbursementCharts';
+import ByProject from './ByProject';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 
@@ -36,6 +37,7 @@ interface EmployeeDetail {
   subOrganization: string;
   department: string;
   branch: string;
+  team: string;
   isActive: boolean;
   employeeCode: string;
   name: string;
@@ -48,6 +50,7 @@ interface EmployeeSummary {
   subOrganization: string;
   department: string;
   branch: string;
+  team: string;
   isActive: boolean;
   totalRequestAmount: number;
   totalApprovedAmount: number;
@@ -66,6 +69,17 @@ interface EmployeeSummary {
 const fmtINR = (n: number) =>
   `₹${Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
+// Distinct, sorted values of one summary field ('N/A' and blanks dropped) — same rule the
+// payroll toolbar uses, so both pages offer the same options for the same population.
+const distinctValues = (rows: EmployeeSummary[], field: keyof EmployeeSummary, exclude?: Set<string>) => {
+  const names = new Set<string>();
+  rows.forEach(r => {
+    const name = r[field] as string;
+    if (name && name !== 'N/A' && !exclude?.has(name)) names.add(name);
+  });
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+};
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function AllEmployee() {
@@ -83,6 +97,8 @@ function AllEmployee() {
   // said a population was missing. The heading names the scope either way.
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [subOrgFilter, setSubOrgFilter] = useState('All');
+  const [branchFilter, setBranchFilter] = useState('All');
+  const [teamFilter, setTeamFilter] = useState('All');
 
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const rootOrgNames = useRootOrgNames();
@@ -106,6 +122,8 @@ function AllEmployee() {
           subOrganization: emp.companyOverview?.name || 'N/A',
           department: emp.departments?.name || 'N/A',
           branch: emp.branches?.name || 'N/A',
+          // One team per employee; prefer the active membership (same rule as payroll).
+          team: (emp.teamMemberships ?? []).find((m: any) => m.isActive !== false)?.team?.name || 'N/A',
           isActive: emp.isActive !== false,
           employeeCode: emp.employeeCode || '',
           name: emp.users
@@ -171,6 +189,7 @@ function AllEmployee() {
           subOrganization: details?.subOrganization || 'N/A',
           department: details?.department || 'N/A',
           branch: details?.branch || 'N/A',
+          team: details?.team || 'N/A',
           isActive: details?.isActive ?? true,
           totalRequestAmount: 0,
           totalApprovedAmount: 0,
@@ -204,17 +223,15 @@ function AllEmployee() {
     return Array.from(map.values());
   }, [reimbursements, employeeDetailMap]);
 
-  // ── Sub-org options ───────────────────────────────────────────────────────
+  // ── Filter options ────────────────────────────────────────────────────────
 
-  const subOrgOptions = useMemo(() => {
-    const names = new Set<string>();
-    employeeSummaries.forEach(e => {
-      if (e.subOrganization && e.subOrganization !== 'N/A' && !rootOrgNames.has(e.subOrganization)) {
-        names.add(e.subOrganization);
-      }
-    });
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [employeeSummaries, rootOrgNames]);
+  // The top-level org is excluded — only actual sub-orgs belong in that dropdown.
+  const subOrgOptions = useMemo(
+    () => distinctValues(employeeSummaries, 'subOrganization', rootOrgNames),
+    [employeeSummaries, rootOrgNames],
+  );
+  const branchOptions = useMemo(() => distinctValues(employeeSummaries, 'branch'), [employeeSummaries]);
+  const teamOptions = useMemo(() => distinctValues(employeeSummaries, 'team'), [employeeSummaries]);
 
   // ── Apply filters ─────────────────────────────────────────────────────────
 
@@ -225,9 +242,11 @@ function AllEmployee() {
         statusFilter === 'Deactive' ? !emp.isActive :
         true;
       const subOrgMatch = subOrgFilter === 'All' || emp.subOrganization === subOrgFilter;
-      return statusMatch && subOrgMatch;
+      const branchMatch = branchFilter === 'All' || emp.branch === branchFilter;
+      const teamMatch = teamFilter === 'All' || emp.team === teamFilter;
+      return statusMatch && subOrgMatch && branchMatch && teamMatch;
     });
-  }, [employeeSummaries, statusFilter, subOrgFilter]);
+  }, [employeeSummaries, statusFilter, subOrgFilter, branchFilter, teamFilter]);
 
   // ── Table data ────────────────────────────────────────────────────────────
 
@@ -299,7 +318,8 @@ function AllEmployee() {
   // ── Filter toolbar ────────────────────────────────────────────────────────
 
   // 'All' is the default now, so it is not an active filter.
-  const hasActiveFilters = statusFilter !== 'All' || subOrgFilter !== 'All';
+  const hasActiveFilters = statusFilter !== 'All' || subOrgFilter !== 'All'
+    || branchFilter !== 'All' || teamFilter !== 'All';
 
   const FilterToolbar = () => (
     <Box sx={{ display: 'flex', gap: '12px', rowGap: '16px', alignItems: 'center', px: 1, flexWrap: 'wrap' }}>
@@ -338,9 +358,45 @@ function AllEmployee() {
         ]}
       />
 
+      {branchOptions.length > 0 && (
+        <ToolbarFilterSelect
+          label="Branch"
+          icon="bi-geo-alt"
+          value={branchFilter}
+          onChange={setBranchFilter}
+          minWidth={190}
+          theme={branchFilter !== 'All'
+            ? { icon: '#0891b2', border: '#a5f3fc', bg: '#ecfeff', text: '#155e75', ring: 'rgba(8, 145, 178, 0.12)' }
+            : undefined}
+          options={[
+            { value: 'All', label: 'All Branches' },
+            ...branchOptions.map(name => ({ value: name, label: name })),
+          ]}
+        />
+      )}
+
+      {teamOptions.length > 0 && (
+        <ToolbarFilterSelect
+          label="Team"
+          icon="bi-people"
+          value={teamFilter}
+          onChange={setTeamFilter}
+          minWidth={180}
+          theme={teamFilter !== 'All'
+            ? { icon: '#d97706', border: '#fde68a', bg: '#fffbeb', text: '#92400e', ring: 'rgba(217, 119, 6, 0.12)' }
+            : undefined}
+          options={[
+            { value: 'All', label: 'All Teams' },
+            ...teamOptions.map(name => ({ value: name, label: name })),
+          ]}
+        />
+      )}
+
       {hasActiveFilters && (
         <button
-          onClick={() => { setStatusFilter('Active'); setSubOrgFilter('All'); }}
+          // Back to the page defaults, which are all 'All' here — resetting status to 'Active'
+          // would have left the table narrower than a freshly opened page.
+          onClick={() => { setStatusFilter('All'); setSubOrgFilter('All'); setBranchFilter('All'); setTeamFilter('All'); }}
           title="Reset filters to defaults"
           style={{
             height: '38px', padding: '0 12px',
@@ -368,6 +424,7 @@ function AllEmployee() {
     { key: 'subOrganization',      header: 'Sub Organization',        type: 'text'     as const },
     { key: 'department',           header: 'Department',              type: 'text'     as const },
     { key: 'branch',               header: 'Branch',                  type: 'text'     as const },
+    { key: 'team',                 header: 'Team',                    type: 'text'     as const },
     { key: 'totalRequestAmount',   header: 'Total Request Amount',    type: 'currency' as const, showTotal: true },
     { key: 'totalApprovedAmount',  header: 'Total Approved Amount',   type: 'currency' as const, showTotal: true },
     { key: 'totalPendingAmount',   header: 'Total Pending Amount',    type: 'currency' as const, showTotal: true },
@@ -384,7 +441,7 @@ function AllEmployee() {
 
   return (
     <>
-      <h3 className="fw-bold fs-1 mb-5 font-barlow">Employee Reimbursements Data</h3>
+      <h3 className="fw-bold fs-1 mb-5 font-barlow">Reimbursement Details</h3>
 
       {/* Period toolbar */}
       <SalaryPeriodToolbar
@@ -478,6 +535,11 @@ function AllEmployee() {
             {
               accessorKey: 'branch',
               header: 'Branch',
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+            },
+            {
+              accessorKey: 'team',
+              header: 'Team',
               Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
             },
             {
@@ -595,6 +657,19 @@ function AllEmployee() {
         />
         )}
       </div>
+
+      {/*
+        * Project rollup of the SAME rows, under the employee table. It was its own tab, which meant
+        * a second fetch of identical data and a second period selector that could disagree with
+        * this one. Hidden while the fetch is failing — the error state above already says so once.
+        */}
+      {!loadError && (
+        <ByProject
+          rows={reimbursements}
+          loading={isLoading}
+          periodLabel={periodLabel ?? 'all time'}
+        />
+      )}
     </>
   );
 }

@@ -13,9 +13,10 @@ import { useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
-import MaterialToggleReimbursement, {
+import ReimbursementPeriodBar, {
   PeriodAlignment,
-} from "./MaterialToggleReimbursement";
+} from "./components/ReimbursementPeriodBar";
+import { usePersistedState } from "@app/modules/common/hooks/usePersistedState";
 import { UsersListWrapper } from "@app/modules/apps/user-management/users-list/UsersList";
 import {
   fetchAllReimbursementTypesFromDb,
@@ -71,7 +72,15 @@ function Reimbursement() {
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
-  const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({ alignment: 'monthly', date: dayjs() });
+  // One period for the whole page — KPI cards, charts, records, batches and payments all read
+  // it. The mode survives a refresh; the anchor date resets to today.
+  const [alignment, setAlignment] = usePersistedState<PeriodAlignment>(
+    "reimbursementPeriodMode",
+    "monthly",
+    ["monthly", "yearly", "allTime"] as const
+  );
+  const [periodDate, setPeriodDate] = useState<Dayjs>(dayjs());
+  const currentPeriod = useMemo(() => ({ alignment, date: periodDate }), [alignment, periodDate]);
   // One label for all three section subtitles, so they always name the same window.
   const periodLabel = currentPeriod.alignment === 'monthly'
     ? currentPeriod.date.format('MMMM YYYY')
@@ -175,6 +184,13 @@ function Reimbursement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeriod, statsRefreshKey, employeeId]);
 
+  // Row-level actions in the tables below gate on permissions (moved here from the
+  // period toggle that used to own this page's period).
+  useEffect(() => {
+    dispatch(fetchRolesAndPermissions() as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Refresh stats whenever a reimbursement changes on any connected client (WebSocket)
   useEventBus(EVENT_KEYS.reimbursementChanged, () => {
     setStatsRefreshKey((prev) => prev + 1);
@@ -255,9 +271,10 @@ function Reimbursement() {
     }
   };
 
-  const handlePeriodChange = (alignment: PeriodAlignment, date: Dayjs) => {
+  const handlePeriodChange = (nextAlignment: PeriodAlignment, date: Dayjs) => {
     setOverviewLoading(true);
-    setCurrentPeriod({ alignment, date });
+    setAlignment(nextAlignment);
+    setPeriodDate(date);
   };
 
   const [downloadingBill, setDownloadingBill] = useState(false);
@@ -393,6 +410,83 @@ function Reimbursement() {
         paidAmount={paidAmount}
         remainingAmount={remainingAmount}
         overviewLoading={overviewLoading}
+        periodSlot={
+          <ReimbursementPeriodBar
+            alignment={currentPeriod.alignment}
+            date={currentPeriod.date}
+            onChange={handlePeriodChange}
+            actionSlot={
+              <div className="d-flex align-items-center gap-3">
+                {pendingDraftsCount === 0 && hasPermission(
+                  resourceNameMapWithCamelCase.reimbursement,
+                  permissionConstToUseWithHasPermission.create
+                ) && (
+                    <button
+                      onClick={() => pendingPageRef.current?.openAddModal()}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px',
+                        padding: '7px 14px',
+                        border: '1.5px solid #e2e8f0',
+                        borderRadius: '6px',
+                        background: '#f8fafc',
+                        color: '#475569',
+                        fontWeight: 500,
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
+                    >
+                      <KTIcon iconName='plus' className='fs-6' />
+                      <span>Add Reimbursement Request</span>
+                    </button>
+                  )}
+                <button
+                  onClick={handleDownloadBill}
+                  disabled={downloadingBill}
+                  title="Download Reimbursement Slip"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    padding: '7px 14px',
+                    border: 'none',
+                    borderRadius: '6px',
+                    background: '#d32f2f',
+                    color: '#fff',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    cursor: downloadingBill ? 'not-allowed' : 'pointer',
+                    opacity: downloadingBill ? 0.6 : 1,
+                    boxShadow: '0 2px 6px rgba(211,47,47,0.2)',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { if (!downloadingBill) { (e.currentTarget as HTMLButtonElement).style.background = '#b71c1c'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(211,47,47,0.3)'; } }}
+                  onMouseLeave={e => { if (!downloadingBill) { (e.currentTarget as HTMLButtonElement).style.background = '#d32f2f'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(211,47,47,0.2)'; } }}
+                >
+                  {downloadingBill ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm" style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <KTIcon iconName="file-down" className="fs-6 text-white" />
+                      <span>Download Reimbursement Slip</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            }
+          />
+        }
       />
 
       {/* Divider */}
@@ -418,102 +512,38 @@ function Reimbursement() {
         }
       />
 
-      {/* Each table below answers a different question and is anchored on a different
-          date. Saying so in the subtitle is what stops "why is my June expense under
-          July?" — the three axes are expense date, submission date and payment date. */}
-      <div className="my-6">
-        <h2 className="mb-1">My Reimbursement Records</h2>
-        <div className="text-muted fs-7">
-          What you <strong>spent</strong> in {periodLabel} — by expense date. A batch appears in
-          every month it has expenses in, showing only that month's lines.
+      {/* Heading + status filter on one line; wraps at mobile. */}
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3 mb-2">
+        <div>
+          <h2 className="mb-1">My Reimbursement Records</h2>
+          <div className="text-muted fs-7">
+            What you <strong>spent</strong> in {periodLabel} — by expense date. A batch appears in
+            every month it has expenses in, showing only that month's lines.
+          </div>
         </div>
       </div>
-      <MaterialToggleReimbursement
-        onPeriodChange={handlePeriodChange}
+      <SubmissionsTable
+        period={currentPeriod.alignment}
+        date={currentPeriod.date}
+        selectedEmployeeId={employeeId}
         showEditDeleteOption={true}
         resource={resourceNameMapWithCamelCase.reimbursement}
         viewOwn={true}
         viewOthers={false}
-        selectedEmployeeId={employeeId}
-        actionSlot={
-          <div className="d-flex align-items-center gap-3">
-            {pendingDraftsCount === 0 && hasPermission(
-              resourceNameMapWithCamelCase.reimbursement,
-              permissionConstToUseWithHasPermission.create
-            ) && (
-                <button
-                  onClick={() => pendingPageRef.current?.openAddModal()}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '5px',
-                    padding: '7px 14px',
-                    border: '1.5px solid #e2e8f0',
-                    borderRadius: '6px',
-                    background: '#f8fafc',
-                    color: '#475569',
-                    fontWeight: 500,
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
-                >
-                  <KTIcon iconName='plus' className='fs-6' />
-                  <span>Add Reimbursement Request</span>
-                </button>
-              )}
-            <button
-              onClick={handleDownloadBill}
-              disabled={downloadingBill}
-              title="Download Reimbursement Slip"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '5px',
-                padding: '7px 14px',
-                border: 'none',
-                borderRadius: '6px',
-                background: '#d32f2f',
-                color: '#fff',
-                fontWeight: 500,
-                fontSize: '12px',
-                cursor: downloadingBill ? 'not-allowed' : 'pointer',
-                opacity: downloadingBill ? 0.6 : 1,
-                boxShadow: '0 2px 6px rgba(211,47,47,0.2)',
-                transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={e => { if (!downloadingBill) { (e.currentTarget as HTMLButtonElement).style.background = '#b71c1c'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(211,47,47,0.3)'; } }}
-              onMouseLeave={e => { if (!downloadingBill) { (e.currentTarget as HTMLButtonElement).style.background = '#d32f2f'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(211,47,47,0.2)'; } }}
-            >
-              {downloadingBill ? (
-                <>
-                  <span className="spinner-border spinner-border-sm" style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <>
-                  <KTIcon iconName="file-down" className="fs-6 text-white" />
-                  <span>Download Reimbursement Slip</span>
-                </>
-              )}
-            </button>
-          </div>
-        }
+        // Lets the empty state jump to a month that actually has expenses.
+        onGoToPeriod={(next) => handlePeriodChange(currentPeriod.alignment, next)}
       />
 
       {employeeId && (
         <>
-          <div className="mt-10 mb-6">
-            <h2 className="mb-1">Submission Batches</h2>
-            <div className="text-muted fs-7">
-              What you <strong>submitted</strong> in {periodLabel} — by submission date. One row
-              per batch, whole batch, whichever months its expenses belong to.
+          {/* Heading + status filter on one line; wraps at mobile. */}
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3 mb-2 mt-6">
+            <div>
+              <h2 className="mb-1">Submission Batches</h2>
+              <div className="text-muted fs-7">
+                What you <strong>submitted</strong> in {periodLabel} — by submission date. One row
+                per batch, whole batch, whichever months its expenses belong to.
+              </div>
             </div>
           </div>
           <SubmissionsTable

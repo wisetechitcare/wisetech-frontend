@@ -63,15 +63,10 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
     period,
     periodDate,
 }) => {
-    const [ownFilter, setOwnFilter] = useState<PeriodFilter>('monthly');
-    const [ownDate, setOwnDate] = useState(dayjs());
-    // The page owns the period when it passes one; the local state is only the fallback
-    // for callers that render this table standalone.
-    const pageDriven = period !== undefined;
-    const filter = pageDriven ? period : ownFilter;
-    const currentDate = pageDriven && periodDate ? periodDate : ownDate;
-    const setFilter = setOwnFilter;
-    const setCurrentDate = setOwnDate;
+    // The page owns the period. This table carried its own tabs + navigator, which is how the
+    // screen ended up showing records for one month next to payments for another.
+    const filter = period;
+    const currentDate = periodDate;
     const [fiscalYearLabel, setFiscalYearLabel] = useState('');
     const [payments, setPayments] = useState<(IReimbursementPayment & Record<string, any>)[]>([]);
     const [historyError, setHistoryError] = useState(false);
@@ -167,17 +162,6 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
             : filter === 'yearly'
             ? fiscalYearLabel || currentDate.format('YYYY')
             : 'All Time';
-
-    const navigate = (dir: -1 | 1) => {
-        if (filter === 'monthly') setCurrentDate((d) => d.add(dir, 'month'));
-        if (filter === 'yearly') setCurrentDate((d) => d.add(dir, 'year'));
-    };
-
-    const handleFilterChange = (_: React.MouseEvent<HTMLElement>, newFilter: PeriodFilter | null) => {
-        if (!newFilter) return;
-        setFilter(newFilter);
-        setCurrentDate(dayjs());
-    };
 
     // Group payments by batchId to create one row per batch
     const batchRows = useMemo<BatchRow[]>(() => {
@@ -346,29 +330,6 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
             </div>
             <div className="card shadow-sm">
                 <div className="card-body p-6">
-                    <div
-                        className="d-flex flex-md-row flex-column justify-content-lg-between align-items-lg-center gap-5 gap-lg-0 mb-3"
-                        style={pageDriven ? { display: 'none' } : undefined}
-                    >
-                        <PeriodTabs
-                            value={filter}
-                            options={[
-                                { label: 'Monthly', value: 'monthly' },
-                                { label: 'Yearly', value: 'yearly' },
-                                { label: 'All Time', value: 'allTime' },
-                            ]}
-                            onChange={(val) => handleFilterChange(null as any, val as PeriodFilter)}
-                            ariaLabel="payment history period"
-                        />
-                        {filter !== 'allTime' && (
-                            <PeriodNavigator
-                                label={periodLabel}
-                                onPrevious={() => navigate(-1)}
-                                onNext={() => navigate(1)}
-                            />
-                        )}
-                    </div>
-
                     {loading ? (
                         <div className="d-flex justify-content-center align-items-center py-12">
                             <div className="spinner-border text-primary" role="status" />

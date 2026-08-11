@@ -1,23 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import dayjs, { Dayjs } from 'dayjs';
-import { Box } from '@mui/material';
+import { useMemo } from 'react';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import ExportButton from '@app/modules/common/components/ExportButton';
-import SalaryPeriodToolbar from '@pages/employee/salary/components/SalaryPeriodToolbar';
 import { MRT_ColumnDef } from 'material-react-table';
-import {
-    fetchMonthlyReimbursementsOfAllEmp,
-    fetchYearlyReimbursementsOfAllEmp,
-    fetchAllTimeReimbursementsOfAllEmp,
-} from '@utils/statistics';
 import { IReimbursementsFetch } from '@models/employee';
-import { generateFiscalYearFromGivenYear } from '@utils/file';
-import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
-import { useEventBus } from '@hooks/useEventBus';
-import { EVENT_KEYS } from '@constants/eventKeys';
 import { summariseReimbursements } from '../../utils/reimbursementSummary';
 import { formatINR, NO_VALUE, projectTitle } from '../../utils/reimbursementFormat';
-import LoadErrorState from '../../components/LoadErrorState';
 import RecordsEmptyState from '../../components/RecordsEmptyState';
 
 /**
@@ -27,16 +14,14 @@ import RecordsEmptyState from '../../components/RecordsEmptyState';
  * project since the beginning — every line has a lead, and the bill PDF prints it — but nothing
  * grouped by it, so the one question a project manager actually asks had no screen.
  *
- * Grouped client-side from the same period-scoped fetch the other admin tabs use, rather than
- * through the per-project endpoint. That endpoint answers for ONE project; a rollup needs all of
- * them, and asking it once per project would be the N+1 this module has just spent a phase
- * removing.
+ * Grouped client-side from the rows the parent already fetched. It used to be its own tab with its
+ * own period toolbar and its own copy of the same fetch, which meant two requests for identical
+ * data and two period selectors that could drift out of step. It now renders under the employee
+ * table on Reimbursement Details and reads the parent's period.
  *
  * There is no budget concept anywhere in the system, so this reports spend, not variance. A
  * "remaining" column would need a number nobody has entered.
  */
-
-type PeriodAlignment = 'monthly' | 'yearly' | 'allTime';
 
 interface ProjectRollup {
     projectId: string;
@@ -50,44 +35,16 @@ interface ProjectRollup {
     outstandingAmount: number;
 }
 
+interface ByProjectProps {
+    rows: IReimbursementsFetch[];
+    loading: boolean;
+    periodLabel: string;
+}
+
 /** Rows with no project at all are their own bucket, not hidden — 80% of history has none. */
 const UNASSIGNED = '__unassigned__';
 
-function ByProject() {
-    const [alignment, setAlignment] = useState<PeriodAlignment>('monthly');
-    const [month, setMonth] = useState<Dayjs>(dayjs());
-    const [year, setYear] = useState<Dayjs>(dayjs());
-    const [fiscalYear, setFiscalYear] = useState('');
-    const [rows, setRows] = useState<IReimbursementsFetch[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [loadError, setLoadError] = useState(false);
-
-    useEffect(() => {
-        if (!year) return;
-        generateFiscalYearFromGivenYear(year)
-            .then(({ startDate, endDate }) => setFiscalYear(`${startDate} to ${endDate}`))
-            .catch(() => undefined);
-    }, [year]);
-
-    const load = useCallback(async () => {
-        setLoading(true);
-        setLoadError(false);
-        try {
-            const data = alignment === 'monthly' ? await fetchMonthlyReimbursementsOfAllEmp(month)
-                : alignment === 'yearly' ? await fetchYearlyReimbursementsOfAllEmp(year)
-                : await fetchAllTimeReimbursementsOfAllEmp();
-            setRows(data);
-        } catch {
-            setRows([]);
-            setLoadError(true);
-        } finally {
-            setLoading(false);
-        }
-    }, [alignment, month, year]);
-
-    useEffect(() => { load(); }, [load]);
-    useEventBus(EVENT_KEYS.reimbursementChanged, () => { load(); });
-
+function ByProject({ rows, loading, periodLabel }: ByProjectProps) {
     const rollups = useMemo<ProjectRollup[]>(() => {
         const byProject = new Map<string, { name: string; lines: IReimbursementsFetch[]; employees: Set<string> }>();
 
@@ -104,7 +61,7 @@ function ByProject() {
 
         return [...byProject.entries()]
             .map(([projectId, { name, lines, employees }]) => {
-                // The same aggregator both admin tabs use, so a project total and an employee
+                // The same aggregator both admin tables use, so a project total and an employee
                 // total can never disagree about what "approved" means.
                 const s = summariseReimbursements(lines as any[]);
                 return {
@@ -171,54 +128,30 @@ function ByProject() {
         },
     ], [totals]);
 
-    const periodLabel = alignment === 'monthly' ? month.format('MMMM YYYY')
-        : alignment === 'yearly' ? formatFiscalYearLabel(fiscalYear) : 'all time';
-
     return (
-        <Box sx={{ width: '100%' }}>
-            <SalaryPeriodToolbar
-                alignment={alignment}
-                options={[
-                    { label: 'Monthly', value: 'monthly' },
-                    { label: 'Yearly', value: 'yearly' },
-                    { label: 'All Time', value: 'allTime' },
-                ]}
-                onAlignmentChange={(v: string) => setAlignment(v as PeriodAlignment)}
-                periodLabel={periodLabel}
-                onPrevious={alignment === 'monthly' ? () => setMonth((m) => m.subtract(1, 'month'))
-                    : alignment === 'yearly' ? () => setYear((y) => y.subtract(1, 'year')) : undefined}
-                onNext={alignment === 'monthly' ? () => setMonth((m) => m.add(1, 'month'))
-                    : alignment === 'yearly' ? () => setYear((y) => y.add(1, 'year')) : undefined}
-                disablePrevious={loading}
-                disableNext={loading}
-            />
-
-            <div className='mt-5'>
-                <h1>Reimbursements by Project — {periodLabel}</h1>
-                {loadError && !loading ? (
-                    <LoadErrorState what='project reimbursements' onRetry={load} />
-                ) : !loading && rollups.length === 0 ? (
-                    <RecordsEmptyState periodLabel={periodLabel} />
-                ) : (
-                    <MaterialTable
-                        data={rollups}
-                        columns={columns}
-                        tableName='ReimbursementsByProject'
-                        isLoading={loading}
-                        showColumnFooter
-                        renderExportActions={() => (
-                            <ExportButton
-                                data={rollups}
-                                columns={columns as any}
-                                filename={`reimbursements-by-project-${periodLabel.toLowerCase().replace(/\s+/g, '-')}`}
-                                showTotals
-                                totalLabel='TOTAL'
-                            />
-                        )}
-                    />
-                )}
-            </div>
-        </Box>
+        <div className='mt-5'>
+            <h1>Reimbursements by Project — {periodLabel}</h1>
+            {!loading && rollups.length === 0 ? (
+                <RecordsEmptyState periodLabel={periodLabel} />
+            ) : (
+                <MaterialTable
+                    data={rollups}
+                    columns={columns}
+                    tableName='ReimbursementsByProject'
+                    isLoading={loading}
+                    showColumnFooter
+                    renderExportActions={() => (
+                        <ExportButton
+                            data={rollups}
+                            columns={columns as any}
+                            filename={`reimbursements-by-project-${periodLabel.toLowerCase().replace(/\s+/g, '-')}`}
+                            showTotals
+                            totalLabel='TOTAL'
+                        />
+                    )}
+                />
+            )}
+        </div>
     );
 }
 
