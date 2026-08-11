@@ -786,8 +786,12 @@ export interface EmployeeIdCardDetails {
     branch: string | null;
     /** ISO `YYYY-MM-DD`. Format for display with `formatDate` at the render site. */
     dateOfJoining: string | null;
+    /** As stored, WITHOUT its country code — merge with `formatPhoneWithCode`. */
     phone: string | null;
+    /** Country dial code, e.g. "91". Renders as a `+91` prefix, not a suffix. */
+    phoneCountryCode: string | null;
     email: string | null;
+    /** Stored token, e.g. "AB_POS" — map with `formatBloodGroup` before display. */
     bloodGroup: string | null;
     emergencyContactName: string | null;
     emergencyContactNumber: string | null;
