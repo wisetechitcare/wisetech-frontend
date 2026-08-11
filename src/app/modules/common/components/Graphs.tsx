@@ -1819,8 +1819,6 @@ export const StatisticsTable = ({
     const paginatedData = useMemo(() => {
         return isWeekendOrHoliday;
     }, [isWeekendOrHoliday]);
-    // debugger;
-    // console.log("paginatedData:: ",paginatedData);
 
     const columns = useMemo<MRT_ColumnDef<IAttendance>[]>(() => [
         {
@@ -1872,6 +1870,11 @@ export const StatisticsTable = ({
                         employeeThreshold?.lateCheckInThreshold ?? lateCheckInThreshold,
                     leaveConfig: leaveConfiguration,
                     skipColoring,
+                    // Drives the master switch's HOLIDAY and WEEKEND legs. It was computed
+                    // for skipColoring above and then dropped, so only the on-site third of
+                    // the policy could ever apply — a day that was WORKED has status Present
+                    // or Working on weekend, neither of which skipColoring treats as neutral.
+                    isWeekendOrHoliday: employee.isWeekendOrHoliday === true,
                 });
 
                 // Prefer the backend's authoritative late determination (resolves the viewed
@@ -2661,6 +2664,12 @@ export const ReportsTable = ({
                         employee.status,
                         employee.isWeekendOrHoliday
                     ),
+                    // Same gap as StatisticsTable: without this the weekend/holiday legs of
+                    // the master switch cannot fire. This table renders attendance REQUESTS
+                    // across employees, so there is no per-row server verdict to prefer and
+                    // fetching one per row would be an N+1 — the local derivation stays here
+                    // deliberately, which is why the shared fallback cannot be deleted.
+                    isWeekendOrHoliday: employee.isWeekendOrHoliday === true,
                 });
 
                 return (
