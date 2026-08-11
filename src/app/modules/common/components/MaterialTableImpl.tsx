@@ -32,6 +32,7 @@ import { permissionConstToUseWithHasPermission, Status } from "@constants/statis
 import useTablePreferences from "@hooks/useTablePreferences";
 import { fitColumnWidth } from "./fitColumnWidth";
 import { rowId, resolveSelectedRows, selectionSignature } from "./table/rowSelection";
+import { useGridNavigation } from "./table/useGridNavigation";
 import {
   HighlightMatch,
   intelligentSearchFilterFn,
@@ -439,6 +440,12 @@ function MaterialTable({
   const { mode: metronicMode } = useThemeMode();
   const mode = metronicMode === "system" ? "light" : metronicMode;
   const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  // Arrow-key movement over the body. MRT ships no keyboard support at all (2.13.3),
+  // so without this a keyboard user tabs through every interactive element in the grid
+  // in DOM order — hundreds of stops on a wide table. Movement logic is unit tested in
+  // ./table/gridNavigation.
+  useGridNavigation(tableContainerRef, true);
   const scrollTrackRef = useRef<HTMLDivElement>(null);
   const scrollThumbRef = useRef<HTMLDivElement>(null);
   const scrollBarWrapRef = useRef<HTMLDivElement>(null);
