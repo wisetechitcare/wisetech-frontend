@@ -154,7 +154,9 @@ const EmployeeListContent = () => {
     dateColumn({ accessorKey: "dateOfJoining", header: "Date Of Joining" }),
     {
       accessorKey: "experience",
-      header: "Total Experience",
+      // "Tenure", not "Total Experience": this counts time at WiseTech only.
+      // Previous employers live in EmployeePreviousExperience and are NOT included.
+      header: "Tenure",
       sortingFn: (rowA: any, rowB: any) => {
         const monthsA = parseExperienceToMonths(rowA.getValue("experience"));
         const monthsB = parseExperienceToMonths(rowB.getValue("experience"));
@@ -214,12 +216,18 @@ const EmployeeListContent = () => {
     // },
     {
       accessorKey: "employeeType",
+      // Not sortable: the value is computed in the browser, so no SQL column
+      // reproduces this order. With manualSorting the arrow would do nothing.
+      enableSorting: false,
       header: "Type of Employee",
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
       accessorKey: "employeeStatus",
+      // Not sortable: the value is computed in the browser, so no SQL column
+      // reproduces this order. With manualSorting the arrow would do nothing.
+      enableSorting: false,
       header: "Status",
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
@@ -244,6 +252,9 @@ const EmployeeListContent = () => {
     },
     {
       accessorKey: "mealPreference",
+      // Not sortable: the value is computed in the browser, so no SQL column
+      // reproduces this order. With manualSorting the arrow would do nothing.
+      enableSorting: false,
       header: "Meal preference",
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
