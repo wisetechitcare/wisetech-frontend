@@ -70,7 +70,7 @@ const ACCENT_BY_SECTION: Record<string, AccentName> = {
   // an accent read as a single group, which is exactly what promoting them out of
   // their parent was meant to undo.
   'projects-section': 'purple',
-  'payment-section': 'indigo',
+  'purchase-section': 'indigo',
   'finance-section': 'rose',
   'organization-section': 'teal',
   'admin-section': 'amber',

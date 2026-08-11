@@ -26,6 +26,7 @@ import ReceiptRounded from '@mui/icons-material/ReceiptRounded';
 import SavingsRounded from '@mui/icons-material/SavingsRounded';
 import TrendingUpRounded from '@mui/icons-material/TrendingUpRounded';
 import SettingsRounded from '@mui/icons-material/SettingsRounded';
+import ShoppingCartRounded from '@mui/icons-material/ShoppingCartRounded';
 import SpeedRounded from '@mui/icons-material/SpeedRounded';
 import SwapHorizRounded from '@mui/icons-material/SwapHorizRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
@@ -75,6 +76,7 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-person-rolodex': ContactsRounded,
   'bi-kanban': ViewKanbanRounded,
   'bi-credit-card': CreditCardRounded,
+  'bi-cart3': ShoppingCartRounded,
   'bi-folder': FolderRounded,
   'bi-record-circle': CircleRounded,
 };

@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { LayoutGroup, MotionConfig } from 'framer-motion';
 import { useWorkspaceShell } from '../WorkspaceShellContext';
 import { toDockApp } from '../useWorkspaceApps';
-import { HOME_BACKDROP, SHELL_DOCKED, SHELL_HOME } from '../shellTokens';
+import { BackgroundEngine } from '@components/background';
+import { SHELL_DOCKED, SHELL_HOME } from '../shellTokens';
 import { AppDock } from './AppDock';
 import { DockHomeLink } from './DockHomeLink';
 import { Workspace } from './Workspace';
@@ -56,10 +57,16 @@ export function WorkspaceLayout() {
       <LayoutGroup id="workspace-shell">
         {/* `data-shell-mode` is the single styling/devtools hook for the whole shell. */}
         <div data-shell-mode={mode} className={mode === 'home' ? SHELL_HOME : SHELL_DOCKED}>
-          {/* The one decorative layer in the product: a static radial wash so a sparse
-              launcher does not read as an empty screen. No animation, no particles, no
-              per-frame cost — it is a background-image on a single element. */}
-          {mode === 'home' && <span className={HOME_BACKDROP} aria-hidden="true" />}
+          {/* The ambient background, HOME ONLY — page colour, soft wash and the reactive dot
+              grid, all painted into ONE canvas (see components/background/engine.ts).
+              A separate CSS wash element used to sit behind it; the canvas is opaque, so it
+              covered it. One surface with one paint order beats two that must agree.
+
+              Scoped to Home because that is the only sparse screen in the product: a
+              workspace is full of content that would compete with it, and mounting it there
+              would spend frames on something nobody looks at. Docking unmounts it, which
+              tears down the rAF loop and every listener outright. */}
+          {mode === 'home' && <BackgroundEngine />}
           {showDock && (
             <AppDock
               apps={dockApps}
