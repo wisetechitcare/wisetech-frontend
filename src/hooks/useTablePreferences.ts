@@ -126,6 +126,24 @@ function trackTableNameCollision(tableName: string): () => void {
     };
 }
 
+// Session cache of resolved preference buckets, keyed by employee+table.
+//
+// WHY: `initialLoadRef` is reset on unmount, so EVERY mount re-fetches from the DB and
+// the table sits behind its skeleton until that round trip lands. Pages that swap the
+// table for a loader and remount — the exact pattern the reconcile comments below
+// describe — paid that cost repeatedly, re-showing the skeleton each time.
+//
+// Deliberately NOT a fix for the first paint: the `isInitialized` gate stays. Rendering
+// the table before preferences resolve would emit onVisibleColumnsChange twice (defaults,
+// then saved) and re-open the refetch loop that gate exists to prevent, plus flash the
+// wrong columns at anyone who has hidden some.
+//
+// ponytail: session-scoped Map, never evicted. Buckets are a few KB and bounded by the
+// tables one user visits; swap for an LRU only if that stops being true. A second tab
+// editing the same bucket will not invalidate this one — acceptable for per-user layout.
+const prefsCache = new Map<string, TablePreferences>();
+const prefsCacheKey = (employeeId: string, tableName: string) => `${employeeId}::${tableName}`;
+
 function useTablePreferences(tableName: string, columns: any[], employeeId?: string, defaultSorting?: Array<{ id: string; desc: boolean }>, persist: boolean = true) {
     // Use refs to prevent recreating functions and causing loops
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -186,6 +204,11 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
         // The write itself, captured so unmount can run it immediately instead
         // of dropping it. Reassigned on every schedule, so it always closes over
         // the newest preferences and never a stale employeeId/tableName.
+        // Cache immediately, not after the write resolves: local state is already the
+        // source of truth for this bucket, and a remount during the 500ms debounce must
+        // not read a value older than what the user just did.
+        prefsCache.set(prefsCacheKey(employeeId, tableName), newPreferences);
+
         pendingSaveRef.current = async () => {
             pendingSaveRef.current = null;
             try {
@@ -228,9 +251,31 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
                 return;
             }
 
+            // Served from the session cache — no round trip, no second skeleton. The
+            // reconcile below still runs, so a column set that changed since the bucket
+            // was cached is still corrected before isInitialized flips.
+            if (employeeId) {
+                const cached = prefsCache.get(prefsCacheKey(employeeId, tableName));
+                if (cached) {
+                    const reconciled = reconcilePrefsWithColumns(columns, cached, defaultSorting);
+                    const next = reconciled ?? cached;
+                    if (reconciled) {
+                        prefsCache.set(prefsCacheKey(employeeId, tableName), next);
+                        upsertUserTablePreferences(employeeId, tableName, next)
+                            .catch((error) => console.error('Error persisting reconciled table preferences:', error));
+                    }
+                    if (!isCancelled && isMountedRef.current) {
+                        setPreferences(next);
+                        setIsLoading(false);
+                        setIsInitialized(true);
+                    }
+                    return;
+                }
+            }
+
             try {
                 let loadedPreferences: TablePreferences | null = null;
-                
+
                 if (employeeId) {
                     const dbPreferences = await getUserTablePreferences(employeeId, tableName);
                     
@@ -289,6 +334,12 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
                             upsertUserTablePreferences(employeeId, tableName, reconciled)
                                 .catch((error) => console.error('Error persisting reconciled table preferences:', error));
                         }
+                    }
+
+                    // Seed the session cache with the fully-resolved bucket so a remount
+                    // skips the round trip entirely.
+                    if (employeeId) {
+                        prefsCache.set(prefsCacheKey(employeeId, tableName), finalPreferences);
                     }
 
                     // Set all state in one batch to prevent multiple renders
@@ -428,6 +479,9 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
         setPreferences(defaultPreferences);
 
         if (persist && employeeId) {
+            // Reset the cache too — otherwise a remount immediately restores the layout
+            // the user just asked to discard.
+            prefsCache.set(prefsCacheKey(employeeId, tableName), defaultPreferences);
             try {
                 await upsertUserTablePreferences(employeeId, tableName, defaultPreferences);
                 console.log("Preferences reset successfully for", tableName);
