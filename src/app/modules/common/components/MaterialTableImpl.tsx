@@ -117,6 +117,18 @@ export interface MaterialTableProps {
   /** Notifies the parent of the currently-visible column keys (after preferences load
    *  and on every show/hide toggle). Lets a page fetch only the data those columns need. */
   onVisibleColumnsChange?: (visibleKeys: string[]) => void;
+  /**
+   * Row multi-select. Off by default, so all 87 existing tables are untouched.
+   *
+   * The engine (material-react-table) has always supported this — it was simply never
+   * switched on anywhere, which is why the app has no bulk actions. Turning it on per
+   * table is the cheapest route to them.
+   */
+  enableRowSelection?: boolean;
+  /** Fires with the selected rows (row.original), so a page can act on them. */
+  onSelectedRowsChange?: (rows: any[]) => void;
+  /** Rendered in the toolbar while rows are selected — put bulk actions here. */
+  renderSelectionActions?: (selected: any[]) => React.ReactNode;
   /** When false, column/sort/etc. preferences are neither loaded from nor saved to the DB —
    *  the table always renders the code-defined defaults (meta.defaultVisible). Use for
    *  ephemeral tables such as chart drill-down modals, where a persisted per-instance bucket
@@ -144,17 +156,72 @@ const colKey = (col: any): string | undefined => col.accessorKey ?? col.id;
  * on each other. Make both solid, and keep MRT's inset edge shadow, which is the thing that
  * actually signals "this column is pinned".
  */
-const pinnedCellSx = {
+/**
+ * The active (debounced) search query, published to cells.
+ *
+ * WHY CONTEXT: the highlight wrapper needs the query, but reading it from the closure of
+ * the `finalColumns` memo forced that memo to depend on the query — so every keystroke
+ * rebuilt all column definitions and invalidated MRT's whole column model. Subscribing
+ * here instead means a keystroke re-renders only the cells.
+ */
+const SearchQueryContext = React.createContext<string>("");
+
+/**
+ * Wraps a rendered cell value and highlights matches against the active query.
+ *
+ * A real component, not a helper called during render, so `useContext` is legal: MRT
+ * invokes `Cell` as a render function, and hooks inside one are not guaranteed to be
+ * stable across MRT's internal re-renders.
+ */
+const HighlightedCell = ({ content }: { content: any }) => {
+  const query = React.useContext(SearchQueryContext);
+
+  const highlight = (text: any) =>
+    typeof text === "string" && query ? <HighlightMatch text={text} query={query} /> : text;
+
+  if (typeof content === "string") return <>{highlight(content)}</>;
+
+  // A simple element with a single string child — highlight through it.
+  if (
+    React.isValidElement(content) &&
+    content.props &&
+    typeof (content.props as any).children === "string"
+  ) {
+    return React.cloneElement(
+      content as React.ReactElement,
+      { children: highlight((content.props as any).children) } as any,
+    );
+  }
+
+  return <>{content}</>;
+};
+
+const pinnedCellSx = (mode: "light" | "dark") => ({
   '&[data-pinned="true"]': {
     // The cell stays background-less so row hover and status tinting still show; the
     // `::before` (zIndex -1) is the backdrop underneath them.
     opacity: 1,
     "&:before": {
-      backgroundColor: "#fff",
+      // Must follow the theme. Hardcoded "#fff" painted a WHITE slab behind pinned
+      // columns in dark mode — the one place the backdrop is opaque by design, so it
+      // could not be missed. Matches the engine's own background.default convention.
+      backgroundColor: mode === "light" ? "#fff" : "#000",
       opacity: 1,
     },
   },
-};
+});
+
+/**
+ * Skeleton palette. Values are lifted verbatim from the lazy wrapper's skeleton in
+ * MaterialTable.tsx (GitHub-dark: #0d1117 / #161b22 / #21262d / #30363d) so the two
+ * agree. They previously did not: the wrapper's skeleton was dark-aware and this one was
+ * hardcoded light, so a dark-mode user watched a correct dark skeleton flip to a white
+ * box before the table painted.
+ */
+const skeletonPalette = (mode: "light" | "dark") =>
+  mode === "light"
+    ? { surface: "#fff", header: "#FAFBFC", border: "#EAECF0", rowBorder: "#F3F4F6", bar: "#E5E7EB", barSoft: "#F3F4F6" }
+    : { surface: "#0d1117", header: "#161b22", border: "#30363d", rowBorder: "#21262d", bar: "#30363d", barSoft: "#21262d" };
 
 
 function MaterialTable({
@@ -202,8 +269,15 @@ function MaterialTable({
   showColumnFooter = false,
   defaultSorting,
   onVisibleColumnsChange,
+  enableRowSelection = false,
+  onSelectedRowsChange,
+  renderSelectionActions,
   persistPreferences = true,
 }: MaterialTableProps) {
+  // Selection is NOT persisted to preferences: it is transient intent ("act on these
+  // now"), not layout. Restoring a stale selection after a reload and then firing a bulk
+  // action against it is exactly the kind of surprise that destroys data.
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   // When the pager is hidden on a client-side table, we render ALL rows (no paging)
   // and also drop the rows-per-page selector + range count, which would otherwise
   // be misleading (e.g. "Rows per page: 10 · 1–10 of 19" while all 19 rows show).
@@ -243,43 +317,20 @@ function MaterialTable({
           ? { enableSorting: false, enableColumnActions: false, enableHiding: false }
           : {}),
         ...col, // custom column values will override defaults
-        Cell: (cellProps: any) => {
-          const content = col.Cell
-            ? col.Cell(cellProps)
-            : cellProps.cell.getValue();
-
-          const highlight = (text: any) => {
-            if (typeof text === "string" && debouncedFilterValue) {
-              return <HighlightMatch text={text} query={debouncedFilterValue} />;
-            }
-            return text;
-          };
-
-          if (typeof content === "string") return highlight(content);
-
-          // If it's a simple React element with a string child, try to highlight it
-          if (
-            React.isValidElement(content) &&
-            content.props &&
-            typeof (content.props as any).children === "string"
-          ) {
-            return React.cloneElement(
-              content as React.ReactElement,
-              {
-                children: highlight((content.props as any).children),
-              } as any,
-            );
-          }
-
-          return content;
-        },
+        // The search query is read from context INSIDE HighlightedCell, not closed over
+        // here — see SearchQueryContext. That is what keeps this memo independent of the
+        // query and off the per-keystroke path.
+        Cell: (cellProps: any) => (
+          <HighlightedCell content={col.Cell ? col.Cell(cellProps) : cellProps.cell.getValue()} />
+        ),
         };
       }),
-    // debouncedFilterValue, NOT the raw input: this memo rebuilds every column
-    // definition (and MRT's whole column model) on each keystroke otherwise.
-    // The rows it highlights are debounced too, so highlight and results now
-    // update on the same tick instead of the text leading the data.
-    [columns, debouncedFilterValue],
+    // Deliberately NOT depending on the search query. This memo rebuilds every column
+    // definition, which invalidates MRT's entire column model; doing that on each
+    // keystroke was the single most expensive thing typing in the search box did.
+    // Highlighting still updates on every keystroke because HighlightedCell subscribes
+    // to the query via context, so only the cells re-render, not the column model.
+    [columns],
   );
 
   /**
@@ -806,6 +857,31 @@ function MaterialTable({
     finalData,
   ]);
 
+  // Resolve the selection map back to rows. Must use the SAME identity as MRT's getRowId
+  // below (row.id, falling back to index) or the keys will not match and the selection
+  // will silently resolve to nothing.
+  const selectedRows = useMemo(() => {
+    if (!enableRowSelection) return [];
+    const selectedKeys = Object.keys(rowSelection).filter((k) => rowSelection[k]);
+    if (selectedKeys.length === 0) return [];
+    const keySet = new Set(selectedKeys);
+    return tableData.filter((row: any, index: number) =>
+      keySet.has(row?.id ? String(row.id) : String(index)),
+    );
+  }, [enableRowSelection, rowSelection, tableData]);
+
+  // Surface the selection to the page. Gated on the resolved ids, not object identity —
+  // tableData gets a fresh reference on every filter/sort pass, which would otherwise
+  // re-notify the parent (and re-run its effects) on every keystroke.
+  const lastSelectionSigRef = useRef<string>("");
+  useEffect(() => {
+    if (!onSelectedRowsChange) return;
+    const sig = selectedRows.map((r: any) => r?.id ?? "").join(",");
+    if (sig === lastSelectionSigRef.current) return;
+    lastSelectionSigRef.current = sig;
+    onSelectedRowsChange(selectedRows);
+  }, [selectedRows, onSelectedRowsChange]);
+
   const activePagination = paginationState || preferences.pagination;
   const pageIndex = activePagination?.pageIndex ?? 0;
   const pageSize = activePagination?.pageSize ?? 50;
@@ -833,14 +909,15 @@ function MaterialTable({
   }, [preferences.columnPinning, sizedColumns, enableColumnPinning, isMobile]);
 
   if (preferencesLoading || !isInitialized) {
+    const skel = skeletonPalette(mode);
     return (
       <div
         style={{
           padding: "0",
           borderRadius: "12px",
           overflow: "hidden",
-          border: "1px solid #EAECF0",
-          backgroundColor: "#fff",
+          border: `1px solid ${skel.border}`,
+          backgroundColor: skel.surface,
         }}
       >
         {/* Skeleton header row */}
@@ -850,8 +927,8 @@ function MaterialTable({
             alignItems: "center",
             gap: "0",
             height: "48px",
-            backgroundColor: "#FAFBFC",
-            borderBottom: "2px solid #EAECF0",
+            backgroundColor: skel.header,
+            borderBottom: `2px solid ${skel.border}`,
             padding: "0 16px",
           }}
         >
@@ -869,9 +946,9 @@ function MaterialTable({
                 className="et-skeleton-pulse"
                 style={{
                   height: "12px",
-                  width: `${60 + Math.random() * 30}%`,
+                  width: `${60 + ((i * 13) % 30)}%`,
                   borderRadius: "4px",
-                  backgroundColor: "#E5E7EB",
+                  backgroundColor: skel.bar,
                 }}
               />
             </div>
@@ -885,7 +962,7 @@ function MaterialTable({
               display: "flex",
               alignItems: "center",
               height: "52px",
-              borderBottom: "1px solid #F3F4F6",
+              borderBottom: `1px solid ${skel.rowBorder}`,
               opacity,
             }}
           >
@@ -905,7 +982,7 @@ function MaterialTable({
                     height: colIdx === 4 ? "22px" : "13px",
                     width: colIdx === 4 ? "64px" : `${50 + (colIdx * 7) % 40}%`,
                     borderRadius: colIdx === 4 ? "20px" : "4px",
-                    backgroundColor: "#F3F4F6",
+                    backgroundColor: skel.barSoft,
                   }}
                 />
               </div>
@@ -919,7 +996,7 @@ function MaterialTable({
             alignItems: "center",
             justifyContent: "space-between",
             padding: "14px 20px",
-            borderTop: "1px solid #F3F4F6",
+            borderTop: `1px solid ${skel.rowBorder}`,
           }}
         >
           <div style={{ display: "flex", gap: "8px" }}>
@@ -931,7 +1008,7 @@ function MaterialTable({
                   height: "34px",
                   width: `${w}px`,
                   borderRadius: "8px",
-                  backgroundColor: "#F3F4F6",
+                  backgroundColor: skel.barSoft,
                 }}
               />
             ))}
@@ -945,7 +1022,7 @@ function MaterialTable({
                   height: "34px",
                   width: "34px",
                   borderRadius: "8px",
-                  backgroundColor: "#F3F4F6",
+                  backgroundColor: skel.barSoft,
                 }}
               />
             ))}
@@ -957,6 +1034,7 @@ function MaterialTable({
 
   return (
     <ThemeProvider theme={tableTheme}>
+     <SearchQueryContext.Provider value={debouncedFilterValue}>
       <div className="pt-6 pb-3">
         {/* Mobile Search Section - Full Width */}
         {enableColumnSpecificSearch &&
@@ -1208,6 +1286,8 @@ function MaterialTable({
         <MaterialReactTable
           key={`${tableName}-${prefsEmployeeId}-${isInitialized}-${selectedSearchColumn}`}
           getRowId={(row: any, index: number) => row.id ? String(row.id) : String(index)}
+          enableRowSelection={enableRowSelection}
+          onRowSelectionChange={setRowSelection}
           renderDetailPanel={renderDetailPanel}
           state={{
             columnVisibility: preferences.columnVisibility,
@@ -1221,6 +1301,7 @@ function MaterialTable({
             globalFilter: enableColumnSpecificSearch ? undefined : debouncedFilterValue,
             isLoading: isLoading,
             showProgressBars: isLoading,
+            rowSelection,
           }}
           onColumnVisibilityChange={updateColumnVisibility}
           onColumnOrderChange={updateColumnOrder}
@@ -1368,7 +1449,7 @@ function MaterialTable({
                 pointerEvents: "auto",
               },
 
-              ...pinnedCellSx,
+              ...pinnedCellSx(mode),
               "&[data-pinned='true']": {
                 zIndex: 3,
               },
@@ -1404,7 +1485,7 @@ function MaterialTable({
               "&:last-child": {
                 borderRight: "none",
               },
-              ...pinnedCellSx,
+              ...pinnedCellSx(mode),
               "&[data-pinned='true']": {
                 zIndex: 1,
               },
@@ -1530,7 +1611,7 @@ function MaterialTable({
               ? {
                 opacity: 1, // MRT dims sticky footers to 0.97; rows must not bleed through
                 "& .MuiTableCell-footer": {
-                  ...pinnedCellSx,
+                  ...pinnedCellSx(mode),
                   backgroundColor: "#f8f9fa",
                   color: "#0f172a",
                   fontWeight: 800,
@@ -1885,11 +1966,21 @@ function MaterialTable({
                       width: { xs: "100%", lg: "auto" },
                     }}
                   >
+                    {/* Bulk actions for the current selection. Rendered only while rows are
+                        selected, so the toolbar is unchanged for every table that has not
+                        opted into selection. */}
+                    {enableRowSelection && selectedRows.length > 0 && renderSelectionActions
+                      ? renderSelectionActions(selectedRows)
+                      : null}
+
                     {renderExportActions ? (
                       renderExportActions()
                     ) : !hideExportCenter ? (
                       <ExportButton
-                        data={tableData}
+                        // Export the SELECTION when there is one — "export" after ticking
+                        // rows means those rows, not the whole table. Falls back to
+                        // everything when nothing is selected, which is the old behaviour.
+                        data={selectedRows.length > 0 ? selectedRows : tableData}
                         columns={autoExportCols}
                         filename={tableName}
                         title={autoExportTitle}
@@ -2278,6 +2369,7 @@ function MaterialTable({
           }}
         />
       </div>
+     </SearchQueryContext.Provider>
     </ThemeProvider>
   );
 }
