@@ -1,8 +1,15 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import dayjs from "dayjs";
 import { Link, useNavigate } from "react-router-dom";
 import { KTIcon } from "@metronic/helpers";
-import { fetchAllEmployees } from "@services/employee";
+import { fetchEmployeesPage, fetchEmployeeFacets } from "@services/employee";
+import { useServerPagination } from "@hooks/useServerPagination";
+import {
+  buildEmployeeListParams,
+  employeeFilterKey,
+  type EmployeeListFilters,
+  type FacetOption,
+} from "./employeeListParams";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { actionsColumn, dateColumn, employeeColumn } from "@app/modules/common/components/table/columns";
 import { useSelector } from "react-redux";
@@ -28,21 +35,58 @@ interface StatusCounts {
   inactive: number;
 }
 
+/**
+ * API row -> table row. Hoisted out of the fetch so the paginated path can reuse it.
+ * `branchesData` is only a fallback for rows without a joined branch.
+ */
+const mapEmployeeRow = (obj: Record<string, any>, branchesData: any[]) => {
+  const employeeNewStatus = getEmployeeStatusString(obj as any);
+  // Resolved by the API via the EmployeeReferredBy relation. This used to be a
+  // client-side join across the whole list, which only worked while the browser held
+  // every employee.
+  const referredBy = obj.referredBy;
+  const employeeTypeMap: Record<string, string> = {};
+
+  return {
+    ...obj,
+    users: `${obj.users.firstName} ${obj.users.lastName}`,
+    experience: calculateTotalExperience(obj as any),
+    designations: obj.designations ? obj?.designations?.role : "N/A",
+    departments: obj.departments ? obj.departments.name : "N/A",
+    dateOfJoining: obj.dateOfJoining ? dayjs(obj.dateOfJoining).format("DD/MM/YYYY") : "N/A",
+    createdAt: obj.createdAt ? dayjs(obj.createdAt).format("DD/MM/YYYY") : "N/A",
+    employeeType: employeeTypeMap[obj.employeeTypeId] || "N/A",
+    dateOfExit: obj.dateOfExit ? dayjs(obj.dateOfExit).format("DD/MM/YYYY") : "N/A",
+    dateOfReJoining: obj.dateOfReJoining ? dayjs(obj.dateOfReJoining).format("DD/MM/YYYY") : "N/A",
+    dateOfReExit: obj.dateOfReExit ? dayjs(obj.dateOfReExit).format("DD/MM/YYYY") : "N/A",
+    branches: obj.branches?.name || branchesData.find((b: any) => b.id === obj.branchId)?.name || "N/A",
+    subOrganization: obj.companyOverview?.name || "N/A",
+    payType: obj.professionalFeesEnabled ? "Contract Based" : "Salary Based",
+    employeeStatus: employeeNewStatus,
+    gender: obj.gender === 0 ? "Male" : (obj.gender === 1 ? "Female" : (obj.gender === 2 ? "Other" : "N/A")),
+    maritalStatus: obj.maritalStatus ? "Unmarried" : (obj.maritalStatus === 0 ? "Married" : "N/A"),
+    referredBy: referredBy?.users ? `${referredBy.users.firstName} ${referredBy.users.lastName}` : "N/A",
+    mealPreference: obj.veganMealPreference ? "Vegan" : obj.nonVegMealPreference ? "Non-Vegetarian" : obj.vegMealPreference ? "Vegetarian" : "N/A",
+    avatar: obj.avatar || "",
+  };
+};
+
 const EmployeeListContent = () => {
-  const [allEmployees, setAllEmployees] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(false);
+  // Search and sort are owned here now, not by the table: the server applies them, so the
+  // page has to know the values to send. The table reports them via onSearchChange /
+  // onSortingChange.
+  const [search, setSearch] = useState<string>("");
+  const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([]);
+  const [facets, setFacets] = useState<{ branches: FacetOption[]; subOrganizations: FacetOption[] }>({
+    branches: [],
+    subOrganizations: [],
+  });
   const [selectedStatus, setSelectedStatus] = useState<StatusType>("active");
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ all: 0, active: 0, inactive: 0 });
   const [branchFilter, setBranchFilter] = useState<string>('All');
   const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
   const [payTypeFilter, setPayTypeFilter] = useState<string>('All');
-  const [currentPage, setCurrentPage] = useState(() => {
-    // Restore page from sessionStorage on mount
-    const saved = sessionStorage.getItem('employeeListPage');
-    return saved ? parseInt(saved, 10) : 0;
-  });
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const rootOrgNames = useRootOrgNames();
   // Which employee's ID card is on screen. Held as {id, name} rather than a boolean
@@ -63,10 +107,6 @@ const EmployeeListContent = () => {
     return years * 12 + months;
   };
 
-  // Save current page to sessionStorage whenever it changes
-  useEffect(() => {
-    sessionStorage.setItem('employeeListPage', currentPage.toString());
-  }, [currentPage]);
 
   const handleEditClick = useCallback((employeeId: string) => {
     navigate(`/employees/edit/${employeeId}`, { state: { employeeId } });
@@ -250,108 +290,109 @@ const EmployeeListContent = () => {
   );
   
   
+  // ── Server-side list ────────────────────────────────────────────────────────
+  // This list used to fetch EVERY employee and do paging, filtering, counting and the
+  // referrer join in the browser. That is the ceiling on multi-tenant scale, and it is
+  // also why the counts, dropdown options and referrer column all silently depended on
+  // holding the whole table. All four now come from the API.
+
+  // Branch list is still fetched whole: it is a small reference table, and the row mapper
+  // uses it only as a fallback when a row has no joined branch.
   useEffect(() => {
-    async function fetchData() {
-      try {
-        // Use initialLoading only on first load, dataLoading for subsequent loads
-        if (initialLoading) {
-          setInitialLoading(true);
-        } else {
-          setDataLoading(true);
-        }
-
-        // Always fetch all employees to get counts
-        const [employeesRes, branchesRes] = await Promise.all([
-          fetchAllEmployees(), // No filter - get all employees
-          fetchAllBranches()
-        ]);
-
-        const { data } = employeesRes;
-
-        const { data: { branches: branchesData } } = branchesRes;
-
-        setBranches(branchesData);
-
-        // Mapping of employeeTypeId to employee type name
-        const employeeTypeMap: Record<string, string> = {};
-
-        const allMappedEmployees = data.employees.map((obj: Record<string, any>) => {
-          const employeeNewStatus = getEmployeeStatusString(obj as any);
-
-          // Resolved by the API via the EmployeeReferredBy relation. This used to be a
-          // client-side join across the whole list — `employees.find(e => e.id === ...)` —
-          // which only works while the browser holds EVERY employee, and would silently
-          // render "N/A" for any referrer on another page once this list paginates.
-          const referredBy = obj.referredBy;
-
-          return {
-            ...obj,
-            users: `${obj.users.firstName} ${obj.users.lastName}`,
-            experience: calculateTotalExperience(obj as any),
-            designations: obj.designations ? obj?.designations?.role : "N/A",
-            departments: obj.departments ? obj.departments.name : "N/A",
-            dateOfJoining: obj.dateOfJoining ? dayjs(obj.dateOfJoining).format("DD/MM/YYYY") : "N/A",
-            createdAt: obj.createdAt ? dayjs(obj.createdAt).format("DD/MM/YYYY") : "N/A",
-            employeeType: employeeTypeMap[obj.employeeTypeId] || "N/A",
-            dateOfExit: obj.dateOfExit ? dayjs(obj.dateOfExit).format("DD/MM/YYYY") : "N/A",
-            dateOfReJoining: obj.dateOfReJoining ? dayjs(obj.dateOfReJoining).format("DD/MM/YYYY") : "N/A",
-            dateOfReExit: obj.dateOfReExit ? dayjs(obj.dateOfReExit).format("DD/MM/YYYY") : "N/A",
-            branches: obj.branches?.name || branchesData.find((b: any) => b.id === obj.branchId)?.name || "N/A",
-            subOrganization: obj.companyOverview?.name || "N/A",
-            payType: obj.professionalFeesEnabled ? "Contract Based" : "Salary Based",
-            employeeStatus: employeeNewStatus,
-            gender: obj.gender === 0 ? "Male" : (obj.gender === 1 ? "Female" : (obj.gender === 2 ? "Other" : "N/A")),
-            maritalStatus: obj.maritalStatus ? "Unmarried" : (obj.maritalStatus === 0 ? "Married" : "N/A"),
-            referredBy: referredBy?.users ? `${referredBy.users.firstName} ${referredBy.users.lastName}` : "N/A",
-            mealPreference: obj.veganMealPreference ? "Vegan" : obj.nonVegMealPreference ? "Non-Vegetarian" : obj.vegMealPreference ? "Vegetarian" : "N/A",
-            avatar: obj.avatar || "",
-          };
-        });
-
-        // Calculate counts
-        const activeCount = allMappedEmployees.filter((emp: any) => emp.employeeStatus === "Active").length;
-        const inactiveCount = allMappedEmployees.filter((emp: any) => emp.employeeStatus === "Inactive").length;
-        setStatusCounts({
-          all: allMappedEmployees.length,
-          active: activeCount,
-          inactive: inactiveCount
-        });
-
-        setAllEmployees(allMappedEmployees);
-      } catch (error) {
-        console.error("Error fetching employees:", error);
-      } finally {
-        setInitialLoading(false);
-        setDataLoading(false);
-      }
-    }
-    fetchData();
+    fetchAllBranches()
+      .then(({ data: { branches: branchesData } }) => setBranches(branchesData))
+      .catch((error) => console.error("Error fetching branches:", error));
   }, []);
 
-  const branchOptions = useMemo(() => {
-    const names = new Set<string>();
-    allEmployees.forEach((e: any) => { if (e.branches && e.branches !== 'N/A') names.add(e.branches); });
-    return Array.from(names).sort();
-  }, [allEmployees]);
+  // Dropdown options come from the API, scoped by status/payType/search but NOT by the
+  // branch/sub-org filters themselves — otherwise picking a branch would remove every
+  // other branch from the list you picked it from.
+  useEffect(() => {
+    fetchEmployeeFacets(
+      buildEmployeeListParams({
+        status: selectedStatus,
+        branchName: "All",
+        subOrgName: "All",
+        payType: payTypeFilter,
+        search,
+        sorting: [],
+        facets: { branches: [], subOrganizations: [] },
+      }),
+    )
+      .then((res) => setFacets(res.data ?? { branches: [], subOrganizations: [] }))
+      .catch((error) => console.error("Error fetching employee facets:", error));
+  }, [selectedStatus, payTypeFilter, search]);
 
-  const subOrgOptions = useMemo(() => {
-    const names = new Set<string>();
-    allEmployees.forEach((e: any) => {
-      // Exclude the top-level org — only actual sub-orgs belong in this dropdown.
-      if (e.subOrganization && e.subOrganization !== 'N/A' && !rootOrgNames.has(e.subOrganization)) names.add(e.subOrganization);
-    });
-    return Array.from(names).sort();
-  }, [allEmployees, rootOrgNames]);
+  const filters: EmployeeListFilters = useMemo(
+    () => ({
+      status: selectedStatus,
+      branchName: branchFilter,
+      subOrgName: subOrgFilter,
+      payType: payTypeFilter,
+      search,
+      sorting,
+      facets,
+    }),
+    [selectedStatus, branchFilter, subOrgFilter, payTypeFilter, search, sorting, facets],
+  );
 
-  const displayedEmployees = useMemo(() => {
-    let result = allEmployees;
-    if (selectedStatus === 'active') result = result.filter((e: any) => e.employeeStatus === 'Active');
-    else if (selectedStatus === 'inactive') result = result.filter((e: any) => e.employeeStatus === 'Inactive');
-    if (branchFilter !== 'All') result = result.filter((e: any) => e.branches === branchFilter);
-    if (subOrgFilter !== 'All') result = result.filter((e: any) => e.subOrganization === subOrgFilter);
-    if (payTypeFilter !== 'All') result = result.filter((e: any) => e.payType === payTypeFilter);
-    return result;
-  }, [allEmployees, selectedStatus, branchFilter, subOrgFilter, payTypeFilter]);
+  const fetchPage = useCallback(
+    async (page: number, limit: number) => {
+      const res = await fetchEmployeesPage(page, limit, buildEmployeeListParams(filters));
+      const { employees, pagination: meta, counts } = res.data;
+      // Counts arrive with the page, computed in SQL against the same filters — they must
+      // never be derived from the rows, which are one page.
+      if (counts) setStatusCounts(counts);
+      return {
+        data: employees ?? [],
+        totalRecords: meta?.totalRecords ?? employees?.length ?? 0,
+      };
+    },
+    [filters],
+  );
+
+  const {
+    data: displayedEmployees,
+    pagination,
+    totalRecords,
+    isLoading: dataLoading,
+    isInitialLoading: initialLoading,
+    setPagination,
+  } = useServerPagination<any>({
+    fetchFunction: fetchPage,
+    initialPageSize: 25,
+    transformData: (rows: any[]) => rows.map((obj) => mapEmployeeRow(obj, branches)),
+    // Any change to what the SERVER filters or orders by must snap back to page 1 —
+    // asking for page 5 of a newly-narrowed result set renders an empty table.
+    resetKey: `${employeeFilterKey(filters)}|${sorting.map((s) => `${s.id}:${s.desc}`).join()}`,
+  });
+
+  // Preserve the page across navigation (opening an employee and coming back).
+  // useServerPagination owns pagination now, so this restores THROUGH it rather than
+  // holding a rival copy — restoring once, guarded, because a re-run would yank the user
+  // back to the stored page every time they turned one.
+  const pageRestoredRef = useRef(false);
+  useEffect(() => {
+    if (pageRestoredRef.current) return;
+    pageRestoredRef.current = true;
+    const saved = parseInt(sessionStorage.getItem("employeeListPage") ?? "0", 10);
+    if (saved > 0) setPagination((prev) => ({ ...prev, pageIndex: saved }));
+  }, [setPagination]);
+
+  useEffect(() => {
+    sessionStorage.setItem("employeeListPage", String(pagination.pageIndex));
+  }, [pagination.pageIndex]);
+
+  const branchOptions = useMemo(
+    () => facets.branches.map((b) => b.name).sort(),
+    [facets],
+  );
+
+  const subOrgOptions = useMemo(
+    // Exclude the top-level org — only actual sub-orgs belong in this dropdown.
+    () => facets.subOrganizations.map((o) => o.name).filter((n) => !rootOrgNames.has(n)).sort(),
+    [facets, rootOrgNames],
+  );
 
   const hasActiveFilters = branchFilter !== 'All' || subOrgFilter !== 'All' || payTypeFilter !== 'All';
 
@@ -481,6 +522,18 @@ const EmployeeListContent = () => {
         // just those rows — read-only, so the pattern gets proven before anything that
         // writes. No other prop needed; the engine handles the rest.
         enableRowSelection={true}
+        // Server owns paging, sorting AND search. All three must move together: with any
+        // one left client-side it would act on the single page the browser holds while
+        // implying the whole result set.
+        manualPagination={true}
+        manualSorting={true}
+        manualFiltering={true}
+        rowCount={totalRecords}
+        paginationState={pagination}
+        onPaginationChange={setPagination}
+        onSortingChange={setSorting}
+        onSearchChange={setSearch}
+        isLoading={dataLoading}
       />
     </div>
 
