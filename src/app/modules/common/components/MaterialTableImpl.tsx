@@ -1258,6 +1258,7 @@ function MaterialTable({
                             lineHeight: 1,
                           }}
                           title="Clear search"
+                          aria-label="Clear search"
                         >
                           ✕
                         </button>
@@ -1310,6 +1311,31 @@ function MaterialTable({
               )}
             </div>
           )}
+
+        {/* Result count for assistive tech. Filtering and searching change the row set
+            with no announcement otherwise — a sighted user sees the table shrink, a
+            screen-reader user gets nothing at all. `polite` so it waits for a pause
+            rather than interrupting, and it is visually hidden because sighted users
+            already have the count in the pagination bar. */}
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          style={{
+            position: "absolute",
+            width: 1,
+            height: 1,
+            overflow: "hidden",
+            clip: "rect(0 0 0 0)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {isLoading
+            ? "Loading results"
+            : `${manualPagination ? (rowCount ?? tableData.length) : tableData.length} result${
+                (manualPagination ? (rowCount ?? tableData.length) : tableData.length) === 1 ? "" : "s"
+              }`}
+        </div>
 
         <MaterialReactTable
           key={`${tableName}-${prefsEmployeeId}-${isInitialized}-${selectedSearchColumn}`}
@@ -1785,6 +1811,7 @@ function MaterialTable({
                         transition: "background-color 0.15s ease",
                       }}
                       title="Clear search"
+                      aria-label="Clear search"
                     >
                       ✕
                     </button>
@@ -2171,6 +2198,7 @@ function MaterialTable({
                         disabled={pageIndex === 0}
                         className="et-page-nav-btn"
                         title="First page"
+                        aria-label="First page"
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -2196,6 +2224,7 @@ function MaterialTable({
                         disabled={!table.getCanPreviousPage()}
                         className="et-page-nav-btn"
                         title="Previous page"
+                        aria-label="Previous page"
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -2244,6 +2273,11 @@ function MaterialTable({
                             key={page}
                             onClick={() => table.setPageIndex(page)}
                             className="et-page-num-btn"
+                            // The active page is signalled only by colour otherwise —
+                            // invisible to a screen reader, and to anyone who cannot
+                            // distinguish the navy fill.
+                            aria-label={`Page ${page + 1}`}
+                            aria-current={isActive ? "page" : undefined}
                             style={{
                               display: "inline-flex",
                               alignItems: "center",
@@ -2274,6 +2308,7 @@ function MaterialTable({
                         disabled={!table.getCanNextPage()}
                         className="et-page-nav-btn"
                         title="Next page"
+                        aria-label="Next page"
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -2299,6 +2334,7 @@ function MaterialTable({
                         disabled={pageIndex === totalPages - 1}
                         className="et-page-nav-btn"
                         title="Last page"
+                        aria-label="Last page"
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
