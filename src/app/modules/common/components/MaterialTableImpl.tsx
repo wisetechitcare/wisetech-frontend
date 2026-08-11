@@ -130,6 +130,14 @@ export interface MaterialTableProps {
   onSelectedRowsChange?: (rows: any[]) => void;
   /** Rendered in the toolbar while rows are selected — put bulk actions here. */
   renderSelectionActions?: (selected: any[]) => React.ReactNode;
+  /**
+   * The SERVER applies search/filtering, so the engine must not re-filter `data` locally.
+   * Required whenever manualPagination is on and search is expected to mean anything:
+   * `data` holds one page, so a local pass searches only that page.
+   */
+  manualFiltering?: boolean;
+  /** Fires with the DEBOUNCED search query so the page can refetch. */
+  onSearchChange?: (query: string) => void;
   /** When false, column/sort/etc. preferences are neither loaded from nor saved to the DB —
    *  the table always renders the code-defined defaults (meta.defaultVisible). Use for
    *  ephemeral tables such as chart drill-down modals, where a persisted per-instance bucket
@@ -270,6 +278,8 @@ function MaterialTable({
   showColumnFooter = false,
   defaultSorting,
   onVisibleColumnsChange,
+  manualFiltering = false,
+  onSearchChange,
   enableRowSelection = false,
   onSelectedRowsChange,
   renderSelectionActions,
@@ -354,13 +364,22 @@ function MaterialTable({
    * one is migrated to server-side sort.
    */
   useEffect(() => {
-    if (!import.meta.env.DEV || !manualPagination || manualSorting) return;
-    console.warn(
-      `[MaterialTable] "${tableName}" paginates on the server but sorts in the browser, ` +
-      `so sorting and search only affect the current page. Pass manualSorting + ` +
-      `onSortingChange and refetch with the new order.`,
-    );
-  }, [manualPagination, manualSorting, tableName]);
+    if (!import.meta.env.DEV || !manualPagination) return;
+    if (!manualSorting) {
+      console.warn(
+        `[MaterialTable] "${tableName}" paginates on the server but sorts in the browser, ` +
+        `so sorting only affects the current page. Pass manualSorting + ` +
+        `onSortingChange and refetch with the new order.`,
+      );
+    }
+    if (!manualFiltering) {
+      console.warn(
+        `[MaterialTable] "${tableName}" paginates on the server but searches in the browser, ` +
+        `so search only matches the page currently loaded — rows on other pages are ` +
+        `invisible to it. Pass manualFiltering + onSearchChange and refetch with the query.`,
+      );
+    }
+  }, [manualPagination, manualSorting, manualFiltering, tableName]);
 
   const isMobile = useMediaQuery("(max-width:600px)");
 
@@ -722,7 +741,11 @@ function MaterialTable({
 
   // Effect to apply filtering when debounced value or column changes
   useEffect(() => {
-    if (enableColumnSpecificSearch) {
+    // manualFiltering: the SERVER has already applied this query, so `data` is the
+    // result set — filtering it again in the browser can only remove rows the server
+    // deliberately matched (it searches fields the table does not render, e.g. email),
+    // which looks to the user like search losing results.
+    if (enableColumnSpecificSearch && !manualFiltering) {
       applyColumnFilter(debouncedFilterValue, selectedSearchColumn);
     }
   }, [
@@ -730,7 +753,15 @@ function MaterialTable({
     selectedSearchColumn,
     applyColumnFilter,
     enableColumnSpecificSearch,
+    manualFiltering,
   ]);
+
+  // Hand the debounced query to the page so it can refetch. Debounced, not raw — this
+  // fires a network request. Paired with manualFiltering, which stops the local pass.
+  useEffect(() => {
+    if (!onSearchChange) return;
+    onSearchChange(debouncedFilterValue);
+  }, [debouncedFilterValue, onSearchChange]);
 
   // Mobile search toggle function
   const toggleMobileSearch = useCallback(() => {
