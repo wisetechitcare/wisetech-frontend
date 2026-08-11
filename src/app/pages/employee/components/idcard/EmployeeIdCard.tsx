@@ -1,6 +1,7 @@
 import { forwardRef, useId, useMemo } from "react";
 import type { EmployeeIdCardPayload } from "@services/employee";
 import { formatDate } from "@utils/dateFormats";
+import { formatBloodGroup, formatPhoneWithCode } from "@utils/employeeFormat";
 
 /**
  * The printed employee identity card, drawn as a single SVG at CR80 proportions
@@ -240,7 +241,7 @@ const EmployeeIdCard = forwardRef<SVGSVGElement, EmployeeIdCardProps>(function E
   const rows: DetailRow[] = useMemo(() => [
     { icon: "calendar", label: "Joining Date", value: employee.dateOfJoining ? formatDate(employee.dateOfJoining) : "—" },
     { icon: "briefcase", label: "Department", value: truncate(employee.department || "—", 34) },
-    { icon: "phone", label: "Phone Number", value: truncate(employee.phone || "—", 30) },
+    { icon: "phone", label: "Phone Number", value: truncate(formatPhoneWithCode(employee.phone, employee.phoneCountryCode, "—"), 30) },
     { icon: "mail", label: "Email ID", value: truncate(employee.email || "—", 38) },
     { icon: "pin", label: "Branch", value: truncate(employee.branch || organization.name || "—", 34) },
   ], [employee, organization.name]);
@@ -250,7 +251,9 @@ const EmployeeIdCard = forwardRef<SVGSVGElement, EmployeeIdCardProps>(function E
   // corporate ID card carries, so the band is never an empty grey strip.
   const footerCells = useMemo(() => {
     const cells: DetailRow[] = [];
-    if (employee.bloodGroup) cells.push({ icon: "pin", label: "Blood Group", value: employee.bloodGroup });
+    if (employee.bloodGroup) {
+      cells.push({ icon: "pin", label: "Blood Group", value: formatBloodGroup(employee.bloodGroup, "—") });
+    }
     const emergency = [employee.emergencyContactName, employee.emergencyContactNumber].filter(Boolean).join(" · ");
     // Capped to what fits between this cell's left edge and the card's right margin.
     if (emergency) cells.push({ icon: "phone", label: "Emergency Contact", value: truncate(emergency, 38) });
@@ -499,12 +502,21 @@ const EmployeeIdCard = forwardRef<SVGSVGElement, EmployeeIdCardProps>(function E
         {footerCells.length ? (
           footerCells.map((cell, index) => {
             const x = PANEL.left + index * 172;
+            const label = cell.label.toUpperCase();
+            // Label and value are centred on a SHARED axis — the midpoint of whichever
+            // of the two is wider — so the narrower one sits centred under the other.
+            // Left-aligning both left a short value like "A+" hanging off the left end
+            // of a much wider "BLOOD GROUP" heading. The block still starts at `x`, so
+            // this changes the internal alignment, not the cell's footprint.
+            // Letter-spacing adds one gap per character, so it counts toward the label.
+            const labelWidth = estimateWidth(label, 10.5) + label.length * 1.8;
+            const centerX = x + Math.max(labelWidth, estimateWidth(cell.value, 17)) / 2;
             return (
               <g key={cell.label}>
-                <text x={x} y="552" fontFamily={FONT} fontSize="10.5" fontWeight="600" fill={INK.label} letterSpacing="1.8">
-                  {cell.label.toUpperCase()}
+                <text x={centerX} y="552" textAnchor="middle" fontFamily={FONT} fontSize="10.5" fontWeight="600" fill={INK.label} letterSpacing="1.8">
+                  {label}
                 </text>
-                <text x={x} y="580" fontFamily={FONT} fontSize="17" fontWeight="600" fill={INK.value}>
+                <text x={centerX} y="580" textAnchor="middle" fontFamily={FONT} fontSize="17" fontWeight="600" fill={INK.value}>
                   {cell.value}
                 </text>
               </g>

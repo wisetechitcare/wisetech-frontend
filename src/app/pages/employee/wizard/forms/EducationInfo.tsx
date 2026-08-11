@@ -1,3 +1,4 @@
+import { DOCUMENT_ACCEPT, DOCUMENT_HINT, validateDocumentFile } from "@utils/fileValidation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import DateInput from "@app/modules/common/inputs/DateInput";
@@ -15,8 +16,6 @@ const DEFAULT_HSC_STREAM_OPTIONS = [
   { value: "Commerce", label: "Commerce" },
   { value: "Arts", label: "Arts" },
 ];
-const MAX_ACADEMIC_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_ACADEMIC_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 
 function EducationalInfo({
   formikProps,
@@ -215,18 +214,10 @@ function EducationalInfo({
     formikProps.setFieldValue(`${element}.cgpa`, Math.min(percentage / 9.5, 10).toFixed(2), false);
   };
 
-  const validateAcademicFile = (file: File) => {
-    if (!ALLOWED_ACADEMIC_FILE_TYPES.includes(file.type)) {
-      return "Only PDF, JPG, JPEG, and PNG files are allowed";
-    }
-    if (file.size > MAX_ACADEMIC_FILE_SIZE) {
-      return "File size must be 5 MB or less";
-    }
-    if (file.size === 0) {
-      return "The selected file appears to be empty or corrupted";
-    }
-    return "";
-  };
+  // Delegates to the app-wide policy so this control cannot drift from the limit its
+  // own hint advertises. It previously enforced 5MB and matched on `file.type`, which
+  // is empty on Windows for some picks — a valid PDF could be rejected as "not allowed".
+  const validateAcademicFile = (file: File) => validateDocumentFile(file) ?? "";
 
   const handleAcademicFile = async (file: File | null) => {
     if (!file) {
@@ -488,8 +479,8 @@ function EducationalInfo({
                 The control was locked in front of a path that was already built, so an
                 academic certificate simply could not be attached during onboarding. */}
             <ObFileUpload
-              accept=".pdf,.jpg,.jpeg,.png"
-              hint="PDF, JPG or PNG — max 5MB"
+              accept={DOCUMENT_ACCEPT}
+              hint={DOCUMENT_HINT}
               disabled={isUploading}
               existingFileName={education.fileName || getFileNameFromUrl(education.filePath)}
               onChange={handleAcademicFile}
