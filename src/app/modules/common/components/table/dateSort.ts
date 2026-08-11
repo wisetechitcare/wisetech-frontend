@@ -1,6 +1,6 @@
 /**
  * Chronological sorting for date columns — pure, no React/MUI, so it can be
- * exercised by dateSort.check.ts without bundling the UI layer.
+ * exercised by dateSort.test.ts without bundling the UI layer.
  *
  * Why this exists: MRT's default `sortingFn: 'auto'` sorts a display string
  * alphanumerically. It chunks "30/07/2024" into [30, 7, 2024] and orders by DAY
