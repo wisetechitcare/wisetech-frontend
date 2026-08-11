@@ -177,6 +177,16 @@ export type ResolveCheckInColorInput = {
    * every screen and payroll agree; never re-derive it here.
    */
   lateWaived?: boolean;
+  /**
+   * THE SERVER'S VERDICT for this row (`row.lateMark` from the attendance API).
+   *
+   * When present it decides outright — every branch below is a FALLBACK for responses
+   * that predate the verdict annotator. The server runs the same `evaluateLateMark`
+   * ladder payroll and KPI use, with the employee's own branch calendar and cutoff
+   * override; the local derivation cannot see any of that, which is why it once showed
+   * red weekend rows the policy had already exempted.
+   */
+  lateMark?: { isLate: boolean; reason?: string } | null;
 };
 
 /**
@@ -192,10 +202,27 @@ export function resolveCheckInColor(input: ResolveCheckInColorInput): CheckInCol
     skipColoring = false,
     lateWaived = false,
     isWeekendOrHoliday = false,
+    lateMark = null,
   } = input;
 
   if (skipColoring || isAttendanceTimeMissing(checkIn)) {
     return { tone: 'muted', color: ATTENDANCE_COLORS.muted, isLate: false };
+  }
+
+  // ── Server verdict wins ────────────────────────────────────────────────────
+  // Everything after this point re-derives lateness in the browser and exists only
+  // for responses without `lateMark`. Delete the fallback once every board is
+  // confirmed to be receiving verdicts.
+  if (lateMark) {
+    return lateMark.isLate
+      ? {
+          tone: 'danger', color: ATTENDANCE_COLORS.danger, isLate: true,
+          tooltip: lateMark.reason || 'Late check-in',
+        }
+      : {
+          tone: 'success', color: ATTENDANCE_COLORS.success, isLate: false,
+          tooltip: lateMark.reason || 'On time',
+        };
   }
 
   // Late-night waiver — worked past the cutoff the previous day, so today is never late.

@@ -329,6 +329,12 @@ function Overview({ date, range }: OverviewProps) {
     // Calculate late check-in count: employees who checked in after (shift check-in time + grace time)
     const lateRows = attendance.filter(att => {
         if (!att.checkIn) return false;
+        // THE SERVER'S VERDICT decides when present. It runs the same ladder payroll and
+        // KPI use, against this employee's OWN branch calendar — which the derivation
+        // below cannot see. Everything after this line is a fallback for responses that
+        // predate the verdict annotator, and can be deleted once those are gone.
+        const serverVerdict = (att as any).lateMark as { isLate: boolean } | undefined;
+        if (serverVerdict) return serverVerdict.isLate;
         // Late-night waiver (server verdict, same rule payroll applies) — never late.
         if ((att as any).lateWaived) return false;
 
@@ -522,7 +528,17 @@ function Overview({ date, range }: OverviewProps) {
     // Nobody is absent on a day the company does not work: the range path below already
     // skipped non-working days, this daily path did not, so a weekend/holiday reported
     // the whole roster minus whoever happened to come in.
-    const dailyAbsentEmployees = checkIfWeekendOrHoliday(date.toDate())
+    // Prefer the SERVER's day kind, taken from any row on this day — it is resolved from
+    // each employee's own branch calendar, where `checkIfWeekendOrHoliday` reads the
+    // VIEWING ADMIN's. Falls back to the local check when no row carries a verdict.
+    const serverDayKinds = presentRows
+        .map((a: any) => a.dayKind as string | undefined)
+        .filter(Boolean) as string[];
+    const isNonWorkingDay = serverDayKinds.length
+        ? serverDayKinds.every((k) => k !== 'working')
+        : checkIfWeekendOrHoliday(date.toDate());
+
+    const dailyAbsentEmployees = isNonWorkingDay
         ? []
         : allEmployees.filter(
             (emp) => emp?._id && !dailyPresentIds.has(emp._id) && !dailyLeaveIds.has(emp._id),
