@@ -11,6 +11,7 @@ import ReorderableGroup, {
 } from "@app/modules/common/components/ReorderableGroup";
 import {
     fetchDeductionRules,
+    fetchEffectiveDeductionRules,
     createDeductionRule,
     updateDeductionRule,
     deleteDeductionRule,
@@ -39,6 +40,13 @@ interface Props {
     open: boolean;
     onClose: () => void;
     readOnly?: boolean;
+    /**
+     * Which group / org / branch the surrounding page is showing. The Attendance Config
+     * page has a scope selector whose caption promises "the cards and Configure below
+     * apply to this branch only" — so this screen must honour it, or an admin on the
+     * Vashi tab edits the group's rules believing they are editing Vashi's.
+     */
+    scope?: { companyId?: string; branchId?: string };
 }
 
 const APPLIES_ON: Array<{ value: AppliesOn; label: string; hint: string }> = [
@@ -73,7 +81,7 @@ const blankRule = (): Partial<DeductionRule> => ({
     isEnabled: true,
 });
 
-export default function DeductionRules({ open, onClose, readOnly = false }: Props) {
+export default function DeductionRules({ open, onClose, readOnly = false, scope }: Props) {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [rules, setRules] = useState<DeductionRule[]>([]);
@@ -88,13 +96,18 @@ export default function DeductionRules({ open, onClose, readOnly = false }: Prop
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            setRules(await fetchDeductionRules());
+            // Effective = what the group → org → branch ladder resolves for THIS scope.
+            // The unscoped list shows rules from every level, which is the wrong answer
+            // to "what applies here?".
+            setRules(scope?.branchId || scope?.companyId
+                ? await fetchEffectiveDeductionRules(scope.branchId ?? null)
+                : await fetchDeductionRules());
         } catch {
             toast({ icon: 'error', title: 'Could not load deduction rules' });
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [scope?.branchId, scope?.companyId]);
 
     useEffect(() => { if (open) void load(); }, [open, load]);
 
@@ -108,6 +121,7 @@ export default function DeductionRules({ open, onClose, readOnly = false }: Prop
                 dayKind: probeDayKind,
                 weekday: WEEKDAYS[today.getDay()],
                 dateISO,
+                branchId: scope?.branchId ?? null,
             });
             setOutcome(result);
         } catch {
@@ -115,7 +129,7 @@ export default function DeductionRules({ open, onClose, readOnly = false }: Prop
         } finally {
             setPreviewing(false);
         }
-    }, [probeMinutes, probeDayKind]);
+    }, [probeMinutes, probeDayKind, scope?.branchId]);
 
     // The preview is the point of the screen, so keep it live rather than behind a button.
     useEffect(() => { if (open && !loading) void runPreview(); }, [open, loading, rules, runPreview]);
@@ -125,7 +139,8 @@ export default function DeductionRules({ open, onClose, readOnly = false }: Prop
         setSaving(true);
         try {
             if (draft.id) await updateDeductionRule(draft.id, draft);
-            else await createDeductionRule(draft);
+            // A rule created while a branch is selected belongs to that branch.
+            else await createDeductionRule({ ...draft, branchId: scope?.branchId ?? null });
             setDraft(null);
             await load();
             toast({ icon: 'success', title: draft.id ? 'Rule updated' : 'Rule created' });
