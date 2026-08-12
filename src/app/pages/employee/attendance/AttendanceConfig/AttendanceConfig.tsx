@@ -802,7 +802,11 @@ const AttendanceConfig: React.FC = () => {
       />
 
       {/* Break Deductions — configurable rules replacing the single Deduction Time */}
-      <DeductionRules open={showDeductionRulesModal} onClose={() => setShowDeductionRulesModal(false)} />
+      <DeductionRules
+        open={showDeductionRulesModal}
+        onClose={() => setShowDeductionRulesModal(false)}
+        scope={configScope}
+      />
 
       {/* Sandwich Leave — self-contained GlassDialog */}
       <SandwichLeave open={showSandwichModal} showSandWhichLeaveModal={(v: boolean) => setShowSandwichModal(v)} />
