@@ -4,6 +4,7 @@ import { Box, Grid } from '@mui/material';
 import { LeaveTypesBalanceModal } from './component/LeaveTypesBalance';
 import SandwichLeave from '@pages/company/settings/SandwhichLeave';
 import WorkCalendarSettings from '@pages/company/settings/WorkCalendarSettings';
+import DeductionRules from '@pages/company/settings/DeductionRules';
 import { LeavePolicyModal } from '@pages/company/settings/LeavePolicy';
 import AddonLeavesModal from './component/AddonLeavesModal';
 import DailyShiftTimeModal from './component/DailyShiftTimeModal';
@@ -231,6 +232,7 @@ const AttendanceConfig: React.FC = () => {
   const [showOtherSettingsModal, setShowOtherSettingsModal] = useState(false);
   const [showSandwichModal,      setShowSandwichModal]      = useState(false);
   const [showWorkCalendarModal,  setShowWorkCalendarModal]  = useState(false);
+  const [showDeductionRulesModal, setShowDeductionRulesModal] = useState(false);
   const [showAppearanceModal,    setShowAppearanceModal]    = useState(false);
   const [showAddonLeavesModal,   setShowAddonLeavesModal]   = useState(false);
   const [showLeaveTypesModal,    setShowLeaveTypesModal]    = useState(false);
@@ -698,6 +700,17 @@ const AttendanceConfig: React.FC = () => {
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <ConfigSettingsRow
+                    label="Break Deductions"
+                    description="How much unpaid break time comes off a worked day, and on which days"
+                    icon="bi-cup-hot"
+                    iconColor="amber"
+                    actionLabel="Configure"
+                    actionIcon="bi-arrow-right"
+                    onAction={() => setShowDeductionRulesModal(true)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <ConfigSettingsRow
                     label="Work Calendar"
                     description="Weekly pattern, alternate Saturdays, holidays and one-off day changes"
                     icon="bi-calendar3"
@@ -781,6 +794,9 @@ const AttendanceConfig: React.FC = () => {
         onClose={() => { setShowOtherSettingsModal(false); loadOtherSettingsData(); }}
         mountKey={otherSettingsKey}
       />
+
+      {/* Break Deductions — configurable rules replacing the single Deduction Time */}
+      <DeductionRules open={showDeductionRulesModal} onClose={() => setShowDeductionRulesModal(false)} />
 
       {/* Work Calendar — weekly pattern + the exceptions that override it */}
       <WorkCalendarSettings open={showWorkCalendarModal} onClose={() => setShowWorkCalendarModal(false)} />

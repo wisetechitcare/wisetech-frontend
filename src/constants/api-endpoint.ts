@@ -707,6 +707,16 @@ export const SANDWICH_RULE = {
     AUDIT_LOG: "api/sandwich-rules/:id/audit",
 };
 
+export const DEDUCTION_RULE = {
+    LIST: "api/deduction-rules",
+    CREATE: "api/deduction-rules",
+    UPDATE: "api/deduction-rules/:id",
+    DELETE: "api/deduction-rules/:id",
+    REORDER: "api/deduction-rules/reorder",
+    PREVIEW: "api/deduction-rules/preview",
+    EFFECTIVE: "api/deduction-rules/effective",
+};
+
 export const WORK_CALENDAR = {
     LIST: "api/work-calendars",
     CREATE: "api/work-calendars",
