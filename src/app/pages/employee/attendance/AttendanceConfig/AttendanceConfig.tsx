@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Grid } from '@mui/material';
 import { LeaveTypesBalanceModal } from './component/LeaveTypesBalance';
 import SandwichLeave from '@pages/company/settings/SandwhichLeave';
-import WorkCalendarSettings from '@pages/company/settings/WorkCalendarSettings';
 import DeductionRules from '@pages/company/settings/DeductionRules';
 import { LeavePolicyModal } from '@pages/company/settings/LeavePolicy';
 import AddonLeavesModal from './component/AddonLeavesModal';
@@ -231,7 +230,6 @@ const AttendanceConfig: React.FC = () => {
   const [showDailyShiftModal,   setShowDailyShiftModal]   = useState(false);
   const [showOtherSettingsModal, setShowOtherSettingsModal] = useState(false);
   const [showSandwichModal,      setShowSandwichModal]      = useState(false);
-  const [showWorkCalendarModal,  setShowWorkCalendarModal]  = useState(false);
   const [showDeductionRulesModal, setShowDeductionRulesModal] = useState(false);
   const [showAppearanceModal,    setShowAppearanceModal]    = useState(false);
   const [showAddonLeavesModal,   setShowAddonLeavesModal]   = useState(false);
@@ -571,6 +569,36 @@ const AttendanceConfig: React.FC = () => {
                   </ConfigSectionCard>
                 </Grid>
 
+                {/* ── Break Deductions card ────────────────────── */}
+                {/* Belongs on THIS tab: the Deduction value is displayed in the Daily
+                    Shift Time tiles above, and it is computed from punches. It was
+                    briefly under Leaves purely because that tab had the reusable row
+                    component — configuring a value from a different tab than the one
+                    that shows it. */}
+                <Grid item xs={12} lg={7}>
+                  <ConfigSectionCard
+                    title="Break Deductions"
+                    description="How much unpaid break time comes off a worked day, and on which days"
+                    icon="bi-cup-hot"
+                    iconColor="amber"
+                    primaryAction={{
+                      label: 'Configure',
+                      icon: 'bi-pencil',
+                      variant: 'outline',
+                      onClick: () => setShowDeductionRulesModal(true),
+                    }}
+                  >
+                    <p style={{
+                      fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted,
+                      margin: 0, fontWeight: 400,
+                    }}>
+                      Rules decide the threshold, the duration, and whether a deduction
+                      applies on weekends and holidays. Currently deducting{' '}
+                      <strong style={{ color: C.textPrimary }}>{deductionTime}</strong>.
+                    </p>
+                  </ConfigSectionCard>
+                </Grid>
+
                 {/* ── Other Settings card ──────────────────────── */}
                 <Grid item xs={12} lg={5}>
                   <ConfigSectionCard
@@ -698,28 +726,6 @@ const AttendanceConfig: React.FC = () => {
                     onAction={() => setShowLeavePolicyModal(true)}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <ConfigSettingsRow
-                    label="Break Deductions"
-                    description="How much unpaid break time comes off a worked day, and on which days"
-                    icon="bi-cup-hot"
-                    iconColor="amber"
-                    actionLabel="Configure"
-                    actionIcon="bi-arrow-right"
-                    onAction={() => setShowDeductionRulesModal(true)}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <ConfigSettingsRow
-                    label="Work Calendar"
-                    description="Weekly pattern, alternate Saturdays, holidays and one-off day changes"
-                    icon="bi-calendar3"
-                    iconColor="green"
-                    actionLabel="Configure"
-                    actionIcon="bi-arrow-right"
-                    onAction={() => setShowWorkCalendarModal(true)}
-                  />
-                </Grid>
               </Grid>
             </div>
           )}
@@ -797,9 +803,6 @@ const AttendanceConfig: React.FC = () => {
 
       {/* Break Deductions — configurable rules replacing the single Deduction Time */}
       <DeductionRules open={showDeductionRulesModal} onClose={() => setShowDeductionRulesModal(false)} />
-
-      {/* Work Calendar — weekly pattern + the exceptions that override it */}
-      <WorkCalendarSettings open={showWorkCalendarModal} onClose={() => setShowWorkCalendarModal(false)} />
 
       {/* Sandwich Leave — self-contained GlassDialog */}
       <SandwichLeave open={showSandwichModal} showSandWhichLeaveModal={(v: boolean) => setShowSandwichModal(v)} />
