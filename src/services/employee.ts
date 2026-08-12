@@ -1945,6 +1945,27 @@ export const fetchPendingApprovals = async () => {
     return data;
 }
 
+/**
+ * Decide several of ONE employee's pending requests in one call.
+ *
+ * The API rejects a payload spanning multiple employees — that constraint is what keeps
+ * the requester's inbox to a single summary email and bounds a mistake to one person.
+ * Returns a per-item outcome: some instances legitimately fail (already decided, no longer
+ * your step), and the caller must show which.
+ */
+export const bulkDecideApprovals = async (
+    instanceIds: string[],
+    action: 'approve' | 'reject',
+    comments?: string,
+) => {
+    try {
+        const { data } = await axios.post(`${API_BASE_URL}/api/approvals/bulk`, { instanceIds, action, comments });
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 export const processApprovalAction = async (instanceId: string, action: 'approve' | 'reject', comments?: string) => {
     const endpoint = `${API_BASE_URL}/api/approvals/instance/${instanceId}/process`;
     const { data } = await axios.post(endpoint, { action, comments });
