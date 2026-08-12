@@ -1349,6 +1349,14 @@ function MaterialTable({
           getRowId={rowId}
           enableRowSelection={enableRowSelection}
           onRowSelectionChange={setRowSelection}
+          // Let the selection checkbox column be hidden like any other column. MRT's
+          // built-in display columns are not hideable by default, so the checkbox was
+          // permanent for every user on a table that opts into selection — a fixed cost
+          // whether or not they ever select anything. In the Columns panel now, and the
+          // choice persists through the usual preferences (keyed on 'mrt-row-select').
+          displayColumnDefOptions={{
+            'mrt-row-select': { enableHiding: true, header: 'Select' },
+          }}
           renderDetailPanel={renderDetailPanel}
           state={{
             columnVisibility: preferences.columnVisibility,
