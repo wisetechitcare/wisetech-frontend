@@ -20,8 +20,10 @@ import { usePersistedState } from '@app/modules/common/hooks/usePersistedState';
 import ReimbursementPeriodBar, { PeriodAlignment } from '../components/ReimbursementPeriodBar';
 import { solidToolbarButton, TOOLBAR_ROW } from '../utils/toolbarButton';
 import ReimbursementCharts from '../components/ReimbursementCharts';
+import NeedsYourAttention from '../components/NeedsYourAttention';
 import ReimbursementPaymentHistoryTable from '../components/ReimbursementPaymentHistoryTable';
 import SubmissionsTable from './SubmissionsTable';
+import SensitiveDataProvider from '@app/modules/common/components/SensitiveData';
 import { StatusNum } from '../utils/reimbursementFormat';
 import { ReimbursementSummary, summariseReimbursements } from '../utils/reimbursementSummary';
 
@@ -228,11 +230,18 @@ export default function ReimbursementWorkspace({
   );
 
   return (
-    <>
+    // One provider for the whole screen: the eye in the header governs every figure below it,
+    // including the ones five components deep in a table cell.
+    <SensitiveDataProvider>
       {renderHeader({ summary, loading, periodBar })}
 
       {employeeId && (
         <>
+          {/* Above everything, because it is the only part of this screen that is a TASK rather
+              than a record. `viewOthers` means an admin is browsing someone else's expenses —
+              they are not the person who has to answer, so it stays hidden for them. */}
+          <NeedsYourAttention employeeId={employeeId} isSelf={!viewOthers} />
+
           {/* Charts read the SAME rows the KPI cards summarise, bucketed by the selected
               period — so nothing outside the window can appear, and the two cannot disagree. */}
           <ReimbursementCharts
@@ -308,6 +317,6 @@ export default function ReimbursementWorkspace({
           />
         </>
       )}
-    </>
+    </SensitiveDataProvider>
   );
 }

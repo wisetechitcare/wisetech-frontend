@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Box, CircularProgress, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Modal } from 'react-bootstrap';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import ReactDOM from 'react-dom';
-import { MRT_ColumnDef } from 'material-react-table';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
-import { Modal } from 'react-bootstrap';
-import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
+import { KTIcon } from '@metronic/helpers';
 import {
   fetchReimbursementBatchById,
   processBatchRequestAction,
@@ -13,26 +11,36 @@ import {
   downloadReimbursementBillPdf,
 } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
-import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
-import dayjs from 'dayjs';
-import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { usePermission } from '@hooks/usePermission';
+import { QUERY_CATEGORIES } from '@services/reimbursementQueries';
+import { GlassDialog, GlassHeader, WtButton, tonePair } from '@app/modules/common/components/ui';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
-import { ReimbursementBatchDetail } from '../utils/reimbursementTypes';
-import { buildReimbursementLineColumns, withPreviewHandler } from '../components/reimbursementLineColumns';
-import OverLimitChip from '../components/OverLimitChip';
+import QueryConversationDialog from '../components/QueryConversation';
+import VersionHistoryDialog from '../components/VersionHistoryDialog';
+import {
+  ApprovalProgressPanel,
+  BatchSummaryStrip,
+  RequestWorkflowRow,
+  type BatchSummaryView,
+  type LevelProgressView,
+  type QueryView,
+  type RequestRowData,
+} from '../components/BatchWorkflowPanel';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 // Re-exported, not re-implemented. Other modules (DomainApprovalQueue) import fmtAmount from
 // this file, so the export surface stays while the behaviour comes from the one shared copy.
 // `export ... from` alone re-exports without binding locally, and this file uses both.
-import { fmtDate, fmtAmount } from '../utils/reimbursementFormat';
+import { fmtDate, fmtAmount, resolveStatusNum, STATUS, downloadBlob } from '../utils/reimbursementFormat';
 export { fmtDate, fmtAmount };
 
 export function statusBadge(status: number) {
   if (status === 1) return <span className='badge badge-light-success fw-semibold fs-8'>Approved</span>;
   if (status === 2) return <span className='badge badge-light-danger fw-semibold fs-8'>Rejected</span>;
+  // NEEDS_INFO rendered as "Pending" here, so a line the approver had asked a question about
+  // looked identical to one nobody had touched — and the employee had no reason to open it.
+  if (status === STATUS.NEEDS_INFO) return <span className='badge badge-light-warning fw-semibold fs-8'>Needs info</span>;
   return <span className='badge badge-light-warning fw-semibold fs-8'>Pending</span>;
 }
 
@@ -50,263 +58,251 @@ export type BatchRow = {
   rejectionReason?: string | null;
 };
 
-// ── Document preview modal ─────────────────────────────────────────────────────
-
-// ── Reject-reason modal ────────────────────────────────────────────────────────
+// ── Reject / ask-a-question modal ──────────────────────────────────────────────
 
 interface RejectReasonModalProps {
   show: boolean;
   onClose: () => void;
-  onConfirm: (reason: string) => void;
+  onConfirm: (reason: string, category?: string) => void;
   submitting: boolean;
   title?: string;
+  /**
+   * Which outcome is being written. Rejection ends the request; a question returns it to the
+   * employee still alive.
+   *
+   * The modal used to take only a `title`, so "Ask for more information" opened a dialog whose
+   * every other word said rejection — the label, the placeholder, the hint and a red "Confirm
+   * Rejection" button. An approver reading that could reasonably believe they were about to
+   * reject the claim, which is the opposite of what the button does.
+   */
+  variant?: 'reject' | 'request-info';
+  /** Narrows the category list — a batch question is not about one expense's receipt. */
+  scope?: 'REQUEST' | 'BATCH';
 }
 
-export function RejectReasonModal({ show, onClose, onConfirm, submitting, title = 'Reject Request' }: RejectReasonModalProps) {
+const REASON_COPY = {
+  reject: {
+    title: 'Reject Request',
+    label: 'Reason for Rejection',
+    placeholder: 'Describe why this request is being rejected…',
+    hint: 'A rejection reason is required. The employee sees it.',
+    confirm: 'Confirm Rejection',
+    btnClass: 'btn-danger',
+    accent: '#f1416c',
+  },
+  'request-info': {
+    title: 'Ask a question',
+    label: 'What do you need to know?',
+    placeholder: 'e.g. Which client visit was this taxi for? Please attach the receipt.',
+    hint: 'This opens a conversation with the employee. The expense stays where it is — it is not rejected, and approval does not restart.',
+    confirm: 'Send question',
+    btnClass: 'btn-warning',
+    accent: '#d97706',
+  },
+};
+
+export function RejectReasonModal({
+  show, onClose, onConfirm, submitting, title, variant = 'reject', scope = 'REQUEST',
+}: RejectReasonModalProps) {
   const [reason, setReason] = useState('');
+  // Filing a question under a category is what makes "3 missing receipts this month" answerable
+  // later. Only offered for a question — a rejection reason is prose, not a taxonomy.
+  const [category, setCategory] = useState('OTHER');
+  const copy = REASON_COPY[variant];
   const trimmed = reason.trim();
 
-  useEffect(() => { if (!show) setReason(''); }, [show]);
+  const categories = QUERY_CATEGORIES.filter((c) => c.scope === 'BOTH' || c.scope === scope);
+
+  useEffect(() => { if (!show) { setReason(''); setCategory('OTHER'); } }, [show]);
 
   return (
     <Modal show={show} onHide={onClose} centered>
       <Modal.Header closeButton>
-        <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>{title}</Modal.Title>
+        <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>{title ?? copy.title}</Modal.Title>
       </Modal.Header>
       <Modal.Body style={{ padding: '20px 24px' }}>
+        {variant === 'request-info' && (
+          <TextField
+            select fullWidth size='small' label='What is this about?'
+            value={category} onChange={(e) => setCategory(e.target.value)}
+            disabled={submitting} sx={{ mb: 2 }}
+          >
+            {categories.map((c) => (
+              <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>
+            ))}
+          </TextField>
+        )}
         <label className='fw-semibold fs-6 mb-2 d-block'>
-          Reason for Rejection <span style={{ color: '#f1416c' }}>*</span>
+          {copy.label} <span style={{ color: copy.accent }}>*</span>
         </label>
-        <textarea rows={3} className='form-control' placeholder='Describe why this request is being rejected...'
+        <textarea rows={3} className='form-control' placeholder={copy.placeholder}
           value={reason} onChange={(e) => setReason(e.target.value)} style={{ resize: 'vertical', fontSize: 13 }} disabled={submitting} />
-        {!trimmed && <div className='fs-8 text-muted mt-1'>A rejection reason is required.</div>}
+        <div className='fs-8 text-muted mt-1'>{copy.hint}</div>
       </Modal.Body>
       <Modal.Footer>
         <button className='btn btn-sm btn-light' onClick={onClose} disabled={submitting}>Cancel</button>
-        <button className='btn btn-sm btn-danger d-flex align-items-center gap-2' disabled={!trimmed || submitting} onClick={() => onConfirm(trimmed)}>
+        <button className={`btn btn-sm ${copy.btnClass} d-flex align-items-center gap-2`} disabled={!trimmed || submitting} onClick={() => onConfirm(trimmed, variant === 'request-info' ? category : undefined)}>
           {submitting && <span className='spinner-border spinner-border-sm' />}
-          Confirm Rejection
+          {copy.confirm}
         </button>
       </Modal.Footer>
     </Modal>
   );
 }
 
-// ── Batch detail modal ─────────────────────────────────────────────────────────
+// ── Batch detail ───────────────────────────────────────────────────────────────
 
 interface BatchDetailModalProps {
   batchId: string | null;
   onClose: () => void;
   onBatchActionDone: () => void;
   approvalInstanceId?: string | null;
-  /** When set to 1 or 2, restricts the displayed reimbursements to only that approval status.
-   *  Used when opening the modal from an approved-group or rejected-group row so only the
-   *  matching requests are shown instead of the full batch. */
+  /** When 1 or 2, restricts the list to that final status — used when the modal is opened from an
+   *  approved- or rejected-group row in the approvals queue. */
   filterStatus?: number | null;
 }
 
+/**
+ * The batch, as a workflow.
+ *
+ * This was a MaterialTable of expense lines with a status column. It could not say which LEVEL a
+ * request had reached, that a question was open on it, or that it had been edited and resubmitted,
+ * because none of that reached the client — and it hid rejected lines outright while a batch was
+ * in progress, which is precisely the mixed state the redesign exists to make visible.
+ *
+ * Now: batch identity and summary, the level-by-level approval breakdown, and one row per request
+ * carrying its own status, level, conversation and actions. Requests are decided INDEPENDENTLY —
+ * approve one, reject another, question a third, leave the rest — which is what the engine has
+ * supported since Phase 2 and what the UI could not express.
+ */
 export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanceId, filterStatus }: BatchDetailModalProps) {
-  const [batch, setBatch] = useState<ReimbursementBatchDetail | null>(null);
+  const [batch, setBatch] = useState<any>(null);
+  const [levels, setLevels] = useState<LevelProgressView[]>([]);
+  const [summary, setSummary] = useState<BatchSummaryView | null>(null);
+  const [batchQueries, setBatchQueries] = useState<QueryView[]>([]);
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [bulkProcessing, setBulkProcessing] = useState(false);
 
-  // Reject and request-info both need a comment, so they share the modal; `action` says which.
+  // Reject and ask-a-question both need a comment, so they share the modal; `action` says which.
   const [rejectTarget, setRejectTarget] = useState<{ id: string; type: 'individual' | 'batch-reject-all'; action?: 'reject' | 'request-info' } | null>(null);
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [downloadingBill, setDownloadingBill] = useState(false);
+  // The conversation, opened from a request row. One request may carry several threads, so the
+  // dialog takes the request and focuses the thread that was clicked.
+  const [conversation, setConversation] = useState<
+    { reimbursementId: string; batchId?: undefined; queryId: string; label: string }
+    | { batchId: string; reimbursementId?: undefined; queryId?: string; label: string }
+    | null>(null);
+  const [versionsFor, setVersionsFor] = useState<{ id: string; label: string } | null>(null);
 
-  // The server now refuses these actions unless the caller is the batch's current approver (or an
-  // active delegate). Gate the buttons too, so the UI stops offering an action that will 403.
+  // The server refuses these actions unless the caller is the current approver for that SPECIFIC
+  // request. This only decides whether to offer the affordance.
   const canApprove = usePermission('approvals.approve.team');
-
-  const pendingCount = batch?.reimbursements?.filter((r: any) => r.status === 0).length || 0;
-  const batchIsPending = batch?.status === 0;
-
-  // For pending batches: hide individually-rejected items (already bifurcated from the workflow).
-  // For completed batches: when filterStatus is 1 or 2, show only requests that match that
-  // final approval status — this ensures the popup reflects exactly which group was clicked.
-  const visibleReimbursements = useMemo(() => {
-    const all: any[] = batch?.reimbursements ?? [];
-    if (batchIsPending) {
-      return all.filter((r: any) => r.status !== 2);
-    }
-    if (filterStatus === 1 || filterStatus === 2) {
-      return all.filter((r: any) => {
-        const s = typeof r.status === 'number' ? r.status : 0;
-        return s === filterStatus;
-      });
-    }
-    return all;
-  }, [batch?.reimbursements, batchIsPending, filterStatus]);
-
-  const approvalOverride = useMemo<'approved' | 'rejected' | undefined>(() => {
-    if (!approvalInstanceId) return undefined;
-    if (filterStatus === 2) return 'rejected';
-    const anyRejected = visibleReimbursements.some((r: any) => {
-      const s = typeof r.status === 'number' ? r.status : r.status === 'Rejected' ? 2 : 0;
-      return s === 2;
-    });
-    return anyRejected ? 'rejected' : undefined;
-  }, [approvalInstanceId, filterStatus, visibleReimbursements]);
-
-  const detailTotal = useMemo(
-    () => visibleReimbursements.reduce((sum: number, r: any) => sum + Number(r.amount || 0), 0),
-    [visibleReimbursements],
-  );
-
-  const { resolveClientType, resolveClientCompany, resolveProject } = useReimbursementLookups(batch?.reimbursements ?? []);
-
-  const handleViewDocument = useCallback((documentUrl: string) => {
-    if (documentUrl) setPreviewUrl(documentUrl);
-  }, []);
 
   const loadBatch = useCallback(async () => {
     if (!batchId) return;
     setLoading(true);
     try {
       const res = await fetchReimbursementBatchById(batchId);
-      setBatch(res?.data?.batch || res?.batch);
-    } catch { setBatch(null); } finally { setLoading(false); }
+      const body = res?.data ?? res;
+      setBatch(body?.batch ?? null);
+      setLevels(body?.levels ?? []);
+      setSummary(body?.summary ?? null);
+      setBatchQueries(body?.batchQueries ?? []);
+    } catch {
+      setBatch(null);
+      setLevels([]);
+      setSummary(null);
+      setBatchQueries([]);
+    } finally { setLoading(false); }
   }, [batchId]);
 
   useEffect(() => { loadBatch(); }, [loadBatch]);
-
   useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadBatch(); });
 
-  const handleIndividualAction = useCallback(async (requestId: string, action: 'approve' | 'reject' | 'request-info', comments?: string) => {
+  /**
+   * Every request in the batch — including the rejected ones.
+   *
+   * The old view filtered rejected lines out while the batch was pending, so an employee looking
+   * at their own submission could not see what had been refused or why. `filterStatus` still
+   * narrows to one outcome when the queue opens the modal from an approved- or rejected-group row.
+   */
+  const visibleRequests = useMemo<RequestRowData[]>(() => {
+    const all: RequestRowData[] = batch?.reimbursements ?? [];
+    if (filterStatus === 1 || filterStatus === 2) {
+      return all.filter((r) => resolveStatusNum(r.status) === filterStatus);
+    }
+    return all;
+  }, [batch?.reimbursements, filterStatus]);
+
+  const detailTotal = useMemo(
+    () => visibleRequests.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+    [visibleRequests],
+  );
+
+  /**
+   * The requests this viewer can act on right now.
+   *
+   * Approval is per-request since Phase 2, so "status is pending" is not enough — a request that
+   * has cleared level 1 is not the level-1 approver's to decide again. A request with an open
+   * question is not actionable either: it is waiting on the employee.
+   */
+  const actionableIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of visibleRequests) {
+      if (resolveStatusNum(r.status) !== STATUS.PENDING) continue;
+      if (r.approval && r.approval.status !== 'pending') continue;
+      ids.add(r.id);
+    }
+    return ids;
+  }, [visibleRequests]);
+
+  const handleViewDocument = useCallback((url: string) => { if (url) setPreviewUrl(url); }, []);
+
+  const handleIndividualAction = useCallback(async (requestId: string, action: 'approve' | 'reject' | 'request-info', comments?: string, category?: string) => {
     if (!batchId) return;
     setProcessingId(requestId);
     try {
-      await processBatchRequestAction(batchId, requestId, action, comments);
-      successConfirmation(`Request ${action}d`);
+      const res = await processBatchRequestAction(batchId, requestId, action, comments, category);
+      // The server says WHICH level was cleared — "Approved at level 1 of 3". An approval that is
+      // not the last one has approved nothing yet, and saying otherwise sets up a wait for money
+      // that is not coming.
+      const message = res?.message
+        ?? (action === 'approve' ? 'Request approved'
+          : action === 'reject' ? 'Request rejected'
+            : 'Question sent. The expense stays open until the employee replies.');
+      successConfirmation(message, action === 'request-info' ? 'Question sent' : undefined);
       loadBatch();
       onBatchActionDone();
     } catch (err: any) {
-      errorConfirmation(err?.response?.data?.message || `Failed to ${action}`);
+      errorConfirmation(
+        err?.response?.data?.message
+        || (action === 'request-info' ? 'Could not send the question' : `Failed to ${action}`),
+      );
     } finally {
       setProcessingId(null);
     }
   }, [batchId, loadBatch, onBatchActionDone]);
 
-  const detailColumns = useMemo<MRT_ColumnDef<any>[]>(() => {
-    const hasApproved = visibleReimbursements.some((r: any) => {
-      const s = typeof r.status === 'number' ? r.status : r.status === 'Approved' ? 1 : 0;
-      return s === 1;
-    });
-    const hasRejected = visibleReimbursements.some((r: any) => {
-      const s = typeof r.status === 'number' ? r.status : r.status === 'Rejected' ? 2 : 0;
-      return s === 2;
-    });
-
-    const paymentStatusCol: MRT_ColumnDef<any> = {
-      id: 'paymentStatus',
-      header: 'Payment Status',
-      enableSorting: false,
-      enableColumnActions: false,
-      Cell: ({ row }: any) => {
-        const ps = row.original.paymentStatus;
-        if (ps === 'PAID')
-          return <span className='badge badge-light-success fw-semibold fs-8'>Paid</span>;
-        if (ps === 'PARTIAL')
-          return <span className='badge badge-light-info fw-semibold fs-8'>Partially Paid</span>;
-        return <span className='badge badge-light-warning fw-semibold fs-8'>Pending</span>;
-      },
-    };
-
-    const rejectionReasonCol: MRT_ColumnDef<any> = {
-      id: 'rejectionReason',
-      header: 'Rejected Reason',
-      enableSorting: false,
-      enableColumnActions: false,
-      Cell: ({ row }: any) => {
-        const reason = row.original.rejectionReason || row.original.rejectReason;
-        return reason ? (
-          <span style={{ color: '#ef4444', fontSize: 12 }}>{reason}</span>
-        ) : (
-          <span className='text-muted'>N/A</span>
-        );
-      },
-    };
-
-    return [
-      // The ten line columns are identical in both detail modals — one definition, two callers.
-      ...buildReimbursementLineColumns(
-        { resolveClientType, resolveClientCompany, resolveProject },
-        detailTotal,
-      ),
-      {
-        id: 'rowStatus',
-        header: 'Status',
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ row }: any) => {
-          const s = row.original.status;
-          const n = typeof s === 'number' ? s : s === 'Approved' ? 1 : s === 'Rejected' ? 2 : 0;
-          return statusBadge(n);
-        },
-      },
-      ...(hasApproved ? [paymentStatusCol] : []),
-      ...(hasRejected ? [rejectionReasonCol] : []),
-      {
-        id: 'actions',
-        header: 'Action',
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ row }: any) => {
-          const r = row.original;
-          const isProcessing = processingId === r.id;
-          if (!batchIsPending || r.status !== 0 || !canApprove) {
-            return (
-              <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 500, cursor: 'default', userSelect: 'none' }}>
-                No Actions Available
-              </span>
-            );
-          }
-          return (
-            <div className='d-flex gap-1'>
-              <button className='btn btn-icon btn-sm' aria-label='Approve' title='Approve' disabled={isProcessing}
-                onClick={() => handleIndividualAction(r.id, 'approve')}>
-                {isProcessing
-                  ? <span className='spinner-border spinner-border-sm text-success' />
-                  : <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='' />}
-              </button>
-              <button className='btn btn-icon btn-sm' aria-label='Reject' title='Reject' disabled={isProcessing}
-                onClick={() => setRejectTarget({ id: r.id, type: 'individual', action: 'reject' })}>
-                <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='' />
-              </button>
-              {/* Ask, instead of refusing. Without this an approver needing one more detail can
-                  only reject — so "what is this for?" and "this is not claimable" were recorded
-                  as the same outcome, and the employee had to file the expense again. */}
-              <button className='btn btn-icon btn-sm' aria-label='Ask for more information'
-                title='Ask for more information' disabled={isProcessing}
-                onClick={() => setRejectTarget({ id: r.id, type: 'individual', action: 'request-info' })}>
-                <KTIcon iconName='question' className='fs-3 text-warning' />
-              </button>
-            </div>
-          );
-        },
-      },
-    ];
-  }, [batchIsPending, canApprove, processingId, handleIndividualAction, handleViewDocument, resolveClientType, detailTotal, visibleReimbursements]);
-
+  /**
+   * "Approve all" means "approve everything in front of ME right now" — not "approve the batch",
+   * which stopped being a thing when approval became request-level. The instance route fans out
+   * server-side and leaves requests at other levels, or with open questions, untouched.
+   */
   const handleBulkAction = async (action: 'approve' | 'reject-all', reason?: string) => {
-    if (!batch?.reimbursements?.length) return;
+    if (!actionableIds.size || !batchId) return;
     setBulkProcessing(true);
     try {
-      if (action === 'approve' && approvalInstanceId) {
-        await processApprovalAction(approvalInstanceId, 'approve');
-        successConfirmation('Batch approved!');
-      } else if (action === 'reject-all' && approvalInstanceId) {
-        await processApprovalAction(approvalInstanceId, 'reject', reason);
-        successConfirmation('Batch rejected');
+      if (approvalInstanceId) {
+        const res = await processApprovalAction(approvalInstanceId, action === 'approve' ? 'approve' : 'reject', reason);
+        successConfirmation(res?.message ?? (action === 'approve' ? 'Requests approved' : 'Requests rejected'));
       } else {
-        const pending = batch.reimbursements.filter((r: any) => r.status === 0);
-        for (const r of pending) {
-          await processBatchRequestAction(batchId!, r.id, action === 'approve' ? 'approve' : 'reject', reason);
+        for (const id of actionableIds) {
+          await processBatchRequestAction(batchId, id, action === 'approve' ? 'approve' : 'reject', reason);
         }
-        successConfirmation(`All requests ${action === 'approve' ? 'approved' : 'rejected'}`);
+        successConfirmation(`${actionableIds.size} request${actionableIds.size === 1 ? '' : 's'} ${action === 'approve' ? 'approved' : 'rejected'}`);
       }
       loadBatch();
       onBatchActionDone();
@@ -317,12 +313,12 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     }
   };
 
-  const handleRejectConfirm = async (reason: string) => {
+  const handleRejectConfirm = async (reason: string, category?: string) => {
     if (!rejectTarget) return;
     setRejectSubmitting(true);
     try {
       if (rejectTarget.type === 'individual') {
-        await handleIndividualAction(rejectTarget.id, rejectTarget.action ?? 'reject', reason);
+        await handleIndividualAction(rejectTarget.id, rejectTarget.action ?? 'reject', reason, category);
       } else {
         await handleBulkAction('reject-all', reason);
       }
@@ -335,207 +331,166 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     setDownloadingBill(true);
     try {
       const blob = await downloadReimbursementBillPdf(batchId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Reimbursement_Bill_${batch.submissionId || batchId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading bill:', error);
+      downloadBlob(blob, `Reimbursement_Bill_${batch.submissionId || batchId}.pdf`);
+    } catch {
       errorConfirmation('Failed to download bill');
     } finally {
       setDownloadingBill(false);
     }
   };
 
+  const hasApproved = visibleRequests.some((r) => resolveStatusNum(r.status) === STATUS.APPROVED);
+
   return (
     <>
-      <style>{`.reimbursement-batch-modal { max-width: 82vw !important; width: 92vw; }`}</style>
-      <Modal show={!!batchId} onHide={onClose} centered size='xl' dialogClassName='reimbursement-batch-modal'>
-        <Modal.Header closeButton>
-          <div className='d-flex align-items-center justify-content-between w-100 me-3'>
-            <div>
-              <Modal.Title className='fs-4 fw-bold'>
-                Submission Details — {batch?.submissionId || ''}
-              </Modal.Title>
-              {batch && (
-                <div className='text-muted fs-7 mt-1'>
-                  {batch.employee?.users?.firstName} {batch.employee?.users?.lastName} &nbsp;·&nbsp;
-                  {visibleReimbursements.length} request{visibleReimbursements.length !== 1 ? 's' : ''} &nbsp;·&nbsp;
-                  ₹{fmtAmount(detailTotal)} total &nbsp;·&nbsp;
-                  Submitted {fmtDate(batch.submittedAt)}
-                </div>
-              )}
-            </div>
-            {batch && visibleReimbursements.some((r: any) => {
-              const s = typeof r.status === 'number' ? r.status : r.status === 'Approved' ? 1 : 0;
-              return s === 1;
-            }) && (
-              <button
-                className='btn btn-sm d-flex align-items-center gap-2'
-                style={{
-                  background: '#1E3A8A',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  whiteSpace: 'nowrap',
-                  cursor: downloadingBill ? 'not-allowed' : 'pointer',
-                }}
-                onClick={handleDownloadBill}
-                disabled={downloadingBill}
-                title='Download Reimbursement Bill'
-              >
-                {downloadingBill ? (
-                  <>
-                    <span className='spinner-border spinner-border-sm' />
-                    <span>Generating...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg width='14' height='14' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'>
-                      <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'/>
-                      <polyline points='7 10 12 15 17 10' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'/>
-                      <line x1='12' y1='15' x2='12' y2='3' stroke='currentColor' strokeWidth='2' strokeLinecap='round'/>
-                    </svg>
-                    <span>Download Slip</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </Modal.Header>
-
-        <Modal.Body style={{ padding: '24px', maxHeight: '82vh', overflowY: 'auto' }}>
-          {approvalInstanceId && (
-            <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '14px 16px', marginBottom: 20 }}>
-              <div className='fs-8 fw-bold text-muted text-uppercase mb-2' style={{ letterSpacing: '0.5px' }}>Approval Progress</div>
-              <ApprovalStatusTracker instanceId={approvalInstanceId} compact overrideStatus={approvalOverride} />
-            </div>
-          )}
-
-          {batchIsPending && pendingCount > 0 && canApprove && (
-            <div className='d-flex gap-3 mb-5 p-3 rounded' style={{ background: '#f8f9fa', border: '1px solid #e9ecef' }}>
-              <span className='fw-semibold fs-7 text-dark align-self-center me-2'>Bulk Actions:</span>
-              <button
-                className='btn btn-sm d-flex align-items-center gap-2'
-                style={{ backgroundColor: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7', fontWeight: 600 }}
-                disabled={bulkProcessing}
-                onClick={() => handleBulkAction('approve')}
-              >
-                {bulkProcessing ? <span className='spinner-border spinner-border-sm' /> : null}
-                Approve All ({pendingCount})
-              </button>
-              <button
-                className='btn btn-sm d-flex align-items-center gap-2'
-                style={{ backgroundColor: '#fdecea', color: '#c62828', border: '1px solid #ef9a9a', fontWeight: 600 }}
-                disabled={bulkProcessing}
-                onClick={() => setRejectTarget({ id: 'batch', type: 'batch-reject-all' })}
-              >
-                Reject All ({pendingCount})
-              </button>
-            </div>
-          )}
-
-          {(filterStatus === 1 || filterStatus === 2) && (
-            <div style={{
-              padding: '10px 14px',
-              marginBottom: 14,
-              borderRadius: 6,
-              border: `1px solid ${filterStatus === 1 ? '#a7f3d0' : '#fca5a5'}`,
-              background: filterStatus === 1 ? '#f0fdf4' : '#fef2f2',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}>
-              <span style={{
-                width: 8, height: 8, borderRadius: '50%',
-                background: filterStatus === 1 ? '#10b981' : '#ef4444',
-                flexShrink: 0,
-                display: 'inline-block',
-              }} />
-              <span style={{ fontWeight: 600, fontSize: 13, color: filterStatus === 1 ? '#065f46' : '#991b1b' }}>
-                {filterStatus === 1 ? 'Approved Requests' : 'Rejected Requests'}
-                {' — '}
-                {visibleReimbursements.length} {visibleReimbursements.length === 1 ? 'request' : 'requests'}
-                {' · ₹'}{fmtAmount(detailTotal)} total
-              </span>
-            </div>
-          )}
-
+      <GlassDialog
+        open={!!batchId}
+        onClose={onClose}
+        maxWidth="lg"
+        fullWidth
+        header={
+          <GlassHeader
+            title={`Submission ${batch?.submissionId || ''}`}
+            subtitle={batch ? `${batch.employeeName || ''} · submitted ${fmtDate(batch.submittedAt)}` : ''}
+            icon={<KTIcon iconName="basket" className="fs-1" />}
+            onClose={onClose}
+          />
+        }
+      >
+        <Box sx={{ p: { xs: 1.5, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
           {loading ? (
-            <div className='d-flex justify-content-center py-10'>
-              <span className='spinner-border text-primary' />
-            </div>
+            <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={28} /></Stack>
+          ) : !batch ? (
+            <Typography sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>
+              This submission could not be loaded.
+            </Typography>
           ) : (
-            <MaterialTable
-              columns={detailColumns}
-              data={withPreviewHandler(visibleReimbursements, handleViewDocument)}
-              tableName='BatchDetailReimbursements'
-              hideFilters={false}
-              hideExportCenter={false}
-              showColumnFooter={true}
-              renderExportActions={() => null}
-              muiTableProps={{
-                sx: {
-                  '& .MuiTableBody-root .MuiTableCell-root': {
-                    borderBottom: 'none',
-                    paddingY: '5px',
-                  },
-                },
-                muiTableBodyRowProps: ({ row }: any) => {
-                  if (row.original?.isExceedingLimit) {
-                    return {
-                      sx: {
-                        backgroundColor: 'rgba(239,68,68,0.08)',
-                        '& td:first-of-type': { borderLeft: '4px solid #ef4444 !important' },
-                        transition: 'background-color 0.12s ease',
-                        '&:hover td': { backgroundColor: 'rgba(239,68,68,0.14) !important' },
-                      },
-                    };
-                  }
-                  const statusNum = row.original?.status;
-                  const statusStr = statusNum === 1 ? 'approved' : statusNum === 2 ? 'rejected' : 'pending';
-                  const colorMap: Record<string, { bg: string; border: string; hover: string }> = {
-                    approved: { bg: 'rgba(16,185,129,0.04)', border: '#10b981', hover: 'rgba(16,185,129,0.08)' },
-                    rejected: { bg: 'rgba(239,68,68,0.04)', border: '#ef4444', hover: 'rgba(239,68,68,0.08)' },
-                    pending:  { bg: 'rgba(245,158,11,0.04)', border: '#f59e0b', hover: 'rgba(245,158,11,0.08)' },
-                  };
-                  const c = colorMap[statusStr] ?? null;
-                  return {
-                    sx: {
-                      backgroundColor: c ? c.bg : undefined,
-                      '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
-                      transition: 'background-color 0.12s ease',
-                      '&:hover td': { backgroundColor: c ? `${c.hover} !important` : '#F8FAFC' },
-                    },
-                  };
-                },
-              }}
-            />
-          )}
-        </Modal.Body>
+            <>
+              {summary && (
+                <BatchSummaryStrip
+                  summary={filterStatus
+                    ? { ...summary, totalRequests: visibleRequests.length, totalAmount: detailTotal }
+                    : summary}
+                  processingStatus={batch.processingStatus ?? 'PENDING'}
+                />
+              )}
 
-      </Modal>
+              {levels.length > 0 && <ApprovalProgressPanel levels={levels} />}
+
+              {/* Batch-scope questions, shown apart from the requests because they are about the
+                  submission as a whole and — deliberately — block none of them. */}
+              {batchQueries.length > 0 && (
+                <Box sx={{ borderRadius: '10px', p: 1.5, bgcolor: tonePair('cyan').soft, minWidth: 0 }}>
+                  <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Batch queries
+                  </Typography>
+                  {batchQueries.map((q) => (
+                    <Stack key={q.id} direction="row" alignItems="baseline" gap={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
+                      <Typography sx={{ fontSize: 12.5, lineHeight: 1.45, flex: 1, minWidth: 0 }}>
+                        {q.lastMessage} <b>({q.status.toLowerCase()})</b>
+                      </Typography>
+                      <Typography
+                        component="button"
+                        onClick={() => setConversation({ batchId: batchId!, queryId: q.id, label: `Submission ${batch.submissionId}` })}
+                        sx={{
+                          fontSize: 11.5, fontWeight: 700, color: 'primary.main',
+                          background: 'none', border: 'none', p: 0, cursor: 'pointer', flexShrink: 0,
+                        }}
+                      >
+                        Open conversation ({q.messageCount})
+                      </Typography>
+                    </Stack>
+                  ))}
+                </Box>
+              )}
+
+              {actionableIds.size > 0 && canApprove && (
+                <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap"
+                  sx={{ p: 1.25, borderRadius: '10px', bgcolor: 'action.hover' }}>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>
+                    {actionableIds.size} awaiting your decision
+                  </Typography>
+                  <Box sx={{ flex: 1 }} />
+                  <WtButton size="small" disabled={bulkProcessing} onClick={() => handleBulkAction('approve')}>
+                    Approve all ({actionableIds.size})
+                  </WtButton>
+                  <WtButton size="small" ghost disabled={bulkProcessing}
+                    onClick={() => setRejectTarget({ id: 'batch', type: 'batch-reject-all', action: 'reject' })}>
+                    Reject all
+                  </WtButton>
+                </Stack>
+              )}
+
+              {hasApproved && (
+                <Box>
+                  <WtButton size="small" inverted disabled={downloadingBill} onClick={handleDownloadBill}>
+                    {downloadingBill ? 'Generating…' : 'Download slip'}
+                  </WtButton>
+                </Box>
+              )}
+
+              <Stack gap={1.25}>
+                {visibleRequests.map((request) => (
+                  <RequestWorkflowRow
+                    key={request.id}
+                    request={request}
+                    canDecide={canApprove && actionableIds.has(request.id)}
+                    busy={processingId === request.id}
+                    onApprove={() => handleIndividualAction(request.id, 'approve')}
+                    onReject={() => setRejectTarget({ id: request.id, type: 'individual', action: 'reject' })}
+                    onQuery={() => setRejectTarget({ id: request.id, type: 'individual', action: 'request-info' })}
+                    onOpenConversation={(queryId) => setConversation({
+                      reimbursementId: request.id,
+                      queryId,
+                      label: request.description || 'Expense',
+                    })}
+                    onOpenVersionHistory={() => setVersionsFor({
+                      id: request.id,
+                      label: request.description || 'Expense',
+                    })}
+                    onViewDocument={handleViewDocument}
+                  />
+                ))}
+                {visibleRequests.length === 0 && (
+                  <Typography sx={{ py: 4, textAlign: 'center', color: 'text.secondary', fontSize: 13 }}>
+                    No requests to show.
+                  </Typography>
+                )}
+              </Stack>
+            </>
+          )}
+        </Box>
+      </GlassDialog>
 
       <RejectReasonModal
         show={!!rejectTarget}
         onClose={() => setRejectTarget(null)}
         onConfirm={handleRejectConfirm}
         submitting={rejectSubmitting}
-        title={
-          rejectTarget?.action === 'request-info' ? 'Ask for more information'
-            : rejectTarget?.type === 'batch-reject-all' ? 'Reject Entire Batch'
-            : 'Reject Request'
-        }
+        variant={rejectTarget?.action === 'request-info' ? 'request-info' : 'reject'}
+        title={rejectTarget?.type === 'batch-reject-all' ? 'Reject the requests awaiting you' : undefined}
       />
 
-      {previewUrl && (
-        <DocumentPreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
+      {conversation && (
+        <QueryConversationDialog
+          reimbursementId={conversation.reimbursementId}
+          batchId={conversation.batchId}
+          focusQueryId={conversation.queryId}
+          requestLabel={conversation.label}
+          onClose={() => setConversation(null)}
+          onChanged={() => { loadBatch(); onBatchActionDone(); }}
+        />
       )}
+
+      {versionsFor && (
+        <VersionHistoryDialog
+          reimbursementId={versionsFor.id}
+          requestLabel={versionsFor.label}
+          onClose={() => setVersionsFor(null)}
+        />
+      )}
+
+      {previewUrl && <DocumentPreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />}
     </>
   );
 }

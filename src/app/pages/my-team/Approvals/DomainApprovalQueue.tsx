@@ -3,7 +3,7 @@ import { MRT_ColumnDef, MRT_Row } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { usePermission } from '@hooks/usePermission';
 import { KTIcon } from '@metronic/helpers';
-import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction, fetchReimbursementBatchById, decideLeaveSegment } from '@services/employee';
+import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction, fetchReimbursementBatchById, decideLeaveSegment, processBatchRequestAction } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -91,19 +91,7 @@ type DomainApprovalQueueProps = {
   mode?: 'include' | 'exclude';
 };
 
-type BatchStatusSummary = {
-  approved: number;
-  rejected: number;
-  approvedAmt: number;
-  rejectedAmt: number;
-};
-
-type DisplayStep = ApprovalStep & {
-  _uid: string;
-  _splitStatus?: 1 | 2;
-  _splitCount?: number;
-  _splitAmount?: number;
-};
+type DisplayStep = ApprovalStep & { _uid: string };
 
 // Semantic, not a pinned hex — reimbursement reads as a "money/positive" identity, so it tracks
 // the success tone from the canonical tokens rather than drifting on its own.
@@ -157,10 +145,39 @@ interface RejectModalProps {
   onClose: () => void;
   onConfirm: (reason: string) => void;
   submitting: boolean;
+  /**
+   * 'reject' ends the request. 'request-info' asks the employee a question and leaves it alive.
+   *
+   * Both need free text and both need the approval context above it, so they are one component
+   * with two vocabularies rather than two near-identical modals that drift apart.
+   */
+  variant?: 'reject' | 'request-info';
 }
 
-function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps) {
+const MODAL_COPY = {
+  reject: {
+    title: 'Reject Request',
+    label: 'Reason for Rejection',
+    placeholder: 'Describe why this request is being rejected…',
+    hint: 'A rejection reason is required.',
+    confirm: 'Confirm Rejection',
+    btnClass: 'btn-danger',
+    tone: 'danger' as const,
+  },
+  'request-info': {
+    title: 'Ask for more information',
+    label: 'What do you need to know?',
+    placeholder: 'e.g. Which client visit was this taxi for? Please attach the receipt.',
+    hint: 'A question is required — it is what the employee sees.',
+    confirm: 'Send question',
+    btnClass: 'btn-warning',
+    tone: 'warning' as const,
+  },
+};
+
+function RejectModal({ step, onClose, onConfirm, submitting, variant = 'reject' }: RejectModalProps) {
   const [reason, setReason] = useState('');
+  const copy = MODAL_COPY[variant];
   const trimmed = reason.trim();
   const canSubmit = trimmed.length > 0 && !submitting;
 
@@ -170,7 +187,7 @@ function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps)
     <Modal show={!!step} onHide={onClose} centered size='lg'>
       <Modal.Header closeButton>
         <Modal.Title style={{ fontSize: 16, fontWeight: 700, color: '#181c32' }}>
-          Reject Request
+          {copy.title}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body style={{ padding: '20px 24px' }}>
@@ -192,12 +209,12 @@ function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps)
             {/* Rejection reason */}
             <div>
               <label style={{ fontWeight: 600, fontSize: 13, color: '#181c32', display: 'block', marginBottom: 6 }}>
-                Reason for Rejection <span style={{ color: tonePair('danger').fg }}>*</span>
+                {copy.label} <span style={{ color: tonePair(copy.tone).fg }}>*</span>
               </label>
               <textarea
                 rows={3}
                 className='form-control'
-                placeholder='Describe why this request is being rejected…'
+                placeholder={copy.placeholder}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 style={{ resize: 'vertical', fontSize: 13 }}
@@ -205,7 +222,7 @@ function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps)
               />
               {!trimmed && (
                 <div style={{ fontSize: 11, color: '#a1a5b7', marginTop: 4 }}>
-                  A rejection reason is required.
+                  {copy.hint}
                 </div>
               )}
             </div>
@@ -217,12 +234,12 @@ function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps)
           Cancel
         </button>
         <button
-          className='btn btn-sm btn-danger d-flex align-items-center gap-2'
+          className={`btn btn-sm ${copy.btnClass} d-flex align-items-center gap-2`}
           onClick={() => onConfirm(trimmed)}
           disabled={!canSubmit}
         >
           {submitting && <span className='spinner-border spinner-border-sm' />}
-          Confirm Rejection
+          {copy.confirm}
         </button>
       </Modal.Footer>
     </Modal>
@@ -395,12 +412,17 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
   const [bulkRunning, setBulkRunning] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<ApprovalStep | null>(null);
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
+  const [infoTarget, setInfoTarget] = useState<ApprovalStep | null>(null);
+  const [infoSubmitting, setInfoSubmitting] = useState(false);
+  // Instances this approver has asked a question about during this session. The approval
+  // instance itself stays `pending` — deliberately, since nothing has been decided — so there is
+  // no server field saying "a question is outstanding". Session-only, and honest about it: a
+  // refresh loses the chip, not the question.
+  const [infoRequested, setInfoRequested] = useState<Set<string>>(new Set());
   /** Row-click detail — the registry resolves WHICH component renders it. */
   const [detailStep, setDetailStep] = useState<DisplayStep | null>(null);
   const [batchDetailId, setBatchDetailId] = useState<string | null>(null);
   const [batchDetailInstanceId, setBatchDetailInstanceId] = useState<string | null>(null);
-  const [batchDetailsMap, setBatchDetailsMap] = useState<Record<string, BatchStatusSummary>>({});
-  const [batchDetailFilterStatus, setBatchDetailFilterStatus] = useState<number | null>(null);
 
   const getLeaveTypeColor = (leaveType: string): string => {
     if (!leaveTypeColors) return '#3498DB';
@@ -416,7 +438,6 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
 
   const load = useCallback(async (tab: TabKey = activeTab) => {
     setLoading(true);
-    setBatchDetailsMap({});
     try {
       const res = tab === 'pending'
         ? await fetchPendingApprovals()
@@ -429,41 +450,6 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       });
       setSteps(filtered);
 
-      if (tab === 'completed') {
-        const reimbSteps = filtered.filter((s: ApprovalStep) => s.instance.workflowType === 'reimbursement');
-        const seen = new Set<string>();
-        const batchIds: string[] = [];
-        for (const s of reimbSteps) {
-          if (!seen.has(s.instance.requestId)) {
-            seen.add(s.instance.requestId);
-            batchIds.push(s.instance.requestId);
-          }
-        }
-        if (batchIds.length > 0) {
-          Promise.allSettled(
-            batchIds.map((id: string) =>
-              fetchReimbursementBatchById(id).then((r: any) => ({ id, batch: r?.data?.batch || r?.batch }))
-            )
-          ).then((results) => {
-            const map: Record<string, BatchStatusSummary> = {};
-            for (const r of results) {
-              if (r.status === 'fulfilled' && r.value?.batch) {
-                const { id, batch } = r.value;
-                const reimbs: any[] = batch.reimbursements ?? [];
-                const appr = reimbs.filter((x: any) => x.status === 1);
-                const rej = reimbs.filter((x: any) => x.status === 2);
-                map[id] = {
-                  approved: appr.length,
-                  rejected: rej.length,
-                  approvedAmt: appr.reduce((s: number, x: any) => s + Number(x.amount || 0), 0),
-                  rejectedAmt: rej.reduce((s: number, x: any) => s + Number(x.amount || 0), 0),
-                };
-              }
-            }
-            setBatchDetailsMap(map);
-          });
-        }
-      }
     } catch {
       setSteps([]);
     } finally {
@@ -514,6 +500,63 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     }
   };
 
+  /**
+   * "Need info" — the third outcome, for reimbursement only.
+   *
+   * An approver who needed one more detail could previously only reject, which ends the request
+   * and makes the employee start over: "what is this for?" and "this is not claimable" produced
+   * the same record. NEEDS_INFO returns the lines to the employee with a question, still alive.
+   *
+   * It writes through the per-line endpoint that already implements this
+   * (`PUT /reimbursement/batches/:batchId/requests/:requestId`, action `request-info`) rather
+   * than the generic approval-instance endpoint, which only knows approve and reject. Only the
+   * PENDING lines are touched — a line already approved or rejected has been decided, and
+   * reopening it would undo somebody's decision.
+   *
+   * The instance stays pending on purpose: nothing has been decided, so the request remains the
+   * approver's until the employee answers. That is why the row does not disappear.
+   */
+  const handleRequestInfoConfirm = async (question: string) => {
+    const step = infoTarget;
+    if (!step) return;
+    setInfoSubmitting(true);
+    try {
+      const batchId = step.instance.requestId;
+      const res = await fetchReimbursementBatchById(batchId);
+      const batch = res?.data?.batch || res?.batch;
+      const pendingLines: any[] = (batch?.reimbursements ?? []).filter((r: any) => Number(r.status) === 0);
+
+      if (pendingLines.length === 0) {
+        errorConfirmation('Every expense in this batch has already been decided, so there is nothing to ask about.');
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        pendingLines.map((line: any) =>
+          processBatchRequestAction(batchId, line.id, 'request-info', question)),
+      );
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (failed === results.length) {
+        errorConfirmation('Could not send the question. Please try again.');
+        return;
+      }
+
+      setInfoRequested((prev) => new Set(prev).add(step.instance.id));
+      setInfoTarget(null);
+      successConfirmation(
+        failed > 0
+          ? `Question sent for ${results.length - failed} of ${results.length} expenses. It stays in your queue until they reply.`
+          : `${[step.instance.employee?.users?.firstName, step.instance.employee?.users?.lastName].filter(Boolean).join(' ').trim() || 'The employee'} has been asked. The request stays in your queue until they reply.`,
+        'Question sent',
+      );
+      load();
+    } catch (err: any) {
+      errorConfirmation(err?.response?.data?.message || 'Could not send the question. Please try again.');
+    } finally {
+      setInfoSubmitting(false);
+    }
+  };
+
   const isReimbursementFlow = mode === 'include'
     ? domainTypes.includes('reimbursement')
     : !domainTypes.includes('reimbursement');
@@ -538,7 +581,6 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       ),
       Cell: ({ row }: any) => {
         const ds = row.original as DisplayStep;
-        if (ds._splitStatus) return null;   // a split display row is not itself decidable
         return (
           <input
             type='checkbox'
@@ -576,22 +618,35 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         size: 130,
         Cell: ({ row }: any) => {
           const ds = row.original as DisplayStep;
-          const count = ds._splitCount != null ? ds._splitCount : ds.requestDetails?.totalRequests;
+          const d = ds.requestDetails as any;
+          const count = d?.totalRequests;
           if (count == null) return <span className='text-muted fs-7'>—</span>;
+          // The batch's real mix, from the server. An approver decides whether a batch is worth
+          // opening from this cell, and "5" told them nothing about whether four of those five
+          // were already dealt with.
+          const pills: Array<{ label: string; tone: SemanticTone }> = [];
+          if (d?.pendingCount) pills.push({ label: `${d.pendingCount} pending`, tone: 'warning' });
+          if (d?.queriedCount) pills.push({ label: `${d.queriedCount} query`, tone: 'cyan' });
+          if (d?.approvedCount) pills.push({ label: `${d.approvedCount} approved`, tone: 'success' });
+          if (d?.rejectedCount) pills.push({ label: `${d.rejectedCount} rejected`, tone: 'danger' });
+          if (d?.resubmittedCount) pills.push({ label: `${d.resubmittedCount} resubmitted`, tone: 'indigo' });
           return (
-            <span
+            <div
               role='button'
-              className='fw-bold fs-6 text-primary'
               style={{ cursor: 'pointer' }}
               onClick={(e: React.MouseEvent) => {
                 e.stopPropagation();
                 setBatchDetailId(ds.instance.requestId);
                 setBatchDetailInstanceId(ds.instance.id);
-                setBatchDetailFilterStatus(ds._splitStatus ?? null);
               }}
             >
-              {count}
-            </span>
+              <span className='fw-bold fs-6 text-primary'>{count}</span>
+              {pills.length > 0 && (
+                <div className='d-flex flex-wrap gap-1 mt-1'>
+                  {pills.map((p) => <ToneChip key={p.label} dense tone={p.tone} label={p.label} />)}
+                </div>
+              )}
+            </div>
           );
         },
       } as MRT_ColumnDef<ApprovalStep>,
@@ -601,7 +656,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         size: 150,
         Cell: ({ row }: any) => {
           const ds = row.original as DisplayStep;
-          const amount = ds._splitAmount != null ? ds._splitAmount : ds.requestDetails?.totalAmount;
+          const amount = ds.requestDetails?.totalAmount;
           if (amount == null) return <span className='text-muted fs-7'>—</span>;
           return <span className='text-dark fw-semibold fs-7'>₹{fmtAmount(amount)}</span>;
         },
@@ -699,16 +754,8 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           label = subType;
           color = getLeaveTypeColor(subType);
         } else if (type === 'reimbursement') {
-          const ds = row.original as DisplayStep;
-          if (ds._splitStatus) {
-            label = ds._splitStatus === 1
-              ? `Approved (${ds._splitCount ?? 0})`
-              : `Rejected (${ds._splitCount ?? 0})`;
-            tone = ds._splitStatus === 1 ? 'success' : 'danger';
-          } else {
-            label = subType ?? 'Reimbursement';
-            color = REIMBURSEMENT_BADGE_COLOR;
-          }
+          label = subType ?? 'Reimbursement';
+          color = REIMBURSEMENT_BADGE_COLOR;
         } else {
           label = subType ?? domain?.label ?? type;
           tone = domain?.tone ?? 'neutral';
@@ -817,8 +864,14 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           return <ToneChip dense tone='warning' label={`Awaiting L${step.instance.currentLevel}`} />;
         }
         if (activeTab === 'completed') {
-          const ds = step as DisplayStep;
-          const isApproved = ds._splitStatus === 1 || (ds._splitStatus == null && step.instance.status === 'approved');
+          // A reimbursement batch is rarely all one thing. Forcing it to read "Approved" or
+          // "Rejected" is what the split-row workaround existed to paper over; the server now
+          // says PARTIALLY_PROCESSED outright.
+          const processing = (step.requestDetails as any)?.processingStatus as string | undefined;
+          if (processing === 'PARTIALLY_PROCESSED') {
+            return <ToneChip dense tone='indigo' label='Partially processed' />;
+          }
+          const isApproved = processing ? processing === 'APPROVED' : step.instance.status === 'approved';
           return (
             <ToneChip
               dense
@@ -828,7 +881,21 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           );
         }
 
-        // Pending tab — show delegation chip if applicable
+        // Pending tab.
+        //
+        // A reimbursement batch is NOT a decision. Its requests can sit at different levels, some
+        // already approved, one waiting on the employee's answer — so a tick on this row cannot
+        // mean "approve it". It means "approve the ones in front of me", which is what the server
+        // does, and the label now says that instead of leaving the approver to guess.
+        const awaiting = isReimbursementFlow
+          ? Number((step.requestDetails as any)?.pendingCount ?? 0)
+          : null;
+        const approveTitle = awaiting == null
+          ? 'Approve'
+          : awaiting === 0
+            ? 'Nothing on this submission is awaiting your decision — open it to review'
+            : `Approve the ${awaiting} request${awaiting === 1 ? '' : 's'} awaiting you`;
+
         return (
           <div className='d-flex align-items-center gap-1 flex-wrap'>
             {step.delegatedFrom && (
@@ -842,62 +909,80 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             )}
             <WtIconButton
               color={tonePair('success').fg}
-              title='Approve'
-              disabled={isProcessing}
+              title={approveTitle}
+              disabled={isProcessing || awaiting === 0}
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); approve(step); }}
             >
               {isProcessing
                 ? <CircularProgress size={14} sx={{ color: tonePair('success').fg }} />
                 : <KTIcon iconName='check' className='fs-4' />}
             </WtIconButton>
+            {/* Reimbursement only: it is the one domain with a NEEDS_INFO state and an endpoint
+                that writes it. Rendering the button where it cannot work would be worse than
+                not having it. */}
+            {step.instance.workflowType === 'reimbursement' && (
+              <WtIconButton
+                color={tonePair('warning').fg}
+                title='Need more info — ask the employee a question without rejecting'
+                disabled={isProcessing}
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setInfoTarget(step); }}
+              >
+                <KTIcon iconName='question' className='fs-4' />
+              </WtIconButton>
+            )}
             <WtIconButton
               color={tonePair('danger').fg}
-              title='Reject'
-              disabled={isProcessing}
+              title={awaiting == null ? 'Reject'
+                : awaiting === 0 ? 'Nothing on this submission is awaiting your decision'
+                  : `Reject the ${awaiting} request${awaiting === 1 ? '' : 's'} awaiting you`}
+              disabled={isProcessing || awaiting === 0}
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); setRejectTarget(step); }}
             >
               <KTIcon iconName='cross' className='fs-4' />
             </WtIconButton>
+            {/* Deciding request-by-request is the normal path for a mixed batch, so it gets a
+                button rather than being hidden behind a row click. */}
+            {isReimbursementFlow && (
+              <WtIconButton
+                color={tonePair('brand').fg}
+                title='Open the submission and decide request by request'
+                disabled={isProcessing}
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  setBatchDetailId(step.instance.requestId);
+                  setBatchDetailInstanceId(step.instance.id);
+                }}
+              >
+                <KTIcon iconName='eye' className='fs-4' />
+              </WtIconButton>
+            )}
+            {infoRequested.has(step.instance.id) && (
+              <ToneChip
+                dense
+                tone='warning'
+                label='Info requested'
+                title='You asked the employee a question. It stays here until they reply.'
+                sx={{ width: '100%', mt: 0.5 }}
+              />
+            )}
           </div>
         );
       },
     },
-  ], [processingId, leaveTypeColors, activeTab, isReimbursementFlow]);
+  ], [processingId, leaveTypeColors, activeTab, isReimbursementFlow, infoRequested]);
 
-  const displaySteps = useMemo<DisplayStep[]>(() => {
-    if (activeTab !== 'completed') {
-      return steps.map((s) => ({ ...s, _uid: s.id }));
-    }
-    const result: DisplayStep[] = [];
-    for (const step of steps) {
-      if (step.instance.workflowType !== 'reimbursement') {
-        result.push({ ...step, _uid: step.id });
-        continue;
-      }
-      const details = batchDetailsMap[step.instance.requestId];
-      if (details && details.approved > 0 && details.rejected > 0) {
-        result.push({
-          ...step,
-          id: `${step.id}-approved`,
-          _uid: `${step.id}-approved`,
-          _splitStatus: 1,
-          _splitCount: details.approved,
-          _splitAmount: details.approvedAmt,
-        });
-        result.push({
-          ...step,
-          id: `${step.id}-rejected`,
-          _uid: `${step.id}-rejected`,
-          _splitStatus: 2,
-          _splitCount: details.rejected,
-          _splitAmount: details.rejectedAmt,
-        });
-      } else {
-        result.push({ ...step, _uid: step.id });
-      }
-    }
-    return result;
-  }, [steps, activeTab, batchDetailsMap]);
+  /**
+   * One row per approval. Full stop.
+   *
+   * A mixed reimbursement batch used to be SPLIT into a fake "approved" row and a fake "rejected"
+   * row on the Completed tab, because the queue had no way to say a batch was partly one and
+   * partly the other. The server now reports `processingStatus` — PARTIALLY_PROCESSED is a real
+   * value — so the workaround, and the per-batch fetch that fed it, are both gone.
+   */
+  const displaySteps = useMemo<DisplayStep[]>(
+    () => steps.map((s) => ({ ...s, _uid: s.id })),
+    [steps],
+  );
 
   // ── Bulk approve, across employees ──────────────────────────────────────────
   //
@@ -905,7 +990,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
   // from twelve people still had to open twelve batches to clear them. Selection lives here
   // rather than in the shared MaterialTable because teaching that wrapper about row selection
   // would change every table in the app.
-  const selectableSteps = displaySteps.filter((s) => !s._splitStatus);
+  const selectableSteps = displaySteps;
   const selectedSteps = selectableSteps.filter((s) => selectedIds[s._uid]);
   const allSelected = selectableSteps.length > 0 && selectedSteps.length === selectableSteps.length;
 
@@ -1017,10 +1102,9 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         renderDetailPanel={({ row }: { row: MRT_Row<ApprovalStep> }) => (
           <ExpandedDetail
             instanceId={row.original.instance.id}
-            splitStatus={(row.original as DisplayStep)._splitStatus}
             workflowType={row.original.instance.workflowType}
             details={row.original.requestDetails}
-            canDecide={canApprove && activeTab === 'pending' && !(row.original as DisplayStep)._splitStatus}
+            canDecide={canApprove && activeTab === 'pending'}
             onDecide={async (segmentId, decision) => {
               try {
                 await decideLeaveSegment(segmentId, decision);
@@ -1067,7 +1151,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             // Decide-in-modal only where the row's own ✓/✕ would act: the Pending tab, with the
             // permission. Approve reuses the queue handler then closes; Reject closes then opens the
             // existing reason modal (which owns the reject API call) — no z-index fight, one path.
-            canDecide={canApprove && activeTab === 'pending' && !detailStep._splitStatus}
+            canDecide={canApprove && activeTab === 'pending'}
             onApprove={() => { const s = detailStep; setDetailStep(null); approve(s); }}
             onReject={() => { const s = detailStep; setDetailStep(null); setRejectTarget(s); }}
             onClose={() => setDetailStep(null)}
@@ -1078,12 +1162,19 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
 
       {/* The reimbursement "Total Requests" cell opens the batch modal directly (drill-in to a
           split sub-set), independent of the row-click detail above. */}
+      <RejectModal
+        step={infoTarget}
+        variant='request-info'
+        onClose={() => setInfoTarget(null)}
+        onConfirm={handleRequestInfoConfirm}
+        submitting={infoSubmitting}
+      />
+
       <BatchDetailModal
         batchId={batchDetailId}
-        onClose={() => { setBatchDetailId(null); setBatchDetailInstanceId(null); setBatchDetailFilterStatus(null); }}
+        onClose={() => { setBatchDetailId(null); setBatchDetailInstanceId(null); }}
         onBatchActionDone={() => load(activeTab)}
         approvalInstanceId={batchDetailInstanceId}
-        filterStatus={batchDetailFilterStatus}
       />
     </>
   );

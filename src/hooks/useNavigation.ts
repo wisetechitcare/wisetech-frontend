@@ -7,6 +7,7 @@ import { hasPermission } from '@utils/authAbac';
 import { can } from '@utils/can';
 import { isSectionBlocked, isSubsectionVisible, anyChildGranted } from '@utils/accessAreas';
 import { fetchPendingApprovals } from '@services/employee';
+import { fetchInboxCount } from '@services/inbox';
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags';
 import { useRootOrgName } from './useRootOrgNames';
 import { RootState } from '@redux/store';
@@ -29,6 +30,9 @@ export interface NavigationItem {
 
 export function useNavigation() {
   const intl = useIntl();
+  const [inboxCount, setInboxCount] = useState(0);
+  // Distinct from the inbox count: this one is the approver queue's depth, shown on the
+  // My Team → Approvals row, and is genuinely approver-only.
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
 
   // Subscribe to capabilities + blocked sections so the menu re-evaluates
@@ -37,6 +41,15 @@ export function useNavigation() {
   const blockedSections = useSelector((state: RootState) => (state as any).authz?.blockedSections);
   // Drives the dynamic "<Org> Team" label on the Employees row (see below).
   const orgName = useRootOrgName();
+
+  // The Inbox badge counts the CALLER'S OWN open tasks, whoever they are. It used to count
+  // pending approvals and was skipped entirely for anyone without `approvals.approve.team`, so an
+  // employee with a queried expense saw a zero — and no Inbox row at all to put it on.
+  useEffect(() => {
+    fetchInboxCount()
+      .then(setInboxCount)
+      .catch(() => setInboxCount(0));
+  }, [capabilities]);
 
   useEffect(() => {
     if (!can('approvals.approve.team')) {
@@ -68,14 +81,19 @@ export function useNavigation() {
       // NEW_MY_TEAM_IA that path is a redirect to /my-team/approvals (PrivateRoutes),
       // so the row could never match the URL and would never light up as active.
       // Target the destination directly while the flag is on.
+      // The Inbox is EVERY employee's own task list — approvals to give, questions to answer,
+      // expenses that came back rejected. Gating it on an approval permission (as it was) left the
+      // employee half of every workflow with nowhere the product told them to look, which is the
+      // whole reason the action layer exists. Always visible; the page is scoped to the caller
+      // server-side and simply says "you are all caught up" when there is nothing.
       {
         type: 'item',
         id: 'inbox',
-        to: NEW_MY_TEAM_IA ? '/my-team/approvals' : '/approvals/inbox',
+        to: '/inbox',
         title: 'Inbox',
         fontIcon: 'bi-inbox',
-        badgeCount: pendingApprovalsCount,
-        visible: can('approvals.approve.team') || can('approvals.view.team'),
+        badgeCount: inboxCount,
+        visible: true,
       },
       {
         type: 'item',
@@ -402,7 +420,7 @@ export function useNavigation() {
     ];
 
     return items;
-  }, [intl, pendingApprovalsCount, capabilities, blockedSections, orgName]);
+  }, [intl, inboxCount, pendingApprovalsCount, capabilities, blockedSections, orgName]);
 
   return menu;
 }

@@ -21,6 +21,8 @@ import { successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
+import ResubmitConfirmDialog from "./ResubmitConfirmDialog";
+import { previewResubmission, type ResubmissionPreview } from "@services/reimbursementVersions";
 
 // The schema lives in utils/reimbursementSchema — this file used to carry a third copy
 // that made every field optional, so the admin edit path could clear values the other
@@ -36,6 +38,13 @@ interface Props {
 function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props) {
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
   const [loading, setLoading] = useState(false);
+
+  // Editing a SUBMITTED claim is a resubmission: it creates a new version and restarts approval
+  // from level 1. The employee is shown exactly what is changing and what that costs before it
+  // happens — the diff comes from the server, so what they confirm is what the write will do.
+  const [pending, setPending] = useState<Record<string, unknown> | null>(null);
+  const [preview, setPreview] = useState<ResubmissionPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // The lookup cascade — five fetches, File-Location scoping, saved-selection restore and
   // reverse autofill — lives in one hook now. It existed three times, ~180 lines apiece, and the
@@ -71,19 +80,54 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
     }
   };
 
+  const cleanValues = (values: any) => Object.fromEntries(
+    Object.entries(values).filter(([key, value]) => {
+      if (["employee", "employeeId", "reimbursementType", "type", "day", "isActive", "status"].includes(key)) return false;
+      if (key === "amount") return true;
+      return value !== "";
+    }),
+  );
+
+  /**
+   * Step one: ask the server what this edit would do. Nothing is written yet.
+   *
+   * An unsubmitted claim has no approvals to lose, so it saves straight through — the
+   * confirmation only earns its interruption when there is something at stake.
+   */
   const handleSubmit = async (values: any) => {
+    if (!reimbursement?.id) return;
+    const cleaned = cleanValues(values);
+
+    if (!(reimbursement as any).batchId) {
+      await commit(cleaned);
+      return;
+    }
+
+    setPending(cleaned);
+    setPreviewLoading(true);
+    try {
+      setPreview(await previewResubmission(reimbursement.id.toString(), cleaned));
+    } catch {
+      // A preview that cannot be computed must not block the edit — fall back to committing,
+      // where the server applies the same rule anyway.
+      setPreview(null);
+      await commit(cleaned);
+      setPending(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  /** Step two: the write. The server decides again whether this versions and restarts. */
+  const commit = async (cleaned: Record<string, unknown>) => {
     if (!reimbursement?.id) return;
     setLoading(true);
     try {
-      const cleaned = Object.fromEntries(
-        Object.entries(values).filter(([key, value]) => {
-          if (["employee", "employeeId", "reimbursementType", "type", "day", "isActive", "status"].includes(key)) return false;
-          if (key === "amount") return true;
-          return value !== "";
-        }),
-      );
-      await updateReimbursementById(reimbursement.id.toString(), cleaned);
-      successConfirmation("Reimbursement updated successfully");
+      const res: any = await updateReimbursementById(reimbursement.id.toString(), cleaned);
+      // The server says which it was — "Resubmitted as version 2. Approval has restarted from
+      // level 1." or "Nothing about the claim changed". Echoing it avoids a second, drifting copy
+      // of the rule on the client.
+      successConfirmation(res?.message ?? "Reimbursement updated successfully");
       eventBus.emit("reimbursementRecords", { records: [] });
       onSaved();
       onHide();
@@ -91,6 +135,8 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
       // error handled by axios interceptor
     } finally {
       setLoading(false);
+      setPending(null);
+      setPreview(null);
     }
   };
 
@@ -114,6 +160,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
   };
 
   return (
+    <>
     <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
         <Modal.Title>Edit Reimbursement Request</Modal.Title>
@@ -229,7 +276,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
               {categoryRequiresLocation(selectedReimbursementFor) && (
               <div className="row">
                 <div className="col-lg-6">
-                  <label className="form-label fw-bold">From Location</label>
+                  <label className="form-label fw-bold">From Location <span className="text-danger">*</span></label>
                   <input
                     type="text"
                     className={`form-control form-control-lg form-control-solid${formikProps.touched.fromLocation && formikProps.errors.fromLocation ? " is-invalid" : ""}`}
@@ -243,7 +290,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                   )}
                 </div>
                 <div className="col-lg-6 mb-7">
-                  <label className="form-label fw-bold">To Location</label>
+                  <label className="form-label fw-bold">To Location <span className="text-danger">*</span></label>
                   <input
                     type="text"
                     className={`form-control form-control-lg form-control-solid${formikProps.touched.toLocation && formikProps.errors.toLocation ? " is-invalid" : ""}`}
@@ -298,6 +345,18 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
         </Formik>
       </Modal.Body>
     </Modal>
+
+    {/* Shown only for a claim that is already in the workflow — an unsubmitted one has no
+        approvals to lose, so it saves straight through. */}
+    <ResubmitConfirmDialog
+      open={!!pending}
+      preview={preview}
+      loading={previewLoading}
+      submitting={loading}
+      onCancel={() => { setPending(null); setPreview(null); }}
+      onConfirm={() => { if (pending) commit(pending); }}
+    />
+    </>
   );
 }
 

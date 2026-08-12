@@ -73,6 +73,7 @@ const TemplateDocumentationBuilderPage = lazy(() => import('@pages/employee/lead
 const MyTeamLayout = lazy(() => import('@pages/my-team/MyTeamLayout'))
 const MyTeamOverview = lazy(() => import('@pages/my-team/Overview'))
 const MyTeamApprovals = lazy(() => import('@pages/my-team/Approvals'))
+const InboxPage = lazy(() => import('@pages/inbox/InboxPage'))
 const MyTeamDelegations = lazy(() => import('@pages/my-team/Delegations'))
 const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
 const WizardsPage = lazy(() => import('../modules/wizards/WizardsPage'))
@@ -163,13 +164,14 @@ const PrivateRoutes = () => {
           <Route path='delegations' element={<MyTeamDelegations />} />
         </Route>}
 
-        {NEW_MY_TEAM_IA && <Route path='approvals/inbox/*' element={<Navigate to='/my-team/approvals' replace />} />}
+        <Route path='inbox' element={<InboxPage />} />
+        {NEW_MY_TEAM_IA && <Route path='approvals/inbox/*' element={<Navigate to='/inbox' replace />} />}
         {NEW_MY_TEAM_IA && <Route path='approvals/my-team/*' element={<Navigate to='/my-team/overview' replace />} />}
         {NEW_MY_TEAM_IA && <Route path='approvals/delegations/*' element={<Navigate to='/my-team/delegations' replace />} />}
         {NEW_MY_TEAM_IA && <Route path='attendance-leaves/my-team/*' element={<Navigate to='/my-team/overview' replace />} />}
-        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/approval-inbox/*' element={<Navigate to='/my-team/approvals' replace />} />}
+        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/approval-inbox/*' element={<Navigate to='/inbox' replace />} />}
         {NEW_MY_TEAM_IA && <Route path='attendance-leaves/delegations/*' element={<Navigate to='/my-team/delegations' replace />} />}
-        {!NEW_MY_TEAM_IA && <Route path='approvals/inbox' element={<MyTeamApprovals />} />}
+        {!NEW_MY_TEAM_IA && <Route path='approvals/inbox' element={<InboxPage />} />}
         {!NEW_MY_TEAM_IA && <Route path='approvals/my-team' element={<MyTeamOverview />} />}
         {!NEW_MY_TEAM_IA && <Route path='approvals/delegations' element={<MyTeamDelegations />} />}
         <Route path='builder' element={<BuilderPageWrapper />} />

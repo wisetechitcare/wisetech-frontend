@@ -75,13 +75,14 @@ export interface ApprovalStep {
     instance: ApprovalInstance;
 }
 
-/** Row-splitting metadata the reimbursement flow adds (approved/rejected sub-rows). */
-export type DisplayStep = ApprovalStep & {
-    _uid: string;
-    _splitStatus?: 1 | 2;
-    _splitCount?: number;
-    _splitAmount?: number;
-};
+/**
+ * A queue row.
+ *
+ * It used to carry `_splitStatus`/`_splitCount`/`_splitAmount` — a mixed reimbursement batch was
+ * split into a fake "approved" row and a fake "rejected" row, because the queue had no way to say
+ * a batch was partly both. The server reports `processingStatus` now, so one approval is one row.
+ */
+export type DisplayStep = ApprovalStep & { _uid: string };
 
 export interface ApprovalDetailProps {
     step: DisplayStep;
