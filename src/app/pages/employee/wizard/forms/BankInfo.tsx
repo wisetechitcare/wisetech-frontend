@@ -1,3 +1,4 @@
+import { DOCUMENT_ACCEPT, DOCUMENT_HINT } from "@utils/fileValidation";
 import React, { useState } from "react";
 import { getIn } from "formik";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -91,8 +92,8 @@ function BankInfo({ formikProps, userId }: any) {
       <ObFileUpload
         id="bank-passbook-upload"
         disabled={!userId}
-        accept=".pdf,.jpg,.jpeg,.png"
-        hint="PDF or image — max 5MB"
+        accept={DOCUMENT_ACCEPT}
+        hint={DOCUMENT_HINT}
         onDisabledClick={() => setShowInfo(true)}
         onChange={handlePassbookFile}
       />

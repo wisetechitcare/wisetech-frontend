@@ -1,5 +1,6 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { Upload, FileText, X, Eye } from "lucide-react";
+import { DOCUMENT_ACCEPT, DOCUMENT_HINT, validateDocumentFile } from "@utils/fileValidation";
 
 type ObFileUploadProps = {
   onChange: (file: File | null) => void;
@@ -16,8 +17,8 @@ type ObFileUploadProps = {
 function ObFileUpload({
   onChange,
   disabled = false,
-  accept = ".pdf,.jpg,.jpeg,.png",
-  hint = "PDF, JPG or PNG",
+  accept = DOCUMENT_ACCEPT,
+  hint = DOCUMENT_HINT,
   existingFileName,
   existingFileUrl,
   onDisabledClick,
@@ -43,14 +44,18 @@ function ObFileUpload({
     const file = e.target.files?.[0] ?? null;
 
     // The `accept` attribute is only a picker hint — the OS file dialog still lets a user
-    // choose "All Files" and pick anything (e.g. a .zip). Enforce the same allow-list here
-    // for real, against the actual picked file's extension.
+    // choose "All Files" and pick anything (e.g. a .zip). Re-check the actual file here:
+    // type against this input's own `accept` list, plus size and the empty-file case,
+    // which `accept` cannot express at all.
     if (file) {
-      const allowedExtensions = accept.split(",").map((ext) => ext.trim().toLowerCase()).filter(Boolean);
-      const fileExtension = `.${file.name.split(".").pop()?.toLowerCase() ?? ""}`;
-      if (allowedExtensions.length && !allowedExtensions.includes(fileExtension)) {
-        setRejectionError(`Unsupported file type. Allowed: ${allowedExtensions.join(", ")}`);
+      const extensions = accept.split(",").map((ext) => ext.trim().toLowerCase()).filter(Boolean);
+      const error = validateDocumentFile(file, extensions.length ? { extensions } : undefined);
+      if (error) {
+        setRejectionError(error);
+        // Clear the input so picking the SAME file again still fires `change` — without
+        // this, correcting the problem and re-picking it looks like nothing happened.
         e.target.value = "";
+        onChange(null);
         return;
       }
     }
