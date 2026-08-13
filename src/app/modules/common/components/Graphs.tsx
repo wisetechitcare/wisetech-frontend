@@ -963,9 +963,14 @@ export const Bar = ({ barOption, barSeriesData, height, cardHeight, totalWorking
         xaxis: {
             categories: barOption,
             tickPlacement: 'between',
-            tickAmount: Math.min(10, Math.ceil(barOption.length / 2)),
             labels: {
-                rotate: barOption.length > 15 ? -45 : 0,
+                // No tickAmount + hideOverlappingLabels:false — otherwise Apex renders
+                // only ~10 category labels and silently drops the rest of the names.
+                rotate: -45,
+                rotateAlways: barOption.length > 8,
+                hideOverlappingLabels: false,
+                trim: true,
+                maxHeight: 90,
                 style: { fontSize: barOption.length > 20 ? '9px' : '11px', colors: '#9ca3af', fontWeight: '600' },
                 formatter: (v: string) => v && v.length > 9 ? v.substring(0, 9) + '…' : v,
             },
