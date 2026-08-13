@@ -91,3 +91,140 @@ export const validateDocumentFile = (
 
   return null;
 };
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PROFILE PHOTO
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Formats the photo picker accepts. The hint below is derived from this list, so
+ *  the dropzone can never advertise a type the validator then rejects — which is
+ *  exactly what it used to do. */
+export const PHOTO_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const;
+
+/** MIME allowlist for the dropzone. Kept beside the extensions it mirrors. */
+export const PHOTO_ACCEPT_MAP: Record<string, string[]> = {
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'image/webp': ['.webp'],
+};
+
+export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+export const MAX_PHOTO_LABEL = '5MB';
+
+/** Derived, so the label always states what is actually accepted. */
+export const PHOTO_HINT = `JPG · PNG · WEBP · Max ${MAX_PHOTO_LABEL}`;
+
+/** A portrait below this is too soft to print on an ID card. */
+const MIN_PHOTO_DIMENSION = 200;
+/** Guard against a decompression bomb: a 20000×20000 PNG is a few KB zipped. */
+const MAX_PHOTO_DIMENSION = 12000;
+
+/** Magic bytes per accepted format. The browser's `File.type` is attacker-supplied
+ *  and derived from the extension, so it proves nothing on its own. */
+const IMAGE_SIGNATURES: Array<{ ext: string; test: (b: Uint8Array) => boolean }> = [
+  { ext: 'jpg', test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { ext: 'png', test: (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
+  {
+    ext: 'webp',
+    test: (b) =>
+      String.fromCharCode(b[0], b[1], b[2], b[3]) === 'RIFF' &&
+      String.fromCharCode(b[8], b[9], b[10], b[11]) === 'WEBP',
+  },
+];
+
+const readHeader = (file: File, bytes = 16): Promise<Uint8Array> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file.slice(0, bytes));
+  });
+
+export interface PhotoValidationResult {
+  ok: boolean;
+  /** Why it was rejected — written to be shown to the user verbatim. */
+  reason?: string;
+  /** Decoded dimensions, once the file is known to be a real image. */
+  width?: number;
+  height?: number;
+}
+
+/**
+ * Validate a profile photo, thoroughly and BEFORE the form is saved.
+ *
+ * Four gates, cheapest first, each answering a different question:
+ *   1. extension + size — is this even the right kind of file?
+ *   2. magic bytes      — are the CONTENTS that kind of file? A `.png` holding a
+ *                         script passes step 1 and dies here.
+ *   3. decode           — will a browser actually render it? Catches truncated and
+ *                         corrupt files that have a valid header but no usable body.
+ *   4. dimensions       — too small to print, or large enough to be a decompression
+ *                         bomb that would hang the canvas.
+ *
+ * This is still a courtesy check, not the security boundary — `services/fileSafety.ts`
+ * re-sniffs every upload server-side and is the thing that actually enforces. The
+ * point of doing it here is that the user finds out NOW, with a reason, rather than
+ * at save time after filling in nineteen sections.
+ */
+export const validatePhotoFile = async (file: File): Promise<PhotoValidationResult> => {
+  const basic = validateDocumentFile(file, {
+    extensions: PHOTO_EXTENSIONS,
+    maxBytes: MAX_PHOTO_BYTES,
+  });
+  if (basic) return { ok: false, reason: basic };
+
+  let header: Uint8Array;
+  try {
+    header = await readHeader(file);
+  } catch {
+    return { ok: false, reason: 'This file could not be read. It may still be syncing or downloading.' };
+  }
+
+  const signature = IMAGE_SIGNATURES.find((s) => s.test(header));
+  if (!signature) {
+    return {
+      ok: false,
+      reason: 'This file is not a real image — its contents do not match a JPG, PNG or WEBP. Please upload the original photo.',
+    };
+  }
+
+  const named = file.name.slice(file.name.lastIndexOf('.') + 1).toLowerCase();
+  const namedAsJpeg = named === 'jpg' || named === 'jpeg';
+  const matches = signature.ext === 'jpg' ? namedAsJpeg : signature.ext === named;
+  if (!matches) {
+    return {
+      ok: false,
+      reason: `This file is named .${named} but its contents are ${signature.ext.toUpperCase()}. Please upload the original photo.`,
+    };
+  }
+
+  // Only a real decode proves the body is intact — a valid header is not enough.
+  const url = URL.createObjectURL(file);
+  try {
+    const size = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = () => reject(new Error('decode failed'));
+      img.src = url;
+    });
+
+    if (size.width < MIN_PHOTO_DIMENSION || size.height < MIN_PHOTO_DIMENSION) {
+      return {
+        ok: false,
+        reason: `This image is ${size.width}×${size.height}. Please upload one at least ${MIN_PHOTO_DIMENSION}×${MIN_PHOTO_DIMENSION} so it stays sharp on an ID card.`,
+      };
+    }
+    if (size.width > MAX_PHOTO_DIMENSION || size.height > MAX_PHOTO_DIMENSION) {
+      return {
+        ok: false,
+        reason: `This image is ${size.width}×${size.height}, which is too large to process. Please resize it first.`,
+      };
+    }
+
+    return { ok: true, ...size };
+  } catch {
+    return { ok: false, reason: 'This image appears to be corrupted and could not be opened.' };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+};

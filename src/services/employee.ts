@@ -704,7 +704,7 @@ export interface DocumentsDirectoryEntry {
     lastUpdatedAt: string | null;
 }
 
-export type VaultDocumentCategory = 'onboarding' | 'identity' | 'signature' | 'bank' | 'education';
+export type VaultDocumentCategory = 'photo' | 'onboarding' | 'identity' | 'signature' | 'bank' | 'education';
 
 export interface VaultDocument {
     id: string;

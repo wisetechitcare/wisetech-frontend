@@ -214,9 +214,9 @@ export const EmergencySection: React.FC<OnboardingSectionsProps> = ({ formikProp
   <EmergencyDetails formikProps={formikProps} />
 );
 
-export const BankSection: React.FC<OnboardingSectionsProps> = ({ formikProps }) => {
+export const BankSection: React.FC<OnboardingSectionsProps> = ({ formikProps, setBankFile }) => {
   const { values } = useFormikContext<any>();
-  return <BankInfo formikProps={formikProps} userId={values?.userId} />;
+  return <BankInfo formikProps={formikProps} userId={values?.userId} setBankFile={setBankFile} />;
 };
 
 export const AddressSection: React.FC<OnboardingSectionsProps> = ({ formikProps }) => (
