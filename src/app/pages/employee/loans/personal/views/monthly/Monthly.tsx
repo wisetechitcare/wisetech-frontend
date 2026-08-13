@@ -283,7 +283,7 @@ function Monthly({ month, resource, viewOthers, viewOwn }: { month: Dayjs, resou
             </div>
         </CommonCard>
 
-            <h4 className='d-flex justify-content-between align-items-center mb-5 pt-8'>This month installments</h4>
+            <h4 className='d-flex justify-content-between align-items-center mb-5 pt-8'>This Month Installments</h4>
             <MaterialTable
                 columns={columns}
                 data={installmentsData}

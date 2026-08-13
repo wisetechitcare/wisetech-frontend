@@ -362,7 +362,7 @@ function GeneralSettings() {
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14.5px', color: '#181C32', margin: 0 }}>
-                Excluded from late Attendance deduction
+                Excluded from Late Attendance Deduction
               </h3>
               <span style={{
                 fontFamily: 'Inter, sans-serif', fontSize: '10px', fontWeight: 700,

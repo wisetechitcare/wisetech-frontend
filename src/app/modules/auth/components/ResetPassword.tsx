@@ -150,7 +150,7 @@ export function ResetPassword() {
             <div className="d-flex flex-column flex-center pb-0 pb-lg-10 p-10 w-100">
                 <img className="mx-auto w-150px w-lg-500px" src={toAbsoluteUrl("media/login/WTgif.gif")}/>
                 <h1 className="fs-1qx text-center mb-5 text-uppercase login__subtitle">Fast, Efficient and Productive</h1>
-                <h3 className="text-gray-800 fs-2qx fw-bold text-center mb-7"> All-in-one employee management solution for startups</h3>
+                <h3 className="text-gray-800 fs-2qx fw-bold text-center mb-7"> All-in-one Employee Management Solution for Startups</h3>
             </div>
         </div>
         <div className="d-flex flex-column-fluid flex-lg-row-auto justify-content-center justify-content-lg-end p-12">

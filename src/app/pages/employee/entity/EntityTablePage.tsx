@@ -2260,7 +2260,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                     whiteSpace: "nowrap"
                   }}
                 >
-                  ✕ Clear filters
+                  ✕ Clear Filters
                 </button>
               )}
             </div>

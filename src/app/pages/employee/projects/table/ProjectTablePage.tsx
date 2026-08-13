@@ -1090,7 +1090,7 @@ const ProjectTablePage = () => {
                   whiteSpace: "nowrap"
                 }}
               >
-                ✕ Clear filters
+                ✕ Clear Filters
               </button>
             )}
           </div>

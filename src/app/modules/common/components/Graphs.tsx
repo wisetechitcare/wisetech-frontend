@@ -2251,7 +2251,7 @@ export const StatisticsTable = ({
                 </Modal.Header>
                 <Modal.Body>
                     {showRequestTypeSelection ? (<div className='d-flex flex-column align-items-center'>
-                        <h5 className='mb-4'>What type of request would you like to raise?</h5>
+                        <h5 className='mb-4'>What Type of Request Would You Like to Raise?</h5>
                         <div className='d-flex gap-3'>
                             <button
                                 type='button'

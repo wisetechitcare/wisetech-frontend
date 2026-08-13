@@ -506,7 +506,7 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <span className="path3"></span>
                         </i>
                         <div className="d-flex flex-column">
-                            <h4 className="mb-1 text-dark">How it works</h4>
+                            <h4 className="mb-1 text-dark">How It Works</h4>
                             <span>
                                 The system will automatically create new records for experience levels that don't exist, 
                                 and update existing records. Each employee's addon leaves will be calculated based on 
