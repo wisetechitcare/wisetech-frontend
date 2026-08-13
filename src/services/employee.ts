@@ -1381,6 +1381,11 @@ export const fetchLeaveRequest = async (
      *  browser only reorders the page it happens to be holding. Unknown columns are
      *  ignored server-side (whitelist in utils/sortParams). */
     sort?: { id: string; desc: boolean },
+    /** Free-text search over the WHOLE result set in SQL, for the same reason as `sort`:
+     *  a paginated table filtering in the browser only ever matches the page it holds, so
+     *  searching a long queue returns "no results" for rows that exist on page 2.
+     *  Columns searched are fixed server-side (see EMPLOYEE_SEARCH_PATHS). */
+    search?: string,
 ) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_LEAVE_REQUEST}`;
@@ -1399,6 +1404,9 @@ export const fetchLeaveRequest = async (
             params.append('endDate', range.endDate);
         }
         if (activeOnly) params.append('activeOnly', 'true');
+        // Trimmed, and omitted when empty: a blank `search=` would be a filter the API has
+        // to decide to ignore, rather than one that was never requested.
+        if (search?.trim()) params.append('search', search.trim());
 
         if (params.toString()) {
             endpoint += `?${params.toString()}`;
@@ -1713,6 +1721,8 @@ export const getAllAttendanceRequestByCompanyId = async (
     activeOnly?: boolean,
     /** Sort the WHOLE result set in SQL — see fetchLeaveRequest. */
     sort?: { id: string; desc: boolean },
+    /** Search the WHOLE result set in SQL — see fetchLeaveRequest. */
+    search?: string,
 ) => {
     try {
         const params = new URLSearchParams({ companyId, page: String(page), limit: String(limit) });
@@ -1726,6 +1736,7 @@ export const getAllAttendanceRequestByCompanyId = async (
             params.append('sortBy', sort.id);
             params.append('sortOrder', sort.desc ? 'desc' : 'asc');
         }
+        if (search?.trim()) params.append('search', search.trim());
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_ATTENDANCE_REQUEST}?${params.toString()}`;
         const { data } = await axios.get(endpoint);
         return data;

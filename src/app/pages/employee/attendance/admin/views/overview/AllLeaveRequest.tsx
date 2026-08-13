@@ -154,18 +154,23 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
     const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([]);
     const sortKey = sorting.length ? `${sorting[0].id}:${sorting[0].desc}` : '';
 
+    // Search is server-side for exactly the reason sorting is. The table hands over the
+    // DEBOUNCED query (see MaterialTableImpl's onSearchChange), so this is one request per
+    // pause in typing, not one per keystroke.
+    const [search, setSearch] = useState('');
+
     // Fetch function for server pagination
     const fetchLeaves = useCallback(async (page: number, limit: number) => {
         // activeOnly is server-side for the same reason the period is: filtering a
         // ten-row page in the browser would leave the total count claiming rows the
         // table refuses to show.
-        const { data: { leaveRequest, pagination } } = await fetchLeaveRequest(undefined, undefined, page, limit, periodParams, activeOnly, sorting[0]);
+        const { data: { leaveRequest, pagination } } = await fetchLeaveRequest(undefined, undefined, page, limit, periodParams, activeOnly, sorting[0], search);
 
         return {
             data: leaveRequest || [],
             totalRecords: pagination?.totalRecords || leaveRequest?.length || 0,
         };
-    }, [periodParams, activeOnly, sorting]);
+    }, [periodParams, activeOnly, sorting, search]);
 
     // Use the server pagination hook
     const {
@@ -180,10 +185,11 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         fetchFunction: fetchLeaves,
         initialPageSize: pageSize,
         transformData: transformLeaveRequests,
-        // Changing the period OR the sort must snap back to page 1 — see the hook's docs.
-        // Re-sorting while on page 5 would otherwise ask for page 5 of a reordered set,
-        // which is a different ten rows than the user expects to land on.
-        resetKey: `${rangeKey}|${sortKey}`,
+        // Changing the period OR the sort OR the search must snap back to page 1 — see the
+        // hook's docs. Re-sorting while on page 5 would otherwise ask for page 5 of a
+        // reordered set, which is a different ten rows than the user expects to land on;
+        // searching from page 5 is worse still, since the match set is usually one page.
+        resetKey: `${rangeKey}|${sortKey}|${search}`,
     });
 
     const deleteLeaveRequest = async (id: string) => {
@@ -388,6 +394,8 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
                 manualPagination={true}
                 manualSorting={true}
                 onSortingChange={setSorting}
+                manualFiltering={true}
+                onSearchChange={setSearch}
                 rowCount={totalRecords}
                 paginationState={pagination}
                 onPaginationChange={setPagination}

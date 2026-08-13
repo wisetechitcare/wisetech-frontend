@@ -152,6 +152,11 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
     const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([]);
     const sortKey = sorting.length ? `${sorting[0].id}:${sorting[0].desc}` : '';
 
+    // Search is server-side for exactly the reason sorting is. The table hands over the
+    // DEBOUNCED query (see MaterialTableImpl's onSearchChange), so this is one request per
+    // pause in typing, not one per keystroke.
+    const [search, setSearch] = useState('');
+
     // Fetch function for all attendance requests
     const fetchAllAttendanceRequests = useCallback(async (page: number, limit: number) => {
         const companyId = await resolveCompanyId();
@@ -159,13 +164,13 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
         // activeOnly is server-side for the same reason the period is: filtering a
         // ten-row page in the browser would leave the total count claiming rows the
         // table refuses to show.
-        const { data: { attendanceRequests, pagination: paginationData } } = await getAllAttendanceRequestByCompanyId(companyId, page, limit, periodParams, activeOnly, sorting[0]);
+        const { data: { attendanceRequests, pagination: paginationData } } = await getAllAttendanceRequestByCompanyId(companyId, page, limit, periodParams, activeOnly, sorting[0], search);
 
         return {
             data: attendanceRequests,
             totalRecords: paginationData?.totalRecords || attendanceRequests.length,
         };
-    }, [resolveCompanyId, periodParams, activeOnly, sorting]);
+    }, [resolveCompanyId, periodParams, activeOnly, sorting, search]);
 
     // Single hook for all attendance requests with server-side pagination
     const {
@@ -181,10 +186,11 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
         fetchFunction: fetchAllAttendanceRequests,
         initialPageSize: pageSize,
         transformData: transformAttendanceRequest,
-        // Changing the period OR the sort must snap back to page 1 — see the hook's docs.
-        // Re-sorting while on page 5 would otherwise ask for page 5 of a reordered set,
-        // which is a different ten rows than the user expects to land on.
-        resetKey: `${rangeKey}|${sortKey}`,
+        // Changing the period OR the sort OR the search must snap back to page 1 — see the
+        // hook's docs. Re-sorting while on page 5 would otherwise ask for page 5 of a
+        // reordered set, which is a different ten rows than the user expects to land on;
+        // searching from page 5 is worse still, since the match set is usually one page.
+        resetKey: `${rangeKey}|${sortKey}|${search}`,
     });
 
     useEventBus(EVENT_KEYS.attendanceRequestUpdated, (data) => {
@@ -521,6 +527,8 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
                 persistPreferences={false}
                 manualPagination={true}
                 manualSorting={true}
+                manualFiltering={true}
+                onSearchChange={setSearch}
                 onSortingChange={setSorting}
                 rowCount={allTotalRecords}
                 onPaginationChange={setAllPagination}
