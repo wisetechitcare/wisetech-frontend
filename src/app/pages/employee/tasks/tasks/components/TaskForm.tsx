@@ -1,7 +1,7 @@
 ﻿import React from 'react'
 import { IconButton, Box, Typography, Grid } from '@mui/material';
 import { Close, Add, Label } from '@mui/icons-material';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Formik, Form as FormikForm } from "formik";
 import * as Yup from "yup";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
@@ -51,6 +51,13 @@ interface TaskFormModalProps {
 
 const validationSchema = Yup.object().shape({
   taskName: Yup.string().required('Task name is required'),
+  // In preset mode the name is chosen through the Main Task picker, so the error has
+  // to surface there — `taskName` itself has no field of its own to hang it on.
+  mainTask: Yup.string().when('projectType', {
+    is: 'preset',
+    then: (schema) => schema.required('Main task is required'),
+    otherwise: (schema) => schema.notRequired(),
+  }),
   taskDescription: Yup.string(),
   chooseProject: Yup.string().required('Project is required'),
   assignTo: Yup.string().required('Assignee is required'),
@@ -99,6 +106,10 @@ const TaskForm = ({
     projectType: determinedProjectType,
     taskType: determinedProjectType === 'custom' ? 'CUSTOM' : 'PRESETS',
     taskName: taskName || '',
+    // Preset mode only — the Task → Sub-task pair the name above was picked from.
+    // Resolved from `taskName` once the preset list loads (see the effect below).
+    mainTask: '',
+    subTask: '',
     taskDescription: taskDescription || '',
     chooseProject: chooseProject || '',
     assignTo: assignTo || '',
@@ -122,6 +133,26 @@ const TaskForm = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showPriorityModal, setShowPriorityModal] = useState(false);
+
+  // Preset tasks come back flat; `parentId` is what makes them a tree. A row whose
+  // parent is missing (deleted/inactive) is treated as a main task so it never becomes
+  // unselectable.
+  const mainTaskOptions = useMemo(() => {
+    const ids = new Set(tasks.map((t: any) => t?.id));
+    return tasks
+      .filter((t: any) => !t?.parentId || !ids.has(t.parentId))
+      .map((t: any) => ({ value: t?.id, label: t?.name }));
+  }, [tasks]);
+
+  const subTaskOptionsFor = useCallback(
+    (mainTaskId: string) =>
+      !mainTaskId
+        ? []
+        : tasks
+            .filter((t: any) => t?.parentId === mainTaskId)
+            .map((t: any) => ({ value: t?.id, label: t?.name })),
+    [tasks]
+  );
 
   const currentEmployeeId = useSelector((state:RootState) => state.employee?.currentEmployee?.id);
 
@@ -252,6 +283,16 @@ const TaskForm = ({
         const getAllTasksres = await getAllTasks();
         setProjects(projectres.projects);
         setTasks(presetTaskStatuses);
+        // Tasks are stored by name, so on edit we map the saved name back onto the
+        // Task / Sub-task pair it came from — a sub-task also selects its parent.
+        const preset = (presetTaskStatuses || []).find((t: any) => t?.name === taskName);
+        if (preset) {
+          setFormData((prev) => ({
+            ...prev,
+            mainTask: preset.parentId || preset.id,
+            subTask: preset.parentId ? preset.id : '',
+          }));
+        }
         // setEmployees(employeeRes.data?.employees);
         setTaskStatus(taskStatusRes?.taskStatuses);
         setTaskPriority(taskPriorityRes?.taskPriorities);
@@ -321,22 +362,54 @@ const TaskForm = ({
 
                         />
                       </Grid>
-                      <Grid item xs={12} md={12}>
-                        {
-                          formData.projectType === 'preset' ? (
+                      {values.projectType === 'preset' ? (
+                        <>
+                          {/* Preset tasks are a Task → Sub-task tree (Tasks ▸ Configure), so the
+                              name is picked in two steps: the main task, then optionally one of
+                              its sub-tasks. Whichever is chosen last is what gets saved. */}
+                          <Grid item xs={12} md={6}>
                             <DropDownInput
-                              formikField="taskName"
+                              formikField="mainTask"
                               isRequired={true}
-                              inputLabel="Task Name"
-                              options={tasks.map((task: any) => ({ value: task?.name, label: task?.name }))}
-                              placeholder="Select Project"
+                              inputLabel="Main Task"
+                              options={mainTaskOptions}
+                              placeholder="Select Main Task"
+                              onChange={(option: any) => {
+                                // Switching the main task invalidates the sub-task under it.
+                                setFieldValue('subTask', '');
+                                setFieldValue('taskName', option?.label || '');
+                              }}
                             />
-                          ) : (
-                            <TextInput formikField='taskName' label='Task Name' isRequired={true} />
-                          )
-                        }
-
-                      </Grid>
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <DropDownInput
+                              formikField="subTask"
+                              isRequired={false}
+                              inputLabel="Sub Task"
+                              options={subTaskOptionsFor(values.mainTask)}
+                              disabled={!values.mainTask || subTaskOptionsFor(values.mainTask).length === 0}
+                              placeholder={
+                                !values.mainTask
+                                  ? "Select a main task first..."
+                                  : subTaskOptionsFor(values.mainTask).length === 0
+                                    ? "No sub-tasks configured"
+                                    : "Select Sub Task"
+                              }
+                              onChange={(option: any) => {
+                                // Clearing the sub-task falls back to the main task's own name.
+                                setFieldValue(
+                                  'taskName',
+                                  option?.label || mainTaskOptions.find((o) => o.value === values.mainTask)?.label || ''
+                                );
+                              }}
+                            />
+                          </Grid>
+                        </>
+                      ) : (
+                        <Grid item xs={12} md={12}>
+                          <TextInput formikField='taskName' label='Task Name' isRequired={true} />
+                        </Grid>
+                      )}
                       <Grid item xs={12} md={12}>
                         <TextInput formikField='taskDescription' label='Task Description' isRequired={false} />
                       </Grid>

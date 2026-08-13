@@ -110,6 +110,27 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
   }, [resolvedCountry]);
 
   /**
+   * Persist the dial code the field is ALREADY SHOWING.
+   *
+   * `extensionValue` falls back to `defaultCountry` for display, but nothing wrote
+   * that fallback anywhere — the extension was only ever set inside `onChange`. So a
+   * number that arrived by any other route (an older record, an edit screen, a
+   * "same as personal" copy from an empty source) rendered a confident "+91" while
+   * the column stayed empty. The form looked right and the data was not: 54
+   * employees had a company number, 23 had its code.
+   *
+   * Guarded on there BEING a number, so a blank field never writes anything — that
+   * would mark a pristine form dirty and make an untouched draft look meaningful.
+   */
+  useEffect(() => {
+    if (!formikField || !extensionField) return;
+    if (!normalizedFieldValue) return;
+    if (extensionValue && String(extensionValue).trim()) return;
+    resolvedFormikProps?.setFieldValue?.(extensionField, defaultCountry, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [normalizedFieldValue, extensionValue, extensionField, formikField, defaultCountry]);
+
+  /**
    * The number is handed over one render later still — it CANNOT arrive with the country.
    *
    * updateCountry() ends with `formattedNumber: disableCountryCode ? "" : …`, i.e. it

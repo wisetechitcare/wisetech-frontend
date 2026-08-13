@@ -95,6 +95,35 @@ const EmployeeListContent = () => {
 
   const navigate = useNavigate();
 
+  /**
+   * Opens the employee the row belongs to.
+   *
+   * The name was the only target in a row several hundred pixels wide, so most of
+   * the row looked clickable and did nothing. The guards are what keep that from
+   * hijacking the cells that already do something: Company Phone and Email are real
+   * links, the Actions column is buttons, and a click that lands on one of those
+   * belongs to it, not to the row.
+   */
+  const openEmployeeRow = useCallback(
+    (employeeId: string, event: React.MouseEvent<HTMLElement>) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('a, button, input, label, [role="button"], [role="menuitem"], [role="checkbox"]')) return;
+      // Dragging across a cell to copy a phone number should not also navigate away.
+      if (window.getSelection()?.toString()) return;
+
+      const path = `/employees/${employeeId}`;
+      // Ctrl/Cmd-click and middle-click are the universal "open in a new tab"
+      // gestures; a row that navigates is a link in all but markup, so it should
+      // honour them rather than swallowing them.
+      if (event.ctrlKey || event.metaKey || event.button === 1) {
+        window.open(path, "_blank", "noopener");
+        return;
+      }
+      navigate(path);
+    },
+    [navigate]
+  );
+
   // Parse calculateTotalExperience() output to total months for sorting.
   // It emits FOUR shapes — "2 Years 4 Months", "2 Years", "4 Months",
   // "Less than 1 Month" (and "-") — so years and months must be matched
@@ -595,6 +624,16 @@ const EmployeeListContent = () => {
         onSortingChange={setSorting}
         onSearchChange={setSearch}
         isLoading={dataLoading}
+        muiTableProps={{
+          muiTableBodyRowProps: ({ row }: any) => ({
+            onClick: (event: React.MouseEvent<HTMLElement>) => openEmployeeRow(row.original.id, event),
+            // Middle-click does not fire onClick anywhere; it fires auxclick.
+            onAuxClick: (event: React.MouseEvent<HTMLElement>) => {
+              if (event.button === 1) openEmployeeRow(row.original.id, event);
+            },
+            sx: { cursor: "pointer" },
+          }),
+        }}
       />
     </div>
 
