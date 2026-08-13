@@ -565,23 +565,14 @@ const EmployeeListContent = () => {
     </div>
 
     {/* Table section */}
-    <div className="" style={{ position: 'relative', minHeight: dataLoading ? '300px' : 'auto' }}>
-      {dataLoading && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(255, 255, 255, 0.7)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 10
-        }}>
-          <Loader />
-        </div>
-      )}
+    {/* No refetch overlay here on purpose. `dataLoading` is true on EVERY fetch, not just the
+        first, so a white scrim + spinner + 300px height snap fired on every sort/page click —
+        hiding rows the app was still holding (useServerPagination keeps the previous page in
+        state until the new one resolves) and reading as "sorting is slow". The table's own
+        progress bar covers this state, and the first-load case is already handled above by the
+        page-level guard. The other two server-sorted tables gate their Loader on
+        isInitialLoading only; this one was the outlier. */}
+    <div className="">
       <MaterialTable
         columns={columns}
         data={displayedEmployees}

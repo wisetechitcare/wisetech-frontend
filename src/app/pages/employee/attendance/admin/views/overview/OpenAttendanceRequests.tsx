@@ -258,6 +258,9 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
         {
             accessorKey: "remarks",
             header: "Remarks",
+            // Not sortable: omitted from ATTENDANCE_REQUEST_SORT (handlers/employees.ts) because the
+            // rendered value is resolved after the query. A click would round-trip and change nothing.
+            enableSorting: false,
             // "REMARKS" uppercase at 12px is ~68px, and the header also has to fit the
             // sort icon inside 32px of cell padding — at size 100 there was no room, so
             // the heading wrapped. Sized so it always reads on ONE line.
@@ -380,6 +383,8 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
         {
             accessorKey: "workingMethod",
             header: "Work",
+            // Renders a resolved label, not the stored id — server cannot sort it meaningfully.
+            enableSorting: false,
             size: 100,
             minSize: 100,
             maxSize: 150,
@@ -422,6 +427,8 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
         {
             accessorKey: "approvedById",
             header: "Approved / Rejected By",
+            // Renders a resolved name, not the stored id — server cannot sort it meaningfully.
+            enableSorting: false,
             size: 180,
             minSize: 150,
             maxSize: 220,

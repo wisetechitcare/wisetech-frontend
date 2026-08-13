@@ -237,6 +237,10 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         {
             accessorKey: "type",
             header: "Leave Type",
+            // Not sortable: the server resolves leave type AFTER the query, so it is absent from
+            // LEAVE_REQUEST_SPEC.sort (handlers/employees.ts). Leaving the header clickable meant a
+            // full round trip that provably returned the same order — a wait that produces nothing.
+            enableSorting: false,
             Cell: ({ renderedCellValue }: any) => {
                 const c = getLeaveTypeColor(renderedCellValue);
                 return (
@@ -252,6 +256,8 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         {
             accessorKey: "remark",
             header: "Reason",
+            // Not sortable server-side — see the note on "type".
+            enableSorting: false,
             Cell: ({ renderedCellValue }: any) => renderedCellValue
         },
         {
@@ -270,6 +276,8 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         {
             accessorKey: "approvedByName",
             header: "Approved / Rejected By",
+            // Approver name comes from a second lookup, so the server cannot sort on it.
+            enableSorting: false,
             // Without an explicit width this column collapsed to roughly the header's
             // size, so a two-word name wrapped to two lines AND the timestamp wrapped
             // to two more — four lines in a 52px row. Sized to hold "Firstname
