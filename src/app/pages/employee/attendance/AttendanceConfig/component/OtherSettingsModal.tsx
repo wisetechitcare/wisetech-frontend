@@ -13,9 +13,11 @@ interface OtherSettingsModalProps {
   open: boolean;
   onClose: () => void;
   mountKey: number;
+  /** Inheritance scope (group → org → branch) the settings are read from and written to. */
+  scope?: { companyId?: string; branchId?: string };
 }
 
-export function OtherSettingsModal({ open, onClose, mountKey }: OtherSettingsModalProps) {
+export function OtherSettingsModal({ open, onClose, mountKey, scope }: OtherSettingsModalProps) {
   return (
     <GlassDialog
       open={open}
@@ -31,7 +33,7 @@ export function OtherSettingsModal({ open, onClose, mountKey }: OtherSettingsMod
       />
 
       <Box sx={{ overflowY: 'auto', flex: 1 }}>
-        <OtherSettings key={mountKey} />
+        <OtherSettings key={mountKey} scope={scope} />
       </Box>
     </GlassDialog>
   );

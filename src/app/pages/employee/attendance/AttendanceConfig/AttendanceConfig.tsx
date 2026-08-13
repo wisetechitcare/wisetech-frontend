@@ -361,10 +361,12 @@ const AttendanceConfig: React.FC = () => {
     try {
       setIsLoading(true);
       const [lunchRes, leaveRes, restrictRes, dateRes, settingsRes] = await Promise.all([
-        fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY),
-        fetchConfiguration(LEAVE_MANAGEMENT),
-        fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY),
-        fetchConfiguration(DATE_SETTINGS_KEY),
+        // Same scope the modal reads/writes — otherwise the card summary and the modal it opens
+        // show different numbers for the same setting.
+        fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY, undefined, undefined, configScope),
+        fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, configScope),
+        fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY, undefined, undefined, configScope),
+        fetchConfiguration(DATE_SETTINGS_KEY, undefined, undefined, configScope),
         fetchCompanySettings(),
       ]);
 
@@ -393,7 +395,7 @@ const AttendanceConfig: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [configScope]);
 
   useEffect(() => {
     loadOtherSettingsData();
@@ -799,6 +801,7 @@ const AttendanceConfig: React.FC = () => {
         open={showOtherSettingsModal}
         onClose={() => { setShowOtherSettingsModal(false); loadOtherSettingsData(); }}
         mountKey={otherSettingsKey}
+        scope={configScope}
       />
 
       {/* Break Deductions — configurable rules replacing the single Deduction Time */}
