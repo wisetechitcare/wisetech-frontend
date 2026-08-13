@@ -195,6 +195,9 @@ export interface TaskFormValues {
     statusId?: string;
     priorityId?: string;
     parentTaskId?: string;
+    /** Preset mode only — the Main Task / Sub-task pair the name was picked from. */
+    mainTaskId?: string;
+    subTaskId?: string;
     startDate?: string | null;
     dueDate?: string | null;
     progress?: number | string;
@@ -326,3 +329,50 @@ export const initialsOf = (name: string): string =>
 
 /** Short display id — the full UUID is unusable on a card. */
 export const shortTaskId = (id: string): string => `#${String(id).slice(0, 8)}`;
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Preset task tree (from main: preset tasks are a two-level Task -> Sub-task tree)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PresetTask {
+    id: string;
+    name: string;
+    parentId?: string | null;
+}
+
+/** Main tasks are the roots — a preset with no parent. */
+export const mainPresets = (presets: PresetTask[]): PresetTask[] =>
+    presets.filter((p) => !p.parentId);
+
+/** The sub-tasks filed under one main task. Empty when it has none, which is legal. */
+export const subPresets = (presets: PresetTask[], mainId: string | undefined): PresetTask[] =>
+    mainId ? presets.filter((p) => p.parentId === mainId) : [];
+
+/**
+ * Which name gets saved.
+ *
+ * Whichever of the pair was chosen LAST wins: picking a sub-task names the task after it,
+ * picking only a main task names it after that. Tasks are stored by name, not by preset id,
+ * so this is the single place that decision is made.
+ */
+export const presetTaskName = (
+    presets: PresetTask[],
+    mainId: string | undefined,
+    subId: string | undefined,
+): string => {
+    const chosen = presets.find((p) => p.id === (subId || mainId));
+    return chosen?.name ?? '';
+};
+
+/** On edit the task carries only a name, so map it back onto the pair it came from. */
+export const presetPairForName = (
+    presets: PresetTask[],
+    name: string | undefined,
+): { mainTaskId: string; subTaskId: string } => {
+    const hit = presets.find((p) => p.name === name);
+    if (!hit) return { mainTaskId: '', subTaskId: '' };
+    return hit.parentId
+        ? { mainTaskId: hit.parentId, subTaskId: hit.id }
+        : { mainTaskId: hit.id, subTaskId: '' };
+};

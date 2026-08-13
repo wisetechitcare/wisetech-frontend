@@ -22,6 +22,7 @@ import { KTIcon } from '@metronic/helpers';
 import {
     TaskFormValues, TaskScope, buildTaskPayload, fieldsForScope, validateScopeShape,
     apiErrorMessage, employeeName, clampProgress,
+    mainPresets, subPresets, presetTaskName, presetPairForName, PresetTask,
 } from '../taskDomain';
 import {
     useAvailableProjects, useProjectAssignees, useGeneralAssignees,
@@ -116,6 +117,8 @@ export const TaskFormDialog = ({
     const priorities = prioritiesQuery.data?.taskPriorities ?? [];
     const presets = presetsQuery.data?.presetTaskStatuses ?? [];
 
+    const subOptions = subPresets(presets as PresetTask[], values.mainTaskId);
+
     const assigneesQuery = scopeFields.assigneeSource === 'general' ? generalAssigneesQuery : projectAssigneesQuery;
     const assignees = assigneesQuery.data?.assignees ?? [];
 
@@ -135,6 +138,19 @@ export const TaskFormDialog = ({
     }, [assignees, assigneesQuery.isLoading, values.taskScope, values.projectId]);
 
     const set = (patch: Partial<TaskFormValues>) => setValues((v) => ({ ...v, ...patch }));
+
+    /**
+     * On edit a task carries only its NAME, so map it back onto the Main Task / Sub-task pair it
+     * came from — otherwise reopening a preset task shows both pickers empty.
+     */
+    useEffect(() => {
+        if (!open || values.taskTypeMode !== 'PRESETS') return;
+        if (!presets.length || !values.taskName) return;
+        if (values.mainTaskId) return;
+        const pair = presetPairForName(presets as PresetTask[], values.taskName);
+        if (pair.mainTaskId) setValues((v) => ({ ...v, ...pair }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, presets, values.taskName, values.taskTypeMode]);
 
     const scopeError = useMemo(
         () => validateScopeShape(values.taskScope, { projectId: values.projectId }),
@@ -277,7 +293,7 @@ export const TaskFormDialog = ({
                                         // Clearing the name on switch is deliberate: a preset title carried
                                         // into custom mode makes the two modes indistinguishable, which is
                                         // the confusion the old form shipped.
-                                        onClick={() => set({ taskTypeMode: mode, taskName: '' })}
+                                        onClick={() => set({ taskTypeMode: mode, taskName: '', mainTaskId: '', subTaskId: '' })}
                                         sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, borderColor: 'divider' }}
                                     >
                                         {mode === 'PRESETS' ? 'From preset' : 'Custom name'}
@@ -286,18 +302,58 @@ export const TaskFormDialog = ({
                             </Stack>
 
                             {values.taskTypeMode === 'PRESETS' ? (
-                                <TextField
-                                    select fullWidth size="small" required label="Task name"
-                                    value={values.taskName}
-                                    onChange={(e) => set({ taskName: e.target.value })}
-                                    error={touched && !!nameError}
-                                    helperText={(touched && nameError) || 'Pick a standard task name'}
-                                >
-                                    {presets.map((p: { id: string; name: string }) => (
-                                        <MenuItem key={p.id} value={p.name}>{p.name}</MenuItem>
-                                    ))}
-                                    {presets.length === 0 && <MenuItem disabled value="">No presets configured</MenuItem>}
-                                </TextField>
+                                /* Preset tasks are a two-level Task → Sub-task tree (Tasks ▸
+                                   Configure), so the name is picked in two steps. Whichever of
+                                   the pair is chosen last is the name that gets saved — tasks
+                                   are stored by name, not by preset id. */
+                                <Grid container spacing={2}>
+                                    <Grid item xs={12} md={6}>
+                                        <TextField
+                                            select fullWidth size="small" required label="Main task"
+                                            value={values.mainTaskId ?? ''}
+                                            onChange={(e) => {
+                                                // Switching the main task invalidates any sub-task under it.
+                                                const mainTaskId = e.target.value;
+                                                set({
+                                                    mainTaskId,
+                                                    subTaskId: '',
+                                                    taskName: presetTaskName(presets, mainTaskId, ''),
+                                                });
+                                            }}
+                                            error={touched && !!nameError}
+                                            helperText={(touched && nameError) || 'Pick the main task'}
+                                        >
+                                            {mainPresets(presets).map((p) => (
+                                                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+                                            ))}
+                                            {presets.length === 0 && <MenuItem disabled value="">No presets configured</MenuItem>}
+                                        </TextField>
+                                    </Grid>
+                                    <Grid item xs={12} md={6}>
+                                        <TextField
+                                            select fullWidth size="small" label="Sub-task"
+                                            value={values.subTaskId ?? ''}
+                                            onChange={(e) => {
+                                                const subTaskId = e.target.value;
+                                                set({
+                                                    subTaskId,
+                                                    taskName: presetTaskName(presets, values.mainTaskId, subTaskId),
+                                                });
+                                            }}
+                                            disabled={!values.mainTaskId || subOptions.length === 0}
+                                            helperText={
+                                                !values.mainTaskId ? 'Pick a main task first'
+                                                : subOptions.length === 0 ? 'This main task has no sub-tasks'
+                                                : 'Optional — narrows the task name'
+                                            }
+                                        >
+                                            <MenuItem value="">None</MenuItem>
+                                            {subOptions.map((p) => (
+                                                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+                                            ))}
+                                        </TextField>
+                                    </Grid>
+                                </Grid>
                             ) : (
                                 <TextField
                                     fullWidth size="small" required label="Task name"

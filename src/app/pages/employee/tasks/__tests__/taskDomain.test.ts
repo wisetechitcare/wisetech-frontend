@@ -22,6 +22,7 @@ import {
     filtersToQuery, activeFilterCount,
     apiErrorMessage, employeeName, initialsOf, shortTaskId,
     TaskScope,
+    mainPresets, subPresets, presetTaskName, presetPairForName,
 } from '../taskDomain';
 
 const NOW = new Date('2026-08-12T10:00:00.000Z');
@@ -299,5 +300,45 @@ describe('display helpers', () => {
 
     it('shortens a UUID to something a card can show', () => {
         assert.equal(shortTaskId('4e13816b-5314-4204-a197-ef1105eacc01'), '#4e13816b');
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Preset task tree — merged in from main (preset tasks are a two-level Task → Sub-task tree)
+// ═════════════════════════════════════════════════════════════════════════════
+describe('preset task tree', () => {
+    const presets = [
+        { id: 'm1', name: 'Drawing', parentId: null },
+        { id: 'm2', name: 'Survey', parentId: null },
+        { id: 's1', name: 'Drawing-DD', parentId: 'm1' },
+        { id: 's2', name: 'Drawing-GFC', parentId: 'm1' },
+    ];
+
+    it('main tasks are the roots', () => {
+        assert.deepEqual(mainPresets(presets).map((p) => p.id), ['m1', 'm2']);
+    });
+
+    it('sub-tasks are filed under their main task only', () => {
+        assert.deepEqual(subPresets(presets, 'm1').map((p) => p.id), ['s1', 's2']);
+        assert.deepEqual(subPresets(presets, 'm2'), []);
+        assert.deepEqual(subPresets(presets, undefined), []);
+    });
+
+    it('the LAST choice names the task — sub-task wins over main', () => {
+        assert.equal(presetTaskName(presets, 'm1', 's2'), 'Drawing-GFC');
+        assert.equal(presetTaskName(presets, 'm1', ''), 'Drawing');
+        assert.equal(presetTaskName(presets, undefined, undefined), '');
+    });
+
+    it('an edited task maps its stored NAME back onto the pair it came from', () => {
+        // Tasks are stored by name, not preset id, so reopening one has to resolve backwards
+        // or both pickers show empty.
+        assert.deepEqual(presetPairForName(presets, 'Drawing-DD'), { mainTaskId: 'm1', subTaskId: 's1' });
+        assert.deepEqual(presetPairForName(presets, 'Survey'), { mainTaskId: 'm2', subTaskId: '' });
+    });
+
+    it('a name that matches no preset resolves to nothing rather than guessing', () => {
+        assert.deepEqual(presetPairForName(presets, 'Typed by hand'), { mainTaskId: '', subTaskId: '' });
+        assert.deepEqual(presetPairForName(presets, undefined), { mainTaskId: '', subTaskId: '' });
     });
 });
