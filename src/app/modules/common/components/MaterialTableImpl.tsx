@@ -1371,7 +1371,15 @@ function MaterialTable({
             density: preferences.density,
             expanded: preferences.expanded,
             globalFilter: enableColumnSpecificSearch ? undefined : debouncedFilterValue,
-            isLoading: isLoading,
+            // Skeletons ONLY when there is genuinely nothing to show (first load, or an empty
+            // result). MRT's `isLoading` discards the rendered rows and replaces them with grey
+            // skeleton placeholders (see material-react-table dist: "if loading, generate blank
+            // rows to show skeleton loaders"). Passing a plain "fetch in flight" flag here made
+            // every server-side sort/page click blank the table and refill it — read by the user
+            // as "sorting is slow" even though the query itself is ~10ms. The rows were never
+            // actually gone; useServerPagination keeps the previous page in state until the new
+            // one lands. Now they stay put and `showProgressBars` carries the pending signal.
+            isLoading: isLoading && tableData.length === 0,
             showProgressBars: isLoading,
             rowSelection,
           }}
