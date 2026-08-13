@@ -16,7 +16,7 @@ import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employ
 import StatusToggle from "@app/modules/common/components/StatusToggle";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { ActionIconButton, WhatsAppIcon } from "@app/modules/common/components/ui";
-import { Stack } from "@mui/material";
+import { Box, Stack } from "@mui/material";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import EmployeeIdCardDialog from "./components/idcard/EmployeeIdCardDialog";
 
@@ -50,6 +50,35 @@ const EmployeeListContent = () => {
   const [idCardTarget, setIdCardTarget] = useState<{ id: string; name: string } | null>(null);
 
   const navigate = useNavigate();
+
+  /**
+   * Opens the employee the row belongs to.
+   *
+   * The name was the only target in a row several hundred pixels wide, so most of
+   * the row looked clickable and did nothing. The guards are what keep that from
+   * hijacking the cells that already do something: Company Phone and Email are real
+   * links, the Actions column is buttons, and a click that lands on one of those
+   * belongs to it, not to the row.
+   */
+  const openEmployeeRow = useCallback(
+    (employeeId: string, event: React.MouseEvent<HTMLElement>) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('a, button, input, label, [role="button"], [role="menuitem"], [role="checkbox"]')) return;
+      // Dragging across a cell to copy a phone number should not also navigate away.
+      if (window.getSelection()?.toString()) return;
+
+      const path = `/employees/${employeeId}`;
+      // Ctrl/Cmd-click and middle-click are the universal "open in a new tab"
+      // gestures; a row that navigates is a link in all but markup, so it should
+      // honour them rather than swallowing them.
+      if (event.ctrlKey || event.metaKey || event.button === 1) {
+        window.open(path, "_blank", "noopener");
+        return;
+      }
+      navigate(path);
+    },
+    [navigate]
+  );
 
   // Parse "X Years Y Months" to total months for sorting.
   const parseExperienceToMonths = (exp: string | null | undefined): number => {
@@ -86,8 +115,13 @@ const EmployeeListContent = () => {
   }, []);
 
   const handleGenerateIdCard = useCallback((employee: any) => {
-    setIdCardTarget({ id: employee.id, name: employee.users });
-  }, []);
+    // Own card → request the literal "me", which the API resolves to the caller from
+    // the token. The id never leaves the client, so even a tampered row cannot turn
+    // this into a request for somebody else's card. Only a user who manages employees
+    // ever sends a real id, and that path is permission-checked server-side.
+    const isSelf = employee.id === employeeId;
+    setIdCardTarget({ id: isSelf ? "me" : employee.id, name: employee.users });
+  }, [employeeId]);
 
   // Memoize base columns to prevent recreation on every render.
   // Default format (order + visibility): Name → Designation → Department →
@@ -247,11 +281,45 @@ const EmployeeListContent = () => {
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
-    {
-      accessorKey: "actions",
-      header: "Actions",
-      Cell: ({ row }: any) => (
-        hasPermission(resourceNameMapWithCamelCase.employee, permissionConstToUseWithHasPermission.editOthers) ?
+    // No deps: these are all plain value renderers. The row actions moved out to
+    // `actionsColumn` below, and took the handlers with them.
+  ], []);
+
+  const canManageEmployees = usePermission('employees.manage.all');
+
+  /**
+   * Actions — rendered for EVERYONE, but the row decides what is in it.
+   *
+   * It used to live in `adminColumns`, so a plain employee saw no Actions column at
+   * all and had no way to reach their own ID card. It is its own column now:
+   *
+   *   • manages employees → edit, WhatsApp share and ID card, on every row.
+   *   • everyone else     → the ID card button, and ONLY on their own row.
+   *
+   * The manager test is `employees.manage.all` (`canManageEmployees`) — the same RBAC
+   * permission that used to decide whether this column existed at all. The legacy
+   * `hasPermission(..., editOthers)` ABAC check is kept as an ADDITIONAL requirement
+   * for the privileged row, never as the discriminator: it resolves true for ordinary
+   * employees, so on its own it handed everybody the full action set.
+   *
+   * Restricting it to their own row is the important half. A card carries a personal
+   * phone number, email, blood group and emergency contact, and `users` RBAC still
+   * runs in SHADOW mode (RBAC_ENFORCE_USERS) on some deployments — meaning the API
+   * would happily answer for a colleague's id and only log the denial. Rendering the
+   * button only for `isSelf` means the request is never made, so the gate does not
+   * depend on which mode the server happens to be in.
+   */
+  const actionsColumn = useMemo(() => ({
+    accessorKey: "actions",
+    header: "Actions",
+    Cell: ({ row }: any) => {
+      const canEditOthers = canManageEmployees && hasPermission(
+        resourceNameMapWithCamelCase.employee,
+        permissionConstToUseWithHasPermission.editOthers,
+      );
+
+      if (canEditOthers) {
+        return (
           <Stack direction="row" spacing={1}>
             <ActionIconButton
               iconName="pencil"
@@ -271,16 +339,33 @@ const EmployeeListContent = () => {
               onClick={() => handleGenerateIdCard(row.original)}
             />
           </Stack>
-          : "Not Allowed"
-      )
-    }
-  ], [handleEditClick, handleWhatsAppShare, handleGenerateIdCard]);
+        );
+      }
 
-  const canManageEmployees = usePermission('employees.manage.all');
+      if (row.original.id === employeeId) {
+        return (
+          <Stack direction="row" spacing={1}>
+            <ActionIconButton
+              iconName="badge"
+              title="View My ID Card"
+              tone="brand"
+              onClick={() => handleGenerateIdCard(row.original)}
+            />
+          </Stack>
+        );
+      }
+
+      // A dash, not "Not Allowed": on a colleague's row there is simply nothing to do
+      // here, and phrasing it as a denial reads as an error the user should act on.
+      return <Box component="span" sx={{ color: "text.disabled" }}>—</Box>;
+    },
+  }), [handleEditClick, handleWhatsAppShare, handleGenerateIdCard, employeeId, canManageEmployees]);
 
   const columns = useMemo(() =>
-    canManageEmployees ? [...baseColumns, ...adminColumns] : baseColumns,
-    [canManageEmployees, baseColumns, adminColumns]
+    canManageEmployees
+      ? [...baseColumns, ...adminColumns, actionsColumn]
+      : [...baseColumns, actionsColumn],
+    [canManageEmployees, baseColumns, adminColumns, actionsColumn]
   );
   
   
@@ -509,6 +594,16 @@ const EmployeeListContent = () => {
         tableName="EmployeesV5"
         employeeId={employeeId}
         enableColumnSpecificSearch={true}
+        muiTableProps={{
+          muiTableBodyRowProps: ({ row }: any) => ({
+            onClick: (event: React.MouseEvent<HTMLElement>) => openEmployeeRow(row.original.id, event),
+            // Middle-click does not fire onClick anywhere; it fires auxclick.
+            onAuxClick: (event: React.MouseEvent<HTMLElement>) => {
+              if (event.button === 1) openEmployeeRow(row.original.id, event);
+            },
+            sx: { cursor: "pointer" },
+          }),
+        }}
       />
     </div>
 

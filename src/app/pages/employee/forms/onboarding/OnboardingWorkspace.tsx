@@ -44,6 +44,7 @@ import { resolveActiveOrgId } from "@utils/activeOrg";
 import OnboardingWizard, { OnboardingGroup } from "./OnboardingWizard";
 import * as S from "./OnboardingSections";
 import type { OnboardingSectionsProps } from "./OnboardingSections";
+import { formatBloodGroup } from "@utils/employeeFormat";
 
 /**
  * Employee Onboarding wizard configuration.
@@ -675,7 +676,10 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
     push("Gender", named(GENDER_LABELS, v.gender));
     push("Marital Status", named(MARITAL_LABELS, v.maritalStatus));
     if (String(v.maritalStatus) === "0") push("Anniversary", fmtDate(v.anniversary));
-    push("Blood Group", v.bloodGroup || v.emergencyDetails?.bloodGroup);
+    // The form stores the enum TOKEN ("A_POS"); the summary must show the notation.
+    // Empty fallback, not the usual "-NA-", so `push` still drops the row entirely
+    // when no blood group has been entered.
+    push("Blood Group", formatBloodGroup(v.bloodGroup || v.emergencyDetails?.bloodGroup, ""));
 
     // ── Contact ──
     push("Personal Email", v.personalEmailId);

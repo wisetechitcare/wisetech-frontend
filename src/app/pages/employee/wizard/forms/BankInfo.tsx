@@ -1,23 +1,53 @@
+import { DOCUMENT_ACCEPT, DOCUMENT_HINT } from "@utils/fileValidation";
 import React, { useState } from "react";
 import { getIn } from "formik";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { uploadUserAsset } from "@services/uploader";
 import ObFileUpload from "../components/ObFileUpload";
+import ObUploadStatus from "../components/ObUploadStatus";
 
-function BankInfo({ formikProps, userId }: any) {
-    const [showInfo, setShowInfo] = useState(false);
+function BankInfo({ formikProps, userId, setBankFile }: any) {
+    const [uploadError, setUploadError] = useState("");
+    const [isUploading, setIsUploading] = useState(false);
 
+    /**
+     * Attach the bank proof.
+     *
+     * During ONBOARDING there is no user to upload against yet, so the file is held
+     * and written once the employee exists — the same deferred pattern the academic
+     * certificate uses (`uploadBankDocument` in NewEmployeeWizard does the write).
+     * Without this branch the control is disabled for the whole create flow and a
+     * bank proof can only ever be added by editing the employee afterwards.
+     */
     const handlePassbookFile = async (file: File | null) => {
-        if (!file) return;
+        if (!file) {
+            formikProps.setFieldValue("bankInfo.filePath", "");
+            formikProps.setFieldValue("bankInfo.fileName", "");
+            setBankFile?.(null);
+            setUploadError("");
+            return;
+        }
+
+        formikProps.setFieldValue("bankInfo.fileName", file.name, false);
+        setUploadError("");
+
+        if (!userId) {
+            setBankFile?.(file);
+            return;
+        }
+
         const form = new FormData();
         form.append("file", file);
         try {
+            setIsUploading(true);
             const {
                 data: { path },
             } = await uploadUserAsset(form, userId, "passbook", "bank-docs");
             formikProps.setFieldValue("bankInfo.filePath", path, true);
         } catch (error) {
-            console.error("Failed to upload file. Please try again.");
+            setUploadError("Failed to upload file. Please try again.");
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -75,26 +105,27 @@ function BankInfo({ formikProps, userId }: any) {
         <span>Attach Document</span>
       </label>
 
-      {!userId && showInfo && (
-        <div
-          className="alert alert-info d-flex align-items-center p-3 mb-2"
-          role="alert"
-        >
-          <i className="bi bi-info-circle fs-5 me-2"></i>
-          <small>
-            <strong>Info:</strong> Please save the user details first before
-            uploading documents.
-          </small>
-        </div>
-      )}
-
       <ObFileUpload
         id="bank-passbook-upload"
-        disabled={!userId}
-        accept=".pdf,.jpg,.jpeg,.png"
-        hint="PDF or image — max 5MB"
-        onDisabledClick={() => setShowInfo(true)}
+        disabled={isUploading}
+        accept={DOCUMENT_ACCEPT}
+        hint={DOCUMENT_HINT}
+        existingFileName={formikProps.values?.bankInfo?.fileName}
+        existingFileUrl={formikProps.values?.bankInfo?.filePath || undefined}
         onChange={handlePassbookFile}
+      />
+
+      <ObUploadStatus
+        state={
+          isUploading
+            ? "uploading"
+            : formikProps.values?.bankInfo?.filePath
+              ? "saved"
+              : formikProps.values?.bankInfo?.fileName
+                ? "pending"
+                : "idle"
+        }
+        error={uploadError || undefined}
       />
 
       {getIn(formikProps.touched, "bankInfo.filePath") && getIn(formikProps.errors, "bankInfo.filePath") && (

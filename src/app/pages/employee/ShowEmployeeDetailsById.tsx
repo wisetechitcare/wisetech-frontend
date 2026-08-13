@@ -13,6 +13,7 @@ import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission, ui
 import { hasPermission } from "@utils/authAbac";
 import AppSettingsModal from "./components/AppSettingsModal";
 import { getEducationAcademicLabel, getEducationDetailValue } from "../../../utils/educationUtils";
+import { formatBloodGroup, formatPhoneWithCode } from "@utils/employeeFormat";
 import "./glass.css";
 import "./ShowEmployeeDetails.css";
 
@@ -137,21 +138,9 @@ const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
   const getMaritalStatus = (val: number) => (val === 1 ? "Unmarried" : val === 0 ? "Married" : "-NA-");
   const getMethod = (val: number) => (val === 0 ? "Office" : val === 1 ? "Remote" : "-NA-");
 
-  // The onboarding phone input stores the country dial code (e.g. "91") in the *Extension field,
-  // so render it merged into the number ("+91 9987221079") instead of as a standalone "Extension".
-  const formatPhoneWithCode = (number?: string | null, code?: string | null) => {
-    if (!number) return "-NA-";
-    return code ? `+${code} ${number}` : number;
-  };
-
-  const formatBloodGroup = (bloodGroup: string | null | undefined) => {
-    if (!bloodGroup) return "-NA-";
-    const bloodGroupMap: { [key: string]: string } = {
-      'A_POS': 'A+', 'A_NEG': 'A-', 'B_POS': 'B+', 'B_NEG': 'B-',
-      'AB_POS': 'AB+', 'AB_NEG': 'AB-', 'O_POS': 'O+', 'O_NEG': 'O-',
-    };
-    return bloodGroupMap[bloodGroup] || bloodGroup;
-  };
+  // `formatPhoneWithCode` and `formatBloodGroup` were defined here. They now live in
+  // @utils/employeeFormat because the ID card needs the same two conversions, and the
+  // second copy got both wrong ("9987221079 x 91", "AB_POS" on a printed badge).
 
   const handleWhatsAppShare = () => {
     const message = `CONTACT CARD
