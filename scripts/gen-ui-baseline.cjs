@@ -8,7 +8,7 @@ process.stdin.on('data', (c) => (d += c)).on('end', () => {
     for (const m of f.messages) {
       if (m.ruleId !== 'no-restricted-syntax') continue;
       // Only the high-debt classes get baselined; the primitives stay hard errors everywhere.
-      if (!/Bootstrap component classes|No <style> blocks|toLocaleDateString/.test(m.message)) continue;
+      if (!/Bootstrap component classes|No <style> blocks|toLocaleDateString|Raw .title.|IconButton passes/.test(m.message)) continue;
       const p = f.filePath.split('\\').join('/');
       const i = p.lastIndexOf('/src/');
       legacy.add(i >= 0 ? p.slice(i + 1) : p);
