@@ -821,7 +821,7 @@ const AttendanceConfig: React.FC = () => {
       <AddonLeavesModal open={showAddonLeavesModal} onClose={() => setShowAddonLeavesModal(false)} />
 
       {/* Auto-Allocation Policy — GlassDialog */}
-      <LeavePolicyModal open={showLeavePolicyModal} onClose={() => setShowLeavePolicyModal(false)} />
+      <LeavePolicyModal open={showLeavePolicyModal} onClose={() => setShowLeavePolicyModal(false)} scope={configScope} />
 
       {/* Leave Types & Balance — GlassDialog */}
       <LeaveTypesBalanceModal open={showLeaveTypesModal} onClose={() => setShowLeaveTypesModal(false)} />

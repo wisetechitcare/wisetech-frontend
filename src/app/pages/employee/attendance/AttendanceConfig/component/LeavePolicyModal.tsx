@@ -16,6 +16,8 @@ interface LeavePolicyModalProps {
   open: boolean;
   onClose: () => void;
   readOnly?: boolean;
+  /** Inheritance scope (group → org → branch) this policy is read from and written to. */
+  scope?: { companyId?: string; branchId?: string };
 }
 
 const DEFAULT_PRIORITY = ['Casual Leaves', 'Sick Leaves', 'Floater Leaves', 'Annual Leaves'];
@@ -50,7 +52,7 @@ const DEFAULTS: PolicyState = {
   penaltyDays: 0.5,
 };
 
-export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalProps) {
+export function LeavePolicyModal({ open, onClose, readOnly, scope }: LeavePolicyModalProps) {
   const theme = useTheme();
   const divider = theme.palette.divider;
   const [configId, setConfigId] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
     (async () => {
       try {
         setLoading(true);
-        const { data: { configuration } } = await fetchConfiguration(LEAVE_POLICY_KEY);
+        const { data: { configuration } } = await fetchConfiguration(LEAVE_POLICY_KEY, undefined, undefined, scope);
         if (configuration?.id) setConfigId(configuration.id);
         const raw = configuration?.configuration;
         const cfg = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
@@ -93,7 +95,7 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
         setLoading(false);
       }
     })();
-  }, [open]);
+  }, [open, scope?.companyId, scope?.branchId]);
 
   const movePriority = (index: number, dir: -1 | 1) => {
     setState((s) => {
@@ -126,10 +128,21 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
         },
       };
 
-      if (configId) {
-        await updateConfigurationById(configId, { module: LEAVE_POLICY_KEY, configuration } as any);
+      // Scoped → upsert for THIS scope. Never PUT by id when scoped: `configId` came from a
+      // resolved read and may be an inherited org/global row, so updating it would rewrite the
+      // policy for every sibling. The payload is rebuilt whole from state (which was seeded
+      // from the resolved read), so a new branch override inherits every field.
+      if (scope?.companyId || scope?.branchId) {
+        await createNewConfiguration({
+          module: LEAVE_POLICY_KEY,
+          configuration,
+          companyId: scope.companyId,
+          branchId: scope.branchId,
+        });
+      } else if (configId) {
+        await updateConfigurationById(configId, { module: LEAVE_POLICY_KEY, configuration });
       } else {
-        await createNewConfiguration({ module: LEAVE_POLICY_KEY, configuration } as any);
+        await createNewConfiguration({ module: LEAVE_POLICY_KEY, configuration });
       }
       await successConfirmation('Auto-allocation policy saved successfully');
       onClose();
