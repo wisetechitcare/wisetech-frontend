@@ -13,6 +13,7 @@ import LoadErrorState from './LoadErrorState';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 
@@ -60,6 +61,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
     period,
     periodDate,
 }) => {
+    const { cls: sensitiveCls } = useSensitiveData();
     // The page owns the period. This table carried its own tabs + navigator, which is how the
     // screen ended up showing records for one month next to payments for another.
     const filter = period;
@@ -266,12 +268,12 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 header: 'Total Request Amount',
                 size: 200,
                 Cell: ({ renderedCellValue }: any) => (
-                    <span className="fw-bold fs-7" style={{ color: '#475569' }}>
+                    <span className={`fw-bold fs-7 ${sensitiveCls}`} style={{ color: '#475569' }}>
                         ₹{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
-                    <span style={{ color: '#475569', fontWeight: 700, fontSize: '1rem' }}>
+                    <span className={sensitiveCls} style={{ color: '#475569', fontWeight: 700, fontSize: '1rem' }}>
                         {formatINR(grandTotalRequestAmount)}
                     </span>
                 ),
@@ -281,12 +283,12 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 header: 'Total Paid Amount',
                 size: 185,
                 Cell: ({ renderedCellValue }: any) => (
-                    <span className="fw-bolder fs-6" style={{ color: '#16a34a' }}>
+                    <span className={`fw-bolder fs-6 ${sensitiveCls}`} style={{ color: '#16a34a' }}>
                         ₹{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
-                    <span style={{ color: '#16a34a', fontWeight: 700, fontSize: '1rem' }}>
+                    <span className={sensitiveCls} style={{ color: '#16a34a', fontWeight: 700, fontSize: '1rem' }}>
                         {formatINR(grandTotalPaid)}
                     </span>
                 ),
@@ -297,7 +299,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 size: 220,
                 Cell: ({ renderedCellValue }: any) => (
                     <span
-                        className="fw-bolder fs-6"
+                        className={`fw-bolder fs-6 ${sensitiveCls}`}
                         style={{
                             color: Number(renderedCellValue) > 0 ? '#1E3A8A' : '#16a34a',
                         }}
@@ -306,13 +308,13 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                     </span>
                 ),
                 Footer: () => (
-                    <span style={{ color: '#1E3A8A', fontWeight: 700, fontSize: '1rem' }}>
+                    <span className={sensitiveCls} style={{ color: '#1E3A8A', fontWeight: 700, fontSize: '1rem' }}>
                         {formatINR(grandTotalRemainingAmount)}
                     </span>
                 ),
             },
         ],
-        [grandTotalPaid, grandTotalRequestAmount, grandTotalRemainingAmount],
+        [grandTotalPaid, grandTotalRequestAmount, grandTotalRemainingAmount, sensitiveCls],
     );
 
     return (

@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { MRT_ColumnDef, MRT_Row } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { usePermission } from '@hooks/usePermission';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 import { KTIcon } from '@metronic/helpers';
 import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction, fetchReimbursementBatchById, decideLeaveSegment, processBatchRequestAction } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
@@ -471,6 +473,10 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       socket.off('approval:cancelled', handler);
     };
   }, [load]);
+
+  // Refresh when employee responds to a query or resubmits a reimbursement — this moves items
+  // between Pending/Awaiting tabs and updates counts. Only relevant for reimbursement domain.
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { load(); });
 
   const approve = async (step: ApprovalStep) => {
     setProcessingId(step.id);

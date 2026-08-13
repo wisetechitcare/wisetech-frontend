@@ -232,6 +232,10 @@ export interface RequestRowData {
     queries?: QueryView[];
     openQueryCount?: number;
     document?: string | null;
+    fromLocation?: string | null;
+    toLocation?: string | null;
+    clientCompany?: { id: string; companyName: string | null } | null;
+    lead?: { id: string; title: string | null } | null;
 }
 
 export interface RequestRowProps {
@@ -293,6 +297,28 @@ export function RequestWorkflowRow({
                             caption,
                         ].filter(Boolean).join(' · ')}
                     </Typography>
+                    {(request.fromLocation || request.toLocation) && (
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <KTIcon iconName="geolocation" className="fs-7 text-muted" />
+                            <span>
+                                <b>Route:</b> {request.fromLocation || '—'} → {request.toLocation || '—'}
+                            </span>
+                        </Typography>
+                    )}
+                    {(request.clientCompany?.companyName || request.lead?.title) && (
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.25, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <KTIcon iconName="briefcase" className="fs-7 text-muted" />
+                            <span>
+                                {request.clientCompany?.companyName && (
+                                    <><b>Client:</b> {request.clientCompany.companyName}</>
+                                )}
+                                {request.clientCompany?.companyName && request.lead?.title && ' · '}
+                                {request.lead?.title && (
+                                    <><b>Project:</b> {request.lead.title}</>
+                                )}
+                            </span>
+                        </Typography>
+                    )}
                 </Box>
                 <Stack alignItems={{ xs: 'flex-start', sm: 'flex-end' }} sx={{ flexShrink: 0 }}>
                     <Typography sx={{ fontSize: 15, fontWeight: 800, color: 'text.primary' }}>
@@ -327,43 +353,57 @@ export function RequestWorkflowRow({
 
             {/* The approver's note — a rejection reason, or the open question. Labelled, because
                 the two used to share one column and were told apart only by a status number. */}
-            {liveQuery && (
-                <Box sx={{
-                    borderRadius: '8px', p: 1.25, minWidth: 0,
-                    bgcolor: tonePair('cyan').soft,
-                }}>
-                    <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
-                        <KTIcon iconName="message-text-2" className="fs-6" />
-                        <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            {liveQuery.scope === 'BATCH' ? 'Batch query' : 'Query'}
-                            {liveQuery.level ? ` · level ${liveQuery.level}` : ''}
-                        </Typography>
-                        <Chip size="small" variant="outlined" sx={{ height: 18, fontSize: 10 }}
-                            label={
-                                liveQuery.awaitingRole === 'EMPLOYEE' ? 'Awaiting employee'
-                                    : liveQuery.awaitingRole === 'APPROVER' ? 'Awaiting approver'
-                                        : 'Resolved'
-                            } />
-                        <Box sx={{ flex: 1 }} />
-                        <Typography
-                            component="button"
-                            onClick={() => onOpenConversation(liveQuery.id)}
-                            sx={{
-                                fontSize: 11.5, fontWeight: 700, color: 'primary.main',
-                                background: 'none', border: 'none', p: 0, cursor: 'pointer',
-                            }}
-                        >
-                            Open conversation ({liveQuery.messageCount})
-                        </Typography>
-                    </Stack>
-                    {liveQuery.lastMessage && (
-                        <Typography sx={{ fontSize: 12.5, color: 'text.primary', mt: 0.5, lineHeight: 1.45 }}>
-                            <b>{liveQuery.lastMessageRole === 'EMPLOYEE' ? 'Employee' : 'Approver'}:</b>{' '}
-                            {liveQuery.lastMessage}
-                        </Typography>
-                    )}
-                </Box>
-            )}
+            {liveQuery && (() => {
+                const isWaitingOnEmployee = liveQuery.awaitingRole === 'EMPLOYEE';
+                const toneKey = isWaitingOnEmployee ? 'warning' : 'cyan';
+                const pair = tonePair(toneKey);
+                return (
+                    <Box sx={{
+                        borderRadius: '8px', p: 1.25, minWidth: 0,
+                        bgcolor: pair.soft,
+                        border: `1px solid ${pair.soft}`,
+                        borderLeft: `3px solid ${pair.fg}`,
+                    }}>
+                        <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
+                            <Box component="span" sx={{ color: pair.fg, display: 'inline-flex' }}>
+                                <KTIcon iconName="message-text-2" className="fs-6" />
+                            </Box>
+                            <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: pair.fg }}>
+                                {liveQuery.scope === 'BATCH' ? 'Batch query' : 'Query'}
+                                {liveQuery.level ? ` · level ${liveQuery.level}` : ''}
+                            </Typography>
+                            <Chip size="small" variant="outlined"
+                                sx={{
+                                    height: 18, fontSize: 10,
+                                    color: pair.fg, borderColor: pair.fg,
+                                    bgcolor: 'background.paper', fontWeight: 600,
+                                }}
+                                label={
+                                    liveQuery.awaitingRole === 'EMPLOYEE' ? 'Awaiting employee response'
+                                        : liveQuery.awaitingRole === 'APPROVER' ? 'Employee responded'
+                                            : 'Resolved'
+                                } />
+                            <Box sx={{ flex: 1 }} />
+                            <Typography
+                                component="button"
+                                onClick={() => onOpenConversation(liveQuery.id)}
+                                sx={{
+                                    fontSize: 11.5, fontWeight: 700, color: 'primary.main',
+                                    background: 'none', border: 'none', p: 0, cursor: 'pointer', flexShrink: 0,
+                                }}
+                            >
+                                Open conversation ({liveQuery.messageCount})
+                            </Typography>
+                        </Stack>
+                        {liveQuery.lastMessage && (
+                            <Typography sx={{ fontSize: 12.5, color: 'text.primary', mt: 0.5, lineHeight: 1.45 }}>
+                                <b>{liveQuery.lastMessageRole === 'EMPLOYEE' ? 'Employee' : 'Approver'}:</b>{' '}
+                                {liveQuery.lastMessage}
+                            </Typography>
+                        )}
+                    </Box>
+                );
+            })()}
 
             {/* Why this request is back at level 1. Without it, an approver seeing a request they
                 already approved reappear at the start of the chain has no explanation for it. */}
@@ -451,3 +491,5 @@ export function RequestWorkflowRow({
 
 export { STATUS_TONE, BATCH_STATUS_TONE, levelCaption };
 export type { StatusNum };
+
+export default RequestWorkflowRow;

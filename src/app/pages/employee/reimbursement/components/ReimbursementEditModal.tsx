@@ -22,6 +22,7 @@ import eventBus from "@utils/EventBus";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import ResubmitConfirmDialog from "./ResubmitConfirmDialog";
+import EditBanner, { type EditContext } from "./EditBanner";
 import { previewResubmission, type ResubmissionPreview } from "@services/reimbursementVersions";
 
 // The schema lives in utils/reimbursementSchema — this file used to carry a third copy
@@ -33,9 +34,11 @@ interface Props {
   onHide: () => void;
   reimbursement: IReimbursementsUpdate | null;
   onSaved: () => void;
+  /** Why this edit is happening — rejection or query. Shown as a banner above the form. */
+  editContext?: { type: EditContext; reason?: string; queryText?: string; level?: number };
 }
 
-function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props) {
+function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editContext }: Props) {
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
   const [loading, setLoading] = useState(false);
 
@@ -166,6 +169,16 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
         <Modal.Title>Edit Reimbursement Request</Modal.Title>
       </Modal.Header>
       <Modal.Body>
+        {editContext && editContext.type !== 'edit' && (
+          <div className="mb-4">
+            <EditBanner
+              context={editContext.type}
+              rejectionReason={editContext.reason}
+              queryText={editContext.queryText}
+              level={editContext.level}
+            />
+          </div>
+        )}
         <Formik
           initialValues={initialValues}
           validationSchema={getReimbursementSchema({

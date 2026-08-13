@@ -46,6 +46,8 @@ export type { SettingsSectionProps } from './SettingsSection';
 // defined inside a payroll page that three other features imported across.
 export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
 export type { ToolbarFilterSelectProps, FilterSelectTheme } from './ToolbarFilterSelect';
+export { OrgFilterToolbar, useOrgFilters } from './OrgFilterToolbar';
+export type { OrgFilterState, OrgFilterableRow, EmployeeStatusFilter } from './OrgFilterToolbar';
 export { hoverLiftSx, pressableSx, MOTION_KEYFRAMES } from './motion';
 export { GlassNotification, GlassToastProvider, useGlassToast } from './GlassNotification';
 export type { GlassNotificationProps, GlassToastOptions } from './GlassNotification';

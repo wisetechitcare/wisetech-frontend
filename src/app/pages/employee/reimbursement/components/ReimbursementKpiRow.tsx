@@ -85,9 +85,6 @@ export default function ReimbursementKpiRow({
                 label="Awaiting approval"
                 value={formatINR(kpis.pendingAmount)}
                 footer={`${kpis.pendingCount} pending`}
-                // The badge appears only when there is something to act on. A permanent badge is
-                // decoration; a conditional one is a signal.
-                badge={kpis.pendingCount > 0 ? 'Awaiting approver' : undefined}
                 tone="amber"
                 icon={<KTIcon iconName="time" className="fs-4" />}
                 showSensitiveData={showSensitiveData}

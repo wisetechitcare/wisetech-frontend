@@ -7,6 +7,8 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { uploadUserAsset } from '@services/uploader';
 import { errorConfirmation } from '@utils/modal';
+import eventBus from '@utils/EventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 import { GlassDialog, GlassHeader, WtButton, ToneChip, tonePair } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { formatDateTime } from '@utils/dateFormats';
@@ -239,9 +241,14 @@ function Thread({
                     <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
                         This query is resolved. Ask your approver to reopen it if something is still outstanding.
                     </Typography>
+                ) : !isApprover && thread.status === 'ANSWERED' ? (
+                    <Typography sx={{ fontSize: 12.5, color: 'text.secondary', py: 1 }}>
+                        Awaiting your approver's response.
+                    </Typography>
                 ) : (
                     <Stack gap={1}>
                         <TextField
+                            autoFocus
                             multiline
                             minRows={2}
                             size="small"
@@ -390,7 +397,20 @@ export default function QueryConversationDialog({
 
     useEffect(() => { load(); }, [load]);
 
-    const handleChanged = useCallback(() => { load(); onChanged?.(); }, [load, onChanged]);
+    /**
+     * A reply changes what four other screens say — the records table's "Respond" link, the
+     * employee's attention panel, the approver's queue, the nav badge — and the caller that
+     * opened this dialog knows about none of them.
+     *
+     * Broadcasting instead of only calling back means every screen listening for a reimbursement
+     * change refetches, so "Responded" appears everywhere at once rather than only where the
+     * reply happened to be typed.
+     */
+    const handleChanged = useCallback(() => {
+        load();
+        onChanged?.();
+        eventBus.emit(EVENT_KEYS.reimbursementChanged, { action: 'query_replied' });
+    }, [load, onChanged]);
 
     // The focused thread first, then the rest oldest-first — so a deep link lands on the thread it
     // named without hiding the request's earlier history.

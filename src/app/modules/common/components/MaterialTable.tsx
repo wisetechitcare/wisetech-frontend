@@ -83,6 +83,10 @@ interface MaterialTableProps {
 
   // Column-specific search props
   enableColumnSpecificSearch?: boolean;
+  /** Overrides the "Search in All Columns…" placeholder. Use it to name what the box actually
+   *  finds — "Search employee, employee ID or batch ID…" answers a question the generic text
+   *  leaves the reader to guess at. */
+  searchPlaceholder?: string;
 
   // Server-side pagination props (optional)
   manualPagination?: boolean;
@@ -176,6 +180,7 @@ function MaterialTable({
   enableHiding = true,
   enableFullScreenToggle = true,
   enableColumnSpecificSearch = true,
+  searchPlaceholder,
   manualPagination = false,
   rowCount,
   onPaginationChange,
@@ -1141,7 +1146,13 @@ function MaterialTable({
                       </span>
                       <input
                         type="text"
-                        placeholder={`Search in ${(() => {
+                        placeholder={
+                          // A caller-supplied placeholder only applies while the search is
+                          // unscoped — once a column is picked, naming that column is the
+                          // more useful label.
+                          searchPlaceholder && selectedSearchColumn === "all"
+                            ? searchPlaceholder
+                            : `Search in ${(() => {
                           const columnSelectOptions = [
                             { label: "All Columns", value: "all" },
                             ...effectiveSearchableColumns
@@ -1669,7 +1680,11 @@ function MaterialTable({
                   </span>
                   <input
                     type="text"
-                    placeholder={`Search in ${currentValue?.label || "All Columns"}…`}
+                    placeholder={
+                      searchPlaceholder && (!currentValue || currentValue.value === "all")
+                        ? searchPlaceholder
+                        : `Search in ${currentValue?.label || "All Columns"}…`
+                    }
                     value={globalFilterValue}
                     onChange={(e) => handleGlobalFilterChange(e.target.value)}
                     className="et-search-input"

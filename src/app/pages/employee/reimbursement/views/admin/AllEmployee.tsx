@@ -487,7 +487,7 @@ function AllEmployee() {
       />
 
       <div className="mt-5">
-        <h1>{tableHeading}</h1>
+        <h1>{tableTitle}</h1>
         {loadError && !isLoading ? (
           <LoadErrorState what="employee reimbursements" onRetry={fetchReimbursements} />
         ) : (
@@ -499,7 +499,11 @@ function AllEmployee() {
             // against a bank statement or answering an auditor actually needs — and until now
             // the admin surface could only produce the aggregate.
             <div className="d-flex align-items-center gap-2 flex-wrap">
+              {/* Two exports, two labels. They answer different questions — one row per
+                  employee vs one row per expense — and both saying "Export" made the choice a
+                  coin toss the reader only resolved after opening the file. */}
               <ExportButton
+                label="Employees"
                 data={tableData}
                 columns={exportColumns}
                 filename={exportFilename}

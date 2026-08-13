@@ -1,8 +1,9 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { useOrgFilters, OrgFilterToolbar } from "@app/modules/common/components/ui/OrgFilterToolbar";
 import { C, FONT, RADIUS, ConfigSectionCard } from "@app/modules/configuration";
 import { IReimbursementEmployeeLimit } from "@models/employee";
 import { fetchReimbursementEmployeeLimits } from "@services/options";
-import { updateEmployee } from "@services/employee";
+import { updateEmployee, fetchAllEmployees } from "@services/employee";
 import { can } from "@utils/can";
 import { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -54,8 +55,16 @@ const RowIconBtn: React.FC<{
   );
 };
 
+/** A limits row with the org facts joined on, so the shared toolbar can filter it. */
+type LimitRow = IReimbursementEmployeeLimit & {
+  subOrganization: string;
+  branch: string;
+  team: string;
+  isActive: boolean;
+};
+
 function ReimbursementEmployeeLimit() {
-  const [employeeLimits, setEmployeeLimits] = useState<IReimbursementEmployeeLimit[]>([]);
+  const [employeeLimits, setEmployeeLimits] = useState<LimitRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>("");
@@ -66,14 +75,39 @@ function ReimbursementEmployeeLimit() {
     (state: RootState) => state.employee.currentEmployee.id
   );
 
+  // The limits endpoint returns id, name and the limit — sub-org, branch and team are joined in
+  // from the employee list, the same source the payroll and payment toolbars filter on. A failed
+  // join costs the dropdowns their options, never a row: an employee whose org data is missing
+  // still appears and is still editable.
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetchReimbursementEmployeeLimits();
-      const limits: IReimbursementEmployeeLimit[] = (res?.data?.employeeLimits ?? []).sort(
-        (a: IReimbursementEmployeeLimit, b: IReimbursementEmployeeLimit) =>
-          a.name.localeCompare(b.name)
-      );
+      const [limitsRes, employeesRes] = await Promise.all([
+        fetchReimbursementEmployeeLimits(),
+        fetchAllEmployees().catch(() => null),
+      ]);
+
+      const org = new Map<string, { subOrganization: string; branch: string; team: string; isActive: boolean }>();
+      ((employeesRes as any)?.data?.employees ?? []).forEach((emp: any) => {
+        org.set(emp.id, {
+          subOrganization: emp.companyOverview?.name || 'N/A',
+          branch: emp.branches?.name || 'N/A',
+          // One team per employee; prefer the active membership (same rule as payroll).
+          team: (emp.teamMemberships ?? []).find((m: any) => m.isActive !== false)?.team?.name || 'N/A',
+          isActive: emp.isActive !== false,
+        });
+      });
+
+      const limits: LimitRow[] = (limitsRes?.data?.employeeLimits ?? [])
+        .map((l: IReimbursementEmployeeLimit) => ({
+          ...l,
+          subOrganization: org.get(l.id)?.subOrganization ?? 'N/A',
+          branch: org.get(l.id)?.branch ?? 'N/A',
+          team: org.get(l.id)?.team ?? 'N/A',
+          isActive: org.get(l.id)?.isActive ?? true,
+        }))
+        .sort((a: LimitRow, b: LimitRow) => a.name.localeCompare(b.name));
+
       setEmployeeLimits(limits);
     } catch {
       setEmployeeLimits([]);
@@ -136,6 +170,12 @@ function ReimbursementEmployeeLimit() {
       }
     },
     [editValue, loadData]
+  );
+
+  const filters = useOrgFilters(employeeLimits);
+  const visibleLimits = useMemo(
+    () => employeeLimits.filter(filters.matches),
+    [employeeLimits, filters],
   );
 
   const columns = useMemo<MRT_ColumnDef<IReimbursementEmployeeLimit>[]>(
@@ -282,10 +322,12 @@ function ReimbursementEmployeeLimit() {
       >
         <MaterialTable
           columns={columns}
-          data={employeeLimits}
+          data={visibleLimits}
           hideExportCenter={true}
           employeeId={employeeId}
           isLoading={loading}
+          searchPlaceholder="Search employee…"
+          renderTopToolbarRightActions={() => <OrgFilterToolbar filters={filters} />}
           muiTableProps={{
             sx: {
               "& .MuiTableBody-root .MuiTableCell-root": {

@@ -10,6 +10,7 @@ import {
     PeriodGrain, TrendPoint, StatusSlice,
 } from '../utils/reimbursementChartData';
 import { formatINR } from '../utils/reimbursementFormat';
+import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 
 /**
  * The three analytics — trend, status, categories — in one row. One set of components for all
@@ -75,6 +76,19 @@ const FOOTER: React.CSSProperties = { borderTop: `1px solid ${LINE}`, marginTop:
 const axisTick = { fontSize: 11, fill: MUTED } as const;
 const money = (v: number) => (v >= 1000 ? `₹${Math.round(v / 1000)}k` : `₹${v}`);
 
+/**
+ * A currency figure that obeys the page's eye toggle.
+ *
+ * Every amount in these cards goes through here rather than each span carrying the class by
+ * hand — that is how one of them gets missed and a total stays readable while the rest blur.
+ * Only the figure is masked, never the bar or the label: a hidden chart still shows the shape
+ * of the month, which is the part that is not confidential.
+ */
+function Money({ value, style }: { value: number; style?: React.CSSProperties }) {
+    const { cls } = useSensitiveData();
+    return <span className={cls} style={{ ...FIGURE, ...style }}>{formatINR(value)}</span>;
+}
+
 /** A body that keeps its height when empty, so switching period never makes the row jump. */
 function EmptyBody({ text, height }: { text: string; height: number }) {
     return (
@@ -101,12 +115,12 @@ function TrendTooltip({ active, payload, label }: any) {
         }}>
             <div style={{ fontWeight: 700, color: INK }}>{label}</div>
             <div style={{ color: FAINT, fontSize: 11, marginBottom: 6 }}>
-                {point.count} request{point.count === 1 ? '' : 's'} · {formatINR(point.total)}
+                {point.count} request{point.count === 1 ? '' : 's'} · <Money value={point.total} style={{ fontWeight: 600, color: 'inherit' }} />
             </div>
             {rows.map((p: any) => (
                 <div key={p.dataKey} style={{ display: 'flex', gap: 14, justifyContent: 'space-between', lineHeight: '18px' }}>
                     <span style={{ color: p.color ?? p.fill }}>{p.name}</span>
-                    <span style={FIGURE}>{formatINR(p.value)}</span>
+                    <Money value={p.value} />
                 </div>
             ))}
         </div>
@@ -197,6 +211,7 @@ export default function ReimbursementCharts({
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const [activeSlice, setActiveSlice] = useState<number | undefined>(undefined);
     const [showAllCategories, setShowAllCategories] = useState(false);
+    const { cls } = useSensitiveData();
 
     const trend = useMemo(() => buildTrend(rows, grain, anchor, fyStart), [rows, grain, anchor, fyStart]);
     const slices = useMemo(() => buildStatusSlices(rows), [rows]);
@@ -254,7 +269,7 @@ export default function ReimbursementCharts({
                 display: 'flex', alignItems: 'center', gap: 10,
             }}>
                 <span style={{ fontSize: 14, lineHeight: 1 }} aria-hidden>{insight.icon}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: TONE_FG[insight.tone] }}>
+                <span className={cls} style={{ fontSize: 12.5, fontWeight: 600, color: TONE_FG[insight.tone] }}>
                     {insight.text}
                 </span>
             </div>
@@ -322,7 +337,7 @@ export default function ReimbursementCharts({
                             {onSelectStatus && slices.length > 0 && <span style={HINT}>· click to filter</span>}
                         </div>
                         <div style={SUBTITLE}>
-                            {slices.length === 0 ? 'Where the money stands' : `${formatINR(slicesTotal)} claimed in this period`}
+                            {slices.length === 0 ? 'Where the money stands' : (<><Money value={slicesTotal} style={{ fontWeight: 600, color: 'inherit', fontSize: 11 }} /> claimed in this period</>)}
                         </div>
                     </div>
 
@@ -358,7 +373,7 @@ export default function ReimbursementCharts({
                                     alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
                                 }}>
                                     <span style={{ fontSize: 9.5, color: FAINT }}>{centre.label}</span>
-                                    <span style={{ ...FIGURE, fontSize: 14, fontWeight: 800 }}>{formatINR(centre.value)}</span>
+                                    <Money value={centre.value} style={{ fontSize: 14, fontWeight: 800 }} />
                                 </div>
                             </div>
 
@@ -387,7 +402,7 @@ export default function ReimbursementCharts({
                                             {sl.name}
                                         </span>
                                         <span style={{ color: FAINT, fontSize: 10.5, fontVariantNumeric: 'tabular-nums' }}>{sl.count}</span>
-                                        <span style={{ ...FIGURE, fontSize: 11.5, minWidth: 76, textAlign: 'right' }}>{formatINR(sl.value)}</span>
+                                        <Money value={sl.value} style={{ fontSize: 11.5, minWidth: 76, textAlign: 'right' }} />
                                     </div>
                                 ))}
                             </div>
@@ -411,7 +426,7 @@ export default function ReimbursementCharts({
                         <div style={SUBTITLE}>
                             {categories.length === 0
                                 ? 'Spend by expense category'
-                                : `${categories.length} categor${categories.length === 1 ? 'y' : 'ies'} · ${formatINR(categoryTotal)}`}
+                                : (<>{categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · <Money value={categoryTotal} style={{ fontWeight: 600, color: 'inherit', fontSize: 11 }} /></>)}
                         </div>
                     </div>
 
@@ -443,7 +458,7 @@ export default function ReimbursementCharts({
                                                     {c.name}
                                                 </span>
                                                 <span style={{ color: FAINT, fontSize: 10.5, fontVariantNumeric: 'tabular-nums' }}>{c.count}×</span>
-                                                <span style={{ ...FIGURE, fontSize: 11.5, minWidth: 76, textAlign: 'right' }}>{formatINR(c.value)}</span>
+                                                <Money value={c.value} style={{ fontSize: 11.5, minWidth: 76, textAlign: 'right' }} />
                                                 <span style={{ color: MUTED, fontSize: 10.5, width: 32, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                                                     {c.pct.toFixed(0)}%
                                                 </span>

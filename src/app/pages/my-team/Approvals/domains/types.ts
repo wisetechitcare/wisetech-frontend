@@ -46,6 +46,13 @@ export interface ApprovalRequestDetails {
     totalDays?: number | null;
     paidDays?: number | null;
     unpaidDays?: number | null;
+    // Reimbursement batch specifics
+    submissionId?: string | null;
+    pendingCount?: number | null;
+    queriedCount?: number | null;
+    approvedCount?: number | null;
+    rejectedCount?: number | null;
+    resubmittedCount?: number | null;
 }
 
 export interface ApprovalInstance {

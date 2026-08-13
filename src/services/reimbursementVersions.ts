@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { IReimbursementsUpdate } from '@models/employee';
 import type { QueryRole, QueryScope, QueryStatus } from './reimbursementQueries';
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
@@ -83,6 +84,12 @@ export interface ResubmissionPreview {
 }
 
 const unwrap = <T,>(data: any, key: string): T => data?.data?.[key] ?? data?.[key];
+
+/** One claim line — for the edit page, which is reached by URL and has no list behind it. */
+export const fetchReimbursementById = async (reimbursementId: string): Promise<IReimbursementsUpdate> => {
+    const { data } = await axios.get(`${BASE}/requests/${reimbursementId}`);
+    return unwrap<IReimbursementsUpdate>(data, 'reimbursement');
+};
 
 export const fetchVersionHistory = async (reimbursementId: string): Promise<ReimbursementVersion[]> => {
     const { data } = await axios.get(`${BASE}/requests/${reimbursementId}/versions`);

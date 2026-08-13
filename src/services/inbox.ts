@@ -50,3 +50,8 @@ export const fetchInboxCount = async (): Promise<number> => {
 export const markInboxTaskInProgress = async (taskId: string): Promise<void> => {
     await axios.patch(`${API_BASE_URL}/api/inbox/${taskId}/in-progress`);
 };
+
+/** "I've seen this" — closes a task with no further action (e.g. a final rejection) to Completed. */
+export const acknowledgeInboxTask = async (taskId: string): Promise<void> => {
+    await axios.patch(`${API_BASE_URL}/api/inbox/${taskId}/acknowledge`);
+};

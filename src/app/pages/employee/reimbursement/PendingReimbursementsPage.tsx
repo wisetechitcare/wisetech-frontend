@@ -18,6 +18,8 @@ import {
 } from '@services/employee';
 import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow from './components/ReimbursementKpiRow';
+import PrivacyToggle from '@app/modules/common/components/PrivacyToggle';
+import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { solidToolbarButton, outlineToolbarButton, TOOLBAR_ROW } from './utils/toolbarButton';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
@@ -232,6 +234,7 @@ export function EmployeeDetailsSection({
 }: EmployeeDetailsSectionProps) {
   const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee);
   const employee = employeeProp !== undefined ? employeeProp : currentEmployee;
+  const sensitive = useSensitiveData();
 
   // Ten tiles became four cards.
   //
@@ -255,9 +258,27 @@ export function EmployeeDetailsSection({
 
   return (
     <Box sx={{ width: '100%', mb: 4 }}>
-      <Typography className="font-barlow" sx={{ color: '#0f172a', fontSize: { xs: 20, md: 22 }, fontWeight: 800, lineHeight: 1.2, mb: 1.25 }}>
-        Employee Details
-      </Typography>
+      {/* The eye sits with the heading, where salary puts it — one switch for every figure
+          below it, so a total is not readable over a shoulder in an open-plan office. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25 }}>
+        <Typography className="font-barlow" sx={{ color: '#0f172a', fontSize: { xs: 20, md: 22 }, fontWeight: 800, lineHeight: 1.2 }}>
+          Employee Details
+        </Typography>
+        <Box
+          sx={{
+            ml: 'auto',
+            width: 32, height: 32, borderRadius: '50%', display: 'grid', placeItems: 'center',
+            color: '#64748b', bgcolor: '#f1f5f9', transition: 'background-color 200ms',
+            '&:hover': { bgcolor: '#e2e8f0' },
+            '& .privacy-toggle': {
+              width: 30, height: 30, cursor: 'pointer',
+              display: 'grid', placeItems: 'center', borderRadius: '50%',
+            },
+          }}
+        >
+          <PrivacyToggle isVisible={sensitive.visible} onToggle={sensitive.toggle} color="#64748b" />
+        </Box>
+      </Box>
 
       {!employee ? (
         <EmployeeDetailsSkeleton />
@@ -283,7 +304,7 @@ export function EmployeeDetailsSection({
           >
             <ReimbEmployeeProfileCard employee={employee} />
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0 }}>
-              <ReimbursementKpiRow kpis={kpis} loading={overviewLoading} />
+              <ReimbursementKpiRow kpis={kpis} loading={overviewLoading} showSensitiveData={sensitive.visible} />
             </Box>
           </Box>
         </Paper>
@@ -323,6 +344,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   // Per-request cap for the live limit warning under the Amount field.
   const perRequestLimit = useSelector((state: RootState) => (state.employee.currentEmployee as any)?.reimbursementLimitPerRequest);
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
+  const sensitive = useSensitiveData();
 
   const [drafts, setDrafts] = useState<ReimbursementDraft[]>([]);
   // A failed fetch used to render as "no drafts", which is indistinguishable from success.
@@ -607,11 +629,11 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       Cell: ({ row }) => (
         // Colour alone is not a status — the chip carries the word too.
         <span className='d-inline-flex align-items-center gap-2'>
-          <span className='text-dark fw-bold fs-7'>{fmtAmount(row.original.amount)}</span>
+          <span className={`text-dark fw-bold fs-7 ${sensitive.cls}`}>{fmtAmount(row.original.amount)}</span>
           {row.original.isExceedingLimit && <OverLimitChip />}
         </span>
       ),
-      Footer: () => <span className='text-dark fw-bold fs-7'>{fmtAmount(totalAmount)}</span>,
+      Footer: () => <span className={`text-dark fw-bold fs-7 ${sensitive.cls}`}>{fmtAmount(totalAmount)}</span>,
     },
     {
       id: 'route',
@@ -666,7 +688,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
             aria-label='Edit this expense'
             title='Edit'
           >
-            <KTIcon iconName='pencil' className='inline fs-4 text-red-500' />
+            <i className='bi bi-pencil fs-4 text-gray-500' />
           </button>
           <button
             className='btn btn-icon btn-active-color-primary btn-sm w-4'
@@ -674,12 +696,12 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
             aria-label='Delete this expense'
             title='Delete'
           >
-            <KTIcon iconName='trash' className='inline fs-4 text-red-500' />
+            <i className='bi bi-trash3 fs-4 text-danger' />
           </button>
         </div>
       ),
     },
-  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount]);
+  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount, sensitive.cls]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -969,7 +991,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 {categoryRequiresLocation(selectedReimbursementFor) && (
                 <div className='row'>
                   <div className='col-lg-6'>
-                    <label className='form-label fw-bold'>From Location</label>
+                    <label className='form-label fw-bold'>From Location <span className='text-danger'>*</span></label>
                     <input
                       type='text'
                       className={`form-control form-control-lg form-control-solid${formikProps.touched.fromLocation && formikProps.errors.fromLocation ? ' is-invalid' : ''}`}
@@ -983,7 +1005,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                     )}
                   </div>
                   <div className='col-lg-6 mb-7'>
-                    <label className='form-label fw-bold'>To Location</label>
+                    <label className='form-label fw-bold'>To Location <span className='text-danger'>*</span></label>
                     <input
                       type='text'
                       className={`form-control form-control-lg form-control-solid${formikProps.touched.toLocation && formikProps.errors.toLocation ? ' is-invalid' : ''}`}
@@ -1081,7 +1103,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                               if (fileInputRef.current) fileInputRef.current.value = '';
                             }}
                           >
-                            <KTIcon iconName='trash' className='fs-3' />
+                            <i className='bi bi-trash3 fs-3 text-danger' />
                           </button>
                         </>
                       )}

@@ -26,6 +26,19 @@ function ReimbursementDropdown({ formikField, inputLabel, options, isRequired, p
         return sortOptionsAlphabetically(options || []);
     }, [options]);
 
+    const customStyles = {
+        option: (provided: any) => ({
+            ...provided,
+            whiteSpace: 'normal',
+            lineHeight: '1.4',
+            height: 'auto',
+            minHeight: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '8px 12px',
+        }),
+    };
+
     return (
         <div className="d-flex flex-column fv-row">
             <label className={`form-label ${isRequired ? 'required' : ''}`}>{inputLabel}</label>
@@ -39,6 +52,7 @@ function ReimbursementDropdown({ formikField, inputLabel, options, isRequired, p
                 className="react-select-styled"
                 value={value}
                 formatOptionLabel={formatOptionLabel}
+                styles={customStyles}
             />
             <HighlightErrors isRequired={isRequired} formikField={formikField} />
         </div>

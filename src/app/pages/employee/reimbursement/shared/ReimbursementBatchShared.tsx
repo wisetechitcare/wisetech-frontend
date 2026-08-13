@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@redux/store';
 import { Box, CircularProgress, MenuItem, Stack, TextField, Typography } from '@mui/material';
-import { Modal } from 'react-bootstrap';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { KTIcon } from '@metronic/helpers';
@@ -86,9 +87,7 @@ const REASON_COPY = {
     label: 'Reason for Rejection',
     placeholder: 'Describe why this request is being rejected…',
     hint: 'A rejection reason is required. The employee sees it.',
-    confirm: 'Confirm Rejection',
-    btnClass: 'btn-danger',
-    accent: '#f1416c',
+    confirm: 'Confirm rejection',
   },
   'request-info': {
     title: 'Ask a question',
@@ -96,11 +95,17 @@ const REASON_COPY = {
     placeholder: 'e.g. Which client visit was this taxi for? Please attach the receipt.',
     hint: 'This opens a conversation with the employee. The expense stays where it is — it is not rejected, and approval does not restart.',
     confirm: 'Send question',
-    btnClass: 'btn-warning',
-    accent: '#d97706',
   },
 };
 
+/**
+ * Rejection reason / question composer.
+ *
+ * A react-bootstrap `<Modal>` until now, which opened BEHIND the batch dialog: Bootstrap stacks
+ * modals at z-index 1055 and MUI at 1300, so a dialog raised from inside the batch view rendered
+ * underneath the thing that raised it. Moved onto `GlassDialog`, where nested dialogs stack in
+ * mount order — and off the Bootstrap primitives the UI standard bans anyway.
+ */
 export function RejectReasonModal({
   show, onClose, onConfirm, submitting, title, variant = 'reject', scope = 'REQUEST',
 }: RejectReasonModalProps) {
@@ -116,37 +121,54 @@ export function RejectReasonModal({
   useEffect(() => { if (!show) { setReason(''); setCategory('OTHER'); } }, [show]);
 
   return (
-    <Modal show={show} onHide={onClose} centered>
-      <Modal.Header closeButton>
-        <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>{title ?? copy.title}</Modal.Title>
-      </Modal.Header>
-      <Modal.Body style={{ padding: '20px 24px' }}>
+    <GlassDialog
+      open={show}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      header={
+        <GlassHeader
+          title={title ?? copy.title}
+          icon={<KTIcon iconName={variant === 'reject' ? 'cross-circle' : 'question'} className="fs-1" />}
+          onClose={onClose}
+        />
+      }
+    >
+      <Box sx={{ p: { xs: 1.75, sm: 2.25 }, display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
         {variant === 'request-info' && (
           <TextField
-            select fullWidth size='small' label='What is this about?'
+            select fullWidth size="small" label="What is this about?"
             value={category} onChange={(e) => setCategory(e.target.value)}
-            disabled={submitting} sx={{ mb: 2 }}
+            disabled={submitting}
           >
             {categories.map((c) => (
               <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>
             ))}
           </TextField>
         )}
-        <label className='fw-semibold fs-6 mb-2 d-block'>
-          {copy.label} <span style={{ color: copy.accent }}>*</span>
-        </label>
-        <textarea rows={3} className='form-control' placeholder={copy.placeholder}
-          value={reason} onChange={(e) => setReason(e.target.value)} style={{ resize: 'vertical', fontSize: 13 }} disabled={submitting} />
-        <div className='fs-8 text-muted mt-1'>{copy.hint}</div>
-      </Modal.Body>
-      <Modal.Footer>
-        <button className='btn btn-sm btn-light' onClick={onClose} disabled={submitting}>Cancel</button>
-        <button className={`btn btn-sm ${copy.btnClass} d-flex align-items-center gap-2`} disabled={!trimmed || submitting} onClick={() => onConfirm(trimmed, variant === 'request-info' ? category : undefined)}>
-          {submitting && <span className='spinner-border spinner-border-sm' />}
-          {copy.confirm}
-        </button>
-      </Modal.Footer>
-    </Modal>
+
+        <TextField
+          multiline minRows={3} fullWidth size="small" autoFocus
+          label={copy.label}
+          placeholder={copy.placeholder}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          disabled={submitting}
+          helperText={copy.hint}
+        />
+
+        <Stack direction="row" gap={1} justifyContent="flex-end">
+          <WtButton ghost onClick={onClose} disabled={submitting}>Cancel</WtButton>
+          <WtButton
+            tone={variant === 'reject' ? 'danger' : 'primary'}
+            disabled={!trimmed || submitting}
+            onClick={() => onConfirm(trimmed, variant === 'request-info' ? category : undefined)}
+          >
+            {submitting ? 'Sending…' : copy.confirm}
+          </WtButton>
+        </Stack>
+      </Box>
+    </GlassDialog>
   );
 }
 
@@ -200,6 +222,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
   // The server refuses these actions unless the caller is the current approver for that SPECIFIC
   // request. This only decides whether to offer the affordance.
   const canApprove = usePermission('approvals.approve.team');
+  const viewerEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
 
   const loadBatch = useCallback(async () => {
     if (!batchId) return;
@@ -251,13 +274,17 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
    */
   const actionableIds = useMemo(() => {
     const ids = new Set<string>();
+    // Your own submission is never yours to decide. The server refuses it outright
+    // (SELF_APPROVAL_REJECTED), so offering Approve / Reject / Ask here only produces an error the
+    // reader did nothing to earn — and this modal is opened from the employee's own screen too.
+    if (viewerEmployeeId && batch?.employeeId === viewerEmployeeId) return ids;
     for (const r of visibleRequests) {
       if (resolveStatusNum(r.status) !== STATUS.PENDING) continue;
       if (r.approval && r.approval.status !== 'pending') continue;
       ids.add(r.id);
     }
     return ids;
-  }, [visibleRequests]);
+  }, [visibleRequests, batch?.employeeId, viewerEmployeeId]);
 
   const handleViewDocument = useCallback((url: string) => { if (url) setPreviewUrl(url); }, []);
 
@@ -357,7 +384,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           />
         }
       >
-        <Box sx={{ p: { xs: 1.5, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, maxHeight: '80vh', overflowY: 'auto' }}>
           {loading ? (
             <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={28} /></Stack>
           ) : !batch ? (

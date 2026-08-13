@@ -10,6 +10,10 @@ import { formatDateTime } from '@utils/dateFormats';
 import QueryConversationDialog from './QueryConversation';
 import VersionHistoryDialog from './VersionHistoryDialog';
 import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
+import ReimbursementEditModal from './ReimbursementEditModal';
+import { fetchReimbursementById } from '@services/reimbursementVersions';
+import type { IReimbursementsUpdate } from '@models/employee';
+import type { EditContext } from './EditBanner';
 
 /**
  * "What do I need to do about my expenses?" — answered on the employee's own screen.
@@ -23,11 +27,12 @@ import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
  * for "needs action", not a second definition that can disagree with the first.
  */
 
-const EMPLOYEE_TASK_TYPES = new Set(['QUERY_RECEIVED', 'REJECTION_RECEIVED', 'ACTION_REQUIRED']);
+// Rejection is final — not editable, not an action item. It shows up in the Inbox as a plain
+// "rejected" notice (no button), never here. This panel is only for things that need YOUR action.
+const EMPLOYEE_TASK_TYPES = new Set(['QUERY_RECEIVED', 'ACTION_REQUIRED']);
 
 const STYLE: Record<string, { tone: SemanticTone; icon: string; cta: string }> = {
     QUERY_RECEIVED: { tone: 'warning', icon: 'question', cta: 'Respond' },
-    REJECTION_RECEIVED: { tone: 'danger', icon: 'cross-circle', cta: 'View & edit' },
     ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open' },
 };
 
@@ -42,7 +47,14 @@ export interface NeedsYourAttentionProps {
 export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAttentionProps) {
     const theme = useTheme();
     const [tasks, setTasks] = useState<InboxTask[]>([]);
-    const [conversation, setConversation] = useState<{ reimbursementId?: string; batchId?: string; queryId: string; label: string } | null>(null);
+    // A query response is edited inline, right here, rather than on a page of its own — the
+    // employee stays where the list is.
+    const [editTarget, setEditTarget] = useState<{
+        reimbursement: IReimbursementsUpdate;
+        context: { type: EditContext; queryText?: string; level?: number };
+    } | null>(null);
+    const [editLoadingId, setEditLoadingId] = useState<string | null>(null);
+    const [conversation, setConversation] = useState<{ reimbursementId?: string; batchId?: string; queryId: string; label: string; level?: number } | null>(null);
     const [versionsFor, setVersionsFor] = useState<{ id: string; label: string } | null>(null);
     const [openBatchId, setOpenBatchId] = useState<string | null>(null);
 
@@ -63,17 +75,34 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
 
     if (!isSelf || !employeeId || open.length === 0) return null;
 
+    const openEdit = async (
+        reimbursementId: string,
+        context: { type: EditContext; queryText?: string; level?: number },
+    ) => {
+        setEditLoadingId(reimbursementId);
+        try {
+            setEditTarget({ reimbursement: await fetchReimbursementById(reimbursementId), context });
+        } catch {
+            // surfaced by the axios interceptor
+        } finally {
+            setEditLoadingId(null);
+        }
+    };
+
     const handle = (task: InboxTask) => {
         const payload = (task.payload ?? {}) as Record<string, unknown>;
+
         if (task.type === 'QUERY_RECEIVED' && typeof payload.queryId === 'string') {
             setConversation({
                 reimbursementId: typeof payload.reimbursementId === 'string' ? payload.reimbursementId : undefined,
                 batchId: typeof payload.reimbursementId === 'string' ? undefined : (task.batchId ?? undefined),
                 queryId: payload.queryId,
                 label: typeof payload.submissionId === 'string' ? `Submission ${payload.submissionId}` : task.title,
+                level: typeof payload.level === 'number' ? payload.level : undefined,
             });
             return;
         }
+
         if (task.batchId) setOpenBatchId(task.batchId);
     };
 
@@ -136,7 +165,11 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
                                             History
                                         </WtButton>
                                     )}
-                                    <WtButton size="small" onClick={() => handle(task)}>{style.cta}</WtButton>
+                                    <WtButton size="small"
+                                        disabled={editLoadingId !== null && editLoadingId === payload.reimbursementId}
+                                        onClick={() => handle(task)}>
+                                        {style.cta}
+                                    </WtButton>
                                 </Stack>
                             </Stack>
                         );
@@ -156,8 +189,28 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
                     requestLabel={conversation.label}
                     onClose={() => setConversation(null)}
                     onChanged={load}
+                    onEditRequest={
+                        conversation.reimbursementId
+                            ? () => {
+                                openEdit(conversation.reimbursementId!, {
+                                    type: 'query',
+                                    queryText: conversation.label,
+                                    level: conversation.level,
+                                });
+                                setConversation(null);
+                              }
+                            : undefined
+                    }
                 />
             )}
+
+            <ReimbursementEditModal
+                show={!!editTarget}
+                onHide={() => setEditTarget(null)}
+                reimbursement={editTarget?.reimbursement ?? null}
+                editContext={editTarget?.context}
+                onSaved={() => { setEditTarget(null); load(); }}
+            />
 
             {versionsFor && (
                 <VersionHistoryDialog

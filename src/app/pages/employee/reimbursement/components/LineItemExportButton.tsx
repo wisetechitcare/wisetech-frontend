@@ -89,6 +89,9 @@ export default function LineItemExportButton({ rows, periodLabel, disabled }: Li
 
     return (
         <ExportButton
+            // Named, because this button always sits beside the summary export. "Expenses" says
+            // what a row is here: one expense, not one employee.
+            label="Expenses"
             data={data}
             columns={columns as any}
             filename={`reimbursement-line-items-${periodLabel.toLowerCase().replace(/\s+/g, '-')}`}

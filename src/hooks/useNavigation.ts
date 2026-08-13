@@ -8,6 +8,8 @@ import { can } from '@utils/can';
 import { isSectionBlocked, isSubsectionVisible, anyChildGranted } from '@utils/accessAreas';
 import { fetchPendingApprovals } from '@services/employee';
 import { fetchInboxCount } from '@services/inbox';
+import { useEventBus } from './useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags';
 import { useRootOrgName } from './useRootOrgNames';
 import { RootState } from '@redux/store';
@@ -45,11 +47,16 @@ export function useNavigation() {
   // The Inbox badge counts the CALLER'S OWN open tasks, whoever they are. It used to count
   // pending approvals and was skipped entirely for anyone without `approvals.approve.team`, so an
   // employee with a queried expense saw a zero — and no Inbox row at all to put it on.
-  useEffect(() => {
+  const refreshInboxCount = () => {
     fetchInboxCount()
       .then(setInboxCount)
       .catch(() => setInboxCount(0));
-  }, [capabilities]);
+  };
+
+  useEffect(refreshInboxCount, [capabilities]);
+  // The badge counted work that had already been done — it was fetched once and never again, so
+  // answering a question left a "1" sitting in the sidebar over an empty inbox.
+  useEventBus(EVENT_KEYS.reimbursementChanged, refreshInboxCount);
 
   useEffect(() => {
     if (!can('approvals.approve.team')) {

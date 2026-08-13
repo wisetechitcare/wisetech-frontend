@@ -6,6 +6,7 @@ import { Modal } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import { IReimbursementsUpdate } from '@models/employee';
 import ReimbursementEditModal from '../components/ReimbursementEditModal';
+import QueryConversationDialog from '../components/QueryConversation';
 import {
   fetchReimbursementBatchById,
   deleteEmployeeReimbursement,
@@ -30,7 +31,8 @@ import { clickableRowProps, CLICKABLE_ROW_SX } from '../utils/rowInteraction';
 import { ReimbursementBatchDetail, ReimbursementLine } from '../utils/reimbursementTypes';
 import { buildReimbursementLineColumns, withPreviewHandler } from '../components/reimbursementLineColumns';
 import { fmtDate, fmtAmount, resolveStatusNum } from '../utils/reimbursementFormat';
-import { resolveStatusNum as resolveStatus, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
+import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { resolveStatusNum as resolveStatus, STATUS, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
 import SubmissionMobileCard from '../components/SubmissionMobileCard';
 import { SkeletonTable } from '@app/modules/common/components/Skeleton';
 import { Dayjs } from 'dayjs';
@@ -40,6 +42,7 @@ import { RootState } from '@redux/store';
 import { Tooltip } from '@mui/material';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { LEGACY_UIKIT as T, tonePair } from '@app/theme/tokens';
 
 // Sentinel batch id for reimbursements that have no batch (batch_id = NULL).
 // These are legacy/imported records that were never submitted through the
@@ -47,10 +50,16 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 // can never silently disappear from the UI.
 const UNGROUPED_BATCH_ID = '__ungrouped__';
 
-// A batch whose lines were decided individually is neither approved nor rejected as a
-// whole. Numeric so it can share the status column, out of range so it can never collide
-// with a real status (0 pending / 1 approved / 2 rejected).
-const MIXED_STATUS = 3;
+// A batch whose lines were decided individually is neither approved nor rejected as a whole.
+//
+// This was a local `3`, chosen when the real statuses were 0/1/2 and 3 was genuinely spare.
+// NEEDS_INFO then took 3, and the two silently became the same number: a batch whose lines were
+// ALL questioned collapses to a single status (3), which this then rendered as "Partly approved"
+// — a batch nobody had decided anything about, reported as partly decided.
+//
+// `STATUS.MIXED` (9) is the module's own display-only sentinel for exactly this, deliberately
+// far out of range. One sentinel, defined once.
+const MIXED_STATUS = STATUS.MIXED;
 
 
 
@@ -99,6 +108,8 @@ function SubmissionDetailModal({
   const [pendingEditRow, setPendingEditRow] = useState<IReimbursementsUpdate | null>(null);
   const [showPartialApprovalWarning, setShowPartialApprovalWarning] = useState(false);
   const [downloadingBill, setDownloadingBill] = useState(false);
+  /** The query thread for one expense, opened from its "Respond" link. */
+  const [conversationFor, setConversationFor] = useState<{ id: string; label: string } | null>(null);
 
   const isPartiallyApproved = approvalCurrentLevel > 1;
 
@@ -162,6 +173,11 @@ function SubmissionDetailModal({
     }
   }, [batchId, ungroupedReimbursements]);
 
+  // The dialog held whatever it fetched when it opened. Replying to a query from inside it
+  // refreshed the table BEHIND it, so the row you were looking at kept offering "Respond" to
+  // someone who had just responded — until they closed and reopened the whole thing.
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadBatch(); });
+
   useEffect(() => {
     if (batchId) {
       setBatch(null);
@@ -202,23 +218,128 @@ function SubmissionDetailModal({
           const statusNum = resolveStatusNum(row.original.status);
           if (statusNum === 1) return <span className="badge badge-light-success fw-semibold fs-8">Approved</span>;
           if (statusNum === 2) return <span className="badge badge-light-danger fw-semibold fs-8">Rejected</span>;
+          // A questioned line read as "Pending", so the one row the employee had to act on
+          // looked exactly like the rows they had to wait on.
+          if (statusNum === STATUS.NEEDS_INFO) {
+            return <span className="badge badge-light-warning fw-semibold fs-8">Needs info</span>;
+          }
           return <span className="badge badge-light-warning fw-semibold fs-8">Pending</span>;
         },
       },
-      ...(displayedReimbursements.some((r) => resolveStatusNum(r.status) === 2)
+      // Shown for a QUESTION as well as a rejection. Both write the same column on the line, but
+      // this keyed on status 2 and then re-checked it inside the cell, so an approver's question
+      // was stored, notified — and rendered nowhere the employee could read it.
+      ...(displayedReimbursements.some((r) => {
+        const n = resolveStatusNum(r.status);
+        return n === 2 || n === STATUS.NEEDS_INFO;
+      })
         ? [
             {
               accessorKey: 'rejectionReason',
-              header: 'Reject Reason',
+              header: "Approver's note",
+              size: 240,
               enableColumnActions: false,
               Cell: ({ row }: any) => {
                 const statusNum = resolveStatusNum(row.original.status);
-                if (statusNum !== 2) return <span className="text-muted">N/A</span>;
                 const reason = row.original.rejectionReason || row.original.rejectReason;
-                return reason ? (
-                  <span className="text-danger">{reason}</span>
-                ) : (
-                  <span className="text-muted">N/A</span>
+                if (!reason || (statusNum !== 2 && statusNum !== STATUS.NEEDS_INFO)) {
+                  return <span className="text-muted">—</span>;
+                }
+                const asking = statusNum === STATUS.NEEDS_INFO;
+                const queries = row.original.queries;
+                const hasAwaitingQuery = Array.isArray(queries) && queries.length > 0
+                  ? queries.some((q: any) => q.status !== 'RESOLVED' && q.awaitingRole === 'EMPLOYEE')
+                  : true;
+
+                return (
+                  <div style={{ maxWidth: 240, lineHeight: 1.35 }} className="py-0.5">
+                    <div style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline', rowGap: '4px' }}>
+                      <span
+                        className={`badge badge-light-${asking ? (hasAwaitingQuery ? 'warning' : 'secondary') : 'danger'} fw-bold fs-9 px-1.5 py-0.5 me-1.5`}
+                        style={{ display: 'inline-flex', alignSelf: 'center' }}
+                      >
+                        {asking ? (hasAwaitingQuery ? 'Question' : 'Responded') : 'Rejected'}
+                      </span>
+                      <span className="text-gray-800 fs-7 fw-normal" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                        {reason}
+                      </span>
+                    </div>
+                    {asking && (
+                      <div className="mt-1">
+                        {hasAwaitingQuery ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConversationFor({ id: row.original.id, label: row.original.description || 'Expense' });
+                            }}
+                            style={{
+                              padding: '2px 8px',
+                              border: `1px solid ${T.color.warning}`,
+                              borderRadius: `${T.radius.sm}px`,
+                              backgroundColor: '#fff',
+                              color: T.color.warning,
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              outline: 'none',
+                              boxShadow: T.shadow.xs,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              transition: 'all 0.15s ease-in-out',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = T.color.warningSoft;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#fff';
+                            }}
+                          >
+                            <span style={{ color: T.color.warning, display: 'inline-flex' }}>
+                              <KTIcon iconName="message-text-2" className="fs-8" />
+                            </span>
+                            Respond
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConversationFor({ id: row.original.id, label: row.original.description || 'Expense' });
+                            }}
+                            style={{
+                              padding: '2px 8px',
+                              border: `1px solid ${T.color.neutral}`,
+                              borderRadius: `${T.radius.sm}px`,
+                              backgroundColor: '#fff',
+                              color: T.color.neutral,
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              outline: 'none',
+                              boxShadow: T.shadow.xs,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              transition: 'all 0.15s ease-in-out',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = T.color.neutralSoft;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#fff';
+                            }}
+                          >
+                            <span style={{ color: T.color.neutral, display: 'inline-flex' }}>
+                              <KTIcon iconName="eye" className="fs-8" />
+                            </span>
+                            View Conversation
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               },
             },
@@ -261,9 +382,15 @@ function SubmissionDetailModal({
                 const r = row.original;
                 const statusNum = resolveStatusNum(r.status);
                 const isPending = statusNum === 0;
+                // A questioned line is EDITABLE — that is how the employee answers, and the
+                // server allows it (a rejected one it refuses). This treated anything that was
+                // not status 0 as decided, so the one row the approver was waiting on said
+                // "already been processed and cannot be modified".
+                const needsAnswer = statusNum === STATUS.NEEDS_INFO;
+                const canAmend = isPending || needsAnswer;
                 const isDeleting = deletingId === r.id;
 
-                if (!isPending) {
+                if (!canAmend) {
                   return (
                     <Tooltip
                       title="This reimbursement has already been processed and cannot be modified."
@@ -286,12 +413,14 @@ function SubmissionDetailModal({
                 }
 
                 const resEdit =
-                  isPending &&
+                  canAmend &&
                   hasPermission(
                     resourceNameMapWithCamelCase.reimbursement,
                     permissionConstToUseWithHasPermission.editOwn,
                     r,
                   );
+                // Delete stays on untouched lines only. Answering a question is an amendment;
+                // deleting the line the approver asked about just leaves them with no answer.
                 const resDelete =
                   isPending &&
                   hasPermission(
@@ -305,7 +434,10 @@ function SubmissionDetailModal({
                     {resEdit && (
                       <button
                         className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
-                        aria-label="Edit" title="Edit"
+                        aria-label={needsAnswer ? 'Answer the approver' : 'Edit'}
+                        title={needsAnswer
+                          ? "Answer your approver's question — saving sends it back for approval"
+                          : 'Edit'}
                         onClick={() => {
                           const cleaned = Object.fromEntries(
                             Object.entries(r).filter(([, v]) => v != null),
@@ -331,7 +463,7 @@ function SubmissionDetailModal({
                         {isDeleting ? (
                           <span className="spinner-border spinner-border-sm text-danger" />
                         ) : (
-                          <KTIcon iconName="trash" className="inline fs-4 text-red-500" />
+                          <i className="bi bi-trash3 fs-4 text-danger" />
                         )}
                       </button>
                     )}
@@ -399,6 +531,7 @@ function SubmissionDetailModal({
         centered
         size="xl"
         dialogClassName="submission-detail-modal"
+        enforceFocus={false}
       >
         <Modal.Header closeButton>
           <div className="d-flex align-items-center gap-3 flex-grow-1 pe-2">
@@ -531,6 +664,15 @@ function SubmissionDetailModal({
         <DocumentPreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
       )}
 
+      {conversationFor && (
+        <QueryConversationDialog
+          reimbursementId={conversationFor.id}
+          requestLabel={conversationFor.label}
+          onClose={() => setConversationFor(null)}
+          onChanged={() => { loadBatch(); onRefresh?.(); }}
+        />
+      )}
+
       <ReimbursementEditModal
         show={!!editRow}
         onHide={() => setEditRow(null)}
@@ -648,6 +790,9 @@ function SubmissionsTable({
   hideIfEmpty = false,
 }: SubmissionsTableProps) {
   const [rows, setRows] = useState<any[]>([]);
+  // Follows the page's eye toggle. Empty string when no provider is present, so a table used
+  // outside a page that offers the toggle renders exactly as it always has.
+  const { cls: sensitiveCls } = useSensitiveData();
   // null = All. Defaults to All deliberately: a screen that silently narrows to approved is
   // the bug this replaces.
   const [statusFilter, setStatusFilter] = useState<StatusNum | null>(null);
@@ -999,9 +1144,9 @@ function SubmissionsTable({
         header: 'Amount (₹)',
         size: 145,
         Cell: ({ row }: any) => (
-          <span className="fs-7">₹{fmtAmount(row.original._totalAmount)}</span>
+          <span className={`fs-7 ${sensitiveCls}`}>₹{fmtAmount(row.original._totalAmount)}</span>
         ),
-        Footer: () => <span className="text-dark fw-bold fs-7">₹{fmtAmount(rowsTotal)}</span>,
+        Footer: () => <span className={`text-dark fw-bold fs-7 ${sensitiveCls}`}>₹{fmtAmount(rowsTotal)}</span>,
       },
       {
         accessorKey: '_status',
@@ -1011,6 +1156,15 @@ function SubmissionsTable({
           const s = row.original._status;
           if (s === 1) return <span className="badge badge-light-success fw-semibold fs-8">Approved</span>;
           if (s === 2) return <span className="badge badge-light-danger fw-semibold fs-8">Rejected</span>;
+          // Every line questioned: the batch is waiting on the EMPLOYEE, not the approver, and
+          // saying "Pending" here sent them looking for someone else to chase.
+          if (s === STATUS.NEEDS_INFO) {
+            return (
+              <Tooltip title="Your approver asked a question — open the batch to read it and answer by editing the expense">
+                <span className="badge badge-light-warning fw-semibold fs-8">Needs info</span>
+              </Tooltip>
+            );
+          }
           if (s === MIXED_STATUS) {
             return (
               <Tooltip title="Some requests in this batch were approved, others rejected — open it to see which">
@@ -1048,7 +1202,9 @@ function SubmissionsTable({
         },
       },
     ],
-    [rowsTotal, mode],
+    // `sensitiveCls` is a dependency, not an incidental read: without it the columns memo keeps
+    // the class captured at first render and the eye toggle does nothing to the amount column.
+    [rowsTotal, mode, sensitiveCls],
   );
 
   // Status is a filter the user controls, defaulting to All. Six screens used to hard-code
