@@ -6,10 +6,13 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import PauseCircleIcon from "@mui/icons-material/PauseCircle";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import StopCircleIcon from "@mui/icons-material/StopCircle";
+
 import { RootState, AppDispatch } from '@redux/store';
 import { 
   startTimerThunk, 
-  pauseTimerThunk, 
+  pauseTimerThunk,
+  stopTimerThunk,
   hideTimerFor30Minutes, 
   showTimerImmediately,
   checkHiddenTimer,
@@ -92,7 +95,20 @@ export default function GlobalTimerModal() {
     }
   };
 
-  // Handle timer close (hide for 30 minutes)
+  /**
+   * Stop — commit the elapsed time and END the session.
+   *
+   * Distinct from pause on purpose. Pause keeps `currentTask`, so resuming appends to the same
+   * timesheet row; stop clears it, so the next start opens a new one. Without this, two separate
+   * sittings on the same task merged into a single entry.
+   */
+  const handleTimerStop = async () => {
+    if (!currentTask) return;
+    await dispatch(stopTimerThunk());
+  };
+
+  // Handle timer close — HIDES the banner for 30 minutes. It does NOT stop the timer, which is
+  // why a separate stop control had to exist: closing the reminder is not finishing the work.
   const handleTimerClose = () => {
     dispatch(hideTimerFor30Minutes());
   };
@@ -167,10 +183,14 @@ export default function GlobalTimerModal() {
         pointerEvents: loading ? 'none' : 'auto',
       }}
     >
-      {/* Play/Pause Button */}
-      <IconButton 
-        onClick={handleTimerToggle} 
-        sx={{ color: "green", mr: 1 }}
+      {/* Pause / resume — keeps the session OPEN, so resuming appends to the same timesheet.
+          Native `title` rather than MUI <Tooltip>: importing Tooltip into this file threw
+          "styled_default is not a function" at runtime and blanked the whole banner. */}
+      <IconButton
+        onClick={handleTimerToggle}
+        aria-label={isTimerRunning ? "Pause timer" : "Resume timer"}
+        title={isTimerRunning ? "Pause — keeps this session open" : "Resume"}
+        sx={{ color: "green", mr: 0.25 }}
         disabled={loading}
       >
         {isTimerRunning ? (
@@ -178,6 +198,19 @@ export default function GlobalTimerModal() {
         ) : (
           <PlayArrowIcon sx={{ fontSize: 40 }} />
         )}
+      </IconButton>
+
+      {/* Stop — commits the time AND ends the session, so the next start opens a NEW entry.
+          Before this existed there was only pause, so a finished task stayed attached to the
+          timer and the next start silently appended to the same row. */}
+      <IconButton
+        onClick={handleTimerStop}
+        aria-label="Stop timer"
+        title="Stop and save — ends this session"
+        sx={{ color: "error.main", mr: 1 }}
+        disabled={loading}
+      >
+        <StopCircleIcon sx={{ fontSize: 34 }} />
       </IconButton>
 
       {/* Content */}

@@ -876,7 +876,7 @@ export const TASKS = {
     CREATE_TASK: "api/task-and-time/task",
     UPDATE_TASK: "api/task-and-time/task",
     DELETE_TASK: "api/task-and-time/task",
-    UPDATE_TASK_STATUS_BY_TASKID: "/api/task-and-time/task/:taskId",
+    UPDATE_TASK_STATUS_BY_TASKID: "/api/task-and-time/task/:taskId/status",
     GET_TASKS_BY_PROJECT_ID: "/api/task-and-time/task/project/:projectId",
     GET_TIMESHEETS_BY_PROJECTID: "/api/task-and-time/time-sheets/project/:projectId?billable=:billable",
     GET_TIMESHEETS_BY_PROJECTID_WITH_COST: "/api/task-and-time/time-sheets/project/:projectId/with-costing?billable=:billable",
@@ -894,6 +894,15 @@ export const TASKS = {
     GET_TASK_BY_ID: "/api/task-and-time/task/:id",
     GET_TASKS_STATUS_START_END_DATE: "/api/task-and-time/tasks/status/start-end-date?startDate=:startDate&endDate=:endDate",
     GET_ALL_PROJECT_ONLY_SELECTED_FIELDS: "/api/task-and-time/task/get-all-project-only-selected-fields",
+    // Phase 3 — authorized selectors (server decides, UI reflects)
+    GET_AVAILABLE_PROJECTS: "/api/task-and-time/task/available-projects",
+    GET_GENERAL_ASSIGNEES: "/api/task-and-time/task/general-assignees",
+    GET_PROJECT_ASSIGNEES: "/api/task-and-time/task/project/:projectId/assignees",
+    // Phase 4 — Kanban board + subtasks + stage ordering
+    GET_TASK_BOARD: "/api/task-and-time/task/board",
+    GET_BOARD_PROJECTS: "/api/task-and-time/task/board-projects",
+    GET_TASK_SUBTASKS: "/api/task-and-time/task/:id/subtasks",
+    REORDER_TASK_STATUSES: "/api/task-and-time/task-statuses/reorder",
 }
 
 export const ORGANIZATION_CONFIGURATION = {

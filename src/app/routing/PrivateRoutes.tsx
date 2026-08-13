@@ -63,6 +63,9 @@ const OrganisationProfileMain = lazy(() => import('@pages/company/organisation/O
 const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/OrganizationProfilePage'))
 const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
 const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
+// Phase 4 — the rebuilt Task UI (Kanban-first workspace + task detail workspace)
+const TasksWorkspace = lazy(() => import('@pages/employee/tasks/TasksWorkspace'))
+const TaskDetailPage = lazy(() => import('@pages/employee/tasks/TaskDetailPage'))
 const MyTimeSheetMain = lazy(() => import('@pages/employee/timesheet/mytimesheet/MyTimeSheetMain'))
 const EmployeeTimeSheetMain = lazy(() => import('@pages/employee/timesheet/employeetimesheet/EmployeeTimeSheetMain'))
 const TimeSheetByIdOverview = lazy(() => import('@pages/employee/timesheet/mytimesheet/component/TimeSheetByIdOverview'))
@@ -161,7 +164,9 @@ const PrivateRoutes = () => {
           <Route path='leaves' element={<Navigate to='/my-team/overview' replace />} />
 
           <Route path='salary' element={<Navigate to='/finance/salary' replace />} />
-          <Route path='tasks' element={<Navigate to='/tasks/employee-level-teams' replace />} />
+          {/* Phase 4 §27 — was '/tasks/employee-level-teams', a route that never existed: it fell
+              through to '/tasks/:taskId' and rendered a crashed detail page on every click. */}
+          <Route path='tasks' element={<Navigate to='/tasks' replace />} />
           <Route path='projects' element={<Navigate to='/qc/projects' replace />} />
           <Route path='leads' element={<Navigate to='/qc/leads' replace />} />
           <Route path='approvals' element={<MyTeamApprovals />} />
@@ -560,7 +565,7 @@ const PrivateRoutes = () => {
           element={
             <SectionGuard module='tasks'>
               <SuspensedView>
-                <TasksMain />
+                <TasksWorkspace />
               </SuspensedView>
             </SectionGuard>
           }
@@ -576,9 +581,13 @@ const PrivateRoutes = () => {
         <Route
           path='/tasks/:taskId'
           element={
-            <SuspensedView>
-              <TaskDetails />
-            </SuspensedView>
+            // Phase 0 audit §4.4 — this route had NO SectionGuard, so a user with the tasks
+            // section blocked could deep-link straight to a task and read, edit and delete it.
+            <SectionGuard module='tasks'>
+              <SuspensedView>
+                <TaskDetailPage />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route

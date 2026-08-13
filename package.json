@@ -10,7 +10,8 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "preview": "vite preview",
-    "lint:ui:baseline": "eslint \"src/**/*.{ts,tsx}\" -f json > .eslint-ui-tmp.json; node scripts/gen-ui-baseline.cjs < .eslint-ui-tmp.json; rm -f .eslint-ui-tmp.json"
+    "lint:ui:baseline": "eslint \"src/**/*.{ts,tsx}\" -f json > .eslint-ui-tmp.json; node scripts/gen-ui-baseline.cjs < .eslint-ui-tmp.json; rm -f .eslint-ui-tmp.json",
+    "test:tasks": "esbuild src/app/pages/employee/tasks/__tests__/taskDomain.test.ts --bundle --platform=node --format=esm --outfile=node_modules/.task-tests/taskDomain.test.mjs --external:node:* --log-level=warning && node --test node_modules/.task-tests/taskDomain.test.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",
