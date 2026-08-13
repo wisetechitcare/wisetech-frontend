@@ -2010,6 +2010,16 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       show={show}
       onHide={handleClose}
       fullscreen
+      /**
+       * Nested MUI dialogs (the photo editor, confirm/alert dialogs, pickers) render
+       * in a portal on <body>, which this modal does not contain. With the default
+       * focus enforcement, react-bootstrap pulls focus back here as soon as anything
+       * inside one of those portals is focused — so a slider thumb never keeps focus
+       * and its arrow keys silently do nothing. The trap buys little on a fullscreen
+       * modal that already covers the app; correct keyboard control inside the
+       * dialogs it opens is worth more.
+       */
+      enforceFocus={false}
       dialogClassName="responsive-modal"
       className="responsive-modal wt-wizard-modal onboarding-wizard-modal"
     >

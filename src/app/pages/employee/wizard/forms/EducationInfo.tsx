@@ -7,6 +7,7 @@ import TextInput from "@app/modules/common/inputs/TextInput";
 import { createQualificationMaster } from "@services/employee";
 import { uploadUserAsset } from "@services/uploader";
 import ObFileUpload from "../components/ObFileUpload";
+import ObUploadStatus from "../components/ObUploadStatus";
 import { getEducationDisplayTitle, getQualificationConfig, resetEducationFieldsForQualification } from "../../../../../utils/educationUtils";
 
 const ADD_NEW_QUALIFICATION = "__ADD_NEW__";
@@ -435,58 +436,35 @@ function EducationalInfo({
           <div className="col-lg-6 col-md-12 col-sm-12">
             <label className="mb-2 fw-bold">Upload Academic Document</label>
 
-            {!userId && showInfo && (
-              <div className="alert alert-info d-flex align-items-center p-3 mb-2" role="alert">
-                <i className="bi bi-info-circle fs-5 me-2"></i>
-                <small>The selected document will upload after the user details are saved.</small>
-              </div>
-            )}
-
-            {(education.filePath || education.fileName) && (
-              <div className="mb-3 p-3 bg-light rounded">
-                <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                  <div>
-                    <small className="text-muted">{education.filePath ? "Uploaded document" : "Selected document"}</small>
-                    <div className="fw-bold text-primary text-break">
-                      {education.fileName || getFileNameFromUrl(education.filePath)}
-                    </div>
-                    <small className={education.filePath ? "text-success" : "text-muted"}>
-                      {education.filePath ? "Upload successful" : "Upload pending until final save"}
-                    </small>
-                  </div>
-                  <div className="d-flex gap-2 flex-wrap">
-                    {education.filePath && (
-                      <a href={education.filePath} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
-                        Preview
-                      </a>
-                    )}
-                    <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => {
-                      formikProps.setFieldValue(`${element}.filePath`, "");
-                      formikProps.setFieldValue(`${element}.fileName`, "");
-                      setEducationFile?.(index, null);
-                    }}>
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Only `isUploading` disables this. It used to also disable on `!userId`,
-                i.e. throughout the entire CREATE flow — but `handleAcademicFile` has
-                always had a branch for exactly that case (hold the file, upload it once
-                the user exists, which `uploadEducationDocuments` then does on save).
-                The control was locked in front of a path that was already built, so an
-                academic certificate simply could not be attached during onboarding. */}
+            {/* ONE representation of the attachment.
+                There used to be two: a "Selected document" panel above the control,
+                and the control itself — which already shows the file name with View,
+                Change and Remove. The same document rendered twice, with a loose
+                "Uploading…" line under both. The panel is gone; the only thing it
+                said that the control cannot is whether the file is stored yet, and
+                that is the status line below. */}
             <ObFileUpload
               accept={DOCUMENT_ACCEPT}
               hint={DOCUMENT_HINT}
               disabled={isUploading}
               existingFileName={education.fileName || getFileNameFromUrl(education.filePath)}
+              // So View opens the SAVED document, not just a freshly picked blob.
+              existingFileUrl={education.filePath || undefined}
               onChange={handleAcademicFile}
             />
-            {isUploading && <small className="text-primary">Uploading...</small>}
-            {uploadError && <div className="text-danger fs-7 mt-1">{uploadError}</div>}
+
+            <ObUploadStatus
+              state={
+                isUploading
+                  ? "uploading"
+                  : education.filePath
+                    ? "saved"
+                    : education.fileName
+                      ? "pending"
+                      : "idle"
+              }
+              error={uploadError || undefined}
+            />
           </div>
         </div>
       </div>
