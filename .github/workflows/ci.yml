@@ -43,7 +43,7 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           # 24, not 20: pnpm 11.20 (our packageManager) requires Node >= 22.13 and dies on
           # 20 with "No such built-in module: node:sqlite" before it can install anything.
