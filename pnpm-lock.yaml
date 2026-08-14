@@ -29,8 +29,8 @@ importers:
         specifier: 5.2.4
         version: 5.2.4
       '@fortawesome/fontawesome-free':
-        specifier: 6.1.1
-        version: 6.1.1
+        specifier: 7.3.1
+        version: 7.3.1
       '@fullcalendar/bootstrap':
         specifier: ^6.1.13
         version: 6.1.20(@fullcalendar/core@6.1.20)
@@ -993,8 +993,8 @@ packages:
       typescript:
         optional: true
 
-  '@fortawesome/fontawesome-free@6.1.1':
-    resolution: {integrity: sha512-J/3yg2AIXc9wznaVqpHVX3Wa5jwKovVF0AMYSnbmcXTiL3PpRPfF58pzWucCwEiCJBp+hCNRLWClTomD8SseKg==}
+  '@fortawesome/fontawesome-free@7.3.1':
+    resolution: {integrity: sha512-wmglKKPDIkgV3aWlZzWECCPoGIkYCulzBwxG9+w7rc5BGapZ6cPMpoPOT8k36J0Ni7PPX6c/rsoMWfS4d1MUMg==}
     engines: {node: '>=6'}
 
   '@fullcalendar/bootstrap@6.1.20':
@@ -5586,7 +5586,7 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  '@fortawesome/fontawesome-free@6.1.1': {}
+  '@fortawesome/fontawesome-free@7.3.1': {}
 
   '@fullcalendar/bootstrap@6.1.20(@fullcalendar/core@6.1.20)':
     dependencies:
