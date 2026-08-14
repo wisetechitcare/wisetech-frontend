@@ -106,6 +106,18 @@ function buildProfessionalFeesPayload(values: {
   };
 }
 
+/**
+ * Storage category for a wizard upload.
+ *
+ * The profile photo is not an onboarding document — the wizard itself strips it out
+ * of `documentInfo` — so it is filed under `profile` alongside the signature, which
+ * is where Profile → Settings has always put it and where Profile → Documents already
+ * expects to list it. The backend also restricts that category to JPG/PNG/WebP, so
+ * sending the right category here is what makes an avatar image-only server-side.
+ */
+const uploadCategoryFor = (documentId: string): string =>
+  documentId === "userProfilePicture" ? "profile" : "onboarding-docs";
+
 const PROF_FEES_KEYS = new Set([
   "professionalFeesEnabled",
   "professionalFeesType",
@@ -1450,7 +1462,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       const baseName = fieldName.toLowerCase().replace(/\s+/g, "-");
       const extension = fileData.name.split(".").pop();
       const fileName = extension ? `${baseName}.${extension}` : baseName;
-      const response = await uploadUserAsset(formData, userId, fileName, "onboarding-docs");
+      const response = await uploadUserAsset(formData, userId, fileName, uploadCategoryFor(docId));
       return { documentId: docId, path: response.data.path, fileName };
     });
 
@@ -1765,7 +1777,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
             const baseName = fieldName.toLowerCase().replace(/\s+/g, "-");
             const extension = fileData.name.split(".").pop();
             const fileName = extension ? `${baseName}.${extension}` : baseName;
-            const response = await uploadUserAsset(formData, savedUserId!, fileName, "onboarding-docs");
+            const response = await uploadUserAsset(formData, savedUserId!, fileName, uploadCategoryFor(docId));
             return { documentId: docId, path: response.data.path, fileName };
           } catch (uploadError) { throw new Error(`Failed to upload document: ${fileData.name}`); }
         });

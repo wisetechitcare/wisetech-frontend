@@ -14,6 +14,21 @@ interface ProfilePictureProps {
 const ACCEPTED_FORMATS = { 'image/jpeg': [], 'image/png': [], 'image/webp': [] };
 const MAX_SIZE_MB = 5;
 
+/**
+ * Cuts the chosen region out of the source image, LOSSLESSLY.
+ *
+ * PNG, not JPEG, on purpose. This used to emit JPEG at quality 0.95, which meant a
+ * profile photo was compressed twice — once here and again when the server re-encodes
+ * it to WebP — and generational loss compounds. Handing over lossless pixels leaves
+ * exactly one lossy encode in the whole pipeline, on the server, where it is tuned.
+ *
+ * The crop is also drawn 1:1 (`canvas` is sized to the crop rectangle in the source
+ * image's own pixels), so nothing is resampled here either. Downscaling is left to
+ * sharp, whose Lanczos filter is visibly better than canvas bilinear.
+ *
+ * The cost is a bigger request — a few MB rather than a few hundred KB — which is
+ * paid once, on a screen where the user is already waiting for a save.
+ */
 const getCroppedImg = (
   imageSrc: string,
   pixelCrop: { x: number; y: number; width: number; height: number }
@@ -47,7 +62,7 @@ const getCroppedImg = (
           return;
         }
         resolve(blob);
-      }, 'image/jpeg', 0.95);
+      }, 'image/png');
     };
     image.onerror = (err) => reject(err);
   });
@@ -91,7 +106,15 @@ const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, onRemo
     if (!imageToCrop || !croppedAreaPixels || !currentFile) return;
     try {
       const croppedBlob = await getCroppedImg(imageToCrop, croppedAreaPixels);
-      const croppedFile = new File([croppedBlob], currentFile.name, { type: currentFile.type });
+      // getCroppedImg always emits PNG, so the name and MIME must say PNG too. The
+      // upload middleware gates on the declared extension and type, and a file whose
+      // label disagrees with its bytes is exactly the shape the server treats as
+      // suspicious — no reason for our own client to look like that.
+      const croppedFile = new File(
+        [croppedBlob],
+        `${currentFile.name.replace(/\.[^.]+$/, '')}.png`,
+        { type: 'image/png' }
+      );
       setFile('userProfilePicture', croppedFile);
       
       const reader = new FileReader();
