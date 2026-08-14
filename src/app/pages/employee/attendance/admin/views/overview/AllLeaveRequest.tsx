@@ -148,18 +148,29 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
     // result set, and staying on page 5 of a now-one-page list renders empty.
     const rangeKey = useMemo(() => `${periodKey(range)}|${activeOnly ? 'active' : 'all'}`, [range, activeOnly]);
 
+    // Sorting is server-side for the same reason paging and filtering are: `data` holds
+    // one page, so sorting it in the browser reorders ten rows while the header implies
+    // the whole queue. The table reports the resolved sort via onSortingChange.
+    const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([]);
+    const sortKey = sorting.length ? `${sorting[0].id}:${sorting[0].desc}` : '';
+
+    // Search is server-side for exactly the reason sorting is. The table hands over the
+    // DEBOUNCED query (see MaterialTableImpl's onSearchChange), so this is one request per
+    // pause in typing, not one per keystroke.
+    const [search, setSearch] = useState('');
+
     // Fetch function for server pagination
     const fetchLeaves = useCallback(async (page: number, limit: number) => {
         // activeOnly is server-side for the same reason the period is: filtering a
         // ten-row page in the browser would leave the total count claiming rows the
         // table refuses to show.
-        const { data: { leaveRequest, pagination } } = await fetchLeaveRequest(undefined, undefined, page, limit, periodParams, activeOnly);
+        const { data: { leaveRequest, pagination } } = await fetchLeaveRequest(undefined, undefined, page, limit, periodParams, activeOnly, sorting[0], search);
 
         return {
             data: leaveRequest || [],
             totalRecords: pagination?.totalRecords || leaveRequest?.length || 0,
         };
-    }, [periodParams, activeOnly]);
+    }, [periodParams, activeOnly, sorting, search]);
 
     // Use the server pagination hook
     const {
@@ -174,8 +185,11 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         fetchFunction: fetchLeaves,
         initialPageSize: pageSize,
         transformData: transformLeaveRequests,
-        // Changing the period must snap back to page 1 — see the hook's docs.
-        resetKey: rangeKey,
+        // Changing the period OR the sort OR the search must snap back to page 1 — see the
+        // hook's docs. Re-sorting while on page 5 would otherwise ask for page 5 of a
+        // reordered set, which is a different ten rows than the user expects to land on;
+        // searching from page 5 is worse still, since the match set is usually one page.
+        resetKey: `${rangeKey}|${sortKey}|${search}`,
     });
 
     const deleteLeaveRequest = async (id: string) => {
@@ -229,6 +243,10 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         {
             accessorKey: "type",
             header: "Leave Type",
+            // Not sortable: the server resolves leave type AFTER the query, so it is absent from
+            // LEAVE_REQUEST_SPEC.sort (handlers/employees.ts). Leaving the header clickable meant a
+            // full round trip that provably returned the same order — a wait that produces nothing.
+            enableSorting: false,
             Cell: ({ renderedCellValue }: any) => {
                 const c = getLeaveTypeColor(renderedCellValue);
                 return (
@@ -244,6 +262,8 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         {
             accessorKey: "remark",
             header: "Reason",
+            // Not sortable server-side — see the note on "type".
+            enableSorting: false,
             Cell: ({ renderedCellValue }: any) => renderedCellValue
         },
         {
@@ -262,6 +282,8 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         {
             accessorKey: "approvedByName",
             header: "Approved / Rejected By",
+            // Approver name comes from a second lookup, so the server cannot sort on it.
+            enableSorting: false,
             // Without an explicit width this column collapsed to roughly the header's
             // size, so a two-word name wrapped to two lines AND the timestamp wrapped
             // to two more — four lines in a 52px row. Sized to hold "Firstname
@@ -370,6 +392,10 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
                 viewOwn={true}
                 employeeId={employeeIdCurrent}
                 manualPagination={true}
+                manualSorting={true}
+                onSortingChange={setSorting}
+                manualFiltering={true}
+                onSearchChange={setSearch}
                 rowCount={totalRecords}
                 paginationState={pagination}
                 onPaginationChange={setPagination}

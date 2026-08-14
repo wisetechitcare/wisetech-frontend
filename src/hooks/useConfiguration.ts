@@ -14,7 +14,10 @@ interface UseConfigurationReturn {
 export const useConfiguration = (
     configKey: string,
     configField: string,
-    onSuccess?: (value: boolean) => void
+    onSuccess?: (value: boolean) => void,
+    // Optional inheritance scope (group → org → branch). Callers that omit it keep the exact
+    // previous behaviour: read whatever the backend resolves, write back by id.
+    scope?: { companyId?: string; branchId?: string }
 ): UseConfigurationReturn => {
     const [configId, setConfigId] = useState<string | null>(null);
     const [value, setValue] = useState(false);
@@ -24,7 +27,7 @@ export const useConfiguration = (
     const loadConfiguration = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await fetchConfiguration(configKey);
+            const response = await fetchConfiguration(configKey, undefined, undefined, scope);
             const parsed = safeJsonParse(response?.data?.configuration?.configuration || '{}');
 
             // Handle both "Launch" and "Lunch" spellings for backward compatibility
@@ -47,7 +50,7 @@ export const useConfiguration = (
         } finally {
             setLoading(false);
         }
-    }, [configKey, configField, onSuccess]);
+    }, [configKey, configField, onSuccess, scope?.companyId, scope?.branchId]);
 
     const handleToggle = useCallback(async (e: React.ChangeEvent<HTMLInputElement>, skipConfirmation = false) => {
         const newValue = e.target.checked;
@@ -60,7 +63,20 @@ export const useConfiguration = (
             const payload = { [configField]: newValue };
             console.log(`[useConfiguration] payload:`, payload);
 
-            if (configId) {
+            const scoped = Boolean(scope?.companyId || scope?.branchId);
+
+            if (scoped) {
+                // Scoped write: ALWAYS upsert by scope, never PUT by id. `configId` came from a
+                // resolved read, so it may belong to an inherited org/global row — updating it
+                // would change the default for every other org/branch that inherits it.
+                const response = await createNewConfiguration({
+                    module: configKey,
+                    configuration: payload,
+                    companyId: scope?.companyId,
+                    branchId: scope?.branchId,
+                });
+                setConfigId(response?.data?.configuration?.id || null);
+            } else if (configId) {
                 console.log(`[useConfiguration] Updating existing config with ID:`, configId);
                 await updateConfigurationById(configId, {
                     module: configKey,
@@ -94,7 +110,7 @@ export const useConfiguration = (
         } finally {
             setSaving(false);
         }
-    }, [configId, configKey, configField, onSuccess]);
+    }, [configId, configKey, configField, onSuccess, scope?.companyId, scope?.branchId]);
 
     return { value, loading, saving, handleToggle, loadConfiguration };
 };

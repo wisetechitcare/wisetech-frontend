@@ -358,7 +358,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
         </Modal.Body>
         <Modal.Footer>
           <button className="btn btn-light" onClick={() => setShowConfirm(false)}>Cancel</button>
-          <button className="btn btn-primary" onClick={saveAll}>Yes, save</button>
+          <button className="btn btn-primary" onClick={saveAll}>Yes, Save</button>
         </Modal.Footer>
       </Modal>
     </div>

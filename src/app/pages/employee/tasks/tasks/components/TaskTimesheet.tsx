@@ -490,7 +490,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                                 <div className="mb-4">
                                     <KTIcon iconName="time" className="fs-3x text-muted" />
                                 </div>
-                                <h5 className="text-muted mb-3">No time logs found</h5>
+                                <h5 className="text-muted mb-3">No Time Logs Found</h5>
                                 <p className="text-muted mb-4">
                                     {activeFilter === 'All' 
                                         ? "No time logs have been added yet." 

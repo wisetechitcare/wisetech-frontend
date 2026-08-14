@@ -414,7 +414,7 @@ const CompaniesProject = ({ companyId }: { companyId: string }) => {
       <MaterialTable
         data={allProjects}
         columns={columns}
-        tableName="Projects"
+        tableName="CompanyProjects"
         employeeId={employeeId}
         defaultSorting={[{ id: "title", desc: false }]}
         muiTableProps={{

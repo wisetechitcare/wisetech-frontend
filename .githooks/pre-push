@@ -1,6 +1,0 @@
-#!/bin/sh
-echo "pre-push: npx tsc --noEmit (~75s)..."
-npx tsc --noEmit || {
-  echo "pre-push: typecheck failed - push blocked"
-  exit 1
-}

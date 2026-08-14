@@ -45,7 +45,6 @@ import "./OverviewStatsGrid.css";
 import { ToneChip } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { DATE_FORMATS, formatDateLong } from '@utils/dateFormats';
-import { countWorkingDays } from '@utils/periodRange';
 import { filterActiveEmployees } from '@utils/activeEmployee';
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import {
@@ -75,9 +74,38 @@ const MODAL_TONE: Record<Exclude<ModalType, null>, SemanticTone> = {
 };
 
 // Weekly/monthly rolls up to one card per employee, so "who does this most" leads.
-// Check-in ordering is dropped there: a group spans many days and has no single time.
-const GROUPED_SORT_OPTIONS: StatSortOption[] = ['count-desc', 'count-asc', 'name-asc', 'name-desc'];
+// Check-in ordering works there too — occurrences carry a `time`, which a group reduces
+// to its earliest/latest, so "who started offending first" is answerable.
+const GROUPED_SORT_OPTIONS: StatSortOption[] = [
+    'count-desc',
+    'count-asc',
+    'name-asc',
+    'name-desc',
+    'checkin-asc',
+    'checkin-desc',
+];
+// Daily lists rows directly — one row is already one employee, so there is nothing to
+// total and "most days first" would rank a column of 1s.
 const FLAT_SORT_OPTIONS: StatSortOption[] = ['name-asc', 'name-desc', 'checkin-asc', 'checkin-desc'];
+
+/** Employee id behind a leave record — the API nests it differently per endpoint. */
+const leaveEmployeeId = (rec: any): string | null =>
+    rec?.employee?.id || rec?.employeeId || rec?.employee?._id || null;
+
+/**
+ * Stat cards count PEOPLE, not rows. Over a week or a month the underlying lists are
+ * person-days, so `rows.length` answered "how many records" ("747 Absent") under a
+ * label that promises employees. Counting distinct employees also makes every card
+ * reconcile exactly with its modal, which renders one card per employee.
+ */
+function countDistinct<T>(rows: readonly T[], idOf: (row: T) => string | null | undefined): number {
+    const ids = new Set<string>();
+    for (const row of rows) {
+        const id = idOf(row);
+        if (id) ids.add(id);
+    }
+    return ids.size;
+}
 
 type StatCardAccent =
     | 'working'
@@ -204,15 +232,11 @@ function Overview({ date, range }: OverviewProps) {
         }
     };
 
-    const { employeePresent, totalEmployee } = useSelector((state: RootState) => ({
-        employeePresent: state.attendance.employeesAttendance?.length || 0,
-        totalEmployee: state.attendance.totalEmployee || 0,
-    }));
-    // console.log("employeePresent ====================================>",employeePresent, totalEmployee )
-
-    const employeesPresentAttendance = useSelector((state: RootState) =>
-        state.attendance.employeesAttendance || []
-    );
+    // Roster size only. The "present" figure deliberately does NOT come from the shared
+    // attendance slice — that list is the Daily Attendance table's, which folds leave
+    // rows in as pseudo-attendance. Every card on this page counts off `presentRows`
+    // below, from this component's own fetch, so they cannot disagree with each other.
+    const totalEmployee = useSelector((state: RootState) => state.attendance.totalEmployee || 0);
 
     // All these calculations are date-specific because they depend on state
     // updated by useEffect with date dependency (line 803)
@@ -305,6 +329,12 @@ function Overview({ date, range }: OverviewProps) {
     // Calculate late check-in count: employees who checked in after (shift check-in time + grace time)
     const lateRows = attendance.filter(att => {
         if (!att.checkIn) return false;
+        // THE SERVER'S VERDICT decides when present. It runs the same ladder payroll and
+        // KPI use, against this employee's OWN branch calendar — which the derivation
+        // below cannot see. Everything after this line is a fallback for responses that
+        // predate the verdict annotator, and can be deleted once those are gone.
+        const serverVerdict = (att as any).lateMark as { isLate: boolean } | undefined;
+        if (serverVerdict) return serverVerdict.isLate;
         // Late-night waiver (server verdict, same rule payroll applies) — never late.
         if ((att as any).lateWaived) return false;
 
@@ -320,8 +350,10 @@ function Overview({ date, range }: OverviewProps) {
         const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
         const isOnSite = workingMethod?.includes("onsite");
 
-        // If on-site settings is ON, skip on-site employees from late check-in
-        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+        // Master switch — all THREE legs (on-site, holiday, weekend), matching the backend
+        // ladder. It used to test only `isOnSite`, so this card reported late check-ins on
+        // the very days `extraRows` below was counting as Extra Days.
+        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
         const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
         const graceTime = parseGraceTime(graceTimeStr);
 
@@ -339,7 +371,7 @@ function Overview({ date, range }: OverviewProps) {
         // Return true if checked in after expected time (shift time + grace time)
         return actualCheckIn.isAfter(expectedCheckIn);
     });
-    const lateCheckInsCount = lateRows.length;
+    const lateCheckInsCount = countDistinct(lateRows, (a) => a.employeeId);
 
     // Calculate early check-out count: employees who checked out before shift check-out time
     const earlyRows = attendance.filter(att => {
@@ -347,10 +379,11 @@ function Overview({ date, range }: OverviewProps) {
 
         const attendanceDate = new Date(att.checkOut);
 
-        // If on-site settings is ON, skip on-site employees from early check-out
+        // Master switch — all three legs, same as `lateRows`. A weekend/holiday check-out
+        // is not an early check-out; there is no shift to be early against.
         const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
         const isOnSite = workingMethod?.includes("onsite");
-        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
 
         // Get shift for this date
         const shift = getShiftForDate(attendanceDate);
@@ -369,19 +402,13 @@ function Overview({ date, range }: OverviewProps) {
         // Return true if checked out before expected time
         return actualCheckOut.isBefore(expectedCheckOut);
     });
-    const earlyCheckOutsCount = earlyRows.length;
-
-    // Calculate absent count.
-    // employeesOnLeave from the API is a NUMBER (count), not an array — using .length on it gives
-    // undefined which silently makes on-leave employees appear as absent.
-    // Use employesLeaveDatas (the ARRAY of leave detail objects) for the correct count.
-    const absentCount = Math.max(0, (totalEmployee || 0) - (employesLeaveDatas?.length || 0) - (employeePresent || 0));
+    const earlyCheckOutsCount = countDistinct(earlyRows, (a) => a.employeeId);
 
     const hasCheckInNoCheckOut = (att: Attendance) =>
         Boolean(att.checkIn) && isCheckOutMissing(att.checkOut);
 
     const missingRows = attendance.filter(hasCheckInNoCheckOut);
-    const checkoutMissingCount = missingRows.length;
+    const checkoutMissingCount = countDistinct(missingRows, (a) => a.employeeId);
 
     // Roster index for the joins below. rowToEntry runs once per attendance row, so a
     // linear find() per row makes the range paths O(rows × roster) on EVERY render —
@@ -481,18 +508,55 @@ function Overview({ date, range }: OverviewProps) {
         }
     }
 
-    // ── Weekly/Monthly grouping ─────────────────────────────────────────────────
-    // Over a range the stat lists are per-OCCURRENCE (one row per offending day), so a
-    // flat list repeats the same employee once per day — 30 people × a month is ~600
-    // cards and no way to see who repeats. Rolling up to one card per employee answers
-    // that directly and cuts the rendered DOM by roughly the number of days in range.
+    // ── Daily On-Leave & Absent ─────────────────────────────────────────────────
+    // The API returns leave for the anchor day in two shapes (a summary list and a
+    // detail list) and neither is guaranteed populated, so both fold into one id set.
+    const dailyLeaveIds = new Set<string>();
+    for (const rec of [
+        ...(Array.isArray(employeesOnLeave) ? employeesOnLeave : []),
+        ...(employesLeaveDatas || []),
+    ]) {
+        const id = leaveEmployeeId(rec);
+        if (id) dailyLeaveIds.add(id);
+    }
+    const dailyPresentIds = new Set(
+        presentRows.map((a: any) => a.employeeId).filter(Boolean) as string[],
+    );
+    // Roster minus present minus on-leave — the SAME set the Absent modal lists.
+    // It used to be `total − present − onLeave` arithmetic against a different present
+    // source than every other card, so the card and its own list could disagree.
+    // Nobody is absent on a day the company does not work: the range path below already
+    // skipped non-working days, this daily path did not, so a weekend/holiday reported
+    // the whole roster minus whoever happened to come in.
+    // Prefer the SERVER's day kind, taken from any row on this day — it is resolved from
+    // each employee's own branch calendar, where `checkIfWeekendOrHoliday` reads the
+    // VIEWING ADMIN's. Falls back to the local check when no row carries a verdict.
+    const serverDayKinds = presentRows
+        .map((a: any) => a.dayKind as string | undefined)
+        .filter(Boolean) as string[];
+    const isNonWorkingDay = serverDayKinds.length
+        ? serverDayKinds.every((k) => k !== 'working')
+        : checkIfWeekendOrHoliday(date.toDate());
+
+    const dailyAbsentEmployees = isNonWorkingDay
+        ? []
+        : allEmployees.filter(
+            (emp) => emp?._id && !dailyPresentIds.has(emp._id) && !dailyLeaveIds.has(emp._id),
+        );
+
+    // ── Grouping ────────────────────────────────────────────────────────────────
+    // The stat lists are per-OCCURRENCE (one row per offending day). On a single day that
+    // is already one row per employee, so the flat grid shows the records directly — no
+    // rollup, no drill-in for detail that fits on the card. Over a range the same list
+    // repeats an employee once per day (30 people × a month ≈ 600 cards, with no way to
+    // see who repeats), which is what the rollup exists to fix.
     const groupedView = useRange;
 
     const handleDrillChange = useCallback((group: EmployeeStatGroup | null) => {
         setDrill(group ? { key: group.key, name: group.name } : null);
     }, []);
 
-    /** Flat grid on a single day (one row already = one employee), grouped over a range. */
+    /** Records as-is on a single day; one card per employee over a week or month. */
     const renderStatItems = (items: EmployeeStatItem[]) => {
         if (!groupedView) return <EmployeeStatGrid items={items} />;
         return (
@@ -669,7 +733,8 @@ function Overview({ date, range }: OverviewProps) {
                     const leaveItems: EmployeeStatItem[] = sortedLeaveData.map(emp => {
                         const employeeData = emp.employee || {};
                         const user = employeeData.users || emp.users || {};
-                        const employeeId = employeeData.id || emp.employeeId || employeeData._id || null;
+                        // Same resolver the On-Leave card counts with, so card = groups.
+                        const employeeId = leaveEmployeeId(emp);
                         const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
                         const leaveType = emp.leaveType || 'Leave';
                         const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
@@ -679,7 +744,10 @@ function Overview({ date, range }: OverviewProps) {
                         return {
                             key: emp.id,
                             employeeId,
-                            date: emp.duration?.startDate ? dayjs(emp.duration.startDate).format(DATE_FORMATS.WIRE) : null,
+                            // The day being viewed, not the leave's start date — this list is
+                            // "on leave on <date>", and a multi-day leave that began last month
+                            // would otherwise stamp the card with a date outside the period.
+                            date: date.format(DATE_FORMATS.WIRE),
                             name: fullName || 'Unnamed Employee',
                             code: employeeData.employeeCode || emp.employeeCode || '',
                             avatarUrl: employeeData.avatar || emp.avatar,
@@ -723,8 +791,8 @@ function Overview({ date, range }: OverviewProps) {
                         const workingMethod = empAttendance.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
                         const isOnSite = workingMethod?.includes("onsite");
 
-                        // If on-site settings is ON, skip on-site employees from late check-in
-                        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+                        // Master switch — all three legs; keep in step with `lateRows`.
+                        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
                         const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
                         const graceTime = parseGraceTime(graceTimeStr);
 
@@ -767,10 +835,10 @@ function Overview({ date, range }: OverviewProps) {
 
                         const attendanceDate = new Date(empAttendance.checkOut);
 
-                        // If on-site settings is ON, skip on-site employees from early check-out
+                        // Master switch — all three legs; keep in step with `earlyRows`.
                         const workingMethod = empAttendance.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
                         const isOnSite = workingMethod?.includes("onsite");
-                        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+                        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
 
                         // Get shift for this date
                         const shift = getShiftForDate(attendanceDate);
@@ -803,60 +871,12 @@ function Overview({ date, range }: OverviewProps) {
                     break;
 
                 case 'absent':
-                    // Range: list absent person-days (matches the Absent card) via the shared render.
-                    if (useRange) {
-                        employees = absentEntries as any;
-                        break;
-                    }
-                    try {
-                        // console.log('Calculating absent employees with:', {
-                        //     allEmployees: allEmployees?.length || 0,
-                        //     employeesPresentAttendance: employeesPresentAttendance?.length || 0,
-                        //     employeesOnLeave: employeesOnLeave?.length || 0
-                        // });
-
-                        const presentEmployeeIds = new Set(
-                            (employeesPresentAttendance || []).map(a => a.employeeId)
-                        );
-
-                        // Make sure employeesOnLeave is an array and extract employee IDs properly
-                        const safeEmployeesOnLeave = Array.isArray(employeesOnLeave) ?
-                            employeesOnLeave : [];
-
-                        // Extract employee IDs from leave data - check multiple possible fields
-                        const onLeaveIds = new Set(
-                            safeEmployeesOnLeave.map(e => {
-                                // Try to get employee ID from different possible fields
-                                return e?.employee?.id || e?.employeeId || e?.employee?._id || e?.id;
-                            }).filter(Boolean)
-                        );
-
-                        // Also check employesLeaveDatas for employee IDs
-                        employesLeaveDatas.forEach(leave => {
-                            const empId = leave?.employee?.id || leave?.employeeId || leave?.employee?._id;
-                            if (empId) {
-                                onLeaveIds.add(empId);
-                            }
-                        });
-
-                        employees = (allEmployees || []).filter(emp =>
-                            emp?._id &&
-                            !presentEmployeeIds.has(emp._id) &&
-                            !onLeaveIds.has(emp._id)
-                        );
-
-                        // console.log('Absent employees calculation result:', {
-                        //     totalEmployees: allEmployees?.length || 0,
-                        //     presentCount: presentEmployeeIds.size,
-                        //     onLeaveCount: onLeaveIds.size,
-                        //     absentCount: employees.length,
-                        //     absentEmployees: employees.map(e => `${e.firstName} ${e.lastName}`)
-                        // });
-                    } catch (error) {
-                        console.error('Error calculating absent employees:', error);
-                        // Provide empty array if there was an error
-                        employees = [];
-                    }
+                    // Range lists absent person-days; daily lists the roster-minus-present
+                    // set. Both come from the same expressions the Absent card counts, so
+                    // the card and this list can never drift apart.
+                    employees = useRange
+                        ? (absentEntries as any)
+                        : dailyAbsentEmployees.map((emp) => ({ ...emp, _absentDate: date }) as any);
                     break;
 
                 case 'extra':
@@ -911,17 +931,13 @@ function Overview({ date, range }: OverviewProps) {
                             code: emp.employeeCode,
                             avatarUrl: emp.avatar,
                             designation: emp.designation,
+                            time: att?.checkIn ? dayjs(att.checkIn).valueOf() : null,
                             meta: (
                                 <>
-                                    {/* Grouped view renders the date structurally (span on the card,
-                                        per-day heading in the drill-in), so printing it here too
-                                        would duplicate it on every row. */}
-                                    {!groupedView && day && (
-                                        <div className="d-flex align-items-center gap-2 small flex-wrap">
-                                            <span className="fw-semibold text-gray-800">{formatDateLong(day)}</span>
-                                            <ToneChip tone="brand" dense label={day.format('dddd')} />
-                                        </div>
-                                    )}
+                                    {/* No per-row date. Weekly/monthly render it structurally (span
+                                        on the card, per-day heading in the drill-in), and daily
+                                        states it once in the modal subtitle — repeating the same
+                                        date on all 30 cards was noise no other stat modal had. */}
                                     <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
                                         {att?.checkIn && (
                                             <span className="text-gray-700"><i className="bi bi-clock me-1"></i>{dayjs(att.checkIn).format('h:mm A')}</span>
@@ -974,12 +990,10 @@ function Overview({ date, range }: OverviewProps) {
                         const leaveTypeLabel = (emp as any).leaveType
                             ? `${(emp as any).leaveType}${(emp as any).isHalfDay ? ' (½)' : ''}`
                             : null;
-                        // Grouped: the date is structural (span on the card, heading in the
-                        // drill-in), so only the non-date detail belongs in `meta`.
-                        const showDateLine = useRange && !groupedView && Boolean(day);
+                        // No per-row date: grouped cards carry it structurally and daily states
+                        // it once in the modal subtitle. Only the rest belongs in `meta`.
                         const hasMeta = Boolean(
-                            showDateLine ||
-                            (groupedView && leaveTypeLabel) ||
+                            leaveTypeLabel ||
                             additionalInfo[emp._id] ||
                             emp.attendance?.checkIn ||
                             emp.attendance?.checkOut,
@@ -988,6 +1002,9 @@ function Overview({ date, range }: OverviewProps) {
                             key: emp.attendance?.id || `${emp._id}-${dayWire || ''}`,
                             employeeId: emp._id,
                             date: dayWire,
+                            // Lets "Check-in (Earliest/Latest)" order by the clock rather
+                            // than by day, which is what it has to mean on a single date.
+                            time: emp.attendance?.checkIn ? dayjs(emp.attendance.checkIn).valueOf() : null,
                             // Half-day leave counts as 0.5 so a grouped total reconciles with the
                             // On-Leave stat card, which applies the same weighting.
                             weight: (emp as any).isHalfDay ? 0.5 : 1,
@@ -997,14 +1014,7 @@ function Overview({ date, range }: OverviewProps) {
                             designation: emp.designation,
                             meta: hasMeta ? (
                                 <>
-                                    {showDateLine && day && (
-                                        <div className="d-flex align-items-center gap-2 small flex-wrap">
-                                            <span className="fw-semibold text-gray-800">{formatDateLong(day)}</span>
-                                            <ToneChip tone="brand" dense label={day.format('dddd')} />
-                                            {leaveTypeLabel && <ToneChip tone="warning" dense label={leaveTypeLabel} />}
-                                        </div>
-                                    )}
-                                    {groupedView && leaveTypeLabel && (
+                                    {leaveTypeLabel && (
                                         <div className="d-flex align-items-center gap-2 small flex-wrap">
                                             <ToneChip tone="warning" dense label={leaveTypeLabel} />
                                         </div>
@@ -1320,32 +1330,27 @@ function Overview({ date, range }: OverviewProps) {
         fetchTimeConfiguration();
     }, [shiftScope.companyId, shiftScope.branchId]);
 
-    // ── Weekly/Monthly employee-day totals ──────────────────────────────────────
-    // In range mode `attendance` holds every row in [start, end], so the per-row
-    // counts above (late/early/missing/checkout-missing) already sum. The four
-    // below aren't per-row counts, so derive them as employee-day totals here.
-    // ponytail: On-Leave/Absent read materialized leave rows + a roster×working-days
-    // estimate; exact per-day roster reconciliation stays on the Individual page.
-    // Present count from attendance rows (with a check-in) — same source the
-    // Working modal lists, so card numerator = modal count in daily and range.
-    const presentDays = presentRows.length;
-    // On-Leave (range) = leave person-days, half-days weighted 0.5 (matches the
-    // half-day=0.5 policy). The modal lists every leave-day row with a ½ badge, so
-    // e.g. 11.5 on the card ↔ 12 rows (one marked ½).
-    const leaveDays = useRange
-        ? leaveDayEntries.reduce((s, e: any) => s + (e.isHalfDay ? 0.5 : 1), 0)
-        : (employesLeaveDatas?.length || 0);
-    const extraDayCount = extraRows.length;
-    // Shared with the Attendance summary and the Working Time target — three
-    // independently-written copies of this loop is three chances to disagree about
-    // whether the range end is inclusive. Daily falls back to 1 (the anchor day).
-    const workingDaysInRange = useRange ? countWorkingDays(range, weekends) : 1;
-    // Absent (range) = per-day roster minus present minus on-leave; matches its modal.
-    const absentDayCount = useRange ? absentEntries.length : absentCount;
+    // ── Card figures: EMPLOYEES, in every period ────────────────────────────────
+    // Every one of these is a distinct-employee count, so a card means the same thing
+    // whether you are looking at a day, a week or a month — "how many people". They
+    // used to be row counts over a range, which turned "Absent" into 747 person-day
+    // records against a 36-person roster and made the three periods unreadable side by
+    // side. The per-employee day totals didn't disappear — over a range they're the count
+    // badge on each card in the modal, whose summary bar states both ("34 employees · 156
+    // days"). Since that modal groups by employee, the card equals its number of groups;
+    // on a single day it equals its number of rows. Either way, card = list length.
+    const presentEmployees = countDistinct(presentRows, (a: any) => a.employeeId);
+    const leaveEmployees = useRange
+        ? countDistinct(leaveDayEntries, (e: any) => e._id)
+        : countDistinct(employesLeaveDatas || [], leaveEmployeeId);
+    const extraDayCount = countDistinct(extraRows, (a: any) => a.employeeId);
+    const absentEmployees = useRange
+        ? countDistinct(absentEntries, (e: any) => e._id)
+        : dailyAbsentEmployees.length;
 
     const cardsData: StatCardConfig[] = [
-        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: useRange ? `${presentDays}/${(totalEmployee || 0) * workingDaysInRange}` : `${presentDays}/${totalEmployee || 0}`, label: 'Working Employees' },
-        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${leaveDays}`, label: 'On Leave' },
+        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${presentEmployees}/${totalEmployee || 0}`, label: 'Working Employees' },
+        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${leaveEmployees}`, label: 'On Leave' },
         { type: 'late', accent: 'late', img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: `${lateCheckInsCount}`, label: 'Late Check-ins' },
         {
             type: 'checkoutMissing',
@@ -1358,7 +1363,7 @@ function Overview({ date, range }: OverviewProps) {
         },
         { type: 'early', accent: 'early', img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: `${earlyCheckOutsCount}`, label: 'Early Check-out' },
         { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDayCount}`, label: 'Extra Day' },
-        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentDayCount}`, label: 'Absent' },
+        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentEmployees}`, label: 'Absent' },
     ];
 
     // Apply the user's saved order; any card not in the saved order keeps its
@@ -1387,11 +1392,11 @@ function Overview({ date, range }: OverviewProps) {
         );
     }
     const modalCategoryTitle = getModalTitle();
-    // Weekly/monthly lists no longer repeat the date on every card, so the window the
-    // numbers cover has to be stated once, in the header.
+    // The lists never repeat the date on every card, so the window the numbers cover is
+    // stated once in the header — in all three periods, not just the multi-day ones.
     const periodSubtitle = useRange && range?.start && range?.end
         ? `${formatDateLong(range.start)} → ${formatDateLong(range.end)}`
-        : undefined;
+        : formatDateLong(date);
 
     const renderStatCard = (card: StatCardConfig) => (
         <Card

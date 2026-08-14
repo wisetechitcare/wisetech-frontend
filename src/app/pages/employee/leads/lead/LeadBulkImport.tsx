@@ -689,7 +689,7 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                   onClick={handlePreview}
                   style={{ minWidth: 160, borderRadius: 10 }}
                 >
-                  Preview data →
+                  Preview Data →
                 </button>
               </div>
             </div>

@@ -30,9 +30,10 @@ import {
  * entirely when a card has none — so absent/on-leave cards don't render an empty
  * element that still eats a flex gap.
  *
- * Use this for a SINGLE-DAY list, where one card already means one employee. For
- * a week/month, use {@link EmployeeStatGroupView} — a flat list there repeats the
- * same employee once per offending day. See `employeeStatGrouping.ts`.
+ * Use this for a SINGLE-DAY list, where one card already means one employee and the
+ * records can be shown directly. For a week/month, use {@link EmployeeStatGroupView}
+ * — a flat list there repeats the same employee once per offending day. See
+ * `employeeStatGrouping.ts`.
  *
  * Presentational only. Anything page-specific (late/early colouring, working
  * method, map links) belongs in `meta`, computed by the caller.
@@ -209,6 +210,11 @@ export const EmployeeStatGroupView: React.FC<EmployeeStatGroupViewProps> = ({
             <AutoGrid min={minTileWidth} gap={12}>
                 {groups.map((group) => {
                     const label = `${group.name}, ${formatStatTotal(group.total)} ${pluralizeUnit(group.total, unit)}. View each day`;
+                    // A one-occurrence group has nothing to roll up, so its detail belongs on
+                    // the card — hiding a single row's check-in/out behind a drill-in that
+                    // leads to one tile is a click for nothing. Most of a month's list is
+                    // these: the handful of repeat offenders are what the drill-in is for.
+                    const soleMeta = group.items.length === 1 ? group.items[0].meta : null;
                     return (
                         <GlassCard
                             key={group.key}
@@ -244,6 +250,8 @@ export const EmployeeStatGroupView: React.FC<EmployeeStatGroupViewProps> = ({
                                 <CountBadge total={group.total} unit={unit} tone={tone} />
                             </Box>
 
+                            {soleMeta ? <Box sx={{ minWidth: 0 }}>{soleMeta}</Box> : null}
+
                             <Box
                                 sx={{
                                     display: 'flex',
@@ -254,6 +262,7 @@ export const EmployeeStatGroupView: React.FC<EmployeeStatGroupViewProps> = ({
                                     pt: 0.25,
                                     borderTop: 1,
                                     borderColor: 'divider',
+                                    mt: 'auto',
                                 }}
                             >
                                 <Typography
