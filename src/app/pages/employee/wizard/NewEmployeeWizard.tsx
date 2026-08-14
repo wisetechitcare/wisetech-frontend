@@ -1,6 +1,6 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { safeJsonParse } from "@utils/safeJson";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from "react-bootstrap";
 import { Form, Formik, FormikValues, useFormikContext } from "formik";
@@ -1026,7 +1026,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
 // admin types (only when enabled + dirty, so a pristine form never writes a draft) and FLUSHES the
 // latest values immediately on unmount, so closing/navigating away preserves the newest keystrokes
 // even mid-debounce.
-function DraftAutosave({ enabled }: { enabled: boolean }) {
+function DraftAutosave({ enabled, finalizedRef }: { enabled: boolean; finalizedRef: MutableRefObject<boolean> }) {
   const { values, dirty } = useFormikContext<any>();
   const timerRef = useRef<number | null>(null);
   const latestRef = useRef<{ values: any; dirty: boolean }>({ values, dirty });
@@ -1035,18 +1035,27 @@ function DraftAutosave({ enabled }: { enabled: boolean }) {
   useEffect(() => {
     if (!enabled || !dirty) return;
     if (timerRef.current) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => saveDraft(values), 600);
+    // `finalizedRef` is read INSIDE the callback, not captured when the timer is set:
+    // a submit that lands mid-debounce must cancel the pending write, not race it.
+    timerRef.current = window.setTimeout(() => {
+      if (finalizedRef.current) return;
+      saveDraft(values);
+    }, 600);
     return () => { if (timerRef.current) window.clearTimeout(timerRef.current); };
-  }, [enabled, dirty, values]);
+  }, [enabled, dirty, values, finalizedRef]);
 
   // Flush on unmount (form closed / navigated away) so nothing typed is lost.
   useEffect(() => {
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
+      // A completed onboarding is not an unsaved draft. Closing after a successful
+      // submit must leave the slot empty, or the next onboarding opens holding the
+      // previous employee's details.
+      if (finalizedRef.current) return;
       const { values: v, dirty: d } = latestRef.current;
       if (enabled && d) saveDraft(v);
     };
-  }, [enabled]);
+  }, [enabled, finalizedRef]);
 
   return null;
 }
@@ -1141,6 +1150,24 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   const [bankFile, setBankFile] = useState<File | null>(null);
   // Session draft restore (create mode only). Read once so the flag stays stable across renders.
   const initialDraftRef = useRef<any>(editMode ? null : loadDraft());
+  /**
+   * Set once the onboarding has been submitted successfully — from then on NOTHING may
+   * write the draft again.
+   *
+   * Without it a completed onboarding came back as a draft on the next one. `clearDraft()`
+   * runs on success, but `resetForm()` and `handleClose()` are queued in the SAME tick, so
+   * React commits them together and `DraftAutosave` unmounts without ever re-rendering at
+   * `dirty: false` — its unmount flush then saw the last filled values, still dirty, and
+   * wrote them straight back into the slot that had just been cleared.
+   *
+   * A ref, not state: the flush reads it during cleanup, and a ref gives the value AT THAT
+   * MOMENT. A prop or state would be captured in the effect's closure at its last render —
+   * i.e. still `false` — which is the exact stale-closure trap that caused the bug.
+   *
+   * Deliberately NOT set by `discardDraft`: "Start fresh" empties the form but the admin is
+   * still filling it in, so autosave must keep working.
+   */
+  const draftFinalizedRef = useRef(false);
   const [defaultState, setDefaultState] = useState(() =>
     initialDraftRef.current ? { ...initialState, ...initialDraftRef.current } : initialState
   );
@@ -1805,6 +1832,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         await saveApprovalChains(values.approvalChains, savedEmployeeId);
         await saveEmployeeData(values, savedEmployeeId);
         successConfirmation("Successfully onboarded an employee");
+        // Order matters: latch BEFORE clearing, so the unmount flush that `handleClose()`
+        // is about to trigger cannot write the finished values back into the slot.
+        draftFinalizedRef.current = true;
         clearDraft();
         actions.resetForm();
         // Onboarding is done — return to the list rather than leaving a reset
@@ -1992,6 +2022,16 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       show={show}
       onHide={handleClose}
       fullscreen
+      /**
+       * Nested MUI dialogs (the photo editor, confirm/alert dialogs, pickers) render
+       * in a portal on <body>, which this modal does not contain. With the default
+       * focus enforcement, react-bootstrap pulls focus back here as soon as anything
+       * inside one of those portals is focused — so a slider thumb never keeps focus
+       * and its arrow keys silently do nothing. The trap buys little on a fullscreen
+       * modal that already covers the app; correct keyboard control inside the
+       * dialogs it opens is worth more.
+       */
+      enforceFocus={false}
       dialogClassName="responsive-modal"
       className="responsive-modal wt-wizard-modal onboarding-wizard-modal"
     >
@@ -2019,7 +2059,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
               return (
                 <Form noValidate id="employee_onboarding_form">
-                  <DraftAutosave enabled={!editMode} />
+                  <DraftAutosave enabled={!editMode} finalizedRef={draftFinalizedRef} />
 
                   <OnboardingWorkspace
                     formikProps={formikProps}

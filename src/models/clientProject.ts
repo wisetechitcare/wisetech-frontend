@@ -33,6 +33,9 @@ export interface ProjectItem {
   createdAt?: string;
   updatedAt?: string;
   subCategories?: number;
+  // Preset tasks only — the main preset task this one is filed under
+  // (null/absent = it is a main task itself).
+  parentId?: string | null;
   // Lifecycle-flow position (project statuses only) — drives display order
   // everywhere the status list/picker is shown. Set via the reorder controls
   // in Project Configuration, not hand-typed.
@@ -55,6 +58,7 @@ export interface ConfigItem {
   color: string;
   isActive: boolean;
   categoryId?: string; // For subcategory
+  parentId?: string | null; // For preset tasks — the main task this one sits under
   createdAt?: string;
   updatedAt?: string;
   sortOrder?: number;

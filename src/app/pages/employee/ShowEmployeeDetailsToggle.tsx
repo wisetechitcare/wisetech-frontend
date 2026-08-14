@@ -57,7 +57,7 @@ const ShowEmployeeDetailsToggle = () => {
       <div className="card border-0 shadow-sm m-8">
         <div className="card-body text-center py-10">
           <i className="bi bi-exclamation-triangle fs-1 text-warning mb-3 d-block"></i>
-          <h5 className="fw-semibold">This page isn't available</h5>
+          <h5 className="fw-semibold">This Page Isn't Available</h5>
           <p className="text-muted mb-4">We couldn't open this employee record. It may have moved or you may not have access.</p>
           <button className="btn btn-primary" onClick={() => navigate("/dashboard")}>Go to Dashboard</button>
         </div>

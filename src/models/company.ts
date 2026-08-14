@@ -203,6 +203,12 @@ export interface IFaqs {
 export interface IConfiguration {
     module: string,
     configuration: any,
+    // Scope of the write (group → org → branch). When set, the backend UPSERTS the row for
+    // exactly this scope instead of editing whatever row the read resolved — a resolved read
+    // can return an INHERITED parent row, so writing back by its id would silently overwrite
+    // the org/global default for every sibling. Omit both for a legacy global write.
+    companyId?: string,
+    branchId?: string,
 }
 export interface IBranchWorkingAndOffDays {
     monday: string,

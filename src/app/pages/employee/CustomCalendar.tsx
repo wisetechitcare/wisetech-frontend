@@ -483,7 +483,6 @@ function CustomCalendar() {
               }
             };
           });
-        //   debugger;
           const workingAndOffDays = parseWorkingDays(branchRes?.data?.branch?.workingAndOffDays);
           setBranchWorkingAndOffDays(workingAndOffDays);
       
@@ -1288,7 +1287,7 @@ function CustomCalendar() {
                                 <div className="mrd-sect">
                                     <div className="mrd-sect__head">
                                         <span className="mrd-sect__t">Upcoming Events</span>
-                                        <button type="button" className="mrd-sect__act" onClick={panelToday}>View all</button>
+                                        <button type="button" className="mrd-sect__act" onClick={panelToday}>View All</button>
                                     </div>
                                     {upcomingEvents.length ? (
                                         <div className="mrd-up">
@@ -1321,7 +1320,7 @@ function CustomCalendar() {
                                     <div className="mrd-sect__head">
                                         <span className="mrd-sect__t">Show on Calendar</span>
                                         {hiddenCats.size > 0 && (
-                                            <button type="button" className="mrd-sect__act" onClick={showAllCats}>Show all</button>
+                                            <button type="button" className="mrd-sect__act" onClick={showAllCats}>Show All</button>
                                         )}
                                     </div>
                                     <div className="mrd-leg">

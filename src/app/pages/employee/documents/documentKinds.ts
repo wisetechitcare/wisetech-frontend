@@ -17,6 +17,7 @@ export interface DocumentKind {
 }
 
 export const DOCUMENT_KINDS: Record<VaultDocumentCategory, DocumentKind> = {
+  photo: { label: "Profile Photo", icon: "bi-person-badge", color: "#0369A1", tint: "rgba(3, 105, 161, 0.10)" },
   onboarding: { label: "Onboarding", icon: "bi-file-earmark-text", color: "#1E3A8A", tint: "rgba(30, 58, 138, 0.10)" },
   identity: { label: "Identity", icon: "bi-person-vcard", color: "#7C3AED", tint: "rgba(124, 58, 237, 0.10)" },
   signature: { label: "Signature", icon: "bi-vector-pen", color: "#0F766E", tint: "rgba(15, 118, 110, 0.10)" },
@@ -26,6 +27,9 @@ export const DOCUMENT_KINDS: Record<VaultDocumentCategory, DocumentKind> = {
 
 /** Display order — the order HR reads them in, not the order the tables were joined. */
 export const CATEGORY_ORDER: VaultDocumentCategory[] = [
+  // The photo leads: it is the first thing onboarding collects, and the fastest
+  // way to confirm you are looking at the right person's file.
+  "photo",
   "identity",
   "onboarding",
   "education",

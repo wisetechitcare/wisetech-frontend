@@ -1243,32 +1243,35 @@ function MaterialTable({
                         }}
                       />
                       {globalFilterValue && (
-                        <button
-                          onClick={() => handleGlobalFilterChange("")}
-                          style={{
-                            position: "absolute",
-                            right: "10px",
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "20px",
-                            height: "20px",
-                            borderRadius: "50%",
-                            border: "none",
-                            backgroundColor: "#D1D5DB",
-                            cursor: "pointer",
-                            padding: 0,
-                            color: "#6B7280",
-                            fontSize: "10px",
-                            lineHeight: 1,
-                          }}
-                          title="Clear search"
-                          aria-label="Clear search"
-                        >
-                          ✕
-                        </button>
+                        <Tooltip title="Clear search">
+                          <span>
+                          <button
+                            onClick={() => handleGlobalFilterChange("")}
+                            style={{
+                              position: "absolute",
+                              right: "10px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: "20px",
+                              height: "20px",
+                              borderRadius: "50%",
+                              border: "none",
+                              backgroundColor: "#D1D5DB",
+                              cursor: "pointer",
+                              padding: 0,
+                              color: "#6B7280",
+                              fontSize: "10px",
+                              lineHeight: 1,
+                            }}
+                            aria-label="Clear search"
+                          >
+                            ✕
+                          </button>
+                          </span>
+                        </Tooltip>
                       )}
                     </div>
                   </div>
@@ -1368,7 +1371,15 @@ function MaterialTable({
             density: preferences.density,
             expanded: preferences.expanded,
             globalFilter: enableColumnSpecificSearch ? undefined : debouncedFilterValue,
-            isLoading: isLoading,
+            // Skeletons ONLY when there is genuinely nothing to show (first load, or an empty
+            // result). MRT's `isLoading` discards the rendered rows and replaces them with grey
+            // skeleton placeholders (see material-react-table dist: "if loading, generate blank
+            // rows to show skeleton loaders"). Passing a plain "fetch in flight" flag here made
+            // every server-side sort/page click blank the table and refill it — read by the user
+            // as "sorting is slow" even though the query itself is ~10ms. The rows were never
+            // actually gone; useServerPagination keeps the previous page in state until the new
+            // one lands. Now they stay put and `showProgressBars` carries the pending signal.
+            isLoading: isLoading && tableData.length === 0,
             showProgressBars: isLoading,
             rowSelection,
           }}
@@ -1803,33 +1814,36 @@ function MaterialTable({
                     }}
                   />
                   {globalFilterValue && (
-                    <button
-                      onClick={() => handleGlobalFilterChange("")}
-                      style={{
-                        position: "absolute",
-                        right: "8px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: "18px",
-                        height: "18px",
-                        borderRadius: "50%",
-                        border: "none",
-                        backgroundColor: "#D1D5DB",
-                        cursor: "pointer",
-                        padding: 0,
-                        color: "#6B7280",
-                        fontSize: "10px",
-                        lineHeight: 1,
-                        transition: "background-color 0.15s ease",
-                      }}
-                      title="Clear search"
-                      aria-label="Clear search"
-                    >
-                      ✕
-                    </button>
+                    <Tooltip title="Clear search">
+                      <span>
+                      <button
+                        onClick={() => handleGlobalFilterChange("")}
+                        style={{
+                          position: "absolute",
+                          right: "8px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: "18px",
+                          height: "18px",
+                          borderRadius: "50%",
+                          border: "none",
+                          backgroundColor: "#D1D5DB",
+                          cursor: "pointer",
+                          padding: 0,
+                          color: "#6B7280",
+                          fontSize: "10px",
+                          lineHeight: 1,
+                          transition: "background-color 0.15s ease",
+                        }}
+                        aria-label="Clear search"
+                      >
+                        ✕
+                      </button>
+                      </span>
+                    </Tooltip>
                   )}
                 </Box>
 
@@ -2208,56 +2222,62 @@ function MaterialTable({
                       )}
 
                       {/* First page */}
-                      <button
-                        onClick={() => table.setPageIndex(0)}
-                        disabled={pageIndex === 0}
-                        className="et-page-nav-btn"
-                        title="First page"
-                        aria-label="First page"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: isMobile ? "30px" : "34px",
-                          height: isMobile ? "30px" : "34px",
-                          border: "1px solid #E5E7EB",
-                          borderRadius: "8px",
-                          backgroundColor: pageIndex === 0 ? "#F9FAFB" : "#fff",
-                          cursor: pageIndex === 0 ? "not-allowed" : "pointer",
-                          opacity: pageIndex === 0 ? 0.45 : 1,
-                          transition: "all 0.15s ease",
-                          padding: 0,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <KTIcon iconName="double-left" className="fs-4 text-gray-600" />
-                      </button>
+                      <Tooltip title="First page">
+                        <span>
+                        <button
+                          onClick={() => table.setPageIndex(0)}
+                          disabled={pageIndex === 0}
+                          className="et-page-nav-btn"
+                          aria-label="First page"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: isMobile ? "30px" : "34px",
+                            height: isMobile ? "30px" : "34px",
+                            border: "1px solid #E5E7EB",
+                            borderRadius: "8px",
+                            backgroundColor: pageIndex === 0 ? "#F9FAFB" : "#fff",
+                            cursor: pageIndex === 0 ? "not-allowed" : "pointer",
+                            opacity: pageIndex === 0 ? 0.45 : 1,
+                            transition: "all 0.15s ease",
+                            padding: 0,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <KTIcon iconName="double-left" className="fs-4 text-gray-600" />
+                        </button>
+                        </span>
+                      </Tooltip>
 
                       {/* Previous page */}
-                      <button
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
-                        className="et-page-nav-btn"
-                        title="Previous page"
-                        aria-label="Previous page"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: isMobile ? "30px" : "34px",
-                          height: isMobile ? "30px" : "34px",
-                          border: "1px solid #E5E7EB",
-                          borderRadius: "8px",
-                          backgroundColor: !table.getCanPreviousPage() ? "#F9FAFB" : "#fff",
-                          cursor: !table.getCanPreviousPage() ? "not-allowed" : "pointer",
-                          opacity: !table.getCanPreviousPage() ? 0.45 : 1,
-                          transition: "all 0.15s ease",
-                          padding: 0,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <KTIcon iconName="black-left" className="fs-4 text-gray-600" />
-                      </button>
+                      <Tooltip title="Previous page">
+                        <span>
+                        <button
+                          onClick={() => table.previousPage()}
+                          disabled={!table.getCanPreviousPage()}
+                          className="et-page-nav-btn"
+                          aria-label="Previous page"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: isMobile ? "30px" : "34px",
+                            height: isMobile ? "30px" : "34px",
+                            border: "1px solid #E5E7EB",
+                            borderRadius: "8px",
+                            backgroundColor: !table.getCanPreviousPage() ? "#F9FAFB" : "#fff",
+                            cursor: !table.getCanPreviousPage() ? "not-allowed" : "pointer",
+                            opacity: !table.getCanPreviousPage() ? 0.45 : 1,
+                            transition: "all 0.15s ease",
+                            padding: 0,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <KTIcon iconName="black-left" className="fs-4 text-gray-600" />
+                        </button>
+                        </span>
+                      </Tooltip>
 
                       {/* Page number buttons */}
                       {getPageNumbers().map((page, idx) => {
@@ -2318,56 +2338,62 @@ function MaterialTable({
                       })}
 
                       {/* Next page */}
-                      <button
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
-                        className="et-page-nav-btn"
-                        title="Next page"
-                        aria-label="Next page"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: isMobile ? "30px" : "34px",
-                          height: isMobile ? "30px" : "34px",
-                          border: "1px solid #E5E7EB",
-                          borderRadius: "8px",
-                          backgroundColor: !table.getCanNextPage() ? "#F9FAFB" : "#fff",
-                          cursor: !table.getCanNextPage() ? "not-allowed" : "pointer",
-                          opacity: !table.getCanNextPage() ? 0.45 : 1,
-                          transition: "all 0.15s ease",
-                          padding: 0,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <KTIcon iconName="black-right" className="fs-4 text-gray-600" />
-                      </button>
+                      <Tooltip title="Next page">
+                        <span>
+                        <button
+                          onClick={() => table.nextPage()}
+                          disabled={!table.getCanNextPage()}
+                          className="et-page-nav-btn"
+                          aria-label="Next page"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: isMobile ? "30px" : "34px",
+                            height: isMobile ? "30px" : "34px",
+                            border: "1px solid #E5E7EB",
+                            borderRadius: "8px",
+                            backgroundColor: !table.getCanNextPage() ? "#F9FAFB" : "#fff",
+                            cursor: !table.getCanNextPage() ? "not-allowed" : "pointer",
+                            opacity: !table.getCanNextPage() ? 0.45 : 1,
+                            transition: "all 0.15s ease",
+                            padding: 0,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <KTIcon iconName="black-right" className="fs-4 text-gray-600" />
+                        </button>
+                        </span>
+                      </Tooltip>
 
                       {/* Last page */}
-                      <button
-                        onClick={() => table.setPageIndex(totalPages - 1)}
-                        disabled={pageIndex === totalPages - 1}
-                        className="et-page-nav-btn"
-                        title="Last page"
-                        aria-label="Last page"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: isMobile ? "30px" : "34px",
-                          height: isMobile ? "30px" : "34px",
-                          border: "1px solid #E5E7EB",
-                          borderRadius: "8px",
-                          backgroundColor: pageIndex === totalPages - 1 ? "#F9FAFB" : "#fff",
-                          cursor: pageIndex === totalPages - 1 ? "not-allowed" : "pointer",
-                          opacity: pageIndex === totalPages - 1 ? 0.45 : 1,
-                          transition: "all 0.15s ease",
-                          padding: 0,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <KTIcon iconName="double-right" className="fs-4 text-gray-600" />
-                      </button>
+                      <Tooltip title="Last page">
+                        <span>
+                        <button
+                          onClick={() => table.setPageIndex(totalPages - 1)}
+                          disabled={pageIndex === totalPages - 1}
+                          className="et-page-nav-btn"
+                          aria-label="Last page"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: isMobile ? "30px" : "34px",
+                            height: isMobile ? "30px" : "34px",
+                            border: "1px solid #E5E7EB",
+                            borderRadius: "8px",
+                            backgroundColor: pageIndex === totalPages - 1 ? "#F9FAFB" : "#fff",
+                            cursor: pageIndex === totalPages - 1 ? "not-allowed" : "pointer",
+                            opacity: pageIndex === totalPages - 1 ? 0.45 : 1,
+                            transition: "all 0.15s ease",
+                            padding: 0,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <KTIcon iconName="double-right" className="fs-4 text-gray-600" />
+                        </button>
+                        </span>
+                      </Tooltip>
 
                       {/* Page jump input - only on desktop when many pages */}
                       {/* {!isMobile && totalPages > 7 && (

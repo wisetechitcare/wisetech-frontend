@@ -23,7 +23,7 @@ import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employ
 import StatusToggle from "@app/modules/common/components/StatusToggle";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { ActionIconButton, WhatsAppIcon } from "@app/modules/common/components/ui";
-import { Stack } from "@mui/material";
+import { Box, Stack } from "@mui/material";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import EmployeeIdCardDialog from "./components/idcard/EmployeeIdCardDialog";
 
@@ -95,6 +95,35 @@ const EmployeeListContent = () => {
 
   const navigate = useNavigate();
 
+  /**
+   * Opens the employee the row belongs to.
+   *
+   * The name was the only target in a row several hundred pixels wide, so most of
+   * the row looked clickable and did nothing. The guards are what keep that from
+   * hijacking the cells that already do something: Company Phone and Email are real
+   * links, the Actions column is buttons, and a click that lands on one of those
+   * belongs to it, not to the row.
+   */
+  const openEmployeeRow = useCallback(
+    (employeeId: string, event: React.MouseEvent<HTMLElement>) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('a, button, input, label, [role="button"], [role="menuitem"], [role="checkbox"]')) return;
+      // Dragging across a cell to copy a phone number should not also navigate away.
+      if (window.getSelection()?.toString()) return;
+
+      const path = `/employees/${employeeId}`;
+      // Ctrl/Cmd-click and middle-click are the universal "open in a new tab"
+      // gestures; a row that navigates is a link in all but markup, so it should
+      // honour them rather than swallowing them.
+      if (event.ctrlKey || event.metaKey || event.button === 1) {
+        window.open(path, "_blank", "noopener");
+        return;
+      }
+      navigate(path);
+    },
+    [navigate]
+  );
+
   // Parse calculateTotalExperience() output to total months for sorting.
   // It emits FOUR shapes — "2 Years 4 Months", "2 Years", "4 Months",
   // "Less than 1 Month" (and "-") — so years and months must be matched
@@ -128,8 +157,13 @@ const EmployeeListContent = () => {
   }, []);
 
   const handleGenerateIdCard = useCallback((employee: any) => {
-    setIdCardTarget({ id: employee.id, name: employee.users });
-  }, []);
+    // Own card → request the literal "me", which the API resolves to the caller from
+    // the token. The id never leaves the client, so even a tampered row cannot turn
+    // this into a request for somebody else's card. Only a user who manages employees
+    // ever sends a real id, and that path is permission-checked server-side.
+    const isSelf = employee.id === employeeId;
+    setIdCardTarget({ id: isSelf ? "me" : employee.id, name: employee.users });
+  }, [employeeId]);
 
   // Memoize base columns to prevent recreation on every render.
   // Default format (order + visibility): Name → Designation → Department →
@@ -266,9 +300,46 @@ const EmployeeListContent = () => {
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
-    actionsColumn({
-      Cell: ({ row }: any) => (
-        hasPermission(resourceNameMapWithCamelCase.employee, permissionConstToUseWithHasPermission.editOthers) ?
+    // No deps: these are all plain value renderers. The row actions moved out to
+    // `rowActionsColumn` below, and took the handlers with them.
+  ], []);
+
+  const canManageEmployees = usePermission('employees.manage.all');
+
+  /**
+   * Actions — rendered for EVERYONE, but the row decides what is in it.
+   *
+   * It used to live in `baseColumns`, so its Cell was gated only on the legacy
+   * `hasPermission(..., editOthers)` ABAC check — which resolves true for ordinary
+   * employees, handing everybody the full action set on every row. It is its own
+   * column now:
+   *
+   *   • manages employees → edit, WhatsApp share and ID card, on every row.
+   *   • everyone else     → the ID card button, and ONLY on their own row.
+   *
+   * The manager test is `employees.manage.all` (`canManageEmployees`). The legacy
+   * ABAC check is kept as an ADDITIONAL requirement for the privileged row, never as
+   * the discriminator.
+   *
+   * Restricting it to their own row is the important half. A card carries a personal
+   * phone number, email, blood group and emergency contact, and `users` RBAC still
+   * runs in SHADOW mode (RBAC_ENFORCE_USERS) on some deployments — meaning the API
+   * would happily answer for a colleague's id and only log the denial. Rendering the
+   * button only for `isSelf` means the request is never made, so the gate does not
+   * depend on which mode the server happens to be in.
+   *
+   * Built with the kit's `actionsColumn` helper, so it keeps the shared sizing and
+   * the no-sort / no-hide behaviour every other actions column has.
+   */
+  const rowActionsColumn = useMemo(() => actionsColumn({
+    Cell: ({ row }: any) => {
+      const canEditOthers = canManageEmployees && hasPermission(
+        resourceNameMapWithCamelCase.employee,
+        permissionConstToUseWithHasPermission.editOthers,
+      );
+
+      if (canEditOthers) {
+        return (
           <Stack direction="row" spacing={1}>
             <ActionIconButton
               iconName="pencil"
@@ -288,16 +359,33 @@ const EmployeeListContent = () => {
               onClick={() => handleGenerateIdCard(row.original)}
             />
           </Stack>
-          : "Not Allowed"
-      )
-    }),
-  ], [handleEditClick, handleWhatsAppShare, handleGenerateIdCard]);
+        );
+      }
 
-  const canManageEmployees = usePermission('employees.manage.all');
+      if (row.original.id === employeeId) {
+        return (
+          <Stack direction="row" spacing={1}>
+            <ActionIconButton
+              iconName="badge"
+              title="View My ID Card"
+              tone="brand"
+              onClick={() => handleGenerateIdCard(row.original)}
+            />
+          </Stack>
+        );
+      }
+
+      // A dash, not "Not Allowed": on a colleague's row there is simply nothing to do
+      // here, and phrasing it as a denial reads as an error the user should act on.
+      return <Box component="span" sx={{ color: "text.disabled" }}>—</Box>;
+    },
+  }), [handleEditClick, handleWhatsAppShare, handleGenerateIdCard, employeeId, canManageEmployees]);
 
   const columns = useMemo(() =>
-    canManageEmployees ? [...baseColumns, ...adminColumns] : baseColumns,
-    [canManageEmployees, baseColumns, adminColumns]
+    canManageEmployees
+      ? [...baseColumns, ...adminColumns, rowActionsColumn]
+      : [...baseColumns, rowActionsColumn],
+    [canManageEmployees, baseColumns, adminColumns, rowActionsColumn]
   );
   
   
@@ -506,23 +594,14 @@ const EmployeeListContent = () => {
     </div>
 
     {/* Table section */}
-    <div className="" style={{ position: 'relative', minHeight: dataLoading ? '300px' : 'auto' }}>
-      {dataLoading && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(255, 255, 255, 0.7)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 10
-        }}>
-          <Loader />
-        </div>
-      )}
+    {/* No refetch overlay here on purpose. `dataLoading` is true on EVERY fetch, not just the
+        first, so a white scrim + spinner + 300px height snap fired on every sort/page click —
+        hiding rows the app was still holding (useServerPagination keeps the previous page in
+        state until the new one resolves) and reading as "sorting is slow". The table's own
+        progress bar covers this state, and the first-load case is already handled above by the
+        page-level guard. The other two server-sorted tables gate their Loader on
+        isInitialLoading only; this one was the outlier. */}
+    <div className="">
       <MaterialTable
         columns={columns}
         data={displayedEmployees}
@@ -545,6 +624,16 @@ const EmployeeListContent = () => {
         onSortingChange={setSorting}
         onSearchChange={setSearch}
         isLoading={dataLoading}
+        muiTableProps={{
+          muiTableBodyRowProps: ({ row }: any) => ({
+            onClick: (event: React.MouseEvent<HTMLElement>) => openEmployeeRow(row.original.id, event),
+            // Middle-click does not fire onClick anywhere; it fires auxclick.
+            onAuxClick: (event: React.MouseEvent<HTMLElement>) => {
+              if (event.button === 1) openEmployeeRow(row.original.id, event);
+            },
+            sx: { cursor: "pointer" },
+          }),
+        }}
       />
     </div>
 

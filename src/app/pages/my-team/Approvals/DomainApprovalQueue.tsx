@@ -826,17 +826,16 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
   const [selectedSteps, setSelectedSteps] = useState<DisplayStep[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  // The API decides ONE employee at a time and rejects a mixed payload. Surfacing that here
-  // as a disabled button with a reason beats letting the request fail — the user finds out
-  // before acting, not after.
+  // A batch may span any number of employees; the API sends each requester one summary
+  // email rather than one per decision, so a mixed selection is safe. Counting them only to
+  // tell the approver what they are about to affect.
   const selectedEmployeeIds = useMemo(
     () => [...new Set(selectedSteps.map((s) => s.instance?.employee?.id).filter(Boolean))],
     [selectedSteps],
   );
-  const spansMultipleEmployees = selectedEmployeeIds.length > 1;
 
   const runBulk = useCallback(async (action: 'approve' | 'reject') => {
-    if (bulkBusy || selectedSteps.length === 0 || spansMultipleEmployees) return;
+    if (bulkBusy || selectedSteps.length === 0) return;
     setBulkBusy(true);
     try {
       const ids = [...new Set(selectedSteps.map((s) => s.instance.id))];
@@ -862,7 +861,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     } finally {
       setBulkBusy(false);
     }
-  }, [bulkBusy, selectedSteps, spansMultipleEmployees, load]);
+  }, [bulkBusy, selectedSteps, load]);
 
   if (!canApprove) {
     return (
@@ -917,26 +916,23 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         onSelectedRowsChange={setSelectedSteps as any}
         renderSelectionActions={(selected: any[]) => (
           <div className='d-flex align-items-center gap-2'>
-            <span className='text-muted fs-7'>{selected.length} selected</span>
+            <span className='text-muted fs-7'>
+              {selected.length} selected{selectedEmployeeIds.length > 1 ? ` · ${selectedEmployeeIds.length} employees` : ''}
+            </span>
             <button
               className='btn btn-sm btn-light-success'
-              disabled={bulkBusy || spansMultipleEmployees}
-              title={spansMultipleEmployees ? 'Select requests for one employee at a time' : undefined}
+              disabled={bulkBusy}
               onClick={() => runBulk('approve')}
             >
               {bulkBusy ? 'Working…' : 'Approve selected'}
             </button>
             <button
               className='btn btn-sm btn-light-danger'
-              disabled={bulkBusy || spansMultipleEmployees}
-              title={spansMultipleEmployees ? 'Select requests for one employee at a time' : undefined}
+              disabled={bulkBusy}
               onClick={() => runBulk('reject')}
             >
               Reject selected
             </button>
-            {spansMultipleEmployees && (
-              <span className='text-danger fs-8'>One employee at a time</span>
-            )}
           </div>
         )}
         renderDetailPanel={({ row }: { row: MRT_Row<ApprovalStep> }) => (
