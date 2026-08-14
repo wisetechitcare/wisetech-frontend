@@ -16,6 +16,7 @@ import { fetchCurrentEmployeeByEmpId } from '@services/employee'
 import { useSelector } from 'react-redux'
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
 import { SectionGuard } from '@app/modules/common/components/SectionGuard'
+import { RequirePermission } from '@app/modules/common/components/RequirePermission'
 import { can } from '@utils/can'
 
 const PublicHoliday = lazy(() => import('@pages/company/PublicHoliday'))
@@ -65,6 +66,8 @@ const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/
 const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
 // Phase 4 — the rebuilt Task UI (Kanban-first workspace + task detail workspace)
 const TasksWorkspace = lazy(() => import('@pages/employee/tasks/TasksWorkspace'))
+// Task configuration — statuses, priorities and the preset task tree.
+const TasksConfigure = lazy(() => import('@pages/employee/tasks/configure/TasksConfigure'))
 const TaskDetailPage = lazy(() => import('@pages/employee/tasks/TaskDetailPage'))
 const MyTimeSheetMain = lazy(() => import('@pages/employee/timesheet/mytimesheet/MyTimeSheetMain'))
 const EmployeeTimeSheetMain = lazy(() => import('@pages/employee/timesheet/employeetimesheet/EmployeeTimeSheetMain'))
@@ -567,6 +570,26 @@ const PrivateRoutes = () => {
               <SuspensedView>
                 <TasksWorkspace />
               </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          // Task Statuses / Priorities / Preset Tasks. Its own destination rather than a tab,
+          // so it can be linked to and so it can carry a permission of its own: task config is
+          // shared by EVERY tenant, which makes deactivating a status a cross-tenant outage
+          // (Phase 0 audit §4.1) rather than a personal preference.
+          //
+          // ⚠️ This gate is UX. The backend `task-statuses` / `task-priorities` / `task-persest`
+          // write routes still carry no `authorize()` at all — hiding the page does not protect
+          // the endpoints. See RSK-091.
+          path='/tasks/configure'
+          element={
+            <SectionGuard module='tasks'>
+              <RequirePermission perm='tasks.manage.all' redirectTo='/tasks'>
+                <SuspensedView>
+                  <TasksConfigure />
+                </SuspensedView>
+              </RequirePermission>
             </SectionGuard>
           }
         />

@@ -29,6 +29,7 @@ import {
   deletePresetTask,
 } from "@services/tasks";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation, successConfirmation } from "@utils/modal";
@@ -52,6 +53,7 @@ import {
 
 
 const TasksConfigure = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   // Project Categories
   const [projectCategories, setProjectCategories] = useState<ProjectItem[]>([]);
@@ -417,6 +419,16 @@ const TasksConfigure = () => {
         title="Tasks Configuration"
         subtitle="Manage task statuses, priorities, and preset tasks"
         icon="bi-list-check"
+        // This is its own route now rather than a tab beside the board, so it needs an explicit
+        // way back — `breadcrumbs` is accepted by the layout but never rendered, so the action
+        // slot is the one that actually reaches the screen.
+        actions={
+          <ActionIconButton
+            iconName="arrow-left"
+            title="Back to tasks"
+            onClick={() => navigate('/tasks')}
+          />
+        }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 

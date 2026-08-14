@@ -1,15 +1,15 @@
 /**
- * The Tasks workspace — two-pane, project-first.
+ * The Tasks workspace — two-pane, project-first, one screenful.
  *
  *     ┌── Projects ─────────┐ ┌── <project name>            [Active] ──────────────────┐
- *     │ All tasks           │ │ [Kanban|Table]  search   filter   [+ New Task]         │
+ *     │ All tasks           │ │ [Kanban|Table] [backdrop] [gear]        [+ New Task]   │
  *     │ Internal / General  │ ├───────────────────────────────────────────────────────┤
- *     │ ─────────────────── │ │  ▓▓ recessed board surface ▓▓                         │
+ *     │ ─────────────────── │ │  ▓▓ board backdrop — preset · colour · wallpaper ▓▓   │
  *     │ Raj Bhavan …        │ │  ┌ TODO (5) + ┐ ┌ ONGOING (3) + ┐ ┌ ON HOLD (1) + ┐    │
  *     │ Madarsa at Africa   │ │  │ card       │ │ card          │ │ card          │    │
  *     └─────────────────────┘ └───────────────────────────────────────────────────────┘
  *
- * ### Two things this layout is careful about
+ * ### Four things this layout is careful about
  *
  * **The project rail is `available-projects`, not "all projects".** It is the same resolver the
  * create form and the API use, so a project cannot appear here whose board would come back
@@ -18,24 +18,40 @@
  * **GENERAL tasks keep a home.** A project-first layout would otherwise strand them, since they
  * have no project by definition — hence the explicit "Internal / General" row.
  *
- * Colours are entirely theme-driven: the board surface is a recess derived from `text.primary`
- * at low alpha, so it reads as "inset" in light mode and in dark mode without a second palette.
+ * **Both panes end where the window ends.** A board that stops half-way down and then makes the
+ * whole page scroll gives up the one thing a board is for — seeing every lane at once. So the
+ * workspace MEASURES where it starts (`useFillViewport`) and claims the rest of the viewport,
+ * instead of guessing the chrome above it with a `calc(100vh - 300px)` that is wrong on the next
+ * screen size. Everything inside then scrolls within itself: the rail's list, each board lane, the
+ * table. Widths are viewport-relative for the same reason — an ultrawide gets wider lanes, not a
+ * wider empty gutter.
+ *
+ * **The backdrop belongs to the user.** The area behind the columns carries no information, so it
+ * is the one part of the screen worth letting a team own (`boardBackground.ts`). Cards stay opaque
+ * `background.paper` on top of it, which is what keeps any choice — including a photograph —
+ * from making somebody's own work unreadable. The shell around it stays entirely theme-driven.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Box, Button, Chip, CircularProgress, Stack, Tooltip, Typography, alpha, useTheme,
+    Box, Button, Chip, CircularProgress, IconButton, Stack, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
+import { RequirePermission } from '@app/modules/common/components/RequirePermission';
+import { useFillViewport } from '@app/hooks/useFillViewport';
 import { TaskFilterState, filtersToQuery, apiErrorMessage } from './taskDomain';
 import {
     useTaskBoard, useTaskList, useTaskStatuses, useTaskPriorities,
     useAvailableProjects, useBoardProjects, useMoveTaskStage,
 } from './useTaskQueries';
+import {
+    boardBackgroundCss, boardInk, describeBackground, hasWallpaper, useBoardBackground,
+} from './boardBackground';
 import TaskBoard, { BoardColumn } from './components/TaskBoard';
 import TaskTable from './components/TaskTable';
 import TaskFilters from './components/TaskFilters';
 import TaskFormDialog from './components/TaskFormDialog';
+import BoardBackgroundDialog from './components/BoardBackgroundDialog';
 import ProjectRail, { RailProject, RailGeneralTask, GENERAL_PREFIX } from './components/ProjectRail';
 import { TaskStateBlock } from './components/primitives';
 
@@ -87,6 +103,30 @@ const ViewToggle = ({ value, onChange }: { value: ViewMode; onChange: (v: ViewMo
     );
 };
 
+/**
+ * A card for anything the board draws OUTSIDE a task card — errors, "no stages yet".
+ *
+ * Those states are theme-coloured text, and the surface under them is not: a light theme can be
+ * showing a midnight backdrop, which would put near-black text on near-black pixels. Giving them
+ * their own paper panel makes them legible on every backdrop without a second palette, and reads
+ * as intentional rather than as text stranded on wallpaper.
+ */
+const SurfacePanel = ({ children }: { children: React.ReactNode }) => (
+    <Box className="flex min-h-0 flex-1 items-center justify-center p-2">
+        <Box
+            className="w-full max-w-[34rem] rounded-2xl"
+            sx={{
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                boxShadow: (t) => `0 8px 28px ${alpha(t.palette.common.black, 0.22)}`,
+            }}
+        >
+            {children}
+        </Box>
+    </Box>
+);
+
 export const TasksWorkspace = () => {
     const theme = useTheme();
     const navigate = useNavigate();
@@ -103,6 +143,18 @@ export const TasksWorkspace = () => {
     const [createOpen, setCreateOpen] = useState(false);
     /** Set when "+" on a column is used, so the new task lands in that stage. */
     const [createInStage, setCreateInStage] = useState<string | undefined>();
+    const [backdropOpen, setBackdropOpen] = useState(false);
+
+    /**
+     * The workspace takes whatever is left of the window below it — measured, not assumed. The
+     * property it publishes is consumed as `h-[var(--wt-fill-h)]` on the same element, and is set
+     * to `auto` on narrow screens where the panes stack and the page should scroll normally.
+     */
+    const fillRef = useFillViewport<HTMLDivElement>({ bottomGap: 8 });
+
+    const { background, setBackground, resetBackground } = useBoardBackground();
+    const ink = boardInk(background);
+    const wallpaper = hasWallpaper(background);
 
     /** One clock for the whole screen, so a card and a row cannot disagree about "today". */
     const now = useMemo(() => new Date(), []);
@@ -175,20 +227,31 @@ export const TasksWorkspace = () => {
         : activeProject?.projectNumber || 'Select a project to see its tasks';
 
     return (
-        <Box sx={{ maxWidth: 1800, mx: 'auto', p: { xs: 1.5, md: 2.5 } }}>
-            <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="flex-start">
+        // The page IS the viewport: full width (a board earns every pixel it is given) and exactly
+        // as tall as what is left below the app chrome. `overflow-hidden` is the promise that
+        // nothing here escapes into a page-level scrollbar — each pane scrolls on its own.
+        <Box
+            ref={fillRef}
+            className="flex h-[var(--wt-fill-h)] w-full flex-col overflow-hidden"
+            sx={{ p: { xs: 1.5, md: 2.5 } }}
+        >
+            <Box className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+                {/* Fluid rail: a share of the screen between a readable floor and a sane ceiling,
+                    so it neither squeezes on a laptop nor sprawls on an ultrawide. Capped on
+                    phones, where it sits ABOVE the board and must not push it off-screen. */}
                 <ProjectRail
                     projects={projects}
                     generalTasks={generalTasks}
                     selected={scopeSel}
                     onSelect={selectScope}
                     isLoading={railQuery.isLoading}
+                    className="max-h-[45vh] w-full lg:max-h-none lg:w-[clamp(17rem,20vw,24rem)]"
                 />
 
                 {/* ── right pane ── */}
-                <Stack spacing={1.5} sx={{ flex: 1, minWidth: 0, width: '100%' }}>
+                <Box className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
                     {/* project header */}
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} className="shrink-0">
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Stack direction="row" spacing={1} alignItems="center">
                                 {/* `color` is stated explicitly: Metronic's global heading rules
@@ -208,6 +271,52 @@ export const TasksWorkspace = () => {
 
                         <Stack direction="row" spacing={1} alignItems="center">
                             <ViewToggle value={view} onChange={changeView} />
+
+                            {/* The backdrop control lives next to the view switch because it is
+                                the same kind of choice: how this board is presented to me, not
+                                what it contains. The swatch IS the current backdrop, so the
+                                button shows the setting instead of describing it. */}
+                            <Tooltip title={`Board background — ${describeBackground(background)}`}>
+                                <IconButton
+                                    size="small"
+                                    aria-label="Change board background"
+                                    onClick={() => setBackdropOpen(true)}
+                                    sx={{
+                                        border: `1px solid ${theme.palette.divider}`,
+                                        borderRadius: 1.5,
+                                        width: 34, height: 34,
+                                        overflow: 'hidden',
+                                        background: boardBackgroundCss(background),
+                                        color: ink === 'light' ? theme.palette.common.white : theme.palette.common.black,
+                                        '&:hover': { borderColor: theme.palette.primary.main },
+                                    }}
+                                >
+                                    <KTIcon iconName="picture" className="fs-5" />
+                                </IconButton>
+                            </Tooltip>
+
+                            {/* Configure is a destination, not a tab — the board and the
+                                stage/priority/preset definitions are different jobs. Hidden
+                                rather than disabled for anyone who cannot open it, so nobody
+                                clicks a control that bounces them back here. */}
+                            <RequirePermission perm="tasks.manage.all" hideOnly>
+                                <Tooltip title="Configure statuses, priorities and preset tasks">
+                                    <IconButton
+                                        size="small"
+                                        aria-label="Configure tasks"
+                                        onClick={() => navigate('/tasks/configure')}
+                                        sx={{
+                                            border: `1px solid ${theme.palette.divider}`,
+                                            borderRadius: 1.5,
+                                            width: 34, height: 34,
+                                            color: 'text.secondary',
+                                            '&:hover': { color: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.08) },
+                                        }}
+                                    >
+                                        <KTIcon iconName="setting-2" className="fs-4" />
+                                    </IconButton>
+                                </Tooltip>
+                            </RequirePermission>
                             <Button
                                 variant="contained"
                                 onClick={() => { setCreateInStage(undefined); setCreateOpen(true); }}
@@ -219,93 +328,129 @@ export const TasksWorkspace = () => {
                         </Stack>
                     </Stack>
 
-                    <TaskFilters
-                        filters={filters}
-                        onChange={updateFilters}
-                        statuses={statusesQuery.data?.taskStatuses ?? []}
-                        priorities={prioritiesQuery.data?.taskPriorities ?? []}
-                        projects={projectsQuery.data?.projects ?? projects}
-                        showStatusFilter={view === 'table'}
-                    />
+                    <Box className="shrink-0">
+                        <TaskFilters
+                            filters={filters}
+                            onChange={updateFilters}
+                            statuses={statusesQuery.data?.taskStatuses ?? []}
+                            priorities={prioritiesQuery.data?.taskPriorities ?? []}
+                            projects={projectsQuery.data?.projects ?? projects}
+                            showStatusFilter={view === 'table'}
+                        />
+                    </Box>
 
                     {/* ── the work surface ────────────────────────────────────────────
-                        A deliberately RECESSED panel: the board and table sit in an inset
-                        that reads as a distinct working area rather than more page. Derived
-                        from the theme's own text colour at low alpha, so it inverts correctly
-                        in dark mode instead of needing a second hardcoded palette. */}
+                        The board's own canvas: it takes all remaining height, clips its
+                        contents, and wears the user's backdrop. Three stacked layers —
+                        backdrop, readability scrim, content — so a wallpaper can be dimmed
+                        and blurred without any of that touching the cards on top of it. */}
                     <Box
+                        className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl"
                         sx={{
-                            borderRadius: 2.5,
                             border: '1px solid',
                             borderColor: 'divider',
-                            // Brand blue, not a neutral grey: the work surface should read as WiseTech's own.
-                            bgcolor: alpha(theme.palette.primary.main, dark ? 0.1 : 0.06),
-                            boxShadow: `inset 0 2px 8px ${alpha(theme.palette.primary.main, dark ? 0.25 : 0.1)}`,
-                            p: { xs: 1, sm: 1.5 },
-                            minHeight: 300,
-                            position: 'relative',
+                            boxShadow: `inset 0 2px 10px ${alpha(theme.palette.common.black, dark ? 0.5 : 0.28)}`,
                         }}
                     >
-                        {boardQuery.isFetching && view === 'kanban' && (
-                            <Box sx={{
-                                position: 'absolute', top: 0, left: 12, right: 12, height: 2, borderRadius: 1,
-                                bgcolor: alpha(theme.palette.primary.main, 0.4),
-                            }} />
+                        <Box
+                            aria-hidden
+                            className="pointer-events-none absolute inset-0"
+                            sx={{ background: boardBackgroundCss(background) }}
+                        />
+                        {/* Only a photograph needs the scrim; a preset or a colour was chosen
+                            for its contrast already. */}
+                        {wallpaper && (
+                            <Box
+                                aria-hidden
+                                className="pointer-events-none absolute inset-0"
+                                sx={{
+                                    bgcolor: `rgba(2, 6, 23, ${background.dim / 100})`,
+                                    backdropFilter: background.blur ? `blur(${background.blur}px)` : undefined,
+                                }}
+                            />
                         )}
 
-                        {activeQuery.isError ? (
-                            <TaskStateBlock
-                                tone="error" icon="information-5" title="Could not load tasks"
-                                description={apiErrorMessage(activeQuery.error, 'The request failed. Try again in a moment.')}
-                                action={
-                                    <Button onClick={() => activeQuery.refetch()} sx={{ textTransform: 'none', fontWeight: 600 }}>
-                                        Retry
-                                    </Button>
-                                }
+                        {boardQuery.isFetching && view === 'kanban' && (
+                            <Box
+                                aria-hidden
+                                className="absolute left-3 right-3 top-0 z-10 h-0.5 rounded-full"
+                                sx={{ bgcolor: alpha(theme.palette.primary.main, 0.7) }}
                             />
-                        ) : view === 'kanban' ? (
-                            boardQuery.isLoading && columns.length === 0 ? (
-                                <Stack alignItems="center" sx={{ py: 10 }}><CircularProgress /></Stack>
-                            ) : (
-                                <Box sx={{ maxHeight: { xs: 'none', md: 'calc(100vh - 300px)' }, display: 'flex' }}>
+                        )}
+
+                        <Box className="relative flex min-h-0 flex-1 flex-col" sx={{ p: { xs: 1, sm: 1.5 } }}>
+                            {activeQuery.isError ? (
+                                // On a user-chosen backdrop, theme-coloured body text is not
+                                // guaranteed to be readable — so anything drawn outside a card
+                                // gets a card of its own.
+                                <SurfacePanel>
+                                    <TaskStateBlock
+                                        tone="error" icon="information-5" title="Could not load tasks"
+                                        description={apiErrorMessage(activeQuery.error, 'The request failed. Try again in a moment.')}
+                                        action={
+                                            <Button onClick={() => activeQuery.refetch()} sx={{ textTransform: 'none', fontWeight: 600 }}>
+                                                Retry
+                                            </Button>
+                                        }
+                                    />
+                                </SurfacePanel>
+                            ) : view === 'kanban' ? (
+                                boardQuery.isLoading && columns.length === 0 ? (
+                                    <Stack className="min-h-0 flex-1" alignItems="center" justifyContent="center">
+                                        <CircularProgress />
+                                    </Stack>
+                                ) : columns.length === 0 ? (
+                                    <SurfacePanel>
+                                        <TaskStateBlock
+                                            icon="element-11"
+                                            title="No stages configured"
+                                            description="Add a task stage in Configure and it will appear here as a board column."
+                                        />
+                                    </SurfacePanel>
+                                ) : (
                                     <TaskBoard
                                         columns={columns}
                                         now={now}
+                                        ink={ink}
                                         isLoading={boardQuery.isLoading}
                                         onOpenTask={(id) => navigate(`/tasks/${id}`)}
                                         onMoveTask={(taskId, statusId) => moveStage.mutateAsync({ taskId, statusId })}
                                         onAddInStage={(statusId) => { setCreateInStage(statusId); setCreateOpen(true); }}
                                     />
+                                )
+                            ) : (
+                                // The table scrolls inside the surface for the same reason the
+                                // lanes do: the page itself never gains a scrollbar.
+                                <Box className="min-h-0 flex-1 overflow-auto">
+                                    <TaskTable
+                                        tasks={tasks}
+                                        total={pagination?.totalRecords ?? tasks.length}
+                                        page={page}
+                                        rowsPerPage={rowsPerPage}
+                                        sortBy={filters.sortBy ?? 'createdAt'}
+                                        sortDir={filters.sortDir ?? 'desc'}
+                                        now={now}
+                                        isLoading={listQuery.isLoading}
+                                        isError={listQuery.isError}
+                                        errorMessage={apiErrorMessage(listQuery.error)}
+                                        canViewCost={canViewCost}
+                                        onOpenTask={(id) => navigate(`/tasks/${id}`)}
+                                        onPageChange={setPage}
+                                        onRowsPerPageChange={(rows) => { setRowsPerPage(rows); setPage(0); }}
+                                        onSortChange={(sortBy, sortDir) => updateFilters({ ...filters, sortBy, sortDir })}
+                                    />
                                 </Box>
-                            )
-                        ) : (
-                            <TaskTable
-                                tasks={tasks}
-                                total={pagination?.totalRecords ?? tasks.length}
-                                page={page}
-                                rowsPerPage={rowsPerPage}
-                                sortBy={filters.sortBy ?? 'createdAt'}
-                                sortDir={filters.sortDir ?? 'desc'}
-                                now={now}
-                                isLoading={listQuery.isLoading}
-                                isError={listQuery.isError}
-                                errorMessage={apiErrorMessage(listQuery.error)}
-                                canViewCost={canViewCost}
-                                onOpenTask={(id) => navigate(`/tasks/${id}`)}
-                                onPageChange={setPage}
-                                onRowsPerPageChange={(rows) => { setRowsPerPage(rows); setPage(0); }}
-                                onSortChange={(sortBy, sortDir) => updateFilters({ ...filters, sortBy, sortDir })}
-                            />
-                        )}
+                            )}
+                        </Box>
                     </Box>
 
                     {view === 'kanban' && !boardQuery.isLoading && (
-                        <Typography variant="caption" sx={{ color: 'text.disabled', px: 0.5 }}>
+                        <Typography variant="caption" className="shrink-0" sx={{ color: 'text.disabled', px: 0.5 }}>
                             Showing {boardTotal} task{boardTotal === 1 ? '' : 's'}
                         </Typography>
                     )}
-                </Stack>
-            </Stack>
+                </Box>
+            </Box>
 
             <TaskFormDialog
                 open={createOpen}
@@ -313,6 +458,14 @@ export const TasksWorkspace = () => {
                 defaultStatusId={createInStage}
                 defaultProjectId={activeProject ? scopeSel : undefined}
                 defaultScope={activeGeneral ? 'GENERAL' : undefined}
+            />
+
+            <BoardBackgroundDialog
+                open={backdropOpen}
+                onClose={() => setBackdropOpen(false)}
+                value={background}
+                onChange={setBackground}
+                onReset={resetBackground}
             />
         </Box>
     );
