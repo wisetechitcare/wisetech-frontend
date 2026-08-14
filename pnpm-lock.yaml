@@ -28,9 +28,6 @@ importers:
       '@formatjs/intl-pluralrules':
         specifier: 5.2.4
         version: 5.2.4
-      '@formatjs/intl-relativetimeformat':
-        specifier: 11.2.4
-        version: 11.2.4
       '@fortawesome/fontawesome-free':
         specifier: 6.1.1
         version: 6.1.1
@@ -987,9 +984,6 @@ packages:
 
   '@formatjs/intl-pluralrules@5.2.4':
     resolution: {integrity: sha512-6meo376d8I4zikRFSUxATLnqzGwezmc57SmToP4z1/NQwTHXGe0yIG/ABPbO3QMx7IUkofH/ROP3A4DhtPTpnA==}
-
-  '@formatjs/intl-relativetimeformat@11.2.4':
-    resolution: {integrity: sha512-AJtPvpF7ub/nlu+PmysW9qho7Bev/v0qBNamY4Olh81P73ayf6JgFhxSxuLI2IxuHbXwqPb0iNBhvEXGBklCbQ==}
 
   '@formatjs/intl@2.10.15':
     resolution: {integrity: sha512-i6+xVqT+6KCz7nBfk4ybMXmbKO36tKvbMKtgFz9KV+8idYFyFbfwKooYk8kGjyA5+T5f1kEPQM5IDLXucTAQ9g==}
@@ -5575,12 +5569,6 @@ snapshots:
       tslib: 2.8.1
 
   '@formatjs/intl-pluralrules@5.2.4':
-    dependencies:
-      '@formatjs/ecma402-abstract': 1.17.0
-      '@formatjs/intl-localematcher': 0.4.0
-      tslib: 2.8.1
-
-  '@formatjs/intl-relativetimeformat@11.2.4':
     dependencies:
       '@formatjs/ecma402-abstract': 1.17.0
       '@formatjs/intl-localematcher': 0.4.0
