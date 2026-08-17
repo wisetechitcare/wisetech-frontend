@@ -30,6 +30,7 @@ import { ChartDialogModal } from "./ChartDialogModal";
 import MonthlyLeadsTrend from "./MonthlyLeadsTrend";
 import {
   LeadOverviewDashboard,
+  ChartMetric,
   AnalyticsCard,
   AnalyticsHeader,
   RankedBarChart,
@@ -42,7 +43,7 @@ import {
  * proven dashboard structure as Monthly and Yearly.
  */
 
-const AllTime = () => {
+const AllTime = ({ metric = "count" }: { metric?: ChartMetric }) => {
   const [chartData, setChartData] = useState<any>({
     statusData: [],
     serviceData: [],
@@ -485,6 +486,7 @@ const AllTime = () => {
 
 
         <LeadOverviewDashboard
+          metric={metric}
           statusData={chartData.statusData}
           serviceData={chartData.serviceData}
           categoryData={chartData.categoryData}
@@ -516,7 +518,7 @@ const AllTime = () => {
                   icon="bi-geo-alt"
                   accent="#14B8A6"
                 />
-                <LeadByLocationAndStatus data={locationRes?.data || []} />
+                <LeadByLocationAndStatus data={locationRes?.data || []} metric={metric} />
               </section>
             ) : null,
           }}

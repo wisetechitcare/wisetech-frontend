@@ -6,7 +6,7 @@ import PipelinePerformance from "../leadAnalytics/PipelinePerformance";
 import RankedBarChart from "../leadAnalytics/RankedBarChart";
 import AcquisitionGauge from "../leadAnalytics/AcquisitionGauge";
 import ServiceCategoryTabs, { BreakdownTab } from "../leadAnalytics/ServiceCategoryTabs";
-import { ChartDatum } from "../leadAnalytics/leadAnalyticsUtils";
+import { ChartDatum, ChartMetric, applyMetric } from "../leadAnalytics/leadAnalyticsUtils";
 
 /**
  * Period-specific sections the Project Overview page injects into the matching
@@ -50,6 +50,12 @@ export interface ProjectLeadAnalyticsDashboardProps {
   tabStorageKey?: string;
   /** DOM id to portal the sub-tab bar into (period-filter row). */
   portalTargetId?: string;
+  /**
+   * Plot project COUNT or project VALUE. Amount reads the `totalCost` every
+   * datum already carries (the backend's budget / totalBudget), so switching
+   * needs no extra fetch.
+   */
+  metric?: ChartMetric;
 }
 
 const isEmpty = (d?: ChartDatum[]) =>
@@ -85,16 +91,19 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
   slots,
   tabStorageKey = "projectOverviewActiveTab",
   portalTargetId = "projectOverviewTabSlot",
+  metric = "count",
 }) => {
-  // Transform service data for revenue ranking: swap value (volume) and totalCost (revenue)
-  const serviceDataByRevenue = React.useMemo(
-    () =>
-      serviceData.map((s) => ({
-        ...s,
-        volumeValue: s.value,
-        value: s.totalCost || 0,
-      })),
-    [serviceData]
+  const isAmount = metric === "amount";
+  // Re-point each dataset at the chosen measure. The charts below all plot
+  // `value` and derive share % from it, so this one mapping is what makes the
+  // whole page switch. (Replaces an unused serviceDataByRevenue that did the
+  // same swap for services only and was never rendered.)
+  const statusByMetric = React.useMemo(() => applyMetric(statusData, metric), [statusData, metric]);
+  const serviceByMetric = React.useMemo(() => applyMetric(serviceData, metric), [serviceData, metric]);
+  const categoryByMetric = React.useMemo(() => applyMetric(categoryData, metric), [categoryData, metric]);
+  const subcategoryByMetric = React.useMemo(
+    () => applyMetric(subcategoryData || [], metric),
+    [subcategoryData, metric]
   );
 
   const showStatus = settings?.showProjectsStatus ?? true;
@@ -105,7 +114,14 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
 
   // ── Section fragments (charts unchanged — only regrouped into tabs) ──────────
   const pipelineSection = showStatus ? (
-    <PipelinePerformance statusData={statusData} onSelect={onStatusSelect} context="projects" />
+    <PipelinePerformance
+      statusData={statusByMetric}
+      // Health stays scored on counts, so hand it the un-swapped data.
+      healthData={statusData}
+      metric={metric}
+      onSelect={onStatusSelect}
+      context="projects"
+    />
   ) : null;
 
   const breakdownTabs: BreakdownTab[] = [];
@@ -114,8 +130,10 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
       id: "services",
       label: "Services",
       cardTitle: "Service Mix",
-      cardSubtitle: "Distribution by project volume · revenue in tooltip",
-      data: serviceData,
+      cardSubtitle: isAmount
+        ? "Distribution by project value · count in tooltip"
+        : "Distribution by project volume · revenue in tooltip",
+      data: serviceByMetric,
       onSelect: onServiceSelect,
       emptyHint: "Add services to see the distribution.",
     });
@@ -125,8 +143,10 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
       id: "categories",
       label: "Categories",
       cardTitle: "Top Categories",
-      cardSubtitle: "Ranked by project count · value in tooltip",
-      data: categoryData,
+      cardSubtitle: isAmount
+        ? "Ranked by project value · count in tooltip"
+        : "Ranked by project count · value in tooltip",
+      data: categoryByMetric,
       onSelect: onCategorySelect,
       emptyHint: "Create project categories to view the ranking.",
     });
@@ -134,8 +154,10 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
       id: "subcategories",
       label: "Sub-Categories",
       cardTitle: "Top Sub Categories",
-      cardSubtitle: "Ranked by project count · value in tooltip",
-      data: subcategoryData || [],
+      cardSubtitle: isAmount
+        ? "Ranked by project value · count in tooltip"
+        : "Ranked by project count · value in tooltip",
+      data: subcategoryByMetric,
       onSelect: onSubcategorySelect,
       emptyHint: "Create sub categories to view the ranking.",
     });
@@ -145,7 +167,7 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div className="row g-3">
         <div className="col-12">
-          <ServiceCategoryTabs tabs={breakdownTabs} />
+          <ServiceCategoryTabs tabs={breakdownTabs} metric={metric} entityLabel="Projects" />
         </div>
       </div>
     </section>

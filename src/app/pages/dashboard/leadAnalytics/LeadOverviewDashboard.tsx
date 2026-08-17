@@ -9,6 +9,8 @@ import ServiceCategoryTabs, { BreakdownTab } from "./ServiceCategoryTabs";
 import AcquisitionGauge from "./AcquisitionGauge";
 import {
   ChartDatum,
+  ChartMetric,
+  applyMetric,
   computeExecutiveKpis,
   generateServiceInsights,
 } from "./leadAnalyticsUtils";
@@ -62,6 +64,11 @@ export interface LeadOverviewDashboardProps {
   slots?: LeadOverviewSlots;
   /** Persist the active tab per period view. */
   tabStorageKey?: string;
+  /**
+   * Plot lead COUNT or lead VALUE. Amount reads the `totalCost` every datum
+   * already carries, so switching needs no extra fetch.
+   */
+  metric?: ChartMetric;
 }
 
 const isEmpty = (d?: ChartDatum[]) =>
@@ -100,6 +107,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   onCancellationReasonSelect,
   slots,
   tabStorageKey = "leadOverviewActiveTab",
+  metric = "count",
 }) => {
   const kpis = useMemo(
     () => computeExecutiveKpis(statusData, serviceData),
@@ -119,15 +127,17 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
     [kpis]
   );
 
-  // Transform service data for revenue ranking: swap value (volume) and totalCost (revenue)
-  const serviceDataByRevenue = useMemo(
-    () =>
-      serviceData.map((s) => ({
-        ...s,
-        volumeValue: s.value, // Store original volume
-        value: s.totalCost || 0, // Use revenue as ranking value
-      })),
-    [serviceData]
+  const isAmount = metric === "amount";
+  // Re-point each dataset at the chosen measure. Every chart below plots `value`
+  // and derives share % from it, so this one mapping switches the whole page.
+  // (Replaces an unused serviceDataByRevenue that did the same swap for services
+  // only and was never rendered.)
+  const statusByMetric = useMemo(() => applyMetric(statusData, metric), [statusData, metric]);
+  const serviceByMetric = useMemo(() => applyMetric(serviceData, metric), [serviceData, metric]);
+  const categoryByMetric = useMemo(() => applyMetric(categoryData, metric), [categoryData, metric]);
+  const subcategoryByMetric = useMemo(
+    () => applyMetric(subcategoryData || [], metric),
+    [subcategoryData, metric]
   );
 
   const showStatus = settings?.showLeadsStatusChart;
@@ -163,7 +173,13 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   ) : null;
 
   const pipelineSection = showStatus ? (
-    <PipelinePerformance statusData={statusData} onSelect={onStatusSelect} />
+    <PipelinePerformance
+      statusData={statusByMetric}
+      // Health stays scored on counts — a few high-value leads shouldn't swing it.
+      healthData={statusData}
+      metric={metric}
+      onSelect={onStatusSelect}
+    />
   ) : null;
 
   // Service / Category / Sub-Category folded into ONE ranked-bar card with a tab
@@ -175,8 +191,10 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
       id: "services",
       label: "Services",
       cardTitle: "Service Mix",
-      cardSubtitle: "Distribution by lead volume · revenue in tooltip",
-      data: serviceData,
+      cardSubtitle: isAmount
+        ? "Distribution by lead value · count in tooltip"
+        : "Distribution by lead volume · revenue in tooltip",
+      data: serviceByMetric,
       onSelect: onServiceSelect,
       emptyHint: "Add services to see the distribution.",
     });
@@ -186,8 +204,10 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
       id: "categories",
       label: "Categories",
       cardTitle: "Top Categories",
-      cardSubtitle: "Ranked by lead volume · revenue in tooltip",
-      data: categoryData,
+      cardSubtitle: isAmount
+        ? "Ranked by lead value · count in tooltip"
+        : "Ranked by lead volume · revenue in tooltip",
+      data: categoryByMetric,
       onSelect: onCategorySelect,
       emptyHint: "Create project categories to view the ranking.",
     });
@@ -195,8 +215,10 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
       id: "subcategories",
       label: "Sub-Categories",
       cardTitle: "Top Sub Categories",
-      cardSubtitle: "Ranked by lead volume · revenue in tooltip",
-      data: subcategoryData || [],
+      cardSubtitle: isAmount
+        ? "Ranked by lead value · count in tooltip"
+        : "Ranked by lead volume · revenue in tooltip",
+      data: subcategoryByMetric,
       onSelect: onSubcategorySelect,
       emptyHint: "Create sub categories to view the ranking.",
     });
@@ -206,7 +228,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div className="row g-3">
         <div className="col-12">
-          <ServiceCategoryTabs tabs={breakdownTabs} />
+          <ServiceCategoryTabs tabs={breakdownTabs} metric={metric} entityLabel="Leads" />
         </div>
       </div>
       {showCancellation && (
