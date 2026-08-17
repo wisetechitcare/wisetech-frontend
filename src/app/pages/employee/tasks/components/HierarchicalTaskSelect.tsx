@@ -1,4 +1,5 @@
 import React, { useContext, useMemo, useState } from 'react';
+import { Tooltip } from '@mui/material';
 import Select, { components, MenuProps, OptionProps, SingleValueProps } from 'react-select';
 import { useField } from 'formik';
 import HighlightErrors from '@app/modules/errors/components/HighlightErrors';
@@ -145,13 +146,13 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                         transition: 'background .15s ease',
                     }}
                 >
+                    <Tooltip title="Back" arrow>
                     <button
                         type="button"
                         // Stop both, or going back would also select the node being left.
                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
                         onClick={(e) => { e.stopPropagation(); drill.goUp(); }}
                         aria-label="Back to the previous level"
-                        title="Back"
                         style={{
                             border: `1px solid ${BORDER}`,
                             background: '#fff',
@@ -170,6 +171,7 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                     >
                         <i className="bi bi-arrow-left" style={{ fontSize: 11 }} />
                     </button>
+                    </Tooltip>
 
                     <span
                         style={{

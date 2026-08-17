@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from "react";
+import { Tooltip } from "@mui/material";
 import { PresetTreeNode, buildPresetTree } from "@utils/presetTaskHierarchy";
 
 /**
@@ -86,9 +87,9 @@ const hexToRgba = (hex: string, a: number): string => {
 const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (e: React.MouseEvent) => void }> = ({ icon, title, color, onClick }) => {
   const [hov, setHov] = useState(false);
   return (
+    <Tooltip title={title} arrow>
     <button
       type="button"
-      title={title}
       aria-label={title}
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
       onMouseEnter={() => setHov(true)}
@@ -111,6 +112,7 @@ const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (
     >
       <i className={`bi ${icon}`} style={{ fontSize: 13, lineHeight: 1 }} />
     </button>
+    </Tooltip>
   );
 };
 
@@ -192,9 +194,11 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
             style={{ width: "100%", height: 36, border: "1px solid #dde2e8", borderRadius: 8, padding: "0 30px 0 32px", fontSize: 13, outline: "none", color: "#1f2733", boxSizing: "border-box" }}
           />
           {query && (
-            <button type="button" onClick={() => setQuery("")} title="Clear" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aab2bd" }}>
-              <i className="bi bi-x-lg" style={{ fontSize: 11 }} />
-            </button>
+            <Tooltip title="Clear" arrow>
+              <button type="button" onClick={() => setQuery("")} aria-label="Clear search" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aab2bd" }}>
+                <i className="bi bi-x-lg" style={{ fontSize: 11 }} />
+              </button>
+            </Tooltip>
           )}
         </div>
         <button type="button" onClick={expandAll} disabled={allExpanded || !!q} style={{ ...toolBtn(false), opacity: allExpanded || !!q ? 0.55 : 1, cursor: allExpanded || !!q ? "not-allowed" : "pointer" }}>
