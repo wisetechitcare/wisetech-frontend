@@ -1,28 +1,35 @@
 import React, { useMemo, useState, useCallback } from "react";
+import { Tooltip } from "@mui/material";
+import { PresetTreeNode, buildPresetTree } from "@utils/presetTaskHierarchy";
 
 /**
  * PresetTaskTree
  * ------------------------------------------------------------------
- * The Company Type → Service explorer, applied to preset tasks:
- *   Preset Task → Sub-task   (2 levels)
+ * The Company Type → Service explorer, applied to preset tasks — now recursive to
+ * ANY depth:
  *
- * Under the hood both levels are the SAME table (`preset_tasks`), told apart by
- * `parentId`:
- *   - Preset Task  → a row with parentId = null   (a "main" task)
- *   - Sub-task     → a row with parentId set      [created via onAddSubTask]
+ *   Drawing
+ *   └── Mechanical Drawing
+ *       └── Building
+ *           └── Room
+ *               └── Bedroom …
  *
- * Robustness (never-vanish): nothing is ever filtered out.
- *  - A "grandchild" task, or one whose parent is missing/inactive, is PROMOTED to a
- *    top-level row rather than disappearing from the list.
+ * Every level is the SAME table (`preset_tasks`) and the same kind of row; `parentId`
+ * alone decides where a node sits. There is no "main" vs "sub" task — which is why
+ * every row carries the same TASK label and the same [Add child] [Edit] [Delete]
+ * actions, at every depth.
+ *
+ * Robustness (never-vanish): nothing is ever filtered out. A node whose parent is
+ * missing or inactive is PROMOTED to a top-level row rather than disappearing.
  */
 
 const ACCENT = "#1E3A8A";
 
 // Row-action palette — each action a distinct hue.
 const ACTION = {
-  subTask: "#1f7a4d", // green — add Sub-task
-  edit: "#2f6fb3",    // blue — edit
-  remove: "#c0392b",  // red — delete
+  addChild: "#1f7a4d", // green — add a child task
+  edit: "#2f6fb3",     // blue — edit
+  remove: "#c0392b",   // red — delete
 };
 
 // Preset tasks carry no colour column, so each main task gets a stable hue derived
@@ -45,26 +52,18 @@ export interface PresetTaskRow {
 // object that was passed in (a ProjectItem here), not a narrowed copy.
 interface Props<T extends PresetTaskRow> {
   presetTasks: T[];
-  // "Add Sub-task" — creates a preset task row under the given main task.
-  onAddSubTask: (parentId: string) => void;
+  // "Add child" — creates a preset task row under the given node, at any depth.
+  onAddChild: (parentId: string) => void;
   onEditTask: (task: T) => void;
   onDeleteTask: (id: string) => void;
 }
 
-type Kind = "task" | "subtask";
-interface TNode<T extends PresetTaskRow> {
+/** A tree row: the shared node shape plus the display-only bits this view needs. */
+interface TNode<T extends PresetTaskRow> extends PresetTreeNode<T> {
   key: string;
-  kind: Kind;
-  id: string;
-  name: string;
   color?: string | null;
-  entity: T;
   children: TNode<T>[];
-  isMainTask?: boolean;
 }
-
-const byName = (a: { name?: string }, b: { name?: string }) =>
-  (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" });
 
 // hex (#rrggbb) → rgba string, so we can derive soft tints from a single accent color.
 const hexToRgba = (hex: string, a: number): string => {
@@ -88,9 +87,9 @@ const hexToRgba = (hex: string, a: number): string => {
 const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (e: React.MouseEvent) => void }> = ({ icon, title, color, onClick }) => {
   const [hov, setHov] = useState(false);
   return (
+    <Tooltip title={title} arrow>
     <button
       type="button"
-      title={title}
       aria-label={title}
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
       onMouseEnter={() => setHov(true)}
@@ -113,52 +112,33 @@ const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (
     >
       <i className={`bi ${icon}`} style={{ fontSize: 13, lineHeight: 1 }} />
     </button>
+    </Tooltip>
   );
 };
 
-function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddSubTask, onEditTask, onDeleteTask }: Props<T>) {
+function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEditTask, onDeleteTask }: Props<T>) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [hovered, setHovered] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
 
-  // ── Build the tree (with orphan promotion) ────────────────────────────────
+  // ── Build the tree (recursive, with orphan promotion) ─────────────────────
+  // The nesting itself lives in the shared helper so the Configure page, the parent
+  // picker and the task form all read the hierarchy the same way.
   const tree = useMemo<TNode<T>[]>(() => {
-    const taskById = new Map(presetTasks.map((t) => [t.id, t]));
-
-    // A genuine sub-task: its parent exists and is itself a main task. Anything else
-    // (no parent, missing parent, or a grandchild) is promoted to a top-level row.
-    const isSubTask = (t: T) => {
-      if (!t.parentId) return false;
-      const p = taskById.get(t.parentId);
-      return !!p && !p.parentId;
+    // A root keeps its own hue; descendants inherit their root's, so one branch reads
+    // as one colour all the way down however deep it goes.
+    const decorate = (node: PresetTreeNode<T>, inherited?: string): TNode<T> => {
+      const color = inherited || node.entity.color || colorForId(node.id);
+      return {
+        ...node,
+        key: `pt-${node.id}`,
+        color,
+        children: node.children.map((child) => decorate(child, color)),
+      };
     };
 
-    const subTasksByParent = new Map<string, T[]>();
-    presetTasks.forEach((t) => {
-      if (isSubTask(t)) {
-        const arr = subTasksByParent.get(t.parentId!) || [];
-        arr.push(t);
-        subTasksByParent.set(t.parentId!, arr);
-      }
-    });
-
-    const mainTasks = presetTasks.filter((t) => !isSubTask(t)).slice().sort(byName);
-
-    const node = (t: T, main: boolean): TNode<T> => ({
-      key: `pt-${t.id}`,
-      kind: main ? "task" : "subtask",
-      id: t.id,
-      name: t.name,
-      color: t.color || colorForId(t.id),
-      entity: t,
-      isMainTask: main,
-      children: main
-        ? (subTasksByParent.get(t.id) || []).slice().sort(byName).map((c) => node(c, false))
-        : [],
-    });
-
-    return mainTasks.map((t) => node(t, true));
+    return buildPresetTree(presetTasks).map((root) => decorate(root));
   }, [presetTasks]);
 
   const matches = useCallback((n: TNode<T>): boolean => n.name.toLowerCase().includes(q) || n.children.some(matches), [q]);
@@ -191,8 +171,9 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddSubTask, on
   const allExpanded = expandableKeys.size > 0 && Array.from(expandableKeys).every((k) => expanded.has(k));
   const allCollapsed = expanded.size === 0;
 
-  // Labels: top row = "task", child row = "sub-task".
-  const kindLabel = (n: TNode<T>) => (n.isMainTask ? "task" : "sub-task");
+  // Every level is the same entity, so every row carries the same label — the
+  // indentation is what communicates depth.
+  const KIND_LABEL = "task";
 
   const toolBtn = (active: boolean): React.CSSProperties => ({
     display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
@@ -209,13 +190,15 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddSubTask, on
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search tasks & sub-tasks…"
+            placeholder="Search tasks at any level…"
             style={{ width: "100%", height: 36, border: "1px solid #dde2e8", borderRadius: 8, padding: "0 30px 0 32px", fontSize: 13, outline: "none", color: "#1f2733", boxSizing: "border-box" }}
           />
           {query && (
-            <button type="button" onClick={() => setQuery("")} title="Clear" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aab2bd" }}>
-              <i className="bi bi-x-lg" style={{ fontSize: 11 }} />
-            </button>
+            <Tooltip title="Clear" arrow>
+              <button type="button" onClick={() => setQuery("")} aria-label="Clear search" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aab2bd" }}>
+                <i className="bi bi-x-lg" style={{ fontSize: 11 }} />
+              </button>
+            </Tooltip>
           )}
         </div>
         <button type="button" onClick={expandAll} disabled={allExpanded || !!q} style={{ ...toolBtn(false), opacity: allExpanded || !!q ? 0.55 : 1, cursor: allExpanded || !!q ? "not-allowed" : "pointer" }}>
@@ -231,13 +214,16 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddSubTask, on
         {flat.length === 0 ? (
           <div style={{ textAlign: "center", padding: "28px 16px", color: "#aab2bd", fontSize: 13 }}>
             {query
-              ? `No tasks or sub-tasks match “${query}”.`
+              ? `No tasks match “${query}”.`
               : "No preset tasks configured yet."}
           </div>
         ) : (
           flat.map(({ node, depth, open, hasChildren }) => {
             const color = node.color || "#9aa0ad";
             const isTop = depth === 0;
+            // Indentation is capped so a deep branch can't push rows off-screen; the
+            // chevrons and the connector still make the nesting readable past that.
+            const indent = Math.min(depth, 8) * 24;
             const isHovered = hovered === node.key;
 
             // Soft backgrounds and borders based on the row colour, for brand harmony.
@@ -256,7 +242,7 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddSubTask, on
                   justifyContent: "space-between",
                   gap: 8,
                   padding: isTop ? "10px 14px" : "8px 12px",
-                  marginLeft: depth * 24,
+                  marginLeft: indent,
                   borderRadius: isTop ? 8 : 6,
                   transition: "all 0.15s ease",
                   marginBottom: isTop ? 6 : 4,
@@ -281,14 +267,14 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddSubTask, on
                   <span style={{
                     fontSize: 9,
                     fontWeight: 600,
-                    color: node.isMainTask ? ACCENT : "#656f7d",
-                    background: node.isMainTask ? hexToRgba(ACCENT, 0.08) : "#f1f3f5",
+                    color: isTop ? ACCENT : "#656f7d",
+                    background: isTop ? hexToRgba(ACCENT, 0.08) : "#f1f3f5",
                     padding: "2px 6px",
                     borderRadius: 4,
                     textTransform: "uppercase",
                     letterSpacing: ".5px",
                     flexShrink: 0
-                  }}>{kindLabel(node)}</span>
+                  }}>{KIND_LABEL}</span>
                   {hasChildren && (
                     <span style={{
                       fontSize: 10,
@@ -307,14 +293,11 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddSubTask, on
                   )}
                 </div>
 
-                {/* Row actions */}
+                {/* Row actions — every node can take children, at any depth. */}
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  {/* Main task → add a Sub-task under it. */}
-                  {node.isMainTask && (
-                    <IconBtn icon="bi-diagram-3" title="Add sub-task" color={ACTION.subTask} onClick={() => onAddSubTask(node.id)} />
-                  )}
-                  <IconBtn icon="bi-pencil" title={node.isMainTask ? "Edit task" : "Edit sub-task"} color={ACTION.edit} onClick={() => onEditTask(node.entity)} />
-                  <IconBtn icon="bi-trash" title={node.isMainTask ? "Delete task" : "Delete sub-task"} color={ACTION.remove} onClick={() => onDeleteTask(node.id)} />
+                  <IconBtn icon="bi-diagram-3" title={`Add a task under "${node.name}"`} color={ACTION.addChild} onClick={() => onAddChild(node.id)} />
+                  <IconBtn icon="bi-pencil" title="Edit task" color={ACTION.edit} onClick={() => onEditTask(node.entity)} />
+                  <IconBtn icon="bi-trash" title="Delete task" color={ACTION.remove} onClick={() => onDeleteTask(node.id)} />
                 </div>
               </div>
             );

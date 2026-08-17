@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import dayjs from "dayjs";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { KTIcon } from "@metronic/helpers";
 import { fetchEmployeesPage, fetchEmployeeFacets } from "@services/employee";
 import { useServerPagination } from "@hooks/useServerPagination";
@@ -94,6 +94,7 @@ const EmployeeListContent = () => {
   const [idCardTarget, setIdCardTarget] = useState<{ id: string; name: string } | null>(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   /**
    * Opens the employee the row belongs to.
@@ -138,8 +139,10 @@ const EmployeeListContent = () => {
 
 
   const handleEditClick = useCallback((employeeId: string) => {
-    navigate(`/employees/edit/${employeeId}`, { state: { employeeId } });
-  }, [navigate]);
+    navigate(`/employees/edit/${employeeId}`, {
+      state: { employeeId, returnTo: `${location.pathname}${location.search}` },
+    });
+  }, [navigate, location]);
 
   const handleWhatsAppShare = useCallback((employee: any) => {
     const message = `Employee Details:
