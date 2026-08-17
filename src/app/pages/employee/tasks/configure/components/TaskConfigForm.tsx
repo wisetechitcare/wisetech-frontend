@@ -2,8 +2,6 @@
 import { Modal, Button, Form } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
-import Select from "react-select";
-
 import {
   createTasksStatus,
   updateTasksStatus,
@@ -14,7 +12,8 @@ import {
   getAllPersetTasks
 } from "@services/tasks"
 import { successConfirmation } from "@utils/modal";
-import { sortOptionsAlphabetically } from "@utils/sortUtils";
+import HierarchicalTaskSelect, { buildTaskOptions } from "@app/pages/employee/tasks/components/HierarchicalTaskSelect";
+import { PATH_SEPARATOR, getPresetPath, getPresetSubtreeIds } from "@utils/presetTaskHierarchy";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import { ConfigItem, ProjectCategory } from "@models/clientProject";
@@ -29,7 +28,7 @@ interface ConfigFormProps {
   title: string;
   // presetTask callers that already hold the list (e.g. TasksConfigure, which loads it
   // for the tree) should pass it here — avoids an internal re-fetch racing the modal's
-  // first open, which would briefly show the Main Task picker as empty.
+  // first open, which would briefly show the Parent Task picker as empty.
   presetTasks?: ConfigItem[];
 }
 
@@ -68,7 +67,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
-  // presetTask → the list of possible main tasks to file this one under.
+  // presetTask → every node this one could be filed under.
   const [fetchedPresetTasks, setFetchedPresetTasks] = useState<ConfigItem[]>([]);
   const presetTasks = presetTasksProp || fetchedPresetTasks;
 
@@ -80,19 +79,18 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
     }
   }, [show, type, presetTasksProp]);
 
-  // Main-task options: top-level tasks only (no parent themselves) and never the task
-  // being edited, keeping the hierarchy a single level deep.
-  const parentTaskOptions = sortOptionsAlphabetically(
-    presetTasks
-      .filter((t) => !t.parentId && t.id !== initialData?.id)
-      .map((t) => ({ value: t.id as string, label: t.name }))
-  );
+  // Any node may be the parent, at any depth — EXCEPT the node being edited and
+  // everything beneath it, which would detach that subtree from every root. The server
+  // rejects those moves too; excluding them here keeps the invalid choice off-screen.
+  const parentTaskOptions = React.useMemo(() => {
+    // ConfigItem types `id` as optional; a saved row always has one.
+    const nodes = presetTasks.filter((t) => !!t.id) as { id: string; name: string; parentId?: string | null }[];
+    return buildTaskOptions(nodes, getPresetSubtreeIds(nodes, initialData?.id));
+  }, [presetTasks, initialData?.id]);
 
-  // A task that already has sub-tasks can't be given a parent — that would create a
-  // 3-deep chain and its children would have to be promoted back out of it.
-  const editingTaskHasChildren =
-    type === "presetTask" && !!initialData?.id &&
-    presetTasks.some((t) => t.parentId === initialData.id);
+  /** The chosen parent's own hierarchy, so it is obvious where this task will sit. */
+  const parentPathFor = (parentId?: string) =>
+    parentId ? getPresetPath(presetTasks as { id: string; name: string; parentId?: string | null }[], parentId) : [];
 
   // const needsCategory = type === 'subcategory';
 
@@ -123,7 +121,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
     color: initialData?.color || "#1E3A8A",
     isActive: initialData?.isActive ?? true,
     categoryId: initialData?.categoryId || "",
-    // Preset from the tree's "Add sub-task" action, or the row's current parent when editing.
+    // Preset from the tree's "Add child" action, or the row's current parent when editing.
     parentId: initialData?.parentId || "",
   };
 
@@ -174,7 +172,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
       if (type !== 'presetTask') {
         payload.color = values.color;
       } else {
-        // Only preset tasks carry a parent; null = a main task.
+        // Only preset tasks carry a parent; null = a top-level task.
         payload.parentId = values.parentId || null;
       }
 
@@ -183,7 +181,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
         successConfirmation(`${effectiveTitle} updated successfully`);
       } else {
         await (apiFunction as (payload: any) => Promise<any>)(payload);
-        successConfirmation(`${values.parentId ? 'Sub-task' : effectiveTitle} created successfully`);
+        successConfirmation(`${effectiveTitle} created successfully`);
       }
 
       const eventKey = getEventKey(type);
@@ -193,32 +191,39 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
       onClose();
     } catch (err: any) {
       const action = isEditing ? "update" : "create";
-      setError(err.response?.data?.message || `Failed to ${action} ${effectiveTitle.toLowerCase()}`);
+      // `detail` carries the specific reason (e.g. a rejected circular move); `message`
+      // is only the generic status text.
+      setError(
+        err.response?.data?.detail
+        || err.response?.data?.message
+        || `Failed to ${action} ${effectiveTitle.toLowerCase()}`
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getFieldLabel = (type: string, hasParent = false) => {
+  const getFieldLabel = (type: string) => {
     switch (type) {
       case 'taskStatus': return 'Task Status Name';
       case 'taskPriority': return 'Task Priority Name';
-      case 'presetTask': return hasParent ? 'Sub-task Name' : 'Preset Task Name';
+      // The name is always the node's OWN name — never its path.
+      case 'presetTask': return 'Task Name';
       default: return 'Name';
     }
   };
 
-  const getFieldPlaceholder = (type: string, hasParent = false) => {
+  const getFieldPlaceholder = (type: string) => {
     switch (type) {
       case 'taskStatus': return 'Enter task status name';
       case 'taskPriority': return 'Enter task priority name';
-      case 'presetTask': return hasParent ? 'Enter sub-task name' : 'Enter preset task name';
+      case 'presetTask': return 'Enter task name';
       default: return 'Enter name';
     }
   };
 
-  // A preset task filed under another reads as a "Sub-task" everywhere in this modal.
-  const effectiveTitle = type === 'presetTask' && initialData?.parentId ? 'Sub-task' : title;
+  // Every level is the same entity, so the modal reads "Preset Task" at any depth.
+  const effectiveTitle = title;
 
   if (!show) return null;
 
@@ -251,7 +256,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                       marginBottom: '8px'
                     }}
                   >
-                    {getFieldLabel(type, !!values.parentId)}
+                    {getFieldLabel(type)}
                     <span
                       style={{
                         color: '#dc3545',
@@ -265,7 +270,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                   <Field
                     name="name"
                     type="text"
-                    placeholder={getFieldPlaceholder(type, !!values.parentId)}
+                    placeholder={getFieldPlaceholder(type)}
                     className="form-control"
                     style={{
                       backgroundColor: '#f8f9fa',
@@ -281,37 +286,40 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                   <ErrorMessage name="name" component="div" className="text-danger mt-1" />
                 </div>
 
-                {/* Main Task — files this preset task under another one, so the tree
-                    shows it as a sub-task and the task form can cascade to it. */}
+                {/* Parent Task — one searchable picker over the whole tree. Choosing a
+                    parent is what places this node in the hierarchy; leaving it empty
+                    makes it a root. A node can be moved to any branch except its own. */}
                 {type === 'presetTask' && (
                   <div className="mb-4">
-                    <label
-                      className="form-label"
-                      style={{ fontWeight: '500', color: '#1a1a1a', fontSize: '14px', marginBottom: '8px' }}
-                    >
-                      Main Task <span style={{ color: '#6c757d', fontWeight: 400 }}>(optional)</span>
-                    </label>
-                    <Select
-                      isClearable
-                      isDisabled={editingTaskHasChildren}
-                      placeholder="None — main task"
-                      classNamePrefix="react-select"
-                      options={parentTaskOptions}
-                      value={
-                        values.parentId
-                          ? parentTaskOptions.find((o: any) => o.value === values.parentId) || null
-                          : null
+                    <HierarchicalTaskSelect
+                      formikField="parentId"
+                      inputLabel={
+                        <>
+                          Parent Task <span style={{ color: '#6c757d', fontWeight: 400, marginLeft: 4 }}>(optional)</span>
+                        </>
                       }
-                      onChange={(opt: any) => setFieldValue("parentId", opt?.value || "")}
-                      menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                      menuPosition="fixed"
-                      styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                      options={parentTaskOptions}
+                      placeholder="None — top-level task"
+                      helpText={
+                        <div className="text-muted mt-1" style={{ fontSize: '12px' }}>
+                          {values.parentId ? (
+                            <>
+                              <span style={{ fontWeight: 500 }}>Parent:</span>{' '}
+                              {parentPathFor(values.parentId).join(PATH_SEPARATOR)}
+                              {values.name ? (
+                                <>
+                                  <br />
+                                  <span style={{ fontWeight: 500 }}>{isEditing ? 'Full hierarchy:' : 'Will be created as:'}</span>{' '}
+                                  {[...parentPathFor(values.parentId), values.name].join(PATH_SEPARATOR)}
+                                </>
+                              ) : null}
+                            </>
+                          ) : (
+                            'Leave empty for a top-level task. Pick any task to file this one under it.'
+                          )}
+                        </div>
+                      }
                     />
-                    <div className="text-muted mt-1" style={{ fontSize: '12px' }}>
-                      {editingTaskHasChildren
-                        ? "This task already has sub-tasks, so it can't be moved under another task (keeps the hierarchy one level deep)."
-                        : "Leave empty for a main task. Pick one to file this as a sub-task under it."}
-                    </div>
                   </div>
                 )}
 

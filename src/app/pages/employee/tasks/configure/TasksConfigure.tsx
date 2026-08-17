@@ -31,13 +31,14 @@ import {
 import { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { deleteConfirmation, successConfirmation } from "@utils/modal";
+import { deleteConfirmation, errorConfirmation, successConfirmation } from "@utils/modal";
 import ProjectConfigForm from "./components/TaskConfigForm";
 import PresetTaskTree from "./components/PresetTaskTree";
 import { Container } from "react-bootstrap";
 import Loader from "@app/modules/common/utils/Loader";
 import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
+import { getPresetChildren, getPresetPath, PATH_SEPARATOR } from "@utils/presetTaskHierarchy";
 import { DropdownOption } from "./../../../../../types/deleteConfirmation";
 import {
   ConfigPageLayout,
@@ -105,29 +106,47 @@ const TasksConfigure = () => {
     setEditingService(null);
   };
 
-  // "Add sub-task" from a tree row → open the New Preset Task modal with the main task
-  // preselected (no id → create mode).
-  const handleAddSubTask = (parentId: string) => {
+  // "Add child" from any tree row → open the New Preset Task modal with that row
+  // preselected as the parent (no id → create mode). Works at any depth.
+  const handleAddChildTask = (parentId: string) => {
     setEditingService({ parentId } as ProjectItem);
     setShowServiceModal(true);
   };
 
-  // Deleting a main task soft-deletes its sub-tasks with it (handled server-side), so say so.
+  // A node with children cannot be deleted: cascading a soft-delete down a tree of
+  // unknown depth is not recoverable from this screen. The server enforces this too
+  // (409) — checking here as well just saves a round-trip and gives a clearer message.
   const handlePresetTaskDelete = async (id: string) => {
     const item = projectServices.find((t) => t.id === id);
-    const childCount = projectServices.filter((t) => t.parentId === id).length;
+    const children = getPresetChildren(projectServices as any, id);
+
+    if (children.length > 0) {
+      const names = children.slice(0, 3).map((c: any) => c.name).join(', ');
+      const more = children.length > 3 ? `, +${children.length - 3} more` : '';
+      await errorConfirmation(
+        `"${item?.name}" has ${children.length} child task${children.length > 1 ? 's' : ''} (${names}${more}). ` +
+        'Move or delete them first.'
+      );
+      return;
+    }
+
+    const path = getPresetPath(projectServices as any, id);
     const confirmed = await deleteConfirmation(
-      childCount > 0
-        ? `Delete "${item?.name}" and its ${childCount} sub-task${childCount > 1 ? 's' : ''}?`
+      path.length > 1
+        ? `Delete "${item?.name}" from ${path.slice(0, -1).join(PATH_SEPARATOR)}?`
         : `Are you sure you want to delete "${item?.name}"?`
     );
     if (!confirmed) return;
+
     try {
       await deletePresetTask(id);
       fetchProjectServices();
       successConfirmation("Preset Task deleted successfully");
-    } catch (err) {
-      alert('Failed to delete preset task.');
+    } catch (err: any) {
+      // The server refuses when children appeared meanwhile — show its reason verbatim.
+      await errorConfirmation(
+        err?.response?.data?.detail || err?.response?.data?.message || 'Failed to delete preset task.'
+      );
     }
   };
 
@@ -492,11 +511,11 @@ const TasksConfigure = () => {
             </div>
           </ConfigSectionCard>
 
-          {/* Preset Tasks — Task → Sub-task tree, the same explorer the Company
-              Configuration page uses for Company Type → Service. */}
+          {/* Preset Tasks — a recursive task tree. Every row is the same kind of node
+              and can take children, however deep the branch already runs. */}
           <ConfigSectionCard
             title={`Preset Tasks (${projectServices.length})`}
-            description="Task → Sub-task. Use the row actions to add a sub-task under a task."
+            description="A task tree of any depth. Use the row actions to add a task under any task."
             icon="bi-clipboard-check"
             iconColor="amber"
             badge={{ label: `${projectServices.length}`, color: C.amber, bg: C.amberLight }}
@@ -510,7 +529,7 @@ const TasksConfigure = () => {
             <div style={{ marginTop: SP.md }}>
               <PresetTaskTree
                 presetTasks={projectServices}
-                onAddSubTask={handleAddSubTask}
+                onAddChild={handleAddChildTask}
                 onEditTask={handleServiceEdit}
                 onDeleteTask={handlePresetTaskDelete}
               />
@@ -542,7 +561,7 @@ const TasksConfigure = () => {
         title="Priority"
       />
 
-      {/* Preset Task Modal — also creates sub-tasks (initialData carries only a
+      {/* Preset Task Modal — also creates child tasks (initialData carries only a
           parentId in that case, so there is no id and it stays in create mode). */}
       <ProjectConfigForm
         show={showServiceModal}
@@ -552,7 +571,7 @@ const TasksConfigure = () => {
         title="Preset Task"
         isEditing={!!editingService?.id}
         initialData={editingService}
-        // Already loaded for the tree — pass it down so the Main Task picker resolves
+        // Already loaded for the tree — pass it down so the Parent Task picker resolves
         // immediately instead of racing the modal's own fetch on first open.
         presetTasks={projectServices}
       />
