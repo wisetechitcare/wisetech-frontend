@@ -47,6 +47,12 @@ interface Props {
      * Vashi tab edits the group's rules believing they are editing Vashi's.
      */
     scope?: { companyId?: string; branchId?: string };
+    /**
+     * Which scope this is editing, in words — "Branch override — Org › Branch" or
+     * "GROUP — default for all branches". DailyShiftTimeModal on the same page already
+     * shows this; without it an admin edits pay rules with no indication of whose.
+     */
+    scopeLabel?: string;
 }
 
 const APPLIES_ON: Array<{ value: AppliesOn; label: string; hint: string }> = [
@@ -81,7 +87,7 @@ const blankRule = (): Partial<DeductionRule> => ({
     isEnabled: true,
 });
 
-export default function DeductionRules({ open, onClose, readOnly = false, scope }: Props) {
+export default function DeductionRules({ open, onClose, readOnly = false, scope, scopeLabel }: Props) {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [rules, setRules] = useState<DeductionRule[]>([]);
@@ -242,7 +248,9 @@ export default function DeductionRules({ open, onClose, readOnly = false, scope 
             header={
                 <GlassHeader
                     title="break deductions"
-                    subtitle="How much unpaid break time comes off a worked day, and when"
+                    subtitle={scopeLabel
+                        ? `${scopeLabel} — how much unpaid break time comes off a worked day`
+                        : 'How much unpaid break time comes off a worked day, and when'}
                     icon={<KTIcon iconName="time" className="fs-1" />}
                     onClose={onClose}
                 />

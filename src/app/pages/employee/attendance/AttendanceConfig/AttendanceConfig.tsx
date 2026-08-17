@@ -809,6 +809,12 @@ const AttendanceConfig: React.FC = () => {
         open={showDeductionRulesModal}
         onClose={() => setShowDeductionRulesModal(false)}
         scope={configScope}
+        scopeLabel={(() => {
+          const activeBranch = configScope.branchId ? branchOptions.find(b => b.id === configScope.branchId) : undefined;
+          return activeBranch
+            ? `Branch override — ${activeBranch.orgName ? `${activeBranch.orgName} › ${activeBranch.name}` : activeBranch.name}`
+            : `${rootOrgName} — default for all branches`;
+        })()}
       />
 
       {/* Sandwich Leave — self-contained GlassDialog */}
