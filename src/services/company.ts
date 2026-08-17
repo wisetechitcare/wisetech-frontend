@@ -771,3 +771,49 @@ export const fetchSalaryPaymentHistory = async (salaryId: string) => {
         return null;
     }
 }
+
+// ─── Off-Saturday schedule ────────────────────────────────────────────────────
+// The rows themselves are created/edited/deleted through the public-holiday calls
+// above. These two only report the quota and propose a year, so there stays exactly
+// one place that writes an individual off-day.
+
+export interface WeekendMonthAudit {
+    month: number;
+    label: string;
+    dates: string[];
+    count: number;
+    quota: number;
+    status: 'ok' | 'short' | 'over' | 'empty';
+}
+
+export interface WeekendAudit {
+    year: number;
+    quota: number;
+    months: WeekendMonthAudit[];
+    violations: WeekendMonthAudit[];
+    total: number;
+    expected: number;
+}
+
+export interface WeekendGenerateResult {
+    year: number;
+    created: string[];
+    untouched: WeekendMonthAudit[];
+    stillShort: WeekendMonthAudit[];
+    collisions: Array<{ date: string; holiday: string }>;
+    applied: boolean;
+}
+
+/** Per-month off-day count against the quota. Read-only. */
+export const fetchWeekendAudit = async (year: number | string, branchId?: string) => {
+    const endpoint = `${API_BASE_URL}/${COMPANY.WEEKEND_SCHEDULE_AUDIT}?year=${year}${branchId ? `&branchId=${branchId}` : ''}`;
+    const { data } = await axios.get(endpoint);
+    return data?.data?.audit as WeekendAudit;
+};
+
+/** Propose (apply = false) or write (apply = true) the missing off-days for a year. */
+export const generateWeekendSchedule = async (year: number | string, apply = false) => {
+    const endpoint = `${API_BASE_URL}/${COMPANY.WEEKEND_SCHEDULE_GENERATE}`;
+    const { data } = await axios.post(endpoint, { year: Number(year), apply });
+    return data?.data?.result as WeekendGenerateResult;
+};
