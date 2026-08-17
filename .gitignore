@@ -14,3 +14,7 @@ CLAUDE.md
 *.diff
 *_diff.txt
 *.labbai.*
+
+# Bundled task-domain tests (npm run test:tasks). Node ignores node_modules for
+# --test, so the bundle has to live outside it.
+.task-tests/

@@ -17,6 +17,7 @@
  * carried no information. The row shows the team instead.
  */
 import { useMemo, useState } from 'react';
+import clsx from 'clsx';
 import {
     Avatar, AvatarGroup, Box, Chip, CircularProgress, InputAdornment, Stack, TextField,
     Tooltip, Typography, alpha, useTheme,
@@ -56,6 +57,8 @@ export interface ProjectRailProps {
     selected: string;
     onSelect: (id: string) => void;
     isLoading?: boolean;
+    /** Layout classes from the workspace — the rail owns its inside, the page owns its box. */
+    className?: string;
 }
 
 /** Stacked faces of a project's internal team — the people who can actually be assigned. */
@@ -88,7 +91,7 @@ const TeamAvatars = ({ members, total }: { members: RailMember[]; total: number 
 };
 
 export const ProjectRail = ({
-    projects, generalTasks, selected, onSelect, isLoading,
+    projects, generalTasks, selected, onSelect, isLoading, className,
 }: ProjectRailProps) => {
     const theme = useTheme();
     const [search, setSearch] = useState('');
@@ -139,19 +142,20 @@ export const ProjectRail = ({
     const noMatches = !isLoading && !empty && filteredProjects.length === 0 && filteredGeneral.length === 0;
 
     return (
+        // Height and width come from the workspace: the rail is one column of a viewport-tall
+        // split, so it stretches to whatever that column is and scrolls its list inside itself.
+        // A `maxHeight: calc(100vh - 150px)` here used to guess the chrome above it and was wrong
+        // on every screen that wrapped its header.
         <Stack
+            className={clsx('h-full min-h-0 shrink-0 overflow-hidden', className)}
             sx={{
-                width: { xs: '100%', lg: 320 },
-                flexShrink: 0,
                 borderRadius: 2,
                 border: '1px solid',
                 borderColor: 'divider',
                 bgcolor: 'background.paper',
-                overflow: 'hidden',
-                maxHeight: { lg: 'calc(100vh - 150px)' },
             }}
         >
-            <Box sx={{ p: 1.5, pb: 1 }}>
+            <Box className="shrink-0" sx={{ p: 1.5, pb: 1 }}>
                 <Typography variant="subtitle1" component="div" sx={{ fontWeight: 700, color: 'text.primary' }}>
                     Projects
                 </Typography>
@@ -160,7 +164,7 @@ export const ProjectRail = ({
                 </Typography>
             </Box>
 
-            <Box sx={{ px: 1.5, pb: 1 }}>
+            <Box className="shrink-0" sx={{ px: 1.5, pb: 1 }}>
                 <TextField
                     fullWidth size="small" value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -178,7 +182,10 @@ export const ProjectRail = ({
                 />
             </Box>
 
-            <Stack spacing={0.25} sx={{ px: 1, pb: 1, overflowY: 'auto', flex: 1 }}>
+            {/* `minHeight: 0` is what actually makes this scroll: a flex child's default
+                `min-height: auto` refuses to shrink below its content, so the list would push
+                the rail past its column instead of scrolling inside it. */}
+            <Stack spacing={0.25} className="min-h-0 flex-1" sx={{ px: 1, pb: 1, overflowY: 'auto' }}>
                 {isLoading && <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={20} /></Stack>}
 
                 {empty && (
@@ -284,7 +291,7 @@ export const ProjectRail = ({
             </Stack>
 
             {!isLoading && !empty && (
-                <Box sx={{ px: 1.75, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Box className="shrink-0" sx={{ px: 1.75, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                         {filteredProjects.length} project{filteredProjects.length === 1 ? '' : 's'}
                         {generalTasks.length > 0 && ` · ${filteredGeneral.length} general task${filteredGeneral.length === 1 ? '' : 's'}`}

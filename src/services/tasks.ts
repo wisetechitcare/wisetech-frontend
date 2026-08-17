@@ -24,6 +24,20 @@ export const createTasksStatus = async (payload: any) => {
     }
 }
 
+/**
+ * Delete a board list. The API accepts this only for a PROJECT lane that holds no tasks — a
+ * company-wide stage and a lane with work in it are both refused, with the reason in the response.
+ */
+export const deleteTasksStatus = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${TASKS.UPDATE_TASK_STATUS}/${id}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 export const updateTasksStatus = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${TASKS.UPDATE_TASK_STATUS}/${id}`;
@@ -420,6 +434,20 @@ export const getTaskSubtasks = async (taskId: string) => {
 };
 
 /** Phase 4 — set the Kanban column order. Applied server-side in one transaction. */
+/**
+ * Persist a lane's card order. `taskIds` is the lane exactly as it should read, top to bottom —
+ * the API renumbers the whole lane from it, so a stale neighbour cannot land a card in the wrong
+ * gap. The card must already BE in that lane; a lane change goes through the stage endpoint first.
+ */
+export const reorderBoardTasks = async (statusId: string, taskIds: string[]) => {
+  try {
+    const { data } = await axios.put(url(TASKS.REORDER_BOARD_TASKS), { statusId, taskIds });
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 export const reorderTaskStatuses = async (order: { id: string; sortOrder: number }[]) => {
   try {
     const { data } = await axios.put(url(TASKS.REORDER_TASK_STATUSES), { order });

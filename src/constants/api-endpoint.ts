@@ -903,6 +903,8 @@ export const TASKS = {
     GET_BOARD_PROJECTS: "/api/task-and-time/task/board-projects",
     GET_TASK_SUBTASKS: "/api/task-and-time/task/:id/subtasks",
     REORDER_TASK_STATUSES: "/api/task-and-time/task-statuses/reorder",
+    /** Card order within ONE lane — the whole lane, top to bottom. */
+    REORDER_BOARD_TASKS: "/api/task-and-time/task/board/reorder",
 }
 
 export const ORGANIZATION_CONFIGURATION = {

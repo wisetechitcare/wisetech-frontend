@@ -219,16 +219,39 @@ export const AssigneeAvatar = ({
 export const TaskDueDate = ({
     task,
     now,
+    /**
+     * Draw it as a tinted pill instead of bare text. For dense surfaces (a Kanban card) where a
+     * red sentence floating among grey ones reads as an error message rather than a date.
+     */
+    pill = false,
 }: {
     task: { dueDate?: string | null; status?: TaskStatusRef | null };
     now: Date;
+    pill?: boolean;
 }) => {
     const theme = useTheme();
     const label = dueLabel(task.dueDate, now);
     if (!label) return null;
     const overdue = isTaskOverdue(task, now);
+    const color = overdue ? theme.palette.error.main : theme.palette.text.secondary;
     return (
-        <Stack direction="row" spacing={0.4} alignItems="center" sx={{ minWidth: 0 }}>
+        <Stack
+            direction="row"
+            spacing={0.4}
+            alignItems="center"
+            sx={{
+                minWidth: 0,
+                color,
+                ...(pill && {
+                    px: 0.75,
+                    py: 0.3,
+                    borderRadius: 1,
+                    bgcolor: overdue
+                        ? alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.2 : 0.1)
+                        : alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.1 : 0.05),
+                }),
+            }}
+        >
             <KTIcon
                 iconName={overdue ? 'information-5' : 'calendar'}
                 className="fs-8"
@@ -237,7 +260,7 @@ export const TaskDueDate = ({
             <Typography
                 variant="caption"
                 noWrap
-                sx={{ fontWeight: overdue ? 700 : 500, color: overdue ? theme.palette.error.main : 'text.secondary' }}
+                sx={{ fontWeight: overdue ? 700 : 500, color: 'inherit', fontSize: 11 }}
             >
                 {label}
             </Typography>

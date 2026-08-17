@@ -1,30 +1,32 @@
 /**
- * The Tasks workspace — two-pane, project-first, one screenful.
+ * The Tasks workspace — one board, one screenful, full bleed.
  *
- *     ┌── Projects ─────────┐ ┌── <project name>            [Active] ──────────────────┐
- *     │ All tasks           │ │ [Kanban|Table] [backdrop] [gear]        [+ New Task]   │
- *     │ Internal / General  │ ├───────────────────────────────────────────────────────┤
- *     │ ─────────────────── │ │  ▓▓ board backdrop — preset · colour · wallpaper ▓▓   │
- *     │ Raj Bhavan …        │ │  ┌ TODO (5) + ┐ ┌ ONGOING (3) + ┐ ┌ ON HOLD (1) + ┐    │
- *     │ Madarsa at Africa   │ │  │ card       │ │ card          │ │ card          │    │
- *     └─────────────────────┘ └───────────────────────────────────────────────────────┘
+ *     ┌── <project name>                      [backdrop] [gear]      [+ New task] ──┐
+ *     │  ▓▓ board backdrop — preset · colour · wallpaper ▓▓                         │
+ *     │  ┌ TODO (5) + ┐ ┌ ONGOING (3) + ┐ ┌ ON HOLD (1) + ┐ ┌ + Add another list ┐  │
+ *     │  │ card       │ │ card          │ │ card          │                        │
+ *     └────────────────────────────────────────────────────────────────────────────┘
+ *                        ╭ Board │ Table · ▣ Raj Bhavan at Vile Parle ╮
  *
- * ### Four things this layout is careful about
+ * ### Five things this layout is careful about
  *
- * **The project rail is `available-projects`, not "all projects".** It is the same resolver the
- * create form and the API use, so a project cannot appear here whose board would come back
- * empty-by-refusal.
+ * **The board is the whole screen.** The project rail that used to sit on the left cost a fifth of
+ * the width to answer a question people ask a few times a day and change even less often — and on
+ * a board, width IS the feature: every pixel it took was a lane you could not see. It is now a
+ * button in the bottom bar that opens the same list as a picker. Nothing was removed; it stopped
+ * being permanently on screen.
+ *
+ * **The project list stays `board-projects`, not "all projects".** The picker is the same resolver
+ * the rail used, so a project cannot appear there whose board would come back empty-by-refusal.
  *
  * **GENERAL tasks keep a home.** A project-first layout would otherwise strand them, since they
- * have no project by definition — hence the explicit "Internal / General" row.
+ * have no project by definition — hence the explicit general-task rows in the picker.
  *
- * **Both panes end where the window ends.** A board that stops half-way down and then makes the
+ * **The board ends where the window ends.** A board that stops half-way down and then makes the
  * whole page scroll gives up the one thing a board is for — seeing every lane at once. So the
  * workspace MEASURES where it starts (`useFillViewport`) and claims the rest of the viewport,
  * instead of guessing the chrome above it with a `calc(100vh - 300px)` that is wrong on the next
- * screen size. Everything inside then scrolls within itself: the rail's list, each board lane, the
- * table. Widths are viewport-relative for the same reason — an ultrawide gets wider lanes, not a
- * wider empty gutter.
+ * screen size. Everything inside then scrolls within itself: each lane, the table.
  *
  * **The backdrop belongs to the user.** The area behind the columns carries no information, so it
  * is the one part of the screen worth letting a team own (`boardBackground.ts`). Cards stay opaque
@@ -34,35 +36,52 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Box, Button, Chip, CircularProgress, IconButton, Stack, Tooltip, Typography, alpha, useTheme,
+    Badge, Box, Button, Chip, CircularProgress, IconButton, Stack, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { RequirePermission } from '@app/modules/common/components/RequirePermission';
 import { useFillViewport } from '@app/hooks/useFillViewport';
-import { TaskFilterState, filtersToQuery, apiErrorMessage } from './taskDomain';
+import { TaskFilterState, filtersToQuery, apiErrorMessage, activeFilterCount } from './taskDomain';
 import {
     useTaskBoard, useTaskList, useTaskStatuses, useTaskPriorities,
-    useAvailableProjects, useBoardProjects, useMoveTaskStage,
+    useAvailableProjects, useBoardProjects, useMoveTaskStage, useCreateBoardList, useDeleteBoardList,
+    useReorderBoardTasks,
 } from './useTaskQueries';
 import {
     boardBackgroundCss, boardInk, describeBackground, hasWallpaper, useBoardBackground,
 } from './boardBackground';
 import TaskBoard, { BoardColumn } from './components/TaskBoard';
 import TaskTable from './components/TaskTable';
-import TaskFilters from './components/TaskFilters';
+import TaskFilterDrawer from './components/TaskFilterDrawer';
 import TaskFormDialog from './components/TaskFormDialog';
 import BoardBackgroundDialog from './components/BoardBackgroundDialog';
+import BoardBottomNav, { WorkspacePanel } from './components/BoardBottomNav';
 import ProjectRail, { RailProject, RailGeneralTask, GENERAL_PREFIX } from './components/ProjectRail';
 import { TaskStateBlock } from './components/primitives';
 
 type ViewMode = 'kanban' | 'table';
 const VIEW_KEY = 'wt.tasks.view';
+/** Which panes are open. Remembered, because it is a way of working, not a one-off choice. */
+const PANELS_KEY = 'wt.tasks.panels';
+
+const readPanels = (): Record<WorkspacePanel, boolean> => {
+    try {
+        const raw = localStorage.getItem(PANELS_KEY);
+        if (!raw) return { projects: false, board: true };
+        const open = new Set(raw.split(','));
+        // The board is the default, and the fallback: a remembered state with nothing open would
+        // render an empty workspace.
+        return open.size ? { projects: open.has('projects'), board: open.has('board') } : { projects: false, board: true };
+    } catch {
+        return { projects: false, board: true };
+    }
+};
 
 /** Icon-only view switch — the two layouts are shapes, and a shape reads faster than a word. */
 const ViewToggle = ({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) => {
     const theme = useTheme();
     const options: Array<{ v: ViewMode; icon: string; label: string }> = [
-        { v: 'kanban', icon: 'element-11', label: 'Kanban board' },
+        { v: 'kanban', icon: 'element-11', label: 'Board' },
         { v: 'table', icon: 'burger-menu-1', label: 'Table' },
     ];
     return (
@@ -144,13 +163,23 @@ export const TasksWorkspace = () => {
     /** Set when "+" on a column is used, so the new task lands in that stage. */
     const [createInStage, setCreateInStage] = useState<string | undefined>();
     const [backdropOpen, setBackdropOpen] = useState(false);
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    /**
+     * Which panes are on screen. Not exclusive: Projects and the Task Board compose, and either
+     * can be the only thing showing. The board is what you get on a fresh browser.
+     */
+    const [panels, setPanels] = useState<Record<WorkspacePanel, boolean>>(readPanels);
 
     /**
      * The workspace takes whatever is left of the window below it — measured, not assumed. The
      * property it publishes is consumed as `h-[var(--wt-fill-h)]` on the same element, and is set
      * to `auto` on narrow screens where the panes stack and the page should scroll normally.
      */
-    const fillRef = useFillViewport<HTMLDivElement>({ bottomGap: 8 });
+    // `bottomGap` reserves the floating bottom bar's own height, so the pill sits in clear space
+    // instead of over the last row of cards. 1024px is Tailwind's `lg` — the same breakpoint the
+    // layout stacks at below, and the two must agree or a viewport-tall shell would wrap content
+    // that has gone vertical.
+    const fillRef = useFillViewport<HTMLDivElement>({ bottomGap: 76, minViewportWidth: 1024 });
 
     const { background, setBackground, resetBackground } = useBoardBackground();
     const ink = boardInk(background);
@@ -204,6 +233,9 @@ export const TasksWorkspace = () => {
     const statusesQuery = useTaskStatuses();
     const prioritiesQuery = useTaskPriorities();
     const moveStage = useMoveTaskStage();
+    const createList = useCreateBoardList();
+    const deleteList = useDeleteBoardList();
+    const reorderTasks = useReorderBoardTasks();
 
     const columns: BoardColumn[] = boardQuery.data?.columns ?? [];
     const boardTotal = boardQuery.data?.total ?? 0;
@@ -217,6 +249,19 @@ export const TasksWorkspace = () => {
     };
     const updateFilters = (next: TaskFilterState) => { setFilters(next); setPage(0); };
     const selectScope = (id: string) => { setScopeSel(id); setPage(0); };
+
+    const togglePanel = (panel: WorkspacePanel) => {
+        setPanels((current) => {
+            const next = { ...current, [panel]: !current[panel] };
+            // Never close the last one — an empty workspace is not a state to be in.
+            if (!next.projects && !next.board) return current;
+            localStorage.setItem(
+                PANELS_KEY,
+                (Object.keys(next) as WorkspacePanel[]).filter((k) => next[k]).join(','),
+            );
+            return next;
+        });
+    };
 
     const activeQuery = view === 'kanban' ? boardQuery : listQuery;
 
@@ -235,20 +280,50 @@ export const TasksWorkspace = () => {
             className="flex h-[var(--wt-fill-h)] w-full flex-col overflow-hidden"
             sx={{ p: { xs: 1.5, md: 2.5 } }}
         >
-            <Box className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
-                {/* Fluid rail: a share of the screen between a readable floor and a sane ceiling,
-                    so it neither squeezes on a laptop nor sprawls on an ultrawide. Capped on
-                    phones, where it sits ABOVE the board and must not push it off-screen. */}
-                <ProjectRail
-                    projects={projects}
-                    generalTasks={generalTasks}
-                    selected={scopeSel}
-                    onSelect={selectScope}
-                    isLoading={railQuery.isLoading}
-                    className="max-h-[45vh] w-full lg:max-h-none lg:w-[clamp(17rem,20vw,24rem)]"
-                />
+            {/* No `gap` on this row: the projects pane collapses to zero width, and a gap would
+                leave a visible seam where a closed pane used to be. The open pane carries its own
+                margin instead. */}
+            <Box className="flex min-h-0 flex-1 flex-col lg:flex-row">
+                {/* ── projects pane ───────────────────────────────────────────────────
+                    Slides rather than pops: the rail is part of the layout, so opening it
+                    animates its width (its height, when the layout has gone vertical) and the
+                    board gives way beside it. A dialog was the wrong shape — it hides the board
+                    you are switching away from, and it has to be re-opened for the second switch.
+                    With the board closed this pane simply takes the whole workspace. */}
+                <Box
+                    aria-hidden={!panels.projects}
+                    className="shrink-0 overflow-hidden"
+                    sx={{
+                        // `visibility` is what takes a collapsed pane out of the tab order — width
+                        // zero still leaves its buttons focusable, so a keyboard user would tab
+                        // into a rail they cannot see. Its change is delayed until the slide
+                        // finishes on the way out, and immediate on the way in.
+                        transition: panels.projects
+                            ? 'width .28s ease, max-height .28s ease, opacity .2s ease, margin .28s ease'
+                            : 'width .28s ease, max-height .28s ease, opacity .2s ease, margin .28s ease, visibility 0s linear .28s',
+                        visibility: panels.projects ? 'visible' : 'hidden',
+                        opacity: panels.projects ? 1 : 0,
+                        width: {
+                            xs: '100%',
+                            lg: panels.projects ? (panels.board ? 'clamp(17rem, 20vw, 24rem)' : '100%') : 0,
+                        },
+                        maxHeight: { xs: panels.projects ? '45vh' : 0, lg: 'none' },
+                        mb: { xs: panels.projects ? 1.5 : 0, lg: 0 },
+                        mr: { lg: panels.projects && panels.board ? 2 : 0 },
+                    }}
+                >
+                    <ProjectRail
+                        projects={projects}
+                        generalTasks={generalTasks}
+                        selected={scopeSel}
+                        onSelect={selectScope}
+                        isLoading={railQuery.isLoading}
+                        className="h-full w-full"
+                    />
+                </Box>
 
-                {/* ── right pane ── */}
+                {/* ── board pane ── */}
+                {panels.board && (
                 <Box className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
                     {/* project header */}
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} className="shrink-0">
@@ -270,12 +345,42 @@ export const TasksWorkspace = () => {
                         </Box>
 
                         <Stack direction="row" spacing={1} alignItems="center">
+                            {/* Board vs Table stays on top, where it has always been: it chooses
+                                how THIS pane draws its data, which is a different question from
+                                the bottom bar's "which panes am I looking at". */}
                             <ViewToggle value={view} onChange={changeView} />
 
-                            {/* The backdrop control lives next to the view switch because it is
-                                the same kind of choice: how this board is presented to me, not
-                                what it contains. The swatch IS the current backdrop, so the
-                                button shows the setting instead of describing it. */}
+                            {/* Filtering is a burst activity — narrow, look, clear — so it lives
+                                in a panel that opens over the board and closes again, instead of
+                                a control row that charged the board two lines of height whether
+                                or not anyone was filtering. The badge is what makes a filtered
+                                board impossible to mistake for an empty one. */}
+                            <Tooltip title="Filter tasks">
+                                <Badge
+                                    badgeContent={activeFilterCount(filters)}
+                                    color="primary"
+                                    overlap="circular"
+                                    sx={{ '& .MuiBadge-badge': { fontSize: 9, height: 16, minWidth: 16 } }}
+                                >
+                                    <IconButton
+                                        size="small"
+                                        aria-label="Filter tasks"
+                                        onClick={() => setFiltersOpen(true)}
+                                        sx={{
+                                            border: `1px solid ${theme.palette.divider}`,
+                                            borderRadius: 1.5,
+                                            width: 34, height: 34,
+                                            color: 'text.secondary',
+                                            '&:hover': { color: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.08) },
+                                        }}
+                                    >
+                                        <KTIcon iconName="filter" className="fs-4" />
+                                    </IconButton>
+                                </Badge>
+                            </Tooltip>
+
+                            {/* The swatch IS the current backdrop, so the button shows the
+                                setting instead of describing it. */}
                             <Tooltip title={`Board background — ${describeBackground(background)}`}>
                                 <IconButton
                                     size="small"
@@ -328,16 +433,6 @@ export const TasksWorkspace = () => {
                         </Stack>
                     </Stack>
 
-                    <Box className="shrink-0">
-                        <TaskFilters
-                            filters={filters}
-                            onChange={updateFilters}
-                            statuses={statusesQuery.data?.taskStatuses ?? []}
-                            priorities={prioritiesQuery.data?.taskPriorities ?? []}
-                            projects={projectsQuery.data?.projects ?? projects}
-                            showStatusFilter={view === 'table'}
-                        />
-                    </Box>
 
                     {/* ── the work surface ────────────────────────────────────────────
                         The board's own canvas: it takes all remaining height, clips its
@@ -345,7 +440,10 @@ export const TasksWorkspace = () => {
                         backdrop, readability scrim, content — so a wallpaper can be dimmed
                         and blurred without any of that touching the cards on top of it. */}
                     <Box
-                        className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl"
+                        // Below `lg` the shell stops being viewport-tall, so the surface states its
+                        // own height: without a definite one the lanes have nothing to be 100% of
+                        // and the board collapses.
+                        className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl max-lg:h-[70vh] max-lg:flex-none"
                         sx={{
                             border: '1px solid',
                             borderColor: 'divider',
@@ -399,7 +497,11 @@ export const TasksWorkspace = () => {
                                     <Stack className="min-h-0 flex-1" alignItems="center" justifyContent="center">
                                         <CircularProgress />
                                     </Stack>
-                                ) : columns.length === 0 ? (
+                                ) : columns.length === 0 && !activeProject ? (
+                                    // With a project in view a bare board is not a dead end — the
+                                    // "Add another list" lane is the way out of it, so the board
+                                    // renders and offers it rather than sending someone to
+                                    // Configure for a stage only this project needs.
                                     <SurfacePanel>
                                         <TaskStateBlock
                                             icon="element-11"
@@ -415,7 +517,17 @@ export const TasksWorkspace = () => {
                                         isLoading={boardQuery.isLoading}
                                         onOpenTask={(id) => navigate(`/tasks/${id}`)}
                                         onMoveTask={(taskId, statusId) => moveStage.mutateAsync({ taskId, statusId })}
+                                        onReorder={(statusId, taskIds) => reorderTasks.mutateAsync({ statusId, taskIds })}
                                         onAddInStage={(statusId) => { setCreateInStage(statusId); setCreateOpen(true); }}
+                                        // Only with a project in view: a lane created here belongs
+                                        // to THAT project's board and appears on no other. With a
+                                        // general task selected there is no board to add it to.
+                                        onCreateList={activeProject
+                                            ? (name) => createList.mutateAsync({ name, projectId: scopeSel })
+                                            : undefined}
+                                        onDeleteList={activeProject
+                                            ? (statusId) => deleteList.mutateAsync(statusId)
+                                            : undefined}
                                     />
                                 )
                             ) : (
@@ -450,6 +562,7 @@ export const TasksWorkspace = () => {
                         </Typography>
                     )}
                 </Box>
+                )}
             </Box>
 
             <TaskFormDialog
@@ -467,6 +580,19 @@ export const TasksWorkspace = () => {
                 onChange={setBackground}
                 onReset={resetBackground}
             />
+
+            <TaskFilterDrawer
+                open={filtersOpen}
+                onClose={() => setFiltersOpen(false)}
+                filters={filters}
+                onChange={updateFilters}
+                statuses={statusesQuery.data?.taskStatuses ?? []}
+                priorities={prioritiesQuery.data?.taskPriorities ?? []}
+                projects={projectsQuery.data?.projects ?? projects}
+                showStatusFilter={view === 'table'}
+            />
+
+            <BoardBottomNav active={panels} onToggle={togglePanel} />
         </Box>
     );
 };

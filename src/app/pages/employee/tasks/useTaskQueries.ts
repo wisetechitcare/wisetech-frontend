@@ -32,6 +32,9 @@ import {
     createTimeSheet,
     deleteTimeSheetById,
     reorderTaskStatuses,
+    createTasksStatus,
+    deleteTasksStatus,
+    reorderBoardTasks,
 } from '@services/tasks';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,6 +201,21 @@ export const useMoveTaskStage = () => {
     });
 };
 
+/**
+ * The within-lane arrangement.
+ *
+ * `onSettled`, like the stage move: a refused reorder still needs the cache refreshed, or the
+ * board keeps showing an order the server does not hold.
+ */
+export const useReorderBoardTasks = () => {
+    const invalidate = useInvalidateTasks();
+    return useMutation({
+        mutationFn: ({ statusId, taskIds }: { statusId: string; taskIds: string[] }) =>
+            reorderBoardTasks(statusId, taskIds),
+        onSettled: invalidate,
+    });
+};
+
 export const useCreateTimesheet = () => {
     const invalidate = useInvalidateTasks();
     return useMutation({
@@ -210,6 +228,34 @@ export const useDeleteTimesheet = () => {
     const invalidate = useInvalidateTasks();
     return useMutation({
         mutationFn: (id: string) => deleteTimeSheetById(id),
+        onSuccess: invalidate,
+    });
+};
+
+/**
+ * "Add another list" on the board.
+ *
+ * The SAME endpoint Configure posts to, with a `projectId` — a lane is a task stage, not a second
+ * kind of thing. Sending the project is what confines it to this board; the server also checks the
+ * caller's authority over that project, so the button cannot create a lane on somebody else's.
+ */
+export const useCreateBoardList = () => {
+    const invalidate = useInvalidateTasks();
+    return useMutation({
+        mutationFn: ({ name, projectId }: { name: string; projectId: string }) =>
+            createTasksStatus({ name, projectId }),
+        onSuccess: invalidate,
+    });
+};
+
+/**
+ * Remove a board list. Only ever offered for a project lane — the API refuses a company-wide
+ * stage, and refuses a lane that still holds tasks rather than silently un-staging them.
+ */
+export const useDeleteBoardList = () => {
+    const invalidate = useInvalidateTasks();
+    return useMutation({
+        mutationFn: (statusId: string) => deleteTasksStatus(statusId),
         onSuccess: invalidate,
     });
 };

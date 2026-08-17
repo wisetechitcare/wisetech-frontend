@@ -19,6 +19,12 @@ export interface TaskStatusRef {
     color?: string | null;
     sortOrder?: number;
     isFinal?: boolean;
+    /**
+     * The project this stage belongs to, or null/absent for a company-wide one. Set only for a
+     * lane added from a project's own board, and the reason a board can tell which of its lanes
+     * are its own to remove.
+     */
+    leadId?: string | null;
 }
 
 export interface TaskRow {
