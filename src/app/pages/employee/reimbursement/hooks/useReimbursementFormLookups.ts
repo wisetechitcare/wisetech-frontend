@@ -205,16 +205,25 @@ export function useReimbursementFormLookups(seed?: LookupSeed | null): Reimburse
         } else if (selectedClientType?.value) {
             list = list.filter((p) => p.fileLocationCompanyType === selectedClientType.value);
         }
-        // Keep the saved project even if it is no longer ongoing — otherwise opening an old
-        // record shows a blank where its project used to be.
-        list = list.filter((p) => (p.status?.id && ongoingStatusIds.includes(p.status.id)) || p.id === seedProjectId);
+        // EVERY status is selectable — on hold and completed projects still receive expenses
+        // (a site visit for a project that closed last week is a real claim), and the picker used
+        // to drop them outright, leaving no way to file against them at all.
+        //
+        // Ongoing first, then the rest; anything not ongoing carries its status in the label so
+        // the list stays readable without a second dropdown to filter it.
+        const isOngoing = (p: ProjectRow) => !!p.status?.id && ongoingStatusIds.includes(p.status.id);
 
         const opts: Option[] = [...list]
-            .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
-            .map((p) => ({
-                value: p.id,
-                label: p.projectPrefix ? `${p.projectPrefix} - ${p.title}` : (p.title ?? p.id),
-            }));
+            .sort((a, b) =>
+                Number(isOngoing(b)) - Number(isOngoing(a))
+                || (a.title || '').localeCompare(b.title || ''))
+            .map((p) => {
+                const name = p.projectPrefix ? `${p.projectPrefix} - ${p.title}` : (p.title ?? p.id);
+                return {
+                    value: p.id,
+                    label: isOngoing(p) || !p.status?.name ? name : `${name} · ${p.status.name}`,
+                };
+            });
         setProjectOptions(opts);
 
         if (seedProjectId) {

@@ -323,6 +323,8 @@ interface PendingReimbursementsPageProps extends Partial<EmployeeDetailsSectionP
   onDraftsChange?: (count: number) => void;
   /** The page's period selector — rendered directly under the KPI cards it drives. */
   periodSlot?: React.ReactNode;
+  /** Current period (month/year) for constraining date picker. Format: dayjs Dayjs object. */
+  currentPeriod?: any; // Dayjs object
 }
 
 const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, PendingReimbursementsPageProps>(function PendingReimbursementsPage({
@@ -339,6 +341,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   overviewLoading = false,
   onDraftsChange,
   periodSlot,
+  currentPeriod,
 }, ref) {
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   // Per-request cap for the live limit warning under the Amount field.
@@ -376,6 +379,15 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   // Table lookup resolvers
   const { resolveClientType, resolveClientCompany, resolveProject } = useReimbursementLookups(drafts);
+
+  // Phase 1: Filter drafts by current period for month-aware inbox
+  const filteredDrafts = useMemo(() => {
+    if (!currentPeriod) return drafts;
+    return drafts.filter(draft => {
+      const draftMonth = dayjs(draft.expenseDate);
+      return draftMonth.month() === currentPeriod.month() && draftMonth.year() === currentPeriod.year();
+    });
+  }, [drafts, currentPeriod]);
 
   // ── Load drafts ────────────────────────────────────────────────────────────
 
@@ -572,9 +584,10 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   // ── Table columns ──────────────────────────────────────────────────────────
 
+  // Phase 1: Use filtered drafts for period-aware totals
   const totalAmount = useMemo(
-    () => drafts.reduce((sum, d) => sum + Number(d.amount || 0), 0),
-    [drafts]
+    () => filteredDrafts.reduce((sum, d) => sum + Number(d.amount || 0), 0),
+    [filteredDrafts]
   );
 
   const columns = useMemo<MRT_ColumnDef<any>[]>(() => [
@@ -769,13 +782,40 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       )}
 
       {/* Table — only shown when there are drafts or while loading */}
-      {!draftsError && (loading || drafts.length > 0) && (
+      {/* Phase 1: Show filtered drafts for current period */}
+      {!draftsError && (loading || filteredDrafts.length > 0) && (
         <MaterialTable
-          data={drafts}
+          data={filteredDrafts}
           columns={columns}
           tableName='Pending Reimbursements'
           hideFilters={false}
           showColumnFooter={true}
+          renderMobileCard={({ row }: any) => (
+            <div
+              onClick={() => handleEdit(row.original)}
+              style={{
+                padding: '12px', background: '#fff', border: `2px solid ${row.original?.isExceedingLimit ? '#ef4444' : '#f59e0b'}`,
+                borderRadius: '8px', marginBottom: '8px', cursor: 'pointer'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Date</div>
+                  <div style={{ fontWeight: 600, color: '#0f172a' }}>{dayjs(row.original.expenseDate).format('DD MMM YYYY')}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Amount</div>
+                  <div style={{ fontWeight: 700, color: '#0f172a' }} className={sensitive.cls}>₹{fmtAmount(row.original.amount)}</div>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#475569', marginBottom: '6px' }}>
+                <strong>{row.original.reimbursementType?.type || 'N/A'}</strong>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: '1.3' }}>
+                {row.original.clientTypeId && `${resolveClientType(row.original.clientTypeId)} • ${resolveClientCompany(row.original.clientCompanyId) || 'N/A'}`}
+              </div>
+            </div>
+          )}
           muiTableProps={{
             muiTableBodyRowProps: ({ row }: any) => {
               if (row.original?.isExceedingLimit) {
@@ -809,18 +849,26 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       {/* Add / Edit modal — structure identical to Reimbursement.tsx */}
       <Modal show={show} onHide={handleClose} centered>
         <Modal.Header closeButton>
-          <Modal.Title>{editMode ? 'Edit' : 'New'} Reimbursement Request</Modal.Title>
+          <Modal.Title>
+            {editMode ? 'Edit' : 'New'} Reimbursement Request
+            {currentPeriod && !editMode && (
+              <span style={{ fontSize: '0.8rem', fontWeight: 400, marginLeft: '0.5rem', color: '#666' }}>
+                — {currentPeriod.format('MMMM YYYY')}
+              </span>
+            )}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Formik
             initialValues={{
               ...makeReimbursementInitialState(),
+              // Phase 1: Default to first day of current period month, or today
+              expenseDate: editMode && currentReimbursement?.expenseDate
+                ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
+                : (currentPeriod ? currentPeriod.startOf('month').format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD')),
               ...(editMode &&
                 currentReimbursement && {
                 ...currentReimbursement,
-                expenseDate: currentReimbursement.expenseDate
-                  ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
-                  : dayjs().format('YYYY-MM-DD'),
                 clientTypeId: currentReimbursement?.clientTypeId ?? '',
                 clientCompanyId: currentReimbursement?.clientCompanyId ?? '',
                 projectId: currentReimbursement?.projectId ?? '',
@@ -830,6 +878,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 document: currentReimbursement?.document ?? '',
               }),
             }}
+            enableReinitialize={true}
             onSubmit={handleSubmit}
             // The schema now depends on the chosen category: From/To are required for travel
             // and not collected at all for meals, instead of being demanded everywhere and
@@ -843,25 +892,44 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
               <Form className='d-flex flex-column' noValidate id='pending_reimbursement_form'>
 
                 {/* Row 1: Date */}
-                <div className='row'>
-                  <div className='col-lg-6 mb-7'>
+                <div className='row gx-2 gx-lg-3'>
+                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
                     <DateInput
                       isRequired={currentReimbursement ? false : true}
                       inputLabel='Select Date'
                       formikProps={formikProps}
                       formikField='expenseDate'
                       placeHolder='Select Date'
-                      maxDate={true}
-                      // Claimable window: this month only, up to today — no past
-                      // months, no future days.
-                      minDate={dayjs().startOf('month')}
+                      // Phase 1: Constrain to batch period (one month).
+                      // If viewing a specific month, only allow dates in that month.
+                      maxDate={currentPeriod ? currentPeriod.endOf('month') : true}
+                      minDate={currentPeriod ? currentPeriod.startOf('month') : dayjs().startOf('month')}
                     />
                   </div>
                 </div>
 
+                {/* Phase 1: Show batch period context */}
+                {currentPeriod && !editMode && (
+                  <div style={{
+                    padding: '10px 12px',
+                    marginBottom: '16px',
+                    backgroundColor: '#e3f2fd',
+                    border: '1px solid #90caf9',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    color: '#1565c0',
+                    lineHeight: '1.4',
+                    wordBreak: 'break-word'
+                  }}>
+                    <strong>ℹ️ Batch Period:</strong> All reimbursements in this batch must be from{' '}
+                    <strong>{currentPeriod.format('MMMM YYYY')}</strong>.
+                    {currentPeriod.isBefore(dayjs(), 'month') && ' This is a past period.'}
+                  </div>
+                )}
+
                 {/* Row 2: Company Type + Company Name */}
-                <div className='row'>
-                  <div className='col-lg-6 mb-7'>
+                <div className='row gx-2 gx-lg-3'>
+                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
                     <DropDownInput
                       isRequired={true}
                       formikField='clientTypeId'
@@ -872,7 +940,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       value={selectedClientType}
                     />
                   </div>
-                  <div className='col-lg-6 mb-7'>
+                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
                     <DropDownInput
                       isRequired={false}
                       formikField='clientCompanyId'
@@ -895,8 +963,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 </div>
 
                 {/* Row 3: Project */}
-                <div className='row'>
-                  <div className='col-lg mb-7'>
+                <div className='row gx-2 gx-lg-3'>
+                  <div className='col-12 mb-5 mb-lg-7'>
                     <DropDownInput
                       isRequired={false}
                       formikField='projectId'
@@ -918,8 +986,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 </div>
 
                 {/* Row 4: Reimbursement For + Amount */}
-                <div className='row'>
-                  <div className='col-lg-6 mb-7'>
+                <div className='row gx-2 gx-lg-3'>
+                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
                     <ReimbursementDropdown
                       isRequired={true}
                       handleChange={(option: any) => handleCategoryChange(option, formikProps.setFieldValue)}
@@ -929,11 +997,11 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       value={selectedReimbursementFor}
                     />
                   </div>
-                  <div className='col-lg-6'>
+                  <div className='col-12 col-lg-6'>
                     <TextInput
                       isRequired={true}
                       label='Enter Amount'
-                      margin='mb-7'
+                      margin='mb-5 mb-lg-7'
                       formikField='amount'
                       inputValidation='decimal'
                     />
@@ -989,8 +1057,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                     places. They used to be required on every category, including meals and
                     accommodation, so people typed junk to get past them. */}
                 {categoryRequiresLocation(selectedReimbursementFor) && (
-                <div className='row'>
-                  <div className='col-lg-6'>
+                <div className='row gx-2 gx-lg-3'>
+                  <div className='col-12 col-lg-6'>
                     <label className='form-label fw-bold'>From Location <span className='text-danger'>*</span></label>
                     <input
                       type='text'
@@ -1004,7 +1072,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       </div>
                     )}
                   </div>
-                  <div className='col-lg-6 mb-7'>
+                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
                     <label className='form-label fw-bold'>To Location <span className='text-danger'>*</span></label>
                     <input
                       type='text'
@@ -1021,8 +1089,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 </div>
                 )}
                 {/* Row 6: Document Upload */}
-                <div className='row mb-7'>
-                  <div className='col-lg-12'>
+                <div className='row mb-5 mb-lg-7'>
+                  <div className='col-12'>
                     <label className='mb-2 fw-bold'>Upload Reimbursement Bill</label>
 
                     {/* Hidden real file input */}
@@ -1112,17 +1180,19 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 </div>
 
                 {/* Row 7: Remark */}
-                <div className='col-lg'>
-                  <TextInput
-                    label='Remark'
-                    margin='mb-7'
-                    formikField='description'
-                    isRequired={false}
-                  />
+                <div className='row'>
+                  <div className='col-12'>
+                    <TextInput
+                      label='Remark'
+                      margin='mb-5 mb-lg-7'
+                      formikField='description'
+                      isRequired={false}
+                    />
+                  </div>
                 </div>
 
                 {/* Submit */}
-                <div className='d-flex justify-content-end mt-5'>
+                <div className='d-flex justify-content-end gap-2 mt-5 flex-wrap'>
                   <button
                     type='submit'
                     className='btn btn-primary'

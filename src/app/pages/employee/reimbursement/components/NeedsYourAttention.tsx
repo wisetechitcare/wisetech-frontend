@@ -109,19 +109,19 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
     return (
         <>
             <Box sx={{
-                borderRadius: '14px', p: { xs: 1.5, sm: 2 }, mb: 2, minWidth: 0,
+                borderRadius: '12px', p: 1.25, mb: 1.5, minWidth: 0,
                 border: `1px solid ${tonePair('warning').fg}33`,
                 bgcolor: tonePair('warning').soft,
             }}>
-                <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 1.25 }}>
+                <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 1 }}>
                     <KTIcon iconName="information" className="fs-3" />
-                    <Typography sx={{ fontSize: 14, fontWeight: 800 }}>
+                    <Typography sx={{ fontSize: 13.5, fontWeight: 800 }}>
                         Needs your attention
                     </Typography>
                     <ToneChip tone="warning" label={`${open.length}`} size="small" solid />
                 </Stack>
 
-                <Stack gap={1}>
+                <Stack gap={0.75}>
                     {open.map((task) => {
                         const style = STYLE[task.type] ?? STYLE.ACTION_REQUIRED;
                         const payload = (task.payload ?? {}) as Record<string, unknown>;
@@ -129,10 +129,10 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
                             <Stack
                                 key={task.id}
                                 direction={{ xs: 'column', sm: 'row' }}
-                                gap={1}
+                                gap={0.75}
                                 alignItems={{ sm: 'center' }}
                                 sx={{
-                                    p: 1.25, borderRadius: '10px', minWidth: 0,
+                                    p: 1, borderRadius: '8px', minWidth: 0,
                                     bgcolor: theme.palette.background.paper,
                                     borderLeft: `3px solid ${tonePair(style.tone).fg}`,
                                 }}
@@ -155,7 +155,7 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
                                         </Typography>
                                     )}
                                 </Box>
-                                <Stack direction="row" gap={0.75} sx={{ flexShrink: 0 }}>
+                                <Stack direction="row" gap={1} flexWrap="wrap" sx={{ flexShrink: 0, mt: { xs: 1, sm: 0 } }}>
                                     {typeof payload.reimbursementId === 'string' && (
                                         <WtButton size="small" ghost
                                             onClick={() => setVersionsFor({
@@ -176,7 +176,7 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
                     })}
                 </Stack>
 
-                <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mt: 1.25 }}>
+                <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mt: 1 }}>
                     Answering a question keeps your approvals. Changing the expense restarts approval from level 1.
                 </Typography>
             </Box>

@@ -80,6 +80,17 @@ export interface ApprovalStep {
     delegatedFrom?: string | null;
     requestDetails?: ApprovalRequestDetails | null;
     instance: ApprovalInstance;
+    /**
+     * Whose move it is now — the employee while a question is out, otherwise the approver at the
+     * instance's current level. Computed server-side from the same rule that picks the tab.
+     */
+    waitingOn?: { role: 'EMPLOYEE' | 'APPROVER'; name: string | null } | null;
+    /**
+     * This is a request YOU submitted, listed under "Waiting on others" because it is sitting with
+     * an approver. You hold no step on it, so it carries no decision — the card reads it out
+     * rather than asking anything of you.
+     */
+    submittedByMe?: boolean;
 }
 
 /**

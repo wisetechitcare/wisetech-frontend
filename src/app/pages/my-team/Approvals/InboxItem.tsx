@@ -4,6 +4,7 @@ import { KTIcon } from '@metronic/helpers';
 import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { formatDate } from '@utils/dateFormats';
+import EmployeeIdentityCell from '@app/modules/common/components/EmployeeIdentityCell';
 import { getApprovalDomain } from './domains/registry';
 import type { ApprovalStep } from './domains/types';
 
@@ -21,6 +22,21 @@ export const ageOf = (since?: string | null): Ageing => {
     return { days, label: 'Today', tone: 'neutral' };
 };
 
+/**
+ * One person, and what they owe.
+ *
+ * A batch is routinely waiting on two people at once — the employee on a queried line, the next
+ * approver on one that has already cleared a level. A single "Next: …" line has to pick one of
+ * them and silently drop the other, which is how a card came to name the approver while a
+ * question sat unanswered with the employee.
+ */
+export interface WaitOwner {
+    /** What is being waited for, in the same words the request rows use. */
+    reason: string;
+    who: string;
+    tone: SemanticTone;
+}
+
 export interface ItemSummary {
     title: string;
     facts: string[];
@@ -28,6 +44,8 @@ export interface ItemSummary {
     chips?: Array<{ label: string; tone: SemanticTone }>;
     value?: string | null;
     statusFlow?: string | null;
+    /** Every outstanding wait, one row each. Falls back to `step.waitingOn` when absent. */
+    waits?: WaitOwner[];
 }
 
 const money = (v: unknown) =>
@@ -39,7 +57,13 @@ const range = (from?: string | null, to?: string | null): string | null => {
     return `${formatDate(from)} - ${formatDate(to)}`;
 };
 
-export const summarise = (step: ApprovalStep): ItemSummary => {
+/**
+ * `variant` is the TAB the card is sitting in. A part-decided batch appears in both: the lines
+ * still in front of you under "Needs my action", the ones you have already approved under
+ * "Waiting on others". Each card describes only its own slice, so the two never claim the same
+ * expense twice.
+ */
+export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'done' = 'mine'): ItemSummary => {
     const d = (step.requestDetails ?? {}) as any;
     const type = (step.instance.workflowType || '').toLowerCase();
 
@@ -62,10 +86,81 @@ export const summarise = (step: ApprovalStep): ItemSummary => {
     if (type === 'reimbursement') {
         const chips: ItemSummary['chips'] = [];
         const hasResubmitted = d.resubmittedCount && d.resubmittedCount > 0;
-        const hasPending = d.pendingCount && d.pendingCount > 0;
+        // Only the lines still at an open level in front of THIS approver are "ready" — the ones
+        // that cleared a level are with the next approver, and a queried or decided line is not
+        // waiting on anyone here. A batch of five used to read "5 ready" until the last decision.
+        const inProgressCount = d.inProgressCount ?? 0;
+        const readyCount = d.readyCount ?? Math.max(0, (d.pendingCount ?? 0) - inProgressCount);
+        const hasPending = readyCount > 0;
         const hasQueried = d.queriedCount && d.queriedCount > 0;
         const hasApproved = d.approvedCount && d.approvedCount > 0;
         const hasRejected = d.rejectedCount && d.rejectedCount > 0;
+
+        // The "Waiting on others" face of the batch: what you have handed on — approved to the next
+        // level, or queried back to the employee. What is still in front of you is the other tab's
+        // card, and neither card counts the other's expenses.
+        // Refused expenses are shown wherever the batch is shown, in red, and counted in nothing:
+        // they are out of the workflow, not part of what anyone is still waiting to be paid.
+        const rejectedChip = hasRejected
+            ? { label: `${d.rejectedCount} rejected · ${money(d.rejectedAmount ?? 0)}`, tone: 'danger' as SemanticTone }
+            : null;
+
+        // Your own submission, read out rather than demanded of you. The counts below are written
+        // for an approver — "3 items ready for approval" on a claim you filed yourself asks you to
+        // do something you cannot do, and names none of what you actually want to know.
+        if (step.submittedByMe) {
+            const awaitingApproval = (d.pendingCount ?? 0);
+            const ownChips: ItemSummary['chips'] = [];
+            if (awaitingApproval > 0) {
+                ownChips.push({ label: `${awaitingApproval} awaiting approval`, tone: 'warning' });
+            }
+            if (d.queriedCount > 0) {
+                ownChips.push({ label: `${d.queriedCount} question open`, tone: 'cyan' });
+            }
+            if (d.approvedCount > 0) ownChips.push({ label: `${d.approvedCount} approved`, tone: 'success' });
+            if (rejectedChip) ownChips.push(rejectedChip);
+            return {
+                title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense claim',
+                facts: [`${d.totalRequests ?? 0} expense${(d.totalRequests ?? 0) === 1 ? '' : 's'}`],
+                chips: ownChips,
+                value: d.totalAmount != null ? money(d.totalAmount) : null,
+            };
+        }
+
+        const withOthersCount = inProgressCount + (d.queriedCount ?? 0);
+        if (variant === 'awaiting' && withOthersCount > 0) {
+            const withOthersChips: ItemSummary['chips'] = [];
+            if (inProgressCount > 0) withOthersChips.push({ label: `${inProgressCount} with next approver`, tone: 'neutral' });
+            if (d.queriedCount > 0) withOthersChips.push({ label: `${d.queriedCount} awaiting employee response`, tone: 'cyan' });
+            if (rejectedChip) withOthersChips.push(rejectedChip);
+
+            // Both halves get named. `waitingOn` carries the next approver whenever ANY line is
+            // still in the chain, so the employee's name has to come off the instance — otherwise
+            // the query row would repeat the approver and the question would have no owner.
+            const employeeName = [step.instance.employee?.users?.firstName, step.instance.employee?.users?.lastName]
+                .filter(Boolean).join(' ').trim();
+            const waits: WaitOwner[] = [];
+            if (d.queriedCount > 0) {
+                waits.push({ reason: 'Query', who: employeeName || 'the employee', tone: 'cyan' });
+            }
+            if (inProgressCount > 0) {
+                const next = step.waitingOn?.role === 'APPROVER' ? step.waitingOn.name : null;
+                waits.push({ reason: 'Approval', who: next || 'the next approver', tone: 'neutral' });
+            }
+            return {
+                waits,
+                title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense claim',
+                facts: [
+                    `${withOthersCount} of ${d.totalRequests ?? withOthersCount} expense${(d.totalRequests ?? withOthersCount) === 1 ? '' : 's'}`,
+                    money((d.inProgressAmount ?? 0) + (d.queriedAmount ?? 0)),
+                ],
+                chips: withOthersChips,
+                statusFlow: inProgressCount > 0
+                    ? `✓ Approved by you • now with the next approver`
+                    : `❓ Waiting for the employee to answer`,
+                value: money((d.inProgressAmount ?? 0) + (d.queriedAmount ?? 0)),
+            };
+        }
 
         // Determine primary status chips to show (most important first)
         if (hasResubmitted) {
@@ -73,22 +168,35 @@ export const summarise = (step: ApprovalStep): ItemSummary => {
         }
 
         if (hasPending && !hasResubmitted) {
-            chips.push({ label: `${d.pendingCount} item${d.pendingCount === 1 ? '' : 's'} ready for approval`, tone: 'warning' });
+            chips.push({ label: `${readyCount} item${readyCount === 1 ? '' : 's'} ready for approval`, tone: 'warning' });
         } else if (hasPending && hasResubmitted) {
-            chips.push({ label: `${d.pendingCount} item${d.pendingCount === 1 ? '' : 's'} also pending`, tone: 'warning' });
+            chips.push({ label: `${readyCount} item${readyCount === 1 ? '' : 's'} also pending`, tone: 'warning' });
         }
 
-        if (hasQueried) {
-            chips.push({ label: `${d.queriedCount} item${d.queriedCount === 1 ? '' : 's'} awaiting employee response`, tone: 'cyan' });
+        // Queried, approved and rejected lines are somebody else's business — the query is with the
+        // employee, the decisions are done. On "Needs my action" they are noise; the Resolved tab
+        // (variant 'done') is where the whole batch is described.
+        if (variant === 'done') {
+            if (hasQueried) {
+                chips.push({ label: `${d.queriedCount} item${d.queriedCount === 1 ? '' : 's'} awaiting employee response`, tone: 'cyan' });
+            }
+            if (hasApproved) chips.push({ label: `${d.approvedCount} approved`, tone: 'success' });
         }
+        // Rejections belong to the tabs that describe a batch, not the one that asks for work:
+        // on "Needs my action" a refused line read as part of what was still waiting on you.
+        if (variant !== 'mine' && rejectedChip) chips.push(rejectedChip);
 
-        if (hasApproved) chips.push({ label: `${d.approvedCount} approved`, tone: 'success' });
-        if (hasRejected) chips.push({ label: `${d.rejectedCount} rejected`, tone: 'danger' });
+        // The card counts what opening it will show. A card reading "5 expenses · ₹5.00" that opens
+        // onto the two rows still awaiting you, worth ₹2.00, is not describing the same thing twice.
+        const shownRequests = variant === 'done' ? (d.totalRequests ?? 0) : readyCount;
+        const shownAmount = variant === 'done'
+            ? Number(d.totalAmount ?? 0)
+            : Number(d.readyAmount ?? d.totalAmount ?? 0);
 
         const facts: string[] = [];
-        if (d.totalRequests) facts.push(`${d.totalRequests} expense${d.totalRequests === 1 ? '' : 's'}`);
+        if (shownRequests) facts.push(`${shownRequests} expense${shownRequests === 1 ? '' : 's'}`);
         if (d.totalAmount != null) {
-            facts.push(`₹${money(d.totalAmount).replace('₹', '')}`);
+            facts.push(`₹${money(shownAmount).replace('₹', '')}`);
         }
 
         let statusFlow: string | null = null;
@@ -101,6 +209,10 @@ export const summarise = (step: ApprovalStep): ItemSummary => {
             statusFlow = `❓ Waiting for employee to answer your ${d.queriedCount === 1 ? 'question' : 'questions'}`;
         } else if (hasPending && !hasQueried) {
             statusFlow = `→ Awaiting your decision`;
+        } else if (inProgressCount > 0) {
+            // Nothing here is yours any more, but the batch is not finished either — "Completed"
+            // would have been a lie and "pending" a demand for action that does not exist.
+            statusFlow = `→ ${inProgressCount} ${inProgressCount === 1 ? 'expense is' : 'expenses are'} with the next approver`;
         } else if (hasApproved || hasRejected) {
             const parts = [];
             if (hasApproved) parts.push(`${d.approvedCount} approved`);
@@ -113,7 +225,7 @@ export const summarise = (step: ApprovalStep): ItemSummary => {
             facts: facts.filter(Boolean),
             chips,
             statusFlow,
-            value: d.totalAmount != null ? money(d.totalAmount) : null,
+            value: d.totalAmount != null ? money(shownAmount) : null,
         };
     }
 
@@ -148,17 +260,20 @@ export interface InboxItemCardProps {
     onApprove?: () => void;
     onReject?: () => void;
     onAsk?: () => void;
+    compact?: boolean;
+    /** Which queue tab this card is in — decides which slice of a part-decided batch it describes. */
+    variant?: 'mine' | 'awaiting' | 'done';
 }
 
 export default function InboxItemCard({
-    step, canDecide, busy = false, onOpen, onApprove, onReject, onAsk,
+    step, canDecide, busy = false, onOpen, onApprove, onReject, onAsk, compact = false, variant = 'mine',
 }: InboxItemCardProps) {
     const theme = useTheme();
     const type = (step.instance.workflowType || '').toLowerCase();
     const domain = getApprovalDomain(type);
     const tone = domain?.tone ?? 'brand';
     const pair = tonePair(tone);
-    const summary = summarise(step);
+    const summary = summarise(step, variant);
     const since = (step.requestDetails as any)?.submittedAt ?? step.instance.createdAt;
     const age = ageOf(since);
     const requester = step.instance.employee?.users
@@ -176,14 +291,18 @@ export default function InboxItemCard({
             onClick={onOpen}
             sx={{
                 position: 'relative', cursor: 'pointer', minWidth: 0,
-                borderRadius: '14px', overflow: 'hidden',
-                border: `1px solid ${hasResubmitted ? highlightPair.fg + '40' : theme.palette.divider}`,
+                borderRadius: compact ? '12px' : '16px', overflow: 'hidden',
+                border: `1px solid ${hasResubmitted ? highlightPair.fg + '60' : theme.palette.divider}`,
                 bgcolor: hasResubmitted ? highlightPair.soft : 'background.paper',
-                transition: 'border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
+                transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',
                 '&:hover': {
                     borderColor: highlightPair.fg,
-                    boxShadow: `0 6px 20px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,.35)' : 'rgba(15,23,42,.08)'}`,
-                    transform: 'translateY(-1px)',
+                    boxShadow: `0 8px 24px -8px ${highlightPair.fg}25, 0 4px 12px rgba(0,0,0,0.03)`,
+                    transform: 'translateY(-2px)',
                 },
                 '&:focus-visible': { outline: `2px solid ${highlightPair.fg}`, outlineOffset: 2 },
             }}
@@ -192,98 +311,304 @@ export default function InboxItemCard({
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
         >
             <Box sx={{
-                position: 'absolute', left: 0, top: 0, bottom: 0, width: hasResubmitted ? 5 : (age.days >= 2 ? 5 : 3),
+                position: 'absolute', left: 0, top: 0, bottom: 0, width: compact ? 3 : (hasResubmitted ? 5 : (age.days >= 2 ? 5 : 3)),
                 bgcolor: hasResubmitted ? highlightPair.fg : (age.days >= 4 ? tonePair('danger').fg : age.days >= 2 ? tonePair('warning').fg : pair.fg),
             }} />
 
-            <Box sx={{ pl: { xs: 2, sm: 2.5 }, pr: { xs: 1.75, sm: 2 }, py: { xs: 1.75, sm: 2 } }}>
-                <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap" sx={{ mb: 1 }}>
-                    <Box sx={{
-                        width: 24, height: 24, borderRadius: '7px', flexShrink: 0,
-                        display: 'grid', placeItems: 'center', bgcolor: highlightPair.soft, color: highlightPair.fg,
-                    }}>
-                        <KTIcon iconName={domain?.icon ?? 'information'} className="fs-7" />
-                    </Box>
-                    <Typography sx={{
-                        fontSize: 10.5, fontWeight: 800, letterSpacing: '.08em',
-                        textTransform: 'uppercase', color: highlightPair.fg,
-                    }}>
-                        {hasResubmitted ? '⟳ Resubmitted' : (domain?.label ?? type)}
-                    </Typography>
-                    <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>.</Typography>
-                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>
-                        {requester}
-                    </Typography>
-                    {step.delegatedFrom && <ToneChip dense tone="cyan" label={`via ${step.delegatedFrom}`} />}
-                    <Box sx={{ flex: 1 }} />
-                    <Typography sx={{
-                        fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-                        color: age.tone === 'neutral' ? theme.palette.text.disabled : tonePair(age.tone).fg,
-                    }}>
-                        {age.label}
-                    </Typography>
-                </Stack>
+            <Box sx={{ p: compact ? 2 : { pl: { xs: 2.5, sm: 3 }, pr: { xs: 2, sm: 2.5 }, py: { xs: 2, sm: 2.5 } }, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                {compact ? (
+                    <>
+                        {/* Header: Status badge + icon */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Box sx={{
+                                width: 22, height: 22, borderRadius: '6px', flexShrink: 0,
+                                display: 'grid', placeItems: 'center', bgcolor: highlightPair.soft, color: highlightPair.fg,
+                            }}>
+                                <KTIcon iconName={domain?.icon ?? 'information'} className="fs-7" />
+                            </Box>
+                            <Typography sx={{
+                                fontSize: '10px', fontWeight: 800, letterSpacing: '.08em',
+                                textTransform: 'uppercase', color: highlightPair.fg, lineHeight: 1,
+                            }}>
+                                {hasResubmitted ? '⟳ Resubmitted' : (domain?.label ?? type)}
+                            </Typography>
+                        </Box>
 
-                <Stack direction="row" alignItems="flex-start" gap={1.5} sx={{ minWidth: 0 }}>
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.3 }}>
+                        {/* Who sent it. The compact card showed only the submission id, so a queue of
+                            three cards was three unattributable numbers. */}
+                        <Box sx={{ mb: 1 }}>
+                            <EmployeeIdentityCell name={requester} dense fluid />
+                        </Box>
+
+                        {/* Title - main content */}
+                        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: 'text.primary', lineHeight: 1.4, mb: 0.75 }}>
                             {summary.title}
                         </Typography>
-                        {summary.facts.length > 0 && (
-                            <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.35 }}>
-                                {summary.facts.join(' . ')}
-                            </Typography>
-                        )}
-                        {summary.statusFlow && (
-                            <Typography sx={{
-                                fontSize: 12.5, color: 'text.secondary', mt: 0.5, fontWeight: 600, fontStyle: 'italic',
-                            }}>
-                                {summary.statusFlow}
-                            </Typography>
-                        )}
-                        {summary.note && (
-                            <Typography sx={{
-                                fontSize: 12.5, color: 'text.secondary', mt: 0.6, lineHeight: 1.5,
-                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                            }}>
-                                "{summary.note}"
-                            </Typography>
-                        )}
-                        {!!summary.chips?.length && (
-                            <Stack direction="row" gap={0.5} flexWrap="wrap" sx={{ mt: 0.9 }}>
-                                {summary.chips.map((c) => <ToneChip key={c.label} dense tone={c.tone} label={c.label} />)}
+
+                        {/* Meta info: facts + value */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 1, gap: 1 }}>
+                            <Box>
+                                {summary.facts.length > 0 && (
+                                    <Typography sx={{ fontSize: '11px', color: 'text.secondary', lineHeight: 1.25 }}>
+                                        {summary.facts.slice(0, 1).join(' · ')}
+                                    </Typography>
+                                )}
+                            </Box>
+                            {summary.value && (
+                                <Typography sx={{
+                                    fontSize: '14px', fontWeight: 800, color: highlightPair.fg,
+                                    fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', flex: '0 0 auto',
+                                }}>
+                                    {summary.value}
+                                </Typography>
+                            )}
+                        </Box>
+
+                        {/* Status chips. Was chips[0] only, which dropped the rejected count off a
+                            mixed batch — the one line an approver most needs to see is gone. */}
+                        {summary.chips && summary.chips.length > 0 && (
+                            <Stack direction="row" gap={0.5} flexWrap="wrap" sx={{ mb: 1 }}>
+                                {summary.chips.slice(0, 3).map((c) => (
+                                    <ToneChip key={c.label} dense tone={c.tone} label={c.label} />
+                                ))}
                             </Stack>
                         )}
-                    </Box>
-                    {summary.value && (
-                        <Typography sx={{
-                            fontSize: 16, fontWeight: 800, color: 'text.primary',
-                            whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
-                        }}>
-                            {summary.value}
-                        </Typography>
-                    )}
-                </Stack>
 
-                {canDecide && (
-                    <Stack
-                        direction="row" gap={0.75} flexWrap="wrap"
-                        sx={{ mt: 1.5, pt: 1.25, borderTop: `1px solid ${theme.palette.divider}` }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {onAsk && (
-                            <WtButton size="small" ghost disabled={busy} onClick={onAsk}>Ask</WtButton>
+                        {/* Whose move it is. A queue row that says how long it has waited but not
+                            who it is waiting ON leaves you opening the card to find out — and a
+                            batch stuck behind two different people needs both of them named. */}
+                        {summary.waits?.length ? (
+                            <Stack gap={0.4} sx={{ mb: 1, minWidth: 0 }}>
+                                {summary.waits.map((w) => (
+                                    <Box key={w.reason} sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
+                                        <Box sx={{
+                                            px: 0.6, borderRadius: '4px', flex: 'none',
+                                            fontSize: '9px', fontWeight: 800, lineHeight: 1.6,
+                                            textTransform: 'uppercase', letterSpacing: '0.05em',
+                                            bgcolor: tonePair(w.tone).soft, color: tonePair(w.tone).fg,
+                                        }}>
+                                            {w.reason}
+                                        </Box>
+                                        <Typography sx={{
+                                            fontSize: '11px', fontWeight: 700, color: 'text.primary', lineHeight: 1.25,
+                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                        }}>
+                                            {w.who}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </Stack>
+                        ) : step.waitingOn?.name && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1, minWidth: 0 }}>
+                                <span style={{ color: theme.palette.text.disabled, display: 'inline-flex' }}>
+                                    <KTIcon
+                                        iconName={step.waitingOn.role === 'EMPLOYEE' ? 'time' : 'profile-circle'}
+                                        className="fs-8"
+                                    />
+                                </span>
+                                <Typography sx={{
+                                    fontSize: '11px', color: 'text.secondary', lineHeight: 1.25,
+                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                }}>
+                                    {step.waitingOn.role === 'EMPLOYEE' ? 'Waiting on ' : 'Next: '}
+                                    <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                                        {step.waitingOn.name}
+                                    </Box>
+                                </Typography>
+                            </Box>
                         )}
-                        <Box sx={{ flex: 1 }} />
-                        {onReject && (
-                            <WtButton size="small" ghost disabled={busy} onClick={onReject}>Reject</WtButton>
+
+                        {/* Action buttons - subtle with hover color */}
+                        {canDecide && (
+                            <Box sx={{ mt: 'auto', pt: 1.25, display: 'flex', gap: 0.75, width: '100%' }} onClick={(e) => e.stopPropagation()}>
+                                {onApprove && (
+                                    <WtButton size="small" disabled={busy} sx={{
+                                        flex: 1,
+                                        fontSize: '11px',
+                                        fontWeight: 650,
+                                        py: 0.5,
+                                        px: 1,
+                                        borderRadius: '8px',
+                                        border: `1px solid ${tonePair('success').fg}`,
+                                        color: tonePair('success').fg,
+                                        background: 'transparent !important',
+                                        boxShadow: 'none',
+                                        transition: 'all 160ms cubic-bezier(.22,.61,.36,1)',
+                                        '&:hover': {
+                                            background: `${tonePair('success').fg}15 !important`,
+                                            borderColor: tonePair('success').fg,
+                                            color: tonePair('success').fg,
+                                            boxShadow: `0 2px 8px ${tonePair('success').fg}24`,
+                                        },
+                                    }} onClick={onApprove}>
+                                        {busy ? '...' : 'Approve'}
+                                    </WtButton>
+                                )}
+                                {onReject && (
+                                    <WtButton size="small" disabled={busy} sx={{
+                                        flex: 1,
+                                        fontSize: '11px',
+                                        fontWeight: 650,
+                                        py: 0.5,
+                                        px: 1,
+                                        borderRadius: '8px',
+                                        border: `1px solid ${tonePair('danger').fg}40`,
+                                        color: tonePair('danger').fg,
+                                        background: 'transparent !important',
+                                        boxShadow: 'none',
+                                        transition: 'all 160ms cubic-bezier(.22,.61,.36,1)',
+                                        '&:hover': {
+                                            background: `${tonePair('danger').fg}15 !important`,
+                                            borderColor: tonePair('danger').fg,
+                                            color: tonePair('danger').fg,
+                                            boxShadow: `0 2px 8px ${tonePair('danger').fg}24`,
+                                        },
+                                    }} onClick={onReject}>
+                                        Reject
+                                    </WtButton>
+                                )}
+                            </Box>
                         )}
-                        {onApprove && (
-                            <WtButton size="small" disabled={busy} onClick={onApprove}>
-                                {busy ? 'Working...' : 'Approve'}
-                            </WtButton>
+                    </>
+                ) : (
+                    <>
+                        <Stack direction="row" alignItems="center" gap={1.25} flexWrap="wrap" sx={{ mb: 1.5 }}>
+                            <Box sx={{
+                                width: 26, height: 26, borderRadius: '8px', flexShrink: 0,
+                                display: 'grid', placeItems: 'center', bgcolor: highlightPair.soft, color: highlightPair.fg,
+                            }}>
+                                <KTIcon iconName={domain?.icon ?? 'information'} className="fs-6" />
+                            </Box>
+                            <Typography sx={{
+                                fontSize: 11, fontWeight: 800, letterSpacing: '.08em',
+                                textTransform: 'uppercase', color: highlightPair.fg,
+                            }}>
+                                {hasResubmitted ? '⟳ Resubmitted' : (domain?.label ?? type)}
+                            </Typography>
+                            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>.</Typography>
+                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary' }}>
+                                {requester}
+                            </Typography>
+                            {step.delegatedFrom && <ToneChip dense tone="cyan" label={`via ${step.delegatedFrom}`} />}
+                            <Box sx={{ flex: 1 }} />
+                            <Typography sx={{
+                                fontSize: 11.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                                color: age.tone === 'neutral' ? theme.palette.text.disabled : tonePair(age.tone).fg,
+                            }}>
+                                {age.label}
+                            </Typography>
+                        </Stack>
+
+                        <Stack direction="row" alignItems="flex-start" gap={2} sx={{ minWidth: 0 }}>
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography sx={{ fontSize: 16, fontWeight: 700, color: 'text.primary', lineHeight: 1.35 }}>
+                                    {summary.title}
+                                </Typography>
+                                {summary.facts.length > 0 && (
+                                    <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 0.5 }}>
+                                        {summary.facts.join(' · ')}
+                                    </Typography>
+                                )}
+                                {summary.statusFlow && (
+                                    <Typography sx={{
+                                        fontSize: 13, color: 'text.secondary', mt: 0.75, fontWeight: 600, fontStyle: 'italic',
+                                    }}>
+                                        {summary.statusFlow}
+                                    </Typography>
+                                )}
+                                {summary.note && (
+                                    <Box sx={{
+                                        p: 1.25,
+                                        borderRadius: '8px',
+                                        bgcolor: 'rgba(0, 0, 0, 0.02)',
+                                        borderLeft: `3px solid ${theme.palette.divider}`,
+                                        mt: 1
+                                    }}>
+                                        <Typography sx={{
+                                            fontSize: '12px',
+                                            color: 'text.secondary',
+                                            lineHeight: 1.5,
+                                            fontStyle: 'italic',
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden',
+                                        }}>
+                                            "{summary.note}"
+                                        </Typography>
+                                    </Box>
+                                )}
+                                {!!summary.chips?.length && (
+                                    <Stack direction="row" gap={0.75} flexWrap="wrap" sx={{ mt: 1.25 }}>
+                                        {summary.chips.map((c) => <ToneChip key={c.label} dense tone={c.tone} label={c.label} />)}
+                                    </Stack>
+                                )}
+                            </Box>
+                            {summary.value && (
+                                <Typography sx={{
+                                    fontSize: 18, fontWeight: 800, color: 'text.primary',
+                                    whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
+                                }}>
+                                    {summary.value}
+                                </Typography>
+                            )}
+                        </Stack>
+
+                        {canDecide && (
+                            <Stack
+                                direction="row" gap={1} flexWrap="wrap"
+                                sx={{ mt: 2, pt: 1.5, borderTop: `1px solid ${theme.palette.divider}` }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {onAsk && (
+                                    <WtButton size="small" ghost disabled={busy} onClick={onAsk}>Ask</WtButton>
+                                )}
+                                <Box sx={{ flex: 1 }} />
+                                {onReject && (
+                                    <WtButton size="small" disabled={busy} onClick={onReject} sx={{
+                                        fontSize: '11px',
+                                        fontWeight: 650,
+                                        py: 0.5,
+                                        px: 1.5,
+                                        borderRadius: '8px',
+                                        border: `1px solid ${tonePair('danger').fg}40`,
+                                        color: tonePair('danger').fg,
+                                        background: 'transparent !important',
+                                        boxShadow: 'none',
+                                        transition: 'all 160ms cubic-bezier(.22,.61,.36,1)',
+                                        '&:hover': {
+                                            background: `${tonePair('danger').fg}15 !important`,
+                                            borderColor: tonePair('danger').fg,
+                                            color: tonePair('danger').fg,
+                                            boxShadow: `0 2px 8px ${tonePair('danger').fg}24`,
+                                        },
+                                    }}>Reject</WtButton>
+                                )}
+                                {onApprove && (
+                                    <WtButton size="small" disabled={busy} onClick={onApprove} sx={{
+                                        fontSize: '11px',
+                                        fontWeight: 650,
+                                        py: 0.5,
+                                        px: 1.5,
+                                        borderRadius: '8px',
+                                        border: `1px solid ${tonePair('success').fg}`,
+                                        color: tonePair('success').fg,
+                                        background: 'transparent !important',
+                                        boxShadow: 'none',
+                                        transition: 'all 160ms cubic-bezier(.22,.61,.36,1)',
+                                        '&:hover': {
+                                            background: `${tonePair('success').fg}15 !important`,
+                                            borderColor: tonePair('success').fg,
+                                            color: tonePair('success').fg,
+                                            boxShadow: `0 2px 8px ${tonePair('success').fg}24`,
+                                        },
+                                    }}>
+                                        {busy ? 'Working...' : 'Approve'}
+                                    </WtButton>
+                                )}
+                            </Stack>
                         )}
-                    </Stack>
+                    </>
                 )}
             </Box>
         </Box>

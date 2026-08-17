@@ -41,25 +41,50 @@ export interface QueryThread {
     messages: QueryMessage[];
 }
 
-/** The fixed vocabulary the backend enum carries, with labels for the picker. */
-export const QUERY_CATEGORIES: Array<{ value: string; label: string; scope: QueryScope | 'BOTH' }> = [
-    { value: 'INCORRECT_LOCATION', label: 'Incorrect location', scope: 'REQUEST' },
-    { value: 'INCORRECT_AMOUNT', label: 'Incorrect amount', scope: 'REQUEST' },
-    { value: 'MISSING_RECEIPT', label: 'Missing receipt', scope: 'REQUEST' },
-    { value: 'INCORRECT_DATE', label: 'Incorrect date', scope: 'REQUEST' },
-    { value: 'WRONG_CATEGORY', label: 'Wrong category', scope: 'REQUEST' },
-    { value: 'DUPLICATE_EXPENSE', label: 'Duplicate expense', scope: 'REQUEST' },
-    { value: 'POLICY_CLARIFICATION', label: 'Policy clarification', scope: 'BOTH' },
-    { value: 'MISSING_AUTHORIZATION', label: 'Missing travel authorization', scope: 'BATCH' },
-    { value: 'MISSING_DECLARATION', label: 'Missing declaration', scope: 'BATCH' },
-    { value: 'BATCH_CLARIFICATION', label: 'Batch clarification', scope: 'BATCH' },
-    { value: 'OTHER', label: 'Something else', scope: 'BOTH' },
-];
+/**
+ * The one topic that is not in the master: always offered, always the default, and what a query
+ * with no topic falls back to. It is also the only topic that makes the question text mandatory —
+ * every other one already says what is being asked.
+ */
+export const OTHER_TOPIC = 'Something else';
 
-export const queryCategoryLabel = (value?: string | null): string =>
-    QUERY_CATEGORIES.find((c) => c.value === value)?.label ?? 'Query';
+export type TopicScope = QueryScope | 'BOTH';
+
+/** A row of the admin-managed "What is this about?" master (Reimbursement Configuration). */
+export interface QueryTopic {
+    id: string;
+    label: string;
+    scope: TopicScope;
+}
+
+/**
+ * `category` is the topic LABEL itself since the master landed — the old enum values were
+ * converted in the migration, so nothing here has to map codes to text any more.
+ */
+export const queryCategoryLabel = (value?: string | null): string => value?.trim() || OTHER_TOPIC;
 
 const unwrap = <T,>(data: any, key: string): T => data?.data?.[key] ?? data?.[key];
+
+// ─── Topic master ─────────────────────────────────────────────────────────────
+
+export const fetchQueryTopics = async (): Promise<QueryTopic[]> => {
+    const { data } = await axios.get(`${BASE}/query-topics`);
+    return unwrap<QueryTopic[]>(data, 'topics') ?? [];
+};
+
+export const createQueryTopic = async (label: string, scope: TopicScope): Promise<QueryTopic> => {
+    const { data } = await axios.post(`${BASE}/query-topics`, { label, scope });
+    return unwrap<QueryTopic>(data, 'topic');
+};
+
+export const updateQueryTopic = async (id: string, label: string, scope: TopicScope): Promise<QueryTopic> => {
+    const { data } = await axios.put(`${BASE}/query-topics/${id}`, { label, scope });
+    return unwrap<QueryTopic>(data, 'topic');
+};
+
+export const deleteQueryTopic = async (id: string): Promise<void> => {
+    await axios.delete(`${BASE}/query-topics/${id}`);
+};
 
 export const fetchQuery = async (queryId: string): Promise<QueryThread> => {
     const { data } = await axios.get(`${BASE}/queries/${queryId}`);
@@ -106,7 +131,8 @@ export const raiseQuery = async (payload: {
     batchId: string;
     reimbursementId?: string | null;
     category?: string;
-    message: string;
+    /** Optional unless the topic is OTHER_TOPIC — the topic itself becomes the opening message. */
+    message?: string;
     attachments?: string[];
 }): Promise<QueryThread> => {
     const { data } = await axios.post(`${BASE}/queries`, payload);

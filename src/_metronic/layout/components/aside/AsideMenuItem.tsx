@@ -60,10 +60,10 @@ const AsideMenuItem: FC<Props & WithChildren> = ({
         {fontIcon && aside.menuIcon === 'font' && (
           <i className={clsx('bi fs-5 menu-font-icon', fontIcon)}></i>
         )}
-        <span className='menu-title d-flex align-items-center'>
+        <span className='menu-title flex-grow-1 d-flex align-items-center justify-content-between' style={{ width: '100%' }}>
           <span className='fw-500'>{title}</span>
           {typeof badgeCount === 'number' && badgeCount > 0 && (
-            <span className='badge badge-circle badge-light-danger text-danger fw-bold fs-9'>
+            <span className='badge badge-circle bg-danger text-white fw-bold d-flex align-items-center justify-content-center' style={{ width: '16px', height: '16px', minWidth: '16px', fontSize: '9.5px', padding: 0, boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)', marginLeft: '8px', marginRight: canPin ? '22px' : '0px' }}>
               {badgeCount > 99 ? '99+' : badgeCount}
             </span>
           )}

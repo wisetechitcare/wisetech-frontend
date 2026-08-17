@@ -21,6 +21,7 @@ import ReimbursementEditModal from '@pages/employee/reimbursement/components/Rei
 import { fetchReimbursementById } from '@services/reimbursementVersions';
 import type { IReimbursementsUpdate } from '@models/employee';
 import { getApprovalDomain, APPROVAL_DOMAIN_KEYS } from './domains/registry';
+import GenericDetail from './domains/GenericDetail';
 import type { ApprovalStep } from './domains/types';
 import InboxItemCard, { ageOf } from './InboxItem';
 
@@ -61,21 +62,21 @@ type Segment = 'mine' | 'awaiting' | 'done';
 const SEGMENTS: Array<{ key: Segment; label: string; hint: string; blank: string }> = [
     {
         key: 'mine',
-        label: 'Pending my action',
+        label: 'Needs my action',
         hint: 'Waiting on you — approvals to decide, and questions on your own expenses.',
         blank: 'Nothing is waiting on you.',
     },
     {
         key: 'awaiting',
-        label: 'Awaiting others',
-        hint: 'You have done your part. These are sitting at someone else’s approval level.',
+        label: 'Waiting on others',
+        hint: 'Sitting with someone else — requests you submitted, and approvals you have passed on.',
         blank: 'Nothing is sitting with anyone else.',
     },
     {
         key: 'done',
-        label: 'Completed',
+        label: 'Resolved',
         hint: 'Already dealt with — decided approvals, and questions you have answered.',
-        blank: 'Nothing has been completed yet.',
+        blank: 'Nothing has been resolved yet.',
     },
 ];
 
@@ -86,10 +87,10 @@ const MY_TASK_TYPES = new Set(['QUERY_RECEIVED', 'REJECTION_RECEIVED', 'ACTION_R
 const AWAITING_TASK_TYPES = new Set<string>([]);
 
 const TASK_STYLE: Record<string, { tone: SemanticTone; icon: string; cta: string; label: string; doneLabel: string }> = {
-    QUERY_RECEIVED: { tone: 'warning', icon: 'question', cta: 'Respond', label: 'Query received', doneLabel: 'Query answered' },
+    QUERY_RECEIVED: { tone: 'warning', icon: 'message-text-2', cta: 'Respond', label: 'Query received', doneLabel: 'Query answered' },
     REJECTION_RECEIVED: { tone: 'danger', icon: 'cross-circle', cta: 'Mark as seen', label: 'Expense rejected', doneLabel: 'Seen' },
     ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open', label: 'Action required', doneLabel: 'Action completed' },
-    QUERY_RESPONSE_RECEIVED: { tone: 'cyan', icon: 'chat', cta: 'Review', label: 'Response received', doneLabel: 'Response reviewed' },
+    QUERY_RESPONSE_RECEIVED: { tone: 'cyan', icon: 'message-text-2', cta: 'Review', label: 'Response received', doneLabel: 'Response reviewed' },
 };
 
 export default function Approvals() {
@@ -285,10 +286,14 @@ export default function Approvals() {
         }
     };
 
-    const DetailComponent = detail ? getApprovalDomain(detail.instance.workflowType)?.Detail : undefined;
+    // Every row opens something. A domain with no canonical view falls back to the generic one —
+    // without it, `Detail` was undefined and the click rendered nothing at all.
+    const DetailComponent = detail
+        ? (getApprovalDomain(detail.instance.workflowType)?.Detail ?? GenericDetail)
+        : undefined;
 
     const renderTabContent = () => (
-        <Box sx={{ maxWidth: 1100, mx: 'auto', width: '100%', pb: 6, pt: 4 }}>
+        <Box sx={{ maxWidth: 1100, mx: 'auto', width: '100%', pb: 6, pt: 2 }}>
             {/* Domain filters exist only for domains that have work. Two or more, or none —
                 a single filter chip filters nothing. */}
             {domainCounts.size > 1 && (
@@ -330,7 +335,7 @@ export default function Approvals() {
                     </Typography>
                 </Stack>
             ) : (
-                <Stack gap={1.5}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 1.5 }}>
                     {tasks.map((task) => {
                         const style = TASK_STYLE[task.type] ?? TASK_STYLE.ACTION_REQUIRED;
                         const pair = tonePair(style.tone);
@@ -342,59 +347,113 @@ export default function Approvals() {
                                 onKeyDown={(e) => { if (e.key === 'Enter') openTask(task); }}
                                 sx={{
                                     position: 'relative', cursor: 'pointer', minWidth: 0,
-                                    borderRadius: '14px', overflow: 'hidden',
-                                    border: `1px solid ${pair.fg}33`, bgcolor: pair.soft,
-                                    transition: 'transform 160ms ease',
-                                    '&:hover': { transform: 'translateY(-1px)' },
+                                    borderRadius: '12px', overflow: 'hidden',
+                                    border: `1px solid ${theme.palette.divider}`,
+                                    bgcolor: 'background.paper',
+                                    transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+                                    display: 'flex', flexDirection: 'column',
+                                    height: '100%',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',
+                                    '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        borderColor: pair.fg,
+                                        boxShadow: `0 8px 24px -8px ${pair.fg}25, 0 4px 12px rgba(0,0,0,0.03)`
+                                    },
                                     '&:focus-visible': { outline: `2px solid ${pair.fg}`, outlineOffset: 2 },
                                 }}
                             >
-                                <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, bgcolor: pair.fg }} />
-                                <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.25} alignItems={{ sm: 'center' }}
-                                    sx={{ pl: { xs: 2, sm: 2.5 }, pr: 2, py: 1.75 }}>
-                                    <Box sx={{
-                                        width: 24, height: 24, borderRadius: '7px', flexShrink: 0,
-                                        display: 'grid', placeItems: 'center',
-                                        bgcolor: theme.palette.background.paper, color: pair.fg,
-                                    }}>
-                                        <KTIcon iconName={style.icon} className="fs-7" />
-                                    </Box>
-                                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                                        <Typography sx={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: pair.fg }}>
+                                <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, bgcolor: pair.fg }} />
+                                <Stack gap={1.2} sx={{ p: { xs: 1.75, sm: 2 }, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                    {/* Status badge */}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Box sx={{
+                                            width: 24, height: 24, borderRadius: '8px', flexShrink: 0,
+                                            display: 'grid', placeItems: 'center',
+                                            bgcolor: pair.soft, color: pair.fg,
+                                        }}>
+                                            <KTIcon iconName={style.icon} className="fs-6" />
+                                        </Box>
+                                        <Typography sx={{ fontSize: '10px', fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: pair.fg, lineHeight: 1 }}>
                                             {segment === 'done' ? style.doneLabel : style.label}
-                                         </Typography>
-                                        <Typography sx={{ fontSize: 14.5, fontWeight: 700, mt: 0.25 }}>{task.title}</Typography>
-                                        {task.message && (
-                                            <Typography sx={{
-                                                fontSize: 12.5, color: 'text.secondary', mt: 0.35, lineHeight: 1.5,
-                                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                                            }}>
-                                                {task.message}
-                                            </Typography>
-                                        )}
+                                        </Typography>
                                     </Box>
-                                    <WtButton size="small" ghost={segment === 'done'}
-                                        onClick={(e) => { e.stopPropagation(); openTask(task); }}>
-                                        {segment === 'done' ? 'View' : style.cta}
-                                    </WtButton>
+
+                                    {/* Title */}
+                                    <Typography sx={{ fontSize: '14px', fontWeight: 700, lineHeight: 1.4, color: 'text.primary' }}>
+                                        {task.title}
+                                    </Typography>
+
+                                    {/* Message preview */}
+                                    {task.message && (
+                                        <Box sx={{
+                                            p: 1.25,
+                                            borderRadius: '8px',
+                                            bgcolor: 'rgba(0, 0, 0, 0.02)',
+                                            borderLeft: `3px solid ${theme.palette.divider}`,
+                                            mt: 0.25
+                                        }}>
+                                            <Typography sx={{
+                                                fontSize: '11px',
+                                                color: 'text.secondary',
+                                                lineHeight: 1.45,
+                                                fontStyle: 'italic',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 2,
+                                                WebkitBoxOrient: 'vertical',
+                                                overflow: 'hidden',
+                                            }}>
+                                                "{task.message}"
+                                            </Typography>
+                                        </Box>
+                                    )}
+
+                                    {/* Action button - premium outline styled */}
+                                    <Box sx={{ mt: 'auto', pt: 1 }}>
+                                        <WtButton size="small"
+                                            onClick={(e) => { e.stopPropagation(); openTask(task); }}
+                                            sx={{
+                                                width: '100%',
+                                                fontSize: '11px',
+                                                fontWeight: 650,
+                                                py: 0.5,
+                                                px: 1,
+                                                borderRadius: '8px',
+                                                border: `1px solid ${pair.fg}`,
+                                                color: pair.fg,
+                                                background: 'transparent !important',
+                                                boxShadow: 'none',
+                                                transition: 'all 160ms cubic-bezier(.22,.61,.36,1)',
+                                                '&:hover': {
+                                                    background: `${pair.fg}15 !important`,
+                                                    borderColor: pair.fg,
+                                                    color: pair.fg,
+                                                    boxShadow: `0 2px 8px ${pair.fg}24`,
+                                                },
+                                            }}>
+                                            {segment === 'done' ? 'View' : style.cta}
+                                        </WtButton>
+                                    </Box>
                                 </Stack>
                             </Box>
                         );
                     })}
 
                     {visible.map((step) => (
-                        <InboxItemCard
-                            key={step.id}
-                            step={step}
-                            canDecide={segment === 'mine' && canApprove}
-                            busy={busyId === step.id}
-                            onOpen={() => openStep(step)}
-                            onApprove={() => decide(step, 'approve')}
-                            onReject={() => setRejectTarget(step)}
-                            onAsk={((step.instance.workflowType || '').toLowerCase() === 'reimbursement') ? () => setBatchDetail({ batchId: step.instance.requestId, instanceId: step.instance.id }) : undefined}
-                        />
+                        <Box key={step.id} sx={{ gridColumn: { xs: 'span 1', sm: 'span 1', lg: 'span 1' }, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                            <InboxItemCard
+                                step={step}
+                                canDecide={segment === 'mine' && canApprove}
+                                busy={busyId === step.id}
+                                onOpen={() => openStep(step)}
+                                onApprove={() => decide(step, 'approve')}
+                                onReject={() => setRejectTarget(step)}
+                                onAsk={((step.instance.workflowType || '').toLowerCase() === 'reimbursement') ? () => setBatchDetail({ batchId: step.instance.requestId, instanceId: step.instance.id }) : undefined}
+                                compact
+                                variant={segment}
+                            />
+                        </Box>
                     ))}
-                    </Stack>
+                </Box>
                 )}
         </Box>
     );
@@ -408,23 +467,13 @@ export default function Approvals() {
 
     return (
         <>
-            <PageTitle breadcrumbs={[]}>My Team - Approvals</PageTitle>
+            <PageTitle breadcrumbs={[]}>My Inbox</PageTitle>
 
             <MaterialHeaderTab
                 tabItems={tabItems}
                 activeTab={SEGMENTS.findIndex((s) => s.key === segment)}
                 onTabChange={(index) => setSegment(SEGMENTS[index].key)}
                 hideScrollButtons
-                aboveContent={
-                    <Stack direction="row" alignItems="center" gap={1} sx={{ px: 0.5, pb: 1 }}>
-                        <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
-                            {SEGMENTS.find((s) => s.key === segment)?.hint}
-                        </Typography>
-                        {oldest && segment === 'mine' && (
-                            <ToneChip tone="warning" size="small" label={`Oldest ${oldest}`} />
-                        )}
-                    </Stack>
-                }
             />
 
             {/* Domain detail — the registry decides which component, so each domain opens in the
@@ -447,6 +496,10 @@ export default function Approvals() {
                     approvalInstanceId={batchDetail.instanceId || null}
                     onClose={() => setBatchDetail(null)}
                     onBatchActionDone={() => load()}
+                    // Opened from a queue card, the modal shows that card's slice of the batch —
+                    // the expenses you have already passed on do not belong in the list you are
+                    // being asked to decide.
+                    slice={segment === 'awaiting' ? 'in-flight' : segment === 'mine' ? 'mine' : undefined}
                 />
             )}
 

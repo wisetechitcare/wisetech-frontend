@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
 import { useDispatch } from 'react-redux';
+import { useMediaQuery } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import {
   fetchEmpAlltimeReimbursements,
@@ -55,6 +56,8 @@ export interface ReimbursementWorkspaceProps {
     summary: ReimbursementSummary;
     loading: boolean;
     periodBar: React.ReactNode;
+    // Phase 1: Current month/year for constraining batch forms
+    currentPeriod?: any; // Dayjs object, only set when viewing monthly
   }) => React.ReactNode;
   /** Extra buttons for the period bar, beside "Download Reimbursement Slip". */
   extraActions?: React.ReactNode;
@@ -84,6 +87,7 @@ export default function ReimbursementWorkspace({
   checkOwnWithOthers = false,
 }: ReimbursementWorkspaceProps) {
   const dispatch = useDispatch();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   // One period for the whole screen. The mode survives a refresh; the anchor resets to today.
   const [alignment, setAlignment] = usePersistedState<PeriodAlignment>(
@@ -155,8 +159,9 @@ export default function ReimbursementWorkspace({
       errorConfirmation('Please select an employee first.');
       return;
     }
-    if (!rows.some((r) => r.status === 'Approved')) {
-      errorConfirmation('No approved reimbursements found for the selected period.');
+    // Phase 1: Allow download of all records in the period, not just approved
+    if (rows.length === 0) {
+      errorConfirmation('No reimbursements found for the selected period.');
       return;
     }
 
@@ -233,7 +238,13 @@ export default function ReimbursementWorkspace({
     // One provider for the whole screen: the eye in the header governs every figure below it,
     // including the ones five components deep in a table cell.
     <SensitiveDataProvider>
-      {renderHeader({ summary, loading, periodBar })}
+      {renderHeader({
+        summary,
+        loading,
+        periodBar,
+        // Phase 1: Pass current month for batch period awareness in forms
+        currentPeriod: alignment === 'monthly' ? periodDate : undefined,
+      })}
 
       {employeeId && (
         <>
@@ -243,30 +254,33 @@ export default function ReimbursementWorkspace({
           <NeedsYourAttention employeeId={employeeId} isSelf={!viewOthers} />
 
           {/* Charts read the SAME rows the KPI cards summarise, bucketed by the selected
-              period — so nothing outside the window can appear, and the two cannot disagree. */}
-          <ReimbursementCharts
-            rows={rows}
-            grain={alignment}
-            anchor={periodDate}
-            fyStart={fiscalYear?.start ?? null}
-            fyLabel={fiscalYear?.label}
-            loading={loading}
-            onSelectPeriod={(key) => {
-              // 'YYYY-MM' opens that month, 'YYYY' opens that year — the two grains the page has.
-              setChartStatusFilter(null);
-              setChartCategoryFilter(null);
-              handlePeriodChange(key.length > 4 ? 'monthly' : 'yearly', dayjs(key.length > 4 ? `${key}-01` : `${key}-04-01`));
-            }}
-            onSelectStatus={(status) =>
-              // Clicking the active slice again clears it — a filter you cannot undo from where
-              // you set it is a trap.
-              setChartStatusFilter((current) => (current === status ? null : (status as StatusNum)))
-            }
-            activeCategory={chartCategoryFilter}
-            onSelectCategory={(name) =>
-              setChartCategoryFilter((current) => (current === name ? null : name))
-            }
-          />
+              period — so nothing outside the window can appear, and the two cannot disagree.
+              Hidden on mobile to simplify the view and reduce data usage. */}
+          {!isMobile && (
+            <ReimbursementCharts
+              rows={rows}
+              grain={alignment}
+              anchor={periodDate}
+              fyStart={fiscalYear?.start ?? null}
+              fyLabel={fiscalYear?.label}
+              loading={loading}
+              onSelectPeriod={(key) => {
+                // 'YYYY-MM' opens that month, 'YYYY' opens that year — the two grains the page has.
+                setChartStatusFilter(null);
+                setChartCategoryFilter(null);
+                handlePeriodChange(key.length > 4 ? 'monthly' : 'yearly', dayjs(key.length > 4 ? `${key}-01` : `${key}-04-01`));
+              }}
+              onSelectStatus={(status) =>
+                // Clicking the active slice again clears it — a filter you cannot undo from where
+                // you set it is a trap.
+                setChartStatusFilter((current) => (current === status ? null : (status as StatusNum)))
+              }
+              activeCategory={chartCategoryFilter}
+              onSelectCategory={(name) =>
+                setChartCategoryFilter((current) => (current === name ? null : name))
+              }
+            />
+          )}
 
           {/* Three tables, three date axes — expense, submission, payment. The subtitles say
               which, which is what stops "why is my June expense under July?". Both take the
@@ -286,26 +300,6 @@ export default function ReimbursementWorkspace({
             externalCategoryFilter={chartCategoryFilter}
             onClearCategoryFilter={() => setChartCategoryFilter(null)}
           />
-
-          <div className="mt-6">
-            <SubmissionsTable
-              title={recordsTitle}
-              subtitle={<>What was <strong>spent</strong> in {periodLabel} — by expense date.</>}
-              period={alignment}
-              date={periodDate}
-              selectedEmployeeId={employeeId}
-              showEditDeleteOption={showEditDeleteOption}
-              resource={resourceNameMapWithCamelCase.reimbursement}
-              viewOwn={true}
-              viewOthers={viewOthers}
-              checkOwnWithOthers={checkOwnWithOthers}
-              externalStatusFilter={chartStatusFilter}
-              externalCategoryFilter={chartCategoryFilter}
-              onClearCategoryFilter={() => setChartCategoryFilter(null)}
-              // Lets the empty state jump to a month that actually has expenses.
-              onGoToPeriod={(next) => handlePeriodChange(alignment, next)}
-            />
-          </div>
 
           <ReimbursementPaymentHistoryTable
             employeeId={employeeId}

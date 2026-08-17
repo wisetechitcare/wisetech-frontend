@@ -109,25 +109,16 @@ export default function StatusFilterChips({ value, onChange, counts }: StatusFil
                 {count}
             </Box>
 
-            {/* Seat rule: this status's share of the period. */}
-            <Box
-                aria-hidden
-                sx={{
-                    position: 'absolute', left: 0, right: 0, bottom: 0, height: 3,
-                    bgcolor: alpha(tone.color, 0.14),
-                }}
-            >
+            {/* Solid bottom line drawn only when selected */}
+            {selected && (
                 <Box
+                    aria-hidden
                     sx={{
-                        height: '100%',
-                        width: `${Math.round(share * 100)}%`,
+                        position: 'absolute', left: 0, right: 0, bottom: 0, height: 3,
                         bgcolor: tone.color,
-                        opacity: selected ? 1 : 0.6,
-                        transition: 'width 250ms ease, opacity 150ms ease',
-                        '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
                     }}
                 />
-            </Box>
+            )}
         </ButtonBase>
     );
 

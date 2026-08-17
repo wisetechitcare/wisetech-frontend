@@ -55,13 +55,14 @@ function Reimbursement() {
           </button>
         ) : null
       }
-      renderHeader={({ summary, loading, periodBar }) => (
+      renderHeader={({ summary, loading, periodBar, currentPeriod }) => (
         <PendingReimbursementsPage
           ref={pendingPageRef}
           onDraftsChange={setPendingDraftsCount}
           {...kpiProps(summary)}
           overviewLoading={loading}
           periodSlot={periodBar}
+          currentPeriod={currentPeriod}
         />
       )}
     />

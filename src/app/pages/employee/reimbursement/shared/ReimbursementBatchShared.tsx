@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import { Box, CircularProgress, MenuItem, Stack, TextField, Typography } from '@mui/material';
@@ -13,13 +13,13 @@ import {
 } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { usePermission } from '@hooks/usePermission';
-import { QUERY_CATEGORIES } from '@services/reimbursementQueries';
+import { fetchQueryTopics, resolveQuery, OTHER_TOPIC, type QueryTopic } from '@services/reimbursementQueries';
 import { GlassDialog, GlassHeader, WtButton, tonePair } from '@app/modules/common/components/ui';
+import type { SemanticTone } from '@app/theme/tokens';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import QueryConversationDialog from '../components/QueryConversation';
 import VersionHistoryDialog from '../components/VersionHistoryDialog';
 import {
-  ApprovalProgressPanel,
   BatchSummaryStrip,
   RequestWorkflowRow,
   type BatchSummaryView,
@@ -77,7 +77,7 @@ interface RejectReasonModalProps {
    * reject the claim, which is the opposite of what the button does.
    */
   variant?: 'reject' | 'request-info';
-  /** Narrows the category list — a batch question is not about one expense's receipt. */
+  /** Narrows the topic list — a batch question is not about one expense's receipt. */
   scope?: 'REQUEST' | 'BATCH';
 }
 
@@ -86,7 +86,7 @@ const REASON_COPY = {
     title: 'Reject Request',
     label: 'Reason for Rejection',
     placeholder: 'Describe why this request is being rejected…',
-    hint: 'A rejection reason is required. The employee sees it.',
+    hint: 'The employee sees this.',
     confirm: 'Confirm rejection',
   },
   'request-info': {
@@ -110,15 +110,29 @@ export function RejectReasonModal({
   show, onClose, onConfirm, submitting, title, variant = 'reject', scope = 'REQUEST',
 }: RejectReasonModalProps) {
   const [reason, setReason] = useState('');
-  // Filing a question under a category is what makes "3 missing receipts this month" answerable
-  // later. Only offered for a question — a rejection reason is prose, not a taxonomy.
-  const [category, setCategory] = useState('OTHER');
+  // Filing the outcome under a topic is what makes "3 missing receipts this month" answerable
+  // later — for a rejection as much as for a question.
+  //
+  // The list is the admin-managed master (Reimbursement Configuration → Question Topics), with
+  // "Something else" appended: it is never a master row, so it cannot be renamed or deleted away.
+  const [category, setCategory] = useState(OTHER_TOPIC);
+  const [topics, setTopics] = useState<QueryTopic[]>([]);
   const copy = REASON_COPY[variant];
   const trimmed = reason.trim();
 
-  const categories = QUERY_CATEGORIES.filter((c) => c.scope === 'BOTH' || c.scope === scope);
+  const isQuestion = variant === 'request-info';
+  // Only "Something else" needs prose — every other topic already states what this is about, and
+  // it is what gets sent as the text when the box is left empty.
+  const needsText = category === OTHER_TOPIC;
+  const text = trimmed || category;
 
-  useEffect(() => { if (!show) { setReason(''); setCategory('OTHER'); } }, [show]);
+  useEffect(() => {
+    if (!show) { setReason(''); setCategory(OTHER_TOPIC); return; }
+    // A failed load leaves the picker with "Something else" alone, which still sends.
+    fetchQueryTopics()
+      .then((all) => setTopics(all.filter((t) => t.scope === 'BOTH' || t.scope === scope)))
+      .catch(() => setTopics([]));
+  }, [show, scope]);
 
   return (
     <GlassDialog
@@ -135,34 +149,36 @@ export function RejectReasonModal({
       }
     >
       <Box sx={{ p: { xs: 1.75, sm: 2.25 }, display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
-        {variant === 'request-info' && (
-          <TextField
-            select fullWidth size="small" label="What is this about?"
-            value={category} onChange={(e) => setCategory(e.target.value)}
-            disabled={submitting}
-          >
-            {categories.map((c) => (
-              <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>
-            ))}
-          </TextField>
-        )}
+        <TextField
+          select fullWidth size="small" label="What is this about?"
+          value={category} onChange={(e) => setCategory(e.target.value)}
+          disabled={submitting}
+        >
+          {topics.map((t) => (
+            <MenuItem key={t.id} value={t.label}>{t.label}</MenuItem>
+          ))}
+          <MenuItem value={OTHER_TOPIC}>{OTHER_TOPIC}</MenuItem>
+        </TextField>
 
         <TextField
           multiline minRows={3} fullWidth size="small" autoFocus
-          label={copy.label}
+          label={needsText ? copy.label : `${copy.label} (optional)`}
           placeholder={copy.placeholder}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           disabled={submitting}
-          helperText={copy.hint}
+          helperText={needsText ? copy.hint : `Optional — “${category}” is what the employee sees. ${copy.hint}`}
         />
 
         <Stack direction="row" gap={1} justifyContent="flex-end">
           <WtButton ghost onClick={onClose} disabled={submitting}>Cancel</WtButton>
           <WtButton
             tone={variant === 'reject' ? 'danger' : 'primary'}
-            disabled={!trimmed || submitting}
-            onClick={() => onConfirm(trimmed, variant === 'request-info' ? category : undefined)}
+            disabled={submitting || (needsText && !trimmed)}
+            // Empty box + a real topic → the topic IS the text. Every caller downstream (batch
+            // reject, reject-all, the approvals queue) still receives non-empty prose, so none of
+            // them needed a second code path for "optional".
+            onClick={() => onConfirm(text, isQuestion ? category : undefined)}
           >
             {submitting ? 'Sending…' : copy.confirm}
           </WtButton>
@@ -171,6 +187,163 @@ export function RejectReasonModal({
     </GlassDialog>
   );
 }
+
+// ── Status summary bar ────────────────────────────────────────────────────────
+
+/** One person, what they owe, and what it is worth. */
+interface WaitOwner {
+  /** What is being waited for, in the same words the request rows use. */
+  reason: string;
+  who: string;
+  /** Where in the chain that person sits, when the reader needs it to place them. */
+  detail: string | null;
+  tone: SemanticTone;
+  count: number;
+  amount: number;
+}
+
+interface StatusSummaryBarProps {
+  summary: BatchSummaryView;
+  /** Every outstanding wait, one row each — see `waits` in BatchDetailModal. */
+  waits: WaitOwner[];
+  actionableCount: number;
+  /** What that decision is worth — the slice of the batch total that is actually yours. */
+  actionableAmount: number;
+}
+
+/**
+ * At-a-glance status breakdown with everyone the batch is actually waiting on.
+ *
+ * Shows: count breakdown (queries · pending · approved · rejected), a row per outstanding wait
+ * naming who owes it, and what is yours to decide.
+ *
+ * This used to name ONE person, found by scanning the batch's levels for the first with anything
+ * pending. Two bugs in one line: on a part-decided batch that finds the level the reader sits at,
+ * so the "waiting on others" view printed the reader's own name — and a batch waiting on the
+ * employee for a query and the next approver for an approval could only ever name one of them.
+ */
+function StatusSummaryBar({ summary, waits, actionableCount, actionableAmount }: StatusSummaryBarProps) {
+  // Every bucket carries its own money. A batch header reading "5 requests · ₹5.00" says nothing
+  // about which part of that total is still yours to decide, which is the number an approver is
+  // actually looking for.
+  const awaitingLevel = Math.max(0, summary.pending - summary.inProgress);
+  const awaitingAmount = Math.max(0, summary.pendingAmount - summary.inProgressAmount);
+  const counts: Array<{ label: string; tone: SemanticTone }> = [
+    ...(summary.queried > 0 ? [{ label: `${summary.queried} query · ${fmtAmount(summary.queriedAmount)}`, tone: 'cyan' as SemanticTone }] : []),
+    ...(awaitingLevel > 0 ? [{ label: `${awaitingLevel} pending · ${fmtAmount(awaitingAmount)}`, tone: 'warning' as SemanticTone }] : []),
+    ...(summary.inProgress > 0 ? [{ label: `${summary.inProgress} with next approver · ${fmtAmount(summary.inProgressAmount)}`, tone: 'neutral' as SemanticTone }] : []),
+    ...(summary.approved > 0 ? [{ label: `${summary.approved} approved · ${fmtAmount(summary.approvedAmount)}`, tone: 'success' as SemanticTone }] : []),
+    ...(summary.rejected > 0 ? [{ label: `${summary.rejected} rejected · ${fmtAmount(summary.rejectedAmount)}`, tone: 'danger' as SemanticTone }] : []),
+  ];
+
+  return (
+    <Box sx={{
+      borderRadius: '10px',
+      p: 1.5,
+      bgcolor: 'action.hover',
+      border: `1px solid`,
+      borderColor: 'divider',
+    }}>
+      <Stack gap={1} sx={{ minWidth: 0 }}>
+        {/* First row: count breakdown. `pending` counts every undecided line, so a batch whose
+            lines had cleared level 1 still read "5 pending" over five rows saying "L2 now" — the
+            part already past a level is split out as its own count instead. */}
+        <Stack direction="row" alignItems="center" gap={1.5} flexWrap="wrap" sx={{ fontSize: 13, fontWeight: 600 }}>
+          {counts.map((c, i) => (
+            <Fragment key={c.label}>
+              {/* '1px', not 1 — MUI sx reads a number ≤ 1 as a fraction, so `width: 1` was a
+                  full-width bar that pushed every count onto a line of its own. */}
+              {i > 0 && <Box sx={{ width: '1px', flex: 'none', height: 16, bgcolor: 'divider' }} />}
+              <Stack direction="row" alignItems="center" gap={0.5} sx={{ minWidth: 'fit-content' }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: tonePair(c.tone).fg }} />
+                <span>{c.label}</span>
+              </Stack>
+            </Fragment>
+          ))}
+        </Stack>
+
+        {/* Second row: one line per outstanding wait, then what is yours to decide. Each row reads
+            left to right as the sentence it is — what is waited for, how much of it, who owes it. */}
+        {(waits.length > 0 || actionableCount > 0) && (
+          <Stack direction="row" alignItems="flex-start" gap={1.5} flexWrap="wrap" sx={{ fontSize: 13 }}>
+            {waits.length > 0 && (
+              <Stack gap={0.75} sx={{ minWidth: 0 }}>
+                {waits.map((w) => (
+                  <Stack key={`${w.reason}·${w.who}·${w.detail ?? ''}`} direction="row" alignItems="center" gap={1} sx={{ minWidth: 0 }}>
+                    <Box sx={{
+                      px: 0.75,
+                      borderRadius: '5px',
+                      flex: 'none',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      lineHeight: 1.7,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      bgcolor: tonePair(w.tone).soft,
+                      color: tonePair(w.tone).fg,
+                    }}>
+                      {w.reason}
+                    </Box>
+                    <Typography sx={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flex: 'none' }}>
+                      {w.count} · {fmtAmount(w.amount)}
+                    </Typography>
+                    <Box sx={{ color: 'text.disabled', flex: 'none', fontSize: 12 }}>→</Box>
+                    <Typography sx={{
+                      fontSize: 12, fontWeight: 700, minWidth: 0,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {w.who}
+                    </Typography>
+                    {w.detail && (
+                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary', flex: 'none' }}>
+                        {w.detail}
+                      </Typography>
+                    )}
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+
+            {actionableCount > 0 && (
+              <>
+                <Box sx={{ flex: 1 }} />
+                <Box sx={{
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: '6px',
+                  bgcolor: tonePair('warning').soft,
+                  color: tonePair('warning').fg,
+                  fontWeight: 700,
+                  fontSize: 12,
+                  whiteSpace: 'nowrap',
+                }}>
+                  {actionableCount} awaiting your decision · {fmtAmount(actionableAmount)}
+                </Box>
+              </>
+            )}
+          </Stack>
+        )}
+      </Stack>
+    </Box>
+  );
+}
+
+/**
+ * Is this expense line this viewer's to decide, right now?
+ *
+ * Approval is per-request since Phase 2, so "status is pending" is not enough: a line that has
+ * cleared level 1 is not the level-1 approver's to decide again, and a queried or decided line is
+ * nobody's. One predicate, used by both the list and the buttons — two copies of this rule is how
+ * a row gets an Approve button the server then refuses.
+ */
+const canDecideRequest = (r: RequestRowData, viewerEmployeeId?: string): boolean => {
+  if (resolveStatusNum(r.status) !== STATUS.PENDING) return false;
+  const approval = r.approval;
+  if (!approval) return true;
+  if (approval.status !== 'pending') return false;
+  const activeStep = approval.steps?.find((s: any) => s.level === approval.currentLevel);
+  return !!activeStep && activeStep.approverId === viewerEmployeeId;
+};
 
 // ── Batch detail ───────────────────────────────────────────────────────────────
 
@@ -182,6 +355,12 @@ interface BatchDetailModalProps {
   /** When 1 or 2, restricts the list to that final status — used when the modal is opened from an
    *  approved- or rejected-group row in the approvals queue. */
   filterStatus?: number | null;
+  /**
+   * Which half of a part-decided batch to list, when opened from an inbox card:
+   * `mine` drops the expenses this viewer has already approved (they are the other tab's card),
+   * `in-flight` shows only those. Omitted everywhere else — the batch is listed whole.
+   */
+  slice?: 'mine' | 'in-flight';
 }
 
 /**
@@ -197,7 +376,7 @@ interface BatchDetailModalProps {
  * approve one, reject another, question a third, leave the rest — which is what the engine has
  * supported since Phase 2 and what the UI could not express.
  */
-export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanceId, filterStatus }: BatchDetailModalProps) {
+export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanceId, filterStatus, slice }: BatchDetailModalProps) {
   const [batch, setBatch] = useState<any>(null);
   const [levels, setLevels] = useState<LevelProgressView[]>([]);
   const [summary, setSummary] = useState<BatchSummaryView | null>(null);
@@ -246,24 +425,146 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
   useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadBatch(); });
 
   /**
-   * Every request in the batch — including the rejected ones.
+   * The requests this modal is ABOUT: what its header counts and its buttons act on.
    *
-   * The old view filtered rejected lines out while the batch was pending, so an employee looking
-   * at their own submission could not see what had been refused or why. `filterStatus` still
-   * narrows to one outcome when the queue opens the modal from an approved- or rejected-group row.
+   * Opened from a queue card, that is the card's own slice — `mine` is what is still in front of
+   * this viewer, `in-flight` what has moved on to the next approver or back to the employee.
+   * Opened anywhere else (the employee's own screen, the Resolved tab) it is the whole batch.
+   * `filterStatus` still narrows to one outcome for the approved- and rejected-group rows.
    */
-  const visibleRequests = useMemo<RequestRowData[]>(() => {
+  const countedRequests = useMemo<RequestRowData[]>(() => {
     const all: RequestRowData[] = batch?.reimbursements ?? [];
     if (filterStatus === 1 || filterStatus === 2) {
       return all.filter((r) => resolveStatusNum(r.status) === filterStatus);
     }
-    return all;
-  }, [batch?.reimbursements, filterStatus]);
+    if (!slice || !viewerEmployeeId || batch?.employeeId === viewerEmployeeId) return all;
+    const mine = all.filter((r) => canDecideRequest(r, viewerEmployeeId));
+    if (slice === 'mine') return mine;
+    return all.filter((r) => {
+      const status = resolveStatusNum(r.status);
+      if (status === STATUS.NEEDS_INFO) return true;             // with the employee
+      return status === STATUS.PENDING && !mine.includes(r);     // with the next approver
+    });
+  }, [batch?.reimbursements, batch?.employeeId, filterStatus, slice, viewerEmployeeId]);
+
+  /**
+   * What the modal LISTS: the slice, plus every decided line for the record.
+   *
+   * A rejected expense is nobody's action and no longer part of the money in flight, but hiding it
+   * outright leaves an approver wondering what happened to the line they refused. It renders after
+   * the live rows, and is counted in nothing above.
+   *
+   * Only on the in-flight card. The "awaiting your decision" card is a work list — a line already
+   * decided is off it, and listing it there made a rejection read as part of what is still pending.
+   */
+  const visibleRequests = useMemo<RequestRowData[]>(() => {
+    if (slice !== 'in-flight') return countedRequests;
+    const all: RequestRowData[] = batch?.reimbursements ?? [];
+    const decided = all.filter((r) => {
+      const status = resolveStatusNum(r.status);
+      return (status === STATUS.APPROVED || status === STATUS.REJECTED) && !countedRequests.includes(r);
+    });
+    return [...countedRequests, ...decided];
+  }, [countedRequests, batch?.reimbursements, slice]);
 
   const detailTotal = useMemo(
-    () => visibleRequests.reduce((sum, r) => sum + Number(r.amount || 0), 0),
-    [visibleRequests],
+    () => countedRequests.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+    [countedRequests],
   );
+
+  /**
+   * The headline counts, recomputed from the rows actually listed below.
+   *
+   * The server's summary describes the whole batch; a sliced list does not, and a header claiming
+   * five expenses over a list of two is the bug this closes.
+   */
+  const shownSummary = useMemo<BatchSummaryView | null>(() => {
+    if (!summary) return null;
+    if (!slice && !filterStatus) return summary;
+
+    const amt = (rows: RequestRowData[]) => rows.reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
+    const withStatus = (s: number) => countedRequests.filter((r) => resolveStatusNum(r.status) === s);
+    // Decided lines are read off the WHOLE batch, not the slice: they are listed below for the
+    // record, so the header names them — in their own colour, outside every live total. Matches
+    // `visibleRequests`: only the in-flight card carries them, so the counts follow the rows.
+    const decidedWith = (s: number) =>
+      slice === 'in-flight'
+        ? ((batch?.reimbursements ?? []) as RequestRowData[]).filter((r) => resolveStatusNum(r.status) === s)
+        : withStatus(s);
+    const pendingRows = withStatus(STATUS.PENDING);
+    // Inside the in-flight slice every undecided row is, by construction, with the next approver.
+    const inFlightRows = slice === 'in-flight' ? pendingRows : [];
+    const mineRows = slice === 'in-flight' ? [] : pendingRows;
+
+    return {
+      ...summary,
+      totalRequests: countedRequests.length,
+      totalAmount: detailTotal,
+      pending: mineRows.length,
+      pendingAmount: amt(mineRows),
+      inProgress: inFlightRows.length,
+      inProgressAmount: amt(inFlightRows),
+      queried: withStatus(STATUS.NEEDS_INFO).length,
+      queriedAmount: amt(withStatus(STATUS.NEEDS_INFO)),
+      approved: (slice ? decidedWith(STATUS.APPROVED) : withStatus(STATUS.APPROVED)).length,
+      approvedAmount: amt(slice ? decidedWith(STATUS.APPROVED) : withStatus(STATUS.APPROVED)),
+      rejected: (slice ? decidedWith(STATUS.REJECTED) : withStatus(STATUS.REJECTED)).length,
+      rejectedAmount: amt(slice ? decidedWith(STATUS.REJECTED) : withStatus(STATUS.REJECTED)),
+    };
+  }, [summary, filterStatus, slice, countedRequests, detailTotal, batch?.reimbursements]);
+
+  /**
+   * Who owes the next move — one row per person, per reason, over the rows this modal lists.
+   *
+   * Read off the rows rather than the batch's level ladder, so it can only ever name a wait the
+   * list below actually contains. A query and an approval are two different waits owned by two
+   * different people, and both get named.
+   */
+  const waits = useMemo<WaitOwner[]>(() => {
+    const groups = new Map<string, WaitOwner>();
+    for (const r of countedRequests) {
+      const status = resolveStatusNum(r.status);
+      const approval = r.approval as any;
+      let wait: Omit<WaitOwner, 'count' | 'amount'> | null = null;
+
+      if (status === STATUS.NEEDS_INFO) {
+        // A queried line stays QUERIED until the approver acts on the answer, so the line's own
+        // status cannot say whose turn it is — the THREAD can. Once every live thread is ANSWERED
+        // the ball is back with the approver, and naming the employee there told the reader the
+        // exact opposite of what was true.
+        const live = (r.queries ?? []).filter((q) => q.status !== 'RESOLVED');
+        const withApprover = live.length > 0 && live.every((q) => q.awaitingRole === 'APPROVER');
+        const step = approval?.steps?.find((s: any) => s.level === approval?.currentLevel);
+        wait = withApprover
+          ? {
+            reason: 'Reply',
+            who: step?.approverId === viewerEmployeeId ? 'You' : (step?.approverName || 'the approver'),
+            detail: approval?.currentLevel ? `Level ${approval.currentLevel}` : null,
+            tone: 'cyan',
+          }
+          : { reason: 'Query', who: batch?.employeeName || 'the employee', detail: 'Employee', tone: 'cyan' };
+      } else if (status === STATUS.PENDING) {
+        const step = approval?.steps?.find((s: any) => s.level === approval?.currentLevel);
+        // Your own rows are what the "awaiting your decision" badge beside this list counts —
+        // naming yourself here would say the same thing twice in two different shapes.
+        if (step?.approverId && step.approverId === viewerEmployeeId) continue;
+        wait = {
+          reason: 'Approval',
+          who: step?.approverName || 'the next approver',
+          detail: approval?.currentLevel ? `Level ${approval.currentLevel}` : null,
+          tone: 'neutral',
+        };
+      }
+      if (!wait) continue;   // approved and rejected lines are nobody's move
+
+      const key = `${wait.reason}·${wait.who}·${wait.detail ?? ''}`;
+      const group = groups.get(key) ?? { ...wait, count: 0, amount: 0 };
+      group.count += 1;
+      group.amount += Number(r.amount ?? 0);
+      groups.set(key, group);
+    }
+    return [...groups.values()];
+  }, [countedRequests, batch?.employeeName, viewerEmployeeId]);
 
   /**
    * The requests this viewer can act on right now.
@@ -279,9 +580,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     // reader did nothing to earn — and this modal is opened from the employee's own screen too.
     if (viewerEmployeeId && batch?.employeeId === viewerEmployeeId) return ids;
     for (const r of visibleRequests) {
-      if (resolveStatusNum(r.status) !== STATUS.PENDING) continue;
-      if (r.approval && r.approval.status !== 'pending') continue;
-      ids.add(r.id);
+      if (canDecideRequest(r, viewerEmployeeId)) ids.add(r.id);
     }
     return ids;
   }, [visibleRequests, batch?.employeeId, viewerEmployeeId]);
@@ -368,6 +667,31 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
 
   const hasApproved = visibleRequests.some((r) => resolveStatusNum(r.status) === STATUS.APPROVED);
 
+  /**
+   * Which side of a conversation this reader is on.
+   *
+   * The batch's own employee is the one answering questions; anyone else looking at it is an
+   * approver. The thread records which ROLE owes the next message, so without this the row cannot
+   * tell whether the person reading it is the one being asked.
+   */
+  const viewerRole: 'EMPLOYEE' | 'APPROVER' | null = !viewerEmployeeId ? null
+    : batch?.employeeId === viewerEmployeeId ? 'EMPLOYEE' : 'APPROVER';
+
+  /** Close the question outright, without opening the thread to type into it. */
+  const handleResolveQuery = async (queryId: string) => {
+    setProcessingId(queryId);
+    try {
+      await resolveQuery(queryId);
+      successConfirmation('Query resolved');
+      await loadBatch();
+      onBatchActionDone();
+    } catch (err: any) {
+      errorConfirmation(err?.response?.data?.message || 'Could not resolve the query');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   return (
     <>
       <GlassDialog
@@ -393,16 +717,24 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
             </Typography>
           ) : (
             <>
-              {summary && (
+              {shownSummary && (
                 <BatchSummaryStrip
-                  summary={filterStatus
-                    ? { ...summary, totalRequests: visibleRequests.length, totalAmount: detailTotal }
-                    : summary}
+                  summary={shownSummary}
                   processingStatus={batch.processingStatus ?? 'PENDING'}
                 />
               )}
 
-              {levels.length > 0 && <ApprovalProgressPanel levels={levels} />}
+              {shownSummary && levels.length > 0 && (
+                <StatusSummaryBar
+                  summary={shownSummary}
+                  waits={waits}
+                  actionableCount={actionableIds.size}
+                  actionableAmount={visibleRequests
+                    .filter((r) => actionableIds.has(r.id))
+                    .reduce((sum, r) => sum + Number(r.amount ?? 0), 0)}
+                />
+              )}
+
 
               {/* Batch-scope questions, shown apart from the requests because they are about the
                   submission as a whole and — deliberately — block none of them. */}
@@ -432,12 +764,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
               )}
 
               {actionableIds.size > 0 && canApprove && (
-                <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap"
-                  sx={{ p: 1.25, borderRadius: '10px', bgcolor: 'action.hover' }}>
-                  <Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>
-                    {actionableIds.size} awaiting your decision
-                  </Typography>
-                  <Box sx={{ flex: 1 }} />
+                <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
                   <WtButton size="small" disabled={bulkProcessing} onClick={() => handleBulkAction('approve')}>
                     Approve all ({actionableIds.size})
                   </WtButton>
@@ -476,6 +803,8 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
                       label: request.description || 'Expense',
                     })}
                     onViewDocument={handleViewDocument}
+                    viewerRole={viewerRole}
+                    onResolveQuery={viewerRole === 'APPROVER' ? handleResolveQuery : undefined}
                   />
                 ))}
                 {visibleRequests.length === 0 && (

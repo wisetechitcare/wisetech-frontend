@@ -14,7 +14,7 @@ import type { SemanticTone } from '@app/theme/tokens';
 import { formatDateTime } from '@utils/dateFormats';
 import {
     fetchRequestQueries, fetchBatchQueries, fetchParticipantRole, fetchBatchParticipantRole,
-    postQueryMessage, resolveQuery, reopenQuery, queryCategoryLabel, QUERY_CATEGORIES,
+    postQueryMessage, resolveQuery, reopenQuery, queryCategoryLabel,
     type QueryThread, type QueryRole, type QueryStatus,
 } from '@services/reimbursementQueries';
 import DocumentPreviewModal from './DocumentPreviewModal';
@@ -132,6 +132,8 @@ function Thread({
     const status = STATUS_TONE[thread.status];
     const resolved = thread.status === 'RESOLVED';
     const isApprover = role === 'APPROVER';
+    /** The asker's own turn is over until the employee answers — see `reimbursementQueryState`. */
+    const awaitingEmployee = thread.status === 'OPEN' || thread.status === 'REOPENED';
 
     // Newest message in view when the thread opens or grows.
     useEffect(() => { endRef.current?.scrollIntoView({ block: 'nearest' }); }, [thread.messages.length]);
@@ -234,8 +236,10 @@ function Thread({
 
             <Divider />
 
-            {/* The composer. A resolved thread keeps its history readable but takes no new
-                messages — reopening is an explicit act, and only an approver's to make. */}
+            {/* The composer, offered only to whoever the thread is waiting on. A resolved thread
+                keeps its history readable but takes no new messages — reopening is an explicit
+                act, and only an approver's to make. Waiting is a read-only state on both sides:
+                the asker gets no Send and no Resolve until the answer arrives. */}
             <Box sx={{ p: 1.5, minWidth: 0 }}>
                 {resolved && !isApprover ? (
                     <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
@@ -244,6 +248,10 @@ function Thread({
                 ) : !isApprover && thread.status === 'ANSWERED' ? (
                     <Typography sx={{ fontSize: 12.5, color: 'text.secondary', py: 1 }}>
                         Awaiting your approver's response.
+                    </Typography>
+                ) : isApprover && awaitingEmployee ? (
+                    <Typography sx={{ fontSize: 12.5, color: 'text.secondary', py: 1 }}>
+                        Awaiting the employee's response. You can reply or resolve this once they answer.
                     </Typography>
                 ) : (
                     <Stack gap={1}>
@@ -273,7 +281,9 @@ function Thread({
                         )}
 
                         <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
-                            {!resolved && (
+                            {/* Attachments are evidence, and evidence is the employee's to supply.
+                                An approver asks the question; they have nothing to file against it. */}
+                            {!resolved && !isApprover && (
                                 <>
                                     <input
                                         ref={fileRef}
@@ -459,5 +469,3 @@ export default function QueryConversationDialog({
         </GlassDialog>
     );
 }
-
-export { QUERY_CATEGORIES };

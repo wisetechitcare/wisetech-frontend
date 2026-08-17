@@ -558,7 +558,7 @@ function SubmissionDetailModal({
                 </div>
               )}
             </div>
-            {batch && displayedReimbursements.some(r => resolveStatusNum(r.status) === 1) && (
+            {batch && displayedReimbursements.length > 0 && (
               <button
                 className="btn d-flex align-items-center gap-2 px-3 ms-auto"
                 style={{
@@ -573,7 +573,7 @@ function SubmissionDetailModal({
                 }}
                 onClick={handleDownloadBill}
                 disabled={downloadingBill || loading}
-                title="Download Reimbursement Bill"
+                title="Download batch slip (all reimbursements)"
               >
                 {downloadingBill ? (
                   <>
@@ -884,7 +884,8 @@ function SubmissionsTable({
       const ungrouped: any[] = [];
 
       if (mode === 'submission') {
-        // One row per BATCH, whole batch, placed in the month it was submitted.
+        // One row per BATCH, whole batch, grouped by reimbursement period.
+        // Phase 1: Batches now represent exactly one calendar month, so filter by expense period.
         const byBatch = new Map<string, any[]>();
         for (const r of lines) {
           const batchId = r.batch?.id || r.batchId;
@@ -899,11 +900,6 @@ function SubmissionsTable({
         for (const [batchId, items] of byBatch.entries()) {
           const batch = items[0]?.batch ?? null;
           const submittedAt = batch?.submittedAt ?? null;
-          if (range) {
-            if (!submittedAt) continue;
-            const d = dayjs(submittedAt).format('YYYY-MM-DD');
-            if (d < range.start || d > range.end) continue;
-          }
 
           const statuses = new Set(items.map((r) => resolveStatusNum(r.status)));
           // A batch can be decided line by line, so it is not always one status.
@@ -927,6 +923,12 @@ function SubmissionsTable({
             .map((r) => r.expenseDate)
             .filter(Boolean)
             .map((d: string) => new Date(d).getTime());
+
+          // Phase 1: Filter by batch's reimbursement period (expense date range), not submission date
+          if (range && expenseTimes.length) {
+            const expenseFrom = dayjs(new Date(Math.min(...expenseTimes))).format('YYYY-MM-DD');
+            if (expenseFrom < range.start || expenseFrom > range.end) continue;
+          }
 
           built.push({
             _batchId: batchId,
@@ -1243,10 +1245,10 @@ function SubmissionsTable({
     <>
       {/* Heading and status rail share one line — the heading block used to sit in the page
           above with its own margins, leaving a band of empty space beside the chips. */}
-      <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 gap-lg-3 mb-3 px-3 px-lg-0">
         <div style={{ minWidth: 0 }}>
-          {title && <h2 className="mb-0 fs-4">{title}</h2>}
-          {subtitle && <div className="text-muted fs-8">{subtitle}</div>}
+          {title && <h2 className="mb-0 fs-5 fs-lg-4">{title}</h2>}
+          {subtitle && <div className="text-muted fs-9 fs-lg-8">{subtitle}</div>}
         </div>
         <div className="d-flex align-items-center flex-wrap gap-2">
           {/* A filter set from a chart the reader may have scrolled past needs to say so here,

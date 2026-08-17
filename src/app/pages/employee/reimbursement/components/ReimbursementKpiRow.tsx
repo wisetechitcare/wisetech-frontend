@@ -39,7 +39,7 @@ interface ReimbursementKpiRowProps {
 const KPI_GRID = {
     display: 'grid',
     gap: 1.25,
-    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0,1fr))', lg: 'repeat(4, minmax(0,1fr))' },
+    gridTemplateColumns: { xs: 'repeat(2, minmax(0,1fr))', lg: 'repeat(4, minmax(0,1fr))' },
 } as const;
 
 export default function ReimbursementKpiRow({

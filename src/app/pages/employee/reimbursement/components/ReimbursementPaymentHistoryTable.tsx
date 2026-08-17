@@ -319,15 +319,15 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
 
     return (
         <>
-        <div className="mt-10">
-            <div className="mb-6">
-                <h2 className="mb-1">Reimbursement Payment History</h2>
-                <div className="text-muted fs-7">
+        <div className="mt-8 mt-lg-10">
+            <div className="mb-4 mb-lg-6 px-3 px-lg-0">
+                <h2 className="mb-1 fs-4 fs-lg-3">Reimbursement Payment History</h2>
+                <div className="text-muted fs-8 fs-lg-7">
                     What you were <strong>paid</strong> in {periodLabel} — by payment date. A batch
                     appears here once it has a payment recorded in this window.
                 </div>
             </div>
-            <div className="card shadow-sm">
+            <div className="card shadow-sm px-3 px-lg-0">
                 <div className="card-body p-6">
                     {loading ? (
                         <div className="d-flex justify-content-center align-items-center py-12">
@@ -343,6 +343,42 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                             showColumnFooter={true}
                             enableStatusColorCoding={false}
                             isLoading={loading}
+                            renderMobileCard={({ row }: any) => (
+                              <div
+                                onClick={() => {
+                                  setSelectedApprovalInstanceId(row.original.approvalInstanceId ?? null);
+                                  setSelectedBatchId(row.original.batchId);
+                                }}
+                                style={{
+                                  padding: '12px', background: '#fff', border: '1px solid #e2e8f0',
+                                  borderRadius: '8px', marginBottom: '8px', cursor: 'pointer'
+                                }}
+                              >
+                                <div style={{ fontWeight: 700, color: '#1E3A8A', fontSize: '0.9rem', marginBottom: '8px' }}>
+                                  {row.original.submissionId}
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.8rem' }}>
+                                  <div>
+                                    <span style={{ color: '#64748b' }}>Requests</span>
+                                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{row.original.totalRequests}</div>
+                                  </div>
+                                  <div>
+                                    <span style={{ color: '#64748b' }}>Amount Paid</span>
+                                    <div className={`fw-bold ${sensitiveCls}`} style={{ color: '#16a34a' }}>₹{fmtAmount(row.original.totalAmountPaid)}</div>
+                                  </div>
+                                  <div>
+                                    <span style={{ color: '#64748b' }}>Request Amount</span>
+                                    <div className={`fw-bold ${sensitiveCls}`}>₹{fmtAmount(row.original.totalRequestAmount)}</div>
+                                  </div>
+                                  <div>
+                                    <span style={{ color: '#64748b' }}>Remaining</span>
+                                    <div className={`fw-bold ${sensitiveCls}`} style={{ color: row.original.totalRemainingAmount > 0 ? '#1E3A8A' : '#16a34a' }}>
+                                      ₹{fmtAmount(row.original.totalRemainingAmount)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                             muiTableProps={{
                                 muiTableBodyRowProps: ({ row }: any) => ({
                                     ...clickableRowProps(() => {

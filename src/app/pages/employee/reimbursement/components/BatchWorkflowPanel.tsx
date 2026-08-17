@@ -1,6 +1,6 @@
-import { Box, Chip, Divider, LinearProgress, Stack, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, Chip, Stack, Tooltip, Typography, useTheme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { ToneChip, tonePair } from '@app/modules/common/components/ui';
+import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { fmtDate, fmtAmount, STATUS, type StatusNum } from '../utils/reimbursementFormat';
 
@@ -73,6 +73,7 @@ export interface BatchSummaryView {
     pendingAmount: number;
     resubmitted: number;
     inProgress: number;
+    inProgressAmount: number;
     openQueries: number;
     paidAmount: number;
 }
@@ -98,93 +99,29 @@ const inr = (v: unknown) => `₹${fmtAmount(v as number)}`;
 /**
  * Where one request has got to, in words.
  *
- * "Level 2 of 3" is the single most useful thing the old view could not say — a request that has
- * cleared level 1 looked identical to one nobody had opened, because the legacy status column has
- * only "pending" for both.
+ * Whose desk it is on, not which ordinal it has reached — a request that has cleared level 1 used
+ * to look identical to one nobody had opened, and "Level 2 of 3" only stopped being a riddle once
+ * the reader worked out who level 2 is. The level survives in the step chips' tooltips.
  */
 function levelCaption(status: number, approval: RequestApprovalView | null): string {
     if (!approval) return status === STATUS.APPROVED ? 'Fully approved' : '';
     if (status === STATUS.APPROVED) return `Approved through all ${approval.totalLevels} level${approval.totalLevels === 1 ? '' : 's'}`;
     if (status === STATUS.REJECTED) {
         const at = approval.steps.find((s) => s.status === 'rejected');
-        return at ? `Rejected at level ${at.level}` : 'Rejected';
+        if (!at) return 'Rejected';
+        return at.approverName ? `Rejected by ${at.approverName}` : `Rejected at level ${at.level}`;
     }
     const cleared = approval.steps.filter((s) => s.status === 'approved').length;
-    const at = `Level ${approval.currentLevel} of ${approval.totalLevels}`;
+    const current = approval.steps.find((s) => s.level === approval.currentLevel);
+    const at = current?.approverName
+        ? `With ${current.approverName}`
+        : `Level ${approval.currentLevel} of ${approval.totalLevels}`;
     return cleared > 0 ? `${at} · ${cleared} cleared` : at;
 }
 
-// ─── Level progress ──────────────────────────────────────────────────────────
-
-function LevelRow({ level }: { level: LevelProgressView }) {
-    const theme = useTheme();
-    const decided = level.approved + level.rejected;
-    const total = decided + level.queried + level.pending + level.notStarted;
-    const pct = total ? Math.round((decided / total) * 100) : 0;
-    const notStarted = decided === 0 && level.queried === 0 && level.pending === 0;
-
-    const counts: Array<{ label: string; tone: SemanticTone }> = [];
-    if (level.approved) counts.push({ label: `${level.approved} approved`, tone: 'success' });
-    if (level.queried) counts.push({ label: `${level.queried} query`, tone: 'cyan' });
-    if (level.rejected) counts.push({ label: `${level.rejected} rejected`, tone: 'danger' });
-    if (level.pending) counts.push({ label: `${level.pending} pending`, tone: 'warning' });
-
-    return (
-        <Box sx={{ py: 1.25, minWidth: 0 }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1} flexWrap="wrap">
-                <Stack direction="row" alignItems="center" gap={1} sx={{ minWidth: 0 }}>
-                    <Box sx={{
-                        width: 26, height: 26, borderRadius: '8px', flexShrink: 0,
-                        display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 800,
-                        bgcolor: notStarted ? theme.palette.action.hover : tonePair('brand').soft,
-                        color: notStarted ? theme.palette.text.disabled : tonePair('brand').fg,
-                    }}>
-                        {level.level}
-                    </Box>
-                    <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', lineHeight: 1.3 }}>
-                            Level {level.level}
-                        </Typography>
-                        {level.approverName && (
-                            <Typography sx={{ fontSize: 11.5, color: 'text.secondary', lineHeight: 1.3 }}>
-                                {level.approverName}
-                            </Typography>
-                        )}
-                    </Box>
-                </Stack>
-                <Stack direction="row" gap={0.5} flexWrap="wrap" sx={{ justifyContent: 'flex-end' }}>
-                    {notStarted
-                        ? <Chip size="small" label="Not started" variant="outlined" sx={{ height: 22, fontSize: 11 }} />
-                        : counts.map((c) => <ToneChip key={c.label} tone={c.tone} label={c.label} size="small" />)}
-                </Stack>
-            </Stack>
-            {!notStarted && (
-                <LinearProgress
-                    variant="determinate"
-                    value={pct}
-                    sx={{ mt: 1, height: 4, borderRadius: 2, bgcolor: theme.palette.action.hover }}
-                />
-            )}
-        </Box>
-    );
-}
-
-export function ApprovalProgressPanel({ levels }: { levels: LevelProgressView[] }) {
-    if (!levels.length) return null;
-    return (
-        <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{
-                fontSize: 11, fontWeight: 800, letterSpacing: '0.06em',
-                textTransform: 'uppercase', color: 'text.secondary', mb: 0.5,
-            }}>
-                Approval progress
-            </Typography>
-            <Stack divider={<Divider flexItem />}>
-                {levels.map((l) => <LevelRow key={l.level} level={l} />)}
-            </Stack>
-        </Box>
-    );
-}
+// The per-level "Approval progress" ladder used to sit here. It restated what the status bar and
+// the request rows already say — the level, its approver, its counts — and `LevelProgressView` is
+// still built because the status bar reads it to work out whose turn it is.
 
 // ─── Batch summary ───────────────────────────────────────────────────────────
 
@@ -197,7 +134,12 @@ export function BatchSummaryStrip({ summary, processingStatus }: {
     if (summary.approved) pills.push({ label: `${summary.approved} approved`, tone: 'success' });
     if (summary.queried) pills.push({ label: `${summary.queried} query`, tone: 'cyan' });
     if (summary.rejected) pills.push({ label: `${summary.rejected} rejected`, tone: 'danger' });
-    if (summary.pending) pills.push({ label: `${summary.pending} pending`, tone: 'warning' });
+    // `pending` counts every undecided line, `inProgress` the ones already past a level. Shown as
+    // one number they contradicted the rows underneath: five "pending" over four rows reading
+    // "L1 approved · L2 now".
+    const awaitingLevel = Math.max(0, summary.pending - summary.inProgress);
+    if (awaitingLevel) pills.push({ label: `${awaitingLevel} pending`, tone: 'warning' });
+    if (summary.inProgress) pills.push({ label: `${summary.inProgress} with next approver`, tone: 'neutral' });
     if (summary.resubmitted) pills.push({ label: `${summary.resubmitted} resubmitted`, tone: 'indigo' });
 
     return (
@@ -250,11 +192,18 @@ export interface RequestRowProps {
     onViewDocument?: (url: string) => void;
     /** Opens the version timeline. Absent on screens that do not offer it. */
     onOpenVersionHistory?: () => void;
+    /**
+     * Which side of the conversation this reader is on. Drives whether the question offers them
+     * anything: the thread knows which ROLE owes the next message, not which person is looking.
+     */
+    viewerRole?: 'EMPLOYEE' | 'APPROVER' | null;
+    /** Closes the thread outright. Approver-only, and absent on screens that do not offer it. */
+    onResolveQuery?: (queryId: string) => void;
 }
 
 export function RequestWorkflowRow({
     request, canDecide, busy, onApprove, onReject, onQuery, onOpenConversation, onViewDocument,
-    onOpenVersionHistory,
+    onOpenVersionHistory, viewerRole, onResolveQuery,
 }: RequestRowProps) {
     const theme = useTheme();
     const status = STATUS_TONE[request.status] ?? STATUS_TONE[STATUS.PENDING];
@@ -357,6 +306,8 @@ export function RequestWorkflowRow({
                 const isWaitingOnEmployee = liveQuery.awaitingRole === 'EMPLOYEE';
                 const toneKey = isWaitingOnEmployee ? 'warning' : 'cyan';
                 const pair = tonePair(toneKey);
+                /** The thread is waiting on the role this reader holds — theirs to answer. */
+                const myTurn = !!viewerRole && liveQuery.awaitingRole === viewerRole;
                 return (
                     <Box sx={{
                         borderRadius: '8px', p: 1.25, minWidth: 0,
@@ -400,6 +351,24 @@ export function RequestWorkflowRow({
                                 <b>{liveQuery.lastMessageRole === 'EMPLOYEE' ? 'Employee' : 'Approver'}:</b>{' '}
                                 {liveQuery.lastMessage}
                             </Typography>
+                        )}
+
+                        {/* The two moves a question actually has, on the question itself. Reaching
+                            them used to mean leaving for the queue and finding the expense again.
+                            Resolve is the approver's alone — it is what closes the thread. */}
+                        {liveQuery.status !== 'RESOLVED' && (viewerRole === 'APPROVER' || myTurn) && (
+                            <Stack direction="row" gap={0.75} flexWrap="wrap" justifyContent="flex-end" sx={{ mt: 1 }}>
+                                {myTurn && (
+                                    <WtButton size="small" disabled={busy} onClick={() => onOpenConversation(liveQuery.id)}>
+                                        Respond
+                                    </WtButton>
+                                )}
+                                {viewerRole === 'APPROVER' && onResolveQuery && (
+                                    <WtButton size="small" ghost disabled={busy} onClick={() => onResolveQuery(liveQuery.id)}>
+                                        Resolve
+                                    </WtButton>
+                                )}
+                            </Stack>
                         )}
                     </Box>
                 );
@@ -447,9 +416,25 @@ export function RequestWorkflowRow({
             {approval && approval.steps.some((s) => s.status !== 'pending') && (
                 <Stack direction="row" gap={0.5} flexWrap="wrap">
                     {approval.steps.map((step) => {
+                        // A rejection ends the request there — the levels above it are never asked.
+                        // Their steps stay 'pending' in the table, and rendering that verbatim put
+                        // an "L2 pending" chip on a rejected line, which reads as still travelling.
+                        const settled = request.status === STATUS.REJECTED
+                            || request.status === STATUS.APPROVED
+                            || (approval.status !== 'pending' && approval.status !== undefined);
+                        const untouched = step.status === 'pending';
                         const tone: SemanticTone = step.status === 'approved' ? 'success'
                             : step.status === 'rejected' ? 'danger'
-                                : step.level === approval.currentLevel ? 'warning' : 'neutral';
+                                : settled ? 'neutral'
+                                    : step.level === approval.currentLevel ? 'warning' : 'neutral';
+                        // The person, not the level number. "L2 now" makes the reader map a number
+                        // onto a colleague before it means anything; the name IS the information,
+                        // and the tooltip still carries the level for anyone who wants it.
+                        const who = step.approverName || `L${step.level}`;
+                        const label = untouched
+                            ? (settled ? `${who} · not needed`
+                                : step.level === approval.currentLevel ? `${who} · now` : `${who} · pending`)
+                            : `${who} · ${step.status}`;
                         return (
                             <Tooltip
                                 key={step.id}
@@ -460,8 +445,7 @@ export function RequestWorkflowRow({
                                 ].filter(Boolean).join(' — ')}
                             >
                                 <span>
-                                    <ToneChip tone={tone} size="small" dense
-                                        label={`L${step.level} ${step.status === 'pending' && step.level === approval.currentLevel ? 'now' : step.status}`} />
+                                    <ToneChip tone={tone} size="small" dense label={label} />
                                 </span>
                             </Tooltip>
                         );

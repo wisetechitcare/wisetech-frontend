@@ -49,7 +49,7 @@ export const solidToolbarButton = (
     disabled = false,
 ): CSSProperties => ({
     ...BASE,
-    border: 'none',
+    border: '1.5px solid transparent',
     background,
     color: '#fff',
     boxShadow: `0 2px 6px ${shadow}`,

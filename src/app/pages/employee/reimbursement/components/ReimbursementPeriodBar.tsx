@@ -34,7 +34,7 @@ const ReimbursementPeriodBar = ({ alignment, date, onChange, actionSlot }: Props
   return (
     // Period tabs and date navigator on one line; collapse to stack on mobile.
     // The status filter rail renders immediately below at full width.
-    <div className="d-flex flex-md-row flex-column justify-content-lg-between align-items-lg-center gap-3 gap-lg-0 mb-3">
+    <div className="d-flex flex-md-row flex-column justify-content-md-between align-items-md-center gap-3 mb-3">
       <PeriodTabs
         value={alignment}
         options={[
@@ -46,7 +46,7 @@ const ReimbursementPeriodBar = ({ alignment, date, onChange, actionSlot }: Props
         ariaLabel="view selection"
       />
 
-      <div className="d-flex align-items-center gap-3">
+      <div className="d-flex align-items-center justify-content-center justify-content-md-end gap-3 flex-wrap w-100 w-md-auto">
         {actionSlot}
 
         {alignment === "monthly" && (
