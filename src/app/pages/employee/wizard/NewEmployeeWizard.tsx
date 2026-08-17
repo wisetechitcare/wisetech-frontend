@@ -1,7 +1,7 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { safeJsonParse } from "@utils/safeJson";
 import { Fragment, useEffect, useRef, useState, type MutableRefObject } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Modal } from "react-bootstrap";
 import { Form, Formik, FormikValues, useFormikContext } from "formik";
 import * as Yup from "yup";
@@ -1125,6 +1125,7 @@ function FormikValidationErrorFocus({ activeStepIndex, setActiveSection }: { act
 function NewEmployeeWizard({ editMode, openModal }: any) {
   const { employeeId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const stepperRef = useRef<HTMLDivElement | null>(null);
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
   const formikRef = useRef<any>(null);
@@ -1662,7 +1663,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     try {
       await Promise.all(reqPromise.map((fn) => fn()));
       await successConfirmation("Employee data updated successfully.");
-      navigate("/employees");
+      // Same destination as Cancel — a save and an abandon from the same screen
+      // should not land in two different places.
+      handleClose();
     } catch (error: any) {
       let errMessage = "Something went wrong. Please try again with required fields filled with correct values.";
       if (error.response?.data) {
@@ -2015,7 +2018,28 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const handleClose = () => { setShow(false); navigate("/employees"); };
+  /**
+   * Where Cancel / the close button / a finished save returns to.
+   *
+   * This used to be a hard-coded "/employees", so editing an employee from their own
+   * profile — or from the salary directory — dropped you on the employee LIST instead of
+   * the page you opened the wizard from, losing that page's tab and scroll position.
+   *
+   * Openers pass `state.returnTo`; the fallbacks cover deep links and refreshes, where
+   * there is no navigation state to read: an edit belongs to one employee, so their
+   * profile is the honest destination, and only a create with no origin lands on the list.
+   *
+   * Not `navigate(-1)`: the wizard replaces its own history entry on some paths, and a
+   * back-step after a successful save would return to the form we just left.
+   */
+  const returnPath = (() => {
+    const fromState = (location.state as any)?.returnTo;
+    if (typeof fromState === "string" && fromState.startsWith("/")) return fromState;
+    if (editMode && employeeId) return `/employees/${employeeId}`;
+    return "/employees";
+  })();
+
+  const handleClose = () => { setShow(false); navigate(returnPath); };
 
   return (
     <Modal
