@@ -285,9 +285,15 @@ export default function WorkCalendarSettings({ open, onClose, readOnly = false }
                     <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={28} /></Stack>
                 ) : !calendars.length ? (
                     <GlassSurface variant="thin" sx={{ p: 3, textAlign: 'center' }}>
+                        {/* Never tell an HR user to run a script. This model is not in use —
+                            the weekly pattern lives on the branch (Weekends & Working Days)
+                            and one-off off-days are rows on the Holidays screen, which is
+                            where the quota strip and Generate Saturdays already work. */}
                         <Typography sx={{ fontSize: 13.5, color: 'text.secondary' }}>
-                            No work calendar exists yet. Run the backfill script to create one per
-                            branch from the current weekly pattern and holiday list.
+                            Nothing to configure here. Weekly working days are set per branch under
+                            <strong> Weekends &amp; Working Days</strong>, and individual off-days
+                            (alternate Saturdays, one-off closures) are managed on the
+                            <strong> Holidays</strong> screen.
                         </Typography>
                     </GlassSurface>
                 ) : (
