@@ -105,7 +105,7 @@ class ErrorBoundary extends React.Component<Props, State> {
                 letterSpacing: '-0.3px',
                 margin: 0, lineHeight: 1.25,
               }}>
-                Something went wrong on this page
+                Something Went Wrong on This Page
               </h3>
               <span style={{
                 fontSize: 12, fontWeight: 500,

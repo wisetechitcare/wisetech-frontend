@@ -134,7 +134,7 @@ const DashboardOngoingLoans = () => {
             letterSpacing: '0.2px'
           }}
         >
-          This month Loans Overview
+          This Month Loans Overview
         </h5>
           <div className="col-12 col-md-6">
             <div className="my-2 d-flex flex-column">

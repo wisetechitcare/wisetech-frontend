@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal } from 'react-bootstrap';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { dateColumn } from '@app/modules/common/components/table/columns';
 import { MRT_ColumnDef } from 'material-react-table';
 import { getMeetings, deleteMeeting } from '@services/employee';
 import { useSelector } from 'react-redux';
@@ -87,14 +88,10 @@ const Meetings = () => {
         accessorKey: 'title',
         header: 'Title',
       },
-      {
-        accessorFn: (row) => dayjs(row.startDate).format('DD MMM YYYY, hh:mm A'),
-        header: 'Start Date',
-      },
-      {
-        accessorFn: (row) => dayjs(row.endDate).format('DD MMM YYYY, hh:mm A'),
-        header: 'End Date',
-      },
+      // accessorKey (not a bare accessorFn) so these columns have a stable id:
+      // without one they were dropped from columnOrder and rendered last.
+      dateColumn({ accessorKey: 'startDate', header: 'Start Date', withTime: true }),
+      dateColumn({ accessorKey: 'endDate', header: 'End Date', withTime: true }),
       {
         accessorKey: 'isOnline',
         header: 'Type',
@@ -105,6 +102,7 @@ const Meetings = () => {
         ),
       },
       {
+        id: 'locationOrLink',
         accessorFn: (row) => row.isOnline ? row.meetingLink : row.location,
         header: 'Location / Link',
         Cell: ({ cell, row }) => (

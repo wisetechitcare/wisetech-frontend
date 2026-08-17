@@ -65,6 +65,13 @@ export interface EmployeeStatItem {
      * grouped total matches the stat card, which weights half-days at 0.5.
      */
     weight?: number;
+    /**
+     * Orderable instant for this occurrence (epoch ms — usually the check-in). `date`
+     * alone can only order occurrences to the day, which makes "Check-in (Earliest)"
+     * meaningless on a single day, where every row shares one date. Optional: rows with
+     * no time (leave, absent) simply fall back to date ordering.
+     */
+    time?: number | null;
 }
 
 export interface EmployeeStatGroup {
@@ -83,6 +90,12 @@ export interface EmployeeStatGroup {
     /** ISO bounds across the group; null when no occurrence carries a date. */
     firstDate: string | null;
     lastDate: string | null;
+    /**
+     * Epoch-ms bounds across the group; null when no occurrence carries a `time`.
+     * Drives check-in ordering, which needs sub-day resolution to mean anything.
+     */
+    firstTime: number | null;
+    lastTime: number | null;
 }
 
 /**
@@ -108,14 +121,29 @@ function weightOf(item: EmployeeStatItem): number {
     return typeof w === 'number' && Number.isFinite(w) && w >= 0 ? w : 1;
 }
 
-/** Undated occurrences sort last, and keep their relative input order (Array#sort is stable). */
+/** A finite epoch-ms `time`, or null — guards against NaN from an unparsed date. */
+function timeOf(item: EmployeeStatItem): number | null {
+    const t = item.time;
+    return typeof t === 'number' && Number.isFinite(t) ? t : null;
+}
+
+/**
+ * Undated occurrences sort last, and keep their relative input order (Array#sort is
+ * stable). Within one date the clock time breaks the tie, so a single-day group lists
+ * its rows in check-in order rather than in whatever order the API returned them.
+ */
 function byDateAsc(a: EmployeeStatItem, b: EmployeeStatItem): number {
     const da = a.date || '';
     const db = b.date || '';
-    if (da === db) return 0;
-    if (!da) return 1;
-    if (!db) return -1;
-    return da < db ? -1 : 1;
+    if (da !== db) {
+        if (!da) return 1;
+        if (!db) return -1;
+        return da < db ? -1 : 1;
+    }
+    const ta = timeOf(a);
+    const tb = timeOf(b);
+    if (ta === null || tb === null) return 0;
+    return ta - tb;
 }
 
 /**
@@ -141,6 +169,8 @@ export function groupEmployeeStatItems(items: readonly EmployeeStatItem[]): Empl
                 count: 0,
                 firstDate: null,
                 lastDate: null,
+                firstTime: null,
+                lastTime: null,
             };
             byKey.set(key, group);
         } else {
@@ -161,6 +191,12 @@ export function groupEmployeeStatItems(items: readonly EmployeeStatItem[]): Empl
             if (group.firstDate === null || date < group.firstDate) group.firstDate = date;
             if (group.lastDate === null || date > group.lastDate) group.lastDate = date;
         }
+
+        const time = timeOf(item);
+        if (time !== null) {
+            if (group.firstTime === null || time < group.firstTime) group.firstTime = time;
+            if (group.lastTime === null || time > group.lastTime) group.lastTime = time;
+        }
     }
 
     for (const group of byKey.values()) {
@@ -176,11 +212,34 @@ export function groupEmployeeStatItems(items: readonly EmployeeStatItem[]): Empl
 const byNameAsc = (a: EmployeeStatGroup, b: EmployeeStatGroup) => COLLATOR.compare(a.name, b.name);
 
 /**
+ * Earliest/latest edge of a group for check-in ordering. Clock time wins when both
+ * groups have one — on a single day every group shares the same `firstDate`, so date
+ * ordering alone would degenerate to the name tiebreak. Groups with no time at all
+ * (leave / absent) fall back to the date, and sort last against timed groups.
+ */
+function byEdge(
+    a: EmployeeStatGroup,
+    b: EmployeeStatGroup,
+    pick: 'first' | 'last',
+    dir: 1 | -1,
+): number {
+    const ta = pick === 'first' ? a.firstTime : a.lastTime;
+    const tb = pick === 'first' ? b.firstTime : b.lastTime;
+    if (ta !== null && tb !== null) return (ta - tb) * dir;
+    if (ta !== null) return -1;
+    if (tb !== null) return 1;
+    const da = (pick === 'first' ? a.firstDate : a.lastDate) || '';
+    const db = (pick === 'first' ? b.firstDate : b.lastDate) || '';
+    return da.localeCompare(db) * dir;
+}
+
+/**
  * Order groups for display. Returns the input array untouched for `none` — sorting is
  * the only case that needs a copy, so the common path allocates nothing.
  *
- * `checkin-*` maps to earliest/latest OCCURRENCE: a group spans many days, so a single
- * check-in time is meaningless, but "who started offending first" is not.
+ * `checkin-*` maps to the group's earliest/latest OCCURRENCE — the clock time when the
+ * rows carry one, the date otherwise. On a single day that is the literal check-in
+ * order; over a week or month it answers "who started offending first / most recently".
  */
 export function sortEmployeeStatGroups(
     groups: EmployeeStatGroup[],
@@ -200,9 +259,9 @@ export function sortEmployeeStatGroups(
         case 'count-asc':
             return sorted.sort((a, b) => a.total - b.total || byNameAsc(a, b));
         case 'checkin-asc':
-            return sorted.sort((a, b) => (a.firstDate || '').localeCompare(b.firstDate || '') || byNameAsc(a, b));
+            return sorted.sort((a, b) => byEdge(a, b, 'first', 1) || byNameAsc(a, b));
         case 'checkin-desc':
-            return sorted.sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || '') || byNameAsc(a, b));
+            return sorted.sort((a, b) => byEdge(a, b, 'last', -1) || byNameAsc(a, b));
         default:
             return sorted;
     }

@@ -29,7 +29,7 @@ const Step5: FC = () => {
           <KTIcon iconName='information-5' className='fs-2tx text-warning me-4' />
           <div className='d-flex flex-stack flex-grow-1'>
             <div className='fw-bold'>
-              <h4 className='text-gray-800 fw-bolder'>We need your attention!</h4>
+              <h4 className='text-gray-800 fw-bolder'>We Need Your Attention!</h4>
               <div className='fs-6 text-gray-600'>
                 To start using great tools, please, please
                 <a href='/dashboard' className='fw-bolder'>

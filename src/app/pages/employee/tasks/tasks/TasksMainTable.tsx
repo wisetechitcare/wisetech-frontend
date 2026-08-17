@@ -378,7 +378,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
                     <MaterialTable
                         columns={columns}
                         data={tasks}
-                        tableName="Tasks"
+                        tableName="TasksMain"
                         muiTableProps={{
                             sx: {
                                 borderCollapse: 'separate',

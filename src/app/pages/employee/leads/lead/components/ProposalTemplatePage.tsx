@@ -1255,7 +1255,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
               </div>
             ) : (
               <div className="py-20 text-center border rounded border-dashed bg-light">
-                <h3 className="fw-bolder text-gray-800">Select a template</h3>
+                <h3 className="fw-bolder text-gray-800">Select a Template</h3>
                 <p className="text-muted fs-6">
                   Choose a template from the sidebar to begin.
                 </p>

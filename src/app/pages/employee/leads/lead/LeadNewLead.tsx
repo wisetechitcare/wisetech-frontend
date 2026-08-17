@@ -1798,7 +1798,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     whiteSpace: "nowrap"
                   }}
                 >
-                  ✕ Clear filters
+                  ✕ Clear Filters
                 </button>
               )}
             </div>

@@ -1,0 +1,48 @@
+# Amplify build spec — kept in the REPO, not the console.
+#
+# The console spec ran `npm ci`, which cannot work here: package-lock.json is gitignored
+# because pnpm is the package manager. Every Amplify build failed at preBuild with
+# "npm ci can only install with an existing package-lock.json".
+#
+# That is the third place the npm -> pnpm migration was missed, after the .npmrc
+# node-options key and the Node 20 pin in GitHub Actions — each one a config that LOOKED
+# migrated. Versioning the spec here means the build instructions travel with the code and
+# can no longer drift from the package manager.
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        # pnpm 11.20 requires Node >= 22.13; Amplify's default image ships older. Without
+        # this pnpm dies on `node:sqlite` before installing anything — the same failure
+        # GitHub Actions hit on Node 20.
+        - nvm install 24
+        - nvm use 24
+        # corepack honours the `packageManager` field in package.json, so the build uses
+        # the exact pnpm version the lockfile was written with rather than whatever is
+        # newest. The env var stops it pausing for a download confirmation on a runner
+        # where nobody can answer.
+        - export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+        - corepack enable
+        # Store INSIDE the workspace. pnpm's default store is global (~/.pnpm-store), which
+        # sits outside the cached directories — caching a repo-relative path while the
+        # store lives elsewhere would cache nothing and quietly re-download every build.
+        - pnpm config set store-dir .pnpm-store
+        # --frozen-lockfile: a deploy must build what the lockfile pins. Resolving fresh
+        # versions here would mean production ships dependencies CI never tested.
+        - pnpm install --frozen-lockfile
+    build:
+      commands:
+        # The script already sets NODE_OPTIONS=--max-old-space-size=4096 via cross-env —
+        # the Vite build OOMs at Node's default heap.
+        - pnpm run build
+  artifacts:
+    # Vite output.
+    baseDirectory: dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      # pnpm's content-addressable store, not node_modules: pnpm links from the store, so
+      # caching node_modules alone rebuilds the links every time and saves little.
+      - .pnpm-store/**/*

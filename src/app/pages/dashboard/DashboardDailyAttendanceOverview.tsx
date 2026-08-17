@@ -196,6 +196,14 @@ const DashboardDailyAttendanceOverview = () => {
   const lateCheckInsCount = visibleAttendance.filter(att => {
     if (!att.checkIn) return false;
 
+    // THE SERVER'S VERDICT decides when present. This screen shares DailyAttendance's
+    // fetch, so its rows already carry `lateMark` — nothing was reading it. Everything
+    // below is the pre-fix derivation, kept only as a fallback for responses without a
+    // verdict: it applies just the ON-SITE third of the master switch and never consults
+    // the calendar, which is what showed red late marks on an exempted Saturday.
+    const serverVerdict = (att as any).lateMark as { isLate: boolean } | undefined;
+    if (serverVerdict) return serverVerdict.isLate;
+
     const attendanceDate = new Date(att.checkIn);
 
     // Get shift for this date
@@ -233,6 +241,10 @@ const DashboardDailyAttendanceOverview = () => {
     if (!att.checkOut) return false;
 
     const attendanceDate = new Date(att.checkOut);
+    // A check-out on a non-working day cannot be "early" — there is no shift to be early
+    // against. The server stamps `dayKind`; fall back to the local calendar check.
+    const kind = (att as any).dayKind as string | undefined;
+    if (kind ? kind !== 'working' : checkIfWeekendOrHoliday(attendanceDate)) return false;
 
     // If on-site settings is ON, skip on-site employees from early check-out
     const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
@@ -261,7 +273,20 @@ const DashboardDailyAttendanceOverview = () => {
   // employeesOnLeave from the API is a NUMBER (count), not an array — .length on a number
   // returns undefined, silently making on-leave employees appear as absent.
   // Use employesLeaveDatas (the ARRAY of leave detail objects) for the correct count.
-  const absentCount = Math.max(0, visibleEmployees.length - (visibleLeaveDatas?.length || 0) - visibleAttendance.length);
+  // Nobody is absent on a day the company does not work. Without this the whole roster
+  // minus whoever came in was reported as absent on weekends and holidays — the "32
+  // absent" on an exempted Saturday. Prefer the server's per-employee `dayKind`; fall
+  // back to the local calendar check when no row carries one.
+  const dashboardDayKinds = visibleAttendance
+    .map((a: any) => a.dayKind as string | undefined)
+    .filter(Boolean) as string[];
+  const isNonWorkingDay = dashboardDayKinds.length
+    ? dashboardDayKinds.every((k) => k !== 'working')
+    : checkIfWeekendOrHoliday(date.toDate());
+
+  const absentCount = isNonWorkingDay
+    ? 0
+    : Math.max(0, visibleEmployees.length - (visibleLeaveDatas?.length || 0) - visibleAttendance.length);
 
   // Modal handlers
   const handleCardClick = (type: ModalType) => {

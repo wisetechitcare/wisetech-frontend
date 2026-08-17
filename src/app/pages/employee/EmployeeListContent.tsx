@@ -1,12 +1,19 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import dayjs from "dayjs";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { KTIcon } from "@metronic/helpers";
-import { fetchAllEmployees } from "@services/employee";
+import { fetchEmployeesPage, fetchEmployeeFacets } from "@services/employee";
+import { useServerPagination } from "@hooks/useServerPagination";
+import {
+  buildEmployeeListParams,
+  employeeFilterKey,
+  type EmployeeListFilters,
+  type FacetOption,
+} from "./employeeListParams";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { actionsColumn, dateColumn, employeeColumn } from "@app/modules/common/components/table/columns";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { hasPermission } from "@utils/authAbac";
 import { usePermission } from "@hooks/usePermission";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -28,21 +35,58 @@ interface StatusCounts {
   inactive: number;
 }
 
+/**
+ * API row -> table row. Hoisted out of the fetch so the paginated path can reuse it.
+ * `branchesData` is only a fallback for rows without a joined branch.
+ */
+const mapEmployeeRow = (obj: Record<string, any>, branchesData: any[]) => {
+  const employeeNewStatus = getEmployeeStatusString(obj as any);
+  // Resolved by the API via the EmployeeReferredBy relation. This used to be a
+  // client-side join across the whole list, which only worked while the browser held
+  // every employee.
+  const referredBy = obj.referredBy;
+  const employeeTypeMap: Record<string, string> = {};
+
+  return {
+    ...obj,
+    users: `${obj.users.firstName} ${obj.users.lastName}`,
+    experience: calculateTotalExperience(obj as any),
+    designations: obj.designations ? obj?.designations?.role : "N/A",
+    departments: obj.departments ? obj.departments.name : "N/A",
+    dateOfJoining: obj.dateOfJoining ? dayjs(obj.dateOfJoining).format("DD/MM/YYYY") : "N/A",
+    createdAt: obj.createdAt ? dayjs(obj.createdAt).format("DD/MM/YYYY") : "N/A",
+    employeeType: employeeTypeMap[obj.employeeTypeId] || "N/A",
+    dateOfExit: obj.dateOfExit ? dayjs(obj.dateOfExit).format("DD/MM/YYYY") : "N/A",
+    dateOfReJoining: obj.dateOfReJoining ? dayjs(obj.dateOfReJoining).format("DD/MM/YYYY") : "N/A",
+    dateOfReExit: obj.dateOfReExit ? dayjs(obj.dateOfReExit).format("DD/MM/YYYY") : "N/A",
+    branches: obj.branches?.name || branchesData.find((b: any) => b.id === obj.branchId)?.name || "N/A",
+    subOrganization: obj.companyOverview?.name || "N/A",
+    payType: obj.professionalFeesEnabled ? "Contract Based" : "Salary Based",
+    employeeStatus: employeeNewStatus,
+    gender: obj.gender === 0 ? "Male" : (obj.gender === 1 ? "Female" : (obj.gender === 2 ? "Other" : "N/A")),
+    maritalStatus: obj.maritalStatus ? "Unmarried" : (obj.maritalStatus === 0 ? "Married" : "N/A"),
+    referredBy: referredBy?.users ? `${referredBy.users.firstName} ${referredBy.users.lastName}` : "N/A",
+    mealPreference: obj.veganMealPreference ? "Vegan" : obj.nonVegMealPreference ? "Non-Vegetarian" : obj.vegMealPreference ? "Vegetarian" : "N/A",
+    avatar: obj.avatar || "",
+  };
+};
+
 const EmployeeListContent = () => {
-  const [allEmployees, setAllEmployees] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(false);
+  // Search and sort are owned here now, not by the table: the server applies them, so the
+  // page has to know the values to send. The table reports them via onSearchChange /
+  // onSortingChange.
+  const [search, setSearch] = useState<string>("");
+  const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([]);
+  const [facets, setFacets] = useState<{ branches: FacetOption[]; subOrganizations: FacetOption[] }>({
+    branches: [],
+    subOrganizations: [],
+  });
   const [selectedStatus, setSelectedStatus] = useState<StatusType>("active");
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ all: 0, active: 0, inactive: 0 });
   const [branchFilter, setBranchFilter] = useState<string>('All');
   const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
   const [payTypeFilter, setPayTypeFilter] = useState<string>('All');
-  const [currentPage, setCurrentPage] = useState(() => {
-    // Restore page from sessionStorage on mount
-    const saved = sessionStorage.getItem('employeeListPage');
-    return saved ? parseInt(saved, 10) : 0;
-  });
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const rootOrgNames = useRootOrgNames();
   // Which employee's ID card is on screen. Held as {id, name} rather than a boolean
@@ -81,20 +125,18 @@ const EmployeeListContent = () => {
     [navigate]
   );
 
-  // Parse "X Years Y Months" to total months for sorting.
+  // Parse calculateTotalExperience() output to total months for sorting.
+  // It emits FOUR shapes — "2 Years 4 Months", "2 Years", "4 Months",
+  // "Less than 1 Month" (and "-") — so years and months must be matched
+  // independently. Requiring both in one pattern returned 0 for every row
+  // except the combined form, which made the comparator a no-op.
   const parseExperienceToMonths = (exp: string | null | undefined): number => {
-    if (!exp) return 0;
-    const match = exp.match(/(\d+)\s+Years?\s+(\d+)\s+Months?/i);
-    if (match) {
-      return parseInt(match[1], 10) * 12 + parseInt(match[2], 10);
-    }
-    return 0;
+    if (!exp || /less than/i.test(exp)) return 0;
+    const years = Number(exp.match(/(\d+)\s*Years?/i)?.[1] ?? 0);
+    const months = Number(exp.match(/(\d+)\s*Months?/i)?.[1] ?? 0);
+    return years * 12 + months;
   };
 
-  // Save current page to sessionStorage whenever it changes
-  useEffect(() => {
-    sessionStorage.setItem('employeeListPage', currentPage.toString());
-  }, [currentPage]);
 
   const handleEditClick = useCallback((employeeId: string) => {
     navigate(`/employees/edit/${employeeId}`, {
@@ -132,48 +174,26 @@ const EmployeeListContent = () => {
   // hidden (meta.defaultVisible: false) and stays available in the column
   // panel; users can still toggle any column, and their choice persists.
   const baseColumns = useMemo(() => [
-    {
-      accessorKey: "users",
+    // Keeps id "users" so existing saved column layouts carry over unchanged.
+    employeeColumn<any>({
+      id: "users",
       header: "Name",
-      Cell: ({ renderedCellValue, row }: any) => (
-        <div className="d-flex align-items-center gap-3">
-          <SmartAvatar
-            name={row.original.users}
-            id={row.original.id}
-            imageUrl={row.original.avatar}
-            size={40}
-            imageFit="cover"
-            status={row.original.employeeStatus === "Active" ? "active" : "inactive"}
-          />
-          <button
-            className="btn btn-link p-0 text-start text-decoration-none"
-            style={{
-              color: "inherit",
-              fontWeight: "600",
-              fontSize: "14px",
-            }}
-            onClick={() => {
-              navigate(`/employees/${row.original.id}`);
-            }}
-          >
-            {renderedCellValue}
-          </button>
-        </div>
-      ),
-    },
+      name: (r) => r.users,
+      avatarUrl: (r) => r.avatar,
+      status: (r) => (r.employeeStatus === "Active" ? "active" : "inactive"),
+      href: (r) => `/employees/${r.id}`,
+    }),
     {
       accessorKey: "departments",
       header: "Department",
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
-    {
-      accessorKey: "dateOfJoining",
-      header: "Date Of Joining",
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-    },
+    dateColumn({ accessorKey: "dateOfJoining", header: "Date Of Joining" }),
     {
       accessorKey: "experience",
-      header: "Total Experience",
+      // "Tenure", not "Total Experience": this counts time at WiseTech only.
+      // Previous employers live in EmployeePreviousExperience and are NOT included.
+      header: "Tenure",
       sortingFn: (rowA: any, rowB: any) => {
         const monthsA = parseExperienceToMonths(rowA.getValue("experience"));
         const monthsB = parseExperienceToMonths(rowB.getValue("experience"));
@@ -215,17 +235,12 @@ const EmployeeListContent = () => {
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
-  ], [navigate]);
+  ], []);
 
   // Memoize admin columns — all hidden by default (toggle on via the column
   // panel); only the Actions column stays visible for admins.
   const adminColumns = useMemo(() => [
-    {
-      accessorKey: "createdAt",
-      header: "Created On",
-      meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-    },
+    dateColumn({ accessorKey: "createdAt", header: "Created On", meta: { defaultVisible: false } }),
     // {
     //   accessorKey: "dateOfReJoining",
     //   header: "Date of Rejoining",
@@ -238,12 +253,18 @@ const EmployeeListContent = () => {
     // },
     {
       accessorKey: "employeeType",
+      // Not sortable: the value is computed in the browser, so no SQL column
+      // reproduces this order. With manualSorting the arrow would do nothing.
+      enableSorting: false,
       header: "Type of Employee",
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
       accessorKey: "employeeStatus",
+      // Not sortable: the value is computed in the browser, so no SQL column
+      // reproduces this order. With manualSorting the arrow would do nothing.
+      enableSorting: false,
       header: "Status",
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
@@ -268,16 +289,14 @@ const EmployeeListContent = () => {
     },
     {
       accessorKey: "mealPreference",
+      // Not sortable: the value is computed in the browser, so no SQL column
+      // reproduces this order. With manualSorting the arrow would do nothing.
+      enableSorting: false,
       header: "Meal preference",
       meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
-    {
-      accessorKey: "dateOfExit",
-      header: "Date Of Exit",
-      meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-    },
+    dateColumn({ accessorKey: "dateOfExit", header: "Date Of Exit", meta: { defaultVisible: false } }),
     {
       accessorKey: "referredBy",
       header: "Referred By",
@@ -285,7 +304,7 @@ const EmployeeListContent = () => {
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     // No deps: these are all plain value renderers. The row actions moved out to
-    // `actionsColumn` below, and took the handlers with them.
+    // `rowActionsColumn` below, and took the handlers with them.
   ], []);
 
   const canManageEmployees = usePermission('employees.manage.all');
@@ -293,17 +312,17 @@ const EmployeeListContent = () => {
   /**
    * Actions — rendered for EVERYONE, but the row decides what is in it.
    *
-   * It used to live in `adminColumns`, so a plain employee saw no Actions column at
-   * all and had no way to reach their own ID card. It is its own column now:
+   * It used to live in `baseColumns`, so its Cell was gated only on the legacy
+   * `hasPermission(..., editOthers)` ABAC check — which resolves true for ordinary
+   * employees, handing everybody the full action set on every row. It is its own
+   * column now:
    *
    *   • manages employees → edit, WhatsApp share and ID card, on every row.
    *   • everyone else     → the ID card button, and ONLY on their own row.
    *
-   * The manager test is `employees.manage.all` (`canManageEmployees`) — the same RBAC
-   * permission that used to decide whether this column existed at all. The legacy
-   * `hasPermission(..., editOthers)` ABAC check is kept as an ADDITIONAL requirement
-   * for the privileged row, never as the discriminator: it resolves true for ordinary
-   * employees, so on its own it handed everybody the full action set.
+   * The manager test is `employees.manage.all` (`canManageEmployees`). The legacy
+   * ABAC check is kept as an ADDITIONAL requirement for the privileged row, never as
+   * the discriminator.
    *
    * Restricting it to their own row is the important half. A card carries a personal
    * phone number, email, blood group and emergency contact, and `users` RBAC still
@@ -311,10 +330,11 @@ const EmployeeListContent = () => {
    * would happily answer for a colleague's id and only log the denial. Rendering the
    * button only for `isSelf` means the request is never made, so the gate does not
    * depend on which mode the server happens to be in.
+   *
+   * Built with the kit's `actionsColumn` helper, so it keeps the shared sizing and
+   * the no-sort / no-hide behaviour every other actions column has.
    */
-  const actionsColumn = useMemo(() => ({
-    accessorKey: "actions",
-    header: "Actions",
+  const rowActionsColumn = useMemo(() => actionsColumn({
     Cell: ({ row }: any) => {
       const canEditOthers = canManageEmployees && hasPermission(
         resourceNameMapWithCamelCase.employee,
@@ -366,112 +386,115 @@ const EmployeeListContent = () => {
 
   const columns = useMemo(() =>
     canManageEmployees
-      ? [...baseColumns, ...adminColumns, actionsColumn]
-      : [...baseColumns, actionsColumn],
-    [canManageEmployees, baseColumns, adminColumns, actionsColumn]
+      ? [...baseColumns, ...adminColumns, rowActionsColumn]
+      : [...baseColumns, rowActionsColumn],
+    [canManageEmployees, baseColumns, adminColumns, rowActionsColumn]
   );
   
   
+  // ── Server-side list ────────────────────────────────────────────────────────
+  // This list used to fetch EVERY employee and do paging, filtering, counting and the
+  // referrer join in the browser. That is the ceiling on multi-tenant scale, and it is
+  // also why the counts, dropdown options and referrer column all silently depended on
+  // holding the whole table. All four now come from the API.
+
+  // Branch list is still fetched whole: it is a small reference table, and the row mapper
+  // uses it only as a fallback when a row has no joined branch.
   useEffect(() => {
-    async function fetchData() {
-      try {
-        // Use initialLoading only on first load, dataLoading for subsequent loads
-        if (initialLoading) {
-          setInitialLoading(true);
-        } else {
-          setDataLoading(true);
-        }
-
-        // Always fetch all employees to get counts
-        const [employeesRes, branchesRes] = await Promise.all([
-          fetchAllEmployees(), // No filter - get all employees
-          fetchAllBranches()
-        ]);
-
-        const { data } = employeesRes;
-
-        const { data: { branches: branchesData } } = branchesRes;
-
-        setBranches(branchesData);
-
-        // Mapping of employeeTypeId to employee type name
-        const employeeTypeMap: Record<string, string> = {};
-
-        const allMappedEmployees = data.employees.map((obj: Record<string, any>) => {
-          let referredBy;
-          const employeeNewStatus = getEmployeeStatusString(obj as any);
-
-          if (obj?.referredById && data.employees) {
-            referredBy = data.employees.find((employee: any) => employee.id === obj.referredById)
-          }
-          return {
-            ...obj,
-            users: `${obj.users.firstName} ${obj.users.lastName}`,
-            experience: calculateTotalExperience(obj as any),
-            designations: obj.designations ? obj?.designations?.role : "N/A",
-            departments: obj.departments ? obj.departments.name : "N/A",
-            dateOfJoining: obj.dateOfJoining ? dayjs(obj.dateOfJoining).format("DD/MM/YYYY") : "N/A",
-            createdAt: obj.createdAt ? dayjs(obj.createdAt).format("DD/MM/YYYY") : "N/A",
-            employeeType: employeeTypeMap[obj.employeeTypeId] || "N/A",
-            dateOfExit: obj.dateOfExit ? dayjs(obj.dateOfExit).format("DD/MM/YYYY") : "N/A",
-            dateOfReJoining: obj.dateOfReJoining ? dayjs(obj.dateOfReJoining).format("DD/MM/YYYY") : "N/A",
-            dateOfReExit: obj.dateOfReExit ? dayjs(obj.dateOfReExit).format("DD/MM/YYYY") : "N/A",
-            branches: obj.branches?.name || branchesData.find((b: any) => b.id === obj.branchId)?.name || "N/A",
-            subOrganization: obj.companyOverview?.name || "N/A",
-            payType: obj.professionalFeesEnabled ? "Contract Based" : "Salary Based",
-            employeeStatus: employeeNewStatus,
-            gender: obj.gender === 0 ? "Male" : (obj.gender === 1 ? "Female" : (obj.gender === 2 ? "Other" : "N/A")),
-            maritalStatus: obj.maritalStatus ? "Unmarried" : (obj.maritalStatus === 0 ? "Married" : "N/A"),
-            referredBy: obj.referredById && referredBy ? `${referredBy.users.firstName} ${referredBy.users.lastName}` : "N/A",
-            mealPreference: obj.veganMealPreference ? "Vegan" : obj.nonVegMealPreference ? "Non-Vegetarian" : obj.vegMealPreference ? "Vegetarian" : "N/A",
-            avatar: obj.avatar || "",
-          };
-        });
-
-        // Calculate counts
-        const activeCount = allMappedEmployees.filter((emp: any) => emp.employeeStatus === "Active").length;
-        const inactiveCount = allMappedEmployees.filter((emp: any) => emp.employeeStatus === "Inactive").length;
-        setStatusCounts({
-          all: allMappedEmployees.length,
-          active: activeCount,
-          inactive: inactiveCount
-        });
-
-        setAllEmployees(allMappedEmployees);
-      } catch (error) {
-        console.error("Error fetching employees:", error);
-      } finally {
-        setInitialLoading(false);
-        setDataLoading(false);
-      }
-    }
-    fetchData();
+    fetchAllBranches()
+      .then(({ data: { branches: branchesData } }) => setBranches(branchesData))
+      .catch((error) => console.error("Error fetching branches:", error));
   }, []);
 
-  const branchOptions = useMemo(() => {
-    const names = new Set<string>();
-    allEmployees.forEach((e: any) => { if (e.branches && e.branches !== 'N/A') names.add(e.branches); });
-    return Array.from(names).sort();
-  }, [allEmployees]);
+  // Dropdown options come from the API, scoped by status/payType/search but NOT by the
+  // branch/sub-org filters themselves — otherwise picking a branch would remove every
+  // other branch from the list you picked it from.
+  useEffect(() => {
+    fetchEmployeeFacets(
+      buildEmployeeListParams({
+        status: selectedStatus,
+        branchName: "All",
+        subOrgName: "All",
+        payType: payTypeFilter,
+        search,
+        sorting: [],
+        facets: { branches: [], subOrganizations: [] },
+      }),
+    )
+      .then((res) => setFacets(res.data ?? { branches: [], subOrganizations: [] }))
+      .catch((error) => console.error("Error fetching employee facets:", error));
+  }, [selectedStatus, payTypeFilter, search]);
 
-  const subOrgOptions = useMemo(() => {
-    const names = new Set<string>();
-    allEmployees.forEach((e: any) => {
-      // Exclude the top-level org — only actual sub-orgs belong in this dropdown.
-      if (e.subOrganization && e.subOrganization !== 'N/A' && !rootOrgNames.has(e.subOrganization)) names.add(e.subOrganization);
-    });
-    return Array.from(names).sort();
-  }, [allEmployees, rootOrgNames]);
+  const filters: EmployeeListFilters = useMemo(
+    () => ({
+      status: selectedStatus,
+      branchName: branchFilter,
+      subOrgName: subOrgFilter,
+      payType: payTypeFilter,
+      search,
+      sorting,
+      facets,
+    }),
+    [selectedStatus, branchFilter, subOrgFilter, payTypeFilter, search, sorting, facets],
+  );
 
-  const displayedEmployees = useMemo(() => {
-    let result = allEmployees;
-    if (selectedStatus === 'active') result = result.filter((e: any) => e.employeeStatus === 'Active');
-    else if (selectedStatus === 'inactive') result = result.filter((e: any) => e.employeeStatus === 'Inactive');
-    if (branchFilter !== 'All') result = result.filter((e: any) => e.branches === branchFilter);
-    if (subOrgFilter !== 'All') result = result.filter((e: any) => e.subOrganization === subOrgFilter);
-    if (payTypeFilter !== 'All') result = result.filter((e: any) => e.payType === payTypeFilter);
-    return result;
-  }, [allEmployees, selectedStatus, branchFilter, subOrgFilter, payTypeFilter]);
+  const fetchPage = useCallback(
+    async (page: number, limit: number) => {
+      const res = await fetchEmployeesPage(page, limit, buildEmployeeListParams(filters));
+      const { employees, pagination: meta, counts } = res.data;
+      // Counts arrive with the page, computed in SQL against the same filters — they must
+      // never be derived from the rows, which are one page.
+      if (counts) setStatusCounts(counts);
+      return {
+        data: employees ?? [],
+        totalRecords: meta?.totalRecords ?? employees?.length ?? 0,
+      };
+    },
+    [filters],
+  );
+
+  const {
+    data: displayedEmployees,
+    pagination,
+    totalRecords,
+    isLoading: dataLoading,
+    isInitialLoading: initialLoading,
+    setPagination,
+  } = useServerPagination<any>({
+    fetchFunction: fetchPage,
+    initialPageSize: 25,
+    transformData: (rows: any[]) => rows.map((obj) => mapEmployeeRow(obj, branches)),
+    // Any change to what the SERVER filters or orders by must snap back to page 1 —
+    // asking for page 5 of a newly-narrowed result set renders an empty table.
+    resetKey: `${employeeFilterKey(filters)}|${sorting.map((s) => `${s.id}:${s.desc}`).join()}`,
+  });
+
+  // Preserve the page across navigation (opening an employee and coming back).
+  // useServerPagination owns pagination now, so this restores THROUGH it rather than
+  // holding a rival copy — restoring once, guarded, because a re-run would yank the user
+  // back to the stored page every time they turned one.
+  const pageRestoredRef = useRef(false);
+  useEffect(() => {
+    if (pageRestoredRef.current) return;
+    pageRestoredRef.current = true;
+    const saved = parseInt(sessionStorage.getItem("employeeListPage") ?? "0", 10);
+    if (saved > 0) setPagination((prev) => ({ ...prev, pageIndex: saved }));
+  }, [setPagination]);
+
+  useEffect(() => {
+    sessionStorage.setItem("employeeListPage", String(pagination.pageIndex));
+  }, [pagination.pageIndex]);
+
+  const branchOptions = useMemo(
+    () => facets.branches.map((b) => b.name).sort(),
+    [facets],
+  );
+
+  const subOrgOptions = useMemo(
+    // Exclude the top-level org — only actual sub-orgs belong in this dropdown.
+    () => facets.subOrganizations.map((o) => o.name).filter((n) => !rootOrgNames.has(n)).sort(),
+    [facets, rootOrgNames],
+  );
 
   const hasActiveFilters = branchFilter !== 'All' || subOrgFilter !== 'All' || payTypeFilter !== 'All';
 
@@ -574,29 +597,36 @@ const EmployeeListContent = () => {
     </div>
 
     {/* Table section */}
-    <div className="" style={{ position: 'relative', minHeight: dataLoading ? '300px' : 'auto' }}>
-      {dataLoading && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(255, 255, 255, 0.7)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 10
-        }}>
-          <Loader />
-        </div>
-      )}
+    {/* No refetch overlay here on purpose. `dataLoading` is true on EVERY fetch, not just the
+        first, so a white scrim + spinner + 300px height snap fired on every sort/page click —
+        hiding rows the app was still holding (useServerPagination keeps the previous page in
+        state until the new one resolves) and reading as "sorting is slow". The table's own
+        progress bar covers this state, and the first-load case is already handled above by the
+        page-level guard. The other two server-sorted tables gate their Loader on
+        isInitialLoading only; this one was the outlier. */}
+    <div className="">
       <MaterialTable
         columns={columns}
         data={displayedEmployees}
         tableName="EmployeesV5"
         employeeId={employeeId}
         enableColumnSpecificSearch={true}
+        // Pilot for bulk actions. Selecting rows makes the existing Export button act on
+        // just those rows — read-only, so the pattern gets proven before anything that
+        // writes. No other prop needed; the engine handles the rest.
+        enableRowSelection={true}
+        // Server owns paging, sorting AND search. All three must move together: with any
+        // one left client-side it would act on the single page the browser holds while
+        // implying the whole result set.
+        manualPagination={true}
+        manualSorting={true}
+        manualFiltering={true}
+        rowCount={totalRecords}
+        paginationState={pagination}
+        onPaginationChange={setPagination}
+        onSortingChange={setSorting}
+        onSearchChange={setSearch}
+        isLoading={dataLoading}
         muiTableProps={{
           muiTableBodyRowProps: ({ row }: any) => ({
             onClick: (event: React.MouseEvent<HTMLElement>) => openEmployeeRow(row.original.id, event),

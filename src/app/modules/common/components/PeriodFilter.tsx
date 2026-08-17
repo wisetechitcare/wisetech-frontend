@@ -44,6 +44,14 @@ interface Props {
    * or all-numeric label there scans as data. Choose 'compact' where width is tight.
    */
   dateStyle?: PeriodLabelStyle;
+  /**
+   * Fixed width for the prev/label/next pill. The label's length swings hard with the
+   * mode ("Friday, 7 August 2026" → "August 2026"), so a fit-content pill resizes on
+   * every mode switch and drags the rest of the toolbar with it. Defaults to a width
+   * that holds the longest label of the allowed modes when the tabs are shown; pass a
+   * number to override, or `'fit-content'` to opt back into the old behaviour.
+   */
+  navMinWidth?: number | string;
 }
 
 const MODES: Array<{ key: PeriodMode; label: string }> = [
@@ -73,6 +81,7 @@ const PeriodFilter: React.FC<Props> = ({
   allowedModes,
   dailyLabelFormat,
   dateStyle = "long",
+  navMinWidth,
 }) => {
   const [mode, setMode] = useState<PeriodMode>(() => {
     if (storageKey) {
@@ -177,6 +186,13 @@ const PeriodFilter: React.FC<Props> = ({
 
   const showTabs = availableModes.length > 1;
 
+  // Only a multi-mode filter can jump between label vocabularies, so a single-mode
+  // consumer keeps hugging its label. The two sizes are the widest label each style
+  // produces plus the 36px arrow buttons: 'long' has to hold a weekday-prefixed day
+  // ("Wednesday, 25 September 2026"), 'compact' only "2026.09.25" / "19 - 25 Sep".
+  const resolvedNavWidth =
+    navMinWidth ?? (showTabs ? (dateStyle === "long" ? 260 : 190) : "fit-content");
+
   return (
     <div className="d-flex align-items-center flex-wrap" style={{ gap: 10 }}>
       {showTabs && (
@@ -195,6 +211,7 @@ const PeriodFilter: React.FC<Props> = ({
           onNext={() => step(1)}
           onPickDate={(v) => setAnchor(dayjs(v))}
           pickValue={anchor.format("YYYY-MM-DD")}
+          minWidth={resolvedNavWidth}
         />
       )}
 

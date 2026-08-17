@@ -1,4 +1,4 @@
-import { ToggleButton, ToggleButtonGroup, SxProps, Theme, useMediaQuery, useTheme } from '@mui/material';
+import { Box, ToggleButton, ToggleButtonGroup, SxProps, Theme, useMediaQuery, useTheme } from '@mui/material';
 
 export interface PeriodTabOption {
     label: string;
@@ -68,6 +68,9 @@ const PeriodTabs = ({
                 whiteSpace: 'nowrap',
                 letterSpacing: 0,
                 overflow: 'visible',
+                // Anchors the visible label, which is taken out of flow so the bold
+                // sizer below is what decides this tab's width. See the two spans.
+                position: 'relative',
             },
             '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                 marginLeft: 0,
@@ -100,9 +103,23 @@ const PeriodTabs = ({
             ...sx,
         }}
     >
+        {/* Two copies of the label on purpose. The selected tab renders at weight 700 and
+            the rest at 500, so a single in-flow label would make every tab resize the
+            moment you switch modes — the whole control (and the navigator beside it)
+            visibly jumps. The first span is a zero-height, always-bold sizer that fixes
+            the width at its widest state; the second is the one you actually see, taken
+            out of flow so its weight can change without moving anything. */}
         {options.map((option) => (
             <ToggleButton key={option.value} value={option.value}>
-                {option.label}
+                <Box component="span" aria-hidden sx={{ fontWeight: 700, height: 0, overflow: 'hidden', visibility: 'hidden' }}>
+                    {option.label}
+                </Box>
+                <Box
+                    component="span"
+                    sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                    {option.label}
+                </Box>
             </ToggleButton>
         ))}
     </ToggleButtonGroup>

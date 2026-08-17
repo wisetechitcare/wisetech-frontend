@@ -138,7 +138,7 @@ would diverge.
 ### Phase 5 — Dev proxy, build, cutover
 1. Dev proxy (`/api`, `/socket.io` ws, `/uploads` → `:9000`) → `next.config.js` `rewrites()`. **Do not create `app/api/*`** — it would shadow the proxied backend `/api`.
 2. Path aliases → `tsconfig.json` `paths` (Next reads these; drop `vite-tsconfig-paths`).
-3. `npm run build` → `next build`. Keep the `tsc --noEmit` gate and the auto-typecheck hook.
+3. `pnpm run build` → `next build`. Keep the `tsc --noEmit` gate and the auto-typecheck hook.
 4. Delete Vite (`vite.config.ts`, `index.html`, plugins) **only after** `next build` + full smoke pass are green.
 
 ---

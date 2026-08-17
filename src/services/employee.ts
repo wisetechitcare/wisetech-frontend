@@ -29,6 +29,67 @@ export const fetchAllKpiScores = async (startDate: string, endDate: string) => {
   return data;
 };
 
+/** Filters the employee list understands server-side. All optional. */
+export interface EmployeeListParams {
+    isActive?: boolean;
+    branchId?: string;
+    companyId?: string;
+    departmentId?: string;
+    designationId?: string;
+    payType?: string;
+    search?: string;
+    sort?: { id: string; desc: boolean };
+}
+
+const employeeListQuery = (p: EmployeeListParams): URLSearchParams => {
+    const q = new URLSearchParams();
+    if (p.isActive !== undefined) q.append('isActive', String(p.isActive));
+    for (const k of ['branchId', 'companyId', 'departmentId', 'designationId', 'payType', 'search'] as const) {
+        const v = p[k];
+        if (v) q.append(k, v);
+    }
+    if (p.sort?.id) {
+        q.append('sortBy', p.sort.id);
+        q.append('sortOrder', p.sort.desc ? 'desc' : 'asc');
+    }
+    return q;
+};
+
+/**
+ * Server-paginated employee list.
+ *
+ * Separate from {@link fetchAllEmployees} on purpose — that one has 27 callers (pickers,
+ * lookups, dropdowns) that need every row, and the API only paginates when page/limit are
+ * actually sent. Returns `counts` for the status tabs, derived in SQL from the same
+ * filters, so they stay correct across pages.
+ */
+export const fetchEmployeesPage = async (page: number, limit: number, params: EmployeeListParams = {}) => {
+    try {
+        const q = employeeListQuery(params);
+        q.append('page', String(page));
+        q.append('limit', String(limit));
+        const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE}?${q.toString()}`);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/**
+ * Distinct filter-dropdown values, scoped by the same filters as the list.
+ * A paginated table can no longer build these from its loaded rows.
+ */
+export const fetchEmployeeFacets = async (params: EmployeeListParams = {}) => {
+    try {
+        const q = employeeListQuery(params);
+        const suffix = q.toString() ? `?${q.toString()}` : '';
+        const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE}/facets${suffix}`);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 export const fetchAllEmployees = async (isActive?: boolean) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE}`;
@@ -1316,6 +1377,15 @@ export const fetchLeaveRequest = async (
     /** Exclude employees explicitly flagged inactive. Filtered in SQL — see the API's
      *  `activeEmployeeRelationFilter`. Off by default so existing callers are unchanged. */
     activeOnly?: boolean,
+    /** Sort the WHOLE result set in SQL. Required for a paginated table: without it the
+     *  browser only reorders the page it happens to be holding. Unknown columns are
+     *  ignored server-side (whitelist in utils/sortParams). */
+    sort?: { id: string; desc: boolean },
+    /** Free-text search over the WHOLE result set in SQL, for the same reason as `sort`:
+     *  a paginated table filtering in the browser only ever matches the page it holds, so
+     *  searching a long queue returns "no results" for rows that exist on page 2.
+     *  Columns searched are fixed server-side (see EMPLOYEE_SEARCH_PATHS). */
+    search?: string,
 ) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_LEAVE_REQUEST}`;
@@ -1324,12 +1394,19 @@ export const fetchLeaveRequest = async (
         if (status !== undefined) params.append('status', status.toString());
         if (page !== undefined) params.append('page', page.toString());
         if (limit !== undefined) params.append('limit', limit.toString());
+        if (sort?.id) {
+            params.append('sortBy', sort.id);
+            params.append('sortOrder', sort.desc ? 'desc' : 'asc');
+        }
         // Both or neither — the API rejects a half-specified window on purpose.
         if (range?.startDate && range?.endDate) {
             params.append('startDate', range.startDate);
             params.append('endDate', range.endDate);
         }
         if (activeOnly) params.append('activeOnly', 'true');
+        // Trimmed, and omitted when empty: a blank `search=` would be a filter the API has
+        // to decide to ignore, rather than one that was never requested.
+        if (search?.trim()) params.append('search', search.trim());
 
         if (params.toString()) {
             endpoint += `?${params.toString()}`;
@@ -1642,6 +1719,10 @@ export const getAllAttendanceRequestByCompanyId = async (
     range?: { startDate: string; endDate: string },
     /** Exclude employees explicitly flagged inactive. Filtered in SQL. Off by default. */
     activeOnly?: boolean,
+    /** Sort the WHOLE result set in SQL — see fetchLeaveRequest. */
+    sort?: { id: string; desc: boolean },
+    /** Search the WHOLE result set in SQL — see fetchLeaveRequest. */
+    search?: string,
 ) => {
     try {
         const params = new URLSearchParams({ companyId, page: String(page), limit: String(limit) });
@@ -1651,6 +1732,11 @@ export const getAllAttendanceRequestByCompanyId = async (
             params.append('endDate', range.endDate);
         }
         if (activeOnly) params.append('activeOnly', 'true');
+        if (sort?.id) {
+            params.append('sortBy', sort.id);
+            params.append('sortOrder', sort.desc ? 'desc' : 'asc');
+        }
+        if (search?.trim()) params.append('search', search.trim());
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_ATTENDANCE_REQUEST}?${params.toString()}`;
         const { data } = await axios.get(endpoint);
         return data;
@@ -1873,6 +1959,27 @@ export const fetchPendingApprovals = async () => {
     const { data } = await axios.get(endpoint);
     return data;
 }
+
+/**
+ * Decide several of ONE employee's pending requests in one call.
+ *
+ * The API rejects a payload spanning multiple employees — that constraint is what keeps
+ * the requester's inbox to a single summary email and bounds a mistake to one person.
+ * Returns a per-item outcome: some instances legitimately fail (already decided, no longer
+ * your step), and the caller must show which.
+ */
+export const bulkDecideApprovals = async (
+    instanceIds: string[],
+    action: 'approve' | 'reject',
+    comments?: string,
+) => {
+    try {
+        const { data } = await axios.post(`${API_BASE_URL}/api/approvals/bulk`, { instanceIds, action, comments });
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
 
 export const processApprovalAction = async (instanceId: string, action: 'approve' | 'reject', comments?: string) => {
     const endpoint = `${API_BASE_URL}/api/approvals/instance/${instanceId}/process`;
