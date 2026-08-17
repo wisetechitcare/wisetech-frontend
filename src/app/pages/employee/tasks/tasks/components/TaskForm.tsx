@@ -17,6 +17,8 @@ import { createTask, updateTask } from '@services/tasks';
 import TimePickerInput from '@app/modules/common/inputs/TimeInput';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import TaskConfigForm from '@app/pages/employee/tasks/configure/components/TaskConfigForm';
+import HierarchicalTaskSelect, { buildTaskOptions } from '@app/pages/employee/tasks/components/HierarchicalTaskSelect';
+import { PATH_SEPARATOR, getPresetPath } from '@utils/presetTaskHierarchy';
 import { Root } from 'react-dom/client';
 import { RootState } from '@redux/store';
 
@@ -54,11 +56,11 @@ interface TaskFormModalProps {
 // just stops the user submitting something it will reject.
 const validationSchema = Yup.object().shape({
   taskName: Yup.string().required('Task name is required'),
-  // In preset mode the name is chosen through the Main Task picker, so the error has
-  // to surface there — `taskName` itself has no field of its own to hang it on.
-  mainTask: Yup.string().when('projectType', {
+  // In preset mode the name comes from the selected configuration node, so the error
+  // has to surface on the picker — `taskName` has no field of its own to hang it on.
+  presetTaskId: Yup.string().when('projectType', {
     is: 'preset',
-    then: (schema) => schema.required('Main task is required'),
+    then: (schema) => schema.required('Task is required'),
     otherwise: (schema) => schema.notRequired(),
   }),
   taskDescription: Yup.string(),
@@ -156,11 +158,11 @@ const TaskForm = ({
     // Phase 3 — scope is explicit. When editing, it comes from the stored column; the server
     // refuses to change it after creation (DEC-019), so the control is disabled in edit mode.
     taskScope: (selectedTask?.taskScope as string) || (chooseProject ? 'PROJECT' : 'PROJECT'),
+    // The task's OWN name — the selected node's name, never its path.
     taskName: taskName || '',
-    // Preset mode only — the Task → Sub-task pair the name above was picked from.
-    // Resolved from `taskName` once the preset list loads (see the effect below).
-    mainTask: '',
-    subTask: '',
+    // Preset mode only — the configuration node the name above came from. This is what
+    // the hierarchy is derived from; it is resolved on edit in the effect below.
+    presetTaskId: (selectedTask?.presetTaskId as string) || '',
     taskDescription: taskDescription || '',
     chooseProject: chooseProject || '',
     assignTo: assignTo || '',
@@ -190,23 +192,14 @@ const TaskForm = ({
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showPriorityModal, setShowPriorityModal] = useState(false);
 
-  // Preset tasks come back flat; `parentId` is what makes them a tree. A row whose
-  // parent is missing (deleted/inactive) is treated as a main task so it never becomes
-  // unselectable.
-  const mainTaskOptions = useMemo(() => {
-    const ids = new Set(tasks.map((t: any) => t?.id));
-    return tasks
-      .filter((t: any) => !t?.parentId || !ids.has(t.parentId))
-      .map((t: any) => ({ value: t?.id, label: t?.name }));
-  }, [tasks]);
+  // Preset tasks come back flat; `parentId` is what makes them a tree. One picker lists
+  // every node at every depth — a fixed dropdown per level could never describe a tree
+  // whose depth is not known in advance.
+  const presetTaskOptions = useMemo(() => buildTaskOptions(tasks as any), [tasks]);
 
-  const subTaskOptionsFor = useCallback(
-    (mainTaskId: string) =>
-      !mainTaskId
-        ? []
-        : tasks
-            .filter((t: any) => t?.parentId === mainTaskId)
-            .map((t: any) => ({ value: t?.id, label: t?.name })),
+  /** Ancestors + own name for the selected node — derived for display only. */
+  const pathFor = useCallback(
+    (presetTaskId: string) => (presetTaskId ? getPresetPath(tasks as any, presetTaskId) : []),
     [tasks]
   );
 
@@ -232,10 +225,16 @@ const TaskForm = ({
 
     const isGeneral = values.taskScope === 'GENERAL';
 
+    const isCustom = values.projectType === 'custom';
+
     return {
+      // Stored as-is: the node's own name. The hierarchy is derived from presetTaskId
+      // on read and is never baked into this string.
       taskName: values.taskName,
+      // Explicit null on CUSTOM so switching a task away from presets clears the link.
+      presetTaskId: isCustom ? null : (values.presetTaskId || null),
       taskDescription: values.taskDescription,
-      taskType: values.projectType === 'custom' ? 'CUSTOM' : 'PRESETS',
+      taskType: isCustom ? 'CUSTOM' : 'PRESETS',
       // Phase 3 — scope is explicit, and a GENERAL task carries NO project. Sending an empty
       // string here would be read as a project reference and rejected.
       taskScope: isGeneral ? 'GENERAL' : 'PROJECT',
@@ -332,37 +331,44 @@ const TaskForm = ({
 
   useEffect(() => {
     const getTaskName = async () => {
-      try {
-        setProjectsLoading(true);
-        const { presetTaskStatuses } = await getAllPersetTasks();
+      // These five feed five INDEPENDENT fields. They used to run as one serial await
+      // chain inside a single try, so the first rejection skipped every setState after
+      // it — one failing endpoint silently emptied the Task, Status and Priority
+      // pickers, which looked like a picker bug rather than a failed request. Settling
+      // them separately means each field fills in whenever its own request succeeds.
+      const [presetsRes, projectsRes, statusRes, priorityRes, allTasksRes] = await Promise.allSettled([
+        getAllPersetTasks(),
+        getAvailableProjects(),
+        getAllTasksStatus(),
+        getAllPriority(),
+        getAllTasks(),
+      ]);
 
-        // Phase 3 — ONLY the projects this user may create a PROJECT task on. The server
-        // decides; this list is not filtered further here.
-        const projectres = await getAvailableProjects();
+      const settled = (result: PromiseSettledResult<any>, label: string): any => {
+        if (result.status === 'fulfilled') return result.value;
+        console.error(`TaskForm: failed to load ${label}:`, result.reason);
+        return undefined;
+      };
 
-        const taskStatusRes = await getAllTasksStatus();
-        const taskPriorityRes = await getAllPriority();
-        const getAllTasksres = await getAllTasks();
-        setProjects(projectres?.projects || []);
-        setTasks(presetTaskStatuses);
-        // Tasks are stored by name, so on edit we map the saved name back onto the
-        // Task / Sub-task pair it came from — a sub-task also selects its parent.
-        const preset = (presetTaskStatuses || []).find((t: any) => t?.name === taskName);
-        if (preset) {
-          setFormData((prev) => ({
-            ...prev,
-            mainTask: preset.parentId || preset.id,
-            subTask: preset.parentId ? preset.id : '',
-          }));
+      // Flat list of configuration nodes — `parentId` is what makes it a tree, and the
+      // picker builds that tree client-side. No second request, no tree endpoint needed.
+      const presetTaskStatuses = settled(presetsRes, 'preset tasks')?.presetTaskStatuses ?? [];
+      setTasks(presetTaskStatuses);
+
+      setProjects(settled(projectsRes, 'projects')?.projects ?? []);
+      setTaskStatus(settled(statusRes, 'task statuses')?.taskStatuses ?? []);
+      setTaskPriority(settled(priorityRes, 'task priorities')?.taskPriorities ?? []);
+      setAllTasks(settled(allTasksRes, 'tasks')?.data?.tasks ?? []);
+
+      // Tasks created since the configuration link exists carry presetTaskId, which is
+      // unambiguous. Rows created BEFORE it only have the name, so fall back to a name
+      // match — and only when it is unique, since the same name can now legitimately
+      // appear in more than one branch (Building under Mechanical and Electrical).
+      if (!selectedTask?.presetTaskId && taskName) {
+        const byName = presetTaskStatuses.filter((t: any) => t?.name === taskName);
+        if (byName.length === 1) {
+          setFormData((prev) => ({ ...prev, presetTaskId: byName[0].id }));
         }
-        // setEmployees(employeeRes.data?.employees);
-        setTaskStatus(taskStatusRes?.taskStatuses);
-        setTaskPriority(taskPriorityRes?.taskPriorities);
-        setAllTasks(getAllTasksres?.data?.tasks);
-      } catch (error) {
-        console.error("error: ", error);
-      } finally {
-        setProjectsLoading(false);
       }
     };
 
@@ -494,44 +500,29 @@ const TaskForm = ({
                       </Grid>
                       {values.projectType === 'preset' ? (
                         <>
-                          {/* Preset tasks are a Task → Sub-task tree (Tasks ▸ Configure), so the
-                              name is picked in two steps: the main task, then optionally one of
-                              its sub-tasks. Whichever is chosen last is what gets saved. */}
-                          <Grid item xs={12} md={6}>
-                            <DropDownInput
-                              formikField="mainTask"
+                          {/* Preset tasks form a tree of any depth (Tasks ▸ Configure), so the
+                              name is picked from ONE searchable hierarchical list. The task
+                              takes the selected node's own name; its ancestors are shown
+                              beneath as context and are never written into the name. */}
+                          <Grid item xs={12} md={12}>
+                            <HierarchicalTaskSelect
+                              formikField="presetTaskId"
                               isRequired={true}
-                              inputLabel="Main Task"
-                              options={mainTaskOptions}
-                              placeholder="Select Main Task"
-                              onChange={(option: any) => {
-                                // Switching the main task invalidates the sub-task under it.
-                                setFieldValue('subTask', '');
+                              inputLabel="Task"
+                              options={presetTaskOptions}
+                              placeholder="Search and select a task…"
+                              onChange={(option) => {
+                                // The task's name is the node's own name — the leaf, not the path.
                                 setFieldValue('taskName', option?.label || '');
                               }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={6}>
-                            <DropDownInput
-                              formikField="subTask"
-                              isRequired={false}
-                              inputLabel="Sub Task"
-                              options={subTaskOptionsFor(values.mainTask)}
-                              disabled={!values.mainTask || subTaskOptionsFor(values.mainTask).length === 0}
-                              placeholder={
-                                !values.mainTask
-                                  ? "Select a main task first..."
-                                  : subTaskOptionsFor(values.mainTask).length === 0
-                                    ? "No sub-tasks configured"
-                                    : "Select Sub Task"
+                              helpText={
+                                values.presetTaskId && pathFor(values.presetTaskId).length > 1 ? (
+                                  <div className="text-muted mt-1" style={{ fontSize: '12px' }}>
+                                    <span style={{ fontWeight: 500 }}>Hierarchy:</span>{' '}
+                                    {pathFor(values.presetTaskId).join(PATH_SEPARATOR)}
+                                  </div>
+                                ) : null
                               }
-                              onChange={(option: any) => {
-                                // Clearing the sub-task falls back to the main task's own name.
-                                setFieldValue(
-                                  'taskName',
-                                  option?.label || mainTaskOptions.find((o) => o.value === values.mainTask)?.label || ''
-                                );
-                              }}
                             />
                           </Grid>
                         </>

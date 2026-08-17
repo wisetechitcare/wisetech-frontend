@@ -105,7 +105,7 @@ const PlaceholderDocumentationTable: React.FC<
             <div className="mb-5 opacity-20">
               <Hash size={60} className="mx-auto" />
             </div>
-            <h4 className="fw-bold text-gray-400">No tokens match your search</h4>
+            <h4 className="fw-bold text-gray-400">No Tokens Match Your Search</h4>
             <p className="text-muted fs-7">Try using broader search terms or clear your filters.</p>
           </div>
         )}

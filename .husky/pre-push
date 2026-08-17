@@ -1,0 +1,37 @@
+#!/bin/sh
+# Local mirror of .github/workflows/ci.yml plus a protected-branch guard.
+# ~90s. Bypass: git push --no-verify.
+set -e
+
+ZERO=0000000000000000000000000000000000000000
+PROTECTED="main master develop"
+
+# stdin: <local ref> <local sha> <remote ref> <remote sha>, one line per ref pushed
+while read -r _local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$ZERO" ] && continue # branch deletion
+  branch=${remote_ref#refs/heads/}
+
+  case " $PROTECTED " in
+    *" $branch "*)
+      echo "pre-push: direct push to '$branch' is blocked — open a PR from a feature branch." >&2
+      exit 1
+      ;;
+  esac
+
+  if [ "$remote_sha" != "$ZERO" ] && ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+    echo "pre-push: WARNING — non-fast-forward push to '$branch' rewrites published history."
+  fi
+done
+
+echo "pre-push: typecheck (tsc --noEmit, ~75s)..."
+pnpm exec tsc --noEmit
+
+# Lint only what this branch changed — same rule as CI, because the repo carries a
+# legacy warning backlog that a whole-repo gate would turn into a permanent red.
+if git rev-parse --verify -q origin/main >/dev/null; then
+  files=$(git diff --name-only --diff-filter=ACMR origin/main...HEAD -- '*.ts' '*.tsx' | grep -v '^src/_metronic/' || true)
+  if [ -n "$files" ]; then
+    echo "pre-push: eslint on branch-changed files..."
+    echo "$files" | xargs pnpm exec eslint --quiet
+  fi
+fi

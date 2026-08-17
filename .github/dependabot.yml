@@ -1,0 +1,21 @@
+# The CI audit step blocks merges on high/critical advisories; this is what supplies
+# the fixes, so the gate doesn't decay into a growing list of manual `overrides` in
+# pnpm-workspace.yaml. Minor and patch bumps are grouped into one PR a week to keep
+# the noise survivable; majors come through individually because they need reading.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # Keeps actions/checkout, setup-node and pnpm/action-setup current — a stale action
+  # is a supply-chain dependency like any other.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

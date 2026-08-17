@@ -152,7 +152,7 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                 <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-4 gap-3">
                     <div className="flex-grow-1">
                         <h1 className="mb-2 fw-semibold" style={{ fontFamily: 'Barlow', fontSize: '22px', letterSpacing: '0.22px' }}>
-                            Employees by levels
+                            Employees by Levels
                         </h1>
                         <p className="mb-0 text-secondary" style={{ fontFamily: 'Inter', fontWeight: 500, fontSize: '14px' }}>
                             Manage employee levels and assignments
@@ -231,7 +231,7 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                                 ))
                             ) : (
                                 <div className="text-center py-5">
-                                    <h5>No employee levels found</h5>
+                                    <h5>No Employee Levels Found</h5>
                                     <p className="text-muted">Create your first employee level to get started.</p>
                                 </div>
                             )}

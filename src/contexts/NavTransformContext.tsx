@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconButton, Tooltip, type IconButtonProps } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
@@ -112,18 +112,40 @@ export function NavTransformToggle(props: IconButtonProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  if (isMobile) return null;
-
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     // Switching ON lands on the workspace launcher; switching OFF leaves /workspace, which
     // does not exist in sidebar mode, for the dashboard. Either way the user is never left
     // on a page whose navigation just disappeared.
     navigate(enabled ? '/dashboard' : '/workspace');
     toggle();
-  };
+  }, [enabled, navigate, toggle]);
+
+  // Ctrl+I / Cmd+I mirrors the button, alongside GlobalSearch's Ctrl+K. Not bound on mobile
+  // for the same reason the button is not rendered there: there is nothing to switch between.
+  useEffect(() => {
+    if (isMobile) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      if (e.key.toLowerCase() !== 'i') return;
+
+      // Cmd/Ctrl+I is italics inside a text field — leave it to the field.
+      const el = document.activeElement as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || el?.isContentEditable) return;
+
+      e.preventDefault();
+      handleClick();
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isMobile, handleClick]);
+
+  if (isMobile) return null;
 
   return (
-    <Tooltip title={enabled ? 'Switch to the sidebar' : 'Switch to the workspace launcher'}>
+    <Tooltip title={enabled ? 'Switch to the sidebar (Ctrl+I)' : 'Switch to the workspace launcher (Ctrl+I)'}>
       <IconButton
         onClick={handleClick}
         aria-pressed={enabled}

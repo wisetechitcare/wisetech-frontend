@@ -1,6 +1,21 @@
 node_modules
 dist
+# pnpm's content-addressable store. Global by default, but amplify.yml points it here so
+# the CI cache can reach it — which means it appears in the working tree on those builds.
+.pnpm-store
+
+# Secrets & keys (never commit) — mirrors scripts/hooks/guard.mjs
 .env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.ppk
+src/keys/
+
 .claude
 .vscode
 # Claude Code agents and configuration
@@ -18,3 +33,6 @@ CLAUDE.md
 # Bundled task-domain tests (npm run test:tasks). Node ignores node_modules for
 # --test, so the bundle has to live outside it.
 .task-tests/
+
+# npm is not used here — pnpm-lock.yaml is the lockfile
+package-lock.json

@@ -643,7 +643,7 @@ export function Account() {
             <label className='col-lg-3 col-form-label'>Login verification</label>
             <div className='col-lg-9'>
               <button type='button' className='btn btn-light-primary fw-bold btn-sm'>
-                Setup login verification
+                Setup Login Verification
               </button>
               <div className='form-text'>
                 After you log in, you will be asked for additional information to confirm your
@@ -684,7 +684,7 @@ export function Account() {
               </div>
 
               <button type='button' className='btn btn-light-danger fw-bold btn-sm'>
-                Deactivate your account ?
+                Deactivate Your Account ?
               </button>
             </div>
           </div>

@@ -883,6 +883,13 @@ const PendingRequestsTable = () => {
             hideFilters={true}
             hideExportCenter={true}
             hidePagination={true}
+            // hidePagination renders EVERY pending row, and this queue is unbounded —
+            // it grows with the approver's backlog. Virtualization only works inside a
+            // height-bounded scroller (MRT virtualizes against the container viewport),
+            // so the maxHeight is load-bearing, not cosmetic: without it the container
+            // grows to fit all rows and the virtualizer has nothing to window against.
+            muiTableContainerProps={{ sx: { maxHeight: 440 } }}
+            enableRowVirtualization={true}
             enableSorting={false}
             enableColumnActions={false}
             enableFilters={false}
@@ -913,6 +920,10 @@ const PendingRequestsTable = () => {
             hideFilters={true}
             hideExportCenter={true}
             hidePagination={true}
+            // See PendingAttendanceRequests above — the maxHeight is what makes the
+            // virtualizer effective, not decoration.
+            muiTableContainerProps={{ sx: { maxHeight: 440 } }}
+            enableRowVirtualization={true}
             enableSorting={false}
             enableColumnActions={false}
             enableFilters={false}
@@ -944,6 +955,10 @@ const PendingRequestsTable = () => {
             hideExportCenter={false}
             hidePagination={true}
             showColumnFooter={true}
+            // No maxHeight needed here: showColumnFooter already bounds the container at
+            // 70vh in the engine (MaterialTableImpl, muiTableContainerProps), which is
+            // exactly the scroller the virtualizer needs.
+            enableRowVirtualization={true}
             enableSorting={false}
             enableColumnActions={false}
             enableFilters={false}

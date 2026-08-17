@@ -3,8 +3,17 @@ export const MAX_COLUMN_WIDTH = 420;
 
 /** Horizontal cell padding (16px each side). */
 const CELL_PADDING = 32;
-/** Sort arrow + hover action icons that sit beside a header label. */
-const HEADER_ICONS = 44;
+/**
+ * Icon cluster beside a header label. A header can carry THREE affordances at once —
+ * the sort arrow, the sort/filter state indicator, and the column-actions (⋮) button,
+ * which is on by default (enableColumnActions). 44px fitted about two of them, so a
+ * narrow column overlapped its own icons onto the label.
+ *
+ * Latent until the lists went server-paginated: holding every row usually made the DATA
+ * width exceed this floor, so the underestimate never showed. At 25 rows a page the
+ * columns fall back to the header floor and it does.
+ */
+const HEADER_ICONS = 68;
 /** Body text. 14px because ~14 legacy pages override the shared 13px upward — measure the larger. */
 const BODY_FONT = '400 14px Inter, system-ui, -apple-system, sans-serif';
 /** Header text: 12px, 600, uppercase. */

@@ -119,7 +119,7 @@ function InstallmentAndPayment({ completeInstallmentData, completeLoanData }: { 
                         },
                     },
                 }}
-                tableName="PendingLoanData"
+                tableName="LoanInstallmentsAndPayments"
             // resource={loanData}
             // viewOwn={viewOwn}
             // viewOthers={viewOthers}

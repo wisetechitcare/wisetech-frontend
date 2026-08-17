@@ -166,11 +166,27 @@ export type ResolveCheckInColorInput = {
   /** Weekend/holiday/leave rows — show muted, no red/green */
   skipColoring?: boolean;
   /**
+   * This row's calendar verdict: the day is a weekend, a branch off-day or a public
+   * holiday. Feeds the master policy switch below (ladder rule 2), which covers
+   * on-site *and* holiday *and* weekend — not just on-site.
+   */
+  isWeekendOrHoliday?: boolean;
+  /**
    * Server verdict: this day's late mark is waived (the previous work day ran past the
    * configured late-night cutoff). Comes from the API — the rule lives on the backend so
    * every screen and payroll agree; never re-derive it here.
    */
   lateWaived?: boolean;
+  /**
+   * THE SERVER'S VERDICT for this row (`row.lateMark` from the attendance API).
+   *
+   * When present it decides outright — every branch below is a FALLBACK for responses
+   * that predate the verdict annotator. The server runs the same `evaluateLateMark`
+   * ladder payroll and KPI use, with the employee's own branch calendar and cutoff
+   * override; the local derivation cannot see any of that, which is why it once showed
+   * red weekend rows the policy had already exempted.
+   */
+  lateMark?: { isLate: boolean; reason?: string } | null;
 };
 
 /**
@@ -185,10 +201,28 @@ export function resolveCheckInColor(input: ResolveCheckInColorInput): CheckInCol
     leaveConfig,
     skipColoring = false,
     lateWaived = false,
+    isWeekendOrHoliday = false,
+    lateMark = null,
   } = input;
 
   if (skipColoring || isAttendanceTimeMissing(checkIn)) {
     return { tone: 'muted', color: ATTENDANCE_COLORS.muted, isLate: false };
+  }
+
+  // ── Server verdict wins ────────────────────────────────────────────────────
+  // Everything after this point re-derives lateness in the browser and exists only
+  // for responses without `lateMark`. Delete the fallback once every board is
+  // confirmed to be receiving verdicts.
+  if (lateMark) {
+    return lateMark.isLate
+      ? {
+          tone: 'danger', color: ATTENDANCE_COLORS.danger, isLate: true,
+          tooltip: lateMark.reason || 'Late check-in',
+        }
+      : {
+          tone: 'success', color: ATTENDANCE_COLORS.success, isLate: false,
+          tooltip: lateMark.reason || 'On time',
+        };
   }
 
   // Late-night waiver — worked past the cutoff the previous day, so today is never late.
@@ -207,19 +241,27 @@ export function resolveCheckInColor(input: ResolveCheckInColorInput): CheckInCol
     return { tone: 'muted', color: ATTENDANCE_COLORS.muted, isLate: false };
   }
 
-  if (isOnsiteWorkingMethod(workingMethod)) {
-    // Master policy switch outranks the deadline (ladder rule 2 in the backend
-    // lateMarkPolicy). Checked BEFORE enforcement so a company that switched on-site
-    // late marks off never sees a red on-site row.
-    if (isOnsiteHolidayWeekendExemptionEnabled(leaveConfig)) {
+  // Master policy switch — ladder rule 2 of the backend `evaluateLateMark`, which has
+  // THREE legs: on-site, public holiday, weekend/off day. This sat inside the on-site
+  // branch below, so an OFFICE check-in on a weekend or holiday skipped it entirely and
+  // was scored against shift+grace — the red weekend rows in the attendance report.
+  // It must stay ABOVE the working-method split for the same reason it outranks the
+  // on-site deadline: company policy cannot be reintroduced by a lower rule.
+  if (isOnsiteHolidayWeekendExemptionEnabled(leaveConfig)) {
+    const onSite = isOnsiteWorkingMethod(workingMethod);
+    if (onSite || isWeekendOrHoliday) {
       return {
         tone: 'success',
         color: ATTENDANCE_COLORS.success,
         isLate: false,
-        tooltip: 'On-site check-in — late marks disabled by company policy',
+        tooltip: onSite
+          ? 'On-site check-in — late marks disabled by company policy'
+          : 'Worked on a weekend/holiday — late marks disabled by company policy',
       };
     }
+  }
 
+  if (isOnsiteWorkingMethod(workingMethod)) {
     if (!isOnsiteDeadlineEnforced(leaveConfig)) {
       return {
         tone: 'success',

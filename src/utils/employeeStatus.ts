@@ -139,8 +139,29 @@ export const calculateTotalExperience = (employee: Employee): string => {
     }
   }
 
+  // MERGE OVERLAPPING PERIODS BEFORE SUMMING.
+  //
+  // Nothing stops duplicate or overlapping rejoin rows being saved — the backend validates
+  // each row against the primary exit date, never against its siblings. Real data has
+  // employees with the SAME rejoin row stored twice, and summing naively counted those
+  // months twice: one record displayed "11 Years 1 Month" instead of "6 Years".
+  //
+  // An employee cannot be employed twice over the same day, so overlapping intervals are
+  // always a data error and collapsing them is always right. Clean records are unaffected.
+  // Kept identical to the backend's computeTenureMonths (utils/employeeTenure.ts) — if the
+  // two drift, the list sorts by one number while displaying another.
+  const merged: Period[] = [];
+  for (const p of [...periods].sort((a, b) => a.start.valueOf() - b.start.valueOf())) {
+    const last = merged[merged.length - 1];
+    if (last && !p.start.isAfter(last.end)) {
+      if (p.end.isAfter(last.end)) last.end = p.end;
+    } else {
+      merged.push({ start: p.start, end: p.end });
+    }
+  }
+
   let totalMonths = 0;
-  for (const p of periods) {
+  for (const p of merged) {
     totalMonths += p.end.diff(p.start, 'month');
   }
 

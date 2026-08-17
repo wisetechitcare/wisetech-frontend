@@ -3,11 +3,11 @@
 HRMS web client (Metronic-based admin theme). React 18 + TypeScript + Vite. Pairs with `../wisetech-backend`.
 
 ## Commands
-- Dev: `npm run dev` (Vite) · LAN: `npm run dev:host`
-- Build: `npm run build` (`tsc && vite build`) — **the build typechecks; it fails on any TS error.**
-- Typecheck only: `npx tsc --noEmit` — **primary verification gate; the project typechecks clean (0 errors), keep it that way.**
-- Lint: `npm run lint` (config in `.eslintrc.cjs`) · auto-fix: `npm run lint:fix`. The config is deliberately lean — style noise (`no-explicit-any`, unused vars, etc.) is OFF; only genuine-bug rules are errors (`react-hooks/rules-of-hooks`, unsafe optional chaining, `no-debugger`). `src/_metronic/**` is ignored as vendored. There are ~61 pre-existing real-bug errors in ~29 legacy files; don't add new ones.
-- Preview prod build: `npm run preview`
+- Dev: `pnpm run dev` (Vite) · LAN: `pnpm run dev:host`
+- Build: `pnpm run build` (`tsc && vite build`) — **the build typechecks; it fails on any TS error.**
+- Typecheck only: `pnpm exec tsc --noEmit` — **primary verification gate; the project typechecks clean (0 errors), keep it that way.**
+- Lint: `pnpm run lint` (config in `.eslintrc.cjs`) · auto-fix: `pnpm run lint:fix`. The config is deliberately lean — style noise (`no-explicit-any`, unused vars, etc.) is OFF; only genuine-bug rules are errors (`react-hooks/rules-of-hooks`, unsafe optional chaining, `no-debugger`). `src/_metronic/**` is ignored as vendored. There are ~61 pre-existing real-bug errors in ~29 legacy files; don't add new ones.
+- Preview prod build: `pnpm run preview`
 
 ## Architecture
 - Entry `src/main.tsx`. App code under `src/app/` (pages in `src/app/pages/`), shared `components/`, `hooks/`, `contexts/`.
@@ -26,7 +26,7 @@ The bar for every component: **reusable, responsive, accessible, theme-aware (li
 `.eslintrc.cjs` fails the build on banned primitives. Don't add `eslint-disable` to get around it; fix the code or the rule is pointless.
 - **`no-restricted-imports`** (always error, everywhere except the kit): importing `Switch` from `@mui/material`.
 - **`no-restricted-syntax`** (error): native `type="date"|"datetime-local"|"time"|"month"`, `<style>` blocks, Bootstrap component classes (`form-switch`, `form-control`, `btn btn-`, `card-body`, `badge badge-`), `toLocaleDateString()`.
-- **The ratchet** (`.eslint-ui-baseline.cjs`, auto-generated): 286 legacy files predate these rules and would make the build permanently red, so they emit *warnings* instead. **Every file not in that list errors.** New code can't regress; the list can only shrink. Regenerate after a burn-down pass with `npm run lint:ui:baseline`, and delete paths as you fix them — never add one.
+- **The ratchet** (`.eslint-ui-baseline.cjs`, auto-generated): 286 legacy files predate these rules and would make the build permanently red, so they emit *warnings* instead. **Every file not in that list errors.** New code can't regress; the list can only shrink. Regenerate after a burn-down pass with `pnpm run lint:ui:baseline`, and delete paths as you fix them — never add one.
 - Severity is split across two rules on purpose: the ratchet downgrades `no-restricted-syntax` for baselined files, so the raw-`Switch` ban lives in `no-restricted-imports` where the ratchet can't reach it.
 
 Current burn-down: **0 errors, ~1375 warnings.** The warnings are the migration backlog, not noise.
@@ -122,11 +122,24 @@ Design doc: [../BILLING_DOCUMENT_ENGINE.md](../BILLING_DOCUMENT_ENGINE.md) (this
 - **`NON_REVISABLE_KINDS` in `DocumentEditorPage.tsx` mirrors the backend's `revisable: false` registry entries** — UI-only hint (hides the Revise button), the server is the actual enforcement. Keep the two lists in sync when a new non-revisable kind goes live.
 - `downloadWord()` (`services/proformas.ts`) streams a binary blob (`responseType: "blob"`), unlike `accessProforma`'s PDF path which returns a JSON presigned URL — don't conflate the two response shapes.
 
+## Dependencies & CI
+- **Security floors** for transitive packages live in `pnpm-workspace.yaml` → `overrides` (9 entries, each pinned to the lowest patched version from its advisory). After any dependency change run `pnpm audit --audit-level high` — CI blocks on high/critical, and reports moderate/low without blocking.
+- **The webpack toolchain was removed** (2026-08-10): `webpack`, `webpack-cli`, `css-loader`, `mini-css-extract-plugin`, `sass-loader`, `@types/sass-loader`, the two RTL plugins, `remove-files-webpack-plugin`, `del`. No config file, script, or import referenced any of them — leftover Metronic scaffolding, and the only path to a high-severity `svgo` advisory. Builds are Vite-only. **`sass` stays** (Vite compiles the Metronic `.scss`). Don't reintroduce them.
+- **CI** — [.github/workflows/ci.yml](.github/workflows/ci.yml), on PR to `main` and push to `main`: guard self-test → secret/hygiene scan on changed files → eslint on changed files → build (`tsc && vite build`) → dependency audit. Same checks as the hooks below, but unbypassable — make it a required status check.
+
+## Git hooks (husky + lint-staged)
+Installed by `pnpm install` (`prepare: husky` → `core.hooksPath=.husky/_`). Bypass with `--no-verify` only when you mean to turn off *every* check; for one intentional line, put `guard:allow` in a comment on it instead.
+- **pre-commit** (<5s) — `lint-staged`, which stashes unstaged work first so a partially-staged file is checked exactly as it will land. Runs [scripts/hooks/guard.mjs](scripts/hooks/guard.mjs) on every staged file (secret filenames, ~10 credential patterns, merge-conflict markers, `debugger`, `.only(`, >2 MB files) and `eslint --quiet` on staged `.ts/.tsx`.
+- **commit-msg** — Conventional Commits (`feat(scope): subject`); `Merge`/`Revert`/`fixup!` exempt.
+- **pre-push** (~90s) — blocks direct pushes to `main`/`master`/`develop`, then `tsc --noEmit` + `eslint --quiet` on files changed vs `origin/main` (same rule as CI — a whole-repo lint gate would trip the legacy warning backlog).
+- **post-merge / post-checkout** — print a hint when `pnpm-lock.yaml` moved. Never auto-installs.
+- `pnpm run hooks:test` runs the guard's own assertions.
+
 ## Before saying a change is done
-Run `npx tsc --noEmit` (or a full `npm run build`) — it must pass clean. Run `npm run lint` on files you touched (warnings are informational; don't introduce new errors).
+Run `pnpm exec tsc --noEmit` (or a full `pnpm run build`) — it must pass clean. Run `pnpm run lint` on files you touched (warnings are informational; don't introduce new errors).
 
 ## Auto-verify hook
-A `PostToolUse` hook (`../.claude/settings.local.json` → `../.claude/hooks/typecheck.sh`) runs after any Edit/Write to a `.ts`/`.tsx` file in this project, in the background: whole-project `npx tsc --noEmit` plus `npx eslint --quiet` on just the edited file. Any type error or lint **error** (warnings excluded) is surfaced automatically.
+A `PostToolUse` hook (`../.claude/settings.local.json` → `../.claude/hooks/typecheck.sh`) runs after any Edit/Write to a `.ts`/`.tsx` file in this project, in the background: whole-project `pnpm exec tsc --noEmit` plus `pnpm exec eslint --quiet` on just the edited file. Any type error or lint **error** (warnings excluded) is surfaced automatically.
 
 ## Project Financial Workspace (built)
 Project → Billing. Pages under `pages/employee/entity/detail/sections/billing/`, client in `services/projectBilling.ts`. `sections/BillingSection.tsx` is now a 3-line adapter that passes `lead.id` in.

@@ -74,7 +74,16 @@ export function useServerPagination<T = any>({
         filterDataRef.current = filterData;
     }, [transformData, filterData]);
 
+    // Monotonic request id. Sorting/paging/filtering all re-fire this fetch, and nothing
+    // cancels the previous one — so two quick clicks race, and whichever response lands LAST
+    // wins regardless of which was asked for last. A slow first request resolving after a fast
+    // second one leaves rows in the OLD order while the header arrow shows the new one: silently
+    // wrong data, which is worse than slow. Only the newest request is allowed to write state.
+    const requestIdRef = useRef(0);
+
     const fetchData = useCallback(async () => {
+        const requestId = ++requestIdRef.current;
+        const isStale = () => requestId !== requestIdRef.current;
         try {
             setIsLoading(true);
 
@@ -89,6 +98,8 @@ export function useServerPagination<T = any>({
                 ? transformDataRef.current(result.data)
                 : result.data;
 
+            if (isStale()) return;
+
             setAllData(transformedData);
             setTotalRecords(result.totalRecords);
 
@@ -101,12 +112,19 @@ export function useServerPagination<T = any>({
             }
         } catch (error) {
             console.error('Error fetching data:', error);
+            // A superseded request's failure must not blank the table the newest one is filling.
+            if (isStale()) return;
             setAllData([]);
             setFilteredData([]);
             setTotalRecords(0);
         } finally {
-            setIsLoading(false);
-            setIsInitialLoading(false);
+            // Gate the pending flag too: without this, a stale response clears isLoading while a
+            // newer request is still in flight, so the progress bar vanishes and the table looks
+            // frozen for the remainder of the real wait.
+            if (!isStale()) {
+                setIsLoading(false);
+                setIsInitialLoading(false);
+            }
         }
     }, [fetchFunction, pagination.pageIndex, pagination.pageSize]);
 

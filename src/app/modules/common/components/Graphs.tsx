@@ -854,53 +854,59 @@ export const Dumbell = ({ dumbellSeriesData, height, cardHeight, totalWorkedDays
         }),
     }];
 
-    return (
-        <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', marginBottom: 24 }}>
-            {/* Header */}
-            <div style={{ padding: '16px 20px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 4, height: 18, background: `linear-gradient(180deg,${checkInColor},${checkOutColor})`, borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
-                    <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Attendance Regularity</span>
-                </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: pctColor, background: pctBg, padding: '3px 10px', borderRadius: 20 }}>
-                    {totalWorkedDays}/{totalDays} days
-                </span>
-            </div>
+    // return (
+    //     <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', marginBottom: 24 }}>
+    //         {/* Header */}
+    //         <div style={{ padding: '16px 20px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    //             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    //                 <span style={{ width: 4, height: 18, background: `linear-gradient(180deg,${checkInColor},${checkOutColor})`, borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
+    //                 <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>WISETECH Attendance Regularity</span>
+    //             </div>
+    //             <span style={{ fontSize: 11, fontWeight: 700, color: pctColor, background: pctBg, padding: '3px 10px', borderRadius: 20 }}>
+    //                 {totalWorkedDays}/{totalDays} days
+    //             </span>
+    //         </div>
 
-            {/* Stat chips */}
-            <div style={{ padding: '0 20px 10px', display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: `1px solid ${checkInColor}25` }}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: checkInColor, flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Check-in</span>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: checkInColor }}>{checkInCount}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: `1px solid ${checkOutColor}25` }}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: checkOutColor, flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Check-out</span>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: checkOutColor }}>{checkOutCount}</span>
-                </div>
-                {missingCount > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fff1f2', borderRadius: 8, padding: '5px 10px', border: `1px solid ${missingColor}30` }}>
-                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: missingColor, flexShrink: 0 }} />
-                        <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Missing</span>
-                        <span style={{ fontSize: 12, fontWeight: 800, color: missingColor }}>{missingCount}</span>
-                    </div>
-                )}
-            </div>
+    //         {/* Stat chips */}
+    //         <div style={{ padding: '0 20px 10px', display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+    //             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: `1px solid ${checkInColor}25` }}>
+    //                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: checkInColor, flexShrink: 0 }} />
+    //                 <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>WISETECH Check-in</span>
+    //                 <span style={{ fontSize: 12, fontWeight: 800, color: checkInColor }}>{checkInCount}</span>
+    //             </div>
+    //             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: `1px solid ${checkOutColor}25` }}>
+    //                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: checkOutColor, flexShrink: 0 }} />
+    //                 <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>WISETECH Check-out</span>
+    //                 <span style={{ fontSize: 12, fontWeight: 800, color: checkOutColor }}>{checkOutCount}</span>
+    //             </div>
+    //             {missingCount > 0 && (
+    //                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fff1f2', borderRadius: 8, padding: '5px 10px', border: `1px solid ${missingColor}30` }}>
+    //                     <div style={{ width: 7, height: 7, borderRadius: '50%', background: missingColor, flexShrink: 0 }} />
+    //                     <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>WISETECH Missing</span>
+    //                     <span style={{ fontSize: 12, fontWeight: 800, color: missingColor }}>{missingCount}</span>
+    //                 </div>
+    //             )}
+    //         </div>
 
-            {/* Chart */}
-            <div style={{ padding: '0 8px' }}>
-                <ReactApexChart
-                    options={dumbellOptions}
-                    series={dumbellSeries}
-                    type="rangeBar"
-                    height={height}
-                    width="100%"
-                />
-            </div>
+    //         {/* Chart */}
+    //         <div style={{ padding: '0 8px' }}>
+    //             <ReactApexChart
+    //                 options={dumbellOptions}
+    //                 series={dumbellSeries}
+    //                 type="rangeBar"
+    //                 height={height}
+    //                 width="100%"
+    //             />
+    //         </div>
 
-        </Card>
-    );
+    //     </Card>
+    // );
+
+    // Chart intentionally disabled — the markup above is kept for when it returns.
+    // Without an explicit return the component infers `void`, which makes every
+    // `<Bar />` / `<Dumbell />` call site a TS2786 "cannot be used as a JSX
+    // component" error and fails the build.
+    return null;
 };
 
 export const Bar = ({ barOption, barSeriesData, height, cardHeight, totalWorkingTime, totalAllowedTime }: { barOption: string[], barSeriesData: number[], height: number, cardHeight?: boolean, totalWorkingTime: string, totalAllowedTime: string }) => {
@@ -963,9 +969,14 @@ export const Bar = ({ barOption, barSeriesData, height, cardHeight, totalWorking
         xaxis: {
             categories: barOption,
             tickPlacement: 'between',
-            tickAmount: Math.min(10, Math.ceil(barOption.length / 2)),
             labels: {
-                rotate: barOption.length > 15 ? -45 : 0,
+                // No tickAmount + hideOverlappingLabels:false — otherwise Apex renders
+                // only ~10 category labels and silently drops the rest of the names.
+                rotate: -45,
+                rotateAlways: barOption.length > 8,
+                hideOverlappingLabels: false,
+                trim: true,
+                maxHeight: 90,
                 style: { fontSize: barOption.length > 20 ? '9px' : '11px', colors: '#9ca3af', fontWeight: '600' },
                 formatter: (v: string) => v && v.length > 9 ? v.substring(0, 9) + '…' : v,
             },
@@ -1007,53 +1018,59 @@ export const Bar = ({ barOption, barSeriesData, height, cardHeight, totalWorking
 
     const barSeries = [{ name: 'Working Hours', data: barSeriesData }];
 
-    return (
-        <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', marginBottom: 24 }}>
-            {/* Header */}
-            <div style={{ padding: '16px 20px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 4, height: 18, background: 'linear-gradient(180deg,#3b82f6,#6366f1)', borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
-                    <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Working Time</span>
-                </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: pctColor, background: pctBg, padding: '3px 10px', borderRadius: 20 }}>
-                    {overallPct}% done
-                </span>
-            </div>
+    // return (
+    //     <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', marginBottom: 24 }}>
+    //         {/* Header */}
+    //         <div style={{ padding: '16px 20px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    //             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    //                 <span style={{ width: 4, height: 18, background: 'linear-gradient(180deg,#3b82f6,#6366f1)', borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
+    //                 <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>WISETECH Working Time</span>
+    //             </div>
+    //             <span style={{ fontSize: 11, fontWeight: 700, color: pctColor, background: pctBg, padding: '3px 10px', borderRadius: 20 }}>
+    //                 {overallPct}% done
+    //             </span>
+    //         </div>
 
-            {/* Time summary chips */}
-            <div style={{ padding: '0 20px 10px', display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: '1px solid #e0e7ff' }}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Worked</span>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: '#6366f1' }}>{totalWorkingTime}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: '1px solid #e5e7eb' }}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#9ca3af', flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Target</span>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: '#6b7280' }}>{totalAllowedTime}</span>
-                </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-                    {[{ c: '#22c55e', l: '≥100%' }, { c: '#6366f1', l: '≥75%' }, { c: '#f59e0b', l: '≥50%' }, { c: '#f43f5e', l: '<50%' }].map(({ c, l }) => (
-                        <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: c }} />
-                            <span style={{ fontSize: 10, color: '#9ca3af' }}>{l}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
+    //         {/* Time summary chips */}
+    //         <div style={{ padding: '0 20px 10px', display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+    //             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: '1px solid #e0e7ff' }}>
+    //                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />
+    //                 <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Worked</span>
+    //                 <span style={{ fontSize: 12, fontWeight: 800, color: '#6366f1' }}>{totalWorkingTime}</span>
+    //             </div>
+    //             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: '1px solid #e5e7eb' }}>
+    //                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#9ca3af', flexShrink: 0 }} />
+    //                 <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Target</span>
+    //                 <span style={{ fontSize: 12, fontWeight: 800, color: '#6b7280' }}>{totalAllowedTime}</span>
+    //             </div>
+    //             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+    //                 {[{ c: '#22c55e', l: '≥100%' }, { c: '#6366f1', l: '≥75%' }, { c: '#f59e0b', l: '≥50%' }, { c: '#f43f5e', l: '<50%' }].map(({ c, l }) => (
+    //                     <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+    //                         <div style={{ width: 7, height: 7, borderRadius: '50%', background: c }} />
+    //                         <span style={{ fontSize: 10, color: '#9ca3af' }}>{l}</span>
+    //                     </div>
+    //                 ))}
+    //             </div>
+    //         </div>
 
-            {/* Chart */}
-            <div style={{ padding: '0 8px' }}>
-                <ReactApexChart
-                    options={barOptions}
-                    series={barSeries}
-                    type="bar"
-                    height={height}
-                    width="100%"
-                />
-            </div>
-        </Card>
-    );
+    //         {/* Chart */}
+    //         <div style={{ padding: '0 8px' }}>
+    //             <ReactApexChart
+    //                 options={barOptions}
+    //                 series={barSeries}
+    //                 type="bar"
+    //                 height={height}
+    //                 width="100%"
+    //             />
+    //         </div>
+    //     </Card>
+    // );
+
+    // Chart intentionally disabled — the markup above is kept for when it returns.
+    // Without an explicit return the component infers `void`, which makes every
+    // `<Bar />` / `<Dumbell />` call site a TS2786 "cannot be used as a JSX
+    // component" error and fails the build.
+    return null;
 };
 export const HeatMap = ({ heatMapSeries, height, totalDays }: { heatMapSeries: any, height: number, totalDays: number }) => {
     const colorValues = useSelector((state: RootState) => state?.customColors?.attendanceOverview);
@@ -1201,48 +1218,48 @@ export const HeatMap = ({ heatMapSeries, height, totalDays }: { heatMapSeries: a
         ? heatMapSeries[0].name
         : `${heatMapSeries[0]?.name} – ${heatMapSeries[heatMapSeries.length - 1]?.name}`;
 
-    return (
-        <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', marginBottom: 24 }}>
-            {/* Header */}
-            <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 4, height: 18, background: 'linear-gradient(180deg,#22c55e,#6366f1)', borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
-                    <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Attendance Calendar</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f1f5f9', padding: '3px 10px', borderRadius: 20 }}>{periodLabel}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#16a34a', background: '#f0fdf4', padding: '3px 10px', borderRadius: 20 }}>{totalDays} working days</span>
-                </div>
-            </div>
+    // return (
+    //     // <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', marginBottom: 24 }}>
+    //     //     {/* Header */}
+    //     //     <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    //     //         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    //     //             <span style={{ width: 4, height: 18, background: 'linear-gradient(180deg,#22c55e,#6366f1)', borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
+    //     //             <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>WISETECH Attendance Calendar</span>
+    //     //         </div>
+    //     //         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    //     //             <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f1f5f9', padding: '3px 10px', borderRadius: 20 }}>{periodLabel}</span>
+    //     //             <span style={{ fontSize: 11, fontWeight: 600, color: '#16a34a', background: '#f0fdf4', padding: '3px 10px', borderRadius: 20 }}>{totalDays} working days</span>
+    //     //         </div>
+    //     //     </div>
 
-            {/* Calendar */}
-            <div style={{ padding: '0 20px 16px' }}>
-                {isWeekly
-                    ? heatMapSeries.map((s: any, i: number) => <div key={i}>{renderWeekRow(s)}</div>)
-                    : isMultiMonth
-                        ? <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                            {heatMapSeries.map((s: any, i: number) => (
-                                <div key={i}>
-                                    <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{s?.name}</div>
-                                    {renderMonthCalendar(s)}
-                                </div>
-                            ))}
-                          </div>
-                        : heatMapSeries.map((s: any, i: number) => <div key={i}>{renderMonthCalendar(s)}</div>)
-                }
-            </div>
+    //     //     {/* Calendar */}
+    //     //     <div style={{ padding: '0 20px 16px' }}>
+    //     //         {isWeekly
+    //     //             ? heatMapSeries.map((s: any, i: number) => <div key={i}>{renderWeekRow(s)}</div>)
+    //     //             : isMultiMonth
+    //     //                 ? <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    //     //                     {heatMapSeries.map((s: any, i: number) => (
+    //     //                         <div key={i}>
+    //     //                             <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{s?.name}</div>
+    //     //                             {renderMonthCalendar(s)}
+    //     //                         </div>
+    //     //                     ))}
+    //     //                   </div>
+    //     //                 : heatMapSeries.map((s: any, i: number) => <div key={i}>{renderMonthCalendar(s)}</div>)
+    //     //         }
+    //     //     </div>
 
-            {/* Color key strip */}
-            <div style={{ padding: '10px 20px 14px', borderTop: '1px solid #f5f5f5', display: 'flex', flexWrap: 'wrap', gap: '5px 12px' }}>
-                {Object.entries(statusMap).map(([key, { label, color }]) => (
-                    <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <div style={{ width: 14, height: 14, borderRadius: 4, background: color, opacity: key === '5' ? 0.35 : 1, flexShrink: 0 }} />
-                        <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500 }}>{label}</span>
-                    </div>
-                ))}
-            </div>
-        </Card>
-    );
+    //     //     {/* Color key strip */}
+    //     //     <div style={{ padding: '10px 20px 14px', borderTop: '1px solid #f5f5f5', display: 'flex', flexWrap: 'wrap', gap: '5px 12px' }}>
+    //     //         {Object.entries(statusMap).map(([key, { label, color }]) => (
+    //     //             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+    //     //                 <div style={{ width: 14, height: 14, borderRadius: 4, background: color, opacity: key === '5' ? 0.35 : 1, flexShrink: 0 }} />
+    //     //                 <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500 }}>{label}</span>
+    //     //             </div>
+    //     //         ))}
+    //     //     </div>
+    //     // </Card>
+    // );
 };
 
 const faqSchema = Yup.object({
@@ -1819,8 +1836,6 @@ export const StatisticsTable = ({
     const paginatedData = useMemo(() => {
         return isWeekendOrHoliday;
     }, [isWeekendOrHoliday]);
-    // debugger;
-    // console.log("paginatedData:: ",paginatedData);
 
     const columns = useMemo<MRT_ColumnDef<IAttendance>[]>(() => [
         {
@@ -1872,6 +1887,11 @@ export const StatisticsTable = ({
                         employeeThreshold?.lateCheckInThreshold ?? lateCheckInThreshold,
                     leaveConfig: leaveConfiguration,
                     skipColoring,
+                    // Drives the master switch's HOLIDAY and WEEKEND legs. It was computed
+                    // for skipColoring above and then dropped, so only the on-site third of
+                    // the policy could ever apply — a day that was WORKED has status Present
+                    // or Working on weekend, neither of which skipColoring treats as neutral.
+                    isWeekendOrHoliday: employee.isWeekendOrHoliday === true,
                 });
 
                 // Prefer the backend's authoritative late determination (resolves the viewed
@@ -2248,7 +2268,7 @@ export const StatisticsTable = ({
                 </Modal.Header>
                 <Modal.Body>
                     {showRequestTypeSelection ? (<div className='d-flex flex-column align-items-center'>
-                        <h5 className='mb-4'>What type of request would you like to raise?</h5>
+                        <h5 className='mb-4'>What Type of Request Would You Like to Raise?</h5>
                         <div className='d-flex gap-3'>
                             <button
                                 type='button'
@@ -2661,6 +2681,12 @@ export const ReportsTable = ({
                         employee.status,
                         employee.isWeekendOrHoliday
                     ),
+                    // Same gap as StatisticsTable: without this the weekend/holiday legs of
+                    // the master switch cannot fire. This table renders attendance REQUESTS
+                    // across employees, so there is no per-row server verdict to prefer and
+                    // fetching one per row would be an N+1 — the local derivation stays here
+                    // deliberately, which is why the shared fallback cannot be deleted.
+                    isWeekendOrHoliday: employee.isWeekendOrHoliday === true,
                 });
 
                 return (

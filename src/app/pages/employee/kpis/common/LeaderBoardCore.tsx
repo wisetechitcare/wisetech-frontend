@@ -1803,7 +1803,7 @@ const KpiInfoModal = ({ show, onHide, factorsGroups }: any) => {
         
         {/* SECTION 1: WHAT IS KPI SCORE? */}
         <div className="mb-10 text-center p-8 bg-light-primary rounded-4 border border-primary border-opacity-10">
-          <h3 className="fw-bolder text-primary mb-3">What is KPI Score?</h3>
+          <h3 className="fw-bolder text-primary mb-3">What Is KPI Score?</h3>
           <p className="text-gray-700 fs-6 fw-semibold mb-0 px-md-10 lh-lg">
             Your KPI score shows your overall <strong>work discipline</strong>, <strong>attendance consistency</strong>, 
             and <strong>contribution</strong> during the selected period. A higher score directly reflects better overall performance.

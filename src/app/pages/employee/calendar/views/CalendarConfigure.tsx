@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import RenameHoliday from './RenameHoliday'
 import WeekendsAndWorkingDays from './WeekendsAndWorkingDays'
+import WorkCalendarSettings from '@pages/company/settings/WorkCalendarSettings'
 import {
   SHOW_BIRTHDAYS_INTERNAL,
   SHOW_BIRTHDAYS_INTERNAL_INACTIVE,
@@ -229,6 +230,7 @@ function CalendarConfigure() {
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
+  const [showWorkCalendar, setShowWorkCalendar] = useState(false)
   const [modalTitle, setModalTitle] = useState('');
   const [editingModuleKey, setEditingModuleKey] = useState('');
   const [editingSetting, setEditingSetting] = useState<CalendarSetting | null>(null);
@@ -503,10 +505,29 @@ function CalendarConfigure() {
           {activeTab === 'weekends' && (
             <div key="weekends" className="cfg-fade-in">
               <WeekendsAndWorkingDays />
+
+              {/* The work calendar belongs beside the weekly pattern, not under
+                  Attendance: both answer "which days does this branch work?", and the
+                  calendar is what turns that pattern plus its exceptions into the
+                  weekend/holiday classification every engine reads. */}
+              <div style={{ marginTop: 24 }}>
+                <ConfigSettingsRow
+                  label="Work Calendar"
+                  description="Alternate Saturdays, one-off off days, and the holidays that override the weekly pattern"
+                  icon="bi-calendar3"
+                  iconColor="green"
+                  actionLabel="Configure"
+                  actionIcon="bi-arrow-right"
+                  onAction={() => setShowWorkCalendar(true)}
+                />
+              </div>
             </div>
           )}
         </ConfigPageLayout>
       </div>
+
+      {/* Work Calendar — the weekly pattern's exceptions live with the pattern */}
+      <WorkCalendarSettings open={showWorkCalendar} onClose={() => setShowWorkCalendar(false)} />
 
       {/* Reusable Form Modal */}
       <CalendarConfigForm
