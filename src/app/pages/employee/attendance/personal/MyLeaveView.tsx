@@ -39,6 +39,11 @@ const PersonalLeaveView = () => {
     // Fetch personal leaves from Redux to generate insights
     const personalLeaves = useSelector((state: RootState) => state.leaves.personalLeaves) || [];
     const publicHolidaysRaw = useSelector((state: RootState) => state.attendanceStats?.publicHolidays) || [];
+    // Same source AttendanceCalendar uses, so suggestions and the calendar agree on
+    // which days are off.
+    const branchWorkingAndOffDays = useSelector(
+        (state: RootState) => state.employee.currentEmployee?.branches?.workingAndOffDays,
+    );
 
     // Generate insights
     const [insights, setInsights] = useState<any[]>([]);
@@ -52,11 +57,11 @@ const PersonalLeaveView = () => {
 
         // Generate future suggestions based on current month
         const maxLeaves = 5; // Default assumption for suggestion generation
-        const suggestions = generateMonthlySuggestions(new Date(), holidays, maxLeaves);
+        const suggestions = generateMonthlySuggestions(new Date(), holidays, maxLeaves, 3, branchWorkingAndOffDays);
 
         const generatedInsights = generateUserInsights(personalLeaves, suggestions, holidays);
         setInsights(generatedInsights);
-    }, [personalLeaves, publicHolidaysRaw, startDateNew, endDateNew]);
+    }, [personalLeaves, publicHolidaysRaw, startDateNew, endDateNew, branchWorkingAndOffDays]);
 
 
     const handleClickOpen = () => {

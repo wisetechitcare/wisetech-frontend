@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import Calendar from "react-calendar";
 import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, isDateBeforeOrSameAsCurrDate, MUMBAI_TZ as mumbaiTz } from "@utils/date";
-import { parseWorkingDays } from "@utils/workingDays";
+import { parseWorkingDays, isNonWorkingWeekday } from "@utils/workingDays";
 import { ATTENDANCE_STATUS } from "@constants/attendance";
 import { useDispatch, useSelector } from "react-redux";
 import { trackMonthChange } from "@redux/slices/attendance";
@@ -269,15 +269,10 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
     });
     const reportsToId = useSelector((state: RootState) => state.employee.currentEmployee.reportsToId);
 
-    const isWeekendFromConfig = (date: Date): boolean => {
-        if (!branchWorkingDays) {
-            // Default weekend check (Saturday and Sunday) if no config
-            return dayjs(date).day() === 0 || dayjs(date).day() === 6;
-        }
-
-        const dayName = dayjs(date).format('dddd').toLowerCase();
-        return branchWorkingDays[dayName] === '0';
-    }
+    // Shared with the leave suggestion engine so the calendar and the suggestions can
+    // never disagree about which days are off.
+    const isWeekendFromConfig = (date: Date): boolean =>
+        isNonWorkingWeekday(date, branchWorkingDays);
 
 
     const handleMonthChange = async (el: any) => {
