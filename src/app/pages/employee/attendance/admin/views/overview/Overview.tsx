@@ -54,6 +54,7 @@ import {
     type EmployeeStatItem,
 } from '@app/modules/common/components/EmployeeStatGrid';
 import type { EmployeeStatGroup } from '@app/modules/common/components/employeeStatGrouping';
+import { computeAbsentEntries } from "./absentDays";
 
 // Sort/search/close modal shell and the employee card grid are shared with the
 // Dashboard daily overview — see the two components above, not a local copy.
@@ -489,32 +490,22 @@ function Overview({ date, range }: OverviewProps) {
         }))
     );
     // Absent = per working day, roster minus present minus on-leave.
-    const absentEntries: any[] = [];
-    if (useRange && range?.start && range?.end) {
-        let d = range.start.startOf("day");
-        // Absence is a fact about a day that has HAPPENED. Walking to range.end reported
-        // every remaining working day of the month as absent for everybody — a whole-month
-        // view on the 17th showed people "24 days absent", most of it forecast.
-        const today = dayjs().startOf("day");
-        const end = range.end.startOf("day").isAfter(today) ? today : range.end.startOf("day");
-        while (d.isBefore(end) || d.isSame(end, "day")) {
-            // Use the SAME weekend/holiday test the rest of this page uses. Testing only
-            // `weekends[day]` counted public holidays and the alternate off-Saturdays as
-            // company-wide absences — the defect that produced "32 absent on Saturday
-            // 8 August".
-            if (!checkIfWeekendOrHoliday(d.toDate())) {
-                const k = d.format("YYYY-MM-DD");
-                const present = presentByDay.get(k) || new Set<string>();
-                const onLeave = leaveByDay.get(k) || new Map<string, any>();
-                for (const emp of allEmployees) {
-                    if (emp?._id && !present.has(emp._id) && !onLeave.has(emp._id)) {
-                        absentEntries.push({ ...emp, _absentDate: d });
-                    }
-                }
-            }
-            d = d.add(1, "day");
-        }
-    }
+    // The walk itself lives in `absentDays.ts` so it can be tested — it carried three
+    // defects at once (future days, holidays/off-Saturdays, and leavers) and none were
+    // reachable by a test while it sat inline here.
+    const absentEntries: any[] = (useRange && range?.start && range?.end)
+        ? computeAbsentEntries({
+            start: range.start,
+            end: range.end,
+            today: dayjs(),
+            // The same predicate the rest of this page uses, so the modal cannot disagree
+            // with the calendar about which days are working days.
+            isNonWorking: checkIfWeekendOrHoliday,
+            presentByDay,
+            leaveByDay,
+            roster: allEmployees,
+        })
+        : [];
 
     // ── Daily On-Leave & Absent ─────────────────────────────────────────────────
     // The API returns leave for the anchor day in two shapes (a summary list and a
