@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import MaterialHeaderTab, {
@@ -8,13 +8,14 @@ import Reimbursement from "./Reimbursement";
 import AllEmployee from "./views/admin/AllEmployee";
 import SearchEmployee from "./views/admin/SearchEmployee";
 import PaymentTab from "./views/admin/PaymentTab";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "@redux/store";
+import { useDispatch } from "react-redux";
 import ReimbursementConfiguration from "./views/admin/ReimbursementConfiguration";
-import overviewIcon from '../../../../_metronic/assets/sidepanelicons/overview.svg'
-import { leadsIcons, loanIcons, reimbursementsIcons } from "@metronic/assets/sidepanelicons";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
+import { can } from "@utils/can";
+import { fetchReimbursementBatches } from "@services/employee";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 
 
@@ -23,9 +24,6 @@ function AdminAndEmployeeReimbursementViewer() {
   const location = useLocation();
 
   const [activeTab, setActiveTab] = useState(0);
-  const isAdmin = useSelector(
-    (state: RootState) => state.auth.currentUser.isAdmin
-  );
   useEffect(()=>{
     dispatch(fetchRolesAndPermissions() as any);
   },[])
@@ -37,14 +35,37 @@ function AdminAndEmployeeReimbursementViewer() {
     }
   }, [location.state]);
 
+  // Badge counts. MaterialHeaderTab has supported `badge` all along and no reimbursement tab
+  // passed one, so the number of payouts waiting on you was invisible until you opened the tab.
+  const [pendingPaymentCount, setPendingPaymentCount] = useState(0);
+
+  const loadBadgeCounts = useCallback(async () => {
+    if (!can('finance.manage.team')) return;
+    try {
+      const res = await fetchReimbursementBatches();
+      const batches: any[] = res?.data?.batches || res?.batches || [];
+      // Approved batches that are not fully paid — the same population the Payment tab opens on.
+      setPendingPaymentCount(
+        batches.filter((b: any) => Number(b.status) === 1 && b.paidStatus !== 'PAID').length,
+      );
+    } catch {
+      setPendingPaymentCount(0);   // a badge is a hint; failing to load one must not break the page
+    }
+  }, []);
+
+  useEffect(() => { loadBadgeCounts(); }, [loadBadgeCounts]);
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadBadgeCounts(); });
+
   const tabItems: TabItem[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Reimbursements",
       component: <Reimbursement />,
       icon: 'bi-receipt',
     }]:[]),
+    // Charts, then the employee table, then the per-project rollup — all three read one
+    // period-scoped fetch. "By Project" used to be a separate tab over the same data.
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
-      title: "Employees Reimbursements",
+      title: "Reimbursement Details",
       component: <AllEmployee />,
       icon: 'bi-receipt-cutoff',
     }]:[]),
@@ -53,12 +74,17 @@ function AdminAndEmployeeReimbursementViewer() {
       component: <SearchEmployee />,
       icon: 'bi-search',
     }]:[]),
-    ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
+    // Payment and Configure are WRITE surfaces — recording payouts, and rewriting expense
+    // categories and per-employee spending limits. All five tabs used to gate on `readOthers`
+    // (`finance.view.team`), so anyone who could view the team could also pay and reconfigure.
+    // These two now require an explicit finance write grant.
+    ...(can('finance.manage.team') ? [{
       title: "Payment",
       component: <PaymentTab />,
       icon: 'bi-credit-card',
+      badge: pendingPaymentCount,
     }]:[]),
-    ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
+    ...(can('finance.manage.all') ? [{
       title: "Configure",
       component: <ReimbursementConfiguration />,
       icon: 'bi-gear',
@@ -68,7 +94,7 @@ function AdminAndEmployeeReimbursementViewer() {
   const ReimbursementWizardBreadcrumb: Array<PageLink> = [
     {
       title: "Finance",
-      path: "/finance/bills",
+      path: "/finance/reimbursements",
       isSeparator: false,
       isActive: false,
     },

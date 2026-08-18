@@ -196,7 +196,7 @@ const ProjectWorkspacePage: React.FC = () => {
   // A lead that isn't (yet) a project belongs in the Lead workspace — same
   // aggregate, different stage. Redirect instead of 404-ing.
   useEffect(() => {
-    if (lead && !isProject) navigate(`/employee/lead/${lead.id}`, { replace: true });
+    if (lead && !isProject) navigate(`/leads/${lead.id}`, { replace: true });
   }, [lead, isProject, navigate]);
 
   const vm = useMemo(() => (lead ? buildEntityVM(lead) : null), [lead]);
@@ -215,7 +215,7 @@ const ProjectWorkspacePage: React.FC = () => {
   const refetchLead = () => {
     if (projectId) queryClient.invalidateQueries({ queryKey: queryKeys.leads.detail(projectId) });
   };
-  const openLead = () => lead && navigate(`/employee/lead/${lead.id}`);
+  const openLead = () => lead && navigate(`/leads/${lead.id}`);
 
   if (leadQuery.isLoading) {
     return (
@@ -234,7 +234,7 @@ const ProjectWorkspacePage: React.FC = () => {
         <p className="text-muted">
           This project id doesn't resolve to a record. It may be a legacy id from the retired projects table.
         </p>
-        <button className="btn btn-primary" onClick={() => navigate('/qc/projects')} style={{ backgroundColor: ACCENT, borderColor: ACCENT }}>
+        <button className="btn btn-primary" onClick={() => navigate('/projects')} style={{ backgroundColor: ACCENT, borderColor: ACCENT }}>
           Back to Projects
         </button>
       </div>
@@ -268,7 +268,7 @@ const ProjectWorkspacePage: React.FC = () => {
         {/* ── Header ── */}
         <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
           <div className="d-flex align-items-center gap-2 gap-md-3 flex-grow-1">
-            <button className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm" onClick={() => navigate('/qc/projects')}>
+            <button className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm" onClick={() => navigate('/projects')}>
               <img src={miscellaneousIcons.leftArrow} alt="Back" style={{ width: 36, height: 36, cursor: 'pointer' }} />
             </button>
             <div className="flex-grow-1">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Button, ButtonGroup, Menu, MenuItem, ListItemIcon, ListItemText,
     Divider, CircularProgress,
@@ -58,6 +58,13 @@ export interface ExportButtonProps<T = any> {
     /** Disable both buttons */
     disabled?: boolean;
     size?: 'small' | 'medium';
+    /**
+     * Button text. Defaults to "Export".
+     *
+     * Set it whenever a screen offers TWO exports — two identical "Export" buttons side by side
+     * is a coin toss, and the reader finds out which one they wanted only after opening the file.
+     */
+    label?: string;
     /** Extra sx applied to the outer ButtonGroup */
     sx?: object;
 }
@@ -346,14 +353,35 @@ function ExportButton<T = any>({
     totalLabel = 'TOTAL',
     disabled = false,
     size = 'small',
+    label = 'Export',
     sx = {},
 }: ExportButtonProps<T>) {
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    /**
+     * The menu anchors to a REF, not to the node captured from the click event.
+     *
+     * It used to store `e.currentTarget`. This toolbar re-renders on every page change, filter
+     * and data refresh, and when React replaces the button node the stored one is detached from
+     * the document — `getBoundingClientRect()` on a detached node is all zeros, so MUI parked the
+     * menu in the top-left corner of the viewport, over the sidebar. That is the "it jumps to the
+     * top" report, and clicking anything that re-rendered the toolbar is what triggered it.
+     *
+     * A function anchor is re-evaluated every time the popover positions itself, so it always
+     * reads the node that is on screen right now.
+     */
+    const groupRef = useRef<HTMLDivElement>(null);
+    const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState<'xlsx' | 'csv' | null>(null);
-    const open = Boolean(anchorEl);
 
-    const handleOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
-    const handleClose = () => setAnchorEl(null);
+    const handleOpen = () => setOpen(true);
+    const handleClose = useCallback(() => setOpen(false), []);
+
+    // An open menu whose anchor scrolls out from under it is worse than no menu: it hangs in
+    // place pointing at nothing. Any scroll of an ancestor closes it.
+    useEffect(() => {
+        if (!open) return;
+        window.addEventListener('scroll', handleClose, true);
+        return () => window.removeEventListener('scroll', handleClose, true);
+    }, [open, handleClose]);
 
     const runExport = async (type: 'xlsx' | 'csv') => {
         handleClose();
@@ -372,7 +400,7 @@ function ExportButton<T = any>({
     const btnSx = {
         textTransform: 'none',
         fontWeight: 700,
-        fontSize: size === 'small' ? 13 : 14,
+        fontSize: size === 'small' ? 12.5 : 13.5,
         borderColor: '#3b82f6',
         color: '#3b82f6',
         borderRadius: 0,
@@ -383,11 +411,12 @@ function ExportButton<T = any>({
     return (
         <>
             <ButtonGroup
+                ref={groupRef}
                 variant="outlined"
                 size={size}
                 disabled={disabled || loading !== null}
                 sx={{
-                    borderRadius: '10px',
+                    borderRadius: '8px',
                     overflow: 'hidden',
                     boxShadow: '0 1px 3px rgba(59,130,246,0.10)',
                     ...sx,
@@ -399,32 +428,32 @@ function ExportButton<T = any>({
                         loading ? (
                             <CircularProgress size={14} sx={{ color: '#3b82f6' }} />
                         ) : (
-                            <DownloadIcon sx={{ fontSize: 16 }} />
+                            <DownloadIcon sx={{ fontSize: 15 }} />
                         )
                     }
                     onClick={handleOpen}
-                    sx={{ ...btnSx, borderRadius: '10px 0 0 10px', px: 2, py: 0.75 }}
+                    sx={{ ...btnSx, borderRadius: '8px 0 0 8px', px: 1.25, py: 0.35 }}
                 >
-                    {loading ? 'Exporting…' : 'Export'}
+                    {loading ? 'Exporting…' : label}
                 </Button>
 
                 {/* Arrow to open menu */}
                 <Button
                     size="small"
                     onClick={handleOpen}
-                    sx={{ ...btnSx, borderRadius: '0 10px 10px 0', px: 0.5 }}
+                    sx={{ ...btnSx, borderRadius: '0 8px 8px 0', px: 0.25, minWidth: 26 }}
                     aria-controls={open ? 'export-menu' : undefined}
                     aria-haspopup="true"
                     aria-expanded={open ? 'true' : undefined}
                 >
-                    <ArrowDropDownIcon sx={{ fontSize: 20 }} />
+                    <ArrowDropDownIcon sx={{ fontSize: 18 }} />
                 </Button>
             </ButtonGroup>
 
             <Menu
                 id="export-menu"
-                anchorEl={anchorEl}
-                open={open}
+                anchorEl={() => groupRef.current as HTMLElement}
+                open={open && !!groupRef.current}
                 onClose={handleClose}
                 slotProps={{
                     paper: {

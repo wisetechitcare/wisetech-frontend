@@ -3,14 +3,18 @@ import { KTIcon } from '@metronic/helpers';
 import dayjs from 'dayjs';
 import { IReimbursementPayment } from '@models/employee';
 import { fetchReimbursementPayments, fetchReimbursementBatchById, fetchApprovalInstanceByRequest } from '@services/employee';
-import PeriodTabs from '@app/modules/common/components/PeriodTabs';
-import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
+import { fmtDate, fmtAmount, formatINR } from '../utils/reimbursementFormat';
+import PaymentDetailPanel from './PaymentDetailPanel';
+import { clickableRowProps, CLICKABLE_ROW_SX } from '../utils/rowInteraction';
+import LoadErrorState from './LoadErrorState';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { useMediaQuery, useTheme } from '@mui/material';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 
@@ -19,19 +23,22 @@ interface ReimbursementPaymentHistoryTableProps {
     employeeCode?: string;
     employeeName?: string;
     refreshKey?: number;
+    /**
+     * The page's period — required, so this table can never describe a different window
+     * from the KPI cards and records above it.
+     */
+    period: PeriodFilter;
+    periodDate: dayjs.Dayjs;
 }
 
-const formatINR = (val: number) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+// Rows and footers render the SAME column, so they must agree to the paisa. `formatINR`
+// used maximumFractionDigits: 0 while the row formatter used 2 — a footer literally did not
+// equal the sum of the rows above it.
 
-function fmtAmount(n: number | string) {
-    return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
-}
 
-function fmtDate(d?: string) {
-    if (!d) return 'N/A';
-    return dayjs(d).format('DD MMM YYYY');
-}
+
+
+
 
 interface BatchRow {
     id: string;
@@ -52,29 +59,35 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
     employeeCode,
     employeeName,
     refreshKey,
+    period,
+    periodDate,
 }) => {
-    const [filter, setFilter] = useState<PeriodFilter>('monthly');
-    const [currentDate, setCurrentDate] = useState(dayjs());
+    const { cls: sensitiveCls } = useSensitiveData();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    // The page owns the period. This table carried its own tabs + navigator, which is how the
+    // screen ended up showing records for one month next to payments for another.
+    const filter = period;
+    const currentDate = periodDate;
     const [fiscalYearLabel, setFiscalYearLabel] = useState('');
     const [payments, setPayments] = useState<(IReimbursementPayment & Record<string, any>)[]>([]);
+    const [historyError, setHistoryError] = useState(false);
     const [batchSubmissionMap, setBatchSubmissionMap] = useState<Map<string, string>>(new Map());
     const [batchApprovalMap, setBatchApprovalMap] = useState<Map<string, string | null>>(new Map());
     const [loading, setLoading] = useState(false);
     const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
     const [selectedApprovalInstanceId, setSelectedApprovalInstanceId] = useState<string | null>(null);
 
-    const getDateRange = useCallback(() => {
+    const getDateRange = useCallback(async () => {
         if (filter === 'monthly') {
             return {
                 startDate: currentDate.startOf('month').toISOString(),
                 endDate: currentDate.endOf('month').toISOString(),
             };
         }
+        // Fiscal, not calendar (Q2) — this table used the calendar year under a fiscal label.
         if (filter === 'yearly') {
-            return {
-                startDate: currentDate.startOf('year').toISOString(),
-                endDate: currentDate.endOf('year').toISOString(),
-            };
+            return generateFiscalYearFromGivenYear(currentDate);
         }
         return { startDate: undefined, endDate: undefined };
     }, [filter, currentDate]);
@@ -83,7 +96,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
         if (!employeeId) return;
         setLoading(true);
         try {
-            const { startDate, endDate } = getDateRange();
+            const { startDate, endDate } = await getDateRange();
             const data = await fetchReimbursementPayments(employeeId, startDate, endDate);
             const sorted = (data as any[]).sort(
                 (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -99,18 +112,25 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 ),
             ) as string[];
 
+            // Halved: this used to issue TWO requests per batch. The submission id was one of
+            // them, and the payment row has carried `batch.submissionId` since Phase 2 added the
+            // include — so that fetch was asking the server for a field already in hand. Only the
+            // approval instance still needs a round trip.
+            const submissionIdByBatch = new Map<string, string>();
+            for (const p of sorted as any[]) {
+                const id = p.batch?.id || p.batchId;
+                if (id && p.batch?.submissionId) submissionIdByBatch.set(id, p.batch.submissionId);
+            }
+
             const entries = await Promise.all(
                 uniqueBatchIds.map(async (id) => {
+                    const submissionId = submissionIdByBatch.get(id) || id;
                     try {
-                        const [batchRes, instanceRes] = await Promise.all([
-                            fetchReimbursementBatchById(id),
-                            fetchApprovalInstanceByRequest('ReimbursementBatch', id).catch(() => null),
-                        ]);
-                        const b = batchRes?.data?.batch || batchRes?.batch;
+                        const instanceRes = await fetchApprovalInstanceByRequest('ReimbursementBatch', id);
                         const instance = instanceRes?.data || instanceRes;
-                        return { id, submissionId: b?.submissionId || id, approvalInstanceId: instance?.id ?? null };
+                        return { id, submissionId, approvalInstanceId: instance?.id ?? null };
                     } catch {
-                        return { id, submissionId: id, approvalInstanceId: null };
+                        return { id, submissionId, approvalInstanceId: null };
                     }
                 }),
             );
@@ -118,6 +138,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
             setBatchApprovalMap(new Map(entries.map((e) => [e.id, e.approvalInstanceId])));
         } catch {
             setPayments([]);
+            setHistoryError(true);
         } finally {
             setLoading(false);
         }
@@ -143,17 +164,6 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
             : filter === 'yearly'
             ? fiscalYearLabel || currentDate.format('YYYY')
             : 'All Time';
-
-    const navigate = (dir: -1 | 1) => {
-        if (filter === 'monthly') setCurrentDate((d) => d.add(dir, 'month'));
-        if (filter === 'yearly') setCurrentDate((d) => d.add(dir, 'year'));
-    };
-
-    const handleFilterChange = (_: React.MouseEvent<HTMLElement>, newFilter: PeriodFilter | null) => {
-        if (!newFilter) return;
-        setFilter(newFilter);
-        setCurrentDate(dayjs());
-    };
 
     // Group payments by batchId to create one row per batch
     const batchRows = useMemo<BatchRow[]>(() => {
@@ -261,12 +271,12 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 header: 'Total Request Amount',
                 size: 200,
                 Cell: ({ renderedCellValue }: any) => (
-                    <span className="fw-bold fs-7" style={{ color: '#475569' }}>
+                    <span className={`fw-bold fs-7 ${sensitiveCls}`} style={{ color: '#475569' }}>
                         ₹{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
-                    <span style={{ color: '#475569', fontWeight: 700, fontSize: '1rem' }}>
+                    <span className={sensitiveCls} style={{ color: '#475569', fontWeight: 700, fontSize: '1rem' }}>
                         {formatINR(grandTotalRequestAmount)}
                     </span>
                 ),
@@ -276,12 +286,12 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 header: 'Total Paid Amount',
                 size: 185,
                 Cell: ({ renderedCellValue }: any) => (
-                    <span className="fw-bolder fs-6" style={{ color: '#16a34a' }}>
+                    <span className={`fw-bolder fs-6 ${sensitiveCls}`} style={{ color: '#16a34a' }}>
                         ₹{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
-                    <span style={{ color: '#16a34a', fontWeight: 700, fontSize: '1rem' }}>
+                    <span className={sensitiveCls} style={{ color: '#16a34a', fontWeight: 700, fontSize: '1rem' }}>
                         {formatINR(grandTotalPaid)}
                     </span>
                 ),
@@ -292,54 +302,45 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 size: 220,
                 Cell: ({ renderedCellValue }: any) => (
                     <span
-                        className="fw-bolder fs-6"
+                        className={`fw-bolder fs-6 ${sensitiveCls}`}
                         style={{
-                            color: Number(renderedCellValue) > 0.005 ? '#1E3A8A' : '#16a34a',
+                            color: Number(renderedCellValue) > 0 ? '#1E3A8A' : '#16a34a',
                         }}
                     >
                         ₹{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
                 Footer: () => (
-                    <span style={{ color: '#1E3A8A', fontWeight: 700, fontSize: '1rem' }}>
+                    <span className={sensitiveCls} style={{ color: '#1E3A8A', fontWeight: 700, fontSize: '1rem' }}>
                         {formatINR(grandTotalRemainingAmount)}
                     </span>
                 ),
             },
         ],
-        [grandTotalPaid, grandTotalRequestAmount, grandTotalRemainingAmount],
+        [grandTotalPaid, grandTotalRequestAmount, grandTotalRemainingAmount, sensitiveCls],
     );
 
     return (
         <>
-        <div className="mt-10">
-            <h2 className="mb-6">Reimbursement Payment History</h2>
-            <div className="card shadow-sm">
-                <div className="card-body p-6">
-                    <div className="d-flex flex-md-row flex-column justify-content-lg-between align-items-lg-center gap-5 gap-lg-0 mb-3">
-                        <PeriodTabs
-                            value={filter}
-                            options={[
-                                { label: 'Monthly', value: 'monthly' },
-                                { label: 'Yearly', value: 'yearly' },
-                                { label: 'All Time', value: 'allTime' },
-                            ]}
-                            onChange={(val) => handleFilterChange(null as any, val as PeriodFilter)}
-                            ariaLabel="payment history period"
-                        />
-                        {filter !== 'allTime' && (
-                            <PeriodNavigator
-                                label={periodLabel}
-                                onPrevious={() => navigate(-1)}
-                                onNext={() => navigate(1)}
-                            />
-                        )}
-                    </div>
-
+        <div className="mt-4 mt-lg-8">
+            <div className="mb-4 mb-lg-6 px-3 px-lg-0">
+                <h2 className="mb-1 fs-4 fs-lg-3">Reimbursement Payment History</h2>
+                <div className="text-muted fs-8 fs-lg-7">
+                    What you were <strong>paid</strong> in {periodLabel} — by payment date. A batch
+                    appears here once it has a payment recorded in this window.
+                </div>
+            </div>
+            <div
+                className={isMobile ? "" : "card shadow-sm"}
+                style={isMobile ? { backgroundColor: 'transparent', boxShadow: 'none', border: 'none' } : undefined}
+            >
+                <div className={isMobile ? "p-0" : "card-body p-6"}>
                     {loading ? (
                         <div className="d-flex justify-content-center align-items-center py-12">
                             <div className="spinner-border text-primary" role="status" />
                         </div>
+                    ) : historyError ? (
+                        <LoadErrorState what="your payment history" onRetry={loadPayments} />
                     ) : (
                         <MaterialTable
                             data={batchRows}
@@ -348,187 +349,61 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                             showColumnFooter={true}
                             enableStatusColorCoding={false}
                             isLoading={loading}
+                            renderMobileCard={({ row }: any) => (
+                              <div
+                                onClick={() => {
+                                  setSelectedApprovalInstanceId(row.original.approvalInstanceId ?? null);
+                                  setSelectedBatchId(row.original.batchId);
+                                }}
+                                style={{
+                                  padding: '12px', background: '#fff', border: '1px solid #e2e8f0',
+                                  borderRadius: '8px', marginBottom: '8px', cursor: 'pointer'
+                                }}
+                              >
+                                <div style={{ fontWeight: 700, color: '#1E3A8A', fontSize: '0.9rem', marginBottom: '8px' }}>
+                                  {row.original.submissionId}
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.8rem' }}>
+                                  <div>
+                                    <span style={{ color: '#64748b' }}>Requests</span>
+                                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{row.original.totalRequests}</div>
+                                  </div>
+                                  <div>
+                                    <span style={{ color: '#64748b' }}>Amount Paid</span>
+                                    <div className={`fw-bold ${sensitiveCls}`} style={{ color: '#16a34a' }}>₹{fmtAmount(row.original.totalAmountPaid)}</div>
+                                  </div>
+                                  <div>
+                                    <span style={{ color: '#64748b' }}>Request Amount</span>
+                                    <div className={`fw-bold ${sensitiveCls}`}>₹{fmtAmount(row.original.totalRequestAmount)}</div>
+                                  </div>
+                                  <div>
+                                    <span style={{ color: '#64748b' }}>Remaining</span>
+                                    <div className={`fw-bold ${sensitiveCls}`} style={{ color: row.original.totalRemainingAmount > 0 ? '#1E3A8A' : '#16a34a' }}>
+                                      ₹{fmtAmount(row.original.totalRemainingAmount)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                             muiTableProps={{
                                 muiTableBodyRowProps: ({ row }: any) => ({
-                                    onClick: () => {
+                                    ...clickableRowProps(() => {
                                         setSelectedApprovalInstanceId(row.original.approvalInstanceId ?? null);
                                         setSelectedBatchId(row.original.batchId);
-                                    },
-                                    sx: { cursor: 'pointer', '&:hover td': { backgroundColor: '#F8FAFC' } },
+                                    }, `Open payment details for ${row.original.submissionId ?? 'this batch'}`),
+                                    sx: { ...CLICKABLE_ROW_SX, '&:hover td': { backgroundColor: '#F8FAFC' } },
                                 }),
                             }}
-                            renderDetailPanel={({ row }: any) => {
-                                const rowPayments: any[] = row.original.payments || [];
-                                if (rowPayments.length === 0) {
-                                    return (
-                                        <div
-                                            style={{
-                                                padding: '20px 24px',
-                                                backgroundColor: '#fafafa',
-                                                borderTop: '1px solid #e0e0e0',
-                                                color: '#9e9e9e',
-                                                fontSize: 13,
-                                                fontStyle: 'italic',
-                                            }}
-                                        >
-                                            No payment records found for this period.
-                                        </div>
-                                    );
-                                }
-
-                                const detailHeaders = [
-                                    { label: 'Payment Date', width: '28%' },
-                                    { label: 'Payment Made By', width: '28%' },
-                                    { label: 'Method', width: '22%' },
-                                    { label: 'Amount Paid', width: '22%' },
-                                ];
-
-                                return (
-                                    <div style={{ backgroundColor: '#f5f5f5', borderTop: '2px solid #e0e0e0' }}>
-                                        <table
-                                            style={{
-                                                width: '100%',
-                                                borderCollapse: 'collapse',
-                                                tableLayout: 'fixed',
-                                            }}
-                                        >
-                                            <thead>
-                                                <tr style={{ backgroundColor: '#eeeeee' }}>
-                                                    {detailHeaders.map(({ label, width }) => (
-                                                        <th
-                                                            key={label}
-                                                            style={{
-                                                                width,
-                                                                padding: '9px 16px',
-                                                                fontSize: 11,
-                                                                fontWeight: 700,
-                                                                color: '#616161',
-                                                                letterSpacing: '0.05em',
-                                                                textTransform: 'uppercase',
-                                                                textAlign: 'left',
-                                                                whiteSpace: 'nowrap',
-                                                                borderBottom: '1px solid #e0e0e0',
-                                                                borderRight: '1px solid #e0e0e0',
-                                                            }}
-                                                        >
-                                                            {label}
-                                                        </th>
-                                                    ))}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {rowPayments.map((p: any, i: number) => (
-                                                    <tr
-                                                        key={i}
-                                                        style={{
-                                                            backgroundColor: '#ffffff',
-                                                            borderBottom: '1px solid #eeeeee',
-                                                            transition: 'background-color 0.15s ease',
-                                                        }}
-                                                        onMouseEnter={(e) =>
-                                                            (e.currentTarget.style.backgroundColor = '#f5f5f5')
-                                                        }
-                                                        onMouseLeave={(e) =>
-                                                            (e.currentTarget.style.backgroundColor = '#ffffff')
-                                                        }
-                                                    >
-                                                        <td
-                                                            style={{
-                                                                padding: '10px 16px',
-                                                                borderRight: '1px solid #eeeeee',
-                                                            }}
-                                                        >
-                                                            <div
-                                                                style={{
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    gap: 10,
-                                                                }}
-                                                            >
-                                                                <div
-                                                                    style={{
-                                                                        width: 30,
-                                                                        height: 30,
-                                                                        borderRadius: 6,
-                                                                        backgroundColor: '#e8f5e9',
-                                                                        flexShrink: 0,
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'center',
-                                                                    }}
-                                                                >
-                                                                    <KTIcon
-                                                                        iconName="calendar-8"
-                                                                        className="fs-5 text-success"
-                                                                    />
-                                                                </div>
-                                                                <span
-                                                                    style={{
-                                                                        fontSize: 13,
-                                                                        fontWeight: 600,
-                                                                        color: '#212121',
-                                                                    }}
-                                                                >
-                                                                    {fmtDate(p.paymentDate)}
-                                                                </span>
-                                                            </div>
-                                                        </td>
-                                                        <td
-                                                            style={{
-                                                                padding: '10px 16px',
-                                                                borderRight: '1px solid #eeeeee',
-                                                            }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    fontSize: 13,
-                                                                    fontWeight: 500,
-                                                                    color: '#424242',
-                                                                }}
-                                                            >
-                                                                {p._paymentMadeBy || 'N/A'}
-                                                            </span>
-                                                        </td>
-                                                        <td
-                                                            style={{
-                                                                padding: '10px 16px',
-                                                                borderRight: '1px solid #eeeeee',
-                                                            }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    display: 'inline-block',
-                                                                    padding: '3px 10px',
-                                                                    borderRadius: 4,
-                                                                    fontSize: 11,
-                                                                    fontWeight: 700,
-                                                                    letterSpacing: '0.04em',
-                                                                    backgroundColor: '#e3f2fd',
-                                                                    color: '#1565c0',
-                                                                    textTransform: 'uppercase',
-                                                                }}
-                                                            >
-                                                                {String(p.paymentMethod || 'CASH').replace(/_/g, ' ')}
-                                                            </span>
-                                                        </td>
-                                                        <td style={{ padding: '10px 16px' }}>
-                                                            <span
-                                                                style={{
-                                                                    fontSize: 14,
-                                                                    fontWeight: 700,
-                                                                    color: '#2e7d32',
-                                                                }}
-                                                            >
-                                                                {formatINR(Number(p.amountPaid || 0))}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                );
-                            }}
+                            renderDetailPanel={({ row }: any) => (
+                              // Same panel the admin Payment tab renders. This markup
+                              // existed twice and the copies had already drifted.
+                              <PaymentDetailPanel
+                                payments={(row.original.payments || []).map((p: any) => ({
+                                  ...p,
+                                  paymentMadeBy: p._paymentMadeBy,
+                                }))}
+                              />
+                            )}
                         />
                     )}
                 </div>
@@ -540,7 +415,9 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
             onClose={() => setSelectedBatchId(null)}
             onBatchActionDone={() => {}}
             approvalInstanceId={selectedApprovalInstanceId}
-            filterStatus={1}
+            // Was filterStatus={1}: the batch detail showed only approved lines, so pending and
+            // rejected siblings inside the same batch were invisible with nothing saying so.
+            filterStatus={null}
         />
         </>
     );

@@ -314,7 +314,7 @@ const PendingRequestsTable = () => {
     if (activeTab === "attendance" || activeTab === "leaves") {
       navigate("/employees/attendance-and-leaves");
     } else if (activeTab === "reimbursements") {
-      navigate("/finance/bills");
+      navigate("/finance/reimbursements");
     }
   };
 

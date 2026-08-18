@@ -1,4 +1,4 @@
-﻿import KeyboardArrowLeftRoundedIcon from '@mui/icons-material/KeyboardArrowLeftRounded';
+import KeyboardArrowLeftRoundedIcon from '@mui/icons-material/KeyboardArrowLeftRounded';
 import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded';
 import { useState } from 'react';
 import { Box, IconButton, SxProps, Theme, Typography, Tooltip, useMediaQuery, useTheme } from '@mui/material';
@@ -58,7 +58,7 @@ const PeriodNavigator = ({
                 display: isMobile ? 'flex' : 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                height: isMobile ? 32 : 36,
+                height: 36,
                 width: isMobile ? '100%' : minWidth,
                 minWidth: isMobile ? undefined : minWidth,
                 maxWidth: '100%',
@@ -81,8 +81,8 @@ const PeriodNavigator = ({
                     onClick={onPrevious}
                     disabled={disablePrevious}
                     sx={{
-                        width: isMobile ? 32 : 36,
-                        height: isMobile ? 32 : 36,
+                        width: 36,
+                        height: 36,
                         borderRadius: 0,
                         color: arrowColor,
                         p: 0,
@@ -195,8 +195,8 @@ const PeriodNavigator = ({
                     onClick={onNext}
                     disabled={disableNext}
                     sx={{
-                        width: isMobile ? 32 : 36,
-                        height: isMobile ? 32 : 36,
+                        width: 36,
+                        height: 36,
                         borderRadius: 0,
                         color: arrowColor,
                         p: 0,
