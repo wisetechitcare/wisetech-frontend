@@ -3,17 +3,17 @@ A react app created using vite. Configured theme is Metronics.
 
 ## Getting started - Install dependency
 ```
-npm ci
+pnpm install --frozen-lockfile
 ```
 
 ## Start the project in development
 ```
-npm run dev
+pnpm run dev
 ```
 
 ## Build the project
 ```
-npm run build
+pnpm run build
 ```
 
 ## Develoment deployment 

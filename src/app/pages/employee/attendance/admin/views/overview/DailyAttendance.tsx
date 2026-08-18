@@ -208,6 +208,10 @@ export const transformAttendance = (attendance: IEmployeesAttendanceResponse[], 
             checkoutWorkingMethod: empAttendance.checkoutWorkingMethod?.type || '-NA-',
             // Server verdict: late mark waived after a late-night shift the previous day.
             lateWaived: (empAttendance as any).lateWaived === true,
+            // The SERVER's full late verdict and the day's kind. Carried through the
+            // transform so the cell renders a decision instead of re-deriving one.
+            lateMark: (empAttendance as any).lateMark ?? null,
+            dayKind: (empAttendance as any).dayKind ?? null,
         };
     });
 }
@@ -505,8 +509,16 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                         employee.status,
                         employee.isWeekendOrHoliday
                     ),
+                    // Drives the master switch's holiday/weekend legs. `skipColoring`
+                    // alone does NOT cover this row: a day that was actually WORKED has
+                    // status Present / Working on weekend, neither of which that helper
+                    // treats as a neutral row.
+                    isWeekendOrHoliday: employee.isWeekendOrHoliday === true,
                     // Server-computed late-night waiver (same rule payroll applies).
                     lateWaived: (employee as any).lateWaived === true,
+                    // When present this decides outright; the props above are the fallback
+                    // for responses that predate the verdict annotator.
+                    lateMark: (employee as any).lateMark ?? null,
                 });
 
                 const checkInCoords =

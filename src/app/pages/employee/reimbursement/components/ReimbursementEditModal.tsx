@@ -54,8 +54,11 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editCont
   // copies had already drifted on which lookups they loaded.
   const {
     reimbursementOptions, companyTypeOptions, filteredCompanies, projectOptions, projectsLoading,
+    projectStatusOptions,
     selectedReimbursementFor, selectedClientType, selectedClientCompany, selectedProject,
+    selectedProjectStatus,
     handleCategoryChange, handleClientTypeChange, handleClientCompanyChange, handleProjectChange,
+    handleProjectStatusChange,
   } = useReimbursementFormLookups(reimbursement);
 
   const uploadFile = async (
@@ -164,7 +167,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editCont
 
   return (
     <>
-    <Modal show={show} onHide={onHide} centered>
+    <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton>
         <Modal.Title>Edit Reimbursement Request</Modal.Title>
       </Modal.Header>
@@ -241,6 +244,25 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editCont
               </div>
 
               <div className="row">
+                <div className="col-lg-4 mb-7">
+                  {/* Filter only — no formikField, so it never reaches the saved record. */}
+                  <DropDownInput
+                    isRequired={false}
+                    formikField=""
+                    inputLabel="Project Status"
+                    placeholder={
+                      projectsLoading
+                        ? "Loading..."
+                        : projectStatusOptions.length === 0
+                        ? "No statuses"
+                        : "All Statuses"
+                    }
+                    options={projectStatusOptions}
+                    disabled={projectsLoading || projectStatusOptions.length === 0}
+                    onChange={(option: any) => handleProjectStatusChange(option)}
+                    value={selectedProjectStatus}
+                  />
+                </div>
                 <div className="col-lg mb-7">
                   <DropDownInput
                     isRequired={false}

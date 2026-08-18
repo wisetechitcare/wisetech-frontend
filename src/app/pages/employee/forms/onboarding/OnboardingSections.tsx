@@ -38,13 +38,11 @@ import "../../wizard/steps/Step2.css";
 import { createEducationRow } from "@utils/educationUtils";
 
 const ADD_NEW_QUALIFICATION = "__ADD_NEW__";
-const DEFAULT_QUALIFICATIONS = ["SSC", "Diploma", "HSC", "Degree"];
 
 const createNewFamilyMember = () => ({
   name: "",
   relationship: "",
   mobileNumber: "",
-  dateOfBirth: "",
 });
 
 const createNewWorkExp = () => ({
@@ -69,6 +67,8 @@ export interface OnboardingSectionsProps {
   setFile: (docId: string, file: any) => void;
   removeFile?: (docId: string) => void;
   setEducationFile?: (index: number, file: any) => void;
+  /** Holds the bank proof until the employee exists to attach it to. */
+  setBankFile?: (file: any) => void;
   /**
    * Object-URL preview of a just-picked profile photo. Owned by the HOST, not
    * this section — the wizard renders one section at a time, so a preview held
@@ -133,10 +133,11 @@ export const EducationSection: React.FC<OnboardingSectionsProps> = ({
     } catch {
       qualifications = [];
     }
+    // Options come purely from the Qualification config now. The four defaults that
+    // used to be merged in here (SSC/HSC/Diploma/Degree) were frontend-only, so they
+    // could not be renamed or removed and selecting one stored a bare label instead of
+    // an id. They are real rows in qualification_master now — nothing is hardcoded.
     const byName = new Map<string, any>();
-    DEFAULT_QUALIFICATIONS.forEach((name) =>
-      byName.set(name.toLowerCase(), { value: name, label: name, name, isDefault: true })
-    );
     qualifications.forEach((q: any) => {
       if (!q?.name) return;
       byName.set(q.name.toLowerCase(), { value: q.id, label: q.name, name: q.name });
@@ -213,9 +214,9 @@ export const EmergencySection: React.FC<OnboardingSectionsProps> = ({ formikProp
   <EmergencyDetails formikProps={formikProps} />
 );
 
-export const BankSection: React.FC<OnboardingSectionsProps> = ({ formikProps }) => {
+export const BankSection: React.FC<OnboardingSectionsProps> = ({ formikProps, setBankFile }) => {
   const { values } = useFormikContext<any>();
-  return <BankInfo formikProps={formikProps} userId={values?.userId} />;
+  return <BankInfo formikProps={formikProps} userId={values?.userId} setBankFile={setBankFile} />;
 };
 
 export const AddressSection: React.FC<OnboardingSectionsProps> = ({ formikProps }) => (
@@ -618,6 +619,22 @@ export const DocumentsSection: React.FC<OnboardingSectionsProps> = ({ formikProp
   const { values } = useFormikContext<any>();
   const documentFields: any[] = Array.isArray(values.documentFields) ? values.documentFields : [];
 
+  // The list is the company's Onboarding Docs configuration, mirrored into Formik by
+  // OnboardingWorkspace. Empty means none is configured (or enabled) — which is a real
+  // state to explain, not a blank panel: the section used to render its notice over
+  // nothing and read as broken.
+  if (documentFields.length === 0) {
+    return (
+      <div className="ob-doc-empty">
+        <span className="ob-doc-empty-title">No documents requested</span>
+        <span className="ob-doc-empty-hint">
+          Nothing is configured for this company yet. Add document types under
+          Organization → Onboarding Docs and they will appear here.
+        </span>
+      </div>
+    );
+  }
+
   return (
     <>
       <Notice tone="info" icon="bi-info-circle">
@@ -625,8 +642,8 @@ export const DocumentsSection: React.FC<OnboardingSectionsProps> = ({ formikProp
       </Notice>
 
       <div className="ob-repeating-section mt-4">
-        {documentFields.map((_: any, index: number) => (
-          <div key={`documentFields-${index}`}>
+        {documentFields.map((field: any, index: number) => (
+          <div key={field?.id ?? `documentFields-${index}`}>
             <Documents formikProps={formikProps} index={index} setFile={setFile} />
           </div>
         ))}

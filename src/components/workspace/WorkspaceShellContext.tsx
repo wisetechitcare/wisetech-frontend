@@ -33,6 +33,11 @@ function resolveActive(apps: WorkspaceApp[], pathname: string) {
     for (const cluster of [{ modules: app.modules }, ...app.clusters]) {
       for (const module of cluster.modules) {
         if (!module.to) continue;
+        // A shortcut points at a route another application owns. Matching on it made
+        // ownership depend on tree ORDER — /finance/reimbursements resolved to HR, because HR's
+        // My Team cluster links to it and HR is declared first. The owner is the only
+        // entry that may answer this.
+        if (module.alias) continue;
         const hit = pathname === module.to || pathname.startsWith(`${module.to}/`);
         if (hit && module.to.length > bestLength) {
           bestLength = module.to.length;
@@ -152,7 +157,7 @@ export function WorkspaceShellProvider({ children }: { children: ReactNode }) {
     // Home is exactly ONE url; everywhere else is docked.
     //
     // Not `requestedSlug ? docked : home` — that only recognised /workspace/:slug, so opening
-    // an actual module route (/employees, /qc/companies) fell back to 'home' and the rail
+    // an actual module route (/employees, /companies) fell back to 'home' and the rail
     // disappeared mid-journey. Deriving from "am I at the root" instead means the rail
     // persists through every destination the shell wraps, which is the whole point of a
     // workspace: you enter it once and stay in it.

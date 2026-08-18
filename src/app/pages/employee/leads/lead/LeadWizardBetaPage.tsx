@@ -14,8 +14,8 @@ import { mapLeadToFormInitialValues } from "./utils";
  * single source of truth; no Project-table logic is involved.
  *
  * Routes:
- *   /qc/leads/wizard-beta        → create a new lead in the wizard
- *   /qc/leads/wizard-beta/:id    → open an existing lead (edit mode) in the wizard
+ *   /leads/wizard-beta        → create a new lead in the wizard
+ *   /leads/wizard-beta/:id    → open an existing lead (edit mode) in the wizard
  *
  * ⚠️ BETA — pending runtime QA (cascade behaviour + a verified test create/edit
  * against the backend) before it is promoted from opt-in to a default flow.
@@ -76,7 +76,7 @@ const LeadWizardBetaPage: React.FC = () => {
       key={isEditMode ? formValues?.id || id : "new-wizard-lead"}
       leadTemplateId={isEditMode ? formValues?.leadTemplateId || "" : ""}
       open={true}
-      onClose={() => navigate("/qc/leads")}
+      onClose={() => navigate("/leads")}
       title={
         isEditMode
           ? "Edit Lead — EnterpriseForm Wizard (Beta)"

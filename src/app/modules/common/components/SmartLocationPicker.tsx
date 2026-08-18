@@ -32,10 +32,34 @@ const NOMINATIM = "https://nominatim.openstreetmap.org";
 /** Where the pin lands when nothing is set yet — roughly the middle of India. */
 const DEFAULT_CENTER: [number, number] = [19.076, 72.8777];
 
+/**
+ * Reverse-geocoding detail levels.
+ *
+ * POINT_ZOOM (18, building) resolves the street under the pin. Nominatim happens to
+ * default to it, but the default is not contractual and a coarser one would quietly
+ * return a suburb centroid instead of the address.
+ *
+ * AREA_ZOOM (14, suburb/locality) is only used to read the postcode. Postcodes tagged
+ * on individual buildings are sparse and inconsistent in OSM, so reading them at
+ * building level makes the same locality report different codes from click to click;
+ * the locality boundary carries one code for the whole area.
+ */
+const POINT_ZOOM = 18;
+const AREA_ZOOM = 14;
+
 export interface GeoPick {
   lat: number;
   lng: number;
+  /** Nominatim's full display_name — street through to country. */
   formatted: string;
+  /**
+   * Just the street line: house number, road, and the named place it sits in.
+   *
+   * `formatted` repeats the city, district, state, postcode and country that a form
+   * already collects in their own fields, so writing it into an "Address" input
+   * duplicates half the form. Callers that have those fields separately want this.
+   */
+  street: string;
   country: string;
   state: string;
   city: string;
@@ -66,10 +90,28 @@ const toGeoPick = (result: any): GeoPick => {
   const a = result?.address ?? {};
   const lat = Number(result?.lat);
   const lng = Number(result?.lon);
+
+  // Street line, most specific first. `name` catches a named building or complex that
+  // OSM records without a house number. Duplicates are dropped because Nominatim often
+  // repeats the same string across name/road/neighbourhood for a single-entity result.
+  const street = Array.from(
+    new Set(
+      [
+        result?.name,
+        [a.house_number, a.road].filter(Boolean).join(" "),
+        a.neighbourhood ?? a.residential,
+        a.suburb,
+      ]
+        .map((part) => (part ?? "").toString().trim())
+        .filter(Boolean)
+    )
+  ).join(", ");
+
   return {
     lat,
     lng,
     formatted: result?.display_name ?? "",
+    street,
     country: a.country ?? "",
     state: a.state ?? a.province ?? "",
     city: a.city ?? a.town ?? a.village ?? a.municipality ?? a.county ?? "",
@@ -126,8 +168,14 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, l
     return Array.isArray(data) ? data : [];
   }, []);
 
-  const reverseGeocode = useCallback(async (pointLat: number, pointLng: number): Promise<any | null> => {
-    const res = await fetch(`${NOMINATIM}/reverse?format=jsonv2&addressdetails=1&lat=${pointLat}&lon=${pointLng}`);
+  const reverseGeocode = useCallback(async (
+    pointLat: number,
+    pointLng: number,
+    zoom: number = POINT_ZOOM,
+  ): Promise<any | null> => {
+    const res = await fetch(
+      `${NOMINATIM}/reverse?format=jsonv2&addressdetails=1&zoom=${zoom}&lat=${pointLat}&lon=${pointLng}`
+    );
     const data = await res.json();
     return data?.address ? data : null;
   }, []);
@@ -174,7 +222,33 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, l
       try {
         const result = await reverseGeocode(pointLat, pointLng);
         if (result) {
-          onPick(toGeoPick(result));
+          const pick = toGeoPick(result);
+
+          /**
+           * Take the postcode from the enclosing AREA, not from whatever element the
+           * pin happened to land on.
+           *
+           * A building-level match returns that element's own `postcode` tag, and OSM
+           * tags those sparsely and inconsistently — so two clicks a street apart in
+           * one locality can come back with different PIN codes, or one with none.
+           * The suburb/locality boundary carries a single code for the whole area,
+           * which is the one a form actually wants.
+           *
+           * Sequential, not parallel: Nominatim asks for ≤1 request/second, and
+           * awaiting the first spaces the second by its own round-trip. A pin drop is
+           * one deliberate user action, so this stays well inside the policy.
+           *
+           * Best-effort — the precise postcode is kept if the area lookup gives none.
+           */
+          try {
+            const area = await reverseGeocode(pointLat, pointLng, AREA_ZOOM);
+            const areaPostcode = area?.address?.postcode;
+            if (areaPostcode) pick.postcode = String(areaPostcode);
+          } catch {
+            /* keep the fine-grained postcode */
+          }
+
+          onPick(pick);
           return;
         }
       } catch {
@@ -188,6 +262,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, l
         lat: pointLat,
         lng: pointLng,
         formatted: "",
+        street: "",
         country: "",
         state: "",
         city: "",

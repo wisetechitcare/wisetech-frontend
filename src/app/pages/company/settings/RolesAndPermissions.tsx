@@ -1082,7 +1082,7 @@ function StaffMemberForGivenRole({ handleCloseEditModal, setRefetch, roleDetails
 
   return (
     <div className='d-flex flex-column my-3 p-5 p-md-10 bg-white' style={{ borderRadius: '10px', fontFamily: 'Inter' }}>
-      <h4 className='mb-4'>Staff members using this role</h4>
+      <h4 className='mb-4'>Staff Members Using This Role</h4>
 
       <div className='d-flex gap-2 mb-4'>
         <div className='position-relative flex-grow-1'>

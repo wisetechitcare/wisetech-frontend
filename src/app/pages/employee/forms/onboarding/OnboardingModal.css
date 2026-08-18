@@ -60,64 +60,101 @@
 
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  max-width: min(680px, calc(100vw - 32px));
+  gap: 0.875rem;
+  /* Reads as a real notice rather than a caption: the previous 0.76rem body with a
+     0.75-opacity sub line was unreadable on a large monitor, and the box shrank to
+     match it. Sizes step up with the viewport but never below ~13px. */
+  max-width: min(780px, calc(100vw - 32px));
   margin: 0;
-  padding: 0.625rem 0.875rem;
+  padding: 0.875rem 1.125rem;
 
-  border: 1px solid var(--wt-warning-border, rgba(245, 166, 35, 0.3));
-  border-radius: var(--wt-radius-sm, 8px);
+  border: 1px solid var(--wt-warning-border, rgba(245, 166, 35, 0.4));
+  border-left: 4px solid #f59e0b;
+  border-radius: var(--wt-radius-md, 10px);
   background: var(--wt-warning-light, #fffbeb); /* C.warningLight */
-  box-shadow: var(--wt-shadow-lg, 0 8px 28px rgba(0, 0, 0, 0.08));
+  box-shadow: var(--wt-shadow-lg, 0 10px 32px rgba(0, 0, 0, 0.12));
 
-  font-size: 0.76rem;
+  font-size: clamp(0.875rem, 0.82rem + 0.2vw, 0.95rem);
   font-weight: 500;
-  line-height: 1.4;
-  color: #92400e;
+  line-height: 1.45;
+  color: #78350f;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-icon {
   flex-shrink: 0;
-  font-size: 0.95rem;
+  font-size: 1.35rem;
+  color: #b45309;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-text {
   flex: 1;
   min-width: 0;
+  font-weight: 600;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-sub {
-  opacity: 0.75;
+  /* Its own line: the sub used to run on after the headline at the same size and
+     3/4 opacity, which is what made the whole strip read as one grey smudge. */
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.875em;
+  font-weight: 400;
+  color: #92400e;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-discard,
 .onboarding-wizard-modal .ob-draft-notice-close {
   flex-shrink: 0;
-  border: none;
-  background: none;
-  padding: 0;
   cursor: pointer;
-  color: #92400e;
+  color: #78350f;
   font-weight: 700;
-  font-size: 0.74rem;
 }
 
+/* An outlined button, not underlined text — it destroys the restored draft, so it
+   should look like something you press deliberately. */
 .onboarding-wizard-modal .ob-draft-notice-discard {
-  text-decoration: underline;
+  border: 1px solid rgba(180, 83, 9, 0.45);
+  border-radius: var(--wt-radius-sm, 8px);
+  background: transparent;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8125rem;
   white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-discard:hover {
-  opacity: 0.75;
+  background: #b45309;
+  color: #fff;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-close {
   display: inline-flex;
-  opacity: 0.6;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1rem;
+  opacity: 0.65;
 }
 
 .onboarding-wizard-modal .ob-draft-notice-close:hover {
   opacity: 1;
+  background: rgba(180, 83, 9, 0.12);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE POSITION BAR
+   Hidden on desktop, where the tree is permanently visible and states position
+   by itself. Below the breakpoint it is the ONLY always-visible progress
+   reading, and the control that opens the tree.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.ob-mobile-nav-bar {
+  display: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -359,16 +396,187 @@
     bottom: calc(var(--wt-footer-height, 68px) + 8px);
   }
 
-  /* The shared sidebar goes horizontal on mobile; a nested tree can't. Keep it
-     vertical and let the whole rail scroll instead. */
+  /* ── The progress trail, on mobile ──────────────────────────────────────
+     Neither of the flat layouts worked. As a vertical tree capped at 40vh it ate
+     half the screen before the first field; squeezed into a horizontal scrolling
+     strip it fitted, but showed whichever group sat leftmost rather than the one
+     you were in — you could be on "Financial Configuration" and read
+     "Personal Details".
+
+     So the tree stops competing for space: a bar states the current position and
+     the tree opens beneath it on demand. One reading, always correct, and the
+     form keeps the viewport. */
+  .ob-mobile-nav-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.5rem 0.875rem;
+    border: 0;
+    border-bottom: 1px solid var(--wt-gray-200, #e2e8f0);
+    background: var(--wt-white, #fff);
+    text-align: left;
+    cursor: pointer;
+    /* Above the tree sheet it toggles, so the sheet slides out from under it. */
+    position: relative;
+    z-index: 2;
+  }
+
+  .ob-mnav-ring {
+    position: relative;
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+  }
+  .ob-mnav-ring svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    /* Start the arc at 12 o'clock rather than 3. */
+    transform: rotate(-90deg);
+  }
+  .ob-mnav-ring-track,
+  .ob-mnav-ring-fill {
+    fill: none;
+    stroke-width: 3;
+  }
+  .ob-mnav-ring-track { stroke: var(--wt-gray-200, #e2e8f0); }
+  .ob-mnav-ring-fill {
+    stroke: var(--wt-primary, #1e3a8a);
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.3s ease;
+  }
+  .ob-mnav-ring-text {
+    position: relative;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--wt-primary, #1e3a8a);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* min-width:0 is what lets the two lines ellipsize instead of widening the bar. */
+  .ob-mnav-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .ob-mnav-eyebrow,
+  .ob-mnav-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ob-mnav-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--wt-gray-400, #94a3b8);
+  }
+  .ob-mnav-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--wt-gray-800, #1e293b);
+  }
+
+  .ob-mnav-chevron {
+    flex-shrink: 0;
+    display: inline-flex;
+    color: var(--wt-gray-400, #94a3b8);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .ob-mnav-chevron.is-open { transform: rotate(180deg); }
+
+  /* The tree itself: collapsed to nothing until the bar opens it. `max-height`
+     rather than `display` so it animates, and `visibility` so a collapsed tree
+     is not reachable by the keyboard. */
   .onboarding-wizard-modal .wizard-nav-sidebar {
     flex-direction: column !important;
-    max-height: 40vh;
+    width: 100%;
+    max-width: 100%;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden !important;
+    visibility: hidden;
+    border-bottom: 0;
+    transition: max-height 0.25s ease, padding 0.25s ease;
+  }
+  .onboarding-wizard-modal .wizard-nav-sidebar.is-mobile-open {
+    max-height: 60vh;
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
     overflow-y: auto !important;
+    visibility: visible;
+    border-bottom: 1px solid var(--wt-gray-200, #e2e8f0);
+  }
+
+  /* The bar owns the progress reading now — repeating it inside the sheet would
+     be the same number twice on one screen. */
+  .onboarding-wizard-modal .wt-progress-card {
+    display: none;
   }
 
   .ob-tree-parent-count {
     display: none;
+  }
+
+  /* ── One footer row ─────────────────────────────────────────────────────
+     Four buttons in two clusters wrapped onto two lines, putting "Save
+     Employee" directly above "Save & Continue" — two primary-looking saves
+     stacked, which is the thing that reads as ambiguous.
+
+     One row instead: Back · Save · Save & Continue. Cancel is dropped because
+     the header's ✕ already calls the same handler, so nothing is lost. */
+  .onboarding-wizard-modal .wizard-footer-bar {
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .onboarding-wizard-modal .wizard-footer-left,
+  .onboarding-wizard-modal .wizard-footer-right {
+    gap: 0.4rem !important;
+    min-width: 0;
+  }
+  .onboarding-wizard-modal .wizard-footer-left {
+    flex: 0 0 auto;
+  }
+  .onboarding-wizard-modal .wizard-footer-right {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+  /* Cancel — superseded by the header ✕. */
+  .onboarding-wizard-modal .wizard-footer-left .wt-btn-ghost {
+    display: none;
+  }
+  /* The direct save keeps its place but stops competing with the primary:
+     secondary weight, and it shrinks before the primary does. */
+  .onboarding-wizard-modal .wizard-footer-left .wt-btn-primary {
+    min-width: 0 !important;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.78rem;
+    background: transparent;
+    color: var(--wt-primary, #1e3a8a);
+    border: 1px solid var(--wt-gray-300, #d1d5db);
+    box-shadow: none;
+  }
+  .onboarding-wizard-modal .wizard-footer-right .wt-btn-ghost {
+    flex: 0 0 auto;
+    padding: 0.5rem 0.55rem;
+    font-size: 0.78rem;
+  }
+  /* The one action the step is about — it takes the leftover width. */
+  .onboarding-wizard-modal .wizard-footer-right .wt-btn-primary {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: center;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.82rem;
   }
 }
 
@@ -380,9 +588,14 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   border-radius: 50%;
   display: block;
-  border: 3px solid rgba(255, 255, 255, 0.2);
+  /* border-box so the ring is drawn INSIDE the frame. As content-box the
+     border added 6px to a box already sized 100%, overflowing the frame and
+     shifting the picture up-left. The frame's own border is the visible ring. */
+  box-sizing: border-box;
+  border: none;
 }
 
 .ob-header-chip {

@@ -1,12 +1,10 @@
 import { FC, lazy, Suspense, useEffect, useState } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { MasterLayout } from '../../_metronic/layout/MasterLayout'
 import TopBarProgress from 'react-topbar-progress-indicator'
 import { DashboardWrapper } from '../pages/dashboard/DashboardWrapper'
-import { MenuTestPage } from '../pages/MenuTestPage'
 import { getCSSVariableValue } from '../../_metronic/assets/ts/_utils'
 import { WithChildren } from '../../_metronic/helpers'
-import BuilderPageWrapper from '../pages/layout-builder/BuilderPageWrapper'
 import { hasPermission } from '@utils/authAbac'
 import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from '@constants/statistics'
 import { RootState, store } from '@redux/store'
@@ -24,7 +22,11 @@ const Overview = lazy(() => import('@pages/company/Overview'))
 const NewEmployeeWizard = lazy(() => import('@pages/employee/wizard/NewEmployeeWizard'))
 const Branches = lazy(() => import('@pages/company/Branches'))
 const Departments = lazy(() => import('@pages/company/Departments'))
-const Document = lazy(() => import('@pages/employee/Document'))
+// Documents module. The HR directory and one employee's wall are separate routes;
+// `MyDocumentsPage` is the same wall scoped to the signed-in employee.
+const DocumentsDirectory = lazy(() => import('@pages/employee/documents/DocumentsDirectory'))
+const EmployeeDocumentsPage = lazy(() => import('@pages/employee/documents/EmployeeDocumentsPage'))
+const MyDocumentsPage = lazy(() => import('@pages/employee/documents/MyDocumentsPage'))
 const Branding = lazy(() => import('@pages/company/organisation/Branding'))
 const Designations = lazy(() => import('@pages/company/Designation'))
 const OnBoardingDocs = lazy(() => import('@pages/company/OnboardingDocs'))
@@ -88,6 +90,15 @@ const RolesPermissions = lazy(() => import('@pages/admin/RolesPermissions').then
 const WorkspaceShell = lazy(() => import('@components/workspace/WorkspaceShell'))
 const WorkspaceHomeStage = lazy(() => import('@components/workspace/pages/HomeStage'))
 const AppWorkspacePage = lazy(() => import('@components/workspace/pages/AppWorkspacePage'))
+
+/**
+ * Old detail URL kept alive. `<Navigate>` cannot interpolate a route param, so the
+ * param is read here and spliced into the new path.
+ */
+const LegacyLeadRedirect: FC = () => {
+  const { leadId } = useParams()
+  return <Navigate to={`/leads/${leadId}`} replace />
+}
 const PrivateRoutes = () => {
   const [isStored, setIsStored] = useState(false)
   const employeeId = useSelector(
@@ -126,7 +137,7 @@ const PrivateRoutes = () => {
             states, not two components faking continuity.
 
             It wraps everything on purpose. While it only wrapped /workspace/*, opening an
-            actual module (/employees, /qc/companies) unmounted the shell and the rail
+            actual module (/employees, /companies) unmounted the shell and the rail
             vanished mid-journey, which is exactly the "it doesn't navigate through the
             section" problem. A workspace you fall out of is not a workspace.
 
@@ -138,6 +149,22 @@ const PrivateRoutes = () => {
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
         {/* Pages */}
         <Route path='dashboard' element={<DashboardWrapper />} />
+
+        {/* ── Legacy URL redirects ──────────────────────────────────────────────────
+            These paths shipped, so they are in bookmarks, in already-sent emails, and
+            — for /finance/bills — written into notification ROWS in the database by
+            the backend. Renaming without these would break every one of them, so the
+            old path stays as a one-line redirect rather than a 404. */}
+        <Route path='/finance/bills' element={<Navigate to='/finance/reimbursements' replace />} />
+        <Route path='/qc/leads' element={<Navigate to='/leads' replace />} />
+        <Route path='/qc/leads/configuration' element={<Navigate to='/leads/configuration' replace />} />
+        <Route path='/qc/leads/wizard-beta' element={<Navigate to='/leads/wizard-beta' replace />} />
+        <Route path='/qc/leads/documentation-builder' element={<Navigate to='/leads/documentation-builder' replace />} />
+        <Route path='/qc/projects' element={<Navigate to='/projects' replace />} />
+        <Route path='/qc/contacts' element={<Navigate to='/contacts' replace />} />
+        <Route path='/qc/companies' element={<Navigate to='/companies' replace />} />
+        <Route path='/company/teams' element={<Navigate to='/tasks/calendar' replace />} />
+        <Route path='/employee/lead/:leadId' element={<LegacyLeadRedirect />} />
         {/* `/home` was the legacy Transform launcher; the workspace shell supersedes it.
             In classic-sidebar mode WorkspaceShell bounces /workspace/* to /dashboard, so this
             resolves correctly in both navigation modes without reading the flag twice. */}
@@ -156,9 +183,9 @@ const PrivateRoutes = () => {
           <Route path='leaves' element={<Navigate to='/my-team/overview' replace />} />
 
           <Route path='salary' element={<Navigate to='/finance/salary' replace />} />
-          <Route path='tasks' element={<Navigate to='/tasks/employee-level-teams' replace />} />
-          <Route path='projects' element={<Navigate to='/qc/projects' replace />} />
-          <Route path='leads' element={<Navigate to='/qc/leads' replace />} />
+          <Route path='tasks' element={<Navigate to='/company/employee-level-teams' replace />} />
+          <Route path='projects' element={<Navigate to='/projects' replace />} />
+          <Route path='leads' element={<Navigate to='/leads' replace />} />
           <Route path='approvals' element={<MyTeamApprovals />} />
           <Route path='delegations' element={<MyTeamDelegations />} />
         </Route>}
@@ -173,10 +200,8 @@ const PrivateRoutes = () => {
         {!NEW_MY_TEAM_IA && <Route path='approvals/inbox' element={<MyTeamApprovals />} />}
         {!NEW_MY_TEAM_IA && <Route path='approvals/my-team' element={<MyTeamOverview />} />}
         {!NEW_MY_TEAM_IA && <Route path='approvals/delegations' element={<MyTeamDelegations />} />}
-        <Route path='builder' element={<BuilderPageWrapper />} />
-        <Route path='menu-test' element={<MenuTestPage />} />
         <Route
-          path='/qc/leads/documentation-builder'
+          path='/leads/documentation-builder'
           element={
             <SuspensedView>
               <TemplateDocumentationBuilderPage />
@@ -209,7 +234,7 @@ const PrivateRoutes = () => {
         />
 
         {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
-          path='/finance/bills'
+          path='/finance/reimbursements'
           element={
             <SuspensedView>
               <AdminAndEmployeeReimbursementViewer />
@@ -363,13 +388,32 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
+        {/* HR directory + one employee's wall. Both are cross-employee views, so both
+            sit behind the same readOthers gate the nav entry uses; the API enforces it
+            again per employee. */}
         {hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers) && <Route
           path='/employee/documents'
           element={
             <SuspensedView>
-              <Document />
+              <DocumentsDirectory />
             </SuspensedView>}
         />}
+        {hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers) && <Route
+          path='/employee/documents/:employeeId'
+          element={
+            <SuspensedView>
+              <EmployeeDocumentsPage />
+            </SuspensedView>}
+        />}
+        {/* Every employee has their own documents — no permission gate, because the
+            server resolves "me" from the token and can only ever return their own. */}
+        <Route
+          path='/my-documents'
+          element={
+            <SuspensedView>
+              <MyDocumentsPage />
+            </SuspensedView>}
+        />
         {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
           path='/company/organisation-profile'
           element={
@@ -472,14 +516,14 @@ const PrivateRoutes = () => {
             </SectionGuard>}
         />
         <Route
-          path='/qc/leads/configuration'
+          path='/leads/configuration'
           element={
             <SuspensedView>
               <ProposalConfigurationPage />
             </SuspensedView>}
         />
         <Route
-          path='/qc/leads'
+          path='/leads'
           element={
             <SectionGuard module='crm.leads'>
               <SuspensedView>
@@ -498,14 +542,14 @@ const PrivateRoutes = () => {
         />
         {/* Opt-in beta: migrated EnterpriseForm wizard UI (classic flow stays default) */}
         <Route
-          path='/qc/leads/wizard-beta'
+          path='/leads/wizard-beta'
           element={
             <SuspensedView>
               <LeadWizardBetaPage />
             </SuspensedView>}
         />
         <Route
-          path='/qc/leads/wizard-beta/:id'
+          path='/leads/wizard-beta/:id'
           element={
             <SuspensedView>
               <LeadWizardBetaPage />
@@ -554,7 +598,7 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path='/company/teams'
+          path='/tasks/calendar'
           element={
             <SuspensedView>
               <TasksMainCalenderPage />
@@ -571,15 +615,7 @@ const PrivateRoutes = () => {
         />
 
         <Route
-          path='/employee/lead/:leadId'
-          element={
-            <SuspensedView>
-              <EntityDetailPage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/qc/projects'
+          path='/projects'
           element={
             <SectionGuard module='projects'>
               <SuspensedView>
@@ -589,7 +625,7 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path='/qc/contacts'
+          path='/contacts'
           element={
             <SectionGuard module='crm.contacts'>
               <SuspensedView>
@@ -599,7 +635,7 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path='/qc/companies'
+          path='/companies'
           element={
             <SectionGuard module='crm.companies'>
               <SuspensedView>

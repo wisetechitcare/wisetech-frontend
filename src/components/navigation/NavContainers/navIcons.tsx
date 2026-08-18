@@ -11,6 +11,7 @@ import CampaignRounded from '@mui/icons-material/CampaignRounded';
 import CircleRounded from '@mui/icons-material/CircleRounded';
 import ContactPageRounded from '@mui/icons-material/ContactPageRounded';
 import ContactsRounded from '@mui/icons-material/ContactsRounded';
+import CreditCardRounded from '@mui/icons-material/CreditCardRounded';
 import DashboardRounded from '@mui/icons-material/DashboardRounded';
 import DescriptionRounded from '@mui/icons-material/DescriptionRounded';
 import EventAvailableRounded from '@mui/icons-material/EventAvailableRounded';
@@ -20,7 +21,12 @@ import GroupsRounded from '@mui/icons-material/GroupsRounded';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import InboxRounded from '@mui/icons-material/InboxRounded';
 import PaymentsRounded from '@mui/icons-material/PaymentsRounded';
+import PermMediaRounded from '@mui/icons-material/PermMediaRounded';
+import ReceiptRounded from '@mui/icons-material/ReceiptRounded';
+import SavingsRounded from '@mui/icons-material/SavingsRounded';
+import TrendingUpRounded from '@mui/icons-material/TrendingUpRounded';
 import SettingsRounded from '@mui/icons-material/SettingsRounded';
+import ShoppingCartRounded from '@mui/icons-material/ShoppingCartRounded';
 import SpeedRounded from '@mui/icons-material/SpeedRounded';
 import SwapHorizRounded from '@mui/icons-material/SwapHorizRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
@@ -52,6 +58,9 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-person-badge': BadgeRounded,
   'bi-bar-chart': BarChartRounded,
   'bi-cash-coin': PaymentsRounded,
+  'bi-cash-stack': SavingsRounded,
+  'bi-receipt': ReceiptRounded,
+  'bi-graph-up-arrow': TrendingUpRounded,
   'bi-building': ApartmentRounded,
   'bi-person-lines-fill': ContactPageRounded,
   'bi-briefcase': WorkRounded,
@@ -59,12 +68,15 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-clock-history': HistoryRounded,
   'bi-clipboard-data': AssessmentRounded,
   'bi-house-fill': BusinessRounded,
+  'bi-images': PermMediaRounded,
   'bi-shield-lock': AdminPanelSettingsRounded,
   'bi-gear': SettingsRounded,
   // Section headers (assigned in useNavContainers, not present in the nav tree itself)
   'bi-grid-1x2': DashboardRounded,
   'bi-person-rolodex': ContactsRounded,
   'bi-kanban': ViewKanbanRounded,
+  'bi-credit-card': CreditCardRounded,
+  'bi-cart3': ShoppingCartRounded,
   'bi-folder': FolderRounded,
   'bi-record-circle': CircleRounded,
 };

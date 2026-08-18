@@ -12,6 +12,13 @@ export * from './buttons';
 export { WtSwitch, WtSwitchField, wtSwitchSx } from './switch';
 export type { WtSwitchProps, WtSwitchFieldProps, WtSwitchSize } from './switch';
 export { ToneChip, toneAlpha } from './chips';
+
+export { default as ActionIconButton } from './ActionIconButton';
+export type { ActionIconButtonProps, ActionTone } from './ActionIconButton';
+// Brand marks as inline SVG. The duotone icon font paints its first layer at 40%
+// opacity, which erases a logo's recognisable shape — these are solid single paths.
+export { WhatsAppIcon } from './brandIcons';
+export type { BrandIconProps } from './brandIcons';
 export type { ToneChipProps } from './chips';
 export {
   glassSx, GlassSurface, GlassDialog, GlassHeader, GlassCard, GlassTransition,
@@ -44,6 +51,10 @@ export { SettingsSection } from './SettingsSection';
 export type { SettingsSectionProps } from './SettingsSection';
 // The app-wide toolbar filter (SUB ORGANIZATION / BRANCH / STATUS). Previously
 // defined inside a payroll page that three other features imported across.
+// Exclusive 2–5 way choice (status filter, view switch). Same visual language as
+// TimePeriodSelector, with the choices left open.
+export { SegmentedControl } from './SegmentedControl';
+export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
 export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
 export type { ToolbarFilterSelectProps, FilterSelectTheme } from './ToolbarFilterSelect';
 export { OrgFilterToolbar, useOrgFilters } from './OrgFilterToolbar';

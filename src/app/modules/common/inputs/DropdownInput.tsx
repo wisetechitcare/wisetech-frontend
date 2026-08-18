@@ -1,7 +1,8 @@
 import { Field, useField } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
-import  Select  from "react-select";
-import { useState, useMemo } from "react";
+import  Select, { components as RSComponents }  from "react-select";
+import React, { useState, useMemo } from "react";
+import { Box } from "@mui/material";
 import { FixedSizeList as List } from "react-window";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
@@ -41,10 +42,33 @@ function VirtualizedMenuList(props: any) {
     );
 }
 
+/**
+ * The option row is clamped to one line, so a long label is ellipsised. Carry the full
+ * text in `title` — otherwise the truncated part is simply unreadable, and for project
+ * names the part that gets cut is the end, which is where the status sits.
+ */
+function TitledOption(props: any) {
+    return (
+        <RSComponents.Option
+            {...props}
+            innerProps={{
+                ...props.innerProps,
+                title: typeof props.label === 'string' ? props.label : undefined,
+            }}
+        />
+    );
+}
+
 interface DropDownInputProps {
     isRequired: boolean;
     inputLabel: string | React.ReactNode;
     options: any;
+    /**
+     * Formik field this writes to. Pass `''` for a FILTER-ONLY dropdown: one that
+     * narrows another control but is not part of the record. Without that escape
+     * hatch the only way to reuse this component as a filter was to give it a real
+     * field name, which then rode along into the submitted payload.
+     */
     formikField: string;
     placeholder?: string;
     showAddBtn?: boolean;
@@ -87,14 +111,31 @@ function DropDownInput({
     smartFilterFunction, // Added: Smart filter and sort function
     disableAlphabeticalSort = false,
 }: DropDownInputProps) {
-    const [field, meta, helpers] = useField(formikField);
+    // Filter-only mode. useField still runs (hooks cannot be conditional) but against a
+    // name nothing reads, and setValue is never called — so Formik's `values` stays clean
+    // and the key cannot leak into a submitted payload.
+    const isFilterOnly = !formikField;
+    const [field, meta, helpers] = useField(formikField || '__filterOnly');
     const [show, setShow] = useState(false);
     const hasError = !!(meta.touched && meta.error);
     const [inputValue, setInputValue] = useState('');
     
     const handleChange = (selectedOption: any) => {
+        if (isFilterOnly) {
+            propOnChange?.(selectedOption);
+            return;
+        }
+        // `setValue` validates against the values PATCHED with the new selection, so it
+        // is the only one of the two that can see what was just chosen.
         helpers.setValue(selectedOption?.value || "");
-        helpers.setTouched(true, true);
+        // `setTouched(true, true)` used to re-validate here, and Formik's setTouched
+        // validates `state.values` — the render-time snapshot, which in this same tick
+        // still holds the OLD value. So picking a branch marked the field touched and
+        // then evaluated the form as if it were still empty: "Branch is a required
+        // field" appeared the instant a branch was chosen, and only cleared on the next
+        // interaction, which in turn stamped the same stale error on whatever field was
+        // touched next. Mark it touched and let the setValue pass above own validation.
+        helpers.setTouched(true, false);
         if (propOnChange) {
             propOnChange(selectedOption);
         }
@@ -189,6 +230,21 @@ function DropDownInput({
             // fontStyle: state.isDisabled ? 'italic' : provided.fontStyle,
             cursor: state.isDisabled ? 'not-allowed' : 'pointer',
             color: state.isDisabled ? '#999' : provided.color,
+            // ONE line per option, always.
+            //
+            // Above VIRTUALIZE_THRESHOLD the menu is windowed, and react-window gives every
+            // row the same absolutely-positioned OPTION_ROW_HEIGHT box. A label long enough
+            // to wrap does not make its row taller — it overflows and paints on top of the
+            // row beneath it. Long project and company names did exactly that.
+            //
+            // Clamping here rather than in the virtualiser keeps the two renderings
+            // identical: a small menu and a windowed one lay an option out the same way.
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            height: OPTION_ROW_HEIGHT,
+            display: 'flex',
+            alignItems: 'center',
         }),
         menuPortal: (provided: any) => ({
             ...provided,
@@ -197,6 +253,16 @@ function DropDownInput({
         menu: (provided: any) => ({
             ...provided,
             zIndex: 9999,
+            // The menu is portaled to <body> with position:fixed, so it is NOT clipped by the
+            // dialog it was opened from and may be wider than its own control. Size it to the
+            // longest option instead of forcing every long project name through a 250px box.
+            //
+            // The cap is what keeps this honest on a phone: 92vw can never overflow the
+            // viewport, and 760px stops a single pathological label stretching the menu across
+            // a desktop screen.
+            width: 'max-content',
+            minWidth: '100%',
+            maxWidth: 'min(92vw, 760px)',
         }),
     });
 
@@ -206,11 +272,34 @@ function DropDownInput({
 
     return (
         <div className="d-flex flex-column fv-row">
-            <div className="d-flex flex-row justify-content-between align-items-center mb-2">
+            {/* The label row's height must NOT depend on whether the add button is
+                present. As a `btn btn-sm` it stood ~10px taller than a bare label, so a
+                dropdown offering "+ Add" pushed its own field below the one beside it
+                and the two columns no longer lined up. Sized to the label's own line
+                box instead, it costs the row no extra height. */}
+            <div className="d-flex flex-row justify-content-between align-items-center gap-2 mb-2">
                 <label className={`d-flex align-items-center fs-6 form-label mb-0 ${isRequired ? 'required' : ''}`}>{inputLabel}</label>
-                {showAddBtn && <button className="btn btn-sm btn-outline-dark border-dark"
-                onClick={(e)=>{e.preventDefault(); handleShow();}}
-                >+ Add</button>}
+                {showAddBtn && (
+                    <Box
+                        component="button"
+                        type="button"
+                        onClick={(e: React.MouseEvent) => { e.preventDefault(); handleShow(); }}
+                        sx={{
+                            flexShrink: 0,
+                            border: 0,
+                            background: 'none',
+                            p: 0,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            lineHeight: 1.2,
+                            color: 'primary.main',
+                            cursor: 'pointer',
+                            '&:hover': { textDecoration: 'underline' },
+                        }}
+                    >
+                        + Add
+                    </Box>
+                )}
             </div>
         <Select
             name={formikField}
@@ -231,6 +320,7 @@ function DropDownInput({
             components={{
                 ...(sortedOptions.length > VIRTUALIZE_THRESHOLD ? { MenuList: VirtualizedMenuList } : {}),
                 DropdownIndicator,
+                ...(!showColor && !showAvatar ? { Option: TitledOption } : {}),
                 ...(showColor ? {
                     Option: ColourOption,
                     SingleValue,
@@ -247,7 +337,7 @@ function DropDownInput({
             filterOption={enableSmartSort ? null : filterOption} // Disable built-in filtering when using smart sort
         />
 
-            <HighlightErrors isRequired={isRequired} formikField={formikField} />
+            {!isFilterOnly && <HighlightErrors isRequired={isRequired} formikField={formikField} />}
             <CommonModal functionToCallOnModalSubmit={functionToCallOnModalSubmit} show={show} setShow={setShow} fieldName={fieldName} functionToSetFieldOptions={functionToSetFieldOptions}/>
         </div>
     )

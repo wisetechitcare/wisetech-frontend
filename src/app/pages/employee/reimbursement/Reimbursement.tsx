@@ -6,7 +6,9 @@ import { KTIcon } from "@metronic/helpers";
 import { useState } from "react";
 import PendingReimbursementsPage, { PendingReimbursementsPageHandle } from "./PendingReimbursementsPage";
 import ReimbursementWorkspace, { kpiProps } from "./views/ReimbursementWorkspace";
-import { outlineToolbarButton } from "./utils/toolbarButton";
+import { WtButton } from "@app/modules/common/components/ui";
+import { Button } from "@mui/material";
+import { lightToolbarButton } from "./utils/toolbarButton";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
 
@@ -46,13 +48,15 @@ function Reimbursement() {
           resourceNameMapWithCamelCase.reimbursement,
           permissionConstToUseWithHasPermission.create
         ) ? (
-          <button
+          // The PRIMARY action of this screen. `tone="accent"` is the kit's bright blue CTA,
+          // so the emphasis comes from the design system rather than a hardcoded hex.
+          <Button
             onClick={() => pendingPageRef.current?.openAddModal()}
-            style={outlineToolbarButton()}
+            startIcon={<KTIcon iconName='plus' className='fs-3' />}
+            sx={lightToolbarButton('accent')}
           >
-            <KTIcon iconName='plus' className='fs-6' />
-            <span>Add Reimbursement Request</span>
-          </button>
+            Add Reimbursement Request
+          </Button>
         ) : null
       }
       renderHeader={({ summary, loading, periodBar, currentPeriod }) => (

@@ -20,7 +20,8 @@ import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow from './components/ReimbursementKpiRow';
 import PrivacyToggle from '@app/modules/common/components/PrivacyToggle';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
-import { solidToolbarButton, outlineToolbarButton, TOOLBAR_ROW } from './utils/toolbarButton';
+import { TOOLBAR_ROW, lightToolbarButton } from './utils/toolbarButton';
+import { Button } from '@mui/material';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
 import { ReimbursementDraft, ReimbursementOption } from './utils/reimbursementTypes';
@@ -44,6 +45,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { IReimbursementsCreate } from '@models/employee';
 import { useEventBus } from '@hooks/useEventBus';
+import { WtButton } from '@app/modules/common/components/ui';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation, describeLimitBreach } from './utils/reimbursementSchema';
 
@@ -371,8 +373,11 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   // One hook for the whole lookup cascade — see hooks/useReimbursementFormLookups.
   const {
     reimbursementOptions, companyTypeOptions, filteredCompanies, projectOptions, projectsLoading,
+    projectStatusOptions,
     selectedReimbursementFor, selectedClientType, selectedClientCompany, selectedProject,
+    selectedProjectStatus,
     handleCategoryChange, handleClientTypeChange, handleClientCompanyChange, handleProjectChange,
+    handleProjectStatusChange,
     reset: resetLookups,
   } = useReimbursementFormLookups(currentReimbursement);
 
@@ -748,30 +753,30 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
               resourceNameMapWithCamelCase.reimbursement,
               permissionConstToUseWithHasPermission.create
             ) && (
-                <button
+                // Same action, same emphasis as the one on the records bar below —
+                // this is the one the user sees once drafts exist, and the two must
+                // not disagree about how prominent "add a request" is.
+                <Button
                   onClick={handleNew}
-                  style={outlineToolbarButton()}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                  startIcon={<KTIcon iconName='plus' className='fs-3' />}
+                  sx={lightToolbarButton('accent')}
                 >
-                  <KTIcon iconName='plus' className='fs-6' />
-                  <span>Add Reimbursement Request</span>
-                </button>
+                  Add Reimbursement Request
+                </Button>
               )}
             {drafts.length > 0 && (
-              <button
+              <Button
                 onClick={handleSendForApproval}
                 disabled={submitting}
-                style={solidToolbarButton('#16a34a', 'rgba(22,163,74,0.2)', submitting)}
-                onMouseEnter={e => { if (!submitting) { e.currentTarget.style.background = '#15803d'; } }}
-                onMouseLeave={e => { if (!submitting) { e.currentTarget.style.background = '#16a34a'; } }}
-              >
-                {submitting
-                  ? <span className='spinner-border spinner-border-sm' style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
-                  : <KTIcon iconName='send' className='fs-6 text-white' />
+                startIcon={
+                  submitting
+                    ? <span className='spinner-border spinner-border-sm' style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
+                    : <KTIcon iconName='send' className='fs-3' />
                 }
-                <span>{submitting ? 'Submitting...' : 'Send for Approval'}</span>
-              </button>
+                sx={lightToolbarButton('success', submitting)}
+              >
+                {submitting ? 'Submitting...' : 'Send for Approval'}
+              </Button>
             )}
           </div>
         </div>
@@ -847,7 +852,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       )}
 
       {/* Add / Edit modal — structure identical to Reimbursement.tsx */}
-      <Modal show={show} onHide={handleClose} centered>
+      <Modal show={show} onHide={handleClose} centered size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
             {editMode ? 'Edit' : 'New'} Reimbursement Request
@@ -862,10 +867,13 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
           <Formik
             initialValues={{
               ...makeReimbursementInitialState(),
-              // Phase 1: Default to first day of current period month, or today
               expenseDate: editMode && currentReimbursement?.expenseDate
                 ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
-                : (currentPeriod ? currentPeriod.startOf('month').format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD')),
+                : (currentPeriod
+                    ? (currentPeriod.isSame(dayjs(), 'month')
+                        ? dayjs().format('YYYY-MM-DD')
+                        : currentPeriod.startOf('month').format('YYYY-MM-DD'))
+                    : dayjs().format('YYYY-MM-DD')),
               ...(editMode &&
                 currentReimbursement && {
                 ...currentReimbursement,
@@ -908,24 +916,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                   </div>
                 </div>
 
-                {/* Phase 1: Show batch period context */}
-                {currentPeriod && !editMode && (
-                  <div style={{
-                    padding: '10px 12px',
-                    marginBottom: '16px',
-                    backgroundColor: '#e3f2fd',
-                    border: '1px solid #90caf9',
-                    borderRadius: '6px',
-                    fontSize: '0.75rem',
-                    color: '#1565c0',
-                    lineHeight: '1.4',
-                    wordBreak: 'break-word'
-                  }}>
-                    <strong>ℹ️ Batch Period:</strong> All reimbursements in this batch must be from{' '}
-                    <strong>{currentPeriod.format('MMMM YYYY')}</strong>.
-                    {currentPeriod.isBefore(dayjs(), 'month') && ' This is a past period.'}
-                  </div>
-                )}
+
 
                 {/* Row 2: Company Type + Company Name */}
                 <div className='row gx-2 gx-lg-3'>
@@ -962,9 +953,29 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                   </div>
                 </div>
 
-                {/* Row 3: Project */}
+                {/* Row 3: Project status filter + Project */}
                 <div className='row gx-2 gx-lg-3'>
-                  <div className='col-12 mb-5 mb-lg-7'>
+                  <div className='col-12 col-lg-4 mb-5 mb-lg-7'>
+                    {/* Filter only — deliberately no formikField, so it never reaches the
+                        saved record. It narrows the picker beside it. */}
+                    <DropDownInput
+                      isRequired={false}
+                      formikField=''
+                      inputLabel='Project Status'
+                      placeholder={
+                        projectsLoading
+                          ? 'Loading...'
+                          : projectStatusOptions.length === 0
+                            ? 'No statuses'
+                            : 'All Statuses'
+                      }
+                      options={projectStatusOptions}
+                      disabled={projectsLoading || projectStatusOptions.length === 0}
+                      onChange={(option: any) => handleProjectStatusChange(option)}
+                      value={selectedProjectStatus}
+                    />
+                  </div>
+                  <div className='col-12 col-lg-8 mb-5 mb-lg-7'>
                     <DropDownInput
                       isRequired={false}
                       formikField='projectId'

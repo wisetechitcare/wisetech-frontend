@@ -19,6 +19,9 @@ const SLUG_BY_SECTION_ID: Record<string, string> = {
   'hr-section': 'hr',
   'crm-section': 'crm',
   'projects-section': 'projects',
+  'purchase-section': 'purchase',
+  'finance-section': 'finance',
+  'organization-section': 'organization',
   'admin-section': 'settings',
 };
 

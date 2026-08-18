@@ -44,16 +44,21 @@ export interface ReimbursementFormLookups {
     filteredCompanies: ClientCompanyRow[];
     projectOptions: Option[];
     projectsLoading: boolean;
+    /** Statuses present among the projects the company selection leaves visible. */
+    projectStatusOptions: Option[];
 
     selectedReimbursementFor: Option | null;
     selectedClientType: Option | null;
     selectedClientCompany: Option | null;
     selectedProject: Option | null;
+    selectedProjectStatus: Option | null;
 
     handleCategoryChange: (option: Option | null, setFieldValue: SetFieldValue) => void;
     handleClientTypeChange: (option: Option | null, setFieldValue: SetFieldValue) => void;
     handleClientCompanyChange: (option: Option | null, setFieldValue: SetFieldValue) => void;
     handleProjectChange: (option: Option | null, setFieldValue: SetFieldValue) => void;
+    /** Narrows the project list. Purely a filter — it is not part of the saved record. */
+    handleProjectStatusChange: (option: Option | null) => void;
     /** Clears every selection — for "add another" after a save. */
     reset: () => void;
 }
@@ -75,13 +80,14 @@ export function useReimbursementFormLookups(seed?: LookupSeed | null): Reimburse
     const [filteredCompanies, setFilteredCompanies] = useState<ClientCompanyRow[]>([]);
     const [allProjects, setAllProjects] = useState<ProjectRow[]>([]);
     const [projectOptions, setProjectOptions] = useState<Option[]>([]);
-    const [ongoingStatusIds, setOngoingStatusIds] = useState<string[]>([]);
+    const [allStatuses, setAllStatuses] = useState<{ id: string; name: string }[]>([]);
     const [projectsLoading, setProjectsLoading] = useState(true);
 
     const [selectedReimbursementFor, setSelectedReimbursementFor] = useState<Option | null>(null);
     const [selectedClientType, setSelectedClientType] = useState<Option | null>(null);
     const [selectedClientCompany, setSelectedClientCompany] = useState<Option | null>(null);
     const [selectedProject, setSelectedProject] = useState<Option | null>(null);
+    const [selectedProjectStatus, setSelectedProjectStatus] = useState<Option | null>(null);
 
     // ── Load once ─────────────────────────────────────────────────────────────
     // allSettled, so one failing lookup cannot blank the whole form — every dropdown that CAN
@@ -140,8 +146,8 @@ export function useReimbursementFormLookups(seed?: LookupSeed | null): Reimburse
             setCompanyTypeOptions(allTypes.filter((t) => usedTypeIds.has(t.value)));
 
             const statuses: any[] = val(statusesR)?.projectStatuses || [];
-            setOngoingStatusIds(
-                statuses.filter((s) => s.name?.trim().toLowerCase() === 'on ongoing').map((s) => s.id),
+            setAllStatuses(
+                statuses.filter((s) => s?.id && s?.name).map((s) => ({ id: s.id, name: String(s.name).trim() })),
             );
         }).finally(() => { if (!cancelled) setProjectsLoading(false); });
 
@@ -194,43 +200,82 @@ export function useReimbursementFormLookups(seed?: LookupSeed | null): Reimburse
     }, [seed?.reimbursementTypeId, seed?.clientTypeId, seed?.clientCompanyId,
         allCompanyTypeOptions, allClientCompanies, reimbursementOptions, computeFilteredCompaniesForType]);
 
+    // ── Project scope, shared by the status filter and the project list ──────
+    // Both dropdowns must agree about which projects are in play, so the company
+    // narrowing happens ONCE here rather than separately in each.
+    const companyScopedProjects = useMemo(() => {
+        if (selectedClientCompany?.value) {
+            return allProjects.filter((p) => p.fileLocationCompany === selectedClientCompany.value);
+        }
+        if (selectedClientType?.value) {
+            return allProjects.filter((p) => p.fileLocationCompanyType === selectedClientType.value);
+        }
+        return allProjects;
+    }, [allProjects, selectedClientType, selectedClientCompany]);
+
+    // Only statuses that actually occur in the current scope — offering "Completed" when
+    // this company has no completed projects just yields an empty project list.
+    const projectStatusOptions = useMemo(() => {
+        const present = new Map<string, string>();
+        companyScopedProjects.forEach((p) => {
+            if (p.status?.id && p.status?.name) present.set(p.status.id, p.status.name);
+        });
+        const byId = new Map(allStatuses.map((s) => [s.id, s.name]));
+        return [...present.keys()]
+            .map((id) => ({ value: id, label: byId.get(id) || present.get(id) || id }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [companyScopedProjects, allStatuses]);
+
+    const ongoingStatusIds = useMemo(
+        () => allStatuses.filter((s) => s.name.toLowerCase() === 'on ongoing').map((s) => s.id),
+        [allStatuses],
+    );
+
+    // A status chosen under one company may not exist under the next. Drop it rather than
+    // leaving a filter applied that the user can see no way to satisfy.
+    useEffect(() => {
+        if (!selectedProjectStatus) return;
+        if (!projectStatusOptions.some((o) => o.value === selectedProjectStatus.value)) {
+            setSelectedProjectStatus(null);
+        }
+    }, [projectStatusOptions, selectedProjectStatus]);
+
     // ── Project options, derived so the field stays searchable regardless of the
-    //    company selection. Choosing a company narrows it; choosing a project backfills.
+    //    company selection. Choosing a company or status narrows it; choosing a
+    //    project backfills both.
     useEffect(() => {
         if (allProjects.length === 0) { setProjectOptions([]); return; }
 
-        let list = allProjects;
-        if (selectedClientCompany?.value) {
-            list = list.filter((p) => p.fileLocationCompany === selectedClientCompany.value);
-        } else if (selectedClientType?.value) {
-            list = list.filter((p) => p.fileLocationCompanyType === selectedClientType.value);
-        }
+        const list = selectedProjectStatus
+            ? companyScopedProjects.filter((p) => p.status?.id === selectedProjectStatus.value)
+            : companyScopedProjects;
+
         // EVERY status is selectable — on hold and completed projects still receive expenses
         // (a site visit for a project that closed last week is a real claim), and the picker used
-        // to drop them outright, leaving no way to file against them at all.
+        // to drop them outright, leaving no way to file against them at all. The status dropdown
+        // narrows the list; it never removes a status from reach.
         //
-        // Ongoing first, then the rest; anything not ongoing carries its status in the label so
-        // the list stays readable without a second dropdown to filter it.
+        // The label is the project name and nothing else. It used to carry "· Completed" so the
+        // list could be read without a filter, but that is the Project Status dropdown's job now
+        // — and the suffix pushed long names past the width of the menu, so the part that got
+        // truncated was the project itself. Ordering still puts ongoing first.
         const isOngoing = (p: ProjectRow) => !!p.status?.id && ongoingStatusIds.includes(p.status.id);
 
         const opts: Option[] = [...list]
             .sort((a, b) =>
                 Number(isOngoing(b)) - Number(isOngoing(a))
                 || (a.title || '').localeCompare(b.title || ''))
-            .map((p) => {
-                const name = p.projectPrefix ? `${p.projectPrefix} - ${p.title}` : (p.title ?? p.id);
-                return {
-                    value: p.id,
-                    label: isOngoing(p) || !p.status?.name ? name : `${name} · ${p.status.name}`,
-                };
-            });
+            .map((p) => ({
+                value: p.id,
+                label: p.projectPrefix ? `${p.projectPrefix} - ${p.title}` : (p.title ?? p.id),
+            }));
         setProjectOptions(opts);
 
         if (seedProjectId) {
             const match = opts.find((o) => o.value === seedProjectId);
             if (match) setSelectedProject(match);
         }
-    }, [allProjects, selectedClientType, selectedClientCompany, ongoingStatusIds, seedProjectId]);
+    }, [allProjects, companyScopedProjects, selectedProjectStatus, ongoingStatusIds, seedProjectId]);
 
     // ── Cascade ───────────────────────────────────────────────────────────────
 
@@ -256,6 +301,20 @@ export function useReimbursementFormLookups(seed?: LookupSeed | null): Reimburse
         setSelectedProject(null);
         setFieldValue('projectId', '');
     }, []);
+
+    /**
+     * Status is a VIEW filter, not part of the record — it sets no Formik field. Changing it
+     * clears the chosen project, because that project may not survive the new filter and a
+     * selection invisible in its own dropdown is how you submit something you cannot see.
+     */
+    const handleProjectStatusChange = useCallback((option: Option | null) => {
+        setSelectedProjectStatus(option);
+        setSelectedProject((prev) => {
+            if (!prev || !option) return prev;
+            const project = allProjects.find((p) => p.id === prev.value);
+            return project?.status?.id === option.value ? prev : null;
+        });
+    }, [allProjects]);
 
     /**
      * Reverse autofill: picking a project backfills its company type and company from the
@@ -284,6 +343,11 @@ export function useReimbursementFormLookups(seed?: LookupSeed | null): Reimburse
                 setFieldValue('clientCompanyId', companyMatch.id);
             }
         }
+        // The status filter follows too, so the dropdowns describe the project that is
+        // actually selected instead of contradicting it.
+        if (project.status?.id && project.status?.name) {
+            setSelectedProjectStatus({ value: project.status.id, label: project.status.name });
+        }
     }, [allProjects, allCompanyTypeOptions, allClientCompanies, computeFilteredCompaniesForType]);
 
     const reset = useCallback(() => {
@@ -291,17 +355,24 @@ export function useReimbursementFormLookups(seed?: LookupSeed | null): Reimburse
         setSelectedClientType(null);
         setSelectedClientCompany(null);
         setSelectedProject(null);
+        setSelectedProjectStatus(null);
         setFilteredCompanies([]);
     }, []);
 
     return useMemo(() => ({
         reimbursementOptions, companyTypeOptions, filteredCompanies, projectOptions, projectsLoading,
+        projectStatusOptions,
         selectedReimbursementFor, selectedClientType, selectedClientCompany, selectedProject,
+        selectedProjectStatus,
         handleCategoryChange, handleClientTypeChange, handleClientCompanyChange, handleProjectChange,
+        handleProjectStatusChange,
         reset,
     }), [
         reimbursementOptions, companyTypeOptions, filteredCompanies, projectOptions, projectsLoading,
+        projectStatusOptions,
         selectedReimbursementFor, selectedClientType, selectedClientCompany, selectedProject,
-        handleCategoryChange, handleClientTypeChange, handleClientCompanyChange, handleProjectChange, reset,
+        selectedProjectStatus,
+        handleCategoryChange, handleClientTypeChange, handleClientCompanyChange, handleProjectChange,
+        handleProjectStatusChange, reset,
     ]);
 }

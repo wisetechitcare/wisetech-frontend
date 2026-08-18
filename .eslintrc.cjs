@@ -89,6 +89,23 @@ module.exports = {
         selector: "JSXOpeningElement[name.name='Switch']",
         message: 'Use WtSwitch / WtSwitchField from @app/modules/common/components/ui — not a raw MUI Switch. See CLAUDE.md → UI standard.',
       },
+      // Native `title` on an interactive element renders the BROWSER's tooltip — pale, OS-styled,
+      // ~1s delay — which is why the app currently shows two different tooltip designs (79 MUI
+      // Tooltips vs 624 raw titles). Use the kit: WtIconButton takes `title` as a prop and turns
+      // it into a MUI Tooltip AND an aria-label, or wrap in <Tooltip> directly. `title` on
+      // <Tooltip> itself is its API and is unaffected.
+      {
+        selector: "JSXOpeningElement[name.name='button'] > JSXAttribute[name.name='title']",
+        message: 'Raw `title` renders the browser tooltip instead of the app style. Use WtIconButton (title prop) or wrap in MUI <Tooltip>. Keep aria-label for screen readers.',
+      },
+      {
+        selector: "JSXOpeningElement[name.name='a'] > JSXAttribute[name.name='title']",
+        message: 'Raw `title` renders the browser tooltip instead of the app style. Wrap in MUI <Tooltip>. Keep aria-label for screen readers.',
+      },
+      {
+        selector: "JSXOpeningElement[name.name='IconButton'] > JSXAttribute[name.name='title']",
+        message: 'MUI IconButton passes `title` to the DOM, giving the browser tooltip. Use WtIconButton, or wrap in <Tooltip>.',
+      },
       {
         selector: "JSXAttribute[name.name='type'][value.value='date']",
         message: 'Use WtDateField from the ui kit. A native date input renders the browser picker: unstyleable, OS-locale formatted, and light-on-white in dark mode.',

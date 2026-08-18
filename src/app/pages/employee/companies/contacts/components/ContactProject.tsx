@@ -418,7 +418,7 @@ const ContactProject = ({ contact }: { contact: any }) => {
       <MaterialTable
         data={allProjects}
         columns={columns}
-        tableName="Projects"
+        tableName="ContactProjects"
         employeeId={employeeId}
         muiTableProps={{
           sx: {

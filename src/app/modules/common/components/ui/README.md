@@ -29,6 +29,8 @@ are built from.
 |---|---|---|
 | Button | `WtButton` (`ghost` = cancel, `inverted` = secondary) | `<button className="btn">` |
 | Icon action | `WtIconButton` | a hand-rolled `<button>` with `place-items-center` |
+| Edit / delete / share on a row, card or chip | `ActionIconButton` (`size="sm"` in chips; `tone="success"` for share/send; `icon=` for a non-font glyph) | a `bi bi-pencil` / `fab fa-whatsapp` in a bare `<button>` |
+| Brand logo glyph (WhatsApp…) | `WhatsAppIcon` from `brandIcons` | `KTIcon iconName="whatsapp"` — the duotone font paints its first layer at 40% opacity, so the mark washes out |
 | Close (×) | `WtCloseButton` (`ui/tw/WtCloseButton`) | a `&times;` in an `IconButton` |
 | Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` | a bespoke `<select>` or `FormControl` |
 | Dropdown (in a form) | `DropdownInput` (Formik) | react-select directly |
@@ -39,6 +41,7 @@ are built from.
 | Config section | `SettingsSection` | a `GlassSurface` with your own accent + header |
 | Summary stat | `StatTile` | a bespoke number-in-a-box |
 | Chip / badge | `ToneChip` / `StatusBadge` | `<span className="badge">` |
+| Exclusive 2–5 way choice | `SegmentedControl` (status filter, view switch) | a row of outlined pills / `ToggleButtonGroup` |
 | Icon tile | `IconBox` | a styled `<div>` around a `KTIcon` |
 | List layout | `AutoGrid` + `ListHeader` | per-feature grid breakpoints |
 | Reorder | `ReorderableGroup` + `DragHandle` | up/down buttons |

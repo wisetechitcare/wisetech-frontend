@@ -19,7 +19,9 @@ import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { usePersistedState } from '@app/modules/common/hooks/usePersistedState';
 import ReimbursementPeriodBar, { PeriodAlignment } from '../components/ReimbursementPeriodBar';
-import { solidToolbarButton, TOOLBAR_ROW } from '../utils/toolbarButton';
+import { TOOLBAR_ROW, lightToolbarButton } from '../utils/toolbarButton';
+import { WtButton } from '@app/modules/common/components/ui';
+import { Button } from '@mui/material';
 import ReimbursementCharts from '../components/ReimbursementCharts';
 import NeedsYourAttention from '../components/NeedsYourAttention';
 import ReimbursementPaymentHistoryTable from '../components/ReimbursementPaymentHistoryTable';
@@ -211,24 +213,26 @@ export default function ReimbursementWorkspace({
       actionSlot={
         <div className={TOOLBAR_ROW}>
           {extraActions}
-          <button
-            onClick={handleDownloadBill}
-            disabled={downloadingBill}
-            title="Download Reimbursement Slip"
-            style={solidToolbarButton('#d32f2f', 'rgba(211,47,47,0.2)', downloadingBill)}
-          >
-            {downloadingBill ? (
-              <>
-                <span className="spinner-border spinner-border-sm" style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
-                <span>Generating...</span>
-              </>
-            ) : (
-              <>
-                <KTIcon iconName="file-down" className="fs-6 text-white" />
-                <span>Download Reimbursement Slip</span>
-              </>
-            )}
-          </button>
+          {/* No rows in this period means an empty slip, so the button is not offered.
+              `rows` is already loaded for the KPI cards, so gating on it costs no extra
+              request. This also covers the admin tab before an employee is picked, where
+              rows is empty for the same reason. handleDownloadBill keeps its own guard —
+              this removes the dead end, it does not replace the check. */}
+          {rows.length > 0 && (
+            <Button
+              onClick={handleDownloadBill}
+              disabled={downloadingBill}
+              title="Download Reimbursement Slip"
+              startIcon={
+                downloadingBill
+                  ? <span className="spinner-border spinner-border-sm" style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
+                  : <KTIcon iconName="file-down" className="fs-3" />
+              }
+              sx={lightToolbarButton('danger', downloadingBill)}
+            >
+              {downloadingBill ? 'Generating...' : 'Download Reimbursement Slip'}
+            </Button>
+          )}
         </div>
       }
     />

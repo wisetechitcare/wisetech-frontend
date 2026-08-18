@@ -94,7 +94,7 @@ function AdminAndEmployeeReimbursementViewer() {
   const ReimbursementWizardBreadcrumb: Array<PageLink> = [
     {
       title: "Finance",
-      path: "/finance/bills",
+      path: "/finance/reimbursements",
       isSeparator: false,
       isActive: false,
     },

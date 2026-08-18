@@ -60,11 +60,24 @@ export type { SectionAccent } from '@components/navigation/NavContainers/navThem
 // SHELL FRAME
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Home: a centred stage. Generous vertical air is most of what makes a landing page read
- *  as considered rather than merely populated. */
+/**
+ * Home: a centred stage that FILLS the content area.
+ *
+ * `flex-1`, NOT a `calc(100vh - chrome)` guess. The ambient canvas is `absolute inset-0` of
+ * this element, so anything it does not cover is a band of bare page — height here is not
+ * just layout, it is the extent of the background. Subtracting an assumed header + footer
+ * height can never be right on every viewport.
+ *
+ * `flex-1` only works because premium-layout.css gives `#kt_content_container` a
+ * `display: flex; flex-direction: column` while the shell is mounted — Metronic's chain is
+ * flex all the way down to `#kt_post` and then stops there. See that rule for the detail.
+ *
+ * The min-height is a floor for very short viewports, nothing more.
+ */
 export const SHELL_HOME =
-  'relative flex min-h-[78vh] w-full flex-col items-center justify-center gap-[40px] px-[16px] py-[48px] ' +
-  'sm:gap-[48px] sm:px-[24px] sm:py-[56px] lg:gap-[56px] lg:py-[64px]';
+  'relative flex min-h-[520px] w-full flex-1 flex-col items-center justify-center ' +
+  'bg-slate-50/100 dark:bg-[var(--gh-canvas)] ' +
+  'gap-[40px] px-[16px] py-[48px] sm:gap-[48px] sm:px-[24px] sm:py-[56px] lg:gap-[56px] lg:py-[64px]';
 
 /**
  * Docked: TWO FIXED COLUMNS from lg up; stacked on compact.
@@ -88,18 +101,6 @@ export const SHELL_DOCKED =
   'xl:grid-cols-[268px_minmax(0,1fr)]';
 
 /**
- * The one decorative layer in the product: a single static radial wash behind Home.
- *
- * No animation, no particles, no mesh — it exists so a sparse launcher screen does not read
- * as an empty one. Kept below 8% opacity in light and 16% in dark, which is enough to give
- * the cards something to sit ON and little enough to stop being noticed within seconds.
- */
-export const HOME_BACKDROP =
-  'pointer-events-none absolute inset-0 -z-10 ' +
-  'bg-[radial-gradient(ellipse_90%_60%_at_50%_-8%,rgba(37,99,235,0.07),transparent_62%)] ' +
-  'dark:bg-[radial-gradient(ellipse_90%_60%_at_50%_-8%,rgba(56,116,203,0.16),transparent_62%)]';
-
-/**
  * Visual order is flipped with flex `order`, NOT by reordering the JSX.
  * DOM order stays dock-then-workspace in every mode, which keeps tab order stable across the
  * morph and keeps the <nav> landmark first for screen readers.
@@ -120,8 +121,10 @@ export const ORDER_WORKSPACE_DOCKED = 'order-2';
  *   laptop  4 columns
  *   desktop 5 columns — the natural width of the current application set
  */
+// `relative z-10` lifts the tiles above the ambient canvas, which sits at z-0 inside
+// SHELL_HOME. Without it the canvas paints over the launcher.
 export const DOCK_HOME =
-  'grid w-full max-w-[1120px] grid-cols-2 gap-[12px] sm:grid-cols-3 sm:gap-[16px] lg:grid-cols-4 ' +
+  'relative z-10 grid w-full max-w-[1120px] grid-cols-2 gap-[12px] sm:grid-cols-3 sm:gap-[16px] lg:grid-cols-4 ' +
   'xl:grid-cols-5';
 
 /**
@@ -284,8 +287,9 @@ export const HERO_SUBTITLE =
 // WORKSPACE
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Full width; its content centres itself with auto margins (see HERO_WRAP). */
-export const WORKSPACE_HOME = 'w-full';
+/** Full width; its content centres itself with auto margins (see HERO_WRAP).
+ *  `relative z-10` for the same reason as DOCK_HOME — above the ambient canvas. */
+export const WORKSPACE_HOME = 'relative z-10 w-full';
 
 /**
  * The workspace — column 2.
@@ -414,3 +418,20 @@ export const CLUSTER_HEADING =
   'text-slate-400 dark:text-slate-500';
 
 export const CLUSTER_RULE = 'h-px flex-1 bg-slate-200 dark:bg-slate-800';
+
+/**
+ * An application declared ahead of its modules (see NavigationItem.allowEmpty).
+ *
+ * A dashed border rather than the solid one module cards use: this is a reserved
+ * space, and it should not read as a card that failed to load its contents.
+ */
+export const EMPTY_APP_WRAP =
+  'flex flex-col items-center gap-[6px] rounded-[14px] border border-dashed ' +
+  'border-slate-300 bg-slate-50/60 px-[24px] py-[44px] text-center ' +
+  'dark:border-slate-700 dark:bg-slate-900/40';
+
+export const EMPTY_APP_TITLE =
+  'text-[15px] font-semibold text-slate-600 dark:text-slate-300';
+
+export const EMPTY_APP_TEXT =
+  'max-w-[46ch] text-[13px] leading-[1.55] text-slate-500 dark:text-slate-400';

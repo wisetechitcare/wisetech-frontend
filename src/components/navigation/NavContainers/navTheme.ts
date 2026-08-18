@@ -41,6 +41,21 @@ const ACCENTS = {
     iconWrap: 'bg-amber-50 text-amber-600 ring-1 ring-amber-100 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-400/20',
     hoverBorder: 'hover:border-amber-300 dark:hover:border-amber-500/50',
   },
+  teal: {
+    icon: 'text-teal-600 dark:text-teal-300',
+    iconWrap: 'bg-teal-50 text-teal-600 ring-1 ring-teal-100 dark:bg-teal-500/15 dark:text-teal-300 dark:ring-teal-400/20',
+    hoverBorder: 'hover:border-teal-300 dark:hover:border-teal-500/50',
+  },
+  rose: {
+    icon: 'text-rose-600 dark:text-rose-300',
+    iconWrap: 'bg-rose-50 text-rose-600 ring-1 ring-rose-100 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-400/20',
+    hoverBorder: 'hover:border-rose-300 dark:hover:border-rose-500/50',
+  },
+  indigo: {
+    icon: 'text-indigo-600 dark:text-indigo-300',
+    iconWrap: 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100 dark:bg-indigo-500/15 dark:text-indigo-300 dark:ring-indigo-400/20',
+    hoverBorder: 'hover:border-indigo-300 dark:hover:border-indigo-500/50',
+  },
 } as const satisfies Record<string, SectionAccent>;
 
 export type AccentName = keyof typeof ACCENTS;
@@ -50,7 +65,14 @@ const ACCENT_BY_SECTION: Record<string, AccentName> = {
   'general-section': 'slate',
   'hr-section': 'blue',
   'crm-section': 'emerald',
+  // The rail runs slate · blue · emerald · purple · indigo · rose · teal · amber.
+  // Each application takes a hue no other one uses — adjacent applications sharing
+  // an accent read as a single group, which is exactly what promoting them out of
+  // their parent was meant to undo.
   'projects-section': 'purple',
+  'purchase-section': 'indigo',
+  'finance-section': 'rose',
+  'organization-section': 'teal',
   'admin-section': 'amber',
 };
 

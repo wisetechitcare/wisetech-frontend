@@ -1,48 +1,92 @@
-name: ✅ CI (typecheck + lint + build)
+name: ✅ Frontend CI
 
-# Gate for `main`: a PR cannot merge and a push cannot land unless this passes.
-# Wire this job as a REQUIRED status check in Settings → Branches → main.
+# The gate that actually holds. Every check here also runs locally in .husky/, but a
+# local hook is advisory — `--no-verify` skips all of them — so CI repeats the important
+# ones. Steps are ordered cheapest-first: a leaked key fails in ~40s, not after the build.
+# Wire this as a REQUIRED status check in Settings → Branches → main, alongside
+# "Require a pull request before merging".
 #
-# Note: the project has ~61 pre-existing ESLint *errors* in legacy files, so a
-# whole-repo lint gate would block every merge. Instead we hard-gate on
-# typecheck + build (both currently clean) and lint ONLY the files a PR changes,
-# so new errors block while legacy ones don't.
+# Lint note: the project has pre-existing ESLint errors in legacy files, so a whole-repo
+# lint gate would block every merge. We hard-gate on build (which runs tsc) and lint ONLY
+# the files a change touches, so new errors block while legacy ones don't.
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
 
+# Least privilege: this job only reads the repo. Without this block the job would
+# inherit whatever the repo default is, which on older repos is read/write.
+permissions:
+  contents: read
+
+# A newer push supersedes the run it interrupted.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 30 # the bundle is large; a cold build runs well past the 10-min mark
+
     steps:
-      - uses: actions/checkout@v4
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # needed to diff against the PR base
+          fetch-depth: 0 # needed to diff against the base commit
+          persist-credentials: false # don't leave the token in .git/config for later steps
 
-      - uses: actions/setup-node@v4
+      # Must come before setup-node: `cache: pnpm` needs pnpm on PATH.
+      # Version is read from the "packageManager" field in package.json.
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20 # Vite 7 requires Node >= 20.19
-          cache: npm
+          # 24, not 20: pnpm 11.20 (our packageManager) requires Node >= 22.13 and dies on
+          # 20 with "No such built-in module: node:sqlite" before it can install anything.
+          # GitHub is also deprecating Node 20 on runners. Vite 7's floor is 20.19, so 24
+          # satisfies both.
+          node-version: 24
+          cache: 'pnpm'
 
-      - name: Install
-        run: npm ci
+      - name: 📦 Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Typecheck (hard gate)
-        run: npx tsc --noEmit
-
-      - name: Lint changed files (errors block; warnings are informational)
-        if: github.event_name == 'pull_request'
+      - name: 🎯 Resolve diff base
+        id: base
         run: |
-          git fetch --no-tags origin "${{ github.base_ref }}"
-          files=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- '*.ts' '*.tsx')
-          if [ -z "$files" ]; then
-            echo "No .ts/.tsx changes to lint."
-          else
-            echo "Linting changed files:"; echo "$files"
-            npx eslint --quiet $files
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          # `before` is all-zeros on a branch's first push; fall back to the parent commit.
+          case "$base" in ''|0000000000000000000000000000000000000000) base=$(git rev-parse HEAD~1) ;; esac
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
+      - name: 🧷 Guard self-test
+        run: pnpm run hooks:test
+
+      # Same scanner the pre-commit hook runs (secrets, conflict markers, debugger,
+      # .only, oversized files) — re-run here because the hook is bypassable.
+      - name: 🔐 Secret and hygiene scan
+        run: |
+          files=$(git diff --name-only --diff-filter=ACM ${{ steps.base.outputs.sha }} HEAD)
+          if [ -z "$files" ]; then echo "No changed files."; else echo "$files" | xargs node scripts/hooks/guard.mjs; fi
+
+      - name: 🧹 Lint changed files
+        run: |
+          files=$(git diff --name-only --diff-filter=ACMR ${{ steps.base.outputs.sha }} HEAD -- '*.ts' '*.tsx' | grep -v '^src/_metronic/' || true)
+          if [ -z "$files" ]; then echo "No .ts/.tsx changes to lint."; else
+            echo "Linting:"; echo "$files"
+            echo "$files" | xargs pnpm exec eslint --quiet
           fi
 
-      - name: Build (hard gate)
-        run: npm run build
+      # `build` is `tsc && vite build`, so this IS the typecheck gate.
+      - name: 🏗️ Build
+        run: pnpm run build
+
+      # Mirrors the backend gate. Blocks on high/critical only; moderate and low are
+      # reported without blocking a merge. When a fix isn't published yet, pin the floor
+      # in pnpm-workspace.yaml `overrides` rather than deleting this step.
+      - name: 🛡️ Audit dependencies
+        run: pnpm audit --audit-level high

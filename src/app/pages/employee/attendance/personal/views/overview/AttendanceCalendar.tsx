@@ -199,9 +199,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
             const filteredPublicHolidays = publicHolidaysResponse?.data?.publicHolidays?.length ? publicHolidaysResponse?.data?.publicHolidays.filter((holiday: any) => holiday?.isActive) : [];
             setPublicHolidays(filteredPublicHolidays || []);
             setLeaves(leavesResponse?.data?.leaves || []);
-            // debugger;
             setRestrictionDataLoaded(true);
-            // debugger;
         } catch (error) {
             console.error('Error fetching restriction data:', error);
             // Set empty arrays as fallback
@@ -228,7 +226,6 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                 } else if (typeof restrictValue !== 'number' || restrictValue < 0) {
                     restrictValue = 1; // Default to 1 day
                 }
-                // debugger;
                 setRestrictionDays(restrictValue);
                 // Update Redux store with the fetched configuration
                 dispatch(setFeatureConfiguration({
@@ -367,7 +364,6 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
             const selectedDate = dayjs(date);
             const currentDate = dayjs();
             const daysDifference = currentDate.diff(selectedDate, 'day');
-            // debugger;
             // Allow requests for dates within the configured number of calendar days
             return daysDifference <= (restrictionDays - 1); // -1 for inclusive counting
         } catch (error) {
@@ -811,7 +807,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                 <DialogContent>
                     {showRequestTypeSelection ? (
                         <div className='d-flex flex-column align-items-center'>
-                            <h5 className='mb-4'>What type of request would you like to raise?</h5>
+                            <h5 className='mb-4'>What Type of Request Would You Like to Raise?</h5>
                             <div className='d-flex gap-3'>
                                 <button
                                     type='button'

@@ -5,7 +5,7 @@ import { usePermission } from '@hooks/usePermission';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { KTIcon } from '@metronic/helpers';
-import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction, fetchReimbursementBatchById, decideLeaveSegment, processBatchRequestAction } from '@services/employee';
+import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction, fetchReimbursementBatchById, decideLeaveSegment, processBatchRequestAction, bulkDecideApprovals } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -410,8 +410,6 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
   const [steps, setSteps] = useState<ApprovalStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
-  const [bulkRunning, setBulkRunning] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<ApprovalStep | null>(null);
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
   const [infoTarget, setInfoTarget] = useState<ApprovalStep | null>(null);
@@ -568,37 +566,6 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     : !domainTypes.includes('reimbursement');
 
   const columns = useMemo<MRT_ColumnDef<ApprovalStep>[]>(() => [
-    // Selection column, pending tab only — the other tabs have nothing to decide, and a checkbox
-    // that does nothing is worse than no checkbox.
-    ...(activeTab === 'pending' ? [{
-      id: 'select',
-      header: '',
-      size: 48,
-      enableSorting: false,
-      enableColumnActions: false,
-      Header: () => (
-        <input
-          type='checkbox'
-          className='form-check-input'
-          aria-label='Select all requests on this page'
-          checked={allSelected}
-          onChange={toggleAll}
-        />
-      ),
-      Cell: ({ row }: any) => {
-        const ds = row.original as DisplayStep;
-        return (
-          <input
-            type='checkbox'
-            className='form-check-input'
-            aria-label='Select this request'
-            checked={!!selectedIds[ds._uid]}
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            onChange={(e) => setSelectedIds((prev) => ({ ...prev, [ds._uid]: e.target.checked }))}
-          />
-        );
-      },
-    } as MRT_ColumnDef<ApprovalStep>] : []),
     {
       accessorKey: 'requester',
       header: 'Requested By',
@@ -990,55 +957,49 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     [steps],
   );
 
-  // ── Bulk approve, across employees ──────────────────────────────────────────
-  //
-  // Bulk approve already existed WITHIN a single batch, so an approver facing thirty ₹60 fares
-  // from twelve people still had to open twelve batches to clear them. Selection lives here
-  // rather than in the shared MaterialTable because teaching that wrapper about row selection
-  // would change every table in the app.
-  const selectableSteps = displaySteps;
-  const selectedSteps = selectableSteps.filter((s) => selectedIds[s._uid]);
-  const allSelected = selectableSteps.length > 0 && selectedSteps.length === selectableSteps.length;
+  // ── Bulk decisions ──────────────────────────────────────────────────────────
+  // Automates the repetitive part of approving; every item still goes through the normal
+  // single-decision path server-side, so balances, arrears and chain advancement are
+  // unchanged.
+  const [selectedSteps, setSelectedSteps] = useState<DisplayStep[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
-  const toggleAll = () =>
-    setSelectedIds(allSelected ? {} : Object.fromEntries(selectableSteps.map((s) => [s._uid, true])));
+  // A batch may span any number of employees; the API sends each requester one summary
+  // email rather than one per decision, so a mixed selection is safe. Counting them only to
+  // tell the approver what they are about to affect.
+  const selectedEmployeeIds = useMemo(
+    () => [...new Set(selectedSteps.map((s) => s.instance?.employee?.id).filter(Boolean))],
+    [selectedSteps],
+  );
 
-  const approveSelected = async () => {
-    const total = selectedSteps.length;
-    if (total === 0) return;
-    const confirmed = await Swal.fire({
-      title: `Approve ${total} request${total === 1 ? '' : 's'}?`,
-      text: 'Every selected request will be approved. This cannot be undone in bulk.',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: `Approve ${total}`,
-      cancelButtonText: 'Cancel',
-    });
-    if (!confirmed.isConfirmed) return;
-
-    setBulkRunning(true);
-    // Sequential, not Promise.all: each decision writes an audit row and may settle an approval
-    // instance, and a partial failure must leave the successful ones committed rather than
-    // ambiguous. Slower, and correct.
-    let failed = 0;
-    for (const step of selectedSteps) {
-      try {
-        await processApprovalAction(step.instance.id, 'approve');
-      } catch {
-        failed += 1;
+  const runBulk = useCallback(async (action: 'approve' | 'reject') => {
+    if (bulkBusy || selectedSteps.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const ids = [...new Set(selectedSteps.map((s) => s.instance.id))];
+      const res = await bulkDecideApprovals(ids, action);
+      const { decided = 0, failed = 0, results = [] } = res?.data ?? {};
+      if (failed > 0) {
+        // Name the reasons: "3 approved, 2 could not be actioned" alone leaves the user
+        // guessing whether they did something wrong.
+        const reasons = [...new Set(results.filter((r: any) => r.outcome === 'failed').map((r: any) => r.reason))];
+        // errorConfirmation turns newlines into <br>, so the reasons list one per line.
+        const summary = `${decided} ${action === 'approve' ? 'approved' : 'rejected'}, ${failed} could not be actioned.`;
+        errorConfirmation([summary, ...reasons].join('\n'), 'Partly completed');
+      } else {
+        successConfirmation(
+          `${decided} request${decided === 1 ? '' : 's'} ${action === 'approve' ? 'approved' : 'rejected'}.`,
+          action === 'approve' ? 'Approved!' : 'Rejected',
+        );
       }
+      setSelectedSteps([]);
+      await load();
+    } catch (err: any) {
+      errorConfirmation(err?.response?.data?.message ?? 'Please try again.');
+    } finally {
+      setBulkBusy(false);
     }
-    setSelectedIds({});
-    setBulkRunning(false);
-    if (failed === 0) {
-      successConfirmation(`${total} request${total === 1 ? '' : 's'} approved.`, 'Approved!');
-    } else {
-      errorConfirmation(
-        `${total - failed} approved, ${failed} could not be. The failures are still in your queue.`,
-      );
-    }
-    await load();
-  };
+  }, [bulkBusy, selectedSteps, load]);
 
   if (!canApprove) {
     return (
@@ -1080,31 +1041,38 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         </button>
       </div>
 
-      {selectedSteps.length > 0 && (
-        <div
-          className='d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4'
-          style={{ padding: '10px 14px', borderRadius: 10, background: '#eff6ff', border: '1px solid #dbeafe' }}
-        >
-          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e3a8a' }}>
-            {selectedSteps.length} selected
-          </span>
-          <div className='d-flex align-items-center gap-2'>
-            <WtButton ghost size='small' onClick={() => setSelectedIds({})} disabled={bulkRunning}>
-              Clear
-            </WtButton>
-            <WtButton size='small' onClick={approveSelected} disabled={bulkRunning}>
-              {bulkRunning ? 'Approving…' : `Approve ${selectedSteps.length}`}
-            </WtButton>
-          </div>
-        </div>
-      )}
-
       <MaterialTable
         data={displaySteps}
         columns={columns}
         tableName='Approvals'
         hideFilters={false}
         hideExportCenter
+        // Selection only where a bulk decision is even possible: the pending tab, and only
+        // for someone who may approve. Offering checkboxes on a history tab would be a
+        // control that does nothing.
+        enableRowSelection={canApprove && activeTab === 'pending'}
+        onSelectedRowsChange={setSelectedSteps as any}
+        renderSelectionActions={(selected: any[]) => (
+          <div className='d-flex align-items-center gap-2'>
+            <span className='text-muted fs-7'>
+              {selected.length} selected{selectedEmployeeIds.length > 1 ? ` · ${selectedEmployeeIds.length} employees` : ''}
+            </span>
+            <button
+              className='btn btn-sm btn-light-success'
+              disabled={bulkBusy}
+              onClick={() => runBulk('approve')}
+            >
+              {bulkBusy ? 'Working…' : 'Approve selected'}
+            </button>
+            <button
+              className='btn btn-sm btn-light-danger'
+              disabled={bulkBusy}
+              onClick={() => runBulk('reject')}
+            >
+              Reject selected
+            </button>
+          </div>
+        )}
         renderDetailPanel={({ row }: { row: MRT_Row<ApprovalStep> }) => (
           <ExpandedDetail
             instanceId={row.original.instance.id}

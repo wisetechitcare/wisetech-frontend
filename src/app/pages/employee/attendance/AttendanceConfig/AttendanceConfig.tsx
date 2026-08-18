@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Grid } from '@mui/material';
 import { LeaveTypesBalanceModal } from './component/LeaveTypesBalance';
 import SandwichLeave from '@pages/company/settings/SandwhichLeave';
+import DeductionRules from '@pages/company/settings/DeductionRules';
 import { LeavePolicyModal } from '@pages/company/settings/LeavePolicy';
 import AddonLeavesModal from './component/AddonLeavesModal';
 import DailyShiftTimeModal from './component/DailyShiftTimeModal';
@@ -229,6 +230,7 @@ const AttendanceConfig: React.FC = () => {
   const [showDailyShiftModal,   setShowDailyShiftModal]   = useState(false);
   const [showOtherSettingsModal, setShowOtherSettingsModal] = useState(false);
   const [showSandwichModal,      setShowSandwichModal]      = useState(false);
+  const [showDeductionRulesModal, setShowDeductionRulesModal] = useState(false);
   const [showAppearanceModal,    setShowAppearanceModal]    = useState(false);
   const [showAddonLeavesModal,   setShowAddonLeavesModal]   = useState(false);
   const [showLeaveTypesModal,    setShowLeaveTypesModal]    = useState(false);
@@ -359,10 +361,12 @@ const AttendanceConfig: React.FC = () => {
     try {
       setIsLoading(true);
       const [lunchRes, leaveRes, restrictRes, dateRes, settingsRes] = await Promise.all([
-        fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY),
-        fetchConfiguration(LEAVE_MANAGEMENT),
-        fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY),
-        fetchConfiguration(DATE_SETTINGS_KEY),
+        // Same scope the modal reads/writes — otherwise the card summary and the modal it opens
+        // show different numbers for the same setting.
+        fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY, undefined, undefined, configScope),
+        fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, configScope),
+        fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY, undefined, undefined, configScope),
+        fetchConfiguration(DATE_SETTINGS_KEY, undefined, undefined, configScope),
         fetchCompanySettings(),
       ]);
 
@@ -391,7 +395,7 @@ const AttendanceConfig: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [configScope]);
 
   useEffect(() => {
     loadOtherSettingsData();
@@ -564,6 +568,36 @@ const AttendanceConfig: React.FC = () => {
                         ))}
                       </div>
                     </div>
+                  </ConfigSectionCard>
+                </Grid>
+
+                {/* ── Break Deductions card ────────────────────── */}
+                {/* Belongs on THIS tab: the Deduction value is displayed in the Daily
+                    Shift Time tiles above, and it is computed from punches. It was
+                    briefly under Leaves purely because that tab had the reusable row
+                    component — configuring a value from a different tab than the one
+                    that shows it. */}
+                <Grid item xs={12} lg={7}>
+                  <ConfigSectionCard
+                    title="Break Deductions"
+                    description="How much unpaid break time comes off a worked day, and on which days"
+                    icon="bi-cup-hot"
+                    iconColor="amber"
+                    primaryAction={{
+                      label: 'Configure',
+                      icon: 'bi-pencil',
+                      variant: 'outline',
+                      onClick: () => setShowDeductionRulesModal(true),
+                    }}
+                  >
+                    <p style={{
+                      fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted,
+                      margin: 0, fontWeight: 400,
+                    }}>
+                      Rules decide the threshold, the duration, and whether a deduction
+                      applies on weekends and holidays. Currently deducting{' '}
+                      <strong style={{ color: C.textPrimary }}>{deductionTime}</strong>.
+                    </p>
                   </ConfigSectionCard>
                 </Grid>
 
@@ -767,6 +801,14 @@ const AttendanceConfig: React.FC = () => {
         open={showOtherSettingsModal}
         onClose={() => { setShowOtherSettingsModal(false); loadOtherSettingsData(); }}
         mountKey={otherSettingsKey}
+        scope={configScope}
+      />
+
+      {/* Break Deductions — configurable rules replacing the single Deduction Time */}
+      <DeductionRules
+        open={showDeductionRulesModal}
+        onClose={() => setShowDeductionRulesModal(false)}
+        scope={configScope}
       />
 
       {/* Sandwich Leave — self-contained GlassDialog */}
@@ -779,7 +821,7 @@ const AttendanceConfig: React.FC = () => {
       <AddonLeavesModal open={showAddonLeavesModal} onClose={() => setShowAddonLeavesModal(false)} />
 
       {/* Auto-Allocation Policy — GlassDialog */}
-      <LeavePolicyModal open={showLeavePolicyModal} onClose={() => setShowLeavePolicyModal(false)} />
+      <LeavePolicyModal open={showLeavePolicyModal} onClose={() => setShowLeavePolicyModal(false)} scope={configScope} />
 
       {/* Leave Types & Balance — GlassDialog */}
       <LeaveTypesBalanceModal open={showLeaveTypesModal} onClose={() => setShowLeaveTypesModal(false)} />

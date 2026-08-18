@@ -582,7 +582,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
             },
 
             // onClick: () => {
-            //     navigate(`/employee/lead/${row.original.id}`, {
+            //     navigate(`/leads/${row.original.id}`, {
             //         state: { leadData: row.original.id },
             //     });
             // },

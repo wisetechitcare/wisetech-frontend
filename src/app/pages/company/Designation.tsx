@@ -1,3 +1,4 @@
+import { ActionIconButton } from '@app/modules/common/components/ui';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
@@ -118,13 +119,11 @@ function Designations() {
                     accessorKey: "actions",
                     header: "Actions",
                     Cell: ({ row }: any) => (
-                        <button
-                            className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                        <ActionIconButton
+                            iconName="pencil"
+                            title="Edit job profile"
                             onClick={() => handleEditClick(row.original.id)}
-                            style={{ cursor: 'pointer' }}
-                        >
-                            <i className="bi bi-pencil" style={{ fontSize: '16px' }} />
-                        </button>
+                        />
                     ),
                 });
             }
@@ -175,51 +174,16 @@ function Designations() {
               title="Designations"
               subtitle="Manage job designations and roles in your organization"
               icon="bi-briefcase"
-              actions={
-                isAdmin && hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.create) ? (
-                  <button
-                    onClick={() => setShowModal(true)}
-                    style={{
-                      ...{
-                        backgroundColor: C.primary,
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: RADIUS.md,
-                        padding: '8px 16px',
-                        fontFamily: FONT.body,
-                        fontWeight: 600,
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        boxShadow: `0 4px 12px ${C.primaryShadow}`,
-                        transition: 'all 0.2s ease',
-                      }
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`;
-                    }}
-                  >
-                    <i className="bi bi-plus-lg" style={{ fontSize: '14px' }} />
-                    New Designation
-                  </button>
-                ) : null
-              }
             >
               {hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.readOthers) && (
                 <ConfigSectionCard
                   title={`${data.length} Designation${data.length !== 1 ? 's' : ''}`}
                   description="View and manage all designations configured in your organization"
                   icon="bi-list-ul"
-                  iconColor="blue"
-                  badge={{ label: `${data.length}`, color: C.info, bg: C.infoLight }}
+                  iconColor="primary"
+                  badge={{ label: `${data.length}`, color: C.primary, bg: C.primaryLight }}
                   loading={loading}
+                  primaryAction={isAdmin && hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.create) ? { label: 'New Designation', icon: 'bi-plus-lg', onClick: () => setShowModal(true), variant: 'primary' } : undefined}
                 >
                   <div style={{ marginTop: SP.md }}>
                     <MaterialTable

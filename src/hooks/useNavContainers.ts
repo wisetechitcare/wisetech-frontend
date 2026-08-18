@@ -23,6 +23,8 @@ export interface NavContainerLink {
   badgeCount?: number;
   /** NavLink `end` — set when another link nests beneath this path (see pass 3). */
   exact: boolean;
+  /** Shortcut to a route another container owns; never used to resolve "where am I". */
+  alias?: boolean;
 }
 
 export interface NavContainerGroup {
@@ -59,6 +61,13 @@ const SECTION_ICON: Record<string, string> = {
   'hr-section': 'bi-people',
   'crm-section': 'bi-person-rolodex',
   'projects-section': 'bi-kanban',
+  // Purchasing, not paying — a cart reads as procurement at a glance and keeps
+  // this department distinct from Finance's cash and receipt glyphs.
+  'purchase-section': 'bi-cart3',
+  // Finance and Organization keep the glyph their group carried while it was a
+  // `sub`, so the promotion doesn't also change what users are looking for.
+  'finance-section': 'bi-cash-coin',
+  'organization-section': 'bi-house-fill',
   'admin-section': 'bi-gear',
 };
 
@@ -69,6 +78,8 @@ interface DraftContainer {
   id: string;
   title: string;
   visible: boolean;
+  /** Survive pass 2's empty-container elimination — see NavigationItem.allowEmpty. */
+  allowEmpty: boolean;
   entries: NavEntry[];
 }
 
@@ -79,6 +90,7 @@ const toLink = (node: NavigationItem): NavContainerLink => ({
   fontIcon: node.fontIcon,
   badgeCount: node.badgeCount,
   exact: false,
+  alias: node.alias,
 });
 
 const countLinks = (entries: NavEntry[]): number =>
@@ -94,7 +106,7 @@ export function useNavContainers(): NavContainer[] {
 
   return useMemo(() => {
     // ── Pass 1: bucket the flat array into containers ────────────────────────
-    let open: DraftContainer = { id: GENERAL_ID, title: 'Overview', visible: true, entries: [] };
+    let open: DraftContainer = { id: GENERAL_ID, title: 'Overview', visible: true, allowEmpty: false, entries: [] };
     const drafts: DraftContainer[] = [open];
 
     for (const node of menu) {
@@ -103,7 +115,13 @@ export function useNavContainers(): NavContainer[] {
         // so pass 2 can drop it. Skipping here instead would drain every following
         // item into the PREVIOUS container — a user without CRM access would find
         // CRM links sitting inside HR & People.
-        open = { id: node.id, title: node.title, visible: node.visible !== false, entries: [] };
+        open = {
+          id: node.id,
+          title: node.title,
+          visible: node.visible !== false,
+          allowEmpty: node.allowEmpty === true,
+          entries: [],
+        };
         drafts.push(open);
         continue;
       }
@@ -132,8 +150,12 @@ export function useNavContainers(): NavContainer[] {
     }
 
     // ── Pass 2: finalise + drop hidden/empty containers ──────────────────────
+    // Empty means "every module was permission-gated away", so the container goes
+    // rather than offering a shell the user cannot use. A section flagged
+    // `allowEmpty` is empty by DESIGN — a department declared before its modules
+    // exist — and is kept.
     const containers: NavContainer[] = drafts
-      .filter((d) => d.visible && countLinks(d.entries) > 0)
+      .filter((d) => d.visible && (countLinks(d.entries) > 0 || d.allowEmpty))
       .map((d) => ({
         id: d.id,
         title: d.title,
@@ -180,6 +202,37 @@ export interface ActiveNavLocation {
  * routes that are not in the nav at all (detail pages, wizards, settings sub-routes),
  * which callers should treat as "no context", not as an error.
  */
+/**
+ * Dev-only: shout when two OWNING entries claim the same route.
+ *
+ * "Which section am I in" must have exactly one answer. When two non-alias entries
+ * point at the same path the winner is whichever is declared first, which is silent,
+ * order-dependent, and how /finance/reimbursements came to render as "HR Department >
+ * Reimbursements". Either the route belongs to one section, or the other entry is a
+ * shortcut and should carry `alias: true`.
+ *
+ * Warns once per duplicated route so a re-render does not spam the console.
+ */
+const warnedRoutes = new Set<string>();
+
+const assertSingleOwner = (flat: ActiveNavLocation[]) => {
+  if (!import.meta.env.DEV) return;
+  const owners = new Map<string, string[]>();
+  for (const { container, link } of flat) {
+    if (!link.to || link.alias) continue;
+    owners.set(link.to, [...(owners.get(link.to) ?? []), container.title]);
+  }
+  for (const [route, sections] of owners) {
+    if (sections.length < 2 || warnedRoutes.has(route)) continue;
+    warnedRoutes.add(route);
+    console.warn(
+      `[nav] "${route}" is claimed by ${sections.length} sections (${sections.join(', ')}). ` +
+      'Breadcrumbs and the rail highlight will pick whichever is declared first. ' +
+      'Mark the shortcut with `alias: true` in useNavigation.',
+    );
+  }
+};
+
 export function useActiveNavLocation(): ActiveNavLocation | null {
   const containers = useNavContainers();
   const { pathname } = useLocation();
@@ -208,8 +261,14 @@ export function useActiveNavLocation(): ActiveNavLocation | null {
       }
     }
 
+    assertSingleOwner(flat);
+
+    // Shortcuts are excluded: an alias points at a route another container owns, so
+    // letting it match would make "which container am I in" depend on declaration
+    // ORDER rather than ownership — the same bug that made /finance/reimbursements resolve to
+    // HR instead of Finance.
     const matches = flat.filter(({ link }) =>
-      !!link.to && (pathname === link.to || pathname.startsWith(`${link.to}/`)));
+      !link.alias && !!link.to && (pathname === link.to || pathname.startsWith(`${link.to}/`)));
     matches.sort((a, b) => b.link.to.length - a.link.to.length);
     return matches[0] ?? null;
   }, [containers, pathname]);

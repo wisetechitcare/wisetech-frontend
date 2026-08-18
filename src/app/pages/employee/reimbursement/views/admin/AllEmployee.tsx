@@ -656,7 +656,7 @@ function AllEmployee() {
               if (!empId) return { sx: { cursor: 'default' } };
               return {
                 ...clickableRowProps(
-                  () => navigate('/finance/bills', { state: { goToSearchEmployee: true, employeeId: empId } }),
+                  () => navigate('/finance/reimbursements', { state: { goToSearchEmployee: true, employeeId: empId } }),
                   `Open reimbursements for ${row.original.name ?? 'this employee'}`,
                 ),
                 sx: CLICKABLE_ROW_SX,

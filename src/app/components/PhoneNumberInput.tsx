@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { ErrorMessage, FormikContext, getIn } from 'formik';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
@@ -22,6 +22,36 @@ type PhoneNumberInputProps = {
 
 const getDigits = (value?: string) => (value || '').replace(/\D/g, '');
 const normalizePath = (value?: string) => value?.replace(/\[(\d+)\]/g, '.$1');
+
+/**
+ * The dial code now lives in the flag button, so the flag and the code sit side by side
+ * and MUST always agree — an Indian flag reading "+1" is worse than no code at all.
+ *
+ * On a fresh mount the library can no longer infer the country from the value (there's
+ * no `+91` in it any more), so a stored dial code is mapped back to its flag here.
+ * Consistency is guaranteed by making the resolved country the single source of BOTH:
+ * the flag comes from this map, and the code printed beside it is that country's dial
+ * code (via the inverse map) — never the raw stored value. A code outside the map
+ * therefore opens on the default flag AND shows the default code rather than pairing
+ * a wrong flag with a right number. After mount the library owns the selection, and
+ * onChange re-syncs the printed code from the country it reports, so any country the
+ * user picks stays matched whether it is in this map or not.
+ */
+const DIAL_CODE_TO_ISO: Record<string, string> = {
+  '91': 'in', '1': 'us', '44': 'gb', '971': 'ae', '966': 'sa', '974': 'qa',
+  '968': 'om', '965': 'kw', '973': 'bh', '65': 'sg', '60': 'my', '61': 'au',
+  '64': 'nz', '49': 'de', '33': 'fr', '39': 'it', '34': 'es', '31': 'nl',
+  '41': 'ch', '46': 'se', '47': 'no', '45': 'dk', '353': 'ie', '351': 'pt',
+  '27': 'za', '234': 'ng', '254': 'ke', '20': 'eg', '81': 'jp', '82': 'kr',
+  '86': 'cn', '852': 'hk', '66': 'th', '84': 'vn', '62': 'id', '63': 'ph',
+  '880': 'bd', '94': 'lk', '977': 'np', '92': 'pk', '7': 'ru', '90': 'tr',
+  '55': 'br', '52': 'mx', '54': 'ar', '56': 'cl',
+};
+
+/** Inverse of the above. Safe to derive: every entry above is a 1:1 dial↔iso pair. */
+const ISO_TO_DIAL_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(DIAL_CODE_TO_ISO).map(([dial, iso]) => [iso, dial])
+);
 
 const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
   value = '',
@@ -50,40 +80,89 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
     : defaultCountry;
 
   const normalizedFieldValue = getDigits(fieldValue);
-  const combinedValue = extensionField
-    ? `${extensionValue}${normalizedFieldValue}`
-    : `${defaultCountry}${normalizedFieldValue}`;
 
-  const currentDialCode = extensionField ? extensionValue : defaultCountry;
+  const storedDialCode = extensionField ? extensionValue : defaultCountry;
 
-  // Blocks any edit that would touch the dial code BEFORE it reaches the DOM at all — the
-  // onChange-level guard below only protects the *stored* value; by the time onChange fires,
-  // react-phone-input-2 has already applied the edit to its own internal input display, and a
-  // controlled `value` prop that happens to equal the previous one isn't guaranteed to force a
-  // resync. So the dial code has to be made physically undeletable at the keystroke itself.
-  const guardDialCodeEdit = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const target = e.currentTarget;
-    const { selectionStart, selectionEnd } = target;
-    if (selectionStart === null || selectionEnd === null) return;
-    // Displayed value starts with "+" then the dial code digits (e.g. "+91") before any
-    // formatting separator — this is the exact boundary of the protected zone.
-    const boundary = 1 + currentDialCode.length;
+  const [resolvedCountry] = useState(() => DIAL_CODE_TO_ISO[storedDialCode] || country);
 
-    if (e.key === 'Backspace') {
-      const wouldDeleteFrom = selectionStart === selectionEnd ? selectionStart - 1 : selectionStart;
-      if (wouldDeleteFrom < boundary) e.preventDefault();
-      return;
-    }
-    if (e.key === 'Delete') {
-      if (selectionStart < boundary) e.preventDefault();
-      return;
-    }
-    // A single printable character (not a shortcut like Ctrl+A/Ctrl+V) landing inside the
-    // protected zone would also corrupt it — e.g. typing a digit in the middle of "+91".
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && selectionStart < boundary) {
-      e.preventDefault();
-    }
-  };
+  /**
+   * The country is handed over one render LATE, and that timing is the whole trick.
+   *
+   * On first render react-phone-input-2 picks its country by guessing from the value's
+   * leading digits. With `disableCountryCode` that value is a bare national number, so
+   * 9594107173 guessed Myanmar (+95) and 1546547841 guessed US (+1) — a foreign flag
+   * beside "+91". Its `disableInitialCountryGuess` prop does NOT mean "use my country
+   * prop": it hard-sets selectedCountry to 0, leaving the sprite class as "flag " with
+   * no country, which is why the flag vanished entirely.
+   *
+   * componentDidUpdate takes a different path — a CHANGED country prop calls
+   * updateCountry(), which resolves from the ISO code and never looks at the digits. So
+   * mount with "" (nothing to guess, nothing rendered wrong) and set the real country
+   * immediately after. Combined with `disableCountryGuess`, which stops it re-guessing
+   * while typing, the number can never influence the flag again.
+   *
+   * It stays fixed from then on: re-feeding it every render would snap the flag back and
+   * undo a country the user picked from the dropdown.
+   */
+  const [countryProp, setCountryProp] = useState('');
+  useEffect(() => {
+    setCountryProp(resolvedCountry);
+  }, [resolvedCountry]);
+
+  /**
+   * Persist the dial code the field is ALREADY SHOWING.
+   *
+   * `extensionValue` falls back to `defaultCountry` for display, but nothing wrote
+   * that fallback anywhere — the extension was only ever set inside `onChange`. So a
+   * number that arrived by any other route (an older record, an edit screen, a
+   * "same as personal" copy from an empty source) rendered a confident "+91" while
+   * the column stayed empty. The form looked right and the data was not: 54
+   * employees had a company number, 23 had its code.
+   *
+   * Guarded on there BEING a number, so a blank field never writes anything — that
+   * would mark a pristine form dirty and make an untouched draft look meaningful.
+   */
+  useEffect(() => {
+    if (!formikField || !extensionField) return;
+    if (!normalizedFieldValue) return;
+    if (extensionValue && String(extensionValue).trim()) return;
+    resolvedFormikProps?.setFieldValue?.(extensionField, defaultCountry, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [normalizedFieldValue, extensionValue, extensionField, formikField, defaultCountry]);
+
+  /**
+   * The number is handed over one render later still — it CANNOT arrive with the country.
+   *
+   * updateCountry() ends with `formattedNumber: disableCountryCode ? "" : …`, i.e. it
+   * blanks the field outright when the dial code is being kept out of the input. And
+   * componentDidUpdate picks its branch with an if/ELSE — a changed country wins and the
+   * value branch never runs. Passing both at once therefore wiped the number, and the
+   * library re-rendered showing "+91 95941-07173" inline instead of in the button.
+   *
+   * Delivering the value on a LATER render lets the country settle first, then takes the
+   * value branch (updateFormattedNumber), which honours disableCountryCode and — with
+   * disableCountryGuess — keeps the country we just set. Typing afterwards flows through
+   * the same branch, so this only costs one extra render at mount.
+   */
+  const [valueProp, setValueProp] = useState('');
+  useEffect(() => {
+    if (!countryProp) return;
+    setValueProp(normalizedFieldValue);
+  }, [countryProp, normalizedFieldValue]);
+
+  // The code printed in the button, seeded from the SAME country the flag opens on so
+  // the two can't contradict each other, then re-synced from whatever country the
+  // library reports on change — which is authoritative once the user has interacted.
+  const [currentDialCode, setCurrentDialCode] = useState(
+    () => ISO_TO_DIAL_CODE[resolvedCountry] || defaultCountry
+  );
+
+  // NOTE: the dial code is no longer part of the input's text — `disableCountryCode`
+  // keeps the field to the national number and the code is rendered in the flag button
+  // instead. That deletes an entire class of bug this component used to carry: the
+  // keydown/paste guards that made "+91" physically undeletable, and the onChange check
+  // that rejected any edit which had eaten into it. None of it is reachable now, because
+  // there is nothing in the input to protect.
 
   const resolvedError = error;
   // Gate the red border on `touched` (mirroring TextInput's `meta.touched && meta.error`) so a
@@ -100,27 +179,41 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
   const resolvedName = name || formikField || 'phone';
 
   return (
-    <div className={`phone-number-input ${focused ? 'focused' : ''} ${resolvedError || hasFormikError ? 'error' : ''}`}>
+    <div
+      className={`phone-number-input ${focused ? 'focused' : ''} ${resolvedError || hasFormikError ? 'error' : ''}`}
+      // The button renders the code from `content: var(--phone-dial-code)` and both the
+      // button width and the input's left padding key off --phone-dial-w, so a longer
+      // code (+971) widens the button and pushes the number across with it instead of
+      // overlapping it. Measured in ch so it tracks the font rather than a magic number.
+      style={
+        {
+          '--phone-dial-code': `'+${currentDialCode}'`,
+          '--phone-dial-w': `${currentDialCode.length + 1}ch`,
+        } as React.CSSProperties
+      }
+    >
       {label && (
         <label htmlFor={resolvedName} className="d-flex align-items-center fs-6 form-label mb-2">
           <span className={isRequired ? 'required' : ''}>{label}</span>
         </label>
       )}
       <PhoneInput
-        country={country}
-        value={combinedValue}
+        country={countryProp}
+        value={valueProp}
+        disableCountryCode
+        // Stops the country being re-guessed from the digits as the user types. The
+        // INITIAL guess is dodged by the deferred `countryProp` above — not by
+        // `disableInitialCountryGuess`, which blanks the country and loses the flag.
+        disableCountryGuess
         onChange={(phoneValue: string, countryData: any) => {
           const dialCode = countryData?.dialCode || defaultCountry;
 
-          // Backspacing on an empty number used to eat into the dial code itself (91 → 9),
-          // corrupting the stored value with a stray leading digit. react-phone-input-2 always
-          // keeps the dial code as a prefix of `phoneValue` on a valid edit — if it's gone
-          // missing, the edit ate into it, so reject it outright. The controlled `value` prop
-          // above then re-renders the field back to its last good state.
-          if (!phoneValue.startsWith(dialCode)) return;
+          // Keep the printed code tied to the flag the library is actually showing.
+          setCurrentDialCode(dialCode);
 
-          const formattedValue = phoneValue.slice(dialCode.length);
-          const digits = getDigits(formattedValue);
+          // `phoneValue` is the national number only — the dial code never enters the
+          // input, so there is no prefix to strip and nothing to validate it against.
+          const digits = getDigits(phoneValue);
 
           if (formikField && resolvedFormikProps?.setFieldValue) {
             if (extensionField) {
@@ -150,12 +243,6 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
           autoFocus: false,
           disabled,
           placeholder,
-          onKeyDown: guardDialCodeEdit,
-          onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => {
-            const target = e.currentTarget;
-            const boundary = 1 + currentDialCode.length;
-            if (target.selectionStart !== null && target.selectionStart < boundary) e.preventDefault();
-          },
         }}
       />
       {resolvedError && <div className="phone-number-error">{resolvedError}</div>}

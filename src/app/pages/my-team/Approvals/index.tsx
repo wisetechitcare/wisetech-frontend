@@ -80,6 +80,10 @@ const SEGMENTS: Array<{ key: Segment; label: string; hint: string; blank: string
     },
 ];
 
+/** When a step reached the inbox. ISO strings, so a string compare is a date compare. */
+const submittedKey = (s: ApprovalStep) =>
+    String((s.requestDetails as any)?.submittedAt ?? s.instance.createdAt ?? '');
+
 /** Employee-facing and approver-actionable inbox tasks. */
 const MY_TASK_TYPES = new Set(['QUERY_RECEIVED', 'REJECTION_RECEIVED', 'ACTION_REQUIRED', 'QUERY_RESPONSE_RECEIVED']);
 
@@ -168,31 +172,41 @@ export default function Approvals() {
         };
     }, [load]);
 
-    /** Oldest first. The item that has waited longest is the one that needs deciding.
-        For reimbursements in 'mine' tab: prioritize resubmitted items (employee answered) first,
-        then regular pending items. This ensures the approver sees what needs immediate re-review. */
-    const sorted = useMemo(() => {
-        let filtered = [...steps];
+    /** Newest first — the most recently submitted request is the one the approver is looking
+        for, and burying it under a month of older items is what made this list feel stale.
+        (It used to be oldest-first, on the theory that whatever has waited longest needs
+        deciding; the "waiting N days" line below still surfaces that, without ordering the
+        whole list around it.)
 
-        // Resubmitted items jump to front of "Pending my action" — they need immediate review
+        In "Pending my action", resubmitted items still float above the rest: the employee has
+        already answered a query and is blocked on a re-review, which is more urgent than a
+        first look. Within each of those two groups the order is newest first. */
+    const sorted = useMemo(() => {
+        const filtered = [...steps];
+        // Descending: b vs a.
+        const byNewest = (a: ApprovalStep, b: ApprovalStep) =>
+            submittedKey(b).localeCompare(submittedKey(a));
+
         if (segment === 'mine') {
             filtered.sort((a, b) => {
                 const aResubmitted = (a.requestDetails as any)?.resubmittedCount > 0 ? 1 : 0;
                 const bResubmitted = (b.requestDetails as any)?.resubmittedCount > 0 ? 1 : 0;
                 if (aResubmitted !== bResubmitted) return bResubmitted - aResubmitted;
-                // Then sort by age (oldest first)
-                const keyA = (a.requestDetails as any)?.submittedAt ?? a.instance.createdAt ?? '';
-                const keyB = (b.requestDetails as any)?.submittedAt ?? b.instance.createdAt ?? '';
-                return String(keyA).localeCompare(String(keyB));
+                return byNewest(a, b);
             });
         } else {
-            // Other tabs: just sort by age
-            const key = (s: ApprovalStep) => (s.requestDetails as any)?.submittedAt ?? s.instance.createdAt ?? '';
-            filtered.sort((a, b) => String(key(a)).localeCompare(String(key(b))));
+            filtered.sort(byNewest);
         }
 
         return filtered;
     }, [steps, segment]);
+
+    /** Tasks are their own list rendered above the steps, so they need the same ordering —
+        otherwise "newest first" would hold for half the inbox and not the other half. */
+    const sortedTasks = useMemo(
+        () => [...tasks].sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))),
+        [tasks],
+    );
 
     /** Only domains that actually have something. A tab for an empty domain is furniture. */
     const domainCounts = useMemo(() => {
@@ -218,7 +232,13 @@ export default function Approvals() {
     }, [domainCounts, domainFilter]);
 
     const total = visible.length + (segment === 'mine' ? tasks.length : 0);
-    const oldest = sorted.length ? ageOf((sorted[0].requestDetails as any)?.submittedAt ?? sorted[0].instance.createdAt) : null;
+    // The list is newest-first, so the item that has waited longest is the LAST one, not the
+    // first. Reading sorted[0] here after the flip would have reported the newest item's age
+    // as the backlog.
+    const oldestStep = sorted.length ? sorted[sorted.length - 1] : null;
+    const oldest = oldestStep
+        ? ageOf((oldestStep.requestDetails as any)?.submittedAt ?? oldestStep.instance.createdAt)
+        : null;
 
     // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -294,9 +314,11 @@ export default function Approvals() {
 
     const renderTabContent = () => (
         <Box sx={{ maxWidth: 1100, mx: 'auto', width: '100%', pb: 6, pt: 2 }}>
-            {/* Domain filters exist only for domains that have work. Two or more, or none —
-                a single filter chip filters nothing. */}
-            {domainCounts.size > 1 && (
+            {/* Domain filters, for the domains that actually have work. Shown from ONE domain
+                upwards: with a single domain the chips filter nothing, but they do say what
+                is in the list and where the control lives, which is what people came looking
+                for when everything in their inbox happened to be reimbursements. */}
+            {domainCounts.size >= 1 && (
                 <Stack direction="row" gap={0.75} flexWrap="wrap" sx={{ mb: 2 }}>
                     <ToneChip
                         tone="neutral" label={`All ${sorted.length}`} size="small"
@@ -336,7 +358,7 @@ export default function Approvals() {
                 </Stack>
             ) : (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 1.5 }}>
-                    {tasks.map((task) => {
+                    {sortedTasks.map((task) => {
                         const style = TASK_STYLE[task.type] ?? TASK_STYLE.ACTION_REQUIRED;
                         const pair = tonePair(style.tone);
                         return (

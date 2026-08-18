@@ -1433,3 +1433,25 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
     display: none !important;
   }
 }
+
+/* =============================================================================
+   WORKSPACE SHELL — let the Home stage FILL the content area
+   The Metronic flex chain is unbroken all the way down to `#kt_post`, and then
+   stops: `#kt_content_container` is `w-100 p-0 m-0` with no `display:flex`. A
+   `flex-1` child of it is therefore inert, so the Home stage only ever took its
+   own min-height and left a band of bare page beneath it — visible because the
+   stage paints the ambient background (dot field + wash) across `inset-0`.
+
+   Making the container a flex column reconnects the chain, so the stage's
+   `flex-1` consumes exactly the space that is actually there. That replaces a
+   `calc(100vh - 140px)` guess at the header + footer height, which could never
+   be right on every viewport and was wrong by ~50px here.
+
+   NOT inside a min-width media query: the band appears at every width.
+   Scoped to `body[data-workspace-shell='true']`, so it cannot reach any screen
+   outside the shell.
+   ========================================================================== */
+body[data-workspace-shell='true'] #kt_content_container {
+  display: flex;
+  flex-direction: column;
+}

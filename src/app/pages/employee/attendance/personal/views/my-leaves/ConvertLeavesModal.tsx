@@ -315,7 +315,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                         fontFamily: 'Barlow, sans-serif',
                         letterSpacing: '0.24px',
                     }}>
-                        Choose what you want to do with your unused leaves
+                        Choose What You Want to Do with Your Unused Leaves
                     </h3>
                 </div>
 

@@ -1090,7 +1090,7 @@ const ProjectTablePage = () => {
                   whiteSpace: "nowrap"
                 }}
               >
-                ✕ Clear filters
+                ✕ Clear Filters
               </button>
             )}
           </div>
@@ -1218,7 +1218,7 @@ const ProjectTablePage = () => {
               },
             },
             onClick: () =>
-              navigate(`/employee/lead/${row.original.id}`, {
+              navigate(`/leads/${row.original.id}`, {
                 state: { leadData: row.original.id, isProject: true },
               }),
           }),

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { formatPhoneWithCode } from "@utils/employeeFormat";
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -81,7 +82,11 @@ export function Overview() {
     },
     {
       fieldName: "Contact Number",
-      fieldValue: (profile?.companyPhoneExtension && profile?.companyPhoneNumber) ? `${profile?.companyPhoneExtension} - ${profile?.companyPhoneNumber}` : '-',
+      // Was `ext && number ? "ext - number" : "-"`, which HID the phone number
+      // whenever the dial code was missing — and it is missing on most rows. A
+      // number without a code is still a number; the shared formatter prints
+      // "+91 9594107173", or the bare number when no code is known.
+      fieldValue: formatPhoneWithCode(profile?.companyPhoneNumber, profile?.companyPhoneExtension, '-'),
     },
     {
       fieldName: "Employee Code",

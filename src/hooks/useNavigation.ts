@@ -28,6 +28,29 @@ export interface NavigationItem {
   hasBullet?: boolean;
   children?: NavigationItem[];
   visible?: boolean;
+  /**
+   * SECTIONS ONLY. Keep this section even when it holds no links.
+   *
+   * Containers with nothing in them are dropped (useNavContainers pass 2) so an
+   * application whose every module is permission-gated vanishes instead of
+   * offering an empty shell. Set this only for a section that is empty BY DESIGN
+   * — a department declared before its modules exist — never to paper over a
+   * permission result.
+   */
+  allowEmpty?: boolean;
+  /**
+   * This entry is a SHORTCUT to a route another section owns.
+   *
+   * The nav tree may legitimately surface one destination in two places — a
+   * manager's cluster linking straight to a page that lives in another
+   * department. Only one of them owns the route, though, and "where am I" has to
+   * have a single answer: without this flag the breadcrumb and the rail highlight
+   * resolve to whichever section happens to appear FIRST in the tree, which is why
+   * /finance/reimbursements read as "HR Department > Reimbursements".
+   *
+   * Set it on the shortcut, never on the owner.
+   */
+  alias?: boolean;
 }
 
 export function useNavigation() {
@@ -121,18 +144,21 @@ export function useNavigation() {
 
       // ── HR & People ───────────────────────────────────────────────────────
       // Flat, as in NAV_CONFIG: the old "Attendance & Leaves" and "People"
-      // wrapper groups are gone, and Reports/Finance no longer get their own
-      // section headers — KPI and Finance live under this one.
+      // wrapper groups are gone, and Reports no longer gets its own section
+      // header — KPI lives under this one. (Finance did too, until it became an
+      // application in its own right further down.)
       {
         type: 'section',
         id: 'hr-section',
-        title: 'HR & People',
+        // Section ids are the stable identity (icons, workspace slugs and accents are
+        // keyed off them); only the LABEL is renamed here, so /workspace/hr and every
+        // bookmark to it keep working.
+        title: 'HR Department',
         visible:
           !isSectionBlocked('attendance') ||
           !isSectionBlocked('users') ||
           !isSectionBlocked('settings') ||
           !isSectionBlocked('reports') ||
-          !isSectionBlocked('finance') ||
           (!isSectionBlocked('recruitment') && can('recruitment.view.team')) ||
           (NEW_MY_TEAM_IA && (can('approvals.view.team') || can('approvals.approve.team') || can('approvals.manage.all'))),
       },
@@ -172,6 +198,18 @@ export function useNavigation() {
         fontIcon: 'bi-file-earmark-text',
         visible: !isSectionBlocked('users') && hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers),
       },
+      {
+        // Everyone's own file, alongside "My Attendance & Leaves". Deliberately
+        // ungated: it resolves to the signed-in employee server-side, so there is no
+        // permission to check — and the company-wide Documents entry above is the one
+        // that needs the readOthers gate.
+        type: 'item',
+        id: 'my-documents',
+        to: '/my-documents',
+        title: 'My Documents',
+        fontIcon: 'bi-folder2-open',
+        visible: !isSectionBlocked('users'),
+      },
       // Promoted out of the Organization group to top level, as in NAV_CONFIG.
       {
         type: 'item',
@@ -193,7 +231,8 @@ export function useNavigation() {
           { type: 'item', id: 'tm-members', to: '/my-team/members', title: 'Members', visible: true },
           { type: 'item', id: 'tm-attendance', to: '/my-team/attendance', title: 'Attendance', visible: true },
           { type: 'item', id: 'tm-leaves', to: '/my-team/leaves', title: 'Leaves', visible: true },
-          { type: 'item', id: 'tm-reimbursements', to: '/finance/bills', title: 'Reimbursements', visible: true },
+          // Shortcut into Finance's route — Finance owns /finance/reimbursements. See `alias`.
+          { type: 'item', id: 'tm-reimbursements', to: '/finance/reimbursements', title: 'Reimbursements', visible: true, alias: true },
           { type: 'item', id: 'tm-salary', to: '/my-team/salary', title: 'Salary', visible: true },
           { type: 'item', id: 'tm-tasks', to: '/my-team/tasks', title: 'Tasks', visible: true },
           { type: 'item', id: 'tm-projects', to: '/my-team/projects', title: 'Projects', visible: true },
@@ -237,43 +276,9 @@ export function useNavigation() {
         fontIcon: 'bi-bar-chart',
         visible: !isSectionBlocked('reports') && isSubsectionVisible('reports.kpi', hasPermission(uiControlResourceNameMapWithCamelCase.kpiUnderReports, permissionConstToUseWithHasPermission.readOthers)),
       },
-      {
-        type: 'sub',
-        id: 'finance-group',
-        title: 'Finance',
-        fontIcon: 'bi-cash-coin',
-        visible: !isSectionBlocked('finance'),
-        children: [
-          {
-            type: 'item',
-            id: 'fin-loans',
-            to: '/finance/loans',
-            title: 'Loans',
-            visible: isSubsectionVisible('finance.loans', hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'fin-reimbursements',
-            to: '/finance/bills',
-            title: 'Reimbursements',
-            visible: isSubsectionVisible('finance.reimbursements', hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'fin-salary',
-            to: '/finance/salary',
-            title: 'Salary',
-            visible: isSubsectionVisible('finance.salary', hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'fin-increment',
-            to: '/finance/increment',
-            title: 'Increment',
-            visible: isSubsectionVisible('finance.increment', hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-        ]
-      },
+      // Finance used to sit here as a collapsible `sub`, which made it a labelled
+      // cluster inside the HR & People workspace. It is its own application now —
+      // see the Finance section between Projects and Organization below.
 
       // ── CRM ───────────────────────────────────────────────────────────────
       {
@@ -285,7 +290,7 @@ export function useNavigation() {
       {
         type: 'item',
         id: 'crm-leads',
-        to: '/qc/leads',
+        to: '/leads',
         title: 'Leads',
         fontIcon: 'bi-megaphone',
         visible: !isSectionBlocked('crm.leads'),
@@ -293,7 +298,7 @@ export function useNavigation() {
       {
         type: 'item',
         id: 'crm-companies',
-        to: '/qc/companies',
+        to: '/companies',
         title: 'Companies',
         fontIcon: 'bi-building',
         visible: !isSectionBlocked('crm.companies'),
@@ -301,26 +306,27 @@ export function useNavigation() {
       {
         type: 'item',
         id: 'crm-contacts',
-        to: '/qc/contacts',
+        to: '/contacts',
         title: 'Contacts',
         fontIcon: 'bi-person-lines-fill',
         visible: !isSectionBlocked('crm.contacts'),
       },
 
-      // ── Projects ──────────────────────────────────────────────────────────
-      // Organization sits under this header in NAV_CONFIG (it precedes the next
-      // section marker), so `settings` is part of the header's condition — without
-      // it the group could render with no heading above it.
+      // ── Project Department ────────────────────────────────────────────────
+      // Organization USED to sit under this header (it preceded the next section
+      // marker), which is why `settings` was part of the header's condition. It is
+      // now an application of its own, below — so this header answers for its own
+      // three subsections and nothing else.
       {
         type: 'section',
         id: 'projects-section',
-        title: 'Projects',
-        visible: !isSectionBlocked('projects') || !isSectionBlocked('tasks') || !isSectionBlocked('timesheets') || !isSectionBlocked('settings'),
+        title: 'Project Department',
+        visible: !isSectionBlocked('projects') || !isSectionBlocked('tasks') || !isSectionBlocked('timesheets'),
       },
       {
         type: 'item',
         id: 'projects-projects',
-        to: '/qc/projects',
+        to: '/projects',
         title: 'Projects',
         fontIcon: 'bi-briefcase',
         visible: !isSectionBlocked('projects'),
@@ -351,52 +357,142 @@ export function useNavigation() {
         fontIcon: 'bi-clipboard-data',
         visible: !isSectionBlocked('timesheets') && isSubsectionVisible('timesheets.employees', hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers)),
       },
+
+      // ── Purchase Department ────────────────────────────────────────────────
+      // A deliberate PLACEHOLDER: it owns no routes yet, and sits between Project
+      // and Finance so the department exists in the information architecture
+      // before its modules do.
+      //
+      // `allowEmpty` is what makes it visible at all. useNavContainers drops any
+      // container with no links, which is correct for every other section — an
+      // application whose every module is permission-gated must vanish rather
+      // than offer an empty shell. This flag is the narrow opt-out for a section
+      // that is empty BY DESIGN rather than by permission, so that rule stays
+      // intact for the sections it protects.
       {
-        type: 'sub',
-        id: 'admin-org',
-        to: '/company',
+        type: 'section',
+        id: 'purchase-section',
+        title: 'Purchase Department',
+        visible: true,
+        allowEmpty: true,
+      },
+
+      // ── Finance / Account Department ──────────────────────────────────────
+      // Was a collapsible `sub` at the bottom of HR & People, so it rendered as a
+      // labelled cluster inside that workspace. Loans, Reimbursements, Salary and
+      // Increment are money, not people administration — and they have their own
+      // `finance` permission section already, so the split follows a boundary the
+      // authorization model draws anyway.
+      //
+      // Placed between Projects and Organization, as requested.
+      //
+      // The header repeats the group's `!isSectionBlocked('finance')` check: the
+      // sidebar renders a section unless `visible === false`, so without it a user
+      // without finance access would get a bare "Finance" heading over nothing.
+      // (The workspace is safe either way — useNavContainers drops empty containers.)
+      {
+        type: 'section',
+        id: 'finance-section',
+        title: 'Finance/Account Department',
+        visible: !isSectionBlocked('finance'),
+      },
+      // As `sub` children these rows carried no icon of their own and inherited the
+      // group's glyph, which ModuleGrid does for cluster children only. Top-level
+      // modules get no such fallback, so each names its own — otherwise all four
+      // would render the generic folder placeholder.
+      {
+        type: 'item',
+        id: 'fin-loans',
+        to: '/finance/loans',
+        title: 'Loans',
+        fontIcon: 'bi-cash-stack',
+        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.loans', hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'fin-reimbursements',
+        to: '/finance/reimbursements',
+        title: 'Reimbursements',
+        fontIcon: 'bi-receipt',
+        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.reimbursements', hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'fin-salary',
+        to: '/finance/salary',
+        title: 'Salary',
+        fontIcon: 'bi-cash-coin',
+        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.salary', hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'fin-increment',
+        to: '/finance/increment',
+        title: 'Increment',
+        fontIcon: 'bi-graph-up-arrow',
+        visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.increment', hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
+      },
+
+      // ── Organization ──────────────────────────────────────────────────────
+      // Was a collapsible `sub` ("Organization") sitting at the bottom of the
+      // Projects section, which made it a labelled CLUSTER inside the Projects
+      // workspace (useWorkspaceApps splits a container's entries into flat modules
+      // then grouped clusters). It is not a facet of Projects — it is org-wide
+      // configuration — so it is promoted to a section, i.e. an application of its
+      // own in the rail, the dock and the launcher, with its five pages as
+      // top-level modules.
+      //
+      // Nothing about WHO may see these rows changed: the section header carries
+      // the exact condition the `sub` did, and each row keeps its own check. The
+      // header's OR matters for the sidebar specifically — AsideMenuMain renders a
+      // section unless `visible === false`, so without it a user with none of these
+      // permissions would get a bare "Organization" heading over nothing. (The
+      // workspace is safe either way: useNavContainers drops empty containers.)
+      {
+        type: 'section',
+        id: 'organization-section',
         title: 'Organization',
-        fontIcon: 'bi-house-fill',
-        // Announcements left this group for top level, so it no longer counts
-        // toward whether the group has anything to show.
         visible: !isSectionBlocked('settings') && (anyChildGranted('settings') || hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-        children: [
-          {
-            type: 'item',
-            id: 'org-profile',
-            to: '/company/organisation-profile',
-            title: 'Organization Profile',
-            visible: isSubsectionVisible('settings.profile', hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'org-media',
-            to: '/company/media',
-            title: 'Media',
-            visible: isSubsectionVisible('settings.media', hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'org-onboarding',
-            to: '/company/onboardingDocs',
-            title: 'Onboarding Docs',
-            visible: isSubsectionVisible('settings.onboarding', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'org-teams',
-            to: '/company/teams',
-            title: 'Teams',
-            visible: isSubsectionVisible('settings.teams', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'org-emp-level',
-            to: '/company/employee-level-teams',
-            title: 'Employee-Level',
-            visible: isSubsectionVisible('settings.employeeLevel', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
-          },
-        ]
+      },
+      // As `sub` children these rows carried no icon and inherited the group's
+      // glyph (ModuleGrid does that fallback for cluster children only). Top-level
+      // modules get no such fallback, so each now names its own — otherwise all
+      // five would render the generic folder placeholder.
+      {
+        type: 'item',
+        id: 'org-profile',
+        to: '/company/organisation-profile',
+        title: 'Organization Profile',
+        fontIcon: 'bi-house-fill',
+        visible: isSubsectionVisible('settings.profile', hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'org-media',
+        to: '/company/media',
+        title: 'Media',
+        fontIcon: 'bi-images',
+        visible: isSubsectionVisible('settings.media', hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      // Onboarding Docs moved to HR & People → Employees → Configure, alongside the
+      // rest of the onboarding configuration. Listing it here as well would put the
+      // same screen in two modules, which is the wandering this consolidation removes.
+      // The route still resolves, so existing bookmarks keep working.
+      {
+        type: 'item',
+        id: 'org-teams',
+        to: '/tasks/calendar',
+        title: 'Teams',
+        fontIcon: 'bi-people',
+        visible: isSubsectionVisible('settings.teams', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'org-emp-level',
+        to: '/company/employee-level-teams',
+        title: 'Employee-Level',
+        fontIcon: 'bi-diagram-3',
+        visible: isSubsectionVisible('settings.employeeLevel', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
       },
 
       // ── App Settings ──────────────────────────────────────────────────────

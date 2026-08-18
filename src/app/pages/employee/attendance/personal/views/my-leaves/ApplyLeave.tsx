@@ -1121,7 +1121,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     </div>
                 )}
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
-                    <button onClick={applyAnother} style={{ padding: '11px 22px', borderRadius: 11, border: '1px solid #e6e6e8', background: '#fff', color: '#5f6266', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Apply another</button>
+                    <button onClick={applyAnother} style={{ padding: '11px 22px', borderRadius: 11, border: '1px solid #e6e6e8', background: '#fff', color: '#5f6266', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Apply Another</button>
                     <button onClick={onClose} style={{ padding: '11px 22px', borderRadius: 11, border: 'none', background: ACCENT, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Done</button>
                 </div>
             </div>

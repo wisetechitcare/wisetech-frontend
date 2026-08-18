@@ -1250,7 +1250,7 @@ function SubmissionsTable({
           {title && <h2 className="mb-0 fs-5 fs-lg-4">{title}</h2>}
           {subtitle && <div className="text-muted fs-9 fs-lg-8">{subtitle}</div>}
         </div>
-        <div className="d-flex align-items-center flex-wrap gap-2">
+        <div className="d-flex align-items-center flex-wrap gap-2 w-100 w-md-auto mw-100 justify-content-start justify-content-md-end">
           {/* A filter set from a chart the reader may have scrolled past needs to say so here,
               where the narrowed rows are — and be undoable from the same place. */}
           {externalCategoryFilter && (

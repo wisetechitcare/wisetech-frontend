@@ -722,7 +722,7 @@ const TasksMainCalenderPage = () => {
                         onClick={clearFilters}
                         style={{ color: '#1E3A8A', border: '1px solid #1E3A8A', borderRadius: '6px', fontFamily: 'Inter', fontSize: '13px', fontWeight: 500, padding: '6px 14px', backgroundColor: 'white' }}
                     >
-                        Clear filters
+                        Clear Filters
                     </button>
                 )}
             </div>
@@ -769,7 +769,7 @@ const TasksMainCalenderPage = () => {
                                             fontWeight: '500'
                                         }}
                                     >
-                                        Clear filters
+                                        Clear Filters
                                     </button>
                                 )}
                             </div>

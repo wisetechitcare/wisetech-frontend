@@ -14,6 +14,7 @@ import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { useMediaQuery, useTheme } from '@mui/material';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 
@@ -62,6 +63,8 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
     periodDate,
 }) => {
     const { cls: sensitiveCls } = useSensitiveData();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     // The page owns the period. This table carried its own tabs + navigator, which is how the
     // screen ended up showing records for one month next to payments for another.
     const filter = period;
@@ -319,7 +322,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
 
     return (
         <>
-        <div className="mt-8 mt-lg-10">
+        <div className="mt-4 mt-lg-8">
             <div className="mb-4 mb-lg-6 px-3 px-lg-0">
                 <h2 className="mb-1 fs-4 fs-lg-3">Reimbursement Payment History</h2>
                 <div className="text-muted fs-8 fs-lg-7">
@@ -327,8 +330,11 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                     appears here once it has a payment recorded in this window.
                 </div>
             </div>
-            <div className="card shadow-sm px-3 px-lg-0">
-                <div className="card-body p-6">
+            <div
+                className={isMobile ? "" : "card shadow-sm"}
+                style={isMobile ? { backgroundColor: 'transparent', boxShadow: 'none', border: 'none' } : undefined}
+            >
+                <div className={isMobile ? "p-0" : "card-body p-6"}>
                     {loading ? (
                         <div className="d-flex justify-content-center align-items-center py-12">
                             <div className="spinner-border text-primary" role="status" />

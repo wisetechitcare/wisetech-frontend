@@ -57,13 +57,6 @@ export const solidToolbarButton = (
     opacity: disabled ? 0.65 : 1,
 });
 
-/**
- * A quiet action.
- *
- * The border is 1.5px to match `PeriodNavigator`'s exactly — with `border-box` it costs no
- * height, and a 1px border beside the navigator's 1.5px is visible as a weight difference at
- * this size.
- */
 export const outlineToolbarButton = (disabled = false): CSSProperties => ({
     ...BASE,
     border: '1.5px solid #e2e8f0',
@@ -72,6 +65,34 @@ export const outlineToolbarButton = (disabled = false): CSSProperties => ({
     cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.65 : 1,
 });
+
+/**
+ * A light-colored/pastel styled action.
+ */
+export const lightToolbarButton = (
+    tone: 'primary' | 'accent' | 'danger' | 'success' = 'primary',
+    disabled = false,
+) => {
+    const config = {
+        primary: { bg: '#f8fafc', border: '#e2e8f0', color: '#475569', hoverBg: '#f1f5f9', hoverBorder: '#cbd5e1' },
+        accent: { bg: '#eff6ff', border: '#bfdbfe', color: '#1e3a8a', hoverBg: '#dbeafe', hoverBorder: '#93c5fd' },
+        danger: { bg: '#ffe4e6', border: '#fecdd3', color: '#be123c', hoverBg: '#fda4af', hoverBorder: '#fda4af' },
+        success: { bg: '#f0fdf4', border: '#bbf7d0', color: '#15803d', hoverBg: '#86efac', hoverBorder: '#86efac' },
+    }[tone];
+
+    return {
+        ...BASE,
+        border: `1.5px solid ${config.border}`,
+        background: config.bg,
+        color: config.color,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.65 : 1,
+        '&:hover': disabled ? {} : {
+            background: config.hoverBg,
+            borderColor: config.hoverBorder,
+        }
+    };
+};
 
 /**
  * The row these sit in.
