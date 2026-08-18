@@ -131,7 +131,6 @@ export async function fetchEmpMonthlyStatistics(
         const monthlyRequestTable = transformAttendanceRequest(attendanceRequests);
         store.dispatch(saveMonthlyRequestTable(monthlyRequestTable));
         console.log("debugger:: ", empAttendanceStatistics);
-        // debugger;
         store.dispatch(saveMonthlyStatistics(empAttendanceStatistics));
 
         const dates = generateDateRange(startDate, endDate);
@@ -140,7 +139,6 @@ export async function fetchEmpMonthlyStatistics(
         // console.log("MonthlyTable:: ",monthlyTable);
         // console.log("empAttendanceStatistics:: ",empAttendanceStatistics);
 
-        // debugger;
         store.dispatch(saveMonthlyTable(monthlyTable));
 
         filterLeavesPublicHolidays(startDate, endDate);
@@ -249,7 +247,6 @@ export function filterLeavesPublicHolidays(
 
     // Get all leaves from store
     const allLeaves = store.getState().attendanceStats.leaves;
-    // debugger;
     // Filter leaves with single, consistent logic
     const leaves: CustomLeaves[] = allLeaves.filter((leave: CustomLeaves) => {
         if (leave.status !== LeaveStatus.Approved && (!countUnapprovedLeaves || leave.status == LeaveStatus.Rejected)) {
@@ -1193,7 +1190,6 @@ export function donutaDataLabel(
             }
             // If it's weekend/holiday with no attendance, keep the original count (no reduction)
         }
-        // debugger;
     });
 
     // Update final counts
@@ -1533,7 +1529,6 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
         // console.log("isWorkMethodOnSite:: ", isWorkMethodOnSite);
         // console.log("finalTime:: ", finalTime);
         // console.log("earlyCheckInThreshold:: ", earlyCheckInThreshold);
-        // debugger
         if (compareTimes(checkIn, earlyCheckInThreshold)) {
             statMap.set(EARLY_CHECKIN, statMap.get(EARLY_CHECKIN)! + 1);
         } else {
@@ -2818,7 +2813,6 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
             attendanceRecord?.checkOut
         );
 
-        // debugger;
 
         if (!isPastOrPresentDate) {
             return {
@@ -4067,7 +4061,6 @@ export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeeken
         //   const entryNew = entry;
         //   console.log("Entry:::: ",entryNew);
 
-        //   debugger;
         return {
             ...entry,
             isWeekendOrHoliday: isHoliday || isWeekend,
