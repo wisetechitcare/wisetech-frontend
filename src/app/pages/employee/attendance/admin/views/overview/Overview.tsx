@@ -492,9 +492,17 @@ function Overview({ date, range }: OverviewProps) {
     const absentEntries: any[] = [];
     if (useRange && range?.start && range?.end) {
         let d = range.start.startOf("day");
-        const end = range.end.startOf("day");
+        // Absence is a fact about a day that has HAPPENED. Walking to range.end reported
+        // every remaining working day of the month as absent for everybody — a whole-month
+        // view on the 17th showed people "24 days absent", most of it forecast.
+        const today = dayjs().startOf("day");
+        const end = range.end.startOf("day").isAfter(today) ? today : range.end.startOf("day");
         while (d.isBefore(end) || d.isSame(end, "day")) {
-            if (weekends?.[d.format("dddd").toLowerCase()] !== "0") {
+            // Use the SAME weekend/holiday test the rest of this page uses. Testing only
+            // `weekends[day]` counted public holidays and the alternate off-Saturdays as
+            // company-wide absences — the defect that produced "32 absent on Saturday
+            // 8 August".
+            if (!checkIfWeekendOrHoliday(d.toDate())) {
                 const k = d.format("YYYY-MM-DD");
                 const present = presentByDay.get(k) || new Set<string>();
                 const onLeave = leaveByDay.get(k) || new Map<string, any>();
@@ -1208,7 +1216,17 @@ function Overview({ date, range }: OverviewProps) {
                 if (!silent) setIsLoading(true);
                 setError(null);
 
-                const { data: { employees } } = await fetchAllEmployees();
+                // Ask for EMPLOYED staff, judged against the window on screen.
+                // Calling this with no argument returns every employee ever — the server
+                // applies no filter when isActive is undefined — and the client then fell
+                // back to the raw isActive flag, which drifts whenever HR sets an exit date
+                // without also unticking Active. That is why people who had left were still
+                // being counted absent every working day.
+                const { data: { employees } } = await fetchAllEmployees(
+                    true,
+                    (useRange && range?.start ? range.start : date).format('YYYY-MM-DD'),
+                    (useRange && range?.end ? range.end : date).format('YYYY-MM-DD'),
+                );
                 // Fetch data for the selected date
                 const response = await fetchEmployeesOnLeaveToday(date.format('YYYY-MM-DD'));
                 const employeesOnLeave = response?.data?.employeesOnLeave || [];

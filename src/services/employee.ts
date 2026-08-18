@@ -90,14 +90,23 @@ export const fetchEmployeeFacets = async (params: EmployeeListParams = {}) => {
     }
 };
 
-export const fetchAllEmployees = async (isActive?: boolean) => {
+/**
+ * @param isActive filter to employed staff. OMITTING IT RETURNS EVERYONE, exited
+ *                 included — the server applies no where clause at all when it is
+ *                 undefined.
+ * @param from,to  the window "employed" is judged against (YYYY-MM-DD). Defaults to
+ *                 today server-side, which is wrong for any period-scoped screen: a board
+ *                 showing 1-31 August must judge who was employed during August. Pass the
+ *                 screen's real range, exactly as payroll passes its run month.
+ */
+export const fetchAllEmployees = async (isActive?: boolean, from?: string, to?: string) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE}`;
 
-        // Add query parameter if isActive is defined
-        if (isActive !== undefined) {
-            endpoint += `?isActive=${isActive}`;
-        }
+        const params = new URLSearchParams();
+        if (isActive !== undefined) params.set('isActive', String(isActive));
+        if (from && to) { params.set('from', from); params.set('to', to); }
+        if ([...params].length) endpoint += `?${params.toString()}`;
 
         const { data } = await axios.get(endpoint);
         return data;
