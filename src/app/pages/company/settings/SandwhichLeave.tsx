@@ -467,7 +467,16 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
   };
 
   const set = (patch: Partial<SandwichRulePattern>) => setPattern((p) => ({ ...p, ...patch }));
-  const controlLabelSx = { '& .MuiFormControlLabel-label': { fontSize: 13, fontWeight: 600, color: 'text.primary' } } as const;
+  // `ml: 0` is load-bearing, not cosmetic. MUI ships FormControlLabel with
+  // `margin-left: -11px` so a bare switch optically aligns with body text; inside a flex
+  // row or a grid cell that pulls the control 11px into whatever sits to its left, which
+  // is why the "Any" toggle was sitting on top of the run-length field. Zeroed once here
+  // so every control in this modal aligns to its container instead of each call site
+  // rediscovering the same bug.
+  const controlLabelSx = {
+    ml: 0,
+    '& .MuiFormControlLabel-label': { fontSize: 13, fontWeight: 600, color: 'text.primary' },
+  } as const;
 
   return (
     // GlassDialog = frosted Paper + dimmed/blurred backdrop; disableEnforceFocus defaults true so
@@ -484,39 +493,44 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
         <Stack spacing={1.5}>
           {/* Live preview — updates as the form below changes */}
           <GlassSurface variant="thin" sx={{ p: 1.5, borderRadius: '12px', borderColor: 'divider' }}>
-            <Box sx={{ mb: 1 }}><Eyebrow>Live preview</Eyebrow></Box>
+            <Box sx={{ mb: 1 }}><Eyebrow>Live Preview</Eyebrow></Box>
             <SandwichPatternStrip pattern={pattern} />
             <Box sx={{ mt: 1 }}><PatternLegend /></Box>
           </GlassSurface>
 
           <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
             <Stack spacing={2}>
-              <Eyebrow>Rule details</Eyebrow>
-              <TextField label="Rule name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Diwali Bridge" fullWidth size="small" />
-              <TextField label="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this rule for?" fullWidth size="small" multiline minRows={2} />
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <Eyebrow>Rule Details</Eyebrow>
+              <TextField label="Rule Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Diwali Bridge" fullWidth size="small" />
+              <TextField label="Description (Optional)" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this rule for?" fullWidth size="small" multiline minRows={2} />
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 2 }}>
                 <TextField select label="Category" value={category} onChange={(e) => setCategory(e.target.value as any)} size="small">
                   <MenuItem value="custom">Custom</MenuItem>
                   <MenuItem value="holiday-bridge">Holiday-Bridge</MenuItem>
                   <MenuItem value="weekend-bridge">Weekend-Bridge</MenuItem>
                 </TextField>
-                {/* Exact run length, OR toggle "Any" to match a bridge of any length (catch-all). */}
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <TextField type="number" label="Interior off-day run length" size="small" sx={{ flex: 1 }}
+                {/* Exact run length, OR toggle "Any" to match a bridge of any length (catch-all).
+                    The label is short because this field is half-width at sm and the toggle sits
+                    beside it — "Interior off-day run length" could not fit and collided with the
+                    switch. The full meaning lives in the helper text below, which has the room. */}
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'flex-start' }}>
+                  <TextField type="number" label="Run Length" size="small"
+                    sx={{ flex: '1 1 140px', minWidth: 0 }}
+                    helperText="Interior off-days in the run"
                     value={pattern.runLength === 'any' ? '' : pattern.runLength}
                     disabled={pattern.runLength === 'any'}
                     placeholder={pattern.runLength === 'any' ? 'Any length' : undefined}
                     inputProps={{ min: 1 }}
                     onChange={(e) => set({ runLength: Math.max(1, parseInt(e.target.value) || 1) })} />
                   <Tooltip title="Match a bridge of ANY length (e.g. long weekends, festival breaks)">
-                    <FormControlLabel sx={{ ...controlLabelSx, mr: 0, flexShrink: 0 }}
+                    <FormControlLabel sx={{ ...controlLabelSx, mr: 0, flexShrink: 0, mt: 0.5 }}
                       control={<WtSwitch size="sm" checked={pattern.runLength === 'any'}
                         onChange={(e) => set({ runLength: e.target.checked ? 'any' : 2 })} />}
                       label="Any" />
                   </Tooltip>
                 </Box>
               </Box>
-              <TextField select label="Interior days must be" value={pattern.interiorDayType ?? 'any'} onChange={(e) => set({ interiorDayType: e.target.value as any })} size="small" fullWidth>
+              <TextField select label="Interior Days Must Be" value={pattern.interiorDayType ?? 'any'} onChange={(e) => set({ interiorDayType: e.target.value as any })} size="small" fullWidth>
                 <MenuItem value="any">Holiday or Weekend (either)</MenuItem>
                 <MenuItem value="holiday">Holiday only (not a weekend)</MenuItem>
                 <MenuItem value="weekend">Weekend only (branch off-day)</MenuItem>
@@ -526,11 +540,11 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
 
           <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
             <Stack spacing={1}>
-              <Eyebrow>Leading day (before the off-day run)</Eyebrow>
-              <FormControlLabel sx={controlLabelSx} control={<WtSwitch size="sm" checked={pattern.leadingRequired} onChange={(e) => set({ leadingRequired: e.target.checked })} />} label="Leading leave day required?" />
+              <Eyebrow>Leading Day (Before the Off-Day Run)</Eyebrow>
+              <FormControlLabel sx={controlLabelSx} control={<WtSwitch size="sm" checked={pattern.leadingRequired} onChange={(e) => set({ leadingRequired: e.target.checked })} />} label="Leading Leave Day Required?" />
               {pattern.leadingRequired && (
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, alignItems: 'center' }}>
-                  <TextField select label="Leading day must be" value={pattern.leadingPaidCondition} onChange={(e) => set({ leadingPaidCondition: e.target.value as any })} size="small">
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 1.5, alignItems: 'center' }}>
+                  <TextField select label="Leading Day Must Be" value={pattern.leadingPaidCondition} onChange={(e) => set({ leadingPaidCondition: e.target.value as any })} size="small">
                     <MenuItem value="any">Paid or Unpaid</MenuItem>
                     <MenuItem value="paid">Paid only</MenuItem>
                     <MenuItem value="unpaid">Unpaid only</MenuItem>
@@ -543,11 +557,11 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
 
           <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
             <Stack spacing={1}>
-              <Eyebrow>Trailing day (after the off-day run)</Eyebrow>
-              <FormControlLabel sx={controlLabelSx} control={<WtSwitch size="sm" checked={pattern.trailingRequired} onChange={(e) => set({ trailingRequired: e.target.checked })} />} label="Trailing leave day required?" />
+              <Eyebrow>Trailing Day (After the Off-Day Run)</Eyebrow>
+              <FormControlLabel sx={controlLabelSx} control={<WtSwitch size="sm" checked={pattern.trailingRequired} onChange={(e) => set({ trailingRequired: e.target.checked })} />} label="Trailing Leave Day Required?" />
               {pattern.trailingRequired && (
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, alignItems: 'center' }}>
-                  <TextField select label="Trailing day must be" value={pattern.trailingPaidCondition} onChange={(e) => set({ trailingPaidCondition: e.target.value as any })} size="small">
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 1.5, alignItems: 'center' }}>
+                  <TextField select label="Trailing Day Must Be" value={pattern.trailingPaidCondition} onChange={(e) => set({ trailingPaidCondition: e.target.value as any })} size="small">
                     <MenuItem value="any">Paid or Unpaid</MenuItem>
                     <MenuItem value="paid">Paid only</MenuItem>
                     <MenuItem value="unpaid">Unpaid only</MenuItem>
@@ -560,7 +574,7 @@ function RuleFormModal({ show, onClose, onSaved, editingRule, defaultCategory = 
 
           <GlassSurface variant="thin" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '12px', borderColor: 'divider' }}>
             <Stack spacing={0.5}>
-              <Eyebrow>Salary counting & activation</Eyebrow>
+              <Eyebrow>Salary Counting & Activation</Eyebrow>
               <FormControlLabel sx={controlLabelSx} control={<Checkbox size="small" checked={pattern.excludeInteriorDaysFromSalary} onChange={(e) => set({ excludeInteriorDaysFromSalary: e.target.checked })} />} label="Exclude the interior off-day(s) themselves from the salary count" />
               <FormControlLabel sx={controlLabelSx} control={<WtSwitch checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} />} label="Enabled" />
             </Stack>
