@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
+import { DetailStatusBadge, DetailLink } from '@app/modules/detail-page/DetailPageComponents';
 import {
   EditableDetailCard, SelectEditor, SearchableSelectEditor, DateEditor, ToggleEditor, toDateInputValue,
 } from '@app/modules/detail-page/EditableDetailCard';
@@ -116,6 +116,14 @@ const managersPayload = (ids: string[], members: any[]) => {
 // Used for the read-mode table and the Change-Team review list so the split is visible.
 const sortByActive = (arr: any[]) =>
   [...arr].sort((a, b) => (a.isActive !== false ? 0 : 1) - (b.isActive !== false ? 0 : 1));
+
+// A contact's designation is stored in one of two places: the free-text
+// `roleInCompany` column, or the structured `contactRole` relation when it was
+// picked from the Contact Role dropdown. Reading only the first left the
+// Designation column blank for every dropdown-entered contact, so check both.
+// `designation` is the shape some other endpoints flatten it to.
+const contactDesignation = (contact: any): string =>
+  contact?.roleInCompany || contact?.contactRole?.name || contact?.designation || '';
 
 const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const allEmployees = useSelector((s: RootState) => s.allEmployees?.list) || [];
@@ -455,11 +463,19 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
           return {
             name: company?.companyName || subCompany?.subCompanyName || subCompany?.name || DASH,
             companyAvatar: company?.companyLogo || company?.logo || null,
+            // Ids kept on the view model so the read table can deep-link to the
+            // company / contact detail pages. Empty when the row has no such FK,
+            // which the table treats as "render plain text, not a link".
+            companyId: t?.companyId ? String(t.companyId) : '',
+            contactId: t?.contactId ? String(t.contactId) : '',
             type: companyType?.name || '',
             subCompany: subCompany?.subCompanyName || subCompany?.name || '',
             contact: contact?.fullName || contact?.name || '',
             contactAvatar: contact?.profilePhoto || contact?.avatar || contact?.users?.avatar || null,
-            designation: contact?.roleInCompany || '',
+            // A contact's role lives in EITHER the free-text `roleInCompany` or the
+            // structured `contactRole` relation, depending on how it was entered —
+            // check both or contacts using the dropdown show a blank designation.
+            designation: contactDesignation(contact),
             phone: contact?.phone || company?.phone || '',
             startDate: t?.startDate || '',
             endDate: t?.endDate || '',
@@ -682,7 +698,13 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                                     alt=""
                                     style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
                                   />
-                                  {empName(m.employeeId)}
+                                  {m.employeeId ? (
+                                    <DetailLink href={`/employees/${m.employeeId}`} style={{ fontWeight: 700, color: '#1E293B' }}>
+                                      {empName(m.employeeId)}
+                                    </DetailLink>
+                                  ) : (
+                                    empName(m.employeeId)
+                                  )}
                                 </div>
                               </td>
                               <td style={td}>{m.startDate ? fmtDate(m.startDate) : DASH}</td>
@@ -989,11 +1011,12 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                                   alt=""
                                   style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
                                 />
-                                {s.name}
-                                {s.syncedFromLead && (
-                                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: '#ede9fe', color: '#6d28d9', whiteSpace: 'nowrap' }}>
-                                    From Lead
-                                  </span>
+                                {s.companyId ? (
+                                  <DetailLink href={`/companies/${s.companyId}`} style={{ fontWeight: 700, color: '#1E293B' }}>
+                                    {s.name}
+                                  </DetailLink>
+                                ) : (
+                                  s.name
                                 )}
                               </div>
                             </td>
@@ -1008,11 +1031,23 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                                     style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
                                   />
                                 )}
-                                {s.contact || DASH}
+                                {s.contactId && s.contact ? (
+                                  <DetailLink href={`/contacts/${s.contactId}`}>{s.contact}</DetailLink>
+                                ) : (
+                                  s.contact || DASH
+                                )}
                               </div>
                             </td>
                             <td style={td}>{s.designation || DASH}</td>
-                            <td style={td}>{s.phone || DASH}</td>
+                            <td style={td}>
+                              {/* Phone links to the contact's detail page (not tel:) — the
+                                  request was for it to open the contact, same as the name. */}
+                              {s.contactId && s.phone ? (
+                                <DetailLink href={`/contacts/${s.contactId}`}>{s.phone}</DetailLink>
+                              ) : (
+                                s.phone || DASH
+                              )}
+                            </td>
                             <td style={td}>{s.startDate ? fmtDate(s.startDate) : DASH}</td>
                             <td style={td}>{s.endDate ? fmtDate(s.endDate) : DASH}</td>
                             <td style={td}><DetailStatusBadge status={s.isActive ? 'Active' : 'Inactive'} color={s.isActive ? '#16a34a' : '#94A3B8'} /></td>
@@ -1070,13 +1105,13 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                                 background: '#F8FAFC',
                                 fontFamily: 'Inter',
                                 fontSize: 13,
-                                color: contactById.get(String(t.contactId))?.roleInCompany ? '#334155' : '#94A3B8',
+                                color: contactDesignation(contactById.get(String(t.contactId))) ? '#334155' : '#94A3B8',
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                               }}
                             >
-                              {contactById.get(String(t.contactId))?.roleInCompany || 'Select a contact'}
+                              {contactDesignation(contactById.get(String(t.contactId))) || 'Select a contact'}
                             </div>
                           </div>
                           <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.startDate} onChange={v => update(i, { startDate: v })} /></div>

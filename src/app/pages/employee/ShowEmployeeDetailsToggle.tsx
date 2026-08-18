@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -27,6 +27,7 @@ const ShowEmployeeDetailsToggle = () => {
   const [employee, setEmployee] = useState<any>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("details");
   const canManageAccess = usePermission("users.manage.all");
   const dispatch = useDispatch<AppDispatch>();
@@ -92,7 +93,10 @@ const ShowEmployeeDetailsToggle = () => {
   };
 
   const handleEditClick = async (employeeId: string) => {
-    navigate(`/employees/edit/${employeeId}`, { state: { employeeId } });
+    // Cancelling the wizard comes back HERE, not to the employee list.
+    navigate(`/employees/edit/${employeeId}`, {
+      state: { employeeId, returnTo: `${location.pathname}${location.search}` },
+    });
   };
 
   const handleTabChange = (

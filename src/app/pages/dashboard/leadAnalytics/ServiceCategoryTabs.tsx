@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import AnalyticsCard from "./AnalyticsCard";
 import RankedBarChart from "./RankedBarChart";
-import { ChartDatum } from "./leadAnalyticsUtils";
+import { ChartDatum, ChartMetric } from "./leadAnalyticsUtils";
 
 export interface BreakdownTab {
   id: string;
@@ -25,7 +25,13 @@ const isEmpty = (d?: ChartDatum[]) =>
  * Categories cards: a single place, one chart type (bar), flip the breakdown
  * with the pills. Each tab keeps its own drill-down (onSelect) and empty state.
  */
-const ServiceCategoryTabs: React.FC<{ tabs: BreakdownTab[] }> = ({ tabs }) => {
+const ServiceCategoryTabs: React.FC<{
+  tabs: BreakdownTab[];
+  /** Whether the tab data plots counts or money. Default: 'count'. */
+  metric?: ChartMetric;
+  /** Noun for the counted thing in tooltips — "Leads", "Projects". */
+  entityLabel?: string;
+}> = ({ tabs, metric = "count", entityLabel }) => {
   const [activeId, setActiveId] = useState<string | undefined>(tabs[0]?.id);
   const active = tabs.find((t) => t.id === activeId) ?? tabs[0];
   if (!active) return null;
@@ -91,9 +97,13 @@ const ServiceCategoryTabs: React.FC<{ tabs: BreakdownTab[] }> = ({ tabs }) => {
         key={active.id}
         data={active.data}
         onSelect={active.onSelect}
-        showRevenue
+        // Amount mode already plots the money, so the ₹ tooltip line would just
+        // repeat the bar value.
+        showRevenue={metric !== "amount"}
         valueLabel
         title={active.cardTitle}
+        metric={metric}
+        entityLabel={entityLabel}
       />
     </AnalyticsCard>
   );

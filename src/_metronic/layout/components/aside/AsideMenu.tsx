@@ -1,5 +1,5 @@
 import React, {useEffect} from 'react'
-import {useLocation} from 'react-router'
+import {useLocation} from 'react-router-dom'
 import {AsideMenuMain} from './AsideMenuMain'
 import {DrawerComponent, ToggleComponent} from '../../../assets/ts/components'
 

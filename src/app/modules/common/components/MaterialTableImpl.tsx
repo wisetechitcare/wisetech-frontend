@@ -1117,7 +1117,6 @@ function MaterialTable({
       </ThemeProvider>
     );
   }
-
   return (
     <ThemeProvider theme={tableTheme}>
      <SearchQueryContext.Provider value={debouncedFilterValue}>

@@ -10,6 +10,8 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import PeriodFilter, { PeriodRange } from "@app/modules/common/components/PeriodFilter";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import { ChartMetric } from "@pages/dashboard/leadAnalytics";
 import { DATE_FORMATS } from "@utils/dateFormats";
 import Monthly from "./Monthly";
 import Yearly from "./Yearly";
@@ -57,6 +59,11 @@ const LeadsOverviewToggle = ({
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [showChartSettingsModal, setShowChartSettingsModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Plot lead COUNT or lead VALUE. Lives here (not in each period view) so one
+  // switch covers Daily/Weekly/Monthly/Yearly/All Time/Custom, and the choice
+  // survives switching period. Pure display toggle — no refetch.
+  const [metric, setMetric] = useState<ChartMetric>("count");
 
   useEffect(() => {
     dispatch(fetchRolesAndPermissions() as any);
@@ -184,6 +191,37 @@ const LeadsOverviewToggle = ({
           )}
         </div>
 
+        {/* Measure switch — flips every chart carrying money between lead COUNT
+            and lead VALUE. Sits with the period controls because it scopes the
+            whole page rather than a single card.
+            Only rendered for the modes backed by LeadOverviewDashboard. Daily /
+            Weekly / Custom render the legacy Custom.tsx pie layout, which has no
+            metric support, so showing the switch there would be a dead control. */}
+        {["monthly", "yearly", "allyear"].includes(periodRange.mode) && (
+        <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0, minWidth: 0 }}>
+          <span
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: 11.5,
+              fontWeight: 600,
+              color: "#94A3B8",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Based on
+          </span>
+          <PeriodTabs
+            value={metric}
+            options={[
+              { label: "Number", value: "count" },
+              { label: "Amount", value: "amount" },
+            ]}
+            onChange={(val) => setMetric(val as ChartMetric)}
+            ariaLabel="measure selection"
+          />
+        </div>
+        )}
+
         {/* Sub-tabs (Summary / Services / Sources / Insights) portal into here,
             so they share this row and sit on the right. On desktop the slot keeps
             its natural width (flex-shrink:0) so the tabs never clip; on mobile it
@@ -213,13 +251,13 @@ const LeadsOverviewToggle = ({
         />
       )}
       {periodRange.mode === "monthly" && periodRange.start && periodRange.end && (
-        <Monthly month={periodRange.start} endDate={periodRange.end} key={`monthly-${refreshTrigger}`} />
+        <Monthly month={periodRange.start} endDate={periodRange.end} key={`monthly-${refreshTrigger}`} metric={metric} />
       )}
       {periodRange.mode === "yearly" && periodRange.start && periodRange.end && (
-        <Yearly startDate={periodRange.start} endDate={periodRange.end} key={`yearly-${refreshTrigger}`} />
+        <Yearly startDate={periodRange.start} endDate={periodRange.end} key={`yearly-${refreshTrigger}`} metric={metric} />
       )}
       {periodRange.mode === "allyear" && (
-        <AllTime key={`alltime-${refreshTrigger}`} />
+        <AllTime key={`alltime-${refreshTrigger}`} metric={metric} />
       )}
       {periodRange.mode === "custom" ? (
         customStartDate && customEndDate ? (
