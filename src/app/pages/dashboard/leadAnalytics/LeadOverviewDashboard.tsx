@@ -139,6 +139,19 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
     () => applyMetric(subcategoryData || [], metric),
     [subcategoryData, metric]
   );
+  const sourceByMetric = useMemo(() => applyMetric(sourceData, metric), [sourceData, metric]);
+  const referralByMetric = useMemo(
+    () => applyMetric(referralSourceData, metric),
+    [referralSourceData, metric]
+  );
+  const directByMetric = useMemo(
+    () => applyMetric(directSourceData, metric),
+    [directSourceData, metric]
+  );
+  const cancellationByMetric = useMemo(
+    () => applyMetric(cancellationReasonData, metric),
+    [cancellationReasonData, metric]
+  );
 
   const showStatus = settings?.showLeadsStatusChart;
   const showService = settings?.showLeadsByServiceChart;
@@ -241,12 +254,22 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
           />
           <AnalyticsCard
             title="Cancellation Reasons"
-            subtitle="Ranked by volume"
+            subtitle={isAmount ? "Ranked by lost value · count in tooltip" : "Ranked by volume"}
             index={0}
-            isEmpty={isEmpty(cancellationReasonData)}
-            emptyHint="No cancelled leads in this period."
+            isEmpty={isEmpty(cancellationByMetric)}
+            emptyHint={
+              isAmount
+                ? "No value attached to cancelled leads in this period."
+                : "No cancelled leads in this period."
+            }
           >
-            <RankedBarChart data={cancellationReasonData} onSelect={onCancellationReasonSelect} valueLabel title="Cancellation Reasons" />
+            <RankedBarChart
+              data={cancellationByMetric}
+              onSelect={onCancellationReasonSelect}
+              valueLabel
+              title="Cancellation Reasons"
+              metric={metric}
+            />
           </AnalyticsCard>
         </>
       )}
@@ -259,22 +282,40 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
       <div className="row g-3">
         {showSource && (
           <div className="col-12 col-lg-4">
-            <AnalyticsCard title="By Source" index={0} isEmpty={isEmpty(sourceData)} emptyHint="No source data.">
-              <AcquisitionGauge data={sourceData} onSelect={onSourceSelect} limit={8} height={260} />
+            <AnalyticsCard
+              title="By Source"
+              subtitle={isAmount ? "By lead value" : undefined}
+              index={0}
+              isEmpty={isEmpty(sourceByMetric)}
+              emptyHint="No source data."
+            >
+              <AcquisitionGauge data={sourceByMetric} onSelect={onSourceSelect} limit={8} height={260} metric={metric} />
             </AnalyticsCard>
           </div>
         )}
         {showReferral && (
           <div className="col-12 col-lg-4">
-            <AnalyticsCard title="By Referral Source" index={1} isEmpty={isEmpty(referralSourceData)} emptyHint="No referral data.">
-              <AcquisitionGauge data={referralSourceData} onSelect={onReferralSelect} limit={8} height={260} />
+            <AnalyticsCard
+              title="By Referral Source"
+              subtitle={isAmount ? "By lead value" : undefined}
+              index={1}
+              isEmpty={isEmpty(referralByMetric)}
+              emptyHint="No referral data."
+            >
+              <AcquisitionGauge data={referralByMetric} onSelect={onReferralSelect} limit={8} height={260} metric={metric} />
             </AnalyticsCard>
           </div>
         )}
         {showDirect && (
           <div className="col-12 col-lg-4">
-            <AnalyticsCard title="By Direct Source" index={2} isEmpty={isEmpty(directSourceData)} emptyHint="No direct-source data.">
-              <AcquisitionGauge data={directSourceData} onSelect={onDirectSelect} limit={8} height={260} />
+            <AnalyticsCard
+              title="By Direct Source"
+              subtitle={isAmount ? "By lead value" : undefined}
+              index={2}
+              isEmpty={isEmpty(directByMetric)}
+              emptyHint="No direct-source data."
+            >
+              <AcquisitionGauge data={directByMetric} onSelect={onDirectSelect} limit={8} height={260} metric={metric} />
             </AnalyticsCard>
           </div>
         )}

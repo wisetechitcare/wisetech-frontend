@@ -478,7 +478,7 @@ const Yearly = ({ startDate, endDate, metric = "count" }: Props) => {
             cancellationApiRes?.data || [],
             "value",
             "name",
-            ""
+            "budget"
           ),
         });
       } catch (error) {
@@ -608,7 +608,7 @@ const Yearly = ({ startDate, endDate, metric = "count" }: Props) => {
   );
 
   const clientAnalysisSlot = settings?.showLeadsByCompanyType ? (
-    <ClientAnalysisSection startDate={startDates} endDate={endDates} />
+    <ClientAnalysisSection startDate={startDates} endDate={endDates} metric={metric} />
   ) : null;
 
   const geographySlot = settings?.showLeadsByLocation ? (
