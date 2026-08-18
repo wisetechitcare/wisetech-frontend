@@ -551,7 +551,7 @@ const ProjectOverview = () => {
                   metric={metric}
                 />
               ) : null,
-            teams: <ProjectTeamsSection startDate={startDate} endDate={endDate} />,
+            teams: <ProjectTeamsSection startDate={startDate} endDate={endDate} metric={metric} />,
           }}
         />
       </div>

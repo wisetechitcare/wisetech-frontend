@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import ReactECharts from "echarts-for-react";
-import { ChartDatum, buildPalette, toRanked } from "./leadAnalyticsUtils";
+import { formatCurrencyCompact } from "@utils/currency";
+import { ChartDatum, ChartMetric, buildPalette, toRanked } from "./leadAnalyticsUtils";
 
 interface AcquisitionGaugeProps {
   data: ChartDatum[];
@@ -10,6 +11,10 @@ interface AcquisitionGaugeProps {
   /** Show ₹ revenue (totalCost) in the tooltip. */
   showRevenue?: boolean;
   height?: number;
+  /** Whether the plotted `value` is a count or money. Default: 'count'. */
+  metric?: ChartMetric;
+  /** Noun for the counted thing in tooltips — "Leads", "Projects". */
+  entityLabel?: string;
 }
 
 const formatINR = (n: number) =>
@@ -28,7 +33,10 @@ const AcquisitionGauge: React.FC<AcquisitionGaugeProps> = ({
   limit,
   showRevenue = false,
   height = 260,
+  metric = "count",
+  entityLabel = "Leads",
 }) => {
+  const isAmount = metric === "amount";
   const ranked = useMemo(() => toRanked(data, limit), [data, limit]);
 
   const total = useMemo(() => ranked.reduce((s, r) => s + (r.value || 0), 0), [ranked]);
@@ -41,6 +49,7 @@ const AcquisitionGauge: React.FC<AcquisitionGaugeProps> = ({
       // carry extras for the tooltip
       share: r.share,
       totalCost: r.totalCost,
+      volumeValue: r.volumeValue,
       itemStyle: { color: r.color || palette[i] },
     }));
 
@@ -54,8 +63,17 @@ const AcquisitionGauge: React.FC<AcquisitionGaugeProps> = ({
         backgroundColor: "rgba(15,23,42,0.92)",
         textStyle: { color: "#fff", fontFamily: "Inter, sans-serif" },
         formatter: (p: any) => {
+          // In amount mode the plotted value IS the money — lead with the formatted
+          // amount and keep the count (preserved as volumeValue) as the second line.
+          if (isAmount) {
+            const count =
+              p.data?.volumeValue !== undefined ? `<br/>${p.data.volumeValue} ${entityLabel}` : "";
+            return `<strong>${p.name}</strong><br/>${formatINR(p.value)} · ${
+              p.data?.share ?? p.percent
+            }%${count}`;
+          }
           const rev = showRevenue && p.data?.totalCost ? `<br/>${formatINR(p.data.totalCost)}` : "";
-          return `<strong>${p.name}</strong><br/>${p.value} Leads · ${p.data?.share ?? p.percent}%${rev}`;
+          return `<strong>${p.name}</strong><br/>${p.value} ${entityLabel} · ${p.data?.share ?? p.percent}%${rev}`;
         },
       },
       legend: {
@@ -76,13 +94,14 @@ const AcquisitionGauge: React.FC<AcquisitionGaugeProps> = ({
           left: "center",
           top: "55%",
           style: {
-            text: String(total),
+            // Compact ₹ (Cr / L) — a full 12-digit budget would run past the bowl.
+            text: isAmount ? formatCurrencyCompact(total) : String(total),
             textAlign: "center",
             textVerticalAlign: "middle",
             fill: "#0F172A",
             fontFamily: "Inter, sans-serif",
             fontWeight: 800,
-            fontSize: 26,
+            fontSize: isAmount ? 22 : 26,
           },
         },
         {
@@ -90,7 +109,7 @@ const AcquisitionGauge: React.FC<AcquisitionGaugeProps> = ({
           left: "center",
           top: "66%",
           style: {
-            text: "Total Leads",
+            text: isAmount ? "Total Value" : `Total ${entityLabel}`,
             textAlign: "center",
             textVerticalAlign: "middle",
             fill: "#94A3B8",
@@ -134,7 +153,7 @@ const AcquisitionGauge: React.FC<AcquisitionGaugeProps> = ({
       animationDuration: 800,
       animationEasing: "cubicOut",
     };
-  }, [ranked, total, showRevenue]);
+  }, [ranked, total, showRevenue, isAmount, entityLabel]);
 
   const onEvents = useMemo(
     () => ({

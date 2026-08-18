@@ -535,7 +535,7 @@ const Monthly = ({ month, endDate, metric = "count" }: Props) => {
               cancellationRes?.data || [],
               "value",
               "name",
-              ""
+              "budget"
             ),
           });
       } catch (error) {
@@ -671,7 +671,7 @@ const Monthly = ({ month, endDate, metric = "count" }: Props) => {
   );
 
   const clientAnalysisSlot = settings?.showLeadsByCompanyType ? (
-    <ClientAnalysisSection startDate={startDate} endDate={endDates} />
+    <ClientAnalysisSection startDate={startDate} endDate={endDates} metric={metric} />
   ) : null;
 
   const geographySlot = settings?.showLeadsByLocation ? (

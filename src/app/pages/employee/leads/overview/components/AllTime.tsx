@@ -374,7 +374,7 @@ const AllTime = ({ metric = "count" }: { metric?: ChartMetric }) => {
             "name",
             "budget"
           ),
-          cancellationReasonData: convertToChartData(cancellationApiRes?.data || [], "value", "name", ""),
+          cancellationReasonData: convertToChartData(cancellationApiRes?.data || [], "value", "name", "budget"),
           topLeadsData: transformTopLeadsDataAdvanced(monthlyTopLeadsApiRes?.data || [], {
             groupBy: filters.topLeadsType,
             status: filters.topLeadsStatus,
@@ -508,7 +508,7 @@ const AllTime = ({ metric = "count" }: { metric?: ChartMetric }) => {
           slots={{
             summary: <MonthlyLeadsTrend startDate="2000-01-01" endDate="2099-12-31" />,
             sources: settings?.showLeadsByCompanyType ? (
-              <ClientAnalysisSection startDate="2000-01-01" endDate="2099-12-31" />
+              <ClientAnalysisSection startDate="2000-01-01" endDate="2099-12-31" metric={metric} />
             ) : null,
             geography: settings?.showLeadsByLocation ? (
               <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
