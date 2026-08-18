@@ -1,7 +1,6 @@
 import {FC} from 'react'
 import clsx from 'clsx'
-import {Link} from 'react-router-dom'
-import {useLocation} from 'react-router'
+import {Link, useLocation} from 'react-router-dom'
 import {checkIsActive, WithChildren} from '../../../helpers'
 import {useLayout} from '../../core'
 import {usePinnedMenu} from '../../core/PinnedMenuContext'

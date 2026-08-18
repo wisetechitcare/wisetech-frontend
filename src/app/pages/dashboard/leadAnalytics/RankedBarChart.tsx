@@ -2,7 +2,8 @@ import React, { useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import ReactECharts from "echarts-for-react";
 import { useIsMobile } from "@components/navigation/BottomNavigation/useIsMobile";
-import { ChartDatum, buildPalette, toRanked } from "./leadAnalyticsUtils";
+import { formatCurrencyCompact } from "@utils/currency";
+import { ChartDatum, ChartMetric, buildPalette, toRanked } from "./leadAnalyticsUtils";
 
 interface RankedBarChartProps {
   data: ChartDatum[];
@@ -20,6 +21,10 @@ interface RankedBarChartProps {
   valueLabel?: boolean;
   /** Shown in the fullscreen header so the chart keeps its context. */
   title?: string;
+  /** Whether the plotted `value` is a count or money. Default: 'count'. */
+  metric?: ChartMetric;
+  /** Noun for the counted thing in tooltips — "Leads", "Projects". */
+  entityLabel?: string;
 }
 
 const formatINR = (n: number) =>
@@ -44,7 +49,12 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
   lean = false,
   valueLabel = false,
   title,
+  metric = "count",
+  entityLabel = "Leads",
 }) => {
+  // Bar labels sit inline next to the bar, so a full 12-digit budget would run
+  // off the plot — compact ₹ (Cr / L) keeps them readable.
+  const showValue = (n: number) => (metric === "amount" ? formatCurrencyCompact(n) : String(n));
   const [isFull, setIsFull] = useState(false);
   const [sortBy, setSortBy] = useState<"volume" | "name">("volume");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -106,7 +116,13 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
           const row = rows[p.dataIndex];
           const volume = row?.volumeValue !== undefined ? row.volumeValue : row?.value;
           const rev = showRevenue && row?.totalCost ? `<br/>${formatINR(row.totalCost)}` : "";
-          const volumeText = row?.volumeValue !== undefined ? `${volume} Leads · ` : "";
+          // In amount mode the plotted value IS the money, so lead it with the
+          // formatted amount and keep the count as the secondary line.
+          if (metric === "amount") {
+            const countText = row?.volumeValue !== undefined ? `<br/>${volume} ${entityLabel}` : "";
+            return `<strong>${row?.label}</strong><br/>${showValue(row?.value ?? 0)} · ${row?.share}%${countText}`;
+          }
+          const volumeText = row?.volumeValue !== undefined ? `${volume} ${entityLabel} · ` : "";
           return `<strong>${row?.label}</strong><br/>${volumeText}${row?.share}%${rev}`;
         },
       },
@@ -140,7 +156,7 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
             position: "right",
             formatter: (p: any) => {
               const row = rows[p.dataIndex];
-              return valueLabel ? `${row.share}% (${row.value})` : `${row.share}%`;
+              return valueLabel ? `${row.share}% (${showValue(row.value)})` : `${row.share}%`;
             },
             color: "#64748B",
             fontFamily: "Inter, sans-serif",
@@ -158,7 +174,7 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
   const inlineOption = useMemo(
     () => makeOption(rankedAll.slice(0, cap)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rankedAll, cap, showRevenue, barColor, lean, valueLabel, sortBy, sortDir]
+    [rankedAll, cap, showRevenue, barColor, lean, valueLabel, sortBy, sortDir, metric, entityLabel]
   );
 
   const onEvents = useMemo(

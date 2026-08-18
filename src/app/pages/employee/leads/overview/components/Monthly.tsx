@@ -33,6 +33,7 @@ import MonthlyLeadsChart from "./charts/MonthlyLeadsChart";
 import MonthlyLeadsTrend from "./MonthlyLeadsTrend";
 import {
   LeadOverviewDashboard,
+  ChartMetric,
   AnalyticsCard,
   AnalyticsHeader,
   RankedBarChart,
@@ -42,9 +43,11 @@ import {
 interface Props {
   month: dayjs.Dayjs;
   endDate: dayjs.Dayjs;
+  /** Plot lead count or lead value. Owned by LeadsOverviewToggle. */
+  metric?: ChartMetric;
 }
 
-const Monthly = ({ month, endDate }: Props) => {
+const Monthly = ({ month, endDate, metric = "count" }: Props) => {
   const [chartData, setChartData] = useState<any>({
     statusData: [],
     serviceData: [],
@@ -683,6 +686,7 @@ const Monthly = ({ month, endDate }: Props) => {
         data={locationRes || []}
         startDate={month || undefined}
         endDate={endDate || undefined}
+        metric={metric}
       />
     </section>
   ) : null;
@@ -690,6 +694,7 @@ const Monthly = ({ month, endDate }: Props) => {
   return (
     <div className="">
       <LeadOverviewDashboard
+        metric={metric}
         statusData={chartData.statusData}
         serviceData={chartData.serviceData}
         categoryData={chartData.categoryData}
