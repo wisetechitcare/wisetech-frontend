@@ -44,6 +44,7 @@ import {
   fetchApprovalWorkflowConfigs,
 } from "@services/employee";
 import { fetchCompanyOverview } from "@services/company";
+import { takeConversion, clearConversion, linkConvertedEmployee } from "@services/recruitment";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
 
@@ -1013,6 +1014,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   // Discard the restored draft and reset the create form back to blank.
   const discardDraft = () => {
     clearDraft();
+    clearConversion();
     setDefaultState(initialState);
     formikRef.current?.resetForm({ values: initialState });
     setShowDraftNotice(false);
@@ -1511,6 +1513,16 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         }
 
         await saveEmployeeData(values, savedEmployeeId);
+
+        // Close the recruitment loop: if this onboarding started from a hired
+        // application, write the new employee id back onto it. Best-effort — the
+        // employee already exists, so a failed link must never fail the onboarding.
+        const convertedFromApplicationId = takeConversion();
+        if (convertedFromApplicationId) {
+          try { await linkConvertedEmployee(convertedFromApplicationId, savedEmployeeId); }
+          catch (linkError) { console.error("Failed to link application to new employee:", linkError); }
+        }
+
         successConfirmation("Successfully onboarded an employee");
         clearDraft();
         stepper?.goto(1);

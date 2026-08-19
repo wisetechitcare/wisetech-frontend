@@ -151,6 +151,7 @@ export interface Application {
     ruleScore?: number | string | null; aiScore?: number | string | null; aiRecommendation?: string | null;
     rejectionReasonId?: string | null; rejectionReason?: RejectionReason | null; rejectionNote?: string | null;
     coverLetter?: string | null; appliedDate?: string | null; lastStageChangeAt?: string | null; hiredDate?: string | null;
+    convertedEmployeeId?: string | null;
     isActive: boolean; revisionCount: number; createdAt: string;
 }
 
@@ -194,6 +195,45 @@ export const moveApplicationStage = async (id: string, payload: StageMovePayload
 
 export const archiveApplication = async (id: string) => {
     const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.ARCHIVE_APPLICATION.replace(":id", id)}`);
+    return data;
+};
+
+// ─── Convert-to-employee hand-off ────────────────────────────────────────────
+// PipelineView stashes the application id, then opens the New Employee wizard;
+// on a successful create the wizard consumes the stash and links the two records
+// so `convertedEmployeeId` is actually written. Timestamped, because an abandoned
+// conversion must never attach a later, unrelated employee to the application.
+const CONVERT_KEY = "recruitment-convert-application-id";
+const CONVERT_TTL_MS = 30 * 60_000;
+
+export const stashConversion = (applicationId: string) => {
+    try {
+        sessionStorage.setItem(CONVERT_KEY, JSON.stringify({ applicationId, ts: Date.now() }));
+    } catch { /* quota — the back-link is best-effort, never block the conversion */ }
+};
+
+/** Reads AND clears the stash, so one conversion can only ever link once. */
+export const takeConversion = (): string | null => {
+    try {
+        const raw = sessionStorage.getItem(CONVERT_KEY);
+        sessionStorage.removeItem(CONVERT_KEY);
+        if (!raw) return null;
+        const { applicationId, ts } = JSON.parse(raw) ?? {};
+        if (!applicationId || typeof ts !== "number" || Date.now() - ts > CONVERT_TTL_MS) return null;
+        return String(applicationId);
+    } catch { return null; }
+};
+
+export const clearConversion = () => {
+    try { sessionStorage.removeItem(CONVERT_KEY); } catch { /* ignore */ }
+};
+
+/** Back-link a newly created employee to the application it came from. */
+export const linkConvertedEmployee = async (applicationId: string, employeeId: string) => {
+    const { data } = await axios.patch(
+        `${API_BASE_URL}/${RECRUITMENT.UPDATE_APPLICATION_SECTION.replace(":id", applicationId)}`,
+        { convertedEmployeeId: employeeId },
+    );
     return data;
 };
 

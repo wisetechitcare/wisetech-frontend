@@ -11,6 +11,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { getRequisitions, type JobRequisition } from "@services/recruitment";
 import {
     getApplications, createApplication, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
+    stashConversion,
     type Application, type ApplicationStatus, type ApplicationCreatePayload,
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
@@ -138,6 +139,9 @@ const PipelineView = () => {
         } catch {
             /* storage quota — proceed with a blank wizard */
         }
+        // Remember WHICH application this is, so the wizard can write convertedEmployeeId
+        // back on a successful create — otherwise the hire is never linked to its candidate.
+        stashConversion(a.id);
         toast({ icon: "info", title: "Opening onboarding with the candidate's details prefilled" });
         navigate("/employees/create-new");
     };
@@ -239,9 +243,13 @@ const PipelineView = () => {
                                             Offer
                                         </WtButton>
                                         {a.status?.isHiredOutcome && (
-                                            <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
-                                                Convert
-                                            </WtButton>
+                                            a.convertedEmployeeId ? (
+                                                <ToneChip tone="success" label="Converted" dense />
+                                            ) : (
+                                                <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
+                                                    Convert
+                                                </WtButton>
+                                            )
                                         )}
                                     </Stack>
                                 </TableCell>
