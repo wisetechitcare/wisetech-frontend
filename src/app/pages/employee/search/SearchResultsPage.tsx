@@ -196,7 +196,7 @@ const SearchResultsPage: React.FC = () => {
             ) : (
               <div className="text-center py-20">
                 <KTIcon iconName="search" className="fs-3x text-muted mb-5" />
-                <h4 className="fw-bold">No results found</h4>
+                <h4 className="fw-bold">No Results Found</h4>
                 <p className="text-muted">
                   Try adjusting your search or filters to find what you're
                   looking for.

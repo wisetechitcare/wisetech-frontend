@@ -1,11 +1,13 @@
 
 import clsx from 'clsx'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { isWorkspacePath, WORKSPACE_ROOT } from '@components/workspace/appSlug'
 import { useLayout } from '../../core'
 import { useSidebarCollapse } from '../../core/SidebarCollapseContext'
 import { HeaderToolbar } from './HeaderToolbar'
 import { KTIcon } from '@metronic/helpers'
 import { useIsMobile } from '@components/navigation/BottomNavigation/useIsMobile'
+import { useNavTransform } from '@/contexts/NavTransformContext'
 
 // Compact WiseTech mark (favicon) shown when the sidebar is collapsed.
 const WtSquareLogo = () => (
@@ -23,7 +25,19 @@ export function HeaderWrapper() {
   const splashLogo = 'https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2'
   const { classes, attributes } = useLayout()
   const { collapsed, toggle } = useSidebarCollapse()
+  const { enabled: navTransformed } = useNavTransform()
   const isMobile = useIsMobile()
+  // Inside the workspace shell the logo returns to the launcher rather than to '/', which
+  // redirects to /home or /dashboard and would drop the user out of the shell entirely.
+  // Derived from the pathname, not from the shell context: this header renders in
+  // MasterLayout, ABOVE the shell provider, so it cannot consume it — and a pure predicate
+  // keeps the dependency one-way (the header imports a function, not the feature).
+  const { pathname } = useLocation()
+  const inWorkspace = isWorkspacePath(pathname)
+  const brandTo = inWorkspace ? WORKSPACE_ROOT : '/'
+  const brandTitle = inWorkspace
+    ? 'All applications'
+    : (navTransformed ? 'Back to navigation' : 'WiseTech')
 
   return (
     <div
@@ -50,12 +64,18 @@ export function HeaderWrapper() {
           </div>
         )}
 
-        <Link to='/' className='wt-brand-link d-none d-lg-flex'>
+        {/* With Transform on there is no sidebar, so this is the way back to the
+            navigation containers — `/` already redirects to /dashboard. */}
+        <Link
+          to={brandTo}
+          className='wt-brand-link d-none d-lg-flex'
+          title={brandTitle}
+        >
           <img
             alt='WiseTech'
             src={splashLogo}
             className='wt-logo-full'
-            title='WiseTech'
+            title={brandTitle}
           />
           <WtSquareLogo />
         </Link>

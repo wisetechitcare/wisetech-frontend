@@ -13,6 +13,7 @@ export const AUTH = {
 // (wisetech-backend/src/constants/api-endpoint.ts RECRUITMENT).
 export const RECRUITMENT = {
     // Requisitions (Phase 1)
+    GET_OVERVIEW: "api/recruitment/overview",
     CREATE_REQUISITION: "api/recruitment/requisitions",
     GET_ALL_REQUISITIONS: "api/recruitment/requisitions",
     GET_REQUISITION_BY_ID: "api/recruitment/requisitions/:id",
@@ -78,6 +79,7 @@ export const COMPANY = {
     CREATE_DESIGNATION: "api/company/designations",
     GET_ALL_DESIGNATION: "api/company/designations",
     UPDATE_DESIGNATION_BY_ID: "api/company/designations/:designationId",
+    ARCHIVE_DESIGNATION_BY_ID: (id: string) => `api/company/designations/${id}`,
     CREATE_BRANCHES: "api/company/branches",
     GET_ALL_BRANCHES: "api/company/branches",
     GET_BRANCH_BY_ID: "api/company/branch/:branchId",
@@ -87,6 +89,7 @@ export const COMPANY = {
     GET_ALL_DEPARTMENTS: "api/company/departments",
     GET_DEPARTMENT_BY_ID: "api/company/department/:departmentId",
     UPDATE_DEPARTMENT_BY_ID: "api/company/department/:departmentId",
+    ARCHIVE_DEPARTMENT_BY_ID: (id: string) => `api/company/departments/${id}`,
     CREATE_PUBLIC_HOLIDAYS: "api/company/public-holidays",
     DELETE_PUBLIC_HOLIDAY_BY_ID: "api/company/public-holiday",
     UPDATE_PUBLIC_HOLIDAY_BY_ID: "api/company/public-holiday",
@@ -96,6 +99,7 @@ export const COMPANY = {
     GET_ALL_PUBLIC_HOLIDAYS_BY_COMPANY: "api/company/public-holidays-all",
     GET_ALL_HOLIDAYS: "api/company/holidays",
     CREATE_HOLIDAY: "api/company/holiday",
+    GENERATE_HOLIDAYS_FOR_YEAR: "api/company/holidays/generate-year",
     GET_LOGO: "api/company/logo",
     CREATE_OVERVIEW: "api/company/overview",
     GET_OVERVIEW: "api/company/overview",
@@ -111,6 +115,11 @@ export const COMPANY = {
     POST_FAQ: "api/company/faq",
     UPDATE_FAQ_BY_ID: "api/company/faq/:faqId",
     DELETE_FAQ: "api/company/faq/",
+    GET_FAQ_CATEGORIES: "api/company/faq-categories",
+    POST_FAQ_CATEGORY: "api/company/faq-category",
+    UPDATE_FAQ_CATEGORY_BY_ID: "api/company/faq-category/:categoryId",
+    DELETE_FAQ_CATEGORY: "api/company/faq-category/:categoryId",
+    REORDER_FAQ_CATEGORIES: "api/company/faq-categories/reorder",
 
     POST_CONFIGURATION: "api/feature/config",
     GET_ANNOUNCEMENT_BY_ID: "api/company/announcement",
@@ -131,6 +140,7 @@ export const COMPANY = {
     CREATE_SALARY_HISTORY: "api/company/salary-history",
     GET_SALARY_HISTORY: "api/company/salary-history",
     UPDATE_SALARY_HISTORY: "api/company/salary-history",
+    DELETE_SALARY_HISTORY: "api/company/salary-history",
 
     GET_ALL_SUB_COMPANIES: 'api/lead-project-companies/sub-companies',
     GET_SUB_COMPANY_BY_ID: 'api/lead-project-companies/sub-companies/:id',
@@ -166,6 +176,8 @@ export const EMPLOYEE = {
     UPDATE_EDUCATIONAL_DETAILS_BY_ID: "api/employee/educational-details",
     GET_QUALIFICATION_MASTER: "api/employee/qualification-master",
     CREATE_QUALIFICATION_MASTER: "api/employee/qualification-master",
+    UPDATE_QUALIFICATION_MASTER: (id: string) => `api/employee/qualification-master/${id}`,
+    DELETE_QUALIFICATION_MASTER: (id: string) => `api/employee/qualification-master/${id}`,
     CREATE_REJOIN_HISTORY: "api/employee/rejoin-history",
     FETCH_REJOIN_HISTORY: "api/employee/rejoin-history?employeeId=",
     UPDATE_REJOIN_HISTORY_BY_ID: "api/employee/rejoin-history",
@@ -180,6 +192,11 @@ export const EMPLOYEE = {
     UPDATE_DOCUMENTS_DETAILS_BY_ID: "api/employee/documents-details",
     UPDATE_ONBOARDING_DOCUMENT_DETAILS_BY_ID: "api/employee/onboarding-documents",
     GET_DOCUMENTS_DETAILS: "api/employee/documents-details",
+    GET_DOCUMENTS_DIRECTORY: "api/employee/documents/directory",
+    GET_DOCUMENT_VAULT: "api/employee/documents/vault",
+    GET_EMPLOYEE_ID_CARD: "api/employee/id-card",
+    GET_DOCUMENT_ARCHIVE: "api/employee/documents/vault",
+    GET_DOCUMENT_FILE: "api/employee/documents/vault",
     GET_ATTENDANCE_BY_EMP_ID: "api/employee/attendance",
     GET_ALL_ATTENDANCE: "api/employee/attendance/all",
     CREATE_EMPLOYEE_ATTENDANCE: "api/employee/attendance",
@@ -204,6 +221,7 @@ export const EMPLOYEE = {
     UPDATE_LEAVE_OPTION_BY_ID: "api/company/leave-option",
     EMPLOYEE_ATTENDANCE_STATISTICS: "api/employee/attendance/stats",
     EMPLOYEE_ATTENDANCE_CLASSIFICATION: "api/employee/attendance/classification",
+    EMPLOYEE_ATTENDANCE_CLASSIFICATION_BATCH: "api/employee/attendance/classification/batch",
     GET_REIMBURSEMENT: "api/employee/reimbursement",
     CREATE_REIMBURSEMENT: "api/employee/reimbursement",
     EMPLOYEE_ATTENDANCE_RECORDS: "api/employee/attendance/records",
@@ -224,7 +242,6 @@ export const EMPLOYEE = {
     GET_REIMBURSEMENT_PAYMENTS: "api/employee/reimbursement/payment",
     DELETE_REIMBURSEMENT_PAYMENT: "api/employee/reimbursement/payment",
     UPDATE_REIMBURSEMENT_PAYMENT: "api/employee/reimbursement/payment",
-    CREATE_ADVANCE_REIMBURSEMENT_PAYMENT: "api/employee/reimbursement/advance-payment",
     GET_EMPLOYEE_DISCRETIONARY_BALANCE: "api/employee/discretionary-balance/:id",
     EMAIL_ATTENDANCE_REQUEST_LIMIT_RESET: "api/employee/email/attendance-request-limit-reset",
     GET_ATTENDANCE_REQUEST_LIMIT_RESET_REQUESTS: "api/employee/attendance-request-limit-reset/requests",
@@ -343,7 +360,8 @@ export const CALENDAR = {
 }
 
 export const FILE = {
-    UPLOAD: "api/files/upload"
+    UPLOAD: "api/files/upload",
+    LEAD_PO: "api/files/lead-po"
 }
 
 export const OPTIONS = {
@@ -360,8 +378,14 @@ export const OPTIONS = {
     UPDATE_TOWN_BY_ID: 'api/options/towns',
     CREATE_WORKING_METHODS: "api/options/working-methods",
     GET_WORKING_METHODS: "api/options/working-methods",
+    CREATE_WORKING_METHOD: "api/options/working-method",
+    UPDATE_WORKING_METHOD: (id: string) => `api/options/working-methods/${id}`,
+    DELETE_WORKING_METHOD: (id: string) => `api/options/working-methods/${id}`,
     CREATE_SOURCE_OF_HIRE: "api/options/source-of-hire",
     GET_SOURCE_OF_HIRE: "api/options/source-of-hire",
+    CREATE_SOURCE_OF_HIRE_ONE: "api/options/source-of-hire/one",
+    UPDATE_SOURCE_OF_HIRE: "api/options/source-of-hire",
+    DELETE_SOURCE_OF_HIRE: "api/options/source-of-hire",
     CREATE_EMPLOYEE_STATUS: "api/options/employee-status",
     GET_EMPLOYEE_STATUS: "api/options/employee-status",
     CREATE_EMPLOYEE_TYPES: "api/options/employee-types",
@@ -680,6 +704,31 @@ export const SANDWICH_RULE = {
     REORDER: "api/sandwich-rules/reorder",
     PREVIEW: "api/sandwich-rules/preview",
     AUDIT_LOG: "api/sandwich-rules/:id/audit",
+};
+
+export const DEDUCTION_RULE = {
+    LIST: "api/deduction-rules",
+    CREATE: "api/deduction-rules",
+    UPDATE: "api/deduction-rules/:id",
+    DELETE: "api/deduction-rules/:id",
+    REORDER: "api/deduction-rules/reorder",
+    PREVIEW: "api/deduction-rules/preview",
+    EFFECTIVE: "api/deduction-rules/effective",
+};
+
+export const WORK_CALENDAR = {
+    LIST: "api/work-calendars",
+    CREATE: "api/work-calendars",
+    GET: "api/work-calendars/:id",
+    UPDATE: "api/work-calendars/:id",
+    DEACTIVATE: "api/work-calendars/:id",
+    REPLACE_RULES: "api/work-calendars/:id/rules",
+    LIST_EXCEPTIONS: "api/work-calendars/exceptions",
+    CREATE_EXCEPTION: "api/work-calendars/exceptions",
+    UPDATE_EXCEPTION: "api/work-calendars/exceptions/:id",
+    DELETE_EXCEPTION: "api/work-calendars/exceptions/:id",
+    BULK_GENERATE: "api/work-calendars/exceptions/bulk-generate",
+    PREVIEW_IMPACT: "api/work-calendars/preview-impact",
 };
 
 export const SUBCOMPANY_SERVICES = {

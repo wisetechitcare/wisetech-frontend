@@ -1,6 +1,6 @@
 import { fetchAllEmployees, fetchLeaveRequest } from "@services/employee";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
-import { useEffect, useState, lazy, Suspense, useCallback } from "react";
+import { useEffect, useState, lazy, Suspense, useCallback, useMemo } from "react";
 import { RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import { usePermission } from "@hooks/usePermission";
@@ -10,6 +10,7 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { getWeekDay } from "@utils/date";
 import { LEAVE_STATUS, LeaveStatus } from "@constants/attendance";
 import Overview from "./views/overview/Overview";
+import PeriodFilter, { PeriodRange } from "@app/modules/common/components/PeriodFilter";
 import { Bar } from "@app/modules/common/components/Graphs";
 import {
   barDailyData,
@@ -30,7 +31,18 @@ import Loader from "@app/modules/common/utils/Loader";
 import { ErrorState } from "@app/modules/common/components/ui/tw";
 
 import DailyAttendance from "./views/overview/DailyAttendance";
+import { countWorkingDays, isMultiDay } from "@utils/periodRange";
+import { filterActiveEmployees } from "@utils/activeEmployee";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
+import { formatWorkedMinutes, parseHoursMinutes } from "./views/overview/attendancePeriodSummary";
+import { safeJsonParse } from "@utils/safeJson";
 // Lazy load heavy components
+// Weekly/monthly Attendance rolls up to one row per employee (see the component's
+// docblock) — lazily loaded because a Daily session never renders it.
+const PeriodAttendanceSummary = lazy(
+  () => import("./views/overview/PeriodAttendanceSummary"),
+);
 const OpenAttendanceRequests = lazy(
   () => import("./views/overview/OpenAttendanceRequests"),
 );
@@ -142,7 +154,16 @@ export const transformLeaveRequests = (
 function OverviewView() {
   const { filterIds } = useTeamFilter();
   const dispatch = useDispatch();
-  const [date, setDate] = useState(dayjs()); // Centralized date state
+  const [date, setDate] = useState(dayjs()); // Anchor day — drives the Daily Attendance table + daily stats.
+  // Selected period (Daily / Weekly / Monthly) — drives the stat cards. Daily is the
+  // default so the table and stats stay in lock-step exactly as before; weekly/monthly
+  // aggregate the stats over the range while the table stays on the anchor day.
+  const [statsRange, setStatsRange] = useState<PeriodRange | null>(null);
+  const handleRangeChange = useCallback((range: PeriodRange) => {
+    setStatsRange(range);
+    // In daily mode, keep the table + daily stats following the chosen day.
+    if (range.mode === "daily" && range.start) setDate(range.start);
+  }, []);
   const employeesPresentAttendance = useSelector(
     (state: RootState) => state.attendance.employeesAttendance,
   );
@@ -150,8 +171,11 @@ function OverviewView() {
     const { attendanceStats } = state;
     return attendanceStats.daily;
   });
-  const [users, setUsers] = useState([]);
-  const [usersName, setUsersName] = useState([]);
+  // Both are lists of display names feeding the Working Time chart. Previously untyped —
+  // `useState([])` infers `never[]`, which only compiled because an `any` was assigned
+  // into it; now that the roster is typed, they need their real type.
+  const [users, setUsers] = useState<string[]>([]);
+  const [usersName, setUsersName] = useState<string[]>([]);
   const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
   const [isConfigLoading, setIsConfigLoading] = useState(true);
   const [initError, setInitError] = useState(false);
@@ -197,8 +221,10 @@ function OverviewView() {
           ),
         );
 
-        // Process employees
-        const allFetched = employeesRes.data.employees;
+        // Process employees. Inactive staff are excluded FIRST, so the Working Time
+        // chart's axis carries the same people the stat cards count — a leaver used to
+        // sit in the chart forever as a permanent 0h bar.
+        const allFetched = filterActiveEmployees(employeesRes.data.employees || []);
         const employees = filterIds
           ? allFetched.filter((e: any) => filterIds.includes(e.id))
           : allFetched;
@@ -248,9 +274,43 @@ function OverviewView() {
     initializeData();
   }, [dispatch, reloadKey]);
 
+  // Realtime for the page's OWN data (the Redux leave-request store and the roster
+  // feeding the Working Time chart). It was a mount-only fetch, so these went stale the
+  // moment anyone acted anywhere — the reason the page needed a full reload. Reuses the
+  // existing reloadKey rather than a second fetch path, so there is one way to refresh.
+  const reloadPageData = useCallback(() => setReloadKey((k) => k + 1), []);
+  useEventBus(EVENT_KEYS.leaveRequestUpdated, reloadPageData);
+  useEventBus(EVENT_KEYS.attendanceRequestUpdated, reloadPageData);
+
   const barOptions = usersName;
   const barSeriesData = Array.from(
     barDailyData(employeesPresentAttendance, users).values(),
+  );
+
+  // ── Period wiring ───────────────────────────────────────────────────────────
+  // Daily keeps every section exactly as it was. Multi-day switches the Attendance
+  // table to the per-employee rollup and rescales the Working Time targets; the two
+  // request tables filter server-side and take the range directly.
+  const isPeriodView = isMultiDay(statsRange);
+  const weekends = useSelector((state: RootState) =>
+    safeJsonParse(state?.employee?.currentEmployee?.branches?.workingAndOffDays),
+  );
+  const workingDaysInPeriod = useMemo(
+    () => countWorkingDays(statsRange, weekends),
+    [statsRange, weekends],
+  );
+
+  // Declared here, above the loading/error early returns — a hook after a conditional
+  // return changes hook order between renders (react-hooks/rules-of-hooks).
+  const periodWorkedMinutes = useMemo(
+    () =>
+      isPeriodView
+        ? (employeesPresentAttendance || []).reduce(
+            (sum: number, row: any) => sum + (row?.durationMinutes ?? 0),
+            0,
+          )
+        : 0,
+    [isPeriodView, employeesPresentAttendance],
   );
 
   const userRoles = ["HR", "Manager", "Director"];
@@ -258,15 +318,6 @@ function OverviewView() {
   const sickLeaves = ["HR", "Manager"];
   const floaterLeaves = ["HR", "Manager", "Director"];
   const annualLeaves = ["HR", "Manager", "Director"];
-
-  // Date navigation handlers
-  const incrementDate = useCallback(() => {
-    setDate((prevDate) => prevDate.add(1, "day"));
-  }, []);
-
-  const decrementDate = useCallback(() => {
-    setDate((prevDate) => prevDate.subtract(1, "day"));
-  }, []);
 
   // Show loader while configuration is loading
   if (isConfigLoading) {
@@ -286,36 +337,35 @@ function OverviewView() {
     );
   }
 
-  // Calculate total working time and allowed time
-  const totalWorkingTime = calculateTotalDuration(dailyStats[0]);
+  // Calculate total working time and allowed time.
+  // Over a period both must scale: the worked figure is summed from the period's rows
+  // (PeriodAttendanceSummary publishes them to the same slice the daily table uses), and
+  // the target is the daily target times the working days in the window — otherwise a
+  // month of work is compared against a single day's target and the bar pins at 100%.
+  const totalWorkingTime = isPeriodView
+    ? formatWorkedMinutes(periodWorkedMinutes)
+    : calculateTotalDuration(dailyStats[0]);
 
-  const totalAllowedTime = `${totalWorkingHours}`;
+  const totalAllowedTime = isPeriodView
+    ? formatWorkedMinutes(parseHoursMinutes(totalWorkingHours) * workingDaysInPeriod)
+    : `${totalWorkingHours}`;
 
   return (
     <>
-      <div className="sticky-overview-header d-flex flex-row justify-content-between align-items-center mb-4">
+      <div className="sticky-overview-header d-flex flex-row justify-content-between align-items-center flex-wrap gap-3 mb-4">
         <h3 className="fw-bold fs-1 mb-0 font-barlow">Overview</h3>
-        {/* Date navigation */}
-        <div>
-          <button className="btn btn-sm px-0" onClick={decrementDate}>
-            <img
-              src={toAbsoluteUrl("media/svg/misc/back.svg")}
-              alt="Previous day"
-            />
-          </button>
-          <span className="mx-1 my-1 fw-semibold">
-            {date.format("DD MMM, YYYY")}
-          </span>
-          <button className="btn btn-sm px-0" onClick={incrementDate}>
-            <img
-              src={toAbsoluteUrl("media/svg/misc/next.svg")}
-              alt="Next day"
-            />
-          </button>
-        </div>
+        {/* Period filter (Daily / Weekly / Monthly) with day+date label in daily mode.
+            Yearly / All-Time are future scope, so they're hidden via allowedModes. */}
+        <PeriodFilter
+          allowedModes={["daily", "weekly", "monthly"]}
+          initialMode="daily"
+          dailyLabelFormat="dddd, D MMMM YYYY"
+          storageKey="attendance:overview:period"
+          onChange={handleRangeChange}
+        />
       </div>
 
-      <Overview date={date} />
+      <Overview date={date} range={statsRange} />
 
       <div className="mt-10"></div>
       <Bar
@@ -326,9 +376,16 @@ function OverviewView() {
         totalAllowedTime={totalAllowedTime}
       />
 
+      {/* Daily keeps the familiar one-row-per-employee day view; a week or month rolls
+          up to one row per employee with a day-by-day drill-in, because the same table
+          over a month is ~4,600 rows and answers nothing at a glance. */}
       <LazySection minHeight="400px" rootMargin="300px">
         <Suspense fallback={<Loader />}>
-          <DailyAttendance date={date} />
+          {isPeriodView && statsRange ? (
+            <PeriodAttendanceSummary range={statsRange} />
+          ) : (
+            <DailyAttendance date={date} />
+          )}
         </Suspense>
       </LazySection>
 
@@ -344,15 +401,17 @@ function OverviewView() {
         </Suspense>
       </LazySection>
 
+      {/* Both filter SERVER-side (?startDate&endDate) — they are paginated, so trimming
+          a page in the browser would leave the totals lying and later pages unfiltered. */}
       <LazySection minHeight="400px" rootMargin="300px">
         <Suspense fallback={<Loader />}>
-          <OpenAttendanceRequests />
+          <OpenAttendanceRequests range={statsRange} activeOnly />
         </Suspense>
       </LazySection>
 
       <LazySection minHeight="400px" rootMargin="300px">
         <Suspense fallback={<Loader />}>
-          <AllLeaveRequest />
+          <AllLeaveRequest range={statsRange} activeOnly />
         </Suspense>
       </LazySection>
     </>

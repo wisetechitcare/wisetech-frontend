@@ -2,6 +2,21 @@ export const LEAVE_MANAGEMENT = 'leave management';
 /** When false, on-site check-ins are never marked late */
 export const ENFORCE_ONSITE_DEADLINE_KEY = 'Enforce Onsite Deadline';
 export const GRACE_TIME_ON_SITE_KEY = 'Grace Time - On Site';
+/**
+ * Master policy switch inside the leave-management config (Attendance Settings →
+ * "On-site, Holiday & Weekend Settings for late attendance"). Stored as "1" / "0".
+ * When "1", NO late mark is given for on-site, holiday or weekend check-ins — it
+ * outranks ENFORCE_ONSITE_DEADLINE_KEY and the company shift+grace rule.
+ * Must match backend services/utils/onsiteGraceResolver.ts.
+ * NOTE: distinct from ON_SITE_HOLIDAY_WEEKEND_KEY below, which is the camelCase
+ * form field name, not the stored config key.
+ */
+export const ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY =
+  'On-site, Holiday & Weekend Settings for late attendance';
+/** No late mark the day after a work day that ran past LATE_NIGHT_WAIVER_TIME_KEY.
+ *  Must match backend utils/lateNightWaiver.ts. */
+export const LATE_NIGHT_WAIVER_KEY = 'Late Night Waiver';
+export const LATE_NIGHT_WAIVER_TIME_KEY = 'Late Night Waiver Time';
 export const GROSS_PAY = 'grossPay';
 export const DEDUCTIONS = 'deductions';
 export const EXCLUDE_FROM_LATE_ATTENDANCE = 'excludeFromLateAttendance';

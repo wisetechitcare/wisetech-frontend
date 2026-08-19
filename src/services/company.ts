@@ -117,6 +117,27 @@ export const createHoliday = async (payload: IHoliday) => {
     }
 }
 
+/**
+ * Pre-fills one year's schedule from the master list's recurrence rules.
+ * Safe to call repeatedly — holidays already dated in that year are left untouched.
+ * Resolves to { created, skipped, needsDate, invalid }.
+ */
+export const generateHolidaysForYear = async (payload: {
+    year: number;
+    companyId: string;
+    observedIn?: string;
+    branchId?: string | null;
+}) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.GENERATE_HOLIDAYS_FOR_YEAR}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const fetchHolidays = async (companyId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_HOLIDAYS}?companyId=${companyId}`;
@@ -328,6 +349,22 @@ export const updateDepartmentById = async (departmentId: string, payload: ICompa
     }
 }
 
+/**
+ * Retires a department. The route is an ARCHIVE (it flips isActive), not a row delete —
+ * employees reference departmentId, so removing the row would strip the department off
+ * their records. Retired departments drop out of the pickers.
+ */
+export const archiveDepartmentById = async (departmentId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.ARCHIVE_DEPARTMENT_BY_ID(departmentId)}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const fetchConfiguration = async (
     module: string,
     startDate?: string,
@@ -412,64 +449,82 @@ export const fetchEmployeeLPCChartSettings = async (employeeId: string) => {
     }
 }
 
-export const fetchAllFaqs = async (companyId: string, type?: string) => {
-    try {
-        let endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_FAQS}?companyId=${companyId}`;
-        if (type) {
-            endpoint += `&type=${type}`;
-        }
-        const { data } = await axios.get(endpoint);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
+/**
+ * FAQ transport. The API always answers with the full `{ sections }` shape —
+ * every section present, empty ones included — so callers never branch on
+ * "did this section come back".
+ *
+ * `companyId` is optional on every call: the backend derives the tenant from
+ * the session and only honours an explicit id when it names a sub-org the
+ * caller already belongs to. Passing it is a narrowing hint, never a
+ * requirement, so no screen needs to fetch the company overview first.
+ */
+export const fetchAllFaqs = async (companyId?: string, type?: string) => {
+    const params = new URLSearchParams();
+    if (companyId) params.set('companyId', companyId);
+    if (type) params.set('type', type);
+    const query = params.toString();
+    const { data } = await axios.get(`${API_BASE_URL}/${COMPANY.GET_ALL_FAQS}${query ? `?${query}` : ''}`);
+    return data;
 }
 
-export const createNewFaq = async (faq: IFaqs | { question: string; answer: string; type: string; companyId: string }, type?: string) => {
-    try {
-        let endpoint = `${API_BASE_URL}/${COMPANY.POST_FAQ}`;
-        // Support old pattern with type as query param
-        if (type) {
-            endpoint += `?type=${type}`;
-        }
-        const { data } = await axios.post(endpoint, faq);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
+/**
+ * Create a FAQ. The section is identified by `categoryId`; `type` (the section
+ * slug) is still accepted as a legacy alias, and the server resolves whichever
+ * is present against that tenant's own sections. One of the two is required.
+ */
+export const createNewFaq = async (
+    faq: IFaqs | { question: string; answer: string; companyId?: string } & ({ categoryId: string } | { type: string }),
+) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${COMPANY.POST_FAQ}`, faq);
+    return data;
 }
 
-export const updateFaqById = async (faqId: string, payload: IFaqs | { question: string; answer: string }, type?: string) => {
-    try {
-        // Support both patterns: with :faqId param and with ?id= query param
-        let endpoint = `${API_BASE_URL}/${COMPANY.UPDATE_FAQ_BY_ID}`;
-        if (endpoint.includes(':faqId')) {
-            endpoint = endpoint.replace(':faqId', faqId);
-        } else {
-            endpoint += `?id=${faqId}`;
-        }
-        if (type) {
-            endpoint += endpoint.includes('?') ? `&type=${type}` : `?type=${type}`;
-        }
-        const { data } = await axios.put(endpoint, payload);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
+export const updateFaqById = async (faqId: string, payload: { question?: string; answer?: string }) => {
+    const endpoint = `${API_BASE_URL}/${COMPANY.UPDATE_FAQ_BY_ID}`.replace(':faqId', encodeURIComponent(faqId));
+    const { data } = await axios.put(endpoint, payload);
+    return data;
 }
 
 export const deleteFaqById = async (faqId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${COMPANY.DELETE_FAQ}${faqId}`;
-        const { data } = await axios.delete(endpoint);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
+    const { data } = await axios.delete(`${API_BASE_URL}/${COMPANY.DELETE_FAQ}${encodeURIComponent(faqId)}`);
+    return data;
+}
+
+/**
+ * FAQ sections (categories) — admin-managed, so the section list is data rather
+ * than a constant. Deleting a non-empty section answers 409 with the blocking
+ * count; the caller surfaces that rather than treating it as a generic failure.
+ */
+export const fetchFaqCategories = async (includeInactive = false) => {
+    const query = includeInactive ? '?includeInactive=true' : '';
+    const { data } = await axios.get(`${API_BASE_URL}/${COMPANY.GET_FAQ_CATEGORIES}${query}`);
+    return data;
+}
+
+export const createFaqCategory = async (payload: { name: string; icon?: string | null; tone?: string | null; description?: string | null }) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${COMPANY.POST_FAQ_CATEGORY}`, payload);
+    return data;
+}
+
+export const updateFaqCategoryById = async (
+    categoryId: string,
+    payload: { name?: string; icon?: string | null; tone?: string | null; description?: string | null; isActive?: boolean },
+) => {
+    const endpoint = `${API_BASE_URL}/${COMPANY.UPDATE_FAQ_CATEGORY_BY_ID}`.replace(':categoryId', encodeURIComponent(categoryId));
+    const { data } = await axios.put(endpoint, payload);
+    return data;
+}
+
+export const deleteFaqCategoryById = async (categoryId: string) => {
+    const endpoint = `${API_BASE_URL}/${COMPANY.DELETE_FAQ_CATEGORY}`.replace(':categoryId', encodeURIComponent(categoryId));
+    const { data } = await axios.delete(endpoint);
+    return data;
+}
+
+export const reorderFaqCategories = async (orderedIds: string[]) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${COMPANY.REORDER_FAQ_CATEGORIES}`, { orderedIds });
+    return data;
 }
 
 export const getAllAnnouncements = async (scope?: 'me') => {
@@ -670,6 +725,16 @@ export const updateSalaryHistory = async (id: string, payload: { employeeId?: st
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.UPDATE_SALARY_HISTORY}/${id}`;
         const { data } = await axios.put(endpoint, payload);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const deleteSalaryHistory = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.DELETE_SALARY_HISTORY}/${id}`;
+        const { data } = await axios.delete(endpoint);
         return data;
     } catch (error) {
         throw error;

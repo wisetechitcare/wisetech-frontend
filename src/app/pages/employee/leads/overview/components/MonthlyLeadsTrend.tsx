@@ -17,6 +17,17 @@ import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/Ye
 const toStr = (d?: string | Dayjs) =>
   d ? (dayjs.isDayjs(d) ? d.format("YYYY-MM-DD") : dayjs(d).format("YYYY-MM-DD")) : "";
 
+/**
+ * Widest window this chart will plot. All Time passes 2000-01-01 → 2099-12-31,
+ * which is ~1200 month buckets: the API materialises every one of them and the
+ * stacked chart then tries to render 1200 categories, which locks the browser's
+ * main thread ("Page Unresponsive"). A trend of 1200 months is unreadable anyway.
+ * The Project Overview already clamps its own trend for exactly this reason; the
+ * clamp lives here so all three callers (All Time / Monthly / Yearly) inherit it.
+ */
+const TREND_MAX_MONTHS = 24;
+const TREND_FALLBACK_MONTHS = 12;
+
 const MonthlyLeadsTrend = ({
   startDate,
   endDate,
@@ -25,8 +36,19 @@ const MonthlyLeadsTrend = ({
   endDate?: string | Dayjs;
 }) => {
   const [data, setData] = useState<any[]>([]);
-  const startStr = toStr(startDate);
-  const endStr = toStr(endDate);
+  const rawStart = toStr(startDate);
+  const rawEnd = toStr(endDate);
+
+  const isWide =
+    !!rawStart && !!rawEnd && dayjs(rawEnd).diff(dayjs(rawStart), "month") > TREND_MAX_MONTHS;
+
+  // Clamp to the trailing 12 months. Anchor on today rather than the range end —
+  // All Time ends in 2099, and a window of empty future months would render blank.
+  const anchorEnd = rawEnd && dayjs(rawEnd).isAfter(dayjs()) ? dayjs() : dayjs(rawEnd);
+  const startStr = isWide
+    ? anchorEnd.startOf("month").subtract(TREND_FALLBACK_MONTHS - 1, "month").format("YYYY-MM-DD")
+    : rawStart;
+  const endStr = isWide ? anchorEnd.endOf("month").format("YYYY-MM-DD") : rawEnd;
 
   useEffect(() => {
     if (!startStr || !endStr) return;
@@ -46,7 +68,9 @@ const MonthlyLeadsTrend = ({
   return (
     <YearlyStatusCountChart
       data={data}
-      title="Monthly Leads Trend"
+      // Say the window out loud when clamped, so a narrower chart than the
+      // selected period doesn't look like missing data.
+      title={isWide ? `Monthly Leads Trend (last ${TREND_FALLBACK_MONTHS} months)` : "Monthly Leads Trend"}
       height={400}
       stacked
       isThisBelongsToLead

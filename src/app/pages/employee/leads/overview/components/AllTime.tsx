@@ -30,6 +30,7 @@ import { ChartDialogModal } from "./ChartDialogModal";
 import MonthlyLeadsTrend from "./MonthlyLeadsTrend";
 import {
   LeadOverviewDashboard,
+  ChartMetric,
   AnalyticsCard,
   AnalyticsHeader,
   RankedBarChart,
@@ -42,7 +43,7 @@ import {
  * proven dashboard structure as Monthly and Yearly.
  */
 
-const AllTime = () => {
+const AllTime = ({ metric = "count" }: { metric?: ChartMetric }) => {
   const [chartData, setChartData] = useState<any>({
     statusData: [],
     serviceData: [],
@@ -373,7 +374,7 @@ const AllTime = () => {
             "name",
             "budget"
           ),
-          cancellationReasonData: convertToChartData(cancellationApiRes?.data || [], "value", "name", ""),
+          cancellationReasonData: convertToChartData(cancellationApiRes?.data || [], "value", "name", "budget"),
           topLeadsData: transformTopLeadsDataAdvanced(monthlyTopLeadsApiRes?.data || [], {
             groupBy: filters.topLeadsType,
             status: filters.topLeadsStatus,
@@ -485,6 +486,7 @@ const AllTime = () => {
 
 
         <LeadOverviewDashboard
+          metric={metric}
           statusData={chartData.statusData}
           serviceData={chartData.serviceData}
           categoryData={chartData.categoryData}
@@ -506,7 +508,7 @@ const AllTime = () => {
           slots={{
             summary: <MonthlyLeadsTrend startDate="2000-01-01" endDate="2099-12-31" />,
             sources: settings?.showLeadsByCompanyType ? (
-              <ClientAnalysisSection startDate="2000-01-01" endDate="2099-12-31" />
+              <ClientAnalysisSection startDate="2000-01-01" endDate="2099-12-31" metric={metric} />
             ) : null,
             geography: settings?.showLeadsByLocation ? (
               <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -516,7 +518,7 @@ const AllTime = () => {
                   icon="bi-geo-alt"
                   accent="#14B8A6"
                 />
-                <LeadByLocationAndStatus data={locationRes?.data || []} />
+                <LeadByLocationAndStatus data={locationRes?.data || []} metric={metric} />
               </section>
             ) : null,
           }}

@@ -8,7 +8,10 @@
  * value) and explicitly Accept (apply the device value) or Reject (keep the app
  * value). Live-updates via the attendanceSyncConflict socket bridge.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@redux/store';
+import { activeEmployeeIdSet } from '@utils/activeEmployee';
 import { KTIcon } from '@metronic/helpers';
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
 import { GlassCard, WtButton, StatusBadge, IconBox, Spinner, TRIO } from '@app/modules/common/components/ui/tw';
@@ -32,15 +35,28 @@ const fmt = (iso: string) => dayjs(iso).tz(MUMBAI_TZ).format('DD MMM YYYY, hh:mm
 const fmtDay = (iso: string) => dayjs(iso).tz(MUMBAI_TZ).format('DD MMM YYYY');
 
 function AttendanceSyncConflicts() {
-  const [conflicts, setConflicts] = useState<IAttendanceSyncConflict[]>([]);
+  const [rawConflicts, setRawConflicts] = useState<IAttendanceSyncConflict[]>([]);
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const allEmployees = useSelector((state: RootState) => state.allEmployees?.list);
+
+  /**
+   * Conflicts carry an employeeId but no active flag, so the roster in Redux decides
+   * visibility — a leaver's unresolved biometric conflict would otherwise sit in this
+   * queue forever asking an admin to adjudicate someone who has left. An empty roster
+   * means it hasn't loaded yet; show everything rather than an empty section.
+   */
+  const conflicts = useMemo(() => {
+    const activeIds = activeEmployeeIdSet((allEmployees || []) as any);
+    if (!activeIds.size) return rawConflicts;
+    return rawConflicts.filter((c) => !c.employeeId || activeIds.has(c.employeeId));
+  }, [rawConflicts, allEmployees]);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       const data = await fetchAttendanceConflicts();
-      setConflicts(data);
+      setRawConflicts(data);
     } catch (err) {
       console.error('Failed to load attendance sync conflicts', err);
     } finally {
@@ -57,7 +73,7 @@ function AttendanceSyncConflicts() {
       setProcessingId(id);
       const { message } = await resolveAttendanceConflict(id, action);
       successConfirmation(message || `Conflict ${action}ed`);
-      setConflicts(prev => prev.filter(c => c.id !== id));
+      setRawConflicts(prev => prev.filter(c => c.id !== id));
     } catch (err: any) {
       console.error(`Failed to ${action} conflict`, err);
       errorConfirmation(err?.response?.data?.message || `Failed to ${action} the conflict. Try again.`);

@@ -6,11 +6,11 @@ import { Attendance } from "@models/employee";
 import { Employee } from "@redux/slices/employee";
 import { saveTotalEmployeeCount } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
-import { fetchAllEmployees, fetchEmployeesOnLeaveToday } from "@services/employee";
+import { fetchAllEmployees, fetchEmployeesOnLeaveToday, fetchEmployeesOnLeaveRange } from "@services/employee";
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import {
     Card,
@@ -33,7 +33,8 @@ import {
     Typography,
 } from "@mui/material";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchEmpsAttendance } from "./DailyAttendance";
+import { fetchEmpsAttendance, fetchEmpsAttendanceRange } from "./DailyAttendance";
+import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import { fetchConfiguration } from "@services/company";
 import { getUserTablePreferences, upsertUserTablePreferences } from "@services/users";
@@ -41,183 +42,70 @@ import { isCheckOutMissing } from "@app/modules/common/components/attendanceDura
 import ReorderableGroup from "@app/modules/common/components/ReorderableGroup";
 import { pressableProps } from "@app/modules/common/components/ui/a11y";
 import "./OverviewStatsGrid.css";
+import { ToneChip } from '@app/modules/common/components/ui';
+import type { SemanticTone } from '@app/theme/tokens';
+import { DATE_FORMATS, formatDateLong } from '@utils/dateFormats';
+import { filterActiveEmployees } from '@utils/activeEmployee';
+import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
+import {
+    EmployeeStatGrid,
+    EmployeeStatGroupView,
+    StatEmptyState,
+    type EmployeeStatItem,
+} from '@app/modules/common/components/EmployeeStatGrid';
+import type { EmployeeStatGroup } from '@app/modules/common/components/employeeStatGrouping';
 
-type SortOption = 'name-asc' | 'name-desc' | 'checkin-asc' | 'checkin-desc' | 'none';
-
-// Custom Modal Component
-interface CustomModalProps {
-    show: boolean;
-    onHide: () => void;
-    title: string;
-    children: React.ReactNode;
-    size?: 'sm' | 'lg' | 'xl';
-    searchQuery?: string;
-    onSearchChange?: (value: string) => void;
-    sortOption?: SortOption;
-    onSortChange?: (value: SortOption) => void;
-}
-
-const CustomModal: React.FC<CustomModalProps> = ({
-    show,
-    onHide,
-    title,
-    children,
-    size = 'lg',
-    searchQuery = '',
-    onSearchChange,
-    sortOption = 'none',
-    onSortChange
-}) => {
-    const [sortAnchor, setSortAnchor] = useState<null | HTMLElement>(null);
-    const sortMenuOpen = Boolean(sortAnchor);
-
-    const getSortLabel = () => {
-        switch (sortOption) {
-            case 'name-asc': return 'Name (A-Z)';
-            case 'name-desc': return 'Name (Z-A)';
-            case 'checkin-asc': return 'Check-in (Earliest)';
-            case 'checkin-desc': return 'Check-in (Latest)';
-            default: return 'Sort By';
-        }
-    };
-
-    const handleSort = (option: SortOption) => {
-        onSortChange?.(option);
-        setSortAnchor(null);
-    };
-
-    // Map the old react-bootstrap modal sizes to MUI Dialog maxWidth breakpoints.
-    const maxWidthMap = { sm: 'sm', lg: 'md', xl: 'lg' } as const;
-
-    return (
-        <Dialog
-            open={show}
-            onClose={onHide}
-            maxWidth={maxWidthMap[size]}
-            fullWidth
-            scroll="paper"
-            PaperProps={{ sx: { borderRadius: 2 } }}
-        >
-            <DialogTitle sx={{ pb: 1 }}>
-                <Box
-                    sx={{
-                        display: 'flex',
-                        flexDirection: { xs: 'column', md: 'row' },
-                        alignItems: { xs: 'stretch', md: 'center' },
-                        justifyContent: 'space-between',
-                        gap: 2,
-                    }}
-                >
-                    <Typography component="span" sx={{ fontWeight: 700, fontSize: '1.35rem', flexShrink: 0 }}>
-                        {title}
-                    </Typography>
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                            width: { xs: '100%', md: 'auto' },
-                            minWidth: { md: 250 },
-                            maxWidth: { md: 500 },
-                            flexGrow: { xs: 1, md: 0 },
-                        }}
-                    >
-                        {onSortChange && (
-                            <>
-                                <Button
-                                    size="small"
-                                    variant="contained"
-                                    onClick={(e) => setSortAnchor(e.currentTarget)}
-                                    startIcon={<i className="bi bi-filter" />}
-                                    sx={{
-                                        bgcolor: '#1E3A8A',
-                                        '&:hover': { bgcolor: '#152a63' },
-                                        color: 'white',
-                                        textTransform: 'none',
-                                        whiteSpace: 'nowrap',
-                                        height: 35,
-                                        flexShrink: 0,
-                                    }}
-                                >
-                                    {getSortLabel()}
-                                </Button>
-                                <Menu anchorEl={sortAnchor} open={sortMenuOpen} onClose={() => setSortAnchor(null)}>
-                                    <MenuItem onClick={() => handleSort('name-asc')}>
-                                        <i className="bi bi-sort-alpha-down me-2" />
-                                        Name (A-Z)
-                                    </MenuItem>
-                                    <MenuItem onClick={() => handleSort('name-desc')}>
-                                        <i className="bi bi-sort-alpha-up me-2" />
-                                        Name (Z-A)
-                                    </MenuItem>
-                                    <Divider />
-                                    <MenuItem onClick={() => handleSort('checkin-asc')}>
-                                        <i className="bi bi-clock me-2" />
-                                        Check-in (Earliest)
-                                    </MenuItem>
-                                    <MenuItem onClick={() => handleSort('checkin-desc')}>
-                                        <i className="bi bi-clock-fill me-2" />
-                                        Check-in (Latest)
-                                    </MenuItem>
-                                    {sortOption !== 'none' && [
-                                        <Divider key="clear-divider" />,
-                                        <MenuItem key="clear" onClick={() => handleSort('none')}>
-                                            <i className="bi bi-x-circle me-2" />
-                                            Clear Sort
-                                        </MenuItem>,
-                                    ]}
-                                </Menu>
-                            </>
-                        )}
-                        {onSearchChange && (
-                            <TextField
-                                size="small"
-                                fullWidth
-                                type="text"
-                                placeholder="Search by name..."
-                                value={searchQuery}
-                                onChange={(e) => onSearchChange(e.target.value)}
-                                InputProps={{
-                                    endAdornment: searchQuery ? (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => onSearchChange('')}
-                                                title="Clear search"
-                                                sx={{ color: '#1E3A8A' }}
-                                            >
-                                                <i className="bi bi-x-lg" style={{ fontSize: 14 }} />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    ) : undefined,
-                                }}
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        '& fieldset': { borderColor: '#1E3A8A' },
-                                        '&:hover fieldset': { borderColor: '#1E3A8A' },
-                                        '&.Mui-focused fieldset': { borderColor: '#1E3A8A' },
-                                    },
-                                }}
-                            />
-                        )}
-                        <IconButton
-                            onClick={onHide}
-                            aria-label="close"
-                            sx={{ flexShrink: 0, color: (t) => t.palette.grey[600] }}
-                        >
-                            <i className="bi bi-x-lg" />
-                        </IconButton>
-                    </Box>
-                </Box>
-            </DialogTitle>
-            <DialogContent dividers>
-                {children}
-            </DialogContent>
-        </Dialog>
-    );
-};
+// Sort/search/close modal shell and the employee card grid are shared with the
+// Dashboard daily overview — see the two components above, not a local copy.
+type SortOption = StatSortOption;
 
 type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | 'checkoutMissing' | null;
+
+// Count-badge colour per category, mirroring the stat-card accents so a modal reads as
+// the same object the user clicked rather than a generic list.
+const MODAL_TONE: Record<Exclude<ModalType, null>, SemanticTone> = {
+    working: 'success',
+    leave: 'warning',
+    late: 'danger',
+    early: 'cyan',
+    extra: 'indigo',
+    absent: 'danger',
+    checkoutMissing: 'warning',
+};
+
+// Weekly/monthly rolls up to one card per employee, so "who does this most" leads.
+// Check-in ordering works there too — occurrences carry a `time`, which a group reduces
+// to its earliest/latest, so "who started offending first" is answerable.
+const GROUPED_SORT_OPTIONS: StatSortOption[] = [
+    'count-desc',
+    'count-asc',
+    'name-asc',
+    'name-desc',
+    'checkin-asc',
+    'checkin-desc',
+];
+// Daily lists rows directly — one row is already one employee, so there is nothing to
+// total and "most days first" would rank a column of 1s.
+const FLAT_SORT_OPTIONS: StatSortOption[] = ['name-asc', 'name-desc', 'checkin-asc', 'checkin-desc'];
+
+/** Employee id behind a leave record — the API nests it differently per endpoint. */
+const leaveEmployeeId = (rec: any): string | null =>
+    rec?.employee?.id || rec?.employeeId || rec?.employee?._id || null;
+
+/**
+ * Stat cards count PEOPLE, not rows. Over a week or a month the underlying lists are
+ * person-days, so `rows.length` answered "how many records" ("747 Absent") under a
+ * label that promises employees. Counting distinct employees also makes every card
+ * reconcile exactly with its modal, which renders one card per employee.
+ */
+function countDistinct<T>(rows: readonly T[], idOf: (row: T) => string | null | undefined): number {
+    const ids = new Set<string>();
+    for (const row of rows) {
+        const id = idOf(row);
+        if (id) ids.add(id);
+    }
+    return ids.size;
+}
 
 type StatCardAccent =
     | 'working'
@@ -260,10 +148,17 @@ interface EmployeeWithAttendance {
 }
 
 interface OverviewProps {
-    date: any; // dayjs object
+    date: any; // dayjs object — anchor day (daily stats + table)
+    // Selected period from the Overview PeriodFilter. When mode is weekly/monthly the
+    // stat cards aggregate over [start, end]; daily (or null) keeps the single-day
+    // behaviour. Optional so existing callers stay backward compatible.
+    range?: import("@app/modules/common/components/PeriodFilter").PeriodRange | null;
 }
 
-function Overview({ date }: OverviewProps) {
+function Overview({ date, range }: OverviewProps) {
+    // Weekly/monthly stats load a date range instead of a single day; daily (or no
+    // range) keeps the original single-day path untouched.
+    const useRange = !!(range && range.mode !== "daily" && range.start && range.end);
     const { filterIds } = useTeamFilter();
     const dispatch = useDispatch();
     const [isLoading, setIsLoading] = useState(true);
@@ -271,8 +166,15 @@ function Overview({ date }: OverviewProps) {
 
     const [employeesOnLeave, setEmployeesOnLeave] = useState<any[]>([]);
     const [employesLeaveDatas, setEmployesLeaveDatas] = useState<any[]>([]);//employesLeaveData
+    // Approved leaves overlapping the selected week/month (range mode only) — used to
+    // expand On-Leave / Absent into per-day stats. Empty in daily mode.
+    const [rangeLeaveRecords, setRangeLeaveRecords] = useState<any[]>([]);
     const [attendance, setAttendance] = useState<Attendance[]>([]);
     const [showModal, setShowModal] = useState<ModalType>(null);
+    // Weekly/monthly drill-in: which grouped employee is open. Only the key + name are
+    // held — the group itself is re-resolved from live data on every render, so a
+    // realtime attendance refresh can never leave a stale snapshot on screen.
+    const [drill, setDrill] = useState<{ key: string; name: string } | null>(null);
     const [allEmployees, setAllEmployees] = useState<EmployeeWithAttendance[]>([]);
     const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState<string>('');
@@ -330,15 +232,11 @@ function Overview({ date }: OverviewProps) {
         }
     };
 
-    const { employeePresent, totalEmployee } = useSelector((state: RootState) => ({
-        employeePresent: state.attendance.employeesAttendance?.length || 0,
-        totalEmployee: state.attendance.totalEmployee || 0,
-    }));
-    // console.log("employeePresent ====================================>",employeePresent, totalEmployee )
-
-    const employeesPresentAttendance = useSelector((state: RootState) =>
-        state.attendance.employeesAttendance || []
-    );
+    // Roster size only. The "present" figure deliberately does NOT come from the shared
+    // attendance slice — that list is the Daily Attendance table's, which folds leave
+    // rows in as pseudo-attendance. Every card on this page counts off `presentRows`
+    // below, from this component's own fetch, so they cannot disagree with each other.
+    const totalEmployee = useSelector((state: RootState) => state.attendance.totalEmployee || 0);
 
     // All these calculations are date-specific because they depend on state
     // updated by useEffect with date dependency (line 803)
@@ -429,8 +327,16 @@ function Overview({ date }: OverviewProps) {
     )?.get(EXTRA_DAYS) || 0;
 
     // Calculate late check-in count: employees who checked in after (shift check-in time + grace time)
-    const lateCheckInsCount = attendance.filter(att => {
+    const lateRows = attendance.filter(att => {
         if (!att.checkIn) return false;
+        // THE SERVER'S VERDICT decides when present. It runs the same ladder payroll and
+        // KPI use, against this employee's OWN branch calendar — which the derivation
+        // below cannot see. Everything after this line is a fallback for responses that
+        // predate the verdict annotator, and can be deleted once those are gone.
+        const serverVerdict = (att as any).lateMark as { isLate: boolean } | undefined;
+        if (serverVerdict) return serverVerdict.isLate;
+        // Late-night waiver (server verdict, same rule payroll applies) — never late.
+        if ((att as any).lateWaived) return false;
 
         const attendanceDate = new Date(att.checkIn);
 
@@ -444,8 +350,10 @@ function Overview({ date }: OverviewProps) {
         const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
         const isOnSite = workingMethod?.includes("onsite");
 
-        // If on-site settings is ON, skip on-site employees from late check-in
-        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+        // Master switch — all THREE legs (on-site, holiday, weekend), matching the backend
+        // ladder. It used to test only `isOnSite`, so this card reported late check-ins on
+        // the very days `extraRows` below was counting as Extra Days.
+        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
         const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
         const graceTime = parseGraceTime(graceTimeStr);
 
@@ -462,18 +370,20 @@ function Overview({ date }: OverviewProps) {
 
         // Return true if checked in after expected time (shift time + grace time)
         return actualCheckIn.isAfter(expectedCheckIn);
-    }).length;
+    });
+    const lateCheckInsCount = countDistinct(lateRows, (a) => a.employeeId);
 
     // Calculate early check-out count: employees who checked out before shift check-out time
-    const earlyCheckOutsCount = attendance.filter(att => {
+    const earlyRows = attendance.filter(att => {
         if (!att.checkOut) return false;
 
         const attendanceDate = new Date(att.checkOut);
 
-        // If on-site settings is ON, skip on-site employees from early check-out
+        // Master switch — all three legs, same as `lateRows`. A weekend/holiday check-out
+        // is not an early check-out; there is no shift to be early against.
         const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
         const isOnSite = workingMethod?.includes("onsite");
-        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
 
         // Get shift for this date
         const shift = getShiftForDate(attendanceDate);
@@ -491,18 +401,174 @@ function Overview({ date }: OverviewProps) {
 
         // Return true if checked out before expected time
         return actualCheckOut.isBefore(expectedCheckOut);
-    }).length;
-
-    // Calculate absent count.
-    // employeesOnLeave from the API is a NUMBER (count), not an array — using .length on it gives
-    // undefined which silently makes on-leave employees appear as absent.
-    // Use employesLeaveDatas (the ARRAY of leave detail objects) for the correct count.
-    const absentCount = Math.max(0, (totalEmployee || 0) - (employesLeaveDatas?.length || 0) - (employeePresent || 0));
+    });
+    const earlyCheckOutsCount = countDistinct(earlyRows, (a) => a.employeeId);
 
     const hasCheckInNoCheckOut = (att: Attendance) =>
         Boolean(att.checkIn) && isCheckOutMissing(att.checkOut);
 
-    const checkoutMissingCount = attendance.filter(hasCheckInNoCheckOut).length;
+    const missingRows = attendance.filter(hasCheckInNoCheckOut);
+    const checkoutMissingCount = countDistinct(missingRows, (a) => a.employeeId);
+
+    // Roster index for the joins below. rowToEntry runs once per attendance row, so a
+    // linear find() per row makes the range paths O(rows × roster) on EVERY render —
+    // a month is ~2k rows against a ~120-person roster, and the modal re-renders on
+    // every keystroke in its search box. One Map turns each join into O(1).
+    const employeesById = useMemo(() => {
+        const index = new Map<string, EmployeeWithAttendance>();
+        for (const emp of allEmployees) if (emp?._id) index.set(emp._id, emp);
+        return index;
+    }, [allEmployees]);
+
+    // Holiday dates as a lookup set. The extra-day filter previously re-formatted every
+    // holiday for every attendance row — O(rows × holidays) dayjs parses per render.
+    const holidayDateKeys = useMemo(() => {
+        const keys = new Set<string>();
+        for (const h of (allHolidays || []) as any[]) {
+            const d = dayjs(h?.date);
+            if (d.isValid()) keys.add(d.format(DATE_FORMATS.WIRE));
+        }
+        return keys;
+    }, [allHolidays]);
+
+    // One entry per attendance row (person-day) — the modal lists these so its
+    // count matches the card. Employee identity is joined from the roster.
+    const rowToEntry = (att: any) => ({
+        ...(employeesById.get(att.employeeId) || {}),
+        _id: att.employeeId,
+        attendance: att,
+    }) as EmployeeWithAttendance;
+    // Present / on-leave / extra-day rows (weekend-worked) for the range modals.
+    const presentRows = attendance.filter((a: any) => a.checkIn);
+    const leaveRows = attendance.filter((a: any) => a.leaveTrackedId);
+    // Extra day = a check-in on a weekend OR a public holiday.
+    const extraRows = attendance.filter((a: any) => {
+        if (!a.checkIn) return false;
+        const day = dayjs(a.checkIn);
+        const isWeekend = weekends?.[day.format("dddd").toLowerCase()] === "0";
+        return isWeekend || holidayDateKeys.has(day.format(DATE_FORMATS.WIRE));
+    });
+
+    // ── Weekly/Monthly On-Leave & Absent, expanded per working day ──────────────
+    // Attendance rows are checkIn-only (no leave/absent), so these come from
+    // rangeLeaveRecords (approved leaves overlapping the window) + the roster.
+    // ponytail: a half-day leave marks the employee on-leave (not absent) for that day.
+    const presentByDay = new Map<string, Set<string>>();
+    for (const att of presentRows as any[]) {
+        const k = dayjs(att.checkIn).format("YYYY-MM-DD");
+        if (!presentByDay.has(k)) presentByDay.set(k, new Set());
+        presentByDay.get(k)!.add(att.employeeId);
+    }
+    const leaveByDay = new Map<string, Map<string, any>>(); // dateKey -> empId -> leave record
+    if (useRange && range?.start && range?.end) {
+        const rStart = range.start.startOf("day");
+        const rEnd = range.end.startOf("day");
+        for (const lr of rangeLeaveRecords) {
+            let d = dayjs(lr.dateFrom).startOf("day");
+            const lEnd = dayjs(lr.dateTo).startOf("day");
+            while (d.isBefore(lEnd) || d.isSame(lEnd, "day")) {
+                const inRange = (d.isAfter(rStart) || d.isSame(rStart, "day")) && (d.isBefore(rEnd) || d.isSame(rEnd, "day"));
+                const isWorking = weekends?.[d.format("dddd").toLowerCase()] !== "0";
+                if (inRange && isWorking) {
+                    const k = d.format("YYYY-MM-DD");
+                    if (!leaveByDay.has(k)) leaveByDay.set(k, new Map());
+                    if (!leaveByDay.get(k)!.has(lr.employeeId)) leaveByDay.get(k)!.set(lr.employeeId, { ...lr, _leaveDate: d });
+                }
+                d = d.add(1, "day");
+            }
+        }
+    }
+    // One entry per (employee, leave day) — On-Leave modal list + count.
+    const leaveDayEntries = Array.from(leaveByDay.values()).flatMap((m) =>
+        Array.from(m.values()).map((lr) => ({
+            ...(employeesById.get(lr.employeeId) || {}),
+            _id: lr.employeeId,
+            _leaveDate: lr._leaveDate,
+            leaveType: lr.leaveType,
+            isHalfDay: lr.isHalfDay,
+        }))
+    );
+    // Absent = per working day, roster minus present minus on-leave.
+    const absentEntries: any[] = [];
+    if (useRange && range?.start && range?.end) {
+        let d = range.start.startOf("day");
+        const end = range.end.startOf("day");
+        while (d.isBefore(end) || d.isSame(end, "day")) {
+            if (weekends?.[d.format("dddd").toLowerCase()] !== "0") {
+                const k = d.format("YYYY-MM-DD");
+                const present = presentByDay.get(k) || new Set<string>();
+                const onLeave = leaveByDay.get(k) || new Map<string, any>();
+                for (const emp of allEmployees) {
+                    if (emp?._id && !present.has(emp._id) && !onLeave.has(emp._id)) {
+                        absentEntries.push({ ...emp, _absentDate: d });
+                    }
+                }
+            }
+            d = d.add(1, "day");
+        }
+    }
+
+    // ── Daily On-Leave & Absent ─────────────────────────────────────────────────
+    // The API returns leave for the anchor day in two shapes (a summary list and a
+    // detail list) and neither is guaranteed populated, so both fold into one id set.
+    const dailyLeaveIds = new Set<string>();
+    for (const rec of [
+        ...(Array.isArray(employeesOnLeave) ? employeesOnLeave : []),
+        ...(employesLeaveDatas || []),
+    ]) {
+        const id = leaveEmployeeId(rec);
+        if (id) dailyLeaveIds.add(id);
+    }
+    const dailyPresentIds = new Set(
+        presentRows.map((a: any) => a.employeeId).filter(Boolean) as string[],
+    );
+    // Roster minus present minus on-leave — the SAME set the Absent modal lists.
+    // It used to be `total − present − onLeave` arithmetic against a different present
+    // source than every other card, so the card and its own list could disagree.
+    // Nobody is absent on a day the company does not work: the range path below already
+    // skipped non-working days, this daily path did not, so a weekend/holiday reported
+    // the whole roster minus whoever happened to come in.
+    // Prefer the SERVER's day kind, taken from any row on this day — it is resolved from
+    // each employee's own branch calendar, where `checkIfWeekendOrHoliday` reads the
+    // VIEWING ADMIN's. Falls back to the local check when no row carries a verdict.
+    const serverDayKinds = presentRows
+        .map((a: any) => a.dayKind as string | undefined)
+        .filter(Boolean) as string[];
+    const isNonWorkingDay = serverDayKinds.length
+        ? serverDayKinds.every((k) => k !== 'working')
+        : checkIfWeekendOrHoliday(date.toDate());
+
+    const dailyAbsentEmployees = isNonWorkingDay
+        ? []
+        : allEmployees.filter(
+            (emp) => emp?._id && !dailyPresentIds.has(emp._id) && !dailyLeaveIds.has(emp._id),
+        );
+
+    // ── Grouping ────────────────────────────────────────────────────────────────
+    // The stat lists are per-OCCURRENCE (one row per offending day). On a single day that
+    // is already one row per employee, so the flat grid shows the records directly — no
+    // rollup, no drill-in for detail that fits on the card. Over a range the same list
+    // repeats an employee once per day (30 people × a month ≈ 600 cards, with no way to
+    // see who repeats), which is what the rollup exists to fix.
+    const groupedView = useRange;
+
+    const handleDrillChange = useCallback((group: EmployeeStatGroup | null) => {
+        setDrill(group ? { key: group.key, name: group.name } : null);
+    }, []);
+
+    /** Records as-is on a single day; one card per employee over a week or month. */
+    const renderStatItems = (items: EmployeeStatItem[]) => {
+        if (!groupedView) return <EmployeeStatGrid items={items} />;
+        return (
+            <EmployeeStatGroupView
+                items={items}
+                sort={sortOption}
+                tone={showModal ? MODAL_TONE[showModal] : 'brand'}
+                openKey={drill?.key ?? null}
+                onOpenChange={handleDrillChange}
+            />
+        );
+    };
 
     const handleCardClick = (type: ModalType) => {
         // console.log('Opening modal: ======================>', type, {
@@ -512,10 +578,18 @@ function Overview({ date }: OverviewProps) {
         //     attendanceCount: attendance
         // });
         setShowModal(type);
+        // Each category is a fresh list: carrying the previous one's drill-in or search
+        // would open the modal already filtered to something the user didn't ask for.
+        setDrill(null);
+        setSearchQuery('');
+        // Over a range, lead with the repeat offenders — that is the question the
+        // grouped list exists to answer. A single day has nothing to rank by.
+        setSortOption(groupedView ? 'count-desc' : 'none');
     };
 
     const handleCloseModal = () => {
         setShowModal(null);
+        setDrill(null);
         setSearchQuery('');
         setSortOption('none');
     };
@@ -533,29 +607,34 @@ function Overview({ date }: OverviewProps) {
     };
 
     const filterEmployeesBySearch = (employees: EmployeeWithAttendance[]) => {
-        if (!searchQuery.trim()) return employees;
+        const query = searchQuery.trim().toLowerCase();
+        if (!query) return employees;
 
-        const query = searchQuery.toLowerCase();
         return employees.filter(emp => {
             const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
-            return fullName.includes(query);
+            // Code as well as name: "WT-69" is how an admin actually refers to someone.
+            return fullName.includes(query) || (emp.employeeCode || '').toLowerCase().includes(query);
         });
     };
 
     const filterLeaveDataBySearch = (leaveData: any[]) => {
-        if (!searchQuery.trim()) return leaveData;
+        const query = searchQuery.trim().toLowerCase();
+        if (!query) return leaveData;
 
-        const query = searchQuery.toLowerCase();
         return leaveData.filter(emp => {
             const employeeData = emp.employee || {};
             const user = employeeData.users || emp.users || {};
             const fullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
-            return fullName.includes(query);
+            const code = (employeeData.employeeCode || emp.employeeCode || '').toLowerCase();
+            return fullName.includes(query) || code.includes(query);
         });
     };
 
     const sortEmployees = (employees: EmployeeWithAttendance[]) => {
-        if (sortOption === 'none') return employees;
+        // Count ordering is a property of the GROUP, not of a row, so it is applied by
+        // sortEmployeeStatGroups after rollup. Returning early also skips a pointless
+        // O(n) copy of a list whose order is about to be discarded.
+        if (sortOption === 'none' || sortOption === 'count-desc' || sortOption === 'count-asc') return employees;
 
         const sorted = [...employees];
         switch (sortOption) {
@@ -589,7 +668,8 @@ function Overview({ date }: OverviewProps) {
     };
 
     const sortLeaveData = (leaveData: any[]) => {
-        if (sortOption === 'none') return leaveData;
+        // Same as sortEmployees: count ordering happens after rollup, so don't copy here.
+        if (sortOption === 'none' || sortOption === 'count-desc' || sortOption === 'count-asc') return leaveData;
 
         const sorted = [...leaveData];
         switch (sortOption) {
@@ -628,100 +708,70 @@ function Overview({ date }: OverviewProps) {
         try {
             switch (showModal) {
                 case 'working':
-                    employees = allEmployees
-                        .filter(emp => employeesPresentAttendance.some(a => a.employeeId === emp._id))
-                        .map(emp => ({
-                            ...emp,
-                            attendance: attendance.find(a => a.employeeId === emp._id)
-                        } as EmployeeWithAttendance));
+                    // Present-day rows (with a check-in) — same source as the card numerator.
+                    employees = presentRows.map(rowToEntry);
                     break;
 
                 case 'leave':
+                    // Range: list leave person-days (matches the On-Leave card) via the shared render.
+                    if (useRange) {
+                        employees = leaveDayEntries as any;
+                        break;
+                    }
                     // employeesOnLeave is a NUMBER from the API — use the array employesLeaveDatas for length check
                     if ((employesLeaveDatas?.length ?? 0) === 0) {
-                        return <div className="p-3 text-muted">No employees on leave today</div>;
+                        return <StatEmptyState emptyMessage="No employees on leave today" />;
                     }
 
                     const filteredLeaveData = filterLeaveDataBySearch(employesLeaveDatas);
                     const sortedLeaveData = sortLeaveData(filteredLeaveData);
 
                     if (sortedLeaveData.length === 0) {
-                        return <div className="p-3 text-muted">No employees found matching "{searchQuery}"</div>;
+                        return <StatEmptyState searchQuery={searchQuery} />;
                     }
 
-                    return (
-                        <div className="table-responsive">
-                            <table className="table table-hover align-middle">
-                                <thead className="table-light">
-                                    <tr>
-                                        <th>Employee</th>
-                                        <th>Designation</th>
-                                        <th>Leave Type</th>
-                                        <th>Duration</th>
-                                        <th>Reason</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {sortedLeaveData.map(emp => {
-                                        const employeeData = emp.employee || {};
-                                        const user = employeeData.users || emp.users || {};
-                                        const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-                                        const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                                        const leaveType = emp.leaveType || 'Leave';
-                                        const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
-                                        const endDate = emp.duration?.endDate ? dayjs(emp.duration.endDate).format('MMM D, YYYY') : 'N/A';
-                                        const isSameDay = startDate === endDate;
-                                        const reason = emp.reason || '';
+                    const leaveItems: EmployeeStatItem[] = sortedLeaveData.map(emp => {
+                        const employeeData = emp.employee || {};
+                        const user = employeeData.users || emp.users || {};
+                        // Same resolver the On-Leave card counts with, so card = groups.
+                        const employeeId = leaveEmployeeId(emp);
+                        const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+                        const leaveType = emp.leaveType || 'Leave';
+                        const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
+                        const endDate = emp.duration?.endDate ? dayjs(emp.duration.endDate).format('MMM D, YYYY') : 'N/A';
+                        const isSameDay = startDate === endDate;
+                        const reason = emp.reason || '';
+                        return {
+                            key: emp.id,
+                            employeeId,
+                            // The day being viewed, not the leave's start date — this list is
+                            // "on leave on <date>", and a multi-day leave that began last month
+                            // would otherwise stamp the card with a date outside the period.
+                            date: date.format(DATE_FORMATS.WIRE),
+                            name: fullName || 'Unnamed Employee',
+                            code: employeeData.employeeCode || emp.employeeCode || '',
+                            avatarUrl: employeeData.avatar || emp.avatar,
+                            designation: employeeData.designations?.role || emp.designations?.role,
+                            meta: (
+                                <>
+                                    <div className="d-flex align-items-center gap-2 small flex-wrap">
+                                        <ToneChip tone="warning" dense label={leaveType} />
+                                    </div>
+                                    <div className="small mt-1 text-gray-700">
+                                        <i className="bi bi-calendar3 me-1"></i>
+                                        {isSameDay ? startDate : `${startDate} to ${endDate}`}
+                                    </div>
+                                    {reason && (
+                                        <div className="small mt-1 text-muted text-truncate" title={reason} style={{ maxWidth: 220 }}>
+                                            <i className="bi bi-chat-square-text me-1"></i>{reason}
+                                        </div>
+                                    )}
+                                </>
+                            ),
+                        };
+                    });
 
-                                        return (
-                                            <tr key={emp.id}>
-                                                <td>
-                                                    <div className="d-flex align-items-center">
-                                                        <Avatar
-                                                            src={avatarSrc}
-                                                            alt={fullName}
-                                                            className="me-3"
-                                                            sx={{ width: 40, height: 40 }}
-                                                            imgProps={{
-                                                                onError: (e) => {
-                                                                    const target = e.target as HTMLImageElement;
-                                                                    target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                                                                },
-                                                            }}
-                                                        />
-                                                        <div>
-                                                            <div className="fw-bold">{fullName || 'Unnamed Employee'}</div>
-                                                            <small className="text-muted">{employeeData.employeeCode || emp.employeeCode || ''}</small>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td style={{ whiteSpace: 'nowrap' }}>{employeeData.designations?.role || emp.designations?.role || 'N/A'}</td>
-                                                <td>
-                                                    <span className="badge bg-warning text-dark">
-                                                        {leaveType}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <div className="d-flex align-items-center">
-                                                        <i className="bi bi-calendar3 me-2"></i>
-                                                        {isSameDay ? startDate : `${startDate} to ${endDate}`}
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    {reason && (
-                                                        <div className="text-truncate" style={{ maxWidth: '200px' }} title={reason}>
-                                                            <i className="bi bi-chat-square-text me-1"></i>
-                                                            {reason}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    );
+                    return renderStatItems(leaveItems);
                 case 'late':
                     // Late check-in: employees who checked in after (shift check-in time + grace time)
                     const lateCheckInEmployees = allEmployees.filter(emp => {
@@ -741,8 +791,8 @@ function Overview({ date }: OverviewProps) {
                         const workingMethod = empAttendance.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
                         const isOnSite = workingMethod?.includes("onsite");
 
-                        // If on-site settings is ON, skip on-site employees from late check-in
-                        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+                        // Master switch — all three legs; keep in step with `lateRows`.
+                        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
                         const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
                         const graceTime = parseGraceTime(graceTimeStr);
 
@@ -768,10 +818,11 @@ function Overview({ date }: OverviewProps) {
                         return isLate;
                     });
 
-                    employees = lateCheckInEmployees.map(emp => ({
-                        ...emp,
-                        attendance: attendance.find(a => a.employeeId === emp._id)
-                    }));
+                    // Always list the same rows the card counts (lateRows). The filter
+                    // above still runs, populating additionalInfo[employeeId] ("Late by
+                    // Xm") which the shared render shows.
+                    void lateCheckInEmployees;
+                    employees = lateRows.map(rowToEntry);
 
                     break;
 
@@ -784,10 +835,10 @@ function Overview({ date }: OverviewProps) {
 
                         const attendanceDate = new Date(empAttendance.checkOut);
 
-                        // If on-site settings is ON, skip on-site employees from early check-out
+                        // Master switch — all three legs; keep in step with `earlyRows`.
                         const workingMethod = empAttendance.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
                         const isOnSite = workingMethod?.includes("onsite");
-                        if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+                        if (isOnSiteSettingsOn === '1' && (isOnSite || checkIfWeekendOrHoliday(attendanceDate))) return false;
 
                         // Get shift for this date
                         const shift = getShiftForDate(attendanceDate);
@@ -814,63 +865,18 @@ function Overview({ date }: OverviewProps) {
                         return isEarly;
                     });
 
-                    employees = earlyCheckOutEmployees.map(emp => ({
-                        ...emp,
-                        attendance: attendance.find(a => a.employeeId === emp._id)
-                    }));
+                    void earlyCheckOutEmployees;
+                    employees = earlyRows.map(rowToEntry);
 
                     break;
 
                 case 'absent':
-                    try {
-                        // console.log('Calculating absent employees with:', {
-                        //     allEmployees: allEmployees?.length || 0,
-                        //     employeesPresentAttendance: employeesPresentAttendance?.length || 0,
-                        //     employeesOnLeave: employeesOnLeave?.length || 0
-                        // });
-
-                        const presentEmployeeIds = new Set(
-                            (employeesPresentAttendance || []).map(a => a.employeeId)
-                        );
-
-                        // Make sure employeesOnLeave is an array and extract employee IDs properly
-                        const safeEmployeesOnLeave = Array.isArray(employeesOnLeave) ?
-                            employeesOnLeave : [];
-
-                        // Extract employee IDs from leave data - check multiple possible fields
-                        const onLeaveIds = new Set(
-                            safeEmployeesOnLeave.map(e => {
-                                // Try to get employee ID from different possible fields
-                                return e?.employee?.id || e?.employeeId || e?.employee?._id || e?.id;
-                            }).filter(Boolean)
-                        );
-
-                        // Also check employesLeaveDatas for employee IDs
-                        employesLeaveDatas.forEach(leave => {
-                            const empId = leave?.employee?.id || leave?.employeeId || leave?.employee?._id;
-                            if (empId) {
-                                onLeaveIds.add(empId);
-                            }
-                        });
-
-                        employees = (allEmployees || []).filter(emp =>
-                            emp?._id &&
-                            !presentEmployeeIds.has(emp._id) &&
-                            !onLeaveIds.has(emp._id)
-                        );
-
-                        // console.log('Absent employees calculation result:', {
-                        //     totalEmployees: allEmployees?.length || 0,
-                        //     presentCount: presentEmployeeIds.size,
-                        //     onLeaveCount: onLeaveIds.size,
-                        //     absentCount: employees.length,
-                        //     absentEmployees: employees.map(e => `${e.firstName} ${e.lastName}`)
-                        // });
-                    } catch (error) {
-                        console.error('Error calculating absent employees:', error);
-                        // Provide empty array if there was an error
-                        employees = [];
-                    }
+                    // Range lists absent person-days; daily lists the roster-minus-present
+                    // set. Both come from the same expressions the Absent card counts, so
+                    // the card and this list can never drift apart.
+                    employees = useRange
+                        ? (absentEntries as any)
+                        : dailyAbsentEmployees.map((emp) => ({ ...emp, _absentDate: date }) as any);
                     break;
 
                 case 'extra':
@@ -895,136 +901,68 @@ function Overview({ date }: OverviewProps) {
                         return isConfiguredWeekend || isPublicHoliday;
                     });
 
-                    employees = extraDayEmployees.map(emp => ({
-                        ...emp,
-                        attendance: attendance.find(a => a.employeeId === emp._id)
-                    }));
+                    void extraDayEmployees;
+                    employees = extraRows.map(rowToEntry);
 
                     break;
 
                 case 'checkoutMissing': {
-                    const checkoutMissingEmployees = allEmployees
-                        .filter(emp => {
-                            const empAttendance = attendance.find(a => a.employeeId === emp._id);
-                            return empAttendance && hasCheckInNoCheckOut(empAttendance);
-                        })
-                        .map(emp => ({
-                            ...emp,
-                            attendance: attendance.find(a => a.employeeId === emp._id),
-                        }));
+                    // One entry per attendance row with a missing check-out — the SAME
+                    // rows the card counts (missingRows), so the modal count always
+                    // matches the card (daily and range alike).
+                    const checkoutMissingEmployees = missingRows.map(rowToEntry);
 
                     const filtered = filterEmployeesBySearch(checkoutMissingEmployees);
                     const sorted = sortEmployees(filtered);
 
                     if (!sorted.length) {
-                        return (
-                            <div className="p-3 text-muted">
-                                {searchQuery.trim()
-                                    ? `No employees found matching "${searchQuery}"`
-                                    : 'No employees with missing check-out'}
-                            </div>
-                        );
+                        return <StatEmptyState searchQuery={searchQuery} emptyMessage="No employees with missing check-out" />;
                     }
 
-                    return (
-                        <div className="table-responsive">
-                            <table className="table table-hover align-middle">
-                                <thead className="table-light">
-                                    <tr>
-                                        <th>Employee Code</th>
-                                        <th>Name</th>
-                                        <th>Check-in Time</th>
-                                        <th>Working Method</th>
-                                        <th>Location</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {sorted.map(emp => {
-                                        const att = emp.attendance;
-                                        const workingMethod = att?.workingMethod?.type || '—';
-                                        const wmKey = workingMethod
-                                            ?.replace(/\s/g, '')
-                                            ?.replace(/-/g, '')
-                                            ?.replace(/_/g, '')
-                                            ?.toLowerCase();
-                                        const wmColor =
-                                            workingMethod === 'Office'
-                                                ? workingLocationColors?.officeColor
-                                                : workingMethod === 'Hybrid'
-                                                  ? workingLocationColors?.remoteColor
-                                                  : wmKey?.includes('onsite')
-                                                    ? workingLocationColors?.onSiteColor
-                                                    : '#6c757d';
+                    const missingItems: EmployeeStatItem[] = sorted.map(emp => {
+                        const att = emp.attendance;
+                        const workingMethod = att?.workingMethod?.type || '';
+                        const day = att?.checkIn ? dayjs(att.checkIn) : null;
+                        return {
+                            key: att?.id || emp._id,
+                            employeeId: emp._id,
+                            date: day ? day.format(DATE_FORMATS.WIRE) : null,
+                            name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown',
+                            code: emp.employeeCode,
+                            avatarUrl: emp.avatar,
+                            designation: emp.designation,
+                            time: att?.checkIn ? dayjs(att.checkIn).valueOf() : null,
+                            meta: (
+                                <>
+                                    {/* No per-row date. Weekly/monthly render it structurally (span
+                                        on the card, per-day heading in the drill-in), and daily
+                                        states it once in the modal subtitle — repeating the same
+                                        date on all 30 cards was noise no other stat modal had. */}
+                                    <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
+                                        {att?.checkIn && (
+                                            <span className="text-gray-700"><i className="bi bi-clock me-1"></i>{dayjs(att.checkIn).format('h:mm A')}</span>
+                                        )}
+                                        {workingMethod && (
+                                            <ToneChip tone="cyan" dense label={workingMethod} />
+                                        )}
+                                        {att?.checkInLocation && (
+                                            att.latitude && att.longitude ? (
+                                                <a href={`https://www.google.com/maps?q=${att.latitude},${att.longitude}`} target="_blank" rel="noopener noreferrer" className="text-truncate d-inline-block" style={{ maxWidth: 180 }} onClick={(e) => e.stopPropagation()}>
+                                                    <i className="bi bi-geo-alt me-1"></i>{att.checkInLocation}
+                                                </a>
+                                            ) : (
+                                                <span className="text-muted text-truncate d-inline-block" style={{ maxWidth: 180 }}>
+                                                    <i className="bi bi-geo-alt me-1"></i>{att.checkInLocation}
+                                                </span>
+                                            )
+                                        )}
+                                    </div>
+                                </>
+                            ),
+                        };
+                    });
 
-                                        return (
-                                            <tr key={emp._id}>
-                                                <td>{emp.employeeCode || '—'}</td>
-                                                <td>
-                                                    <div className="d-flex align-items-center">
-                                                        <Avatar
-                                                            src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
-                                                            alt={`${emp.firstName} ${emp.lastName}`}
-                                                            className="me-2"
-                                                            sx={{ width: 36, height: 36 }}
-                                                            imgProps={{
-                                                                onError: (e) => {
-                                                                    const target = e.target as HTMLImageElement;
-                                                                    target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                                                                },
-                                                            }}
-                                                        />
-                                                        <span className="fw-semibold">
-                                                            {emp.firstName} {emp.lastName}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    {att?.checkIn
-                                                        ? dayjs(att.checkIn).format('h:mm A')
-                                                        : '—'}
-                                                </td>
-                                                <td>
-                                                    <span style={{ color: wmColor, fontWeight: 600 }}>
-                                                        {workingMethod}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    {att?.checkInLocation ? (
-                                                        att.latitude && att.longitude ? (
-                                                            <Tooltip title={att.checkInLocation} placement="top">
-                                                                <a
-                                                                    href={`https://www.google.com/maps?q=${att.latitude},${att.longitude}`}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="d-inline-flex align-items-center"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    <img
-                                                                        src={locationIcon}
-                                                                        alt="location"
-                                                                        style={{ width: 20, height: 20 }}
-                                                                    />
-                                                                    <span className="ms-1 text-truncate" style={{ maxWidth: 180 }}>
-                                                                        {att.checkInLocation}
-                                                                    </span>
-                                                                </a>
-                                                            </Tooltip>
-                                                        ) : (
-                                                            <span className="text-truncate d-inline-block" style={{ maxWidth: 220 }}>
-                                                                {att.checkInLocation}
-                                                            </span>
-                                                        )
-                                                    ) : (
-                                                        '—'
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    );
+                    return renderStatItems(missingItems);
                 }
 
                 default:
@@ -1036,32 +974,51 @@ function Overview({ date }: OverviewProps) {
             const sortedEmployees = sortEmployees(filteredEmployees);
 
             if (!sortedEmployees || sortedEmployees.length === 0) {
-                return <div className="p-3 text-muted">
-                    {searchQuery.trim() ? `No employees found matching "${searchQuery}"` : 'No employees found in this category'}
-                </div>;
+                return <StatEmptyState searchQuery={searchQuery} />;
             }
 
-            // All modals use a responsive 1 / 2 / 3-column layout
-            return (
-                <Grid container spacing={2}>
-                    {sortedEmployees.map(emp => (
-                        <Grid item xs={12} sm={6} md={4} key={emp._id}>
-                            <div className="d-flex align-items-center p-3 rounded" style={{ transition: 'all 0.2s', border: '1px solid #1E3A8A' }}>
-                                <Avatar
-                                    src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
-                                    className="me-3"
-                                    alt={`${emp.firstName || ''} ${emp.lastName || ''}`}
-                                    sx={{ width: 45, height: 45 }}
-                                    imgProps={{
-                                        onError: (e) => {
-                                            const target = e.target as HTMLImageElement;
-                                            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                                        },
-                                    }}
-                                />
-                                <div className="flex-grow-1">
-                                    <div className="fw-bold">{emp.firstName} {emp.lastName}</div>
-                                    <div className="text-muted small">{emp.designation || 'No designation'}</div>
+            // Card layout, breakpoints and density all live in EmployeeStatGrid so the
+            // Dashboard daily overview renders identically. Only the meta content —
+            // dates, badges, check-in/out colouring — is computed here, because it
+            // depends on this page's shifts, grace times and on-site settings.
+            const statItems: EmployeeStatItem[] = sortedEmployees.map(emp => {
+                        // The day this row belongs to: a check-in for attendance rows, the
+                        // expanded leave/absent day for the range-only rollups.
+                        const rawDay = emp.attendance?.checkIn || (emp as any)._leaveDate || (emp as any)._absentDate || null;
+                        const day = rawDay ? dayjs(rawDay) : null;
+                        const dayWire = day?.isValid() ? day.format(DATE_FORMATS.WIRE) : null;
+                        const leaveTypeLabel = (emp as any).leaveType
+                            ? `${(emp as any).leaveType}${(emp as any).isHalfDay ? ' (½)' : ''}`
+                            : null;
+                        // No per-row date: grouped cards carry it structurally and daily states
+                        // it once in the modal subtitle. Only the rest belongs in `meta`.
+                        const hasMeta = Boolean(
+                            leaveTypeLabel ||
+                            additionalInfo[emp._id] ||
+                            emp.attendance?.checkIn ||
+                            emp.attendance?.checkOut,
+                        );
+                        return {
+                            key: emp.attendance?.id || `${emp._id}-${dayWire || ''}`,
+                            employeeId: emp._id,
+                            date: dayWire,
+                            // Lets "Check-in (Earliest/Latest)" order by the clock rather
+                            // than by day, which is what it has to mean on a single date.
+                            time: emp.attendance?.checkIn ? dayjs(emp.attendance.checkIn).valueOf() : null,
+                            // Half-day leave counts as 0.5 so a grouped total reconciles with the
+                            // On-Leave stat card, which applies the same weighting.
+                            weight: (emp as any).isHalfDay ? 0.5 : 1,
+                            name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown',
+                            code: emp.employeeCode,
+                            avatarUrl: emp.avatar,
+                            designation: emp.designation,
+                            meta: hasMeta ? (
+                                <>
+                                    {leaveTypeLabel && (
+                                        <div className="d-flex align-items-center gap-2 small flex-wrap">
+                                            <ToneChip tone="warning" dense label={leaveTypeLabel} />
+                                        </div>
+                                    )}
                                     {additionalInfo[emp._id] && (
                                         <div className="text-primary small mt-1">
                                             <i className="bi bi-info-circle me-1"></i>
@@ -1069,7 +1026,9 @@ function Overview({ date }: OverviewProps) {
                                         </div>
                                     )}
                                     {!additionalInfo[emp._id] && (emp.attendance?.checkIn || emp.attendance?.checkOut) && (
-                                        <div className="d-flex align-items-center gap-2 small mt-1">
+                                        // flex-wrap: at 4 columns the check-in/out chips plus a
+                                        // working-method label must wrap, not overflow the card.
+                                        <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
                                             {emp.attendance?.checkIn && emp.attendance?.checkOut && (() => {
                                                 // Check if weekend/holiday worker
                                                 const attendanceDate = new Date(emp.attendance.checkIn);
@@ -1104,7 +1063,9 @@ function Overview({ date }: OverviewProps) {
                                                         .add(graceTime.seconds, 'second');
 
                                                     const actualCheckIn = dayjs(emp.attendance.checkIn);
-                                                    isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn);
+                                                    // Late-night waiver (server verdict) wins over the shift+grace comparison.
+                                                    isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn)
+                                                        && !(emp.attendance as any)?.lateWaived;
 
                                                     // Calculate early check-out
                                                     const expectedCheckOut = dayjs(emp.attendance.checkOut)
@@ -1161,7 +1122,9 @@ function Overview({ date }: OverviewProps) {
                                                         .add(graceTime.seconds, 'second');
 
                                                     const actualCheckIn = dayjs(emp.attendance.checkIn);
-                                                    isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn);
+                                                    // Late-night waiver (server verdict) wins over the shift+grace comparison.
+                                                    isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn)
+                                                        && !(emp.attendance as any)?.lateWaived;
                                                 }
 
                                                 return (
@@ -1217,12 +1180,12 @@ function Overview({ date }: OverviewProps) {
                                             )}
                                         </div>
                                     )}
-                                </div>
-                            </div>
-                        </Grid>
-                    ))}
-                </Grid>
-            );
+                                </>
+                            ) : null,
+                        };
+                    });
+
+            return renderStatItems(statItems);
 
         } catch (err) {
             console.error('Error in getModalContent:', err);
@@ -1250,7 +1213,19 @@ function Overview({ date }: OverviewProps) {
                 const response = await fetchEmployeesOnLeaveToday(date.format('YYYY-MM-DD'));
                 const employeesOnLeave = response?.data?.employeesOnLeave || [];
                 const employesLeaveData = response?.data?.employeeLeaveDetails || [];
-                const allAttendance = await fetchEmpsAttendance(date);
+                const allAttendance = useRange
+                    ? await fetchEmpsAttendanceRange(range!.start!.format("YYYY-MM-DD"), range!.end!.format("YYYY-MM-DD"))
+                    : await fetchEmpsAttendance(date);
+
+                // Range mode: also pull approved leaves overlapping the window so
+                // On-Leave / Absent can be expanded per day (the attendance fetch is
+                // checkIn-filtered and carries no leave/absent rows).
+                if (useRange && range?.start && range?.end) {
+                    const leaveResp = await fetchEmployeesOnLeaveRange(range.start.format("YYYY-MM-DD"), range.end.format("YYYY-MM-DD"));
+                    if (isMountedRef.current) setRangeLeaveRecords(leaveResp?.data?.leaveRecords || []);
+                } else if (isMountedRef.current) {
+                    setRangeLeaveRecords([]);
+                }
                 //     employees:employees,
                 //     rawResponse: response,
                 //     employesLeaveData:response?.data?.employeeLeaveDetails,
@@ -1279,8 +1254,13 @@ function Overview({ date }: OverviewProps) {
                     //     attendance: allAttendance.length
                     // });
 
-                    // Filter only active employees for state
-                    const activeEmployees = transformedEmployees.filter((emp: any) => emp.isActive !== false);
+                    // Filter only active employees for state. Same predicate, now shared —
+                    // every table and graph on this page derives from `isActiveEmployee`
+                    // so none of them can disagree with these cards about who counts.
+                    // Explicit type argument: `transformedEmployees` is `any[]`, and TS
+                    // falls back to the generic's constraint rather than inferring the
+                    // row shape, which would widen the state to MaybeActiveEmployee[].
+                    const activeEmployees = filterActiveEmployees<EmployeeWithAttendance>(transformedEmployees);
                     const visibleEmployees = filterIds
                         ? activeEmployees.filter((emp: any) => filterIds.includes(emp._id))
                         : activeEmployees;
@@ -1302,7 +1282,7 @@ function Overview({ date }: OverviewProps) {
                     setIsLoading(false);
                 }
             }
-    }, [dispatch, date]); // Add date to dependencies
+    }, [dispatch, date, useRange, range?.start?.valueOf(), range?.end?.valueOf()]);
 
     useEffect(() => {
         reloadOverviewAttendance();
@@ -1350,9 +1330,27 @@ function Overview({ date }: OverviewProps) {
         fetchTimeConfiguration();
     }, [shiftScope.companyId, shiftScope.branchId]);
 
+    // ── Card figures: EMPLOYEES, in every period ────────────────────────────────
+    // Every one of these is a distinct-employee count, so a card means the same thing
+    // whether you are looking at a day, a week or a month — "how many people". They
+    // used to be row counts over a range, which turned "Absent" into 747 person-day
+    // records against a 36-person roster and made the three periods unreadable side by
+    // side. The per-employee day totals didn't disappear — over a range they're the count
+    // badge on each card in the modal, whose summary bar states both ("34 employees · 156
+    // days"). Since that modal groups by employee, the card equals its number of groups;
+    // on a single day it equals its number of rows. Either way, card = list length.
+    const presentEmployees = countDistinct(presentRows, (a: any) => a.employeeId);
+    const leaveEmployees = useRange
+        ? countDistinct(leaveDayEntries, (e: any) => e._id)
+        : countDistinct(employesLeaveDatas || [], leaveEmployeeId);
+    const extraDayCount = countDistinct(extraRows, (a: any) => a.employeeId);
+    const absentEmployees = useRange
+        ? countDistinct(absentEntries, (e: any) => e._id)
+        : dailyAbsentEmployees.length;
+
     const cardsData: StatCardConfig[] = [
-        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${employeePresent || 0}/${totalEmployee || 0}`, label: 'Working Employees' },
-        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${employesLeaveDatas?.length || 0}`, label: 'On Leave' },
+        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${presentEmployees}/${totalEmployee || 0}`, label: 'Working Employees' },
+        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${leaveEmployees}`, label: 'On Leave' },
         { type: 'late', accent: 'late', img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: `${lateCheckInsCount}`, label: 'Late Check-ins' },
         {
             type: 'checkoutMissing',
@@ -1364,8 +1362,8 @@ function Overview({ date }: OverviewProps) {
             label: 'Check-out Missing',
         },
         { type: 'early', accent: 'early', img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: `${earlyCheckOutsCount}`, label: 'Early Check-out' },
-        { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDays || 0}`, label: 'Extra Day' },
-        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentCount}`, label: 'Absent' },
+        { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDayCount}`, label: 'Extra Day' },
+        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentEmployees}`, label: 'Absent' },
     ];
 
     // Apply the user's saved order; any card not in the saved order keeps its
@@ -1393,6 +1391,13 @@ function Overview({ date }: OverviewProps) {
             </Alert>
         );
     }
+    const modalCategoryTitle = getModalTitle();
+    // The lists never repeat the date on every card, so the window the numbers cover is
+    // stated once in the header — in all three periods, not just the multi-day ones.
+    const periodSubtitle = useRange && range?.start && range?.end
+        ? `${formatDateLong(range.start)} → ${formatDateLong(range.end)}`
+        : formatDateLong(date);
+
     const renderStatCard = (card: StatCardConfig) => (
         <Card
             key={card.type}
@@ -1438,18 +1443,25 @@ function Overview({ date }: OverviewProps) {
                 itemClassName="overview-stat-card-slot"
             />
 
-            <CustomModal
+            <StatDetailModal
                 show={showModal !== null}
                 onHide={handleCloseModal}
-                title={getModalTitle()}
+                // Drilled in, the employee is the subject and the category becomes context —
+                // the reverse of the list view. One dialog, two levels: stacking a second
+                // GlassDialog would put a scrim over a scrim, unusable at phone width.
+                title={drill ? drill.name : modalCategoryTitle}
+                subtitle={drill ? modalCategoryTitle : periodSubtitle}
+                onBack={drill ? () => setDrill(null) : undefined}
+                backLabel={`Back to ${modalCategoryTitle || 'list'}`}
                 size="xl"
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 sortOption={sortOption}
                 onSortChange={setSortOption}
+                sortOptions={groupedView ? GROUPED_SORT_OPTIONS : FLAT_SORT_OPTIONS}
             >
                 {getModalContent()}
-            </CustomModal>
+            </StatDetailModal>
         </>
     );
 }

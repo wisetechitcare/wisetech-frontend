@@ -16,11 +16,13 @@ interface DateInputProps{
     formikProps?: any;
     formikField: string;
     placeHolder?: string; // kept for API compat; the placeholder now always shows the date format
-    maxDate?: boolean;
+    maxDate?: Dayjs | boolean;
     minDateField?: string; // Field name to compare against for minimum date validation
+    /** Earliest selectable date. Days before it are disabled and a typed value is rejected. */
+    minDate?: Dayjs;
 }
 
-function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, minDateField }: DateInputProps) {
+function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, minDateField, minDate }: DateInputProps) {
   const { values, setFieldValue, setFieldTouched, setFieldError, errors, touched } = formikProps;
   const [validationError, setValidationError] = React.useState<string>('');
 
@@ -42,6 +44,14 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
     if (newValue && newValue.isValid()) {
       // Store in ISO format (YYYY-MM-DD) to avoid timezone issues
       const isoDate = newValue.format('YYYY-MM-DD');
+
+      // The picker disables out-of-range days, but the field is still typeable.
+      if (minDate && newValue.isBefore(minDate, 'day')) {
+        setValidationError(`Date cannot be before ${minDate.format(DATE_FORMAT)}`);
+        setFieldValue(formikField, isoDate, false);
+        setFieldTouched(formikField, true, false);
+        return;
+      }
 
       // Validate against minimum date if specified
       if (minDateField && get(values, minDateField)) {
@@ -93,9 +103,14 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
             onError={(error) => {
               console.log('Date picker error:', error);
             }}
-            reduceAnimations={true} 
+            reduceAnimations={true}
             format={DATE_FORMAT}
-            maxDate={maxDate ? dayjs() : undefined}
+            maxDate={maxDate === true ? dayjs() : (maxDate instanceof dayjs ? maxDate : undefined)}
+            minDate={minDate}
+            // Which month an empty picker opens on. `defaultCalendarMonth` was the v5 name and was
+            // removed in v6 — passing it here type-errored and did nothing, so the picker kept
+            // opening on today rather than on the month being viewed.
+            referenceDate={minDate || undefined}
             // Disable keyboard input parsing to prevent issues
             disableOpenPicker={false}
             slotProps={{
@@ -140,8 +155,11 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
             onError={(error) => {
               console.log('Date picker error:', error);
             }}
-            reduceAnimations={true} 
-            maxDate={maxDate ? dayjs() : undefined}
+            reduceAnimations={true}
+            maxDate={maxDate === true ? dayjs() : (maxDate instanceof dayjs ? maxDate : undefined)}
+            minDate={minDate}
+            // See the mobile picker above: v5's `defaultCalendarMonth` is `referenceDate` in v7.
+            referenceDate={minDate || undefined}
             format={DATE_FORMAT}
             slotProps={{
               textField: {

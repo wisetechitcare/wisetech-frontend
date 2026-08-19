@@ -1,0 +1,8 @@
+#!/bin/sh
+# Fast gate (<5s). lint-staged stashes unstaged work first, so every check below
+# sees exactly the content being committed. Heavy verification is in pre-push.
+if [ ! -x node_modules/.bin/lint-staged ]; then
+  echo "pre-commit: dependencies missing — run 'pnpm install'." >&2
+  exit 1
+fi
+pnpm exec lint-staged

@@ -1,11 +1,13 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
 import Loader from "@app/modules/common/utils/Loader";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import { fetchApprovalInstanceByRequest } from "@services/employee";
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
 import { GlassDialog, GlassHeader, WtIconButton, StatusBadge, IconBox, TRIO, type Trio, Spinner } from "@app/modules/common/components/ui/tw";
+import { ToneChip } from "@app/modules/common/components/ui";
 import { LEAVE_STATUS, LeaveStatus, WORKING_METHOD_TYPE } from "@constants/attendance";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -70,15 +72,28 @@ export const normalizeAttendanceRequestTime = (value: string | undefined, dateSt
     return undefined;
 };
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useSelector } from "react-redux";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { pageSize, useServerPagination } from "@hooks/useServerPagination";
 import EditAttendanceRequest from "./EditAttendanceRequest";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import type { PeriodRange } from "@app/modules/common/components/PeriodFilter";
+import { toPeriodParams, periodKey } from "@utils/periodRange";
 
-const OpenAttendanceRequests = () => {
+interface OpenAttendanceRequestsProps {
+    /**
+     * Overview's Daily/Weekly/Monthly selection. Omit (or pass null) to list all time.
+     */
+    range?: PeriodRange | null;
+    /**
+     * Hide employees flagged inactive, so this table matches the Overview's stat cards.
+     */
+    activeOnly?: boolean;
+}
+
+const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttendanceRequestsProps) => {
     const { filterIds } = useTeamFilter();
     const worktypeColorValues = useSelector((state: RootState) => state?.customColors?.workingLocation)
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
@@ -110,19 +125,52 @@ const OpenAttendanceRequests = () => {
     const getAllWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
     const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
 
+    // Selected Overview period → wire params. Filtering is SERVER-side: this table is
+    // paginated, so filtering a ten-row page in the browser would leave the total count
+    // and the page contents disagreeing, and rows beyond page 1 unfiltered entirely.
+    const periodParams = useMemo(() => toPeriodParams(range), [range]);
+    // Primitive identity — `range` is rebuilt (with fresh Dayjs objects) on every
+    // PeriodFilter render, so depending on it directly would refetch forever.
+    // Both server-side filters live in the reset key: changing either can shrink the
+    // result set, and staying on page 5 of a now-one-page list renders empty.
+    const rangeKey = useMemo(() => `${periodKey(range)}|${activeOnly ? 'active' : 'all'}`, [range, activeOnly]);
+
+    // The active org never changes within a mounted session, but this fetcher runs once
+    // per page turn AND per period change — resolving it every time meant an extra
+    // company-overview round trip before every list request. Resolve once, then reuse.
+    const companyIdRef = useRef<string | null>(null);
+    const resolveCompanyId = useCallback(async () => {
+        if (companyIdRef.current !== null) return companyIdRef.current;
+        const { data: { companyOverview } } = await fetchCompanyOverview();
+        companyIdRef.current = resolveActiveOrgId(companyOverview) ?? '';
+        return companyIdRef.current;
+    }, []);
+
+    // Sorting is server-side for the same reason paging and filtering are: `data` holds
+    // one page, so sorting it in the browser reorders ten rows while the header implies
+    // the whole queue. The table reports the resolved sort via onSortingChange.
+    const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([]);
+    const sortKey = sorting.length ? `${sorting[0].id}:${sorting[0].desc}` : '';
+
+    // Search is server-side for exactly the reason sorting is. The table hands over the
+    // DEBOUNCED query (see MaterialTableImpl's onSearchChange), so this is one request per
+    // pause in typing, not one per keystroke.
+    const [search, setSearch] = useState('');
+
     // Fetch function for all attendance requests
     const fetchAllAttendanceRequests = useCallback(async (page: number, limit: number) => {
-        const { data: { companyOverview } } = await fetchCompanyOverview();
-        const companyId = (resolveActiveOrgId(companyOverview) ?? '');
+        const companyId = await resolveCompanyId();
 
-        const { data: { attendanceRequests, pagination: paginationData } } = await getAllAttendanceRequestByCompanyId(companyId, page, limit);
-        console.log("attendanceRequestsAll", attendanceRequests);
+        // activeOnly is server-side for the same reason the period is: filtering a
+        // ten-row page in the browser would leave the total count claiming rows the
+        // table refuses to show.
+        const { data: { attendanceRequests, pagination: paginationData } } = await getAllAttendanceRequestByCompanyId(companyId, page, limit, periodParams, activeOnly, sorting[0], search);
 
         return {
             data: attendanceRequests,
             totalRecords: paginationData?.totalRecords || attendanceRequests.length,
         };
-    }, []);
+    }, [resolveCompanyId, periodParams, activeOnly, sorting, search]);
 
     // Single hook for all attendance requests with server-side pagination
     const {
@@ -138,6 +186,11 @@ const OpenAttendanceRequests = () => {
         fetchFunction: fetchAllAttendanceRequests,
         initialPageSize: pageSize,
         transformData: transformAttendanceRequest,
+        // Changing the period OR the sort OR the search must snap back to page 1 — see the
+        // hook's docs. Re-sorting while on page 5 would otherwise ask for page 5 of a
+        // reordered set, which is a different ten rows than the user expects to land on;
+        // searching from page 5 is worse still, since the match set is usually one page.
+        resetKey: `${rangeKey}|${sortKey}|${search}`,
     });
 
     useEventBus(EVENT_KEYS.attendanceRequestUpdated, (data) => {
@@ -180,51 +233,57 @@ const OpenAttendanceRequests = () => {
 
     const allColumns = [
         {
+            accessorKey: "employeeName",
+            header: "Employee",
+            size: 220,
+            minSize: 180,
+            maxSize: 280,
+            Cell: ({ row }: any) => (
+                <EmployeeIdentityCell
+                    name={row.original.employeeName}
+                    code={row.original.employeeCode}
+                    avatarUrl={allEmployees?.find((e: any) => e.employeeId === row.original.employeeId)?.avatar}
+                />
+            ),
+        },
+        {
             accessorKey: "date",
             header: "Date",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
-        {
-            accessorKey: "day",
-            header: "Day",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
-        {
-            accessorKey: "employeeName",
-            header: "Employee Name",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
-        {
-            accessorKey: "employeeCode",
-            header: "Employee Code",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            size: 150,
+            minSize: 130,
+            maxSize: 190,
+            Cell: ({ row }: any) => (
+                <div className="d-flex flex-column">
+                    <span className="fw-semibold text-gray-800">{row.original.date}</span>
+                    {row.original.day ? (
+                        <ToneChip tone="brand" dense label={row.original.day} sx={{ alignSelf: 'flex-start', mt: 0.5 }} />
+                    ) : null}
+                </div>
+            ),
         },
         {
             accessorKey: "remarks",
             header: "Remarks",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
+            // Not sortable: omitted from ATTENDANCE_REQUEST_SORT (handlers/employees.ts) because the
+            // rendered value is resolved after the query. A click would round-trip and change nothing.
+            enableSorting: false,
+            // "REMARKS" uppercase at 12px is ~68px, and the header also has to fit the
+            // sort icon inside 32px of cell padding — at size 100 there was no room, so
+            // the heading wrapped. Sized so it always reads on ONE line.
+            size: 150,
+            minSize: 140,
+            maxSize: 220,
             Cell: ({ renderedCellValue }: any) => renderedCellValue
         },
         {
             accessorKey: "status",
-            header: "Status ",
-            size: 100,
-            minSize: 100,
-            maxSize: 150,
+            header: "Status",
+            // Sized for the LONGEST label ("Approval Pending"), not the shortest. At the
+            // old 100/150 cap the badge — which is shrink-0 + nowrap, so it cannot
+            // compress — overflowed the cell and was clipped to "Approval Pend".
+            size: 175,
+            minSize: 150,
+            maxSize: 220,
             Cell: ({ renderedCellValue }: any) => {
                 let statusText = '';
                 let trio: Trio;
@@ -330,6 +389,8 @@ const OpenAttendanceRequests = () => {
         {
             accessorKey: "workingMethod",
             header: "Work",
+            // Renders a resolved label, not the stored id — server cannot sort it meaningfully.
+            enableSorting: false,
             size: 100,
             minSize: 100,
             maxSize: 150,
@@ -372,6 +433,8 @@ const OpenAttendanceRequests = () => {
         {
             accessorKey: "approvedById",
             header: "Approved / Rejected By",
+            // Renders a resolved name, not the stored id — server cannot sort it meaningfully.
+            enableSorting: false,
             size: 180,
             minSize: 150,
             maxSize: 220,
@@ -461,7 +524,12 @@ const OpenAttendanceRequests = () => {
                 data={allIsWeekendOrHolidayDataWithAttendanceRequests}
                 tableName="All Attendance Requests"
                 employeeId={employeeIdCurrent}
+                persistPreferences={false}
                 manualPagination={true}
+                manualSorting={true}
+                manualFiltering={true}
+                onSearchChange={setSearch}
+                onSortingChange={setSorting}
                 rowCount={allTotalRecords}
                 onPaginationChange={setAllPagination}
                 paginationState={allPagination}

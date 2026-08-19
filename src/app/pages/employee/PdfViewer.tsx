@@ -128,7 +128,7 @@ const PdfPreviewer: React.FC<PdfPreviewerProps> = ({ signatureUrl, file, onClose
                     <KTIcon iconName='information-5' className='fs-2tx text-white me-4' />
                     <div className='d-flex flex-stack flex-grow-1'>
                         <div className='fw-bold'>
-                            <h4 className='text-white fw-bolder'>Click on the document to e-sign it</h4>
+                            <h4 className='text-white fw-bolder'>Click on the Document to E-sign It</h4>
                             <div className='fs-6 text-white'>
                                 If you haven't registered your e-sign then please go into My Profile - Edit Profile
                             </div>

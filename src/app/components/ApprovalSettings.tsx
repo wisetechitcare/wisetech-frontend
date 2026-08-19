@@ -17,8 +17,31 @@ interface ApproverOption {
   avatar?: string | null;
 }
 
+export type ApprovalChains = Record<WorkflowType, string[]>;
+
 interface ApprovalSettingsProps {
-  employeeId: string;
+  /**
+   * The employee these chains belong to. Omit during ONBOARDING — the row does not
+   * exist yet, and every endpoint here is keyed by employee id.
+   */
+  employeeId?: string;
+  /**
+   * Deferred mode (no `employeeId`): the parent owns the chains and persists them
+   * once the employee has been created. Per-row Save/Delete are hidden because
+   * there is nothing on the server to save against or delete yet.
+   */
+  value?: ApprovalChains;
+  onChange?: (next: ApprovalChains) => void;
+  /**
+   * Whether to surface "Level 1 approver is required" inline. Defaults to true, which
+   * is right for the edit screen — the chains are either configured or they are not,
+   * and the user came here to see that.
+   *
+   * Onboarding passes the field's touched state instead: a blank form the admin has
+   * only just scrolled to is not a form they skipped, and greeting them with three red
+   * errors before they have done anything reads as broken rather than instructive.
+   */
+  showErrors?: boolean;
 }
 
 const MODULES: Array<{ key: WorkflowType; label: string }> = [
@@ -37,7 +60,40 @@ const emptyRecord = (): Record<WorkflowType, string[]> => ({
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
+export const emptyApprovalChains = (): ApprovalChains => emptyRecord();
+
+/**
+ * Shared rule set for one chain. Exported so the onboarding wizard, which persists
+ * these AFTER creating the employee, rejects exactly what the inline Save rejects
+ * rather than posting a chain the edit screen would refuse.
+ *
+ * Returns the problem, or null when the chain is fine.
+ */
+export const validateApprovalChain = (chain: string[]): string | null => {
+  if (!chain[0]) return 'Level 1 approver is required';
+
+  const seen = new Set<string>();
+  for (let i = 0; i < chain.length; i++) {
+    const cur = chain[i];
+    const prev = i === 0 ? cur : chain[i - 1];
+    if (!prev && cur) return 'Approval levels must be contiguous without gaps';
+    if (cur) {
+      if (seen.has(cur)) return 'Same approver cannot be selected in multiple levels';
+      seen.add(cur);
+    }
+  }
+  return null;
+};
+
+const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
+  employeeId,
+  value,
+  onChange,
+  showErrors = true,
+}) => {
+  // No employee id means we are inside the create wizard: show the pickers, hold the
+  // selections for the parent, and let it write them once the employee exists.
+  const deferred = !employeeId;
   const [approverOptions, setApproverOptions] = useState<ApproverOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState<Record<WorkflowType, boolean>>({
@@ -47,9 +103,18 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
   });
   const [chains, setChains] = useState<Record<WorkflowType, string[]>>(emptyRecord());
   const [configIds, setConfigIds] = useState<Record<WorkflowType, string[]>>(emptyRecord());
+  // What is actually PERSISTED, mirrored from the server on load and after each save.
+  // `configIds` can't stand in for this: it stays populated when the user swaps an
+  // already-saved approver for another, so it can't tell "saved" from "edited but unsaved".
+  const [savedChains, setSavedChains] = useState<Record<WorkflowType, string[]>>(emptyRecord());
+
+  // In deferred mode the parent is the source of truth, so the pickers read from
+  // `value`; otherwise they read the state loaded from the server.
+  const chainsInUse: ApprovalChains = deferred ? value ?? emptyRecord() : chains;
 
   useEffect(() => {
-    if (!employeeId) return;
+    // Runs in BOTH modes: even with no employee to load chains for, the approver
+    // list still has to be fetched or every dropdown would be empty.
     loadData();
   }, [employeeId]);
 
@@ -58,7 +123,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
     try {
       const [employeesRes, workflowsRes] = await Promise.all([
         fetchAllEmployeesSelectedData(),
-        fetchApprovalWorkflowConfigs(employeeId),
+        employeeId ? fetchApprovalWorkflowConfigs(employeeId) : Promise.resolve(null),
       ]);
 
       const employeeList: any[] = employeesRes?.data?.employees || employeesRes?.data || [];
@@ -89,6 +154,11 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
 
       setChains(nextChains);
       setConfigIds(nextIds);
+      setSavedChains({
+        attendance: [...nextChains.attendance],
+        leave: [...nextChains.leave],
+        reimbursement: [...nextChains.reimbursement],
+      });
     } catch (err) {
       console.error('Failed to load approval settings:', err);
     } finally {
@@ -96,37 +166,28 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
     }
   };
 
-  const handleLevelChange = (type: WorkflowType, idx: number, value: string) => {
+  const handleLevelChange = (type: WorkflowType, idx: number, selectedId: string) => {
+    if (deferred) {
+      const next: ApprovalChains = { ...chainsInUse, [type]: [...chainsInUse[type]] };
+      next[type][idx] = selectedId;
+      onChange?.(next);
+      return;
+    }
     setChains(prev => {
       const updated = { ...prev };
       updated[type] = [...prev[type]];
-      updated[type][idx] = value;
+      updated[type][idx] = selectedId;
       return updated;
     });
   };
 
   const handleSave = async (type: WorkflowType) => {
+    if (!employeeId) return;
     const chain = chains[type];
-    if (!chain[0]) {
-      errorConfirmation('Level 1 approver is required');
+    const problem = validateApprovalChain(chain);
+    if (problem) {
+      errorConfirmation(problem);
       return;
-    }
-
-    const seen = new Set<string>();
-    for (let i = 0; i < chain.length; i++) {
-      const cur = chain[i];
-      const prev = i === 0 ? cur : chain[i - 1];
-      if (!prev && cur) {
-        errorConfirmation('Approval levels must be contiguous without gaps');
-        return;
-      }
-      if (cur) {
-        if (seen.has(cur)) {
-          errorConfirmation('Same approver cannot be selected in multiple levels');
-          return;
-        }
-        seen.add(cur);
-      }
     }
 
     setIsSaving(prev => ({ ...prev, [type]: true }));
@@ -145,6 +206,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
         if (idx >= 0 && idx < 5 && cfg?.isActive) ids[idx] = String(cfg.id || '');
       });
       setConfigIds(prev => ({ ...prev, [type]: ids }));
+      setSavedChains(prev => ({ ...prev, [type]: [...chain] }));
 
       successConfirmation(`${capitalize(type)} approval chain saved`);
     } catch (err: any) {
@@ -157,9 +219,11 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
   };
 
   const handleDelete = async (type: WorkflowType) => {
+    if (!employeeId) return;
     const ids = configIds[type].filter(Boolean);
     if (!ids.length) {
       setChains(prev => ({ ...prev, [type]: emptyChain() }));
+      setSavedChains(prev => ({ ...prev, [type]: emptyChain() }));
       return;
     }
 
@@ -170,6 +234,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
       await Promise.all(ids.map(id => deleteApprovalWorkflowConfig(id)));
       setChains(prev => ({ ...prev, [type]: emptyChain() }));
       setConfigIds(prev => ({ ...prev, [type]: emptyChain() }));
+      setSavedChains(prev => ({ ...prev, [type]: emptyChain() }));
       successConfirmation(`${capitalize(type)} approval chain deleted`);
     } catch (err: any) {
       errorConfirmation(
@@ -186,7 +251,15 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
 
   return (
     <div className="d-flex flex-column gap-4">
-      {MODULES.map(({ key, label }) => (
+      {MODULES.map(({ key, label }) => {
+        // Level 1 is the requirement — without it the module has no approver at all.
+        // Three states drive the row: nothing chosen, chosen but not yet persisted,
+        // and persisted. `handleSave` already rejects an empty Level 1; surfacing it
+        // inline means the user sees it before they press Save, not after.
+        const isMissing = !chainsInUse[key][0];
+        const isDirty = chainsInUse[key].join('|') !== savedChains[key].join('|');
+
+        return (
         <div key={key} className="border rounded p-4">
           <div className="row g-3 align-items-end">
             {/* Category label */}
@@ -197,12 +270,15 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
             {/* Level dropdowns */}
             {[0, 1, 2, 3, 4].map(idx => (
               <div key={`${key}-l${idx + 1}`} className="col-12 col-sm-6 col-md-4 col-xl-2">
-                <label className="form-label mb-1" style={{ fontSize: '0.8125rem' }}>
+                <label
+                  className={`form-label mb-1 ${idx === 0 ? 'required' : ''}`}
+                  style={{ fontSize: '0.8125rem' }}
+                >
                   Level {idx + 1}
                 </label>
                 <Select
                   options={approverOptions}
-                  value={approverOptions.find(opt => opt.value === chains[key][idx]) ?? null}
+                  value={approverOptions.find(opt => opt.value === chainsInUse[key][idx]) ?? null}
                   onChange={selected => handleLevelChange(key, idx, selected?.value ?? '')}
                   placeholder={idx === 0 ? 'Select approver' : 'N/A'}
                   isClearable
@@ -211,32 +287,56 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
                   classNamePrefix="react-select"
                   className="react-select-styled"
                 />
+                {idx === 0 && isMissing && showErrors && (
+                  // `data-required-error` is what the wizard scrolls to when Continue is
+                  // blocked here — this section's requirement is structural, so there is
+                  // no single invalid input for it to find instead.
+                  <div className="text-danger fs-8 mt-1" data-required-error>
+                    Level 1 approver is required
+                  </div>
+                )}
               </div>
             ))}
 
-            {/* Actions */}
-            <div className="col-12 d-flex justify-content-end gap-2 flex-wrap mt-2">
-              <button
-                type="button"
-                className="btn btn-sm btn-light-danger"
-                onClick={() => handleDelete(key)}
-                disabled={isSaving[key]}
-              >
-                Delete Chain
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                style={{ backgroundColor: '#1E3A8A', border: 'none' }}
-                onClick={() => handleSave(key)}
-                disabled={isSaving[key]}
-              >
-                {isSaving[key] ? 'Saving...' : 'Save'}
-              </button>
-            </div>
+            {/* Actions — only where there is an employee to act on. During onboarding
+                the chains ride along with the form and are written once the employee
+                has been created, so a per-row Save here would have nothing to target. */}
+            {!deferred && (
+              <div className="col-12 d-flex justify-content-between align-items-center gap-2 flex-wrap mt-2">
+                <span className="fs-8">
+                  {isMissing ? (
+                    <span className="text-danger">Not configured</span>
+                  ) : isDirty ? (
+                    <span className="text-warning">Unsaved changes — press Save to apply</span>
+                  ) : (
+                    <span className="text-success">Saved</span>
+                  )}
+                </span>
+                <span className="d-flex gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-light-danger"
+                    onClick={() => handleDelete(key)}
+                    disabled={isSaving[key]}
+                  >
+                    Delete Chain
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    style={{ backgroundColor: '#1E3A8A', border: 'none' }}
+                    onClick={() => handleSave(key)}
+                    disabled={isSaving[key]}
+                  >
+                    {isSaving[key] ? 'Saving...' : 'Save'}
+                  </button>
+                </span>
+              </div>
+            )}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

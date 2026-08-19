@@ -1,6 +1,6 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -33,6 +33,7 @@ const employeesBreadCrumb = [
 
 const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
   const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
   const companyId = useSelector((state: RootState) => state.company.currentCompany.id);
@@ -346,8 +347,10 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
   // Handle Edit Employee - Navigate to edit page
   const handleEditClick = useCallback((employeeId: string) => {
     if (!employeeId) return;
-    navigate(`/employees/edit/${employeeId}`, { state: { employeeId } });
-  }, [navigate]);
+    navigate(`/employees/edit/${employeeId}`, {
+      state: { employeeId, returnTo: `${location.pathname}${location.search}` },
+    });
+  }, [navigate, location]);
 
   // Handle Show Employee Details - Fetch employee-specific data and open modal
   const handleShowDetails = useCallback(async (employeeId: string) => {

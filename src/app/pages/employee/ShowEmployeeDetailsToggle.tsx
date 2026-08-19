@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -27,6 +27,7 @@ const ShowEmployeeDetailsToggle = () => {
   const [employee, setEmployee] = useState<any>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("details");
   const canManageAccess = usePermission("users.manage.all");
   const dispatch = useDispatch<AppDispatch>();
@@ -57,7 +58,7 @@ const ShowEmployeeDetailsToggle = () => {
       <div className="card border-0 shadow-sm m-8">
         <div className="card-body text-center py-10">
           <i className="bi bi-exclamation-triangle fs-1 text-warning mb-3 d-block"></i>
-          <h5 className="fw-semibold">This page isn't available</h5>
+          <h5 className="fw-semibold">This Page Isn't Available</h5>
           <p className="text-muted mb-4">We couldn't open this employee record. It may have moved or you may not have access.</p>
           <button className="btn btn-primary" onClick={() => navigate("/dashboard")}>Go to Dashboard</button>
         </div>
@@ -92,7 +93,10 @@ const ShowEmployeeDetailsToggle = () => {
   };
 
   const handleEditClick = async (employeeId: string) => {
-    navigate(`/employees/edit/${employeeId}`, { state: { employeeId } });
+    // Cancelling the wizard comes back HERE, not to the employee list.
+    navigate(`/employees/edit/${employeeId}`, {
+      state: { employeeId, returnTo: `${location.pathname}${location.search}` },
+    });
   };
 
   const handleTabChange = (

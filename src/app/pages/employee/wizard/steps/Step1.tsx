@@ -5,7 +5,7 @@ function Step1() {
 
     return (
         <div className='w-100'>
-            <h1 className="employee__form_wizard__step_title">Choose a method</h1><br/>
+            <h1 className="employee__form_wizard__step_title">Choose a Method</h1><br/>
             <div className='row'>
                 <div className='col-lg-6'>
                     <Field

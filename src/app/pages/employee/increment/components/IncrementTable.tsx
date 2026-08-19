@@ -3,6 +3,7 @@ import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
 import dayjs from 'dayjs';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { IncrementRecord } from '@services/incrementService';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { T } from '@app/modules/common/components/ui/tokens';
@@ -16,9 +17,10 @@ interface TableProps {
     fromAdmin: boolean;
     onView: (record: IncrementRecord) => void;
     onEdit?: (record: IncrementRecord) => void;
+    onDelete?: (record: IncrementRecord) => void;
 }
 
-const IncrementTable = ({ data, loading, showSensitiveData, fromAdmin, onView, onEdit }: TableProps) => {
+const IncrementTable = ({ data, loading, showSensitiveData, fromAdmin, onView, onEdit, onDelete }: TableProps) => {
     const blurStyle = showSensitiveData ? {} : { filter: 'blur(4px)', userSelect: 'none' as const };
 
     const columns = useMemo(() => [
@@ -86,11 +88,18 @@ const IncrementTable = ({ data, loading, showSensitiveData, fromAdmin, onView, o
                             </IconButton>
                         </Tooltip>
                     )}
+                    {fromAdmin && onDelete && (
+                        <Tooltip title="Delete increment">
+                            <IconButton size="small" onClick={() => onDelete(row.original)} sx={{ color: T.color.danger }}>
+                                <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+                    )}
                 </Box>
             ),
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [showSensitiveData, fromAdmin, onView, onEdit]);
+    ], [showSensitiveData, fromAdmin, onView, onEdit, onDelete]);
 
     return (
         <MaterialTable

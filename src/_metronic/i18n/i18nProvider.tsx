@@ -1,13 +1,16 @@
 import {FC} from 'react'
 import {useLang} from './Metronici18n'
 import {IntlProvider} from 'react-intl'
-import '@formatjs/intl-relativetimeformat/polyfill'
-import '@formatjs/intl-relativetimeformat/locale-data/en'
-import '@formatjs/intl-relativetimeformat/locale-data/de'
-import '@formatjs/intl-relativetimeformat/locale-data/es'
-import '@formatjs/intl-relativetimeformat/locale-data/fr'
-import '@formatjs/intl-relativetimeformat/locale-data/ja'
-import '@formatjs/intl-relativetimeformat/locale-data/zh'
+// The @formatjs/intl-relativetimeformat polyfill and its six locale-data imports were
+// removed. They were Metronic template boilerplate for a feature this app never uses:
+// react-intl's <FormattedRelativeTime> appears nowhere, and the one formatRelativeTime
+// helper (leads/dms/utils) is hand-rolled arithmetic that never touches
+// Intl.RelativeTimeFormat. Intl.RelativeTimeFormat has also been native in every target
+// browser since 2020.
+//
+// They also broke the production build: Vite could not resolve the "./polyfill" subpath on
+// the Linux CI runner, while the same lockfile resolved it fine on Windows. Deleting dead
+// imports beats adding a resolver workaround for code nothing calls.
 
 import deMessages from './messages/de.json'
 import enMessages from './messages/en.json'

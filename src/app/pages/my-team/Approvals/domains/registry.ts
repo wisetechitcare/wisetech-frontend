@@ -2,8 +2,8 @@
  * Approval-domain registry — the single place that knows what each workflow type IS.
  *
  * To support a new workflow: add one entry. The queue reads `label`/`tone`/`icon` for the Type
- * chip and mounts `Detail` on row click. A domain with no `Detail` degrades gracefully to the
- * row's expandable panel (approval progress + audit), which every domain gets for free.
+ * chip and mounts `Detail` on row click. A domain with no `Detail` falls back to `GenericDetail`,
+ * which renders the row summary and the decision buttons — so every row opens something.
  *
  * Rule: `Detail` must point at the domain's EXISTING canonical component — never a viewer built
  * for the queue. Leave → ApplyLeave; reimbursement → BatchDetailModal.
@@ -33,8 +33,8 @@ const DOMAINS: ApprovalDomain[] = [
         label: 'Attendance',
         tone: 'warning',
         icon: 'time',
-        // No modal: attendance's detail is the AttendanceDetailCard inside the expandable panel.
-        // When a canonical attendance view exists, register it here — nothing else changes.
+        // Falls back to GenericDetail. When a canonical attendance view exists, register it here —
+        // nothing else changes.
     },
     { key: 'task', label: 'Task', tone: 'cyan', icon: 'check-circle' },
     { key: 'project', label: 'Project', tone: 'brand', icon: 'briefcase' },

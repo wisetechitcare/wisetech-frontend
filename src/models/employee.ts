@@ -50,10 +50,15 @@ export interface IEmployeesAttendance {
   id: string;
   code: string;
   name: string;
+  avatar?: string | null;
   checkIn: string;
   checkOut: string;
   status: string;
+  /** Display form, e.g. "8h 27m" or "-NA-". */
   duration: string;
+  /** Numeric twin of `duration` in minutes (0 when the day has no complete pair).
+   *  Sum this for period totals — never parse `duration` back into a number. */
+  durationMinutes?: number;
   workingMethod: string;
   location: string;
   day: string;
@@ -392,7 +397,32 @@ export interface IReimbursementsFetch {
   type?: string;
   name?: string;
   ID?: string;
+  /**
+   * What the API actually returns. The model previously declared only `rejectionReason`, which the
+   * server has never sent — so every rejected row rendered "N/A" for its reason and the type
+   * system agreed with the bug (P1-3). Both spellings are carried because readers exist for each.
+   */
+  rejectReason?: string | null;
   rejectionReason?: string | null;
+  /** Lead-as-master: the submitted `projectId` is resolved to a lead server-side (P1-5). */
+  leadId?: string | null;
+  lead?: { id?: string; title?: string | null } | null;
+  project?: { id?: string; title?: string | null } | null;
+  projectTitle?: string | null;
+  /** Set by the mappers so a table can render a date while still sorting the real one (P1-7). */
+  expenseDateLabel?: string;
+  /** The batch this line belongs to — the three-date model (Phase 3). */
+  batchId?: string | null;
+  batch?: {
+    id?: string;
+    submissionId?: string;
+    submittedAt?: string | null;
+    status?: number;
+    approvedAt?: string | null;
+  } | null;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
 }
 
 export interface IReimbursementEmployeeLimit {

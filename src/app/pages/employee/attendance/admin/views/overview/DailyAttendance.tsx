@@ -1,7 +1,7 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
-import './DailyAttendance.css';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
 import AttendanceStatusBadge from "@app/modules/common/components/AttendanceStatusBadge";
 import AttendanceCheckCell, {
     formatAttendanceCheckExport,
@@ -18,7 +18,8 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { IEmployeesAttendance } from "@models/employee";
 import { saveEmployeesAttendance } from "@redux/slices/attendance";
 import { RootState } from "@redux/store";
-import { fetchAllEmployeesAttendance, fetchEmployeeLeaves, fetchEmployeesOnLeaveToday } from "@services/employee";
+import { fetchAllEmployees, fetchAllEmployeesAttendance, fetchAllEmployeesAttendanceRange, fetchEmployeeLeaves, fetchEmployeesOnLeaveToday } from "@services/employee";
+import { activeEmployeeIdSet } from "@utils/activeEmployee";
 import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, convertTo12HourFormat, MUMBAI_TZ } from "@utils/date";
 import dayjs, { Dayjs } from "dayjs";
 import { MRT_ColumnDef } from "material-react-table";
@@ -30,7 +31,7 @@ import { onSiteAndHolidayWeekendSettingsOnOffName, resourceNameMapWithCamelCase 
 import { fetchAddressDetails } from "@services/location";
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration } from "@services/company";
 import { DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from "@constants/configurations-key";
-import { getGraceBasedThresholds } from "@utils/getGraceBasedThresholds";
+import { getScopedGraceThresholds } from "@utils/getGraceBasedThresholds";
 import { decimalHoursToHHMM } from "@utils/date";
 import { convertMinutesIntoHrMinFormat, convertMinutesIntoHrMinFormats, customLeaves, filterLeavesPublicHolidays, getTimeDifference, markWeekendOrHoliday } from "@utils/statistics";
 import { saveFilteredLeaves, saveLeaves, savePublicHolidays } from "@redux/slices/attendanceStats";
@@ -56,6 +57,10 @@ interface IEmployeesAttendanceResponse {
         employeeCode: string;
         userId: string;
         name: string;
+        // This employee's own org/branch — the board mixes several, so shift + on-site
+        // config must resolve per row's scope, not from one company-wide fetch.
+        companyId?: string | null;
+        branchId?: string | null;
         // The employee's own branch timezone — business day/weekday classification
         // for this row must use THIS, not a hardcoded constant, so admins viewing
         // from a different timezone (or a company with branches across timezones)
@@ -71,6 +76,12 @@ export const fetchEmpsAttendance = async (date: Dayjs) => {
     const year = date.year();
     const { data: { attendance } } = await fetchAllEmployeesAttendance(currDate, month, year);
 
+    return attendance;
+}
+
+// Range variant (weekly/monthly Overview stats). Same row shape as the daily fetch.
+export const fetchEmpsAttendanceRange = async (from: string, to: string) => {
+    const { data: { attendance } } = await fetchAllEmployeesAttendanceRange(from, to);
     return attendance;
 }
 
@@ -108,7 +119,13 @@ const transformLeaveToAttendance = (leave: any, weekends: any): IEmployeesAttend
     };
 };
 
-const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekends: any): IEmployeesAttendance[] => {
+/**
+ * Exported so the weekly/monthly summary rolls up THESE rows rather than deriving its
+ * own. Status here is the product of timezone-correct weekday resolution plus the
+ * present/absent/missing rules below; a second implementation would drift, and the
+ * summary and the day-by-day drill-in would disagree about the same day.
+ */
+export const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekends: any): IEmployeesAttendance[] => {
     if (!attendance?.length) {
         console.warn('No attendance data received');
         return [];
@@ -166,9 +183,17 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
             employeeId,
             code: empAttendance.employee.employeeCode,
             name: empAttendance.employee.name,
+            avatar: (empAttendance.employee as any)?.avatar ?? null,
+            // Carried onto the row so thresholds/config resolve per employee's own scope.
+            companyId: empAttendance.employee?.companyId ?? null,
+            branchId: empAttendance.employee?.branchId ?? null,
             checkIn: formattedCheckIn,
             checkOut: formattedCheckOut,
             duration: checkIn && checkOut ? getMinutesInHrMinFormat : '-NA-',
+            // Numeric twin of `duration`. The period summary sums worked time, and
+            // parsing "8h 27m" back out of the display string is how rounding bugs and
+            // locale bugs get in — emit the number once, here, where it is computed.
+            durationMinutes: checkIn && checkOut ? getTimeDifferenceInMinutes : 0,
             location: empAttendance.checkInLocation || '-NA-',
             workingMethod: workingMethod?.type || '-NA-',
             day: weekDay,
@@ -181,6 +206,12 @@ const transformAttendance = (attendance: IEmployeesAttendanceResponse[], weekend
             checkOutLatitude: empAttendance.checkOutLatitude,
             checkOutLongitude: empAttendance.checkOutLongitude,
             checkoutWorkingMethod: empAttendance.checkoutWorkingMethod?.type || '-NA-',
+            // Server verdict: late mark waived after a late-night shift the previous day.
+            lateWaived: (empAttendance as any).lateWaived === true,
+            // The SERVER's full late verdict and the day's kind. Carried through the
+            // transform so the cell renders a decision instead of re-deriving one.
+            lateMark: (empAttendance as any).lateMark ?? null,
+            dayKind: (empAttendance as any).dayKind ?? null,
         };
     });
 }
@@ -270,8 +301,29 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
     const [lateCheckInThreshold, setLateCheckInThreshold] = useState('');
     const [earlyCheckOutThreshold, setEarlyCheckOutThreshold] = useState('');
     const [employeeThresholds, setEmployeeThresholds] = useState<any[]>([]);
+    // employeeId → the leave-management config resolved for THAT employee's org/branch.
+    const [leaveConfigByEmployeeId, setLeaveConfigByEmployeeId] = useState<Map<string, Record<string, unknown>>>(new Map());
     const [employeesOnLeaveToday, setEmployeesOnLeaveToday] = useState<any[]>([]);
     const [mergedAttendanceData, setMergedAttendanceData] = useState<IEmployeesAttendance[]>([]);
+    // Roster-derived set of employees this table may show. Attendance/leave rows carry no
+    // active flag of their own, so the roster is the only place the answer lives.
+    const [activeEmployeeIds, setActiveEmployeeIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const employeesRes = await fetchAllEmployees();
+                if (cancelled) return;
+                setActiveEmployeeIds(activeEmployeeIdSet(employeesRes?.data?.employees || []));
+            } catch (error) {
+                // Non-fatal: an empty set means "don't filter", so a roster failure shows
+                // everything rather than an empty table.
+                console.error('Error loading roster for active-employee filter:', error);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
 
     useEffect(() => {
@@ -396,33 +448,32 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         // Apply weekend/holiday marking logic
         const isWeekendOrHolidayData = markWeekendOrHoliday(dataToProcess, getAllWeekends, allHolidays);
 
-        return filterIds
-            ? isWeekendOrHolidayData.filter((row: any) => filterIds.includes(row.employeeId))
+        // Attendance and leave rows carry no isActive of their own, so inactive staff are
+        // excluded by employee id against the roster — otherwise a leaver keeps appearing
+        // as "Absent" every day forever, which is what the stat cards already avoid.
+        // Empty set = roster not loaded yet; don't blank the table on first paint.
+        const activeOnly = activeEmployeeIds.size > 0
+            ? isWeekendOrHolidayData.filter((row: any) => !row.employeeId || activeEmployeeIds.has(row.employeeId))
             : isWeekendOrHolidayData;
-    }, [mergedAttendanceData, employeesAttendance, getAllWeekends, allHolidays, filterIds]);
+
+        return filterIds
+            ? activeOnly.filter((row: any) => filterIds.includes(row.employeeId))
+            : activeOnly;
+    }, [mergedAttendanceData, employeesAttendance, getAllWeekends, allHolidays, filterIds, activeEmployeeIds]);
 
     const columns = useMemo<MRT_ColumnDef<IEmployeesAttendance>[]>(() => [
         {
             id: "employee",
             header: "Employee",
-            size: 180,
+            size: 220,
             accessorFn: (row) => `${row.name} ${row.code}`,
             Cell: ({ row }) => (
-                <div className="daily-attendance__employee-cell">
-                    <div className="daily-attendance__employee-name">
-                        {row.original.name}
-                    </div>
-                    <div className="daily-attendance__employee-code">
-                        {row.original.code}
-                    </div>
-                </div>
+                <EmployeeIdentityCell
+                    name={row.original.name}
+                    code={row.original.code}
+                    avatarUrl={row.original.avatar}
+                />
             ),
-        },
-        {
-            accessorKey: "status",
-            header: "Status",
-            size: 120,
-            Cell: ({ row }) => <StatusBadge status={row.original.status} />
         },
         {
             accessorKey: "checkIn",
@@ -450,11 +501,24 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                     date: employee.date,
                     lateCheckInThreshold:
                         employeeData?.lateCheckInThreshold ?? lateCheckInThreshold,
-                    leaveConfig: leaveConfiguration,
+                    // This employee's OWN branch/org config (on-site deadline + enforce
+                    // toggle); the company-wide fetch is only a fallback.
+                    leaveConfig:
+                        leaveConfigByEmployeeId.get(employee.employeeId ?? '') ?? leaveConfiguration,
                     skipColoring: !shouldApplyCheckInColoring(
                         employee.status,
                         employee.isWeekendOrHoliday
                     ),
+                    // Drives the master switch's holiday/weekend legs. `skipColoring`
+                    // alone does NOT cover this row: a day that was actually WORKED has
+                    // status Present / Working on weekend, neither of which that helper
+                    // treats as a neutral row.
+                    isWeekendOrHoliday: employee.isWeekendOrHoliday === true,
+                    // Server-computed late-night waiver (same rule payroll applies).
+                    lateWaived: (employee as any).lateWaived === true,
+                    // When present this decides outright; the props above are the fallback
+                    // for responses that predate the verdict annotator.
+                    lateMark: (employee as any).lateMark ?? null,
                 });
 
                 const checkInCoords =
@@ -550,6 +614,13 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 />
             ),
         },
+        {
+            accessorKey: "status",
+            header: "Status",
+            size: 140,
+            minSize: 120,
+            Cell: ({ row }) => <StatusBadge status={row.original.status} />
+        },
 
         // {
         //     accessorKey: "location",
@@ -562,12 +633,9 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         //         return <span>-NA-</span>;
         //     }
         // },
-        {
-            accessorKey: "day",
-            header: "Day",
-            size: 120,
-        },
-    ], [StatusBadge, lateCheckInThreshold, earlyCheckOutThreshold, employeeThresholds, leaveConfiguration]);
+        // Day column removed — the selected day + date now lives in the Overview
+        // heading (PeriodFilter daily label, e.g. "Wednesday, 29 Jul 2026").
+    ], [StatusBadge, lateCheckInThreshold, earlyCheckOutThreshold, employeeThresholds, leaveConfiguration, leaveConfigByEmployeeId]);
 
     const reloadDailyAttendance = useCallback(async () => {
             try {
@@ -645,7 +713,9 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
     // Realtime: refetch when attendance changes anywhere (biometric punch, admin edit, self check-in/out).
     useAttendanceRealtime(() => reloadDailyAttendance());
 
-    // fetch grace based thresholds
+    // Grace thresholds + leave config, resolved PER employee's org/branch. This board lists
+    // several orgs/branches at once, so one company-wide config would colour a branch that
+    // overrides its shift (or its on-site deadline) by the group default.
     useEffect(() => {
         const initThresholds = async () => {
             if (!employeesAttendance || employeesAttendance.length === 0) {
@@ -653,14 +723,13 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 return;
             }
 
-            const thresholds = await getGraceBasedThresholds(employeesAttendance);
+            const thresholds = await getScopedGraceThresholds(employeesAttendance);
 
-            if (thresholds) {
-                setEmployeeThresholds(thresholds.employeesWithThresholds);
+            setEmployeeThresholds(thresholds.employeesWithThresholds);
+            setLeaveConfigByEmployeeId(thresholds.leaveConfigByEmployeeId);
+            if (thresholds.defaultThresholds) {
                 setLateCheckInThreshold(thresholds.defaultThresholds.lateCheckInThreshold);
                 setEarlyCheckOutThreshold(thresholds.defaultThresholds.earlyCheckOutThreshold);
-            } else {
-                console.error('No thresholds returned from getGraceBasedThresholds');
             }
         };
 
@@ -791,6 +860,9 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 employeeId={employeeIdCurrent}
                 checkOwnWithOthers={true}
                 manualPagination={false}
+                // Fixed curated column order (Employee, Check-In, Check-Out, Duration,
+                // Status) — don't persist a per-user order that can strand columns.
+                persistPreferences={false}
             />
         </>
     );

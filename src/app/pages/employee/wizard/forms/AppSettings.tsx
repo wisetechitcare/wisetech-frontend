@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import { useFormikContext } from "formik";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { fetchRoles } from "@services/roles";
 import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
 import { useParams } from "react-router-dom";
-import ApprovalSettings from "@app/components/ApprovalSettings";
+import ApprovalSettings, { emptyApprovalChains } from "@app/components/ApprovalSettings";
 
 const showAppSettingsRadioBtn: RadioButton[] = [
     { label: 'Yes', value: "1" },
@@ -17,6 +18,7 @@ const isEmployeeActiveRadioBtn: RadioButton[] = [
 
 function AppSettings() {
     const { employeeId } = useParams<{ employeeId: string }>();
+    const { values, touched, setFieldValue } = useFormikContext<any>();
     const fieldName = 'appRole';
     const [roleOptions, setRoleOptions] = useState<any[]>([]);
 
@@ -74,13 +76,36 @@ function AppSettings() {
                 </div>
             </div>
 
-            {/* Approval Settings — shared component, loads its own data */}
-            {employeeId && (
-                <div className="mt-6">
-                    <h5 className="mb-4">Approval Settings</h5>
-                    <ApprovalSettings employeeId={employeeId} />
+            {/* Approval Settings — shared component, loads its own data.
+                Required: an employee with no Level 1 approver has nowhere to route
+                their attendance/leave/reimbursement requests, so every chain needs
+                one.
+
+                This used to render ONLY when `employeeId` existed, i.e. never during
+                onboarding — so a brand-new employee was created with no approval
+                chains at all and nobody was told. The chains now ride along in the
+                form and the wizard writes them straight after the employee is
+                created; in edit mode the component keeps saving row by row as before. */}
+            <div className="mt-6">
+                <h5 className="mb-1 required">Approval Settings</h5>
+                <div className="text-muted fs-7 mb-4">
+                    {employeeId
+                        ? "Each request type needs a Level 1 approver. Set one and press Save on that row."
+                        : "Each request type needs a Level 1 approver. These are saved with the employee."}
                 </div>
-            )}
+                {employeeId ? (
+                    <ApprovalSettings employeeId={employeeId} />
+                ) : (
+                    <ApprovalSettings
+                        value={values.approvalChains ?? emptyApprovalChains()}
+                        onChange={(next) => setFieldValue("approvalChains", next)}
+                        // Errors appear once the section has been touched — which the
+                        // wizard does when a blocked Continue is attempted. Arriving on
+                        // an empty section is not skipping it.
+                        showErrors={Boolean(touched?.approvalChains)}
+                    />
+                )}
+            </div>
         </>
     );
 }

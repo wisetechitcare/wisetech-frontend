@@ -24,7 +24,17 @@ const ProjectsMain = () => {
   const tabKey = searchParams.get("tab") || "overview";
   const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
   const setActiveTab = (index: number) => {
-    setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
+    // Merge into the existing params — passing a bare object would drop every
+    // other param (the table's ?manager=/?search=/?status= filters) on each
+    // tab switch.
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", TAB_KEYS[index] ?? "overview");
+        return next;
+      },
+      { replace: true },
+    );
   };
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number}[]>([]);
   const [projectData, setProjectData] = useState<any>([]);

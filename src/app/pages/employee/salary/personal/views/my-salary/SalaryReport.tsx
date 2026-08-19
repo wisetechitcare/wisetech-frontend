@@ -6,9 +6,7 @@ import { HOLIDAYS, LATE_CHECKIN, MONTH, ON_LEAVE, Status, YEAR, LEAVE_MANAGEMENT
 import { KTIcon } from '@metronic/helpers';
 import { IPayment } from '@models/employee';
 import { Attendance } from '@models/employee';
-import SalarySlipTemplate from '@pages/employee/salary/SalarySlipTemplate';
 import { transformApiDataToSalarySlipProps, SalarySlipProps } from '@pages/employee/salary/utils/salarySlipDataTransformer';
-import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { saveLeaves, saveToggleChange } from '@redux/slices/attendanceStats';
 import { Employee, saveHourlySalaryOfCurrentEmployee, saveHourlySalaryOfSelectedEmployee } from '@redux/slices/employee';
 import { RootState, store } from '@redux/store';
@@ -2026,14 +2024,30 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             });
     }, [salaryId]);
 
-    // Transform API data to SalarySlipTemplate props format
+    // The salary slip PDF always comes from the backend template. A finalised month is
+    // fetched by its salary record id; a month with no salary record yet (the in-progress
+    // current month) is fetched by employee + month/year, which renders the SAME template
+    // from live figures — there is no separate client-side slip layout.
+    const fetchSalarySlipBlob = async (): Promise<Blob> => {
+        const savedSalaryId = monthlyApiData?.salaryData?.[0]?.id as string | undefined;
+        if (savedSalaryId) return payrollService.downloadSalarySlip(savedSalaryId);
+
+        const periodMonth = Number(resolvedMonth);
+        const periodYear = Number(year);
+        if (!employee?.id || !periodMonth || !periodYear) {
+            throw new Error('Salary slip is not available for this period yet');
+        }
+        return payrollService.downloadSalarySlipForPeriod(employee.id, periodMonth, periodYear);
+    };
+
+    // Transform API data to salary-slip props (used for the pie chart and the slip email payload)
     const salarySlipProps = useMemo((): SalarySlipProps | null => {
         if (!isApiDataLoaded || !apiSalaryData) {
-            console.warn('📊 [SalaryReport] No API data available for SalarySlipTemplate');
+            console.warn('📊 [SalaryReport] No API data available for the salary slip');
             return null;
         }
 
-        console.log('📊 [SalaryReport] Using API data for SalarySlipTemplate');
+        console.log('📊 [SalaryReport] Using API data for the salary slip');
         try {
             return transformApiDataToSalarySlipProps(apiSalaryData, employee, paymentHistory, salaryId);
         } catch (error) {
@@ -2415,7 +2429,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     onClick={async () => {
                                         try {
                                             setLoading(true);
-                                            const blob = await payrollService.downloadSalarySlip(monthlyApiData?.salaryData?.[0]?.id as string);
+                                            const blob = await fetchSalarySlipBlob();
                                             const url = window.URL.createObjectURL(new Blob([blob]));
                                             const link = document.createElement('a');
                                             link.href = url;
@@ -2447,7 +2461,15 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                         setLoading(false);
                                         return;
                                     }
-                                    const blob = await payrollService.downloadSalarySlip(monthlyApiData?.salaryData?.[0]?.id as string);
+                                    let blob: Blob;
+                                    try {
+                                        blob = await fetchSalarySlipBlob();
+                                    } catch (error) {
+                                        console.error("Failed to generate salary slip PDF:", error);
+                                        errorConfirmation("Failed to generate salary slip. Please try again.");
+                                        setLoading(false);
+                                        return;
+                                    }
                                     const form = new FormData();
                                     const fileFinal = new File([blob], `${userId}-SalarySlip-${Date.now()}.pdf`, { type: 'application/pdf' });
                                     form.append("file", fileFinal);
@@ -2708,100 +2730,6 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                         showSensitiveData={showSensitiveData}
                         isApiDataLoaded={isApiDataLoaded}
                     />
-                    {/* <div className="d-flex justify-content-end mt-4 md:justify-content-center">
-                        <PDFDownloadLink document={
-                            <SalarySlipTemplate
-                                grossPayVariable={grossPayVariable}
-                                totalGrossPayEarned={`${formatNumber(totalGrossPayEarned)}`}
-                                grossPayFixed={grossPayFixed}
-                                deductions={deductions}
-                                totalDeductionsEarned={`${formatNumber(totalDeductionsEarned)}`}
-                                taxes={taxes}
-                                employee={employee}
-                                finalAmount={formatNumber(Math.abs(totalGrossPayEarned - totalDeductionsEarned))}
-                                totalPayableDays={totalPayableDays}
-                                date={date}
-                                paidLeaves={paidLeaves}
-                                unpaidLeaves={totalUnpaidLeaves}
-                            />
-                        } fileName={`${employee?.firstName || ''} ${employee?.lastName || ''} Salary Slip ${date || ''}.pdf`.trim()} className="me-2" >
-                            <Button>
-                                Download Report (Pdf)
-                            </Button>
-                        </PDFDownloadLink>
-
-                        <Button style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} onClick={ 
-                            async ()=> {
-                            setLoading(true);
-                            if (!salarySlipProps) {
-                                alert('No salary data available for PDF generation');
-                                setLoading(false);
-                                return;
-                            }
-                            const blob = await pdf(<SalarySlipTemplate {...salarySlipProps} />).toBlob();
-                            const form = new FormData();
-                            const fileFinal = new File([blob], `${userId}-SalarySlip-${Date.now()}.pdf`, { type: 'application/pdf' });
-                            form.append("file", fileFinal);
-                            let fileUploadedUrl;
-                            try {
-                                const {
-                                    data: { path },
-                                } = await uploadUserAsset(form, userId, "salaryreport", "salary-docs");
-                                fileUploadedUrl = path;
-                            } catch (error) {
-                                console.error("Failed to upload file. Please try again.");
-                            }
-                            try {
-                                const data = {
-                                    path: fileUploadedUrl,
-                                    employeeId : employee?.id
-                                };
-                                const res = await sendSalarySlipToEmployee(data);
-                                if(res?.statusCode==200 && !res.hasError){
-                                    const email = salarySlipProps.employee?.companyEmailId || 'Employee';
-                                    toast.success(
-                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' }}>Email Sent Successfully</div>
-                                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>Salary slip delivered to:</div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' }}>
-                                                    <span style={{ marginRight: '8px', fontSize: '1.1em' }}>✉️</span>
-                                                    {email}
-                                                </div>
-                                            </div>
-                                        </div>,
-                                        {
-                                            position: 'bottom-right',
-                                            autoClose: 6000,
-                                            style: {
-                                                borderRadius: '12px',
-                                                padding: '16px',
-                                                border: '1px solid #e2e8f0',
-                                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-                                            }
-                                        }
-                                    );
-                                }
-                                else{
-                                    errorConfirmation("Failed to send salary slip. Please try again.");
-                                }
-                            } catch (error) {
-                                console.error("Failed to send salary slip. Please try again.");
-                                errorConfirmation("Failed to send salary slip. Please try again.");
-                            }
-                            setLoading(false);
-                        }}
-                        disabled={loading}
-                        >
-                            {loading ? "Please wait..." : "Email Salary Slip"}
-                        </Button>
-
-                        {(fromAdmin && keyword == MONTH && !hideSummarySection) &&
-                            <Button style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} className='ms-2' onClick={() => handleEdit()}>
-                                Modify
-                            </Button>
-                        }
-                    </div> */}
                     <div>
                     </div>
                 </Card>
@@ -3079,6 +3007,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 onClose={handleSalaryIncrementClose}
                 employeeId={employee.id}
                 employeeName={`${employee.users?.firstName ?? ''} ${employee.users?.lastName ?? ''}`.trim() || 'Employee'}
+                joiningDate={employee.dateOfJoining ? String(employee.dateOfJoining) : undefined}
                 onSuccess={handleSalaryIncrementSuccess}
             />
 

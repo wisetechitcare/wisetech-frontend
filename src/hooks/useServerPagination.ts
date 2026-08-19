@@ -15,6 +15,16 @@ interface UseServerPaginationProps<T> {
     initialPageSize?: number;
     transformData?: (data: any[]) => T[];
     filterData?: (data: T[]) => T[];
+    /**
+     * Identity of the current server-side filters (e.g. `periodKey(range)`). When it
+     * changes, pagination snaps back to the first page.
+     *
+     * Without this, narrowing a filter while on page 5 asks the server for page 5 of a
+     * result set that now has one page, and the table renders empty — the classic
+     * "my filter broke the table" bug. Pass a STRING, not the filter object: an object
+     * rebuilt each render would reset pagination on every render.
+     */
+    resetKey?: string | number;
 }
 
 interface UseServerPaginationReturn<T> {
@@ -33,6 +43,7 @@ export function useServerPagination<T = any>({
     initialPageSize = pageSize,
     transformData,
     filterData,
+    resetKey,
 }: UseServerPaginationProps<T>): UseServerPaginationReturn<T> {
     const [allData, setAllData] = useState<T[]>([]);
     const [filteredData, setFilteredData] = useState<T[]>([]);
@@ -40,6 +51,16 @@ export function useServerPagination<T = any>({
         pageIndex: 0,
         pageSize: initialPageSize,
     });
+
+    // Adjust-state-during-render rather than an effect. An effect would run AFTER the
+    // fetch effect below, so a filter change would fire one wasted request for the stale
+    // page and only then reset — two round trips and a visible flash of an empty table.
+    // React re-runs this component immediately, before children render or effects fire.
+    const [appliedResetKey, setAppliedResetKey] = useState(resetKey);
+    if (resetKey !== appliedResetKey) {
+        setAppliedResetKey(resetKey);
+        if (pagination.pageIndex !== 0) setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    }
     const [totalRecords, setTotalRecords] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -53,7 +74,16 @@ export function useServerPagination<T = any>({
         filterDataRef.current = filterData;
     }, [transformData, filterData]);
 
+    // Monotonic request id. Sorting/paging/filtering all re-fire this fetch, and nothing
+    // cancels the previous one — so two quick clicks race, and whichever response lands LAST
+    // wins regardless of which was asked for last. A slow first request resolving after a fast
+    // second one leaves rows in the OLD order while the header arrow shows the new one: silently
+    // wrong data, which is worse than slow. Only the newest request is allowed to write state.
+    const requestIdRef = useRef(0);
+
     const fetchData = useCallback(async () => {
+        const requestId = ++requestIdRef.current;
+        const isStale = () => requestId !== requestIdRef.current;
         try {
             setIsLoading(true);
 
@@ -68,6 +98,8 @@ export function useServerPagination<T = any>({
                 ? transformDataRef.current(result.data)
                 : result.data;
 
+            if (isStale()) return;
+
             setAllData(transformedData);
             setTotalRecords(result.totalRecords);
 
@@ -80,12 +112,19 @@ export function useServerPagination<T = any>({
             }
         } catch (error) {
             console.error('Error fetching data:', error);
+            // A superseded request's failure must not blank the table the newest one is filling.
+            if (isStale()) return;
             setAllData([]);
             setFilteredData([]);
             setTotalRecords(0);
         } finally {
-            setIsLoading(false);
-            setIsInitialLoading(false);
+            // Gate the pending flag too: without this, a stale response clears isLoading while a
+            // newer request is still in flight, so the progress bar vanishes and the table looks
+            // frozen for the remainder of the real wait.
+            if (!isStale()) {
+                setIsLoading(false);
+                setIsInitialLoading(false);
+            }
         }
     }, [fetchFunction, pagination.pageIndex, pagination.pageSize]);
 

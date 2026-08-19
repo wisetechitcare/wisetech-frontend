@@ -106,19 +106,86 @@ body {
   }
 }
 
-/* -----------------------------------------------------------------------------
-   Aside surface — clean white panel with a hairline divider + soft shadow
-   -------------------------------------------------------------------------- */
-.aside {
-  background: #ffffff !important;
-  border-right: 1px solid var(--wt-line) !important;
-  box-shadow: 0 8px 30px rgba(16, 24, 40, 0.05) !important;
+/* =============================================================================
+   SIDEBAR PALETTE — one token layer for the whole nav
+   Every colour in the sidebar resolves from these, so light/dark is defined once
+   here instead of being re-derived at each rule.
+
+   Why a NEW `--nav-*` set rather than reusing `--wt-*`: the global `--wt-accent`
+   is the brand navy #1E3A8A, and it is NEVER remapped for dark mode. On the
+   near-black dark surface that navy sits at roughly 1.6:1 against the background
+   — theme/githubDark.ts says so outright ("brighter than the light-mode navy,
+   which is unreadable on a near-black canvas"). Every active row, hover title,
+   section heading and icon chip in the nav was painting itself that colour in
+   dark mode. Introducing a separate set fixes the nav without disturbing the
+   header, buttons and inputs that also read `--wt-accent` and need their own
+   pass — nothing outside this file's sidebar rules consumes `--nav-*`.
+
+   Declared at :root (not scoped to `.aside`) because the collapse toggle
+   `.wt-aside-toggle` is sidebar chrome that renders inside the header element,
+   so an `.aside`-scoped variable would not reach it.
+
+   Foreground tiers are deliberately stronger than the old `--wt-ink`/`--wt-ink-soft`
+   pair: nav labels are small, dense and scanned peripherally, so they need more
+   contrast than body copy, not less.
+   ========================================================================== */
+:root {
+  /* Text tiers. L1 section headings take --nav-accent (see the tree block), so
+     the two neutral tiers below cover items (L2) and rail children (L3). */
+  --nav-fg: #1f2a37;          /* group + top-level items   — 13.6:1 on white */
+  --nav-fg-muted: #4b5563;    /* children on the rail      —  8.1:1 (was 5.3) */
+
+  --nav-accent: #1e3a8a;
+  --nav-accent-2: #3b5ba9;
+  --nav-accent-rgb: 30, 58, 138;
+
+  --nav-surface: #ffffff;
+  --nav-chip-bg: #eef2f7;     /* icon chip — deeper than the old #f2f4f7 so the
+                                 glyph reads as an object, not a smudge */
+  --nav-chip-fg: #475467;
+  --nav-hover-bg: rgba(30, 58, 138, 0.06);
+  --nav-active-bg: rgba(30, 58, 138, 0.10);
+  --nav-line: #e4e7ec;        /* section rules — was #eef0f3, near-invisible */
+  --nav-rail: #dfe3e8;        /* the tree's vertical guide */
+  /* Section heading wash. Fades to FULLY transparent well before the right edge,
+     so the heading has no closed outline — see the note on the heading rule for
+     why an enclosed shape is the wrong signal here. */
+  --nav-heading-bg: linear-gradient(90deg, rgba(30, 58, 138, 0.13) 0%, rgba(30, 58, 138, 0) 78%);
+  --nav-scroll: rgba(16, 24, 40, 0.18);
+  --nav-shadow: 0 8px 30px rgba(16, 24, 40, 0.05);
 }
 
-[data-bs-theme="dark"] .aside {
-  background: var(--gh-surface, #161b22) !important;
-  border-right: 1px solid var(--wt-line) !important;
-  box-shadow: var(--gh-shadow-md, 0 8px 24px rgba(1, 4, 9, 0.55)) !important;
+[data-bs-theme='dark'] {
+  --nav-fg: var(--gh-fg, #e6edf3);
+  /* NOT --gh-fg-muted (#7d8590, 4.8:1): that tier is for prose captions. Nav
+     children are interactive targets and need to survive a peripheral glance. */
+  --nav-fg-muted: #adb6c0;    /* 8.4:1 */
+
+  --nav-accent: var(--gh-accent, #2f81f7);
+  --nav-accent-2: #58a6ff;
+  --nav-accent-rgb: 47, 129, 247;
+
+  --nav-surface: var(--gh-surface, #161b22);
+  --nav-chip-bg: var(--gh-elevated, #1c2128);
+  --nav-chip-fg: #adb6c0;
+  --nav-hover-bg: var(--gh-hover, rgba(177, 186, 196, 0.08));
+  --nav-active-bg: rgba(47, 129, 247, 0.16);
+  --nav-line: var(--gh-border, #30363d);
+  --nav-rail: var(--gh-border, #30363d);
+  /* Carries more alpha than light mode: a 13% tint that reads clearly on white
+     all but vanishes against the near-black surface. */
+  --nav-heading-bg: linear-gradient(90deg, rgba(47, 129, 247, 0.22) 0%, rgba(47, 129, 247, 0) 78%);
+  --nav-scroll: rgba(177, 186, 196, 0.22);
+  --nav-shadow: var(--gh-shadow-md, 0 8px 24px rgba(1, 4, 9, 0.55));
+}
+
+/* -----------------------------------------------------------------------------
+   Aside surface — flat panel with a hairline divider + soft shadow
+   -------------------------------------------------------------------------- */
+.aside {
+  background: var(--nav-surface) !important;
+  border-right: 1px solid var(--nav-line) !important;
+  box-shadow: var(--nav-shadow) !important;
 }
 
 .aside::-webkit-scrollbar {
@@ -129,17 +196,15 @@ body {
   background: transparent;
 }
 
+/* Was rgba(0,0,0,.08) / rgba(255,255,255,.08) — invisible in both themes, so the
+   nav gave no hint it scrolled. */
 .aside::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--nav-scroll);
   border-radius: 10px;
 }
 
-[data-bs-theme="dark"] .aside::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-}
-
 .aside::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--wt-accent-rgb), 0.5);
+  background: rgba(var(--nav-accent-rgb), 0.55);
 }
 
 #kt_aside_menu_wrapper {
@@ -156,7 +221,7 @@ body {
 .aside .menu-link {
   border-radius: 11px;
   padding: 10px 14px;
-  color: var(--wt-ink) !important;
+  color: var(--nav-fg) !important;
   font-weight: 600;
   font-size: 13.5px;
   letter-spacing: 0.1px;
@@ -164,9 +229,17 @@ body {
     box-shadow 0.2s var(--wt-ease);
 }
 
+/* Keyboard focus was invisible — the nav was tab-navigable with no indication of
+   where you were. Inset so the ring is never clipped by the scroll container. */
+.aside .menu-link:focus-visible,
+.aside .menu-pin-btn:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--nav-accent) !important;
+}
+
 .aside .menu-link .menu-title {
-  color: var(--wt-ink) !important;
-  transition: transform 0.2s var(--wt-ease), color 0.2s var(--wt-ease);
+  color: var(--nav-fg) !important;
+  transition: color 0.2s var(--wt-ease);
 }
 
 .aside .menu-link .menu-icon {
@@ -208,8 +281,8 @@ body {
   height: 34px;
   margin-right: 12px;
   border-radius: 10px;
-  background: var(--wt-chip);
-  color: var(--wt-ink) !important;
+  background: var(--nav-chip-bg);
+  color: var(--nav-chip-fg) !important;
   font-size: 18px !important;
   line-height: 1;
   transition: background 0.2s var(--wt-ease), color 0.2s var(--wt-ease),
@@ -218,27 +291,29 @@ body {
 
 /* Hover (non-active): accent-tinted chip to match the row hover. */
 .aside .menu-item .menu-link:not(.active):hover .menu-font-icon {
-  background: rgba(var(--wt-accent-rgb), 0.12);
-  color: var(--wt-accent) !important;
+  background: rgba(var(--nav-accent-rgb), 0.14);
+  color: var(--nav-accent) !important;
   transform: translateX(3px);
 }
 
 /* Active leaf item: solid accent chip with a white glyph — the strong,
    "premium" highlight (matches the reference), not a flat tint. */
 .aside .menu-item .menu-link.without-sub.active .menu-font-icon {
-  background: linear-gradient(135deg, var(--wt-accent) 0%, var(--wt-accent-2) 100%) !important;
+  background: linear-gradient(135deg, var(--nav-accent) 0%, var(--nav-accent-2) 100%) !important;
   color: #fff !important;
-  box-shadow: 0 4px 10px rgba(var(--wt-accent-rgb), 0.32);
+  box-shadow: 0 4px 10px rgba(var(--nav-accent-rgb), 0.32);
 }
 
 /* Hover (non-active) */
 .aside .menu-item .menu-link:not(.active):hover {
-  background: rgba(var(--wt-accent-rgb), 0.08) !important;
+  background: var(--nav-hover-bg) !important;
 }
 
+/* The title used to translateX(3px) alongside the icon, so the label slid out
+   from under the cursor on every hover. The icon nudge alone carries the
+   affordance without moving the thing you are trying to read. */
 .aside .menu-item .menu-link:not(.active):hover .menu-title {
-  color: var(--wt-accent) !important;
-  transform: translateX(3px);
+  color: var(--nav-accent) !important;
 }
 
 .aside .menu-item .menu-link:not(.active):hover .menu-icon {
@@ -247,15 +322,18 @@ body {
 
 /* Active leaf items (top level without submenus) */
 .aside .menu-item .menu-link.without-sub.active {
-  background: rgba(var(--wt-accent-rgb), 0.08) !important;
-  color: var(--wt-accent) !important;
-  border-left: 3px solid var(--wt-accent) !important;
-  border-radius: 0 8px 8px 0 !important;
-  box-shadow: none !important;
+  background: var(--nav-active-bg) !important;
+  color: var(--nav-accent) !important;
+  border-left: 0 !important;
+  border-radius: 11px !important;
+  box-shadow: inset 3px 0 0 var(--nav-accent) !important;
 }
 
+/* Weight, not just hue: colour alone is a weak "you are here" signal for anyone
+   who cannot separate the accent from the body tone. */
 .aside .menu-item .menu-link.without-sub.active .menu-title {
-  color: var(--wt-accent) !important;
+  color: var(--nav-accent) !important;
+  font-weight: 700 !important;
 }
 
 .aside .menu-item .menu-link.without-sub.active .menu-svg-icon {
@@ -266,13 +344,13 @@ body {
 .aside .menu-item.here>.menu-link,
 .aside .menu-item.show>.menu-link {
   background: transparent !important;
-  color: var(--wt-ink) !important;
+  color: var(--nav-fg) !important;
   box-shadow: none !important;
 }
 
 .aside .menu-item.here>.menu-link .menu-title,
 .aside .menu-item.show>.menu-link .menu-title {
-  color: var(--wt-ink) !important;
+  color: var(--nav-fg) !important;
 }
 
 .aside .menu-item.here>.menu-link .menu-svg-icon,
@@ -285,61 +363,196 @@ body {
   filter: none !important;
 }
 
-/* Section headings */
+/* =============================================================================
+   SIDEBAR TREE — three-level type scale
+   The nav is a static tree, not a set of dropdowns: every group renders expanded
+   (AsideMenuItemWithSub pins `.show` and drops the KTMenu trigger), so hierarchy
+   has to be carried by size, weight and indentation instead of by an arrow.
+
+     L1  section heading   "HR & People"          16px / 700 / ink
+     L2  group + top-level "Attendance & Leaves"  14px / 600 / ink
+     L3  child of a group  "Personal"             13px / 500 / ink-soft
+
+   Sizes are pinned with !important because the vendored aside sass sets a blanket
+   `.aside-menu .menu-item .menu-title { font-size: 1.25rem }` that would otherwise
+   flatten all three levels to the same size.
+   ========================================================================== */
+
+/* ── L1 — section heading ─────────────────────────────────────────────── */
 .aside .menu-section {
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.1em !important;
-  color: var(--wt-ink-soft) !important;
-  padding-left: 14px !important;
-  margin-top: 24px !important;
-  margin-bottom: 8px !important;
-  text-transform: uppercase !important;
-  opacity: 0.8;
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  line-height: 1.3 !important;
+  letter-spacing: -0.2px !important;
+  text-transform: none !important;
+  color: var(--nav-accent) !important;
+  opacity: 1;
+  /* An OPEN shape, not a chip. A rounded rectangle with a 1px ring is exactly the
+     shape language of the active row, so a boxed heading reads as "this section is
+     selected" and competes with the one signal that has to stay unambiguous.
+     Dropping the ring and letting the wash fade to nothing on the right leaves the
+     heading with no closed edge: it becomes a tint behind a label rather than a
+     control. Selection stays the only enclosed shape in the nav. */
+  padding: 7px 12px !important;
+  margin: 0 !important;
+  border-radius: 6px 0 0 6px;
+  background: var(--nav-heading-bg);
+  box-shadow: none;
+}
+
+/* Leading accent bar — the band's anchor at the left edge. */
+.aside .menu-section::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 14px;
+  background: var(--nav-accent);
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 
 .aside .menu-content {
-  padding-top: 8px;
-  padding-bottom: 2px;
+  padding-top: 12px;
+  padding-bottom: 6px;
 }
 
-/* Sub-menu (accordion) tree structure */
+/* Extra breathing room above every heading but the first, so each band reads as
+   the start of a group. The band replaced the hairline rule that used to sit
+   here — a filled header and a divider one line apart was two separators doing
+   the same job. */
+.aside .menu-item + .menu-tree-section > .menu-content {
+  margin-top: 12px;
+}
+
+/* ── L2 — group headers and top-level links ───────────────────────────── */
+.aside .menu-item > .menu-link .menu-title,
+.aside .menu-item > .menu-link .menu-title > span {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+}
+
+/* The child rail below is positioned off the icon chip's centre (10px row inset
+   + half of the 34px chip = 27px), so pin the inset rather than leaving it to
+   the vendored `menu-link-padding-x(10px)` mixin, which outranks the shorthand
+   on `.aside .menu-link` and would silently move the rail if it ever changed. */
+.aside .menu-item > .menu-link {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+/* A group header is a label, not a control — nothing happens on click while the
+   sidebar is expanded, so it must not offer a hover affordance that implies it does. */
+.aside .menu-item.menu-tree-group > .menu-link {
+  cursor: default;
+}
+
+.aside .menu-item.menu-tree-group > .menu-link:not(.active):hover {
+  background: transparent !important;
+}
+
+.aside .menu-item.menu-tree-group > .menu-link:not(.active):hover .menu-title,
+.aside .menu-item.menu-tree-group > .menu-link:not(.active):hover .menu-icon,
+.aside .menu-item.menu-tree-group > .menu-link:not(.active):hover .menu-font-icon {
+  color: var(--nav-fg) !important;
+  transform: none !important;
+}
+
+/* ── L3 — children, hung off a guide rail ─────────────────────────────── */
 .aside .menu-sub-accordion {
   position: relative;
-  margin-left: 24px !important;
-  padding-left: 8px !important;
-  border-left: 1px dashed var(--wt-line) !important;
-  margin-top: 4px;
-  margin-bottom: 4px;
+  flex-direction: column;
+  margin: 2px 0 8px 0 !important;
+  padding-left: 0 !important;
+  border-left: 0 !important;
 }
 
+/* Vertical rail, aligned to the centre of the parent row's icon. */
+.aside .menu-tree-children::before {
+  content: '';
+  position: absolute;
+  left: 27px;
+  top: 0;
+  bottom: 10px;
+  width: 1px;
+  background: var(--nav-rail);
+}
+
+/* Children start at the rail and indent past it, so their labels land just short
+   of the parent's label (which starts at 56px) — nested, but visibly subordinate. */
 .aside .menu-sub-accordion .menu-link {
-  padding: 8px 12px !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
+  position: relative;
+  margin-left: 27px !important;
+  padding: 7px 12px 7px 24px !important;
   border-radius: 8px !important;
   background: transparent !important;
   box-shadow: none !important;
 }
 
+/* Elbow joining each child to the rail. `::after`, not `::before` — the active
+   state already owns `::before` on menu links elsewhere in this file. */
+.aside .menu-tree-children > .menu-item > .menu-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 12px;
+  height: 1px;
+  background: var(--nav-rail);
+}
+
+.aside .menu-sub-accordion .menu-link .menu-title,
+.aside .menu-sub-accordion .menu-link .menu-title > span {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.35 !important;
+}
+
+/* The generic active-leaf rule adds a 3px left border, which would shove every
+   child off the rail as you navigate. Carry the accent as an inset shadow instead
+   so the row keeps its geometry. */
+.aside .menu-tree-children > .menu-item > .menu-link.without-sub.active {
+  border-left: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.aside .menu-tree-children > .menu-item > .menu-link.without-sub.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--nav-accent) !important;
+  border-radius: 0 2px 2px 0 !important;
+}
+
+.aside .menu-tree-children > .menu-item > .menu-link.active::after {
+  display: none !important;
+}
+
 .aside .menu-sub-accordion .menu-link .menu-title {
-  color: var(--wt-ink-soft) !important;
+  color: var(--nav-fg-muted) !important;
 }
 
 .aside .menu-sub-accordion .menu-link .menu-svg-icon {
   width: 15px;
   height: 15px;
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 /* Inactive Submenu Hover */
 .aside .menu-sub-accordion .menu-link:not(.active):hover {
-  background: rgba(var(--wt-accent-rgb), 0.06) !important;
+  background: var(--nav-hover-bg) !important;
 }
 
+/* Same reasoning as the top-level rows: colour shift only, no sliding label. */
 .aside .menu-sub-accordion .menu-link:not(.active):hover .menu-title {
-  color: var(--wt-accent) !important;
-  transform: translateX(2px);
+  color: var(--nav-accent) !important;
 }
 
 .aside .menu-sub-accordion .menu-link:not(.active):hover .menu-icon {
@@ -348,12 +561,12 @@ body {
 
 /* Active Submenu Link */
 .aside .menu-sub-accordion .menu-link.active {
-  background: rgba(var(--wt-accent-rgb), 0.08) !important;
+  background: var(--nav-active-bg) !important;
 }
 
 .aside .menu-sub-accordion .menu-link.active .menu-title {
-  color: var(--wt-accent) !important;
-  font-weight: 600 !important;
+  color: var(--nav-accent) !important;
+  font-weight: 700 !important;
 }
 
 .aside .menu-sub-accordion .menu-link.active .menu-svg-icon {
@@ -367,9 +580,21 @@ body {
   transition: filter 0.2s var(--wt-ease), transform 0.2s var(--wt-ease);
 }
 
-/* Badge on menu rows */
+/* Badge on menu rows (the approvals count on Inbox / Project Team → Approvals).
+   The markup asks for Metronic's `badge-light-danger`, a pale red fill that is
+   built for a white card and washes out on the dark surface. Pin both themes to
+   a solid red pill with white text so the count is legible either way — this is
+   a notification counter, the one thing in the nav that must never be missed. */
 .aside .menu-title .badge {
   transform: translateY(-1px);
+  background: #d92d20 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+[data-bs-theme='dark'] .aside .menu-title .badge {
+  background: #f85149 !important;   /* GitHub's dark danger — 4.6:1 behind white */
+  color: #0d1117 !important;
 }
 
 /* -----------------------------------------------------------------------------
@@ -400,7 +625,7 @@ body {
   border: 0;
   background: transparent;
   line-height: 0;
-  color: var(--wt-ink-soft);
+  color: var(--nav-fg-muted);
   opacity: 0;
   cursor: pointer;
   border-radius: 50%;
@@ -422,14 +647,14 @@ body {
 .aside .menu-item-pinnable:hover .menu-pin-btn:hover,
 .aside .menu-pin-btn:focus-visible {
   opacity: 1;
-  color: var(--wt-accent);
-  background: rgba(var(--wt-accent-rgb), 0.1);
+  color: var(--nav-accent);
+  background: rgba(var(--nav-accent-rgb), 0.12);
 }
 
 /* Pinned rows keep the filled pin visible as an on-state indicator. */
 .aside .menu-pin-btn.pinned {
   opacity: 1;
-  color: var(--wt-accent);
+  color: var(--nav-accent);
 }
 
 /* =============================================================================
@@ -446,16 +671,24 @@ body {
     display: none !important;
   }
 
-  body[data-aside-collapsed='true'] .aside .menu-content {
+  /* Headings collapse to a plain divider — the expanded tree's spacing and its own
+     hairline would otherwise leak in and make the rail's dividers uneven. */
+  body[data-aside-collapsed='true'] .aside .menu-content,
+  body[data-aside-collapsed='true'] .aside .menu-tree-section > .menu-content {
     height: 10px;
-    padding: 0;
-    margin: 6px 8px;
-    border-top: 1px solid var(--wt-line);
+    padding: 0 !important;
+    margin: 6px 8px !important;
+    border-top: 1px solid var(--nav-line);
   }
 
   body[data-aside-collapsed='true'] .aside .menu-link {
     justify-content: center;
     padding: 11px 0;
+  }
+
+  /* In the rail a group header IS clickable again — it re-expands the sidebar. */
+  body[data-aside-collapsed='true'] .aside .menu-item.menu-tree-group > .menu-link {
+    cursor: pointer;
   }
 
   body[data-aside-collapsed='true'] .aside .menu-icon {
@@ -494,7 +727,24 @@ body {
   }
 
   body[data-aside-collapsed='true'] .aside .menu-item .menu-link:not(.active):hover .menu-font-icon {
-    background: rgba(var(--wt-accent-rgb), 0.14);
+    background: rgba(var(--nav-accent-rgb), 0.14);
+  }
+}
+
+/* The nav's motion is decorative — the colour and weight changes carry every
+   state on their own, so honour a reduced-motion preference by dropping it. */
+@media (prefers-reduced-motion: reduce) {
+  .aside .menu-link,
+  .aside .menu-link .menu-title,
+  .aside .menu-link .menu-icon,
+  .aside .menu-link .menu-font-icon,
+  .aside .menu-pin-btn {
+    transition: none !important;
+  }
+
+  .aside .menu-link:hover .menu-icon,
+  .aside .menu-link:hover .menu-font-icon {
+    transform: none !important;
   }
 }
 
@@ -566,10 +816,10 @@ body {
   height: 28px;
   padding: 0;
   border-radius: 50%;
-  background: #ffffff;
-  border: 1px solid #e6e8ec;
+  background: var(--nav-surface);
+  border: 1px solid var(--nav-line);
   box-shadow: 0 4px 12px rgba(16, 24, 40, 0.14);
-  color: var(--wt-accent);
+  color: var(--nav-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -581,14 +831,19 @@ body {
 
 [data-bs-theme="dark"] .wt-aside-toggle {
   background: var(--gh-elevated, #1c2128) !important;
-  border-color: var(--wt-line) !important;
+  border-color: var(--nav-line) !important;
   box-shadow: var(--gh-shadow-md, 0 8px 24px rgba(1, 4, 9, 0.55)) !important;
 }
 
 .wt-aside-toggle:hover {
-  background: var(--wt-accent);
+  background: var(--nav-accent);
   color: #ffffff;
-  box-shadow: 0 6px 16px rgba(var(--wt-accent-rgb), 0.4);
+  box-shadow: 0 6px 16px rgba(var(--nav-accent-rgb), 0.4);
+}
+
+.wt-aside-toggle:focus-visible {
+  outline: 2px solid var(--nav-accent);
+  outline-offset: 2px;
 }
 
 .wt-aside-toggle svg {
@@ -1063,4 +1318,140 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
     height: 38px !important;
     padding: 2px !important;
   }
+}
+/* =============================================================================
+   NAV TRANSFORM — sidebar → containers
+   `body[data-nav-transform='true']` is stamped by contexts/NavTransformContext.
+   Zeroing --wt-aside-eff is enough on its own: that one variable already drives
+   the rail width, the header brand cell and the .wrapper content offset.
+
+   MUST STAY AT THE END OF THIS FILE. This selector and the collapsed rule near
+   the top both compute to specificity (0,1,1), so when a user is BOTH collapsed
+   and transformed, only source order decides which --wt-aside-eff wins.
+
+   Everything is scoped >=992px on purpose. Below that the rail is already a
+   drawer and BottomNav is the navigation surface, so transform must not touch it.
+   ========================================================================== */
+@media (min-width: 992px) {
+  body[data-nav-transform='true'] {
+    --wt-aside-eff: 0px;
+  }
+
+  /* Hidden, NOT unmounted — #kt_aside is the mobile drawer's target element, and
+     DrawerComponent binds by scanning the DOM, so removing it would leave the
+     mobile hamburger a silently dead button. `display:none` rather than width:0
+     so ~40 nav rows skip layout entirely and no border or shadow bleeds at the
+     zero-width edge. */
+  body[data-nav-transform='true'] .aside {
+    display: none !important;
+  }
+
+  /* The brand cell sizes off --wt-aside-eff too, so at 0px it would take the logo
+     AND .wt-aside-toggle (absolutely positioned on it at right:-14px) with it.
+     Give the cell its intrinsic width back — the logo is the way back to the
+     navigation containers, so it must never disappear. */
+  body[data-nav-transform='true'] .header .header-brand {
+    width: auto !important;
+    min-width: 0;
+    padding: 0 18px !important;
+    border-right: 1px solid var(--nav-line) !important;
+  }
+
+  /* A collapse chevron for a rail that is not there is a dead control. */
+  body[data-nav-transform='true'] .wt-aside-toggle {
+    display: none !important;
+  }
+
+  /* Collapsed + transform: the collapsed rules swap the wordmark for the square
+     favicon mark, which is meaningless with no rail to be narrow. Force the full
+     wordmark so the brand cell reads identically in both sub-states. */
+  body[data-nav-transform='true'] .wt-logo-full {
+    display: block !important;
+  }
+
+  body[data-nav-transform='true'] .wt-logo-square {
+    display: none !important;
+  }
+}
+
+/* =============================================================================
+   WORKSPACE SHELL — the legacy rail steps aside inside /workspace/* ONLY
+   `body[data-workspace-shell='true']` is stamped by
+   components/workspace/useWorkspaceChrome.ts on mount and removed on unmount, so
+   these rules apply on the shell's own routes and nowhere else. Every other route
+   keeps the sidebar exactly as it is today — nothing here is persisted and no user
+   preference is touched.
+
+   A SEPARATE attribute from `data-nav-transform` on purpose: NavTransformContext
+   already owns that one and rewrites it from its own layout effect, so a second
+   writer would be a race decided by whichever effect re-ran last. These two can
+   both apply at once without conflict.
+
+   MUST STAY AT THE END OF THIS FILE. This selector, the NAV TRANSFORM block above
+   and the collapsed rule near the top all compute to (0,1,1), so when a user is
+   collapsed AND/OR transformed AND inside the workspace, only source order decides
+   which --wt-aside-eff wins. The workspace must win: inside the shell the dock is
+   the navigation, whatever the other two flags say.
+
+   Scoped >=992px, matching the rest of this file: below that the rail is already a
+   drawer and BottomNav is the navigation surface, so there is nothing to hide.
+   ========================================================================== */
+@media (min-width: 992px) {
+  body[data-workspace-shell='true'] {
+    --wt-aside-eff: 0px;
+  }
+
+  /* Hidden, NOT unmounted — #kt_aside is the mobile drawer's target element and
+     DrawerComponent binds by scanning the DOM, so removing it would leave the
+     mobile hamburger a silently dead button. */
+  body[data-workspace-shell='true'] .aside {
+    display: none !important;
+  }
+
+  /* The brand cell sizes off --wt-aside-eff too, so at 0px it would collapse and
+     take the logo (and .wt-aside-toggle, absolutely positioned on it) with it.
+     Give the cell its intrinsic width back — the logo is the way home. */
+  body[data-workspace-shell='true'] .header .header-brand {
+    width: auto !important;
+    min-width: 0;
+    padding: 0 18px !important;
+    border-right: 1px solid var(--nav-line) !important;
+  }
+
+  /* A collapse chevron for a rail that is not there is a dead control. */
+  body[data-workspace-shell='true'] .wt-aside-toggle {
+    display: none !important;
+  }
+
+  /* Collapsed + workspace: the collapsed rules swap the wordmark for the square
+     favicon mark, which is meaningless with no rail to be narrow. */
+  body[data-workspace-shell='true'] .wt-logo-full {
+    display: block !important;
+  }
+
+  body[data-workspace-shell='true'] .wt-logo-square {
+    display: none !important;
+  }
+}
+
+/* =============================================================================
+   WORKSPACE SHELL — let the Home stage FILL the content area
+   The Metronic flex chain is unbroken all the way down to `#kt_post`, and then
+   stops: `#kt_content_container` is `w-100 p-0 m-0` with no `display:flex`. A
+   `flex-1` child of it is therefore inert, so the Home stage only ever took its
+   own min-height and left a band of bare page beneath it — visible because the
+   stage paints the ambient background (dot field + wash) across `inset-0`.
+
+   Making the container a flex column reconnects the chain, so the stage's
+   `flex-1` consumes exactly the space that is actually there. That replaces a
+   `calc(100vh - 140px)` guess at the header + footer height, which could never
+   be right on every viewport and was wrong by ~50px here.
+
+   NOT inside a min-width media query: the band appears at every width.
+   Scoped to `body[data-workspace-shell='true']`, so it cannot reach any screen
+   outside the shell.
+   ========================================================================== */
+body[data-workspace-shell='true'] #kt_content_container {
+  display: flex;
+  flex-direction: column;
 }

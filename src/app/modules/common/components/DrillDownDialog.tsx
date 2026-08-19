@@ -17,6 +17,19 @@ export interface DrillDownDialogProps {
 }
 
 /**
+ * Stacking layer for drill-downs.
+ *
+ * A drill-down is usually opened FROM a chart, and a chart may itself be in a
+ * fullscreen overlay (RankedBarChart uses z-index 2000). MUI's default modal
+ * layer is 1300, so without this the table opened behind the very chart that
+ * launched it — visible in the corner, unreachable, looking like nothing had
+ * happened. A dialog opened from a surface must always outrank that surface.
+ *
+ * Kept below the app's toast/avatar layer (9999+) so feedback still wins.
+ */
+const DRILLDOWN_Z_INDEX = 2100;
+
+/**
  * Shared shell for chart drill-down modals.
  *
  * A single owner of the Dialog scaffolding so every drill-down renders on ONE
@@ -36,7 +49,15 @@ export const DrillDownDialog = ({
   maxBodyHeight = "75vh",
   bodyClassName,
 }: DrillDownDialogProps) => (
-  <Dialog open={open} onClose={onClose} maxWidth={maxWidth} fullWidth>
+  <Dialog
+    open={open}
+    onClose={onClose}
+    maxWidth={maxWidth}
+    fullWidth
+    // Applies to the whole modal — Paper AND backdrop — so the dimmed layer
+    // covers the fullscreen chart too instead of sliding between them.
+    sx={{ zIndex: DRILLDOWN_Z_INDEX }}
+  >
     <DialogTitle sx={{ m: 0, p: 0, position: "relative" }}>
       <IconButton
         aria-label="close"

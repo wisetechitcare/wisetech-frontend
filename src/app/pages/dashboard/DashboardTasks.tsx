@@ -400,7 +400,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
         <MaterialTable
           columns={columns}
           data={tasks}
-          tableName="Tasks"
+          tableName="DashboardTasks"
           muiTableProps={{
             sx: {
               borderCollapse: 'separate',

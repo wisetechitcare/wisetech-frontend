@@ -270,8 +270,20 @@ const showConnectingSplash = (attempt: number) => {
           </svg>
         </div>
 
-        <!-- Spinner -->
-        <div class="wt-conn-spin"></div>
+        <!-- Progress Bar and Steps -->
+        <div style="width:100%;max-width:320px;margin:10px 0 24px">
+          <div class="wt-conn-track">
+            <div class="wt-conn-fill"></div>
+          </div>
+          <div class="wt-steps">
+            <div class="wt-step" style="background:${attempt >= 1 ? '#4f63e8' : '#e2e8f0'}"></div>
+            <div class="wt-step" style="background:${attempt >= 2 ? '#4f63e8' : '#e2e8f0'}"></div>
+            <div class="wt-step" style="background:${attempt >= 3 ? '#4f63e8' : '#e2e8f0'}"></div>
+          </div>
+          <p style="font-size:12px;font-weight:700;color:#4f63e8;margin-top:12px;letter-spacing:0.5px">
+            Connection Attempt ${attempt} of ${BOOTSTRAP_RETRIES}
+          </p>
+        </div>
 
         <!-- Title -->
         <h1 style="font-size:24px;font-weight:800;color:#1a237e;letter-spacing:-.4px;margin-bottom:10px">

@@ -5,8 +5,10 @@ import {
 import type { TransitionProps } from '@mui/material/transitions';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { T, GlassVariant, VividTone, ThemeMode, label } from './tokens';
+import { toTitleCase } from './text';
 import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
+import { WtCloseButton } from './tw/WtCloseButton';
 
 /** Read the active MUI theme mode as our ThemeMode ('light' | 'dark'). */
 function useMode(): ThemeMode {
@@ -122,12 +124,26 @@ export interface GlassHeaderProps {
   action?: React.ReactNode;
   /** Custom close glyph (e.g. `<KTIcon iconName="cross" className="fs-3" />`); defaults to `×`. */
   closeIcon?: React.ReactNode;
+  /**
+   * Drill-in navigation: when set, a back control replaces the icon tile and the
+   * dialog reads as a second level rather than a different dialog. Prefer this over
+   * stacking a second GlassDialog — nested scrims are unusable on a phone, where
+   * both dialogs are full-screen.
+   */
+  onBack?: () => void;
+  /** Accessible name for the back control. */
+  backLabel?: string;
+  /** Custom back glyph; defaults to `‹`. */
+  backIcon?: React.ReactNode;
   /** 'gradient' = the brand navy header band (default, needs nothing behind it);
    *  'frost' = a regular glass surface header for lighter contexts. */
   variant?: 'gradient' | 'frost';
 }
 
-export function GlassHeader({ title, subtitle, icon, onClose, action, closeIcon, variant = 'gradient' }: GlassHeaderProps) {
+export function GlassHeader({
+  title, subtitle, icon, onClose, action, closeIcon,
+  onBack, backLabel = 'Back', backIcon, variant = 'gradient',
+}: GlassHeaderProps) {
   const gradient = variant === 'gradient';
   const mode = useMode();
   const frostSx = gradient ? {} : glassSx('regular', { mode });
@@ -141,7 +157,20 @@ export function GlassHeader({ title, subtitle, icon, onClose, action, closeIcon,
       borderBottom: `3px solid ${T.color.accent}`, flexShrink: 0,
     }}>
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-        {icon && (
+        {/* Back replaces the icon tile rather than sitting next to it: on a 360px header
+            a back control + icon + title + close leaves the title an ellipsis. */}
+        {onBack ? (
+          <IconButton onClick={onBack} aria-label={backLabel} sx={{
+            width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5, flexShrink: 0,
+            ...(gradient
+              ? { color: '#fff', bgcolor: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.22)', '&:hover': { bgcolor: 'rgba(255,255,255,0.24)' } }
+              : { color: T.color.brand, bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.08)' : T.color.brandSoft, border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.12)' : T.color.line}`, '&:hover': { bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.14)' : T.color.line } }),
+            transition: `background-color .15s, transform .12s ${MRD_EASE}`,
+            '&:active': { transform: 'scale(.92)' },
+          }}>
+            {backIcon ?? <Box component="span" sx={{ fontSize: 26, lineHeight: 1, fontWeight: 400, mt: '-2px' }}>&lsaquo;</Box>}
+          </IconButton>
+        ) : icon && (
           <Box sx={{
             width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5,
             display: 'grid', placeItems: 'center', flexShrink: 0,
@@ -154,7 +183,7 @@ export function GlassHeader({ title, subtitle, icon, onClose, action, closeIcon,
         )}
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontWeight: 700, fontSize: { xs: 15.5, sm: 17 }, lineHeight: 1.25, color: gradient ? '#fff' : label(mode, 'primary') }}>
-            {title}
+            {toTitleCase(title)}
           </Typography>
           {subtitle && (
             <Typography sx={{ fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: gradient ? 'rgba(255,255,255,0.72)' : label(mode, 'secondary') }}>
@@ -166,16 +195,15 @@ export function GlassHeader({ title, subtitle, icon, onClose, action, closeIcon,
       <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
         {action}
         {onClose && (
-          <IconButton onClick={onClose} aria-label="Close" sx={{
-            width: 38, height: 38,
-            ...(gradient
-              ? { color: '#fff', bgcolor: 'rgba(255,255,255,0.10)', '&:hover': { bgcolor: 'rgba(255,255,255,0.20)' } }
-              : { color: label(mode, 'secondary'), bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.08)' : T.color.panelAlt, '&:hover': { bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.14)' : T.color.line } }),
-            transition: `background-color .15s, transform .12s ${MRD_EASE}`,
-            '&:active': { transform: 'scale(.92)' },
-          }}>
-            {closeIcon ?? <Box component="span" sx={{ fontSize: 20, lineHeight: 1, fontWeight: 400 }}>&times;</Box>}
-          </IconButton>
+          // SINGLE SOURCE OF TRUTH: this used to be a bespoke MUI IconButton
+          // rendering a `&times;` text glyph, while the Tailwind GlassHeader used
+          // WtCloseButton. Two dialog systems, two different close controls —
+          // which is why the × looked round on some dialogs and square on others.
+          // Both now render the same component. `closeIcon` is still honoured for
+          // the rare header that needs a different glyph.
+          closeIcon
+            ? <IconButton onClick={onClose} aria-label="Close" sx={{ width: 38, height: 38 }}>{closeIcon}</IconButton>
+            : <WtCloseButton variant={gradient ? 'dark' : 'light'} onClick={onClose} size={38} />
         )}
       </Stack>
     </Box>

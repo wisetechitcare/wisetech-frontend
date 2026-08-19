@@ -1,7 +1,7 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { safeJsonParse } from "@utils/safeJson";
-import { Fragment, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Fragment, useEffect, useRef, useState, type MutableRefObject } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Modal } from "react-bootstrap";
 import { Form, Formik, FormikValues, useFormikContext } from "formik";
 import * as Yup from "yup";
@@ -9,11 +9,10 @@ import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { uploadUserAsset } from "@services/uploader";
-import Step2, { NAV_SECTIONS, COMPLETION_FNS, SECTION_OF_FIELD, ALL_SECTION_IDS } from "./steps/Step2";
-import ObSectionsSidebar from "./steps/ObSectionsSidebar";
-import Step3 from "./steps/Step3";
-import Step4 from "./steps/Step4";
-import StepAppSettings from "./steps/StepAppSettings";
+// Only the section-id/field-map constants are still needed — the step components
+// they used to accompany are superseded by OnboardingWorkspace's 7-step config.
+import { SECTION_OF_FIELD, ALL_SECTION_IDS } from "./steps/Step2";
+import OnboardingWorkspace from "../forms/onboarding/OnboardingWorkspace";
 import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
 import "../glass.css";
 import "./steps/Step2.css";
@@ -42,7 +41,9 @@ import {
   updateRejoinHistoryDetails,
   deleteAllRejoinHistoryByEmployeeId,
   fetchApprovalWorkflowConfigs,
+  saveApprovalWorkflowChain,
 } from "@services/employee";
+import { validateApprovalChain } from "@app/components/ApprovalSettings";
 import { fetchCompanyOverview } from "@services/company";
 import { takeConversion, clearConversion, linkConvertedEmployee } from "@services/recruitment";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
@@ -106,6 +107,18 @@ function buildProfessionalFeesPayload(values: {
   };
 }
 
+/**
+ * Storage category for a wizard upload.
+ *
+ * The profile photo is not an onboarding document — the wizard itself strips it out
+ * of `documentInfo` — so it is filed under `profile` alongside the signature, which
+ * is where Profile → Settings has always put it and where Profile → Documents already
+ * expects to list it. The backend also restricts that category to JPG/PNG/WebP, so
+ * sending the right category here is what makes an avatar image-only server-side.
+ */
+const uploadCategoryFor = (documentId: string): string =>
+  documentId === "userProfilePicture" ? "profile" : "onboarding-docs";
+
 const PROF_FEES_KEYS = new Set([
   "professionalFeesEnabled",
   "professionalFeesType",
@@ -168,15 +181,97 @@ const ONBOARDING_DRAFT_KEY = "employee-onboarding-draft";
 // only until the admin shuts the tab/website — surviving an accidental form close, navigation, or
 // refresh, but never outliving the session. Only text/select/array `values` are drafted; uploaded
 // File blobs live in separate React state and can't be serialized.
-const loadDraft = (): any => safeJsonParse(sessionStorage.getItem(ONBOARDING_DRAFT_KEY) as any, null);
+// Returns a draft only when the user actually put something in it — see
+// `isMeaningfulDraft`. An empty draft is dropped on read as well as refused on
+// write, so one left behind by an older build doesn't announce itself either.
+// Drops the drafted VALUES but leaves the cached photo alone — a blank form does not
+// mean the photo was un-picked, and the photo is cleared on its own paths (remove,
+// discard, submit).
+const clearDraftValues = () => {
+  try { sessionStorage.removeItem(ONBOARDING_DRAFT_KEY); } catch { /* ignore */ }
+};
+
+const loadDraft = (): any => {
+  const stored = safeJsonParse(sessionStorage.getItem(ONBOARDING_DRAFT_KEY) as any, null);
+  if (isMeaningfulDraft(stored)) return stored;
+  if (stored) clearDraftValues();
+  return null;
+};
 const saveDraft = (values: any) => {
+  // Never persist an effectively blank form: that is what resurrected the
+  // "Restored your unsaved draft" notice right after a discard.
+  if (!isMeaningfulDraft(values)) {
+    clearDraftValues();
+    return;
+  }
   try { sessionStorage.setItem(ONBOARDING_DRAFT_KEY, JSON.stringify(values)); } catch { /* quota / serialization — ignore */ }
 };
 const clearDraft = () => {
   try {
     sessionStorage.removeItem(ONBOARDING_DRAFT_KEY);
+    sessionStorage.removeItem(ONBOARDING_DRAFT_PHOTO_KEY);
     localStorage.removeItem(ONBOARDING_DRAFT_KEY); // drop any legacy localStorage draft too
   } catch { /* ignore */ }
+};
+
+/* ── Drafted profile photo ────────────────────────────────────────────────────
+   The photo is the one upload worth caching: it is small, it is picked on the very
+   first section, and losing it on refresh means re-cropping. It cannot ride in the
+   values draft — a File does not survive JSON.stringify — so it is stored beside it
+   as a data URL under its own key and rehydrated back into a File on restore.
+
+   Only the photo. The document uploads stay unsaved: a set of PDFs would blow the
+   ~5MB sessionStorage quota and take the whole draft down with it. */
+const ONBOARDING_DRAFT_PHOTO_KEY = "employee-onboarding-draft-photo";
+
+// A data URL is ~1.33x the file, and sessionStorage holds ~5MB for the WHOLE origin —
+// which the values draft also shares. Anything bigger is skipped rather than risking a
+// quota error that would drop the draft.
+const DRAFT_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+
+interface DraftPhoto { name: string; type: string; dataUrl: string }
+
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+const saveDraftPhoto = async (file: File) => {
+  if (file.size > DRAFT_PHOTO_MAX_BYTES) return;
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    sessionStorage.setItem(
+      ONBOARDING_DRAFT_PHOTO_KEY,
+      JSON.stringify({ name: file.name, type: file.type, dataUrl } as DraftPhoto)
+    );
+  } catch { /* quota / read failure — the draft itself still saves */ }
+};
+
+const loadDraftPhoto = (): DraftPhoto | null => {
+  const parsed = safeJsonParse(sessionStorage.getItem(ONBOARDING_DRAFT_PHOTO_KEY) as any, null);
+  return parsed?.dataUrl ? (parsed as DraftPhoto) : null;
+};
+
+const clearDraftPhoto = () => {
+  try { sessionStorage.removeItem(ONBOARDING_DRAFT_PHOTO_KEY); } catch { /* ignore */ }
+};
+
+// Data URL → File, so a restored photo re-enters the SAME upload path as a freshly
+// picked one and actually uploads on save (a preview alone would look restored but
+// silently save no photo).
+const draftPhotoToFile = (photo: DraftPhoto): File | null => {
+  try {
+    const base64 = photo.dataUrl.split(",")[1] || "";
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], photo.name || "profile-photo", { type: photo.type || "image/jpeg" });
+  } catch {
+    return null;
+  }
 };
 
 const hasDraftValue = (value: any) => {
@@ -184,6 +279,45 @@ const hasDraftValue = (value: any) => {
   if (typeof value === "boolean") return value;
   if (Array.isArray(value)) return value.length > 0;
   return String(value).trim() !== "";
+};
+
+/* ── Is a draft worth keeping / announcing? ───────────────────────────────────
+   "There is something in sessionStorage" is NOT the same as "the user typed
+   something", and treating the two as equal is what made "Discard & start fresh"
+   look broken: discarding cleared the key, then the form immediately re-drafted
+   itself and the notice came back on the next open with nothing behind it.
+
+   A pristine form is not pristine as far as Formik is concerned — effects fill in
+   the company's configured document types and leave rows the moment it mounts, so
+   `dirty` flips to true and the autosave writes a draft of an empty form. Those
+   system-populated keys are excluded below, along with the per-row `rowId`s, which
+   are regenerated on every create and so never match. What is left is the fields a
+   person actually fills in. */
+const SYSTEM_POPULATED_KEYS = new Set(["documentFields", "leaveAllocations"]);
+const VOLATILE_ROW_KEYS = new Set(["rowId"]);
+
+const stripVolatile = (value: any): any => {
+  if (Array.isArray(value)) return value.map(stripVolatile);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => !VOLATILE_ROW_KEYS.has(key))
+        .map(([key, inner]) => [key, stripVolatile(inner)])
+    );
+  }
+  return value;
+};
+
+const isMeaningfulDraft = (draft: any): boolean => {
+  if (!draft || typeof draft !== "object") return false;
+  return Object.keys(draft).some((key) => {
+    if (SYSTEM_POPULATED_KEYS.has(key)) return false;
+    const drafted = stripVolatile(draft[key]);
+    if (!hasDraftValue(drafted)) return false;
+    if (!(key in initialState)) return true;
+    // Differs from the blank form — a default the user never touched doesn't count.
+    return JSON.stringify(drafted) !== JSON.stringify(stripVolatile((initialState as any)[key]));
+  });
 };
 
 // Recursively marks every leaf of a value as `touched`, preserving Formik's nested
@@ -217,7 +351,7 @@ const STEP_SECTIONS: Record<number, string[]> = {
 // missing/invalid required field, on every step, not just step 1.
 const SECTION_FIELD_KEYS: Record<number, Record<string, string[]>> = {
   1: {
-    "personal-info": ["firstName", "lastName", "dateOfBirth", "gender", "nickName", "maritalStatus", "anniversary", "bloodGroup"],
+    "personal-info": ["firstName", "lastName", "dateOfBirth", "gender", "maritalStatus", "anniversary", "bloodGroup"],
     "contact-info": ["personalEmailId", "personalPhoneNumber", "alternatePhoneNumber", "personalPhoneNumberExtension", "linkedInProfileUrl", "instagramProfileUrl", "facebookProfileUrl"],
     education: ["educationalInfo"],
     family: ["familyInfo"],
@@ -229,7 +363,7 @@ const SECTION_FIELD_KEYS: Record<number, Record<string, string[]>> = {
   2: {
     employee_info: ["organizationId", "subOrganizationId", "designationId", "departmentId", "branchId", "teamId", "employeeTypeId", "employeeTypeConfigId", "workingMethodId"],
     contact_info: ["companyEmailId", "companyPhoneNumber", "companyPhoneExtension"],
-    hiring_info: ["sourceOfHireId", "referredById", "dateOfJoining", "dateOfExit", "rejoinHistory", "employeeStatusId", "employeeStatusConfigId"],
+    hiring_info: ["sourceOfHireId", "referredById", "referredByName", "dateOfJoining", "dateOfExit", "rejoinHistory", "employeeStatusId", "employeeStatusConfigId"],
     work_experience: ["workExpInfo"],
     leave_settings: ["leaveAllocations"],
   },
@@ -306,7 +440,6 @@ const calculateProfileCompletion = (values: any) => {
   const trackedFields: Array<{ value: any; key: string }> = [
     { value: values.firstName, key: "firstName" },
     { value: values.lastName, key: "lastName" },
-    { value: values.nickName, key: "nickName" },
     { value: values.dateOfBirth, key: "dateOfBirth" },
     { value: values.gender, key: "gender" },
     { value: values.maritalStatus, key: "maritalStatus" },
@@ -317,7 +450,6 @@ const calculateProfileCompletion = (values: any) => {
     { value: family.name, key: "familyInfo" },
     { value: family.relationship, key: "familyInfo" },
     { value: family.mobileNumber, key: "familyInfo" },
-    { value: family.dateOfBirth, key: "familyInfo" },
     { value: emergency.emergencyContactName, key: "emergencyDetails" },
     { value: emergency.emergencyContactNumber, key: "emergencyDetails" },
     { value: bank.accountNumber, key: "bankInfo" },
@@ -364,7 +496,6 @@ const newEmployeeWizardSchema = [
       .min(4, "Last name must be at least 4 characters")
       .max(20, "Last name must be at most 20 characters")
       .matches(employeeOnBardingFormRegexes["lastName"], "Last name can only contain alphabetic characters"),
-    nickName: optionalString(),
     gender: Yup.string().required().label("Gender"),
     maritalStatus: optionalString().label("Marital Status"),
     dateOfBirth: Yup.string().required().label("Date Of Birth"),
@@ -465,12 +596,10 @@ const newEmployeeWizardSchema = [
         mobileNumber: Yup.string().required().label("Member Phone Number")
           .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
           .matches(employeeOnBardingFormRegexes["familyInfo.mobileNumber"], "Phone Number can only contain numeric characters"),
-        // Date of Birth stays optional per requirement.
-        dateOfBirth: optionalString().label("Date of Birth"),
       }),
-      // At least one family member is required: Name, Relation and Phone are mandatory
-      // for each relative row (Date of Birth stays optional). The wizard seeds one blank
-      // row, so the user must complete it before leaving the Family section.
+      // At least one family member is required: Name, Relation and Phone are all
+      // mandatory for each relative row. The wizard seeds one blank row, so the
+      // user must complete it before leaving the Family section.
     ).required().label("Family info"),
     emergencyDetails: Yup.object({
       bloodGroup: optionalString().label("Blood Group"),
@@ -528,14 +657,21 @@ const newEmployeeWizardSchema = [
     employeeTypeId: optionalString().label("Employee Type (Old)"),
     employeeTypeConfigId: optionalString().label("Employee Type"),
     workingMethodId: optionalString().label("Working Method"),
-    companyEmailId: Yup.string().required().label("Company Email Address")
-      .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "Invalid email address"),
-    companyPhoneNumber: Yup.string().required().label("Company Phone Number")
+    // Optional: not every joiner is issued a work email or number on day one, and
+    // blocking the whole form on one they don't have yet helps nobody. Format is still
+    // enforced when something IS entered — `optionalString` lets "" through, so the
+    // rules below only ever run against a real value.
+    companyEmailId: optionalString().label("Company Email Address")
+      .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, { message: "Invalid email address", excludeEmptyString: true }),
+    companyPhoneNumber: optionalString().label("Company Phone Number")
       .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
-      .matches(employeeOnBardingFormRegexes["companyPhoneNumber"], "Phone Number can only contain numeric characters"),
+      .matches(employeeOnBardingFormRegexes["companyPhoneNumber"], { message: "Phone Number can only contain numeric characters", excludeEmptyString: true }),
     companyPhoneExtension: optionalString().label("Company Phone Extension"),
     sourceOfHireId: optionalString().label("Source Of Hire"),
     referredById: optionalString(),
+    // Free-text referrer for someone outside the company; mutually exclusive with
+    // `referredById`, which can only ever name an employee.
+    referredByName: optionalString().max(100).label("Referred By"),
     dateOfJoining: Yup.string().required().label("Date Of Joining"),
     dateOfExit: optionalString(),
     rejoinHistory: Yup.array().of(
@@ -562,9 +698,15 @@ const newEmployeeWizardSchema = [
     // Marked required in the UI (AppSettings) — enforce it here so the asterisk is honest.
     // Defaults to "1" in initialState, so this never blocks a real submission.
     isEmployeeActive: Yup.string().required().label("Is Employee Active"),
-    // Required but "0" is a valid CTC — plain .required() only rejects empty/undefined,
-    // it does not reject the numeric value zero.
-    ctcInLpa: Yup.string().required().label("CTC In LPA"),
+    // Optional, and zero is a legitimate value — an unpaid intern or a joiner whose
+    // package is not agreed yet. Only the shape is checked; the backend's old
+    // `min(1000)` floor (which 422'd a zero CTC after the whole onboarding had already
+    // run) has been dropped to match.
+    ctcInLpa: optionalString().label("CTC In LPA")
+      .test("ctc-numeric", "CTC must be a number", (value) => {
+        if (!value) return true;
+        return Number.isFinite(Number(String(value).replace(/,/g, "").trim()));
+      }),
     professionalFeesEnabled: Yup.string().required().label("Employee Type"),
     professionalFeesType: optionalString().label("Employee Type — Fee Type")
       .when("professionalFeesEnabled", { is: "true", then: (s) => s.required() }),
@@ -603,14 +745,51 @@ const newEmployeeWizardSchema = [
   }),
 ];
 
+/**
+ * ONE schema for the whole form.
+ *
+ * The wizard now presents a single flat step list, so Formik validates the whole
+ * record rather than swapping schemas per macro-step. The four legacy schemas
+ * above cover DISJOINT field sets, so concatenating them is a pure merge — no
+ * rule is overridden or dropped.
+ *
+ * This does not make every field red on step 1: `EnterpriseFormWizard` only
+ * blocks on (and only marks touched) the fields belonging to the step you are
+ * actually on, and Formik renders no error for an untouched field. Full-form
+ * validity is required only at the final submit — which is what the old
+ * last-step behaviour did anyway.
+ */
+// Merge all 4 step schemas into one unified schema for full-form validation.
+// Each step schema is a separate Yup.object with disjoint field sets, so we
+// flatten them into a single shape by extracting .fields from each.
+const allSchemaFields = newEmployeeWizardSchema.reduce(
+  (acc: any, schema: any) => {
+    const fields = schema.fields || schema.describe().fields || {};
+    return { ...acc, ...fields };
+  },
+  {}
+);
+const onboardingSchema = Yup.object().shape(allSchemaFields);
+
 const createDefaultEducationInfo = () => createEducationRow();
 
-const createDefaultFamilyInfo = () => ({ name: "", relationship: "", mobileNumber: "", dateOfBirth: "" });
+const createDefaultFamilyInfo = () => ({ name: "", relationship: "", mobileNumber: "" });
 
 const hasEducationInfo = hasStartedEducationInfo;
 
 const hasFamilyInfo = (familyMember: any) =>
-  Boolean(familyMember?.name || familyMember?.relationship || familyMember?.mobileNumber || familyMember?.dateOfBirth);
+  Boolean(familyMember?.name || familyMember?.relationship || familyMember?.mobileNumber);
+
+/**
+ * Is there anything to persist for this document row?
+ *
+ * The wizard now seeds ONE row per configured document type so every type gets an
+ * attachment field, whether or not it is filled in. Saving those unconditionally
+ * would write an empty EmployeeDocuments row per unattached type on every save.
+ * An already-saved row (`id`) always persists — that is how an edit reaches it.
+ */
+const hasDocumentInfo = (doc: any) =>
+  Boolean(doc?.id || doc?.path || doc?.fileName || doc?.identityNumber);
 
 const withDefaultEducationInfo = (educationalInfo: any) =>
   Array.isArray(educationalInfo) && educationalInfo.length > 0
@@ -622,7 +801,7 @@ const withDefaultFamilyInfo = (familyInfo: any) =>
 
 const initialState = {
   method: "0", avatar: "", firstName: "", isAdmin: "0", isEmployeeActive: "1",
-  lastName: "", nickName: "", gender: "", maritalStatus: "", reportsToId: "",
+  lastName: "", gender: "", maritalStatus: "", reportsToId: "",
   dateOfBirth: "", bloodGroup: "", personalEmailId: "", personalPhoneNumber: "",
   alternatePhoneNumber: "", personalPhoneNumberExtension: "", linkedInProfileUrl: "",
   instagramProfileUrl: "", facebookProfileUrl: "", hobbies: "", notes: "", meal: "",
@@ -637,15 +816,24 @@ const initialState = {
     presentState: "", presentCity: "", presentPostalCode: "",
   },
   organizationId: "", subOrganizationId: "",
-  designationId: "", departmentId: "", branchId: "", teamId: "", roomOrBlock: "",
+  designationId: "", departmentId: "", branchId: "", teamId: "",
   employeeTypeId: "", employeeTypeConfigId: "", workingMethodId: "", shift: "",
   experienceLevel: "", employeeLevelId: "", companyEmailId: "", companyPhoneNumber: "",
-  companyPhoneExtension: "", sourceOfHire: "", referredBy: "", dateOfJoining: "",
+  companyPhoneExtension: "", sourceOfHire: "", referredBy: "", referredById: "", referredByName: "", dateOfJoining: "",
   dateOfExit: "", rejoinHistory: [{ dateOfReJoining: "", dateOfReExit: "", reason: "" }],
   employeeStatusId: "", employeeStatusConfigId: "", ctcInLpa: "", appRole: "",
   allowOverTime: "0",
+  // Approval chains picked during onboarding. Declared here (not written in by the
+  // section) so the key survives Formik's `enableReinitialize` and so a blank set
+  // compares equal to the pristine form — otherwise it would look like a draft.
+  approvalChains: { attendance: ["", "", "", "", ""], leave: ["", "", "", "", ""], reimbursement: ["", "", "", "", ""] },
   leaveAllocations: [] as any[],
   workExpInfo: [createDefaultWorkExpInfo()],
+  // The company's configured onboarding document types. Declared here (rather than
+  // only ever written by OnboardingWorkspace's effect) so the key survives Formik's
+  // `enableReinitialize` reset as an empty array instead of vanishing from `values`
+  // entirely — every `values.documentFields?.find(...)` below depends on it existing.
+  documentFields: [] as any[],
   documentInfo: [{ identityNumber: "", employeeId: "", documentId: "", path: "", fileName: "" }],
   roles: [] as any[],
   professionalFeesEnabled: "false", professionalFeesAmount: "",
@@ -705,11 +893,11 @@ const saveNewEmployee = async (values: any, userId: string) => {
   const {
     dateOfJoining, ctcInLpa, gender, designationId, branchId, dateOfExit,
     employeeTypeId, employeeTypeConfigId, maritalStatus, sourceOfHireId,
-    workingMethodId, departmentId, companyEmailId, referredById, method,
-    nickName, employeeCode, companyPhoneNumber, companyPhoneExtension,
+    workingMethodId, departmentId, companyEmailId, referredById, referredByName, method,
+    employeeCode, companyPhoneNumber, companyPhoneExtension,
     employeeStatusId, employeeStatusConfigId, avatar, meal, reportsToId,
     anniversary, documentFields, documentInfo, appRole, isAdmin, rejoinHistory,
-    teamId, roomOrBlock, shift, experienceLevel, employeeLevelId,
+    teamId, shift, experienceLevel, employeeLevelId,
     allowOverTime,
     professionalFeesEnabled, professionalFeesAmount,
     professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
@@ -761,15 +949,15 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...(departmentId && { departmentId }), ...(ctcInLpa && { ctcInLpa }),
     ...(designationId && { designationId }),
     ...(maritalStatus && { maritalStatus: parseInt(maritalStatus) }),
-    ...(companyEmailId && { companyEmailId }), ...(referredById && { referredById }),
+    ...(companyEmailId && { companyEmailId }), ...(referredById && { referredById }), ...(referredByName && { referredByName }),
     ...(companyPhoneNumber && { companyPhoneNumber }),
     ...(companyPhoneExtension && { companyPhoneExtension }),
-    ...(employeeCode && { employeeCode }), ...(nickName && { nickName }),
+    ...(employeeCode && { employeeCode }),
     ...(dateOfExit && { dateOfExit }),
     ...(vegMealPreference && { vegMealPreference }),
     ...(nonVegMealPreference && { nonVegMealPreference }),
     ...(veganMealPreference && { veganMealPreference }),
-    ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
+    ...(teamId && { teamId }),
     ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
     ...(employeeLevelId && { employeeLevelId }),
     ...(allowOverTime && { allowOverTime }),
@@ -818,15 +1006,14 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
       () => createEmergencyContacts(filledFamilyInfo.map((el: any) => ({
         ...(el.name && { name: el.name }),
         ...(el.mobileNumber && { mobileNumber: el.mobileNumber }),
-        ...(el.dateOfBirth && { dateOfBirth: el.dateOfBirth }),
         ...(el.relationship && { relation: el.relationship }),
         employeeId,
       }))),
       () => createEducationalDetails(filledEducationalInfo.map((el: any) => buildEducationPayload(el, employeeId)).filter(Boolean)),
       () => createAddressDetails({ ...addressInfo, employeeId, ...(isSameAddress && { presentAddressLine1: undefined, presentAddressLine2: undefined, presentCountry: undefined, presentState: undefined, presentCity: undefined, presentPostalCode: undefined }) }),
-      () => createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.bankName && { bankName: bankInfo.bankName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }),
+      () => createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.bankName && { bankName: bankInfo.bankName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), ...(bankInfo.fileName && { fileName: bankInfo.fileName }), employeeId }),
       () => createEmergencyDetails({ ...(emergencyDetails.bloodGroup && { bloodGroup: emergencyDetails.bloodGroup }), ...(emergencyDetails.allergies && { allergies: emergencyDetails.allergies }), ...(emergencyDetails.emergencyContactName && { emergencyContactName: emergencyDetails.emergencyContactName }), ...(emergencyDetails.emergencyContactNumber && { emergencyContactNumber: emergencyDetails.emergencyContactNumber }), employeeId }),
-      () => createDocumentsDetails(documents.map((el: any) => ({ ...el, employeeId }))),
+      () => createDocumentsDetails(documents.filter(hasDocumentInfo).map((el: any) => ({ ...el, employeeId }))),
     ];
 
     const responses = await Promise.all(reqPromises.map((fn) => fn()));
@@ -840,7 +1027,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
 // admin types (only when enabled + dirty, so a pristine form never writes a draft) and FLUSHES the
 // latest values immediately on unmount, so closing/navigating away preserves the newest keystrokes
 // even mid-debounce.
-function DraftAutosave({ enabled }: { enabled: boolean }) {
+function DraftAutosave({ enabled, finalizedRef }: { enabled: boolean; finalizedRef: MutableRefObject<boolean> }) {
   const { values, dirty } = useFormikContext<any>();
   const timerRef = useRef<number | null>(null);
   const latestRef = useRef<{ values: any; dirty: boolean }>({ values, dirty });
@@ -849,18 +1036,27 @@ function DraftAutosave({ enabled }: { enabled: boolean }) {
   useEffect(() => {
     if (!enabled || !dirty) return;
     if (timerRef.current) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => saveDraft(values), 600);
+    // `finalizedRef` is read INSIDE the callback, not captured when the timer is set:
+    // a submit that lands mid-debounce must cancel the pending write, not race it.
+    timerRef.current = window.setTimeout(() => {
+      if (finalizedRef.current) return;
+      saveDraft(values);
+    }, 600);
     return () => { if (timerRef.current) window.clearTimeout(timerRef.current); };
-  }, [enabled, dirty, values]);
+  }, [enabled, dirty, values, finalizedRef]);
 
   // Flush on unmount (form closed / navigated away) so nothing typed is lost.
   useEffect(() => {
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
+      // A completed onboarding is not an unsaved draft. Closing after a successful
+      // submit must leave the slot empty, or the next onboarding opens holding the
+      // previous employee's details.
+      if (finalizedRef.current) return;
       const { values: v, dirty: d } = latestRef.current;
       if (enabled && d) saveDraft(v);
     };
-  }, [enabled]);
+  }, [enabled, finalizedRef]);
 
   return null;
 }
@@ -930,6 +1126,7 @@ function FormikValidationErrorFocus({ activeStepIndex, setActiveSection }: { act
 function NewEmployeeWizard({ editMode, openModal }: any) {
   const { employeeId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const stepperRef = useRef<HTMLDivElement | null>(null);
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
   const formikRef = useRef<any>(null);
@@ -938,10 +1135,41 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   const [activeStepIndex, setActiveStepIndex] = useState(1);
   const [currentSchema, setCurrentSchema] = useState(newEmployeeWizardSchema[0]);
   const [show, setShow] = useState(openModal);
-  const [files, setFiles] = useState<{ [key: string]: File }>({});
+  // A drafted photo re-enters as a real File, so saving uploads it exactly as if it
+  // had just been picked.
+  const [files, setFiles] = useState<{ [key: string]: File }>(() => {
+    if (editMode) return {};
+    const photo = loadDraftPhoto();
+    const file = photo && draftPhotoToFile(photo);
+    const seed: { [key: string]: File } = {};
+    if (file) seed.userProfilePicture = file;
+    return seed;
+  });
   const [educationFiles, setEducationFiles] = useState<{ [key: string]: File }>({});
+  // The bank proof, held until there is an employee to attach it to. Its own state
+  // rather than the generic `files` map, which is keyed by onboarding-document id and
+  // would upload this under the wrong category.
+  const [bankFile, setBankFile] = useState<File | null>(null);
   // Session draft restore (create mode only). Read once so the flag stays stable across renders.
   const initialDraftRef = useRef<any>(editMode ? null : loadDraft());
+  /**
+   * Set once the onboarding has been submitted successfully — from then on NOTHING may
+   * write the draft again.
+   *
+   * Without it a completed onboarding came back as a draft on the next one. `clearDraft()`
+   * runs on success, but `resetForm()` and `handleClose()` are queued in the SAME tick, so
+   * React commits them together and `DraftAutosave` unmounts without ever re-rendering at
+   * `dirty: false` — its unmount flush then saw the last filled values, still dirty, and
+   * wrote them straight back into the slot that had just been cleared.
+   *
+   * A ref, not state: the flush reads it during cleanup, and a ref gives the value AT THAT
+   * MOMENT. A prop or state would be captured in the effect's closure at its last render —
+   * i.e. still `false` — which is the exact stale-closure trap that caused the bug.
+   *
+   * Deliberately NOT set by `discardDraft`: "Start fresh" empties the form but the admin is
+   * still filling it in, so autosave must keep working.
+   */
+  const draftFinalizedRef = useRef(false);
   const [defaultState, setDefaultState] = useState(() =>
     initialDraftRef.current ? { ...initialState, ...initialDraftRef.current } : initialState
   );
@@ -1007,7 +1235,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     const patch = Object.fromEntries(keys.map((key) => [key, touchDeep(fp.values?.[key])]));
     fp.setTouched({ ...fp.touched, ...patch }, true);
   };
-  const [mobileProfilePhotoPreview, setMobileProfilePhotoPreview] = useState("");
+  // Seeded from the cached draft photo so a restored draft shows the picture straight
+  // away — no flash of the placeholder while an effect catches up. The data URL is the
+  // preview itself, so there is no object URL to revoke for this one.
+  const [mobileProfilePhotoPreview, setMobileProfilePhotoPreview] = useState(
+    () => (editMode ? "" : loadDraftPhoto()?.dataUrl || "")
+  );
   const [sidebarProfileHasAppeared, setSidebarProfileHasAppeared] = useState(false);
   const [sidebarProfileShouldAnimate, setSidebarProfileShouldAnimate] = useState(false);
 
@@ -1017,6 +1250,14 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     clearConversion();
     setDefaultState(initialState);
     formikRef.current?.resetForm({ values: initialState });
+    // "Start fresh" has to drop the restored photo too — clearDraft only clears the
+    // cache, and the rehydrated File would otherwise still upload on save.
+    setFiles((prev) => {
+      const next = { ...prev };
+      delete next.userProfilePicture;
+      return next;
+    });
+    setMobileProfilePhotoPreview("");
     setShowDraftNotice(false);
   };
 
@@ -1079,6 +1320,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       const previewUrl = URL.createObjectURL(file);
       profilePhotoPreviewRef.current = previewUrl;
       setMobileProfilePhotoPreview(previewUrl);
+      // Cache it alongside the values draft (create mode only — an edit has a saved
+      // avatar to fall back on). Fire-and-forget: the read is async but nothing on
+      // screen waits for it.
+      if (!editMode) void saveDraftPhoto(file);
     }
   };
 
@@ -1096,6 +1341,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         profilePhotoPreviewRef.current = "";
       }
       setMobileProfilePhotoPreview("");
+      clearDraftPhoto();
     }
   };
 
@@ -1137,6 +1383,31 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       const response = await uploadUserAsset(formData, userId, fileName, "education-docs");
       values.educationalInfo[index] = { ...education, filePath: response.data.path, fileName: (fileData as File).name };
     }));
+  };
+
+  /**
+   * Write the deferred bank proof once the user exists.
+   *
+   * Mutates `values.bankInfo.filePath` in place so the bank record created moments
+   * later by `saveEmployeeData` carries the path — writing it to Formik here would
+   * not land before that save reads it.
+   */
+  const uploadBankDocument = async (values: any, userId: string) => {
+    if (!bankFile || values?.bankInfo?.filePath) return;
+    try {
+      const formData = new FormData();
+      formData.append("file", bankFile);
+      const response = await uploadUserAsset(formData, userId, "passbook", "bank-docs");
+      values.bankInfo = {
+        ...(values.bankInfo || {}),
+        filePath: response.data.path,
+        fileName: bankFile.name,
+      };
+    } catch (error) {
+      // Non-fatal: the employee is more important than the attachment, and it can be
+      // added from their profile afterwards.
+      console.error("Failed to upload bank document:", error);
+    }
   };
 
   const loadStepper = () => {
@@ -1221,7 +1492,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       const baseName = fieldName.toLowerCase().replace(/\s+/g, "-");
       const extension = fileData.name.split(".").pop();
       const fileName = extension ? `${baseName}.${extension}` : baseName;
-      const response = await uploadUserAsset(formData, userId, fileName, "onboarding-docs");
+      const response = await uploadUserAsset(formData, userId, fileName, uploadCategoryFor(docId));
       return { documentId: docId, path: response.data.path, fileName };
     });
 
@@ -1258,12 +1529,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     const {
       employeeId, dateOfJoining, ctcInLpa, gender, designationId, branchId, dateOfExit,
       employeeTypeId, employeeTypeConfigId, maritalStatus, sourceOfHireId, workingMethodId,
-      departmentId, companyEmailId, referredById, method, nickName, employeeCode,
+      departmentId, companyEmailId, referredById, referredByName, method, employeeCode,
       companyPhoneNumber, companyPhoneExtension, employeeStatusId, employeeStatusConfigId,
       avatar, meal, anniversary, reportsToId,
       allowOverTime, professionalFeesEnabled, professionalFeesAmount,
       professionalFeesPercentage, professionalFeesType, isAdmin, rejoinHistory, teamId,
-      roomOrBlock, shift, experienceLevel, employeeLevelId, isHiddenFromStaff: isHiddenFromStaffEdit,
+      shift, experienceLevel, employeeLevelId, isHiddenFromStaff: isHiddenFromStaffEdit,
       tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
       retentionEnabled, retentionType, retentionAmount,
       retentionPercentage, retentionStartDate, retentionEndDate,
@@ -1305,7 +1576,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     const employeePayload: any = {
       // Always send avatar (even when empty) so removing the photo persists —
       // a guarded `...(avatar && {avatar})` would silently keep the old image.
-      avatar: avatar || "", id: employeeId, userId, dateOfJoining, ctcInLpa,
+      avatar: values.avatar || "", id: employeeId, userId, dateOfJoining, ctcInLpa,
       gender: parseInt(gender), designationId, branchId,
       isActive: isEmployeeActive === "1",
       ...(employeeTypeId && { employeeTypeId }),
@@ -1319,12 +1590,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(allowOverTime && { allowOverTime }),
       ...(aadharNumber && { aadharNumber }), ...(aadharCardPath && { aadharCardPath }),
       ...(panNumber && { panNumber }), ...(panCardPath && { panCardPath }),
-      ...(anniversary && { anniversary }), ...(referredById && { referredById }),
-      ...(nickName && { nickName }), ...(dateOfExit && { dateOfExit }),
+      ...(anniversary && { anniversary }), referredById: referredById || null, referredByName: referredByName || null,
+      ...(dateOfExit && { dateOfExit }),
       ...(vegMealPreference && { vegMealPreference }),
       ...(nonVegMealPreference && { nonVegMealPreference }),
       ...(veganMealPreference && { veganMealPreference }),
-      ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
+      ...(teamId && { teamId }),
       ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
       ...(employeeLevelId && { employeeLevelId }),
       // Leave Settings section removed — no longer needed
@@ -1337,7 +1608,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     };
 
     Object.keys(employeePayload).forEach((key) => {
-      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key) || RETENTION_KEYS.has(key)) return;
+      // `avatar` must be exempt: an empty string here is the DELIBERATE signal
+      // that the user removed their photo. Without this the generic falsy-prune
+      // below strips it from the payload, so the removal never reaches the
+      // backend and the old image survives the save — silently undoing the
+      // "always send avatar" intent three lines above.
+      if (key === "avatar" || key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key) || RETENTION_KEYS.has(key)) return;
       if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
     });
     if (!employeePayload.employeeTypeConfigId) delete employeePayload.employeeTypeConfigId;
@@ -1362,7 +1638,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       reqPromise.push(() => e?.id ? updateEducationalDetails(e.id, buildEducationPayload(e)) : createEducationalDetails([buildEducationPayload(e, employeeId)].filter(Boolean))));
 
     familyInfo.filter((f: any) => f?.id || hasFamilyInfo(f)).forEach((f: any) =>
-      reqPromise.push(() => f?.id ? updateEmergencyContact(f.id, f) : createEmergencyContacts([{ ...(f.name && { name: f.name }), ...(f.mobileNumber && { mobileNumber: f.mobileNumber }), ...(f.dateOfBirth && { dateOfBirth: f.dateOfBirth }), ...(f.relationship && { relation: f.relationship }), employeeId }])));
+      reqPromise.push(() => f?.id ? updateEmergencyContact(f.id, f) : createEmergencyContacts([{ ...(f.name && { name: f.name }), ...(f.mobileNumber && { mobileNumber: f.mobileNumber }), ...(f.relationship && { relation: f.relationship }), employeeId }])));
 
     const filteredRejoinHistory = rejoinHistory?.filter((r: any) => r.dateOfReJoining || r.dateOfReExit || r.reason);
     await deleteAllRejoinHistoryByEmployeeId(employeeId);
@@ -1377,19 +1653,21 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     reqPromise.push(() => bankInfo?.id
       ? updateBankDetails(bankInfo.id, bankInfo)
-      : createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.bankName && { bankName: bankInfo.bankName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }));
+      : createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.bankName && { bankName: bankInfo.bankName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), ...(bankInfo.fileName && { fileName: bankInfo.fileName }), employeeId }));
 
     reqPromise.push(() => emergencyDetails?.id
       ? updateEmergencyDetails(emergencyDetails.id, emergencyDetails)
       : createEmergencyDetails({ ...(emergencyDetails.bloodGroup && { bloodGroup: emergencyDetails.bloodGroup }), ...(emergencyDetails.allergies && { allergies: emergencyDetails.allergies }), ...(emergencyDetails.emergencyContactName && { emergencyContactName: emergencyDetails.emergencyContactName }), ...(emergencyDetails.emergencyContactNumber && { emergencyContactNumber: emergencyDetails.emergencyContactNumber }), employeeId }));
 
-    values.documentInfo.forEach((docInfo: any) =>
+    values.documentInfo.filter(hasDocumentInfo).forEach((docInfo: any) =>
       reqPromise.push(() => docInfo?.id ? updateDocumentDetails(docInfo?.id, { ...docInfo, employeeId }) : createDocumentsDetails([{ ...docInfo, employeeId }])));
 
     try {
       await Promise.all(reqPromise.map((fn) => fn()));
       await successConfirmation("Employee data updated successfully.");
-      navigate("/employees");
+      // Same destination as Cancel — a save and an abandon from the same screen
+      // should not land in two different places.
+      handleClose();
     } catch (error: any) {
       let errMessage = "Something went wrong. Please try again with required fields filled with correct values.";
       if (error.response?.data) {
@@ -1434,15 +1712,59 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     }
   };
 
-  const submitStep = async (values: any, actions: FormikValues) => {
-    const currentStepIndex = stepper?.currentStepIndex || activeStepIndex;
-    const totalStepsNumber = stepper?.totalStepsNumber || newEmployeeWizardSchema.length;
+  /**
+   * Writes the approval chains chosen during onboarding, once the employee row they
+   * belong to exists.
+   *
+   * The chains cannot be saved as they are picked — every approvals endpoint is keyed
+   * by employee id, which is why the section used to be hidden outright in create mode
+   * and new employees ended up with no approval chains at all. Collected in the form
+   * instead, and written here alongside the other dependent records.
+   *
+   * Deliberately non-fatal: the employee is already created by this point, so a failed
+   * chain must not fail the onboarding. Anything skipped is still settable from the
+   * employee's own App Settings, and the edit screen blocks a save until it is.
+   */
+  const saveApprovalChains = async (chains: any, targetEmployeeId: string) => {
+    if (!chains || !targetEmployeeId) return;
 
-    if (currentStepIndex === totalStepsNumber && editMode) {
+    for (const type of ["attendance", "leave", "reimbursement"] as const) {
+      const chain: string[] = Array.isArray(chains?.[type]) ? chains[type] : [];
+      // Untouched chain — leave it unset rather than posting an empty one.
+      if (!chain.some(Boolean)) continue;
+      // Same rules the inline Save enforces, so onboarding can't create a chain the
+      // edit screen would refuse.
+      if (validateApprovalChain(chain)) continue;
+
+      try {
+        await saveApprovalWorkflowChain(
+          targetEmployeeId,
+          type,
+          chain.map((approverId, index) => ({ level: index + 1, approverId: approverId || null }))
+        );
+      } catch (error) {
+        console.error(`Failed to save ${type} approval chain:`, error);
+      }
+    }
+  };
+
+  /**
+   * The single terminal save. `EnterpriseFormWizard` owns step navigation now, so
+   * this no longer advances steps — it runs only when the user submits from the
+   * final step (or the persistent Save button), and the wizard has already
+   * enforced full-form validity before calling it.
+   *
+   * The create/edit split is deliberate and preserved: creating an employee POSTs
+   * a user → uploads → employee → roles → employee data (with archive-on-failure
+   * cleanup), while editing PATCHes existing records and first gates on approval
+   * workflows being configured.
+   */
+  const handleFinalSubmit = async (values: any, actions: FormikValues) => {
+    if (editMode) {
       const missingApproval = await getMissingApprovalWorkflows();
       if (missingApproval.length) {
         errorConfirmation(
-          `Please configure Approval Settings before saving.<br><br>Missing a Level 1 approver for: <strong>${missingApproval.join(", ")}</strong>.<br>Open the App Settings step → Approval Settings and save each chain.`
+          `Please configure Approval Settings before saving.<br><br>Missing a Level 1 approver for: <strong>${missingApproval.join(", ")}</strong>.<br>Open the Payroll &amp; Access step → Approval Settings and save each chain.`
         );
         return;
       }
@@ -1457,21 +1779,20 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       return;
     }
 
-    if (currentStepIndex !== totalStepsNumber) {
-      let targetStep: number;
-      if (stepper) {
-        stepper.goNext();
-        targetStep = stepper.currentStepIndex;
-      } else {
-        targetStep = currentStepIndex + 1;
+    {
+      // Same bar the edit path enforces, checked against the form instead of the
+      // backend because the employee does not exist yet. Without this, Approval
+      // Settings wore a required mark that the final save ignored.
+      const missingOnCreate = REQUIRED_APPROVAL_WORKFLOWS
+        .filter(({ key }) => !values?.approvalChains?.[key]?.[0])
+        .map(({ label }) => label);
+      if (missingOnCreate.length) {
+        errorConfirmation(
+          `Please configure Approval Settings before saving.<br><br>Missing a Level 1 approver for: <strong>${missingOnCreate.join(", ")}</strong>.<br>Open the App Settings step → System Access → Approval Settings.`
+        );
+        return;
       }
-      setActiveStepIndex(targetStep);
-      setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
-      // Open the new step at its OWN first section (activeSection is shared across steps).
-      setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
-      actions.setTouched({});
-      scrollWizardToTop();
-    } else {
+
       let savedUserId: string | null = null;
       try {
         setIsSubmitting(true);
@@ -1488,7 +1809,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
             const baseName = fieldName.toLowerCase().replace(/\s+/g, "-");
             const extension = fileData.name.split(".").pop();
             const fileName = extension ? `${baseName}.${extension}` : baseName;
-            const response = await uploadUserAsset(formData, savedUserId!, fileName, "onboarding-docs");
+            const response = await uploadUserAsset(formData, savedUserId!, fileName, uploadCategoryFor(docId));
             return { documentId: docId, path: response.data.path, fileName };
           } catch (uploadError) { throw new Error(`Failed to upload document: ${fileData.name}`); }
         });
@@ -1504,6 +1825,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         });
 
         await uploadEducationDocuments(values, savedUserId);
+        await uploadBankDocument(values, savedUserId);
         const savedEmployeeId = await saveNewEmployee(values, savedUserId);
         if (!savedEmployeeId) throw new Error("Failed to save employee data");
 
@@ -1512,6 +1834,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
           catch (roleError) { console.error("Error while updating employee roles:", roleError); }
         }
 
+        await saveApprovalChains(values.approvalChains, savedEmployeeId);
         await saveEmployeeData(values, savedEmployeeId);
 
         // Close the recruitment loop: if this onboarding started from a hired
@@ -1524,12 +1847,14 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         }
 
         successConfirmation("Successfully onboarded an employee");
+        // Order matters: latch BEFORE clearing, so the unmount flush that `handleClose()`
+        // is about to trigger cannot write the finished values back into the slot.
+        draftFinalizedRef.current = true;
         clearDraft();
-        stepper?.goto(1);
-        setActiveStepIndex(1);
-        setActiveSection("personal-info");
-        setCurrentSchema(newEmployeeWizardSchema[0]);
         actions.resetForm();
+        // Onboarding is done — return to the list rather than leaving a reset
+        // form parked on the last step with no indication anything happened.
+        handleClose();
       } catch (error) {
         console.error("Submission error:", error);
         if (savedUserId) {
@@ -1539,18 +1864,31 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         await handleSubmissionError(error);
       } finally { setIsSubmitting(false); }
     }
-
-    setCurrentSchema(newEmployeeWizardSchema[(stepper?.currentStepIndex || activeStepIndex) - 1]);
   };
 
   const handleSubmissionError = async (error: any) => {
     try {
       if (error?.response?.status === 422) {
-        const validationErrors = error.response?.data?.validationError || [];
-        const importantFields = ["firstName","lastName","personalEmailId","personalPhoneNumber","dateOfBirth","gender","dateOfJoining","departmentId","branchId","employeeTypeId","companyEmailId"];
-        const filteredErrors = validationErrors.filter((e: any) => importantFields.includes(e.field)).map((e: any) => `• ${e.errors.join(" ")}`).join("\n\n");
-        if (filteredErrors.length > 0) { errorConfirmation(filteredErrors.replace(/\n/g, "<br>")); return; }
-        else { errorConfirmation("No specific validation errors found, but the request failed. Please try again."); return; }
+        // Show EVERY field the backend rejected. This used to filter against a
+        // hand-maintained "important fields" allowlist, so a rejection on anything
+        // outside it — `ctcInLpa`, say — was thrown away and the user got "No specific
+        // validation errors found" while the server had said exactly what was wrong.
+        // Any list that has to be kept in step with a schema will fall behind it.
+        const validationErrors: any[] = error.response?.data?.validationError || [];
+        const messages = validationErrors
+          .map((e: any) => {
+            const text = Array.isArray(e?.errors) ? e.errors.join(" ") : String(e?.errors || "");
+            return text ? `• ${text}` : "";
+          })
+          .filter(Boolean)
+          .join("<br>");
+
+        errorConfirmation(
+          messages ||
+            error.response?.data?.detail ||
+            "The server rejected the submission but did not say which field. Please review the form and try again."
+        );
+        return;
       }
       const responseData = error?.response?.data || {};
       const errorMessage = responseData.detail || responseData.message || responseData.error || responseData.errors?.map((e: string) => `• ${e}`).join("\n") || error?.response?.statusText || "An unknown error occurred.";
@@ -1653,7 +1991,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         bloodGroup: wizardData?.users?.bloodGroup || wizardData?.bloodGroup || "",
         ...(wizardData?.employeeTypeConfigId && { employeeTypeConfigId: wizardData.employeeTypeConfigId }),
         ...(wizardData?.employeeStatusConfigId && { employeeStatusConfigId: wizardData.employeeStatusConfigId }),
-        teamId: wizardData?.teamId || "", roomOrBlock: wizardData?.roomOrBlock || "",
+        teamId: wizardData?.teamId || "",
         shift: wizardData?.shift || "", experienceLevel: wizardData?.experienceLevel || "",
         employeeLevelId: wizardData?.employeeLevelId || "",
         linkedInProfileUrl: wizardData?.users?.linkedInProfileUrl || "",
@@ -1692,390 +2030,119 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const handleClose = () => { setShow(false); navigate("/employees"); };
+  /**
+   * Where Cancel / the close button / a finished save returns to.
+   *
+   * This used to be a hard-coded "/employees", so editing an employee from their own
+   * profile — or from the salary directory — dropped you on the employee LIST instead of
+   * the page you opened the wizard from, losing that page's tab and scroll position.
+   *
+   * Openers pass `state.returnTo`; the fallbacks cover deep links and refreshes, where
+   * there is no navigation state to read: an edit belongs to one employee, so their
+   * profile is the honest destination, and only a create with no origin lands on the list.
+   *
+   * Not `navigate(-1)`: the wizard replaces its own history entry on some paths, and a
+   * back-step after a successful save would return to the form we just left.
+   */
+  const returnPath = (() => {
+    const fromState = (location.state as any)?.returnTo;
+    if (typeof fromState === "string" && fromState.startsWith("/")) return fromState;
+    if (editMode && employeeId) return `/employees/${employeeId}`;
+    return "/employees";
+  })();
+
+  const handleClose = () => { setShow(false); navigate(returnPath); };
 
   return (
-    <>
-      <Modal show={show} onHide={handleClose} dialogClassName="full-width-modal" className="full-width-modal">
-        <Modal.Body ref={modalBodyRef} className="employee__form_wizard__modal_body ob-modal-body">
+    <Modal
+      show={show}
+      onHide={handleClose}
+      fullscreen
+      /**
+       * Nested MUI dialogs (the photo editor, confirm/alert dialogs, pickers) render
+       * in a portal on <body>, which this modal does not contain. With the default
+       * focus enforcement, react-bootstrap pulls focus back here as soon as anything
+       * inside one of those portals is focused — so a slider thumb never keeps focus
+       * and its arrow keys silently do nothing. The trap buys little on a fullscreen
+       * modal that already covers the app; correct keyboard control inside the
+       * dialogs it opens is worth more.
+       */
+      enforceFocus={false}
+      dialogClassName="responsive-modal"
+      className="responsive-modal wt-wizard-modal onboarding-wizard-modal"
+    >
+      <div className="ob-wizard-shell">
+        {/* EnterpriseFormWizard reserves space at the right of its header for this
+            button but does not render it — the host modal owns it. */}
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="Close onboarding"
+          className="ob-wizard-close"
+        >
+          <KTIcon iconName="cross" className="fs-2" />
+        </button>
+
+        <Modal.Body ref={modalBodyRef} style={{ padding: 0, height: "100%", overflow: "hidden" }}>
           <Formik
             initialValues={defaultState}
-            validationSchema={currentSchema}
-            onSubmit={submitStep}
+            validationSchema={onboardingSchema}
+            onSubmit={handleFinalSubmit}
             enableReinitialize={true}
           >
             {(formikProps) => {
               formikRef.current = formikProps;
 
-              const completion = calculateProfileCompletion(formikProps.values);
-              const isLastStep = activeStepIndex === newEmployeeWizardSchema.length;
-              const headerEmployeeName = `${formikProps.values.firstName || ""} ${formikProps.values.lastName || ""}`.trim();
-              const headerEmployeeAvatar = mobileProfilePhotoPreview || formikProps.values.avatar || "";
-              const headerEmployeeInitials = getNameInitials(headerEmployeeName);
-              const mobileRingSize = 40;
-              const mobileRingRadius = 18;
-              const mobileRingCircumference = 2 * Math.PI * mobileRingRadius;
-              const mobileRingOffset = mobileRingCircumference * (1 - completion / 100);
-              const sidebarProfile =
-                activeStepIndex > 1 && (headerEmployeeName || headerEmployeeAvatar)
-                  ? {
-                    name: headerEmployeeName,
-                    avatar: headerEmployeeAvatar,
-                    initials: headerEmployeeInitials,
-                    animate: sidebarProfileShouldAnimate,
-                  }
-                  : undefined;
-
-              const stepSections = STEP_SECTIONS[activeStepIndex] ?? [];
-              const sectionIdx = stepSections.indexOf(activeSection);
-              // ONLY the genuine last section is "last". Previously `sectionIdx < 0` (activeSection
-              // momentarily out of sync with the step's section list — e.g. right after a top-stepper
-              // jump, before the snap effect re-aligns it) was ALSO treated as last, turning the
-              // Continue button into a step-submit that skipped the remaining sections and jumped
-              // straight to the next step (the "Privacy Controls is skipped → Documents opens" bug).
-              const isLastSection = sectionIdx >= 0 && sectionIdx === stepSections.length - 1;
-
-              // Which top-level field keys currently FAIL validation — computed SYNCHRONOUSLY from
-              // the values on screen right now, via the step's own Yup schema (single source of
-              // truth, so conditional/`.when` requirements like Financial Config are handled for
-              // free). This deliberately does NOT read Formik's async `errors` object: that lags
-              // behind reinitialize/reset and produced the "edit form is frozen until you touch
-              // another step" bug. A pure sync function of (values, schema) can't race anything.
-              const invalidKeys = computeInvalidKeys(currentSchema, formikProps.values);
-
-              // Is the ACTIVE section (not the whole step) free of validation errors right now?
-              // Drives both the CTA styling and — critically — whether "Continue" may move past
-              // this section at all.
-              const activeSectionKeys = SECTION_FIELD_KEYS[activeStepIndex]?.[activeSection] ?? [];
-              const isStepReady = activeSectionKeys.every((key) => !invalidKeys.has(key));
-
-              // Whole-step validity — every field of the CURRENT step is valid. Drives the
-              // step-terminal Continue/Submit buttons.
-              const isWholeStepValid = invalidKeys.size === 0;
-
               return (
-                <Form className="ob-wizard-root" noValidate id="employee_onboarding_form">
-                  <FormikValidationErrorFocus activeStepIndex={activeStepIndex} setActiveSection={setActiveSection} />
-                  <DraftAutosave enabled={!editMode} />
-                  <div ref={stepperRef} className="stepper stepper-pills d-flex flex-column flex-row-fluid" id="kt_create_account_stepper">
+                <Form noValidate id="employee_onboarding_form">
+                  <DraftAutosave enabled={!editMode} finalizedRef={draftFinalizedRef} />
 
-                    {/* ── Header Bar ── */}
-                    <header className="ob-header-bar">
-                      <div className="ob-header-left">
-                        <h2 className="ob-header-title">Employee Onboarding</h2>
-                        {editMode && defaultState.firstName && (
-                          <span className="ob-header-user-chip">{defaultState.firstName} {defaultState.lastName}</span>
-                        )}
-                      </div>
-                      <div className="ob-header-right">
-                        <div className="ob-profile-completion">
-                          <span className="ob-completion-label">{completion}% Complete</span>
-                          <div className="ob-completion-bar-track">
-                            <div className="ob-completion-bar-fill" style={{ width: `${completion}%` }} />
-                          </div>
-                        </div>
-                        {(headerEmployeeName || headerEmployeeAvatar) && (
-                          <span className="ob-header-mobile-profile" title={headerEmployeeName}>
-                            <span className="ob-header-mobile-avatar" aria-hidden>
-                              <svg
-                                className="ob-header-mobile-ring"
-                                width={mobileRingSize}
-                                height={mobileRingSize}
-                                viewBox={`0 0 ${mobileRingSize} ${mobileRingSize}`}
-                              >
-                                <circle
-                                  className="ob-header-mobile-ring-track"
-                                  cx={mobileRingSize / 2}
-                                  cy={mobileRingSize / 2}
-                                  r={mobileRingRadius}
-                                />
-                                <circle
-                                  key={`${activeStepIndex}-${completion}`}
-                                  className="ob-header-mobile-ring-progress"
-                                  cx={mobileRingSize / 2}
-                                  cy={mobileRingSize / 2}
-                                  r={mobileRingRadius}
-                                  style={{
-                                    "--ring-circumference": mobileRingCircumference,
-                                    "--ring-offset": mobileRingOffset,
-                                  } as any}
-                                />
-                              </svg>
-                              <span className="ob-header-mobile-avatar-inner">
-                              {headerEmployeeAvatar ? (
-                                <img src={headerEmployeeAvatar} alt="" />
-                              ) : (
-                                headerEmployeeInitials
-                              )}
-                              </span>
-                            </span>
-                            <span className="ob-header-mobile-copy">
-                              <span className="ob-header-mobile-name">{headerEmployeeName}</span>
-                              <span className="ob-header-mobile-percent">{completion}%</span>
-                            </span>
-                          </span>
-                        )}
-                      </div>
-                    </header>
+                  <OnboardingWorkspace
+                    formikProps={formikProps}
+                    editMode={editMode}
+                    setFile={addFileToState}
+                    removeFile={removeFileFromState}
+                    setEducationFile={addEducationFileToState}
+                    setBankFile={setBankFile}
+                    profilePhotoPreview={mobileProfilePhotoPreview}
+                    defaultValues={initialState}
+                    isSubmitting={isSubmitting}
+                    onCancel={handleClose}
+                    onFinalSave={() => formikRef.current?.submitForm()}
+                    headerName={`${defaultState.firstName || ""} ${defaultState.lastName || ""}`.trim()}
+                  />
 
-                    {/* ── Stepper Nav ── */}
-                    <nav className="ob-stepper-nav-bar">
-                      <div className="ob-horiz-stepper">
-                        {[
-                          { label: "Personal Details", desc: "~2 min" },
-                          { label: "Company Details", desc: "~3 min" },
-                          { label: "App Settings", desc: "~2 min" },
-                          { label: "Documents", desc: "~1 min" },
-                        ].map((step, i) => {
-                          const stepNum = i + 1;
-                          const isCurrent = activeStepIndex === stepNum;
-                          const isCompleted = activeStepIndex > stepNum;
-                          return (
-                            <Fragment key={stepNum}>
-                              <div
-                                className={`stepper-item ob-step-item ${isCurrent ? "current" : ""} ${isCompleted ? "completed" : ""}`}
-                                data-kt-stepper-element="nav"
-                              >
-                                <div className="ob-step-circle">
-                                  {isCompleted ? <KTIcon iconName="check" className="fs-6 text-white" /> : stepNum}
-                                </div>
-                                <div className="ob-step-labels">
-                                  <div className="ob-step-name">{step.label}</div>
-                                  <div className="ob-step-desc">{step.desc}</div>
-                                </div>
-                              </div>
-                              {i < 3 && (
-                                <div className={`ob-step-connector ${isCompleted ? "completed" : ""}`} />
-                              )}
-                            </Fragment>
-                          );
-                        })}
-                      </div>
-                    </nav>
-
-                    {/* ── Draft-restored notice (create mode only) ── */}
-                    {!editMode && showDraftNotice && (
-                      <div className="ob-draft-notice" role="status">
-                        <i className="bi bi-clock-history ob-draft-notice-icon" aria-hidden></i>
-                        <span className="ob-draft-notice-text">
-                          Restored your unsaved draft — pick up where you left off.
-                          <span className="ob-draft-notice-sub"> Uploaded files aren't saved and may need re-attaching.</span>
+                  {/* Draft-restored notice (create mode only). Floated over the
+                      wizard so it never disturbs the sticky header/footer layout. */}
+                  {!editMode && showDraftNotice && (
+                    <div className="ob-draft-notice" role="status">
+                      <i className="bi bi-clock-history ob-draft-notice-icon" aria-hidden></i>
+                      <span className="ob-draft-notice-text">
+                        Restored your unsaved draft — pick up where you left off.
+                        <span className="ob-draft-notice-sub">
+                          Your profile photo was kept. Document uploads aren&apos;t saved and may need re-attaching.
                         </span>
-                        <button type="button" className="ob-draft-notice-discard" onClick={discardDraft}>
-                          Discard &amp; start fresh
-                        </button>
-                        <button
-                          type="button"
-                          className="ob-draft-notice-close"
-                          aria-label="Dismiss"
-                          onClick={() => setShowDraftNotice(false)}
-                        >
-                          <KTIcon iconName="cross" className="fs-5" />
-                        </button>
-                      </div>
-                    )}
-
-                    {/* ── Main Content ── */}
-                    <main className="ob-main-layout">
-                      <div key={activeStepIndex} className="wizard-step-transition">
-
-                        {/* STEP 1 */}
-                        {activeStepIndex === 1 && (
-                          <div className="ob-two-col-layout">
-                            <ObSectionsSidebar
-                              sections={[
-                                ...NAV_SECTIONS.map((section) => {
-                                  const { filled, total } =
-                                    COMPLETION_FNS[section.id]?.(formikProps.values) ?? { filled: 0, total: 0 };
-                                  return {
-                                    id: section.id,
-                                    label: section.label,
-                                    icon: section.icon,
-                                    // A section earns its green tick only when it is both filled AND
-                                    // schema-valid — so a filled-but-invalid field (e.g. a 5-digit
-                                    // phone) never shows a tick while its border is red.
-                                    isComplete: total > 0 && filled >= total && isSectionValid(section.id, invalidKeys),
-                                  };
-                                }),
-                                (() => {
-                                  const { filled, total } =
-                                    COMPLETION_FNS.meal?.(formikProps.values) ?? { filled: 0, total: 0 };
-                                  return {
-                                    id: "meal",
-                                    label: "Additional Details",
-                                    icon: (
-                                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                        <circle cx="12" cy="12" r="10" />
-                                        <path d="M12 8v4l3 3" />
-                                      </svg>
-                                    ),
-                                    isComplete: total > 0 && filled >= total && isSectionValid("meal", invalidKeys),
-                                  };
-                                })(),
-                              ]}
-                              activeSection={activeSection}
-                              onSectionChange={changeSection}
-                            />
-                            <div className="ob-form-area">
-                              <Step2
-                                formikProps={formikProps}
-                                setFile={addFileToState}
-                                removeFile={removeFileFromState}
-                                setEducationFile={addEducationFileToState}
-                                activeSection={activeSection}
-                                onSectionChange={changeSection}
-                                completion={completion}
-                                activeSectionValid={isStepReady}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {activeStepIndex === 2 && <Step3 formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={changeSection} />}
-                        {activeStepIndex === 3 && <StepAppSettings formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={changeSection} />}
-                        {activeStepIndex === 4 && <Step4 formikProps={formikProps} setFile={addFileToState} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={changeSection} />}
-                      </div>
-                    </main>
-
-                    {/* ── Floating Action Buttons ── */}
-                    <div className="ob-floating-actions">
-                      {/* Cancel */}
-                      <button type="button" className="ob-float-cancel-btn" onClick={handleClose}>
-                        <KTIcon iconName="cross" className="fs-5" />
-                        Cancel
+                      </span>
+                      <button type="button" className="ob-draft-notice-discard" onClick={discardDraft}>
+                        Discard &amp; start fresh
                       </button>
-
-                      {/* Back (hidden on step 1) */}
-                      {activeStepIndex > 1 && (
-                        <button type="button" className="ob-float-back-btn" onClick={prevStep} disabled={isSubmitting}>
-                          <KTIcon iconName="arrow-left" className="fs-5" />
-                          Back
-                        </button>
-                      )}
-
-                      {/* Continue / Submit — walks the current step's left-hand sections first,
-                          and only advances to the next top step from the LAST section. Applies to
-                          every step, so the button behaves consistently throughout the wizard. */}
-                      {(() => {
-                        // Not on the last section of this step → advance to the next section only
-                        // once this section's required fields are valid. If not, the click REVEALS
-                        // the red errors (this is the "trying to move" moment) and stays put. The
-                        // button is greyed (is-incomplete) as a hint but stays clickable, so the
-                        // click can surface what's missing — a fresh, untouched form shows no red.
-                        if (!isLastSection) {
-                          return (
-                            <button
-                              type="button"
-                              className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
-                              disabled={isSubmitting}
-                              onClick={() => {
-                                if (!isStepReady) { revealSectionErrors(activeSection); return; }
-                                changeSection(stepSections[sectionIdx + 1]);
-                                scrollWizardToTop();
-                              }}
-                            >
-                              Continue
-                              <KTIcon iconName="arrow-right" className="fs-5" />
-                            </button>
-                          );
-                        }
-
-                        // Last section of step 1 → validate the step, then go to Company Details.
-                        // Clickable even when incomplete: an incomplete click runs submitForm,
-                        // which reveals the red errors and (via FormikValidationErrorFocus) jumps
-                        // to the first missing field's section. Greyed as a hint until valid.
-                        if (activeStepIndex === 1) {
-                          return (
-                            <button
-                              type="button"
-                              className={`ob-float-continue-btn ${isWholeStepValid ? "is-ready" : "is-incomplete"}`}
-                              disabled={isSubmitting}
-                              onClick={() => {
-                                formikProps.validateForm().then((errors) => {
-                                  if (Object.keys(errors).length === 0) advanceToNextStep();
-                                  else formikProps.submitForm();
-                                });
-                              }}
-                            >
-                              Continue to {STEP_TITLES[activeStepIndex] ?? "Next"}
-                              <KTIcon iconName="arrow-right" className="fs-5" />
-                            </button>
-                          );
-                        }
-
-                        // Last section of the final step → submit the whole form. Clickable when
-                        // incomplete so the submit attempt reveals the missing fields.
-                        if (isLastStep) {
-                          return (
-                            <button type="submit" className="ob-float-submit-btn" disabled={isSubmitting}>
-                              {isSubmitting ? (
-                                <>
-                                  Saving...
-                                  <span className="spinner-border spinner-border-sm align-middle ms-1" />
-                                </>
-                              ) : (
-                                <>
-                                  Submit
-                                  <KTIcon iconName="check" className="fs-5" />
-                                </>
-                              )}
-                            </button>
-                          );
-                        }
-
-                        // Last section of steps 2/3 → submit, UNLESS a "must visit" section for this
-                        // step (e.g. Leave Settings) hasn't been opened yet — send the user there
-                        // first instead of letting them submit straight past it.
-                        const unvisitedRequired = stepSections.find((id) => MUST_VISIT_SECTIONS.has(id) && !visitedSections.has(id));
-                        if (unvisitedRequired) {
-                          return (
-                            <button
-                              type="button"
-                              className="ob-float-continue-btn is-incomplete"
-                              disabled={isSubmitting}
-                              onClick={() => {
-                                changeSection(unvisitedRequired);
-                                scrollWizardToTop();
-                              }}
-                            >
-                              Review {unvisitedRequired.split("_").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ")}
-                              <KTIcon iconName="arrow-right" className="fs-5" />
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <button
-                            type="submit"
-                            className={`ob-float-continue-btn ${isWholeStepValid ? "is-ready" : "is-incomplete"}`}
-                            disabled={isSubmitting}
-                          >
-                            {isSubmitting ? (
-                              <>
-                                Please wait...
-                                <span className="spinner-border spinner-border-sm align-middle ms-1" />
-                              </>
-                            ) : (
-                              <>
-                                Continue to {STEP_TITLES[activeStepIndex] ?? "Next"}
-                                <KTIcon iconName="arrow-right" className="fs-5" />
-                              </>
-                            )}
-                          </button>
-                        );
-                      })()}
-
-                      {/* <span className="ob-float-shortcut">Ctrl + Enter</span> */}
+                      <button
+                        type="button"
+                        className="ob-draft-notice-close"
+                        aria-label="Dismiss"
+                        onClick={() => setShowDraftNotice(false)}
+                      >
+                        <KTIcon iconName="cross" className="fs-5" />
+                      </button>
                     </div>
-
-                  </div>
+                  )}
                 </Form>
               );
             }}
           </Formik>
         </Modal.Body>
-      </Modal>
-    </>
+      </div>
+    </Modal>
   );
 }
 

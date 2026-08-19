@@ -3,6 +3,7 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 import durationPlugin from 'dayjs/plugin/duration';
 import {
   ENFORCE_ONSITE_DEADLINE_KEY,
+  ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY,
   GRACE_TIME_ON_SITE_KEY,
 } from '@constants/configurations-key';
 import { ATTENDANCE_STATUS, WORKING_METHOD_TYPE } from '@constants/attendance';
@@ -52,17 +53,44 @@ export function isOnsiteWorkingMethod(method?: string | null): boolean {
   return key === 'onsite' || method === WORKING_METHOD_TYPE.ON_SITE;
 }
 
-/** Reads Enforce Onsite Deadline from leave-management JSON (default: enforced). */
+/**
+ * Master policy switch — Attendance Settings → "On-site, Holiday & Weekend Settings
+ * for late attendance". When ON, on-site check-ins never show a late mark (holiday and
+ * weekend rows are already muted by `shouldApplyCheckInColoring`). Stored by the
+ * settings UI as "1" / "0"; absent → OFF.
+ * Mirrors the backend `isOnsiteHolidayWeekendExemptionEnabled`; keep the two in step.
+ */
+export function isOnsiteHolidayWeekendExemptionEnabled(
+  leaveConfig?: Record<string, unknown> | null
+): boolean {
+  const raw = (leaveConfig ?? {})[ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY];
+  if (raw === undefined || raw === null) return false;
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw === 'number') return raw > 0;
+  const lowered = String(raw).trim().toLowerCase();
+  return lowered === '1' || lowered === 'true' || lowered === 'yes' || lowered === 'on';
+}
+
+/**
+ * On-site check-ins are never late by DEFAULT — the deadline applies only when
+ * "Enforce Onsite Deadline" is explicitly ON *and* a "Grace Time - On Site" is set.
+ * Mirrors the backend `parseOnsiteGraceConfig`; keep the two in step.
+ */
 export function isOnsiteDeadlineEnforced(
   leaveConfig?: Record<string, unknown> | null
 ): boolean {
   const config = leaveConfig ?? {};
   const raw = config[ENFORCE_ONSITE_DEADLINE_KEY];
-  if (typeof raw === 'boolean') return raw;
-  if (raw === undefined || raw === null) return true;
-  const lowered = String(raw).trim().toLowerCase();
-  if (lowered === 'false' || lowered === '0' || lowered === 'no') return false;
-  return true;
+  const toggledOn =
+    typeof raw === 'boolean'
+      ? raw
+      : raw !== undefined && raw !== null
+        ? ['true', '1', 'yes', 'on'].includes(String(raw).trim().toLowerCase())
+        : false;
+  if (!toggledOn) return false;
+
+  const deadline = config[GRACE_TIME_ON_SITE_KEY];
+  return deadline !== undefined && deadline !== null && String(deadline).trim() !== '';
 }
 
 function parseOnsiteClockDeadline(raw: unknown): { hour: number; minute: number; label: string } {
@@ -137,6 +165,28 @@ export type ResolveCheckInColorInput = {
   leaveConfig?: Record<string, unknown> | null;
   /** Weekend/holiday/leave rows — show muted, no red/green */
   skipColoring?: boolean;
+  /**
+   * This row's calendar verdict: the day is a weekend, a branch off-day or a public
+   * holiday. Feeds the master policy switch below (ladder rule 2), which covers
+   * on-site *and* holiday *and* weekend — not just on-site.
+   */
+  isWeekendOrHoliday?: boolean;
+  /**
+   * Server verdict: this day's late mark is waived (the previous work day ran past the
+   * configured late-night cutoff). Comes from the API — the rule lives on the backend so
+   * every screen and payroll agree; never re-derive it here.
+   */
+  lateWaived?: boolean;
+  /**
+   * THE SERVER'S VERDICT for this row (`row.lateMark` from the attendance API).
+   *
+   * When present it decides outright — every branch below is a FALLBACK for responses
+   * that predate the verdict annotator. The server runs the same `evaluateLateMark`
+   * ladder payroll and KPI use, with the employee's own branch calendar and cutoff
+   * override; the local derivation cannot see any of that, which is why it once showed
+   * red weekend rows the policy had already exempted.
+   */
+  lateMark?: { isLate: boolean; reason?: string } | null;
 };
 
 /**
@@ -150,16 +200,65 @@ export function resolveCheckInColor(input: ResolveCheckInColorInput): CheckInCol
     lateCheckInThreshold,
     leaveConfig,
     skipColoring = false,
+    lateWaived = false,
+    isWeekendOrHoliday = false,
+    lateMark = null,
   } = input;
 
   if (skipColoring || isAttendanceTimeMissing(checkIn)) {
     return { tone: 'muted', color: ATTENDANCE_COLORS.muted, isLate: false };
   }
 
+  // ── Server verdict wins ────────────────────────────────────────────────────
+  // Everything after this point re-derives lateness in the browser and exists only
+  // for responses without `lateMark`. Delete the fallback once every board is
+  // confirmed to be receiving verdicts.
+  if (lateMark) {
+    return lateMark.isLate
+      ? {
+          tone: 'danger', color: ATTENDANCE_COLORS.danger, isLate: true,
+          tooltip: lateMark.reason || 'Late check-in',
+        }
+      : {
+          tone: 'success', color: ATTENDANCE_COLORS.success, isLate: false,
+          tooltip: lateMark.reason || 'On time',
+        };
+  }
+
+  // Late-night waiver — worked past the cutoff the previous day, so today is never late.
+  if (lateWaived) {
+    return {
+      tone: 'success',
+      color: ATTENDANCE_COLORS.success,
+      isLate: false,
+      tooltip: 'On time — late mark waived after a late-night shift the previous day',
+    };
+  }
+
   const referenceDate = date || dayjs().format('YYYY-MM-DD');
   const checkInTime = parseAttendanceTime(checkIn!, referenceDate);
   if (!checkInTime) {
     return { tone: 'muted', color: ATTENDANCE_COLORS.muted, isLate: false };
+  }
+
+  // Master policy switch — ladder rule 2 of the backend `evaluateLateMark`, which has
+  // THREE legs: on-site, public holiday, weekend/off day. This sat inside the on-site
+  // branch below, so an OFFICE check-in on a weekend or holiday skipped it entirely and
+  // was scored against shift+grace — the red weekend rows in the attendance report.
+  // It must stay ABOVE the working-method split for the same reason it outranks the
+  // on-site deadline: company policy cannot be reintroduced by a lower rule.
+  if (isOnsiteHolidayWeekendExemptionEnabled(leaveConfig)) {
+    const onSite = isOnsiteWorkingMethod(workingMethod);
+    if (onSite || isWeekendOrHoliday) {
+      return {
+        tone: 'success',
+        color: ATTENDANCE_COLORS.success,
+        isLate: false,
+        tooltip: onSite
+          ? 'On-site check-in — late marks disabled by company policy'
+          : 'Worked on a weekend/holiday — late marks disabled by company policy',
+      };
+    }
   }
 
   if (isOnsiteWorkingMethod(workingMethod)) {

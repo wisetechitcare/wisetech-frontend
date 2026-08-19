@@ -1,15 +1,34 @@
 node_modules
 dist
+# pnpm's content-addressable store. Global by default, but amplify.yml points it here so
+# the CI cache can reach it — which means it appears in the working tree on those builds.
+.pnpm-store
+
+# Secrets & keys (never commit) — mirrors scripts/hooks/guard.mjs
 .env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.ppk
+src/keys/
+
 .claude
 .vscode
 # Claude Code agents and configuration
 .claude/
 .claude/agents/
 .github/agents
+CLAUDE.md
 
 # Manual patch / variant-file workflow is banned — use branches + PRs
 *.patch
 *.diff
 *_diff.txt
 *.labbai.*
+
+# npm is not used here — pnpm-lock.yaml is the lockfile
+package-lock.json

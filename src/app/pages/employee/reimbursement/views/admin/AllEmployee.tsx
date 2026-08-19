@@ -13,12 +13,18 @@ import { IReimbursementsFetch } from '@models/employee';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import ExportButton from '@app/modules/common/components/ExportButton';
 import SalaryPeriodToolbar from '@pages/employee/salary/components/SalaryPeriodToolbar';
-import { ToolbarFilterSelect } from '@pages/employee/salary/admin/SalaryTableFilters';
+import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { useRootOrgNames } from '@hooks/useRootOrgNames';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { Box } from '@mui/material';
 import ReimbursementSummaryCard from './ReimbursementSummaryCard';
+import { summariseReimbursements } from '../../utils/reimbursementSummary';
+import { clickableRowProps, CLICKABLE_ROW_SX } from '../../utils/rowInteraction';
+import LoadErrorState from '../../components/LoadErrorState';
+import LineItemExportButton from '../../components/LineItemExportButton';
+import ReimbursementCharts from '../../components/ReimbursementCharts';
+import ByProject from './ByProject';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 
@@ -31,6 +37,7 @@ interface EmployeeDetail {
   subOrganization: string;
   department: string;
   branch: string;
+  team: string;
   isActive: boolean;
   employeeCode: string;
   name: string;
@@ -43,6 +50,7 @@ interface EmployeeSummary {
   subOrganization: string;
   department: string;
   branch: string;
+  team: string;
   isActive: boolean;
   totalRequestAmount: number;
   totalApprovedAmount: number;
@@ -61,6 +69,17 @@ interface EmployeeSummary {
 const fmtINR = (n: number) =>
   `₹${Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
+// Distinct, sorted values of one summary field ('N/A' and blanks dropped) — same rule the
+// payroll toolbar uses, so both pages offer the same options for the same population.
+const distinctValues = (rows: EmployeeSummary[], field: keyof EmployeeSummary, exclude?: Set<string>) => {
+  const names = new Set<string>();
+  rows.forEach(r => {
+    const name = r[field] as string;
+    if (name && name !== 'N/A' && !exclude?.has(name)) names.add(name);
+  });
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+};
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function AllEmployee() {
@@ -71,9 +90,15 @@ function AllEmployee() {
   const [fiscalYear, setFiscalYear] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [reimbursements, setReimbursements] = useState<IReimbursementsFetch[]>([]);
+  const [loadError, setLoadError] = useState(false);
   const [employeeDetailMap, setEmployeeDetailMap] = useState<Map<string, EmployeeDetail>>(new Map());
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
+  // Defaults to All, not Active. Headline totals used to silently omit anyone who had left, so
+  // a period total did not match the money actually spent in that period — and nothing on screen
+  // said a population was missing. The heading names the scope either way.
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [subOrgFilter, setSubOrgFilter] = useState('All');
+  const [branchFilter, setBranchFilter] = useState('All');
+  const [teamFilter, setTeamFilter] = useState('All');
 
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const rootOrgNames = useRootOrgNames();
@@ -97,6 +122,8 @@ function AllEmployee() {
           subOrganization: emp.companyOverview?.name || 'N/A',
           department: emp.departments?.name || 'N/A',
           branch: emp.branches?.name || 'N/A',
+          // One team per employee; prefer the active membership (same rule as payroll).
+          team: (emp.teamMemberships ?? []).find((m: any) => m.isActive !== false)?.team?.name || 'N/A',
           isActive: emp.isActive !== false,
           employeeCode: emp.employeeCode || '',
           name: emp.users
@@ -124,6 +151,7 @@ function AllEmployee() {
       setReimbursements(data);
     } catch {
       setReimbursements([]);
+      setLoadError(true);
     } finally {
       setIsLoading(false);
     }
@@ -161,6 +189,7 @@ function AllEmployee() {
           subOrganization: details?.subOrganization || 'N/A',
           department: details?.department || 'N/A',
           branch: details?.branch || 'N/A',
+          team: details?.team || 'N/A',
           isActive: details?.isActive ?? true,
           totalRequestAmount: 0,
           totalApprovedAmount: 0,
@@ -175,42 +204,34 @@ function AllEmployee() {
         });
       }
 
+      // Accumulated per employee through the shared aggregator, so this tab and
+      // SearchEmployee can no longer report different totals for the same person.
+      const s = summariseReimbursements([r as any]);
       const emp = map.get(empId)!;
-      const amount = Number(r.amount || 0);
-      emp.totalRequests += 1;
-      emp.totalRequestAmount += amount;
-
-      if (r.status === 'Approved' || r.status === 1) {
-        emp.totalApprovedAmount += amount;
-        emp.approvedCount += 1;
-        if (r.paymentStatus === 'PAID') {
-          emp.totalPaidAmount += amount;
-        } else {
-          emp.totalRemainingAmount += amount;
-        }
-      } else if (r.status === 'Pending' || r.status === 0) {
-        emp.totalPendingAmount += amount;
-        emp.pendingCount += 1;
-      } else if (r.status === 'Rejected' || r.status === 2) {
-        emp.totalRejectedAmount += amount;
-        emp.rejectedCount += 1;
-      }
+      emp.totalRequests += s.totalRequests;
+      emp.totalRequestAmount += s.totalAmount;
+      emp.totalApprovedAmount += s.approvedAmount;
+      emp.approvedCount += s.approvedCount;
+      emp.totalPendingAmount += s.pendingAmount;
+      emp.pendingCount += s.pendingCount;
+      emp.totalRejectedAmount += s.rejectedAmount;
+      emp.rejectedCount += s.rejectedCount;
+      emp.totalPaidAmount += s.paidAmount;
+      emp.totalRemainingAmount += s.remainingAmount;
     }
 
     return Array.from(map.values());
   }, [reimbursements, employeeDetailMap]);
 
-  // ── Sub-org options ───────────────────────────────────────────────────────
+  // ── Filter options ────────────────────────────────────────────────────────
 
-  const subOrgOptions = useMemo(() => {
-    const names = new Set<string>();
-    employeeSummaries.forEach(e => {
-      if (e.subOrganization && e.subOrganization !== 'N/A' && !rootOrgNames.has(e.subOrganization)) {
-        names.add(e.subOrganization);
-      }
-    });
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [employeeSummaries, rootOrgNames]);
+  // The top-level org is excluded — only actual sub-orgs belong in that dropdown.
+  const subOrgOptions = useMemo(
+    () => distinctValues(employeeSummaries, 'subOrganization', rootOrgNames),
+    [employeeSummaries, rootOrgNames],
+  );
+  const branchOptions = useMemo(() => distinctValues(employeeSummaries, 'branch'), [employeeSummaries]);
+  const teamOptions = useMemo(() => distinctValues(employeeSummaries, 'team'), [employeeSummaries]);
 
   // ── Apply filters ─────────────────────────────────────────────────────────
 
@@ -221,26 +242,11 @@ function AllEmployee() {
         statusFilter === 'Deactive' ? !emp.isActive :
         true;
       const subOrgMatch = subOrgFilter === 'All' || emp.subOrganization === subOrgFilter;
-      return statusMatch && subOrgMatch;
+      const branchMatch = branchFilter === 'All' || emp.branch === branchFilter;
+      const teamMatch = teamFilter === 'All' || emp.team === teamFilter;
+      return statusMatch && subOrgMatch && branchMatch && teamMatch;
     });
-  }, [employeeSummaries, statusFilter, subOrgFilter]);
-
-  // ── Card totals ───────────────────────────────────────────────────────────
-
-  const cardTotals = useMemo(() => {
-    return filteredSummaries.reduce(
-      (acc, emp) => {
-        acc.totalRequestAmount += emp.totalRequestAmount;
-        acc.totalApprovedAmount += emp.totalApprovedAmount;
-        acc.totalPendingAmount += emp.totalPendingAmount;
-        acc.totalRejectedAmount += emp.totalRejectedAmount;
-        acc.totalPaidAmount += emp.totalPaidAmount;
-        acc.totalRemainingAmount += emp.totalRemainingAmount;
-        return acc;
-      },
-      { totalRequestAmount: 0, totalApprovedAmount: 0, totalPendingAmount: 0, totalRejectedAmount: 0, totalPaidAmount: 0, totalRemainingAmount: 0 }
-    );
-  }, [filteredSummaries]);
+  }, [employeeSummaries, statusFilter, subOrgFilter, branchFilter, teamFilter]);
 
   // ── Table data ────────────────────────────────────────────────────────────
 
@@ -291,10 +297,17 @@ function AllEmployee() {
   }, [alignment, month, fiscalYear]);
 
   const tableHeading = useMemo(() => {
-    if (alignment === 'monthly') return 'Monthly Reimbursements';
-    if (alignment === 'yearly') return 'Yearly Reimbursements';
-    return 'All Time Reimbursements';
-  }, [alignment]);
+    const period = alignment === 'monthly' ? 'Monthly'
+      : alignment === 'yearly' ? 'Yearly' : 'All Time';
+    // The status filter defaults to 'Active', so these totals silently omit anyone who has left
+    // — and someone reading a headline number had no way to know a population was missing from
+    // it. Whether ex-employees belong in the total is a policy question; making the filter
+    // visible in the heading is not, so the number always says who it counted.
+    const scope = statusFilter === 'Active' ? ' (current employees)'
+      : statusFilter === 'Deactive' ? ' (past employees)'
+      : ' (all employees)';
+    return `${period} Reimbursements${scope}`;
+  }, [alignment, statusFilter]);
 
   const exportFilename = useMemo(() => {
     if (alignment === 'monthly') return `reimbursements-${month.format('MMM-YYYY').toLowerCase()}`;
@@ -304,7 +317,9 @@ function AllEmployee() {
 
   // ── Filter toolbar ────────────────────────────────────────────────────────
 
-  const hasActiveFilters = statusFilter !== 'Active' || subOrgFilter !== 'All';
+  // 'All' is the default now, so it is not an active filter.
+  const hasActiveFilters = statusFilter !== 'All' || subOrgFilter !== 'All'
+    || branchFilter !== 'All' || teamFilter !== 'All';
 
   const FilterToolbar = () => (
     <Box sx={{ display: 'flex', gap: '12px', rowGap: '16px', alignItems: 'center', px: 1, flexWrap: 'wrap' }}>
@@ -343,9 +358,45 @@ function AllEmployee() {
         ]}
       />
 
+      {branchOptions.length > 0 && (
+        <ToolbarFilterSelect
+          label="Branch"
+          icon="bi-geo-alt"
+          value={branchFilter}
+          onChange={setBranchFilter}
+          minWidth={190}
+          theme={branchFilter !== 'All'
+            ? { icon: '#0891b2', border: '#a5f3fc', bg: '#ecfeff', text: '#155e75', ring: 'rgba(8, 145, 178, 0.12)' }
+            : undefined}
+          options={[
+            { value: 'All', label: 'All Branches' },
+            ...branchOptions.map(name => ({ value: name, label: name })),
+          ]}
+        />
+      )}
+
+      {teamOptions.length > 0 && (
+        <ToolbarFilterSelect
+          label="Team"
+          icon="bi-people"
+          value={teamFilter}
+          onChange={setTeamFilter}
+          minWidth={180}
+          theme={teamFilter !== 'All'
+            ? { icon: '#d97706', border: '#fde68a', bg: '#fffbeb', text: '#92400e', ring: 'rgba(217, 119, 6, 0.12)' }
+            : undefined}
+          options={[
+            { value: 'All', label: 'All Teams' },
+            ...teamOptions.map(name => ({ value: name, label: name })),
+          ]}
+        />
+      )}
+
       {hasActiveFilters && (
         <button
-          onClick={() => { setStatusFilter('Active'); setSubOrgFilter('All'); }}
+          // Back to the page defaults, which are all 'All' here — resetting status to 'Active'
+          // would have left the table narrower than a freshly opened page.
+          onClick={() => { setStatusFilter('All'); setSubOrgFilter('All'); setBranchFilter('All'); setTeamFilter('All'); }}
           title="Reset filters to defaults"
           style={{
             height: '38px', padding: '0 12px',
@@ -373,6 +424,7 @@ function AllEmployee() {
     { key: 'subOrganization',      header: 'Sub Organization',        type: 'text'     as const },
     { key: 'department',           header: 'Department',              type: 'text'     as const },
     { key: 'branch',               header: 'Branch',                  type: 'text'     as const },
+    { key: 'team',                 header: 'Team',                    type: 'text'     as const },
     { key: 'totalRequestAmount',   header: 'Total Request Amount',    type: 'currency' as const, showTotal: true },
     { key: 'totalApprovedAmount',  header: 'Total Approved Amount',   type: 'currency' as const, showTotal: true },
     { key: 'totalPendingAmount',   header: 'Total Pending Amount',    type: 'currency' as const, showTotal: true },
@@ -389,7 +441,7 @@ function AllEmployee() {
 
   return (
     <>
-      <h3 className="fw-bold fs-1 mb-5 font-barlow">Employee Reimbursements Data</h3>
+      <h3 className="fw-bold fs-1 mb-5 font-barlow">Reimbursement Details</h3>
 
       {/* Period toolbar */}
       <SalaryPeriodToolbar
@@ -409,32 +461,65 @@ function AllEmployee() {
 
       {/* Summary cards */}
       <ReimbursementSummaryCard
-        totalRequestAmount={cardTotals.totalRequestAmount}
-        totalApprovedAmount={cardTotals.totalApprovedAmount}
-        totalPendingAmount={cardTotals.totalPendingAmount}
-        totalRejectedAmount={cardTotals.totalRejectedAmount}
-        totalPaidAmount={cardTotals.totalPaidAmount}
-        totalRemainingAmount={cardTotals.totalRemainingAmount}
+        totalRequestAmount={columnTotals.totalRequestAmount}
+        totalApprovedAmount={columnTotals.totalApprovedAmount}
+        totalPendingAmount={columnTotals.totalPendingAmount}
+        totalRejectedAmount={columnTotals.totalRejectedAmount}
+        totalPaidAmount={columnTotals.totalPaidAmount}
+        totalRemainingAmount={columnTotals.totalRemainingAmount}
         isLoading={isLoading}
       />
 
       {/* Employee-wise reimbursement table */}
+      {/*
+        * The SAME chart components the employee page uses, over the whole company's rows.
+        * Built once and shared, per the plan — a second implementation is how the admin total
+        * and the employee total start disagreeing.
+        *
+        * No month click-through here: the admin toolbar already owns the period, and a chart
+        * that silently moves a filter the toolbar is still displaying is worse than a static one.
+        */}
+      <ReimbursementCharts
+        rows={reimbursements}
+        grain={alignment}
+        anchor={alignment === 'yearly' ? year : month}
+        loading={isLoading}
+      />
+
       <div className="mt-5">
-        <h1>{tableHeading}</h1>
+        <h1>{tableTitle}</h1>
+        {loadError && !isLoading ? (
+          <LoadErrorState what="employee reimbursements" onRetry={fetchReimbursements} />
+        ) : (
         <MaterialTable
           renderTopToolbarRightActions={() => <FilterToolbar />}
           renderExportActions={() => (
-            <ExportButton
-              data={tableData}
-              columns={exportColumns}
-              filename={exportFilename}
-              title={tableTitle}
-              subtitle="Employee-wise reimbursement summary by request status"
-              sheetName="Reimbursements"
-              showTotals
-              totalLabel="TOTAL"
-              disabled={tableData.length === 0}
-            />
+            // Two exports, because they answer different questions. The summary is one row per
+            // employee; the line-item export is one row per expense, which is what reconciling
+            // against a bank statement or answering an auditor actually needs — and until now
+            // the admin surface could only produce the aggregate.
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              {/* Two exports, two labels. They answer different questions — one row per
+                  employee vs one row per expense — and both saying "Export" made the choice a
+                  coin toss the reader only resolved after opening the file. */}
+              <ExportButton
+                label="Employees"
+                data={tableData}
+                columns={exportColumns}
+                filename={exportFilename}
+                title={tableTitle}
+                subtitle="Employee-wise reimbursement summary by request status"
+                sheetName="Reimbursements"
+                showTotals
+                totalLabel="TOTAL"
+                disabled={tableData.length === 0}
+              />
+              <LineItemExportButton
+                rows={reimbursements}
+                periodLabel={periodLabel ?? 'all time'}
+                disabled={isLoading}
+              />
+            </div>
           )}
           columns={[
             {
@@ -459,6 +544,11 @@ function AllEmployee() {
             {
               accessorKey: 'branch',
               header: 'Branch',
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+            },
+            {
+              accessorKey: 'team',
+              header: 'Team',
               Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
             },
             {
@@ -561,16 +651,34 @@ function AllEmployee() {
           enableColumnSpecificSearch={true}
           showColumnFooter={true}
           muiTableProps={{
-            muiTableBodyRowProps: ({ row }: any) => ({
-              onClick: () => {
-                const empId = row.original.employeeId;
-                if (empId) navigate('/finance/bills', { state: { goToSearchEmployee: true, employeeId: empId } });
-              },
-              sx: { cursor: row.original.employeeId ? 'pointer' : 'default' },
-            }),
+            muiTableBodyRowProps: ({ row }: any) => {
+              const empId = row.original.employeeId;
+              if (!empId) return { sx: { cursor: 'default' } };
+              return {
+                ...clickableRowProps(
+                  () => navigate('/finance/reimbursements', { state: { goToSearchEmployee: true, employeeId: empId } }),
+                  `Open reimbursements for ${row.original.name ?? 'this employee'}`,
+                ),
+                sx: CLICKABLE_ROW_SX,
+              };
+            },
           }}
         />
+        )}
       </div>
+
+      {/*
+        * Project rollup of the SAME rows, under the employee table. It was its own tab, which meant
+        * a second fetch of identical data and a second period selector that could disagree with
+        * this one. Hidden while the fetch is failing — the error state above already says so once.
+        */}
+      {!loadError && (
+        <ByProject
+          rows={reimbursements}
+          loading={isLoading}
+          periodLabel={periodLabel ?? 'all time'}
+        />
+      )}
     </>
   );
 }

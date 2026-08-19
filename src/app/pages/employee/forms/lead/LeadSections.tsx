@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Grid, Box, Typography, IconButton, CircularProgress, FormControlLabel } from "@mui/material";
+import { uploadLeadPoFile } from "@services/uploader";
 import axios from "axios";
 import { ProjectPointsSection } from "@app/modules/projectPoints";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
-import { SmartLocationPicker } from "./SmartLocationPicker";
 import { FieldArray, useFormikContext } from "formik";
 import { Button } from "react-bootstrap";
 import { Close, Add, Delete, Help, CheckCircleOutline, InfoOutlined } from "@mui/icons-material";
@@ -21,6 +21,7 @@ import { PaymentStageSelector } from "./PaymentStageSelector";
 import { MeetingScheduleSelector } from "./MeetingScheduleSelector";
 import { SectionWrapper } from "./SectionWrapper";
 import { WtSwitch, TRIO } from "@app/modules/common/components/ui";
+import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 
 interface LeadSectionsProps {
   // dropdown arrays
@@ -388,7 +389,7 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
     ? allCompanies.filter((c: any) => String(c.companyTypeId) === String(selectedType))
     : allCompanies;
 
-  const typeOptions = allCompanyTypes.map((x: any) => ({ value: x.id, label: x.name }));
+  const typeOptions = mainCompanyTypeOptions(allCompanyTypes);
 
   // The Company list must ALWAYS include the currently-saved value, so an existing
   // lead pre-populates on edit even when the saved Company falls outside the active
@@ -794,14 +795,59 @@ export const RemarksAndDocumentsSection: React.FC<LeadSectionsProps> = (props) =
 // 8. Address Details Section
 export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
-  const [mapRefreshKeys, setMapRefreshKeys] = React.useState<{[key: number]: number}>({});
 
-  const handleRefreshMap = (index: number) => {
-    setMapRefreshKeys(prev => ({
-      ...prev,
-      [index]: (prev[index] || 0) + 1
-    }));
+  // A map pick gives us NAMES ("Maharashtra"), but the three dropdowns hold master
+  // IDs and each level's options only load once the level above is chosen. So we
+  // park the picked names here and resolve them to IDs in the effects below as each
+  // cascade level's options arrive.
+  const pendingGeo = useRef<Record<number, { state?: string; city?: string }>>({});
+
+  const norm = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const byName = (list: any[], name?: string) =>
+    name ? list.find((o: any) => norm(o.name) === norm(name)) : undefined;
+
+  const applyGeoPick = (index: number, geo: GeoPick) => {
+    setFieldValue(`addresses.${index}.latitude`, String(geo.lat));
+    setFieldValue(`addresses.${index}.longitude`, String(geo.lng));
+    setFieldValue(`addresses.${index}.googleMapLink`, geo.googleMapLink);
+    if (geo.formatted) setFieldValue(`addresses.${index}.projectAddress`, geo.formatted);
+    if (geo.locality) setFieldValue(`addresses.${index}.locality`, geo.locality);
+    if (geo.postcode) setFieldValue(`addresses.${index}.zipCode`, geo.postcode);
+
+    const country = byName(props.countries || [], geo.country);
+    if (country) {
+      pendingGeo.current[index] = { state: geo.state, city: geo.city };
+      // Loads this country's states, which the state effect below then matches.
+      props.handleAddressCountryChange(index, country.id, setFieldValue);
+    }
   };
+
+  // Resolve the pending STATE name once its options land.
+  useEffect(() => {
+    Object.keys(pendingGeo.current).forEach((key) => {
+      const index = Number(key);
+      const pending = pendingGeo.current[index];
+      if (!pending?.state) return;
+      const match = byName(values.addressStatesOptions?.[index] || [], pending.state);
+      if (!match) return;
+      delete pending.state;
+      props.handleAddressStateChange(index, match.id, values.addresses?.[index]?.country, setFieldValue);
+    });
+  }, [values.addressStatesOptions]);
+
+  // Then the CITY, once the chosen state's cities land.
+  useEffect(() => {
+    Object.keys(pendingGeo.current).forEach((key) => {
+      const index = Number(key);
+      const pending = pendingGeo.current[index];
+      if (!pending?.city) return;
+      const match = byName(values.addressCitiesOptions?.[index] || [], pending.city);
+      if (!match) return;
+      delete pending.city;
+      setFieldValue(`addresses.${index}.city`, match.id);
+      setFieldValue(`addressCitySelections.${index}`, match);
+    });
+  }, [values.addressCitiesOptions]);
 
   useEffect(() => {
     if (values.addresses && Array.isArray(values.addresses)) {
@@ -829,7 +875,7 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
               const cities = values.addressCitiesOptions?.[index] || [];
 
               return (
-                  <div className="position-relative">
+                  <div className="position-relative" key={index}>
                     {values.addresses.length > 1 && (
                       <IconButton
                         onClick={() => remove(index)}
@@ -839,25 +885,113 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
                         <Close fontSize="small" />
                       </IconButton>
                     )}
-                    <SmartLocationPicker 
-                      index={index} 
-                      countryOptions={countryOptions} 
-                      handleAddressCountryChange={props.handleAddressCountryChange}
-                      handleAddressStateChange={props.handleAddressStateChange}
-                    />
+                    <SmartLocationPicker
+                      lat={addr.latitude}
+                      lng={addr.longitude}
+                      onPick={(geo) => applyGeoPick(index, geo)}
+                    >
+                    <Typography sx={{ fontSize: 13, fontWeight: 700, mt: 2, mb: 1.5 }}>
+                      Advanced Location Details (Manual Override)
+                    </Typography>
+                    <Grid container spacing={2}>
+                      {/* Country → State → City cascade. Each handler writes its own
+                          field and clears/refetches the levels below it, so onChange
+                          only forwards the picked id. */}
+                      <Grid item xs={12} md={3}>
+                        <DropDownInput
+                          formikField={`addresses.${index}.country`}
+                          inputLabel="Country"
+                          options={countryOptions}
+                          onChange={(val: any) => props.handleAddressCountryChange(index, val?.value, setFieldValue)}
+                          isRequired={false}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={3}>
+                        <DropDownInput
+                          formikField={`addresses.${index}.state`}
+                          inputLabel="State"
+                          options={states.map((s: any) => ({ value: s.id, label: s.name }))}
+                          onChange={(val: any) => props.handleAddressStateChange(index, val?.value, addr.country, setFieldValue)}
+                          isRequired={false}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={3}>
+                        <DropDownInput
+                          formikField={`addresses.${index}.city`}
+                          inputLabel="City"
+                          options={cities.map((c: any) => ({ value: c.id, label: c.name }))}
+                          onChange={(val: any) => {
+                            setFieldValue(`addresses.${index}.city`, val?.value || "");
+                            setFieldValue(`addressCitySelections.${index}`, cities.find((c: any) => c.id === val?.value) || null);
+                          }}
+                          isRequired={false}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={3} />
+
+                      <Grid item xs={12} md={6}>
+                        <TextInput
+                          formikField={`addresses.${index}.locality`}
+                          label="Locality"
+                          placeholder="Area / neighbourhood — auto-filled from the map"
+                          isRequired={false}
+                        />
+                      </Grid>
+                      {/* Field stays `zipCode` — that is what the save payload and the
+                          Yup schema read; only the label follows Indian usage. */}
+                      <Grid item xs={12} md={6}>
+                        <TextInput
+                          formikField={`addresses.${index}.zipCode`}
+                          label="Pincode"
+                          isRequired={false}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <TextInput
+                          formikField={`addresses.${index}.projectAddress`}
+                          label="Formatted Address"
+                          placeholder="Building, street, landmark"
+                          isRequired={false}
+                        />
+                      </Grid>
+                      {/* Filled from the map pin (or parsed out of a pasted map link by
+                          the effect above); editable for links carrying no coordinates. */}
+                      <Grid item xs={12} md={3}>
+                        <TextInput formikField={`addresses.${index}.latitude`} label="Latitude" isRequired={false} />
+                      </Grid>
+                      <Grid item xs={12} md={3}>
+                        <TextInput formikField={`addresses.${index}.longitude`} label="Longitude" isRequired={false} />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <TextInput
+                          formikField={`addresses.${index}.googleMapLink`}
+                          label="Google Map Link"
+                          placeholder="https://www.google.com/maps/@19.1234,72.8765,17z"
+                          isRequired={false}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextInput
+                          formikField={`addresses.${index}.googleMyBusinessLink`}
+                          label="Google My Business Link"
+                          isRequired={false}
+                        />
+                      </Grid>
+                    </Grid>
+                    </SmartLocationPicker>
                   </div>
               );
             })}
-            {values.addresses.length === 0 && (
-              <Button
-                variant="outline-primary"
-                size="sm"
-                onClick={() => push({ country: "", state: "", city: "", locality: "", projectAddress: "", pincode: "", googleMapLink: "", gmbLink: "", latitude: "", longitude: "" })}
-                className="align-self-start fw-bold mt-2"
-              >
-                + Add Address details
-              </Button>
-            )}
+            <Button
+              variant="outline-primary"
+              size="sm"
+              onClick={() => push({ projectAddress: "", country: "", state: "", city: "", locality: "", zipCode: "", mapLocation: "", googleMapLink: "", googleMyBusinessLink: "", latitude: "", longitude: "", isDefault: false })}
+              className="align-self-start fw-bold mt-2"
+            >
+              + Add Address details
+            </Button>
           </div>
         )}
       </FieldArray>
@@ -898,6 +1032,172 @@ export const AdditionalDetailsSection: React.FC = () => {
           <TextAreaInput formikField="description" label="Detailed Description" rows={3} isRequired={false} />
         </Grid>
       </Grid>
+    </div>
+  );
+};
+
+/**
+ * PO document upload — writes the stored file URL into the `poFile` form field
+ * (persisted on leads.po_file, shown as "PO File" on the project detail page).
+ *
+ * The file goes to S3 the moment it's picked, so the form only ever carries a
+ * URL; the lead itself still saves on the wizard's Save. Replacing stores the new
+ * object first and only then deletes the one it replaced, so a failed upload
+ * never leaves the lead with no document. Removing deletes it too.
+ */
+// Scanned POs run large; matches the lead's other document upload ceiling.
+const PO_FILE_MAX_BYTES = 5 * 1024 * 1024;
+const PO_FILE_ACCEPT = ".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp";
+
+// The stored name is `<random hex>-<original name>` (the S3 key carries the name
+// so it can be shown — there's no column for it). Strip the prefix for display.
+const poDisplayName = (url: string) => {
+  if (!url) return "";
+  const last = decodeURIComponent(url.split("/").pop()?.split("?")[0] || "");
+  return last.replace(/^[0-9a-f]{32}-/, "") || "PO document";
+};
+
+const poFileIcon = (name: string) => {
+  const ext = name.split(".").pop()?.toLowerCase() || "";
+  if (ext === "pdf") return { icon: "bi-file-earmark-pdf-fill", color: "#d13438" };
+  if (ext === "doc" || ext === "docx") return { icon: "bi-file-earmark-word-fill", color: "#2b579a" };
+  return { icon: "bi-file-earmark-image-fill", color: "#0f9d58" };
+};
+
+const PoFileUpload: React.FC = () => {
+  const { values, setFieldValue } = useFormikContext<any>();
+  const [busy, setBusy] = useState<"upload" | "remove" | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const url: string = values.poFile || "";
+  const fileName = poDisplayName(url);
+  const { icon, color } = poFileIcon(fileName);
+
+  const store = async (file: File) => {
+    if (file.size > PO_FILE_MAX_BYTES) {
+      setError("That file is over 5 MB. Please upload a smaller one.");
+      return;
+    }
+    const ext = `.${file.name.split(".").pop()?.toLowerCase() ?? ""}`;
+    if (!PO_FILE_ACCEPT.split(",").includes(ext)) {
+      setError("Unsupported file type. Upload a PDF, Word document or image.");
+      return;
+    }
+    setBusy("upload");
+    setError(null);
+    try {
+      // `url` is the object being replaced — the server deletes it once the new
+      // one has landed.
+      setFieldValue("poFile", await uploadLeadPoFile(file, url), false);
+    } catch {
+      setError("Upload failed. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const remove = async () => {
+    setBusy("remove");
+    setError(null);
+    try {
+      await uploadLeadPoFile(null, url);
+      setFieldValue("poFile", "", false);
+      if (inputRef.current) inputRef.current.value = "";
+    } catch {
+      setError("Could not remove the document. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && !busy) store(file);
+  };
+
+  const openPicker = () => { if (!busy) inputRef.current?.click(); };
+
+  return (
+    <div>
+      <label className="mb-2 fw-bold">PO Document</label>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept={PO_FILE_ACCEPT}
+        className="d-none"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = ""; // let the same file be re-picked after a failure
+          if (file) store(file);
+        }}
+      />
+
+      <div
+        onClick={url ? undefined : openPicker}
+        onDragOver={(e) => { e.preventDefault(); if (!dragging) setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        role={url ? undefined : "button"}
+        tabIndex={url ? -1 : 0}
+        onKeyDown={(e) => { if (!url && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openPicker(); } }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          minHeight: 46,
+          padding: "7px 10px 7px 12px",
+          borderRadius: 8,
+          border: `1px ${url ? "solid" : "dashed"} ${dragging ? "#1E3A8A" : url ? "#e4e6ef" : "#c9ccd8"}`,
+          background: dragging ? "#eff4ff" : url ? "#fff" : "#f9fafb",
+          cursor: url || busy ? "default" : "pointer",
+          transition: "border-color .15s, background .15s",
+        }}
+      >
+        {busy === "upload" ? (
+          <>
+            <CircularProgress size={18} sx={{ color: "#1E3A8A" }} />
+            <span style={{ fontSize: 13, color: "#5e6278" }}>Uploading…</span>
+          </>
+        ) : url ? (
+          <>
+            <i className={`bi ${icon}`} style={{ fontSize: 22, color, flexShrink: 0 }} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#181c32", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {fileName}
+              </div>
+              <div style={{ fontSize: 11, color: "#a1a5b7" }}>Uploaded</div>
+            </div>
+            <IconButton size="small" title="Preview" onClick={() => window.open(url, "_blank", "noopener,noreferrer")}>
+              <i className="bi bi-eye" style={{ fontSize: 15, color: "#5e6278" }} />
+            </IconButton>
+            <IconButton size="small" title="Replace" disabled={!!busy} onClick={openPicker}>
+              <i className="bi bi-arrow-repeat" style={{ fontSize: 15, color: "#5e6278" }} />
+            </IconButton>
+            <IconButton size="small" title="Remove" disabled={!!busy} onClick={remove}>
+              {busy === "remove"
+                ? <CircularProgress size={14} />
+                : <i className="bi bi-trash" style={{ fontSize: 15, color: "#d13438" }} />}
+            </IconButton>
+          </>
+        ) : (
+          <>
+            <i className="bi bi-cloud-arrow-up" style={{ fontSize: 20, color: "#7e8299", flexShrink: 0 }} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#3f4254" }}>
+                Choose a file <span style={{ fontWeight: 400, color: "#a1a5b7" }}>or drop it here</span>
+              </div>
+              <div style={{ fontSize: 11, color: "#a1a5b7" }}>PDF, Word or image · up to 5 MB</div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {error && <div className="text-danger fs-8 mt-2">{error}</div>}
     </div>
   );
 };
@@ -1063,6 +1363,9 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
                   <p className="text-muted fs-8 mt-2 mb-0">
                     Auto-filled with today's date when the status is set to Received. Adjust if needed.
                   </p>
+                </Grid>
+                <Grid item xs={12} md={5}>
+                  <PoFileUpload />
                 </Grid>
               </Grid>
             </div>
@@ -1575,7 +1878,7 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
             <span className="wt-review-label">Total Value</span>
             <span
               className="wt-review-value"
-              style={{ color: "#8B1A2F", fontWeight: 700 }}
+              style={{ color: "var(--wt-primary)", fontWeight: 700 }}
             >
               ₹{" "}
               {commercialsTotal.toLocaleString("en-IN", {

@@ -136,15 +136,15 @@ When you run `vite build`:
 
 ### Prerequisites
 - Node.js 18+
-- Backend running (`npm run start:dev` in `wisetech-backend`)
+- Backend running (`pnpm run start:dev` in `wisetech-backend`)
 - Both machines on the same Wi-Fi / LAN
 
 ### Start the frontend
 
 ```bash
 cd wisetech-frontend
-npm install       # first time only
-npm run dev
+pnpm install       # first time only
+pnpm run dev
 ```
 
 Vite will print:
@@ -204,9 +204,9 @@ Remove-NetFirewallRule -DisplayName "WiseTech Frontend (Dev)"
 |---|---|---|
 | API calls fail on other PC | `VITE_APP_WISE_TECH_BACKEND` not empty | Set it to empty in `.env`, restart Vite |
 | "This site can't be reached" on port 5173 | Firewall blocking port 5173 | Run the PowerShell firewall command above |
-| Login works but data doesn't load | Backend not running | Start backend with `npm run start:dev` |
+| Login works but data doesn't load | Backend not running | Start backend with `pnpm run start:dev` |
 | Socket / real-time not working | WebSocket proxy not applied | Ensure `ws: true` is on `/socket.io` proxy in `vite.config.ts` |
-| Changes to `.env` not taking effect | Vite not restarted | `Ctrl+C` then `npm run dev` again |
+| Changes to `.env` not taking effect | Vite not restarted | `Ctrl+C` then `pnpm run dev` again |
 
 ---
 

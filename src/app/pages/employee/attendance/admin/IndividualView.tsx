@@ -156,30 +156,13 @@ const IndividualView = () => {
         <>
             <AllEmployeesSearchDropdown />
             <div className='mt-8'></div>
-            <div className="sticky-responsive">
-                <style jsx>{`
-                    .sticky-responsive {
-                        background-color: white;
-                        padding: 10px;
-                        }
-
-                        @media (min-width: 992px) {
-                        .sticky-responsive {
-                            position: sticky;
-                            top: 125px;
-                            z-index: 10;
-                            overflow: visible;
-                        }
-                        }
-                         @media (max-width: 992px) {
-                        .sticky-responsive {
-                            position: sticky;
-                            top: 50px;
-                            z-index: 10;
-                            overflow: visible;
-                        }
-                        }
-                `}</style>
+            {/* Sticky profile header. Was a <style jsx> block — banned by the UI standard,
+                and `jsx` is a Next.js-only attribute that React does not understand, so this
+                shipped as a literal stylesheet rendered into the DOM. The two media queries
+                were one rule at two offsets, which is exactly a responsive Tailwind prefix.
+                `background-color: white` also became theme-aware — a hardcoded white bar was
+                a bright band on the dark canvas. */}
+            <div className="sticky top-[50px] lg:top-[125px] z-10 overflow-visible p-2.5 bg-white dark:bg-[#161b22]">
                 <ProfileCard employee={selectedEmployee} />
             </div>
             <CurrentYearOverview yearlyStats={yearlyStats} showLevesColumn={false} fromAdmin={true} startDate={yearStart?.format("YYYY-MM-DD")} endDate={yearEnd?.format("YYYY-MM-DD")} />

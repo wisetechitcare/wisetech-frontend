@@ -198,7 +198,7 @@ export function ForgotPassword() {
           {/* <img className="mx-auto" src="https://s3-alpha-sig.figma.com/img/0297/f193/b24c43c071d3513e8bd14747a84a90ed?Expires=1723420800&Key-Pair-Id=APKAQ4GOSFWCVNEHN3O4&Signature=etsmWMpOPinqqZnjiW49Uim8~GdThnHgTqa21sdwTqaxzRMkHrwR5YJXBTeHqZPjo46haAg6v2Ni1f1WfWbtZqUHD2DYs3GDlFGTp46ZGkNVttxj40~DcXVItHxd6cL43j-ZcPIjHhgxniQC5VBOg9maFzSwVDr9b9qTQEZv5KOeF5-~R9NjC9-aNN9lVZAMvLx0zJWG4Sc520DHlXxA5YFt64k9sDo7xRJ62IpYc69xrwndiI9200mrIxZ3luKC0szEbKTXibKXGPH1YHrxhnEOQMLYegJm4UGxfN8gHnFNEzAwHusvoGXBhDjpemBSxCtJEuLJ8CEIQsRTaC~d1Q__"/> */}
             <img className="mx-auto w-150px w-lg-500px w-l-300px" src={toAbsoluteUrl("media/login/WTgif.gif")}/>
             <h1 className="fs-1qx text-center mb-5 mt-20 text-uppercase login__subtitle">Fast, Efficient and Productive</h1>
-            <h3  className="text-gray-800 fw-semibolder fs-5 text-secondary text-center"> All-in-one employee management solution for startups</h3>
+            <h3  className="text-gray-800 fw-semibolder fs-5 text-secondary text-center"> All-in-one Employee Management Solution for Startups</h3>
         </div>
       </div>
       <div className="d-flex flex-column-fluid flex-lg-row-auto justify-content-center justify-content-lg-end p-12">

@@ -83,7 +83,30 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       eventBus.emit(EVENT_KEYS.leaveRequestUpdated, { leaveId: '' });
     };
 
+    // Attendance-request queue changed somewhere (raised, approved, rejected). The
+    // eventBus key already existed and OpenAttendanceRequests already subscribed to it,
+    // but nothing ever emitted it from a SOCKET — only the acting component emitted it
+    // locally. So an approver saw their own action instantly while every other open
+    // board stayed stale until a full reload. This bridge closes that.
+    const onAttendanceRequestChanged = (payload: any) => {
+      eventBus.emit(EVENT_KEYS.attendanceRequestUpdated, { id: payload?.id ?? '' });
+    };
+
+    // FAQ content changed (HR/admin created, edited or deleted one). Bridges to
+    // the faq* eventBus keys that already existed but were only ever emitted
+    // locally by the acting component — so before this, an HR edit reached
+    // nobody else's screen until they reloaded.
+    const onFaqsUpdated = (payload: { action?: string; id?: string }) => {
+      const key =
+        payload?.action === 'created' ? EVENT_KEYS.faqCreated :
+        payload?.action === 'deleted' ? EVENT_KEYS.faqDeleted :
+        EVENT_KEYS.faqUpdated;
+      eventBus.emit(key, { id: payload?.id ?? '' });
+    };
+
     socket.on('connect', onConnect);
+    socket.on('faqs_updated', onFaqsUpdated);
+    socket.on('attendanceRequests:updated', onAttendanceRequestChanged);
     socket.on('lead_project_synced', onLeadProjectSynced);
     socket.on('project_linked', onProjectLinked);
     socket.on('project_unlinked_deleted', onProjectUnlinkedDeleted);
@@ -97,6 +120,8 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
 
     return () => {
       socket.off('connect', onConnect);
+      socket.off('faqs_updated', onFaqsUpdated);
+      socket.off('attendanceRequests:updated', onAttendanceRequestChanged);
       socket.off('lead_project_synced', onLeadProjectSynced);
       socket.off('project_linked', onProjectLinked);
       socket.off('project_unlinked_deleted', onProjectUnlinkedDeleted);

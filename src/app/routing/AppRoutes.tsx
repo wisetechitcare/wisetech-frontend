@@ -14,6 +14,7 @@ import { App } from '../App'
 import { useSelector } from 'react-redux'
 import { RootState } from '@redux/store'
 import { jwtDecode } from "jwt-decode"
+import { readNavTransformEnabled } from '@/contexts/NavTransformContext'
 
 /**
  * Base URL of the website.
@@ -45,7 +46,14 @@ const AppRoutes: FC = () => {
           {currentUser && redirect && !isTokenExpired ? (
             <>
               <Route path='/*' element={<PrivateRoutes />} />
-              <Route index element={<Navigate to='/dashboard' />} />
+              {/* Landing follows the user's chosen navigation: the workspace launcher for
+                  shell mode, the dashboard for classic-sidebar mode. Read straight from
+                  storage rather than the context — this route sits outside MasterLayout,
+                  where the provider lives. */}
+              <Route
+                index
+                element={<Navigate to={readNavTransformEnabled() ? '/workspace' : '/dashboard'} replace />}
+              />
             </>
           ) : (
             <>

@@ -20,6 +20,13 @@ export interface IHoliday {
     isActive: boolean,
     colorCode?: string,
     companyId?: string;
+    /**
+     * Calendar date this holiday falls on every year (Independence Day = 8/15), used
+     * to pre-fill a year's schedule. Both null means the date moves year to year
+     * (Diwali, Ganesh Chaturthi, Good Friday) and must be entered for each year.
+     */
+    recurrenceMonth?: number | null;
+    recurrenceDay?: number | null;
 }
 
 export interface ICustomField {
@@ -160,6 +167,14 @@ export interface ICompanyDepartment {
     name: string;
     code: string;
     description?: string;
+    /**
+     * Both are REQUIRED by the create/update schemas (`departmentsSchema` and
+     * `updateDepartmentSchema` are `.strict(true)`), so a payload without them is
+     * rejected. They were missing here, which let callers type-check a request the
+     * server always refused — matching ICompanyDesignation, which already carries them.
+     */
+    companyId?: string;
+    isActive?: boolean;
 }
 
 export interface ICompanyDesignation {
@@ -188,6 +203,12 @@ export interface IFaqs {
 export interface IConfiguration {
     module: string,
     configuration: any,
+    // Scope of the write (group → org → branch). When set, the backend UPSERTS the row for
+    // exactly this scope instead of editing whatever row the read resolved — a resolved read
+    // can return an INHERITED parent row, so writing back by its id would silently overwrite
+    // the org/global default for every sibling. Omit both for a legacy global write.
+    companyId?: string,
+    branchId?: string,
 }
 export interface IBranchWorkingAndOffDays {
     monday: string,

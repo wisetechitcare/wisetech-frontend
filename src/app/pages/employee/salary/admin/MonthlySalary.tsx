@@ -1,7 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Dayjs } from "dayjs";
-import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import SalarySummaryCard from "./SalarySummaryCard";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -9,6 +8,11 @@ import ExportButton from "@app/modules/common/components/ExportButton";
 import { useSalaryFilters, SalaryFilterToolbar, StatusFilter } from "./SalaryTableFilters";
 import { useSalaryMaster } from "@modules/payroll/hooks/useSalaryComponentNames";
 import QuickPayModal from "@modules/payroll/components/modals/QuickPayModal";
+import { saveSelectedEmployee } from "@redux/slices/employee";
+import { Dialog, DialogTitle, DialogContent, IconButton, Box, CircularProgress } from "@mui/material";
+import { Close } from "@mui/icons-material";
+import SalaryView from "../personal/SalaryView";
+import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 
 interface MonthlySalaryProps {
   month: Dayjs;
@@ -29,14 +33,48 @@ interface SalarySummary {
 
 const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isLoading = false, onStatusFilterChange }) => {
 
-  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
   // Employee selected via the Pay button — opens the payout dialog on this page
   const [payTarget, setPayTarget] = useState<{ employeeId: string; name: string } | null>(null);
+  // Employee details modal state
+  const [selectedEmpForDetail, setSelectedEmpForDetail] = useState<any | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const filters = useSalaryFilters(employeesData);
   const { filteredEmployeeSummaries, statusFilter } = filters;
+
+  // Fetch full employee data when a row is clicked
+  const handleRowClick = async (employeeId: string, rowName?: string, rowId?: string) => {
+    if (!employeeId) return;
+    setLoadingDetail(true);
+    try {
+      const response = await fetchCurrentEmployeeByEmpId(employeeId);
+      const fullEmployee = response?.data?.employee;
+
+      if (!fullEmployee) {
+        console.warn('Employee data not found in response');
+        setSelectedEmpForDetail(null);
+        return;
+      }
+
+      // Preserve the display name from the table row if available
+      if (rowName && !fullEmployee.users?.firstName) {
+        fullEmployee._displayName = rowName;
+        fullEmployee._displayId = rowId;
+      }
+
+      console.log('📋 Loaded employee:', fullEmployee);
+      dispatch(saveSelectedEmployee(fullEmployee));
+      setSelectedEmpForDetail(fullEmployee);
+    } catch (error) {
+      console.error('Error fetching employee details:', error);
+      setSelectedEmpForDetail(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   const { resolveComponent } = useSalaryMaster();
   const tds1Comp = resolveComponent('Professional Fees');
@@ -475,8 +513,9 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
           muiTableProps={{
             muiTableBodyRowProps: ({ row }: any) => ({
               onClick: () => {
-                const empId = row.original.employeeId;
-                if (empId) navigate('/finance/salary', { state: { goToSearchEmployee: true, employeeId: empId } });
+                if (row.original.employeeId) {
+                  handleRowClick(row.original.employeeId, row.original.name, row.original.id);
+                }
               },
               sx: { cursor: row.original.employeeId ? 'pointer' : 'default' },
             }),
@@ -493,6 +532,49 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
           onClose={() => setPayTarget(null)}
         />
       )}
+
+      {/* Employee Salary Details Modal */}
+      <Dialog
+        open={!!selectedEmpForDetail}
+        onClose={() => setSelectedEmpForDetail(null)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: { maxHeight: '90vh', overflowY: 'auto' }
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            {selectedEmpForDetail?.users?.firstName || selectedEmpForDetail?._displayName} {selectedEmpForDetail?.users?.lastName && selectedEmpForDetail.users.lastName} {selectedEmpForDetail?.employeeCode && `(${selectedEmpForDetail.employeeCode})`}
+          </Box>
+          <IconButton
+            onClick={() => setSelectedEmpForDetail(null)}
+            size="small"
+            sx={{ ml: 2 }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {loadingDetail ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 5 }}>
+              <CircularProgress />
+            </Box>
+          ) : selectedEmpForDetail ? (
+            <Box
+              sx={{
+                '& > *': { mb: 2 },
+                '& .fw-bold': { fontWeight: 600 },
+                '& .fs-1': { fontSize: '1.5rem' },
+                '& .mt-5': { marginTop: '1rem' },
+                '& .mt-8': { marginTop: '2rem' }
+              }}
+            >
+              <SalaryView fromAdmin={true} />
+            </Box>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

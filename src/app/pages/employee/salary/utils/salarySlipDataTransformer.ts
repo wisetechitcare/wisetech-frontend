@@ -53,10 +53,12 @@ export interface SalarySlipProps {
 }
 
 /**
- * Transforms API salary data to the format expected by SalarySlipTemplate
+ * Transforms API salary data into the shared salary-slip shape used by the salary
+ * charts and the "email salary slip" payload. The slip PDF itself is rendered by the
+ * backend template — this does not build a PDF.
  * @param apiData - The salary data from the API
  * @param employee - Employee object
- * @returns Transformed data for SalarySlipTemplate or null if no API data
+ * @returns Transformed salary-slip data, or null if no API data
  */
 // Validation function for API data
 function validateApiSalaryData(apiData: ApiSalaryData | null): boolean {
@@ -205,7 +207,7 @@ export function transformApiDataToSalarySlipProps(
       earned: formatCurrency(data.earned)
     }));
 
-  // Parse amounts and remove currency symbols since SalarySlipTemplate will format them
+  // Parse amounts and remove currency symbols since consumers format them themselves
   const parseAmount = (amount: string | undefined): string => {
     if (!amount) return '0';
     const parsed = parseFloat(amount.replace(/[₹,]/g, ''));

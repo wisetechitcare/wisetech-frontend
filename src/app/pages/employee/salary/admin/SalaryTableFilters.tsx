@@ -8,77 +8,12 @@ import { useRootOrgNames } from "@hooks/useRootOrgNames";
 export type StatusFilter = 'Active' | 'Deactive' | 'All';
 export type PayTypeFilter = 'All' | 'Salary' | 'Contract';
 
-// ─── Toolbar filter select ────────────────────────────────────────────────────
-// Compact 38px control with a floating label on the border so it lines up with
-// the table's search controls on the same toolbar row. `theme` tints the
-// control when a non-default filter value is selected.
-
-interface FilterSelectTheme {
-  icon: string;
-  border: string;
-  bg: string;
-  text: string;
-  ring: string;
-}
-
-const FILTER_NEUTRAL: FilterSelectTheme = {
-  icon: '#6b7280', border: '#e5e7eb', bg: '#f9fafb', text: '#111827',
-  ring: 'rgba(59, 130, 246, 0.12)',
-};
-
-interface ToolbarFilterSelectProps {
-  label: string;
-  icon: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-  minWidth?: number;
-  theme?: FilterSelectTheme;
-}
-
-export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
-  label, icon, value, onChange, options, minWidth = 160, theme = FILTER_NEUTRAL,
-}) => (
-  <div style={{ position: 'relative', minWidth }}>
-    <label style={{
-      position: 'absolute', top: '-7px', left: '12px', zIndex: 2,
-      fontSize: '10px', fontWeight: 700, letterSpacing: '0.6px', lineHeight: '14px',
-      textTransform: 'uppercase', color: '#6b7280', whiteSpace: 'nowrap',
-      backgroundColor: '#ffffff', padding: '0 6px', borderRadius: '4px',
-      fontFamily: 'Inter, sans-serif', pointerEvents: 'none',
-    }}>
-      {label}
-    </label>
-    <i className={`bi ${icon}`} style={{
-      position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)',
-      fontSize: '14px', color: theme.icon, pointerEvents: 'none', zIndex: 1,
-      transition: 'color 0.2s ease',
-    }} />
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={{
-        height: '38px', width: '100%', padding: '0 32px 0 34px',
-        border: `1px solid ${theme.border}`, borderRadius: '10px',
-        backgroundColor: theme.bg,
-        fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 600,
-        color: theme.text, appearance: 'none', cursor: 'pointer',
-        outline: 'none', transition: 'all 0.2s ease',
-      }}
-      onFocus={(e) => { e.currentTarget.style.boxShadow = `0 0 0 3px ${theme.ring}`; }}
-      onBlur={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
-    >
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
-      ))}
-    </select>
-    <i className="bi bi-chevron-down" style={{
-      position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-      fontSize: '11px', color: theme.icon, pointerEvents: 'none',
-      transition: 'color 0.2s ease',
-    }} />
-  </div>
-);
+// The toolbar filter control now lives in the shared kit — it was never
+// salary-specific, and three other pages were importing it from this file.
+// Re-exported so existing imports of it from here keep resolving.
+export { ToolbarFilterSelect, FILTER_TONES } from "@app/modules/common/components/ui/ToolbarFilterSelect";
+export type { FilterSelectTheme } from "@app/modules/common/components/ui/ToolbarFilterSelect";
+import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 
 // Contract-based employees have professional fees (TDS) enabled; salary-based don't.
 // Falls back to the deducted amount for API responses that predate the flag.
@@ -96,27 +31,44 @@ export interface SalaryFilters {
   setSubOrgFilter: (v: string) => void;
   payTypeFilter: PayTypeFilter;
   setPayTypeFilter: (v: PayTypeFilter) => void;
+  branchFilter: string;
+  setBranchFilter: (v: string) => void;
+  teamFilter: string;
+  setTeamFilter: (v: string) => void;
   subOrgOptions: string[];
+  branchOptions: string[];
+  teamOptions: string[];
   filteredEmployeeSummaries: any[];
 }
+
+// Distinct, sorted values of one summary field ('N/A' and blanks dropped).
+const distinctValues = (summaries: any[], field: string, exclude?: Set<string>) => {
+  const names = new Set<string>();
+  summaries.forEach((s: any) => {
+    const name = s[field];
+    if (name && name !== 'N/A' && !exclude?.has(name)) names.add(name);
+  });
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+};
 
 export const useSalaryFilters = (employeesData: any): SalaryFilters => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
   const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
   const [payTypeFilter, setPayTypeFilter] = useState<PayTypeFilter>('All');
+  const [branchFilter, setBranchFilter] = useState<string>('All');
+  const [teamFilter, setTeamFilter] = useState<string>('All');
   const rootOrgNames = useRootOrgNames();
 
-  // Unique sub-organization names present in the data (dynamic, no hardcoding).
-  // The top-level org is excluded — only actual sub-orgs belong in this dropdown.
-  const subOrgOptions = useMemo(() => {
-    const summaries = employeesData?.message?.employeeSummaries ?? [];
-    const names = new Set<string>();
-    summaries.forEach((s: any) => {
-      const name = s.subOrganization;
-      if (name && name !== 'N/A' && !rootOrgNames.has(name)) names.add(name);
-    });
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [employeesData, rootOrgNames]);
+  const summaries: any[] = employeesData?.message?.employeeSummaries ?? [];
+
+  // Dropdown options come from the data itself (no hardcoding). For sub-orgs the
+  // top-level org is excluded — only actual sub-orgs belong in that dropdown.
+  const subOrgOptions = useMemo(
+    () => distinctValues(summaries, 'subOrganization', rootOrgNames),
+    [employeesData, rootOrgNames],
+  );
+  const branchOptions = useMemo(() => distinctValues(summaries, 'branch'), [employeesData]);
+  const teamOptions = useMemo(() => distinctValues(summaries, 'team'), [employeesData]);
 
   const filteredEmployeeSummaries = useMemo(() => {
     if (!employeesData?.message?.employeeSummaries) return [];
@@ -129,20 +81,24 @@ export const useSalaryFilters = (employeesData: any): SalaryFilters => {
         true; // 'All'
 
       const subOrgMatch = subOrgFilter === 'All' || summary.subOrganization === subOrgFilter;
+      const branchMatch = branchFilter === 'All' || summary.branch === branchFilter;
+      const teamMatch = teamFilter === 'All' || summary.team === teamFilter;
 
       const payTypeMatch =
         payTypeFilter === 'All' ||
         (payTypeFilter === 'Contract' ? isContractBased(summary) : !isContractBased(summary));
 
-      return statusMatch && subOrgMatch && payTypeMatch;
+      return statusMatch && subOrgMatch && branchMatch && teamMatch && payTypeMatch;
     });
-  }, [employeesData, statusFilter, subOrgFilter, payTypeFilter]);
+  }, [employeesData, statusFilter, subOrgFilter, payTypeFilter, branchFilter, teamFilter]);
 
   return {
     statusFilter, setStatusFilter,
     subOrgFilter, setSubOrgFilter,
     payTypeFilter, setPayTypeFilter,
-    subOrgOptions, filteredEmployeeSummaries,
+    branchFilter, setBranchFilter,
+    teamFilter, setTeamFilter,
+    subOrgOptions, branchOptions, teamOptions, filteredEmployeeSummaries,
   };
 };
 
@@ -160,7 +116,9 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
     statusFilter, setStatusFilter,
     subOrgFilter, setSubOrgFilter,
     payTypeFilter, setPayTypeFilter,
-    subOrgOptions,
+    branchFilter, setBranchFilter,
+    teamFilter, setTeamFilter,
+    subOrgOptions, branchOptions, teamOptions,
   } = filters;
 
   return (
@@ -204,6 +162,38 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
           ...subOrgOptions.map((name) => ({ value: name, label: name })),
         ]}
       />
+      {branchOptions.length > 0 && (
+        <ToolbarFilterSelect
+          label="Branch"
+          icon="bi-geo-alt"
+          value={branchFilter}
+          onChange={setBranchFilter}
+          minWidth={190}
+          theme={branchFilter !== 'All'
+            ? { icon: '#0891b2', border: '#a5f3fc', bg: '#ecfeff', text: '#155e75', ring: 'rgba(8, 145, 178, 0.12)' }
+            : undefined}
+          options={[
+            { value: 'All', label: 'All Branches' },
+            ...branchOptions.map((name) => ({ value: name, label: name })),
+          ]}
+        />
+      )}
+      {teamOptions.length > 0 && (
+        <ToolbarFilterSelect
+          label="Team"
+          icon="bi-people"
+          value={teamFilter}
+          onChange={setTeamFilter}
+          minWidth={180}
+          theme={teamFilter !== 'All'
+            ? { icon: '#d97706', border: '#fde68a', bg: '#fffbeb', text: '#92400e', ring: 'rgba(217, 119, 6, 0.12)' }
+            : undefined}
+          options={[
+            { value: 'All', label: 'All Teams' },
+            ...teamOptions.map((name) => ({ value: name, label: name })),
+          ]}
+        />
+      )}
       <ToolbarFilterSelect
         label="Pay Type"
         icon="bi-briefcase"
@@ -223,9 +213,9 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
       />
 
       {/* Reset appears only when a non-default filter is applied */}
-      {(subOrgFilter !== 'All' || statusFilter !== 'Active' || payTypeFilter !== 'All') && (
+      {(subOrgFilter !== 'All' || statusFilter !== 'Active' || payTypeFilter !== 'All' || branchFilter !== 'All' || teamFilter !== 'All') && (
         <button
-          onClick={() => { setSubOrgFilter('All'); setStatusFilter('Active'); setPayTypeFilter('All'); onStatusChange?.('Active'); }}
+          onClick={() => { setSubOrgFilter('All'); setStatusFilter('Active'); setPayTypeFilter('All'); setBranchFilter('All'); setTeamFilter('All'); onStatusChange?.('Active'); }}
           title="Reset filters to defaults"
           style={{
             height: '38px', padding: '0 12px',

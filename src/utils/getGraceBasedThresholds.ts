@@ -8,7 +8,10 @@ import {
   GRACE_TIME_ON_SITE_KEY,
   LEAVE_MANAGEMENT,
 } from "@constants/configurations-key";
-import { isOnsiteDeadlineEnforced } from "@utils/attendanceColorUtils";
+import {
+  isOnsiteDeadlineEnforced,
+  isOnsiteHolidayWeekendExemptionEnabled,
+} from "@utils/attendanceColorUtils";
 
 dayjs.extend(duration);
 
@@ -65,7 +68,10 @@ export const getGraceBasedThresholds = async (
     const checkOutTime = settings["Check-out time"]; // "5:30 PM"
     const defaultGraceTime = settings["Grace Time"] || "00:30:00 Hrs";
     const graceTimeOnSite = settings[GRACE_TIME_ON_SITE_KEY] || "11:00";
-    const enforceOnsite = isOnsiteDeadlineEnforced(settings);
+    // Master policy switch outranks the on-site deadline: when ON, on-site check-ins
+    // are never late, so the threshold is pushed to end-of-day. Matches backend ladder rule 2.
+    const enforceOnsite =
+      !isOnsiteHolidayWeekendExemptionEnabled(settings) && isOnsiteDeadlineEnforced(settings);
 
     const defaultThresholds = calculateThresholds(checkInTime, checkOutTime, defaultGraceTime);
     const onSiteLateThreshold = enforceOnsite
@@ -100,7 +106,12 @@ export const getGraceBasedThresholds = async (
 
     return {
       employeesWithThresholds: processedAttendance,
-      
+
+      // The resolved config for this scope. Callers that colour on-site check-ins need it
+      // (resolveCheckInColor reads the deadline + enforce toggle from it) and must NOT
+      // re-fetch it unscoped — that is how the group default leaked onto branch employees.
+      leaveConfig: settings as Record<string, unknown>,
+
       // Pre-calculated thresholds for easy access
       defaultThresholds,
       onSiteThresholds,
@@ -124,5 +135,49 @@ export const getGraceBasedThresholds = async (
     console.log("Error in getGraceBasedThresholds:", err);
     return null;
   }
+};
+
+/**
+ * Same as `getGraceBasedThresholds`, but for boards that list employees from SEVERAL
+ * orgs/branches at once (the admin Overview). Each row is resolved against its OWN
+ * `{companyId, branchId}` — one config fetch per DISTINCT scope, not per row — so a
+ * branch that overrides its shift or on-site deadline colours only its own employees.
+ *
+ * Rows with no scope on them fall back to the logged-in user's scope, exactly as before.
+ */
+export const getScopedGraceThresholds = async (attendance: any[] = []) => {
+  const rowsByScope = new Map<string, any[]>();
+  attendance.forEach((row) => {
+    const key = `${row?.companyId ?? ""}|${row?.branchId ?? ""}`;
+    const bucket = rowsByScope.get(key);
+    if (bucket) bucket.push(row);
+    else rowsByScope.set(key, [row]);
+  });
+
+  const resolved = await Promise.all(
+    Array.from(rowsByScope.entries()).map(async ([key, rows]) => {
+      const [companyId, branchId] = key.split("|");
+      const thresholds = await getGraceBasedThresholds(rows, {
+        companyId: companyId || undefined,
+        branchId: branchId || undefined,
+      });
+      return { rows, thresholds };
+    })
+  );
+
+  const employeesWithThresholds: any[] = [];
+  const leaveConfigByEmployeeId = new Map<string, Record<string, unknown>>();
+  // Table-wide fallback for rows we couldn't scope — first scope that resolved wins.
+  const defaultThresholds = resolved.find((r) => r.thresholds)?.thresholds?.defaultThresholds ?? null;
+
+  resolved.forEach(({ rows, thresholds }) => {
+    if (!thresholds) return;
+    employeesWithThresholds.push(...thresholds.employeesWithThresholds);
+    rows.forEach((row) => {
+      if (row?.employeeId) leaveConfigByEmployeeId.set(row.employeeId, thresholds.leaveConfig);
+    });
+  });
+
+  return { employeesWithThresholds, leaveConfigByEmployeeId, defaultThresholds };
 };
  

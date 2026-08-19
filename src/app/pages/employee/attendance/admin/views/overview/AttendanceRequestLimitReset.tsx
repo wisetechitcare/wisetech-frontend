@@ -9,7 +9,9 @@ import {
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { toast } from "react-toastify";
 import dayjs from "dayjs";
-import { toAbsoluteUrl } from "@metronic/helpers";
+import { KTIcon } from "@metronic/helpers";
+// Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
+import { WtIconButton, Spinner, TRIO } from "@app/modules/common/components/ui/tw";
 import { successConfirmation } from "@utils/modal";
 import Tooltip from "@mui/material/Tooltip";
 import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
@@ -203,37 +205,39 @@ function AttendanceRequestLimitReset() {
         const permission = hasPermission(resourceNameMapWithCamelCase.attendanceRequestLimit, permissionConstToUseWithHasPermission.editOthers, row.original);
 
         return (
-          <div className="d-flex gap-2">
+          <div className="flex items-center gap-1.5">
             {permission && row.original.status === 0 && (
               <>
-                <button
-                  className='btn btn-icon btn-sm'
+                <WtIconButton
+                  color={TRIO.green.c}
                   onClick={() => handleApprove(row.original)}
                   title="Approve"
                   disabled={loading || processingRowId === row.original.id}
+                  size={34}
                 >
                   {processingRowId === row.original.id && processingAction === 'approve' ? (
-                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <Spinner size={14} color={TRIO.green.c} />
                   ) : (
-                    <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt="Approve" />
+                    <KTIcon iconName="check" className="fs-4" />
                   )}
-                </button>
-                <button
-                  className='btn btn-icon btn-sm'
+                </WtIconButton>
+                <WtIconButton
+                  color={TRIO.rose.c}
                   onClick={() => handleReject(row.original.id)}
                   title="Reject"
                   disabled={loading || processingRowId === row.original.id}
+                  size={34}
                 >
                   {processingRowId === row.original.id && processingAction === 'reject' ? (
-                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <Spinner size={14} color={TRIO.rose.c} />
                   ) : (
-                    <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt="Reject" />
+                    <KTIcon iconName="cross" className="fs-4" />
                   )}
-                </button>
+                </WtIconButton>
               </>
             )}
             {!permission && (
-              <span className="text-muted" style={{ fontSize: '12px' }}>Not Allowed</span>
+              <span className="text-[12px] text-slate-500">Not Allowed</span>
             )}
           </div>
         );

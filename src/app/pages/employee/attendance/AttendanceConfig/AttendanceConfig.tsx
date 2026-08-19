@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Grid } from '@mui/material';
 import { LeaveTypesBalanceModal } from './component/LeaveTypesBalance';
 import SandwichLeave from '@pages/company/settings/SandwhichLeave';
+import DeductionRules from '@pages/company/settings/DeductionRules';
 import { LeavePolicyModal } from '@pages/company/settings/LeavePolicy';
 import AddonLeavesModal from './component/AddonLeavesModal';
 import DailyShiftTimeModal from './component/DailyShiftTimeModal';
@@ -23,6 +24,8 @@ import {
   DATE_SETTINGS_KEY,
   LEAVE_MANAGEMENT,
   ENFORCE_ONSITE_DEADLINE_KEY,
+  LATE_NIGHT_WAIVER_KEY,
+  LATE_NIGHT_WAIVER_TIME_KEY,
 } from '@constants/configurations-key';
 import { onSiteAndHolidayWeekendSettingsOnOffName } from '@constants/statistics';
 import Loader from '@app/modules/common/utils/Loader';
@@ -227,6 +230,7 @@ const AttendanceConfig: React.FC = () => {
   const [showDailyShiftModal,   setShowDailyShiftModal]   = useState(false);
   const [showOtherSettingsModal, setShowOtherSettingsModal] = useState(false);
   const [showSandwichModal,      setShowSandwichModal]      = useState(false);
+  const [showDeductionRulesModal, setShowDeductionRulesModal] = useState(false);
   const [showAppearanceModal,    setShowAppearanceModal]    = useState(false);
   const [showAddonLeavesModal,   setShowAddonLeavesModal]   = useState(false);
   const [showLeaveTypesModal,    setShowLeaveTypesModal]    = useState(false);
@@ -298,6 +302,7 @@ const AttendanceConfig: React.FC = () => {
   const [graceTimeOffice,       setGraceTimeOffice]       = useState('00:30');
   const [graceTimeOnSite,       setGraceTimeOnSite]       = useState('00:30');
   const [enforceOnsiteDeadline, setEnforceOnsiteDeadline] = useState(true);
+  const [lateNightWaiver,       setLateNightWaiver]       = useState<string>('Disabled');
 
   // ── Loaders ────────────────────────────────────────────────────────────────
 
@@ -332,14 +337,21 @@ const AttendanceConfig: React.FC = () => {
       const onsiteGrace = leaveConfig?.['Grace Time - On Site'];
       setGraceTimeOnSite(onsiteGrace !== undefined && String(onsiteGrace).trim() !== '' ? String(onsiteGrace) : '11:00');
 
+      // OFF unless explicitly enabled — on-site check-ins carry no late mark by default.
       const enforceRaw = leaveConfig?.[ENFORCE_ONSITE_DEADLINE_KEY];
-      let enforce = true;
-      if (typeof enforceRaw === 'boolean') enforce = enforceRaw;
-      else if (enforceRaw !== undefined && enforceRaw !== null) {
-        const l = String(enforceRaw).trim().toLowerCase();
-        enforce = !(l === 'false' || l === '0' || l === 'no');
-      }
+      const enforce =
+        typeof enforceRaw === 'boolean'
+          ? enforceRaw
+          : ['true', '1', 'yes', 'on'].includes(String(enforceRaw ?? '').trim().toLowerCase());
       setEnforceOnsiteDeadline(enforce);
+
+      // Late-night waiver: OFF unless explicitly enabled.
+      const waiverRaw = leaveConfig?.[LATE_NIGHT_WAIVER_KEY];
+      const waiverOn = typeof waiverRaw === 'boolean'
+        ? waiverRaw
+        : ['true', '1', 'yes', 'on'].includes(String(waiverRaw ?? '').trim().toLowerCase());
+      const waiverTime = String(leaveConfig?.[LATE_NIGHT_WAIVER_TIME_KEY] ?? '').trim() || '22:00';
+      setLateNightWaiver(waiverOn ? `After ${waiverTime}` : 'Disabled');
     } catch (e) {
       console.error('Error loading shift data:', e);
     }
@@ -349,10 +361,12 @@ const AttendanceConfig: React.FC = () => {
     try {
       setIsLoading(true);
       const [lunchRes, leaveRes, restrictRes, dateRes, settingsRes] = await Promise.all([
-        fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY),
-        fetchConfiguration(LEAVE_MANAGEMENT),
-        fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY),
-        fetchConfiguration(DATE_SETTINGS_KEY),
+        // Same scope the modal reads/writes — otherwise the card summary and the modal it opens
+        // show different numbers for the same setting.
+        fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY, undefined, undefined, configScope),
+        fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, configScope),
+        fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY, undefined, undefined, configScope),
+        fetchConfiguration(DATE_SETTINGS_KEY, undefined, undefined, configScope),
         fetchCompanySettings(),
       ]);
 
@@ -381,7 +395,7 @@ const AttendanceConfig: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [configScope]);
 
   useEffect(() => {
     loadOtherSettingsData();
@@ -519,13 +533,15 @@ const AttendanceConfig: React.FC = () => {
                     {/* Lunch / Grace info tiles */}
                     <div style={{ marginTop: SP.md, paddingTop: SP.md, borderTop: '1px dashed #e5e7eb' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        {[
+                        {([
                           { label: 'Lunch Time',     val: lunchTime,          icon: 'bi-cup-hot' },
                           { label: 'Deduction',      val: deductionTime,      icon: 'bi-dash-circle' },
                           { label: 'Grace – Office', val: graceTimeOffice,    icon: 'bi-building' },
                           { label: 'Grace – Site',   val: enforceOnsiteDeadline ? graceTimeOnSite : 'Disabled', icon: 'bi-geo-alt' },
-                        ].map(({ label, val, icon }) => (
+                          { label: 'No Late Mark After Late Night', val: lateNightWaiver, icon: 'bi-moon-stars', full: true },
+                        ] as Array<{ label: string; val: string | number; icon: string; full?: boolean }>).map(({ label, val, icon, full }) => (
                           <div key={label} style={{
+                            gridColumn: full ? '1 / -1' : undefined,
                             background: 'linear-gradient(135deg, #fafbfd 0%, #f4f6fb 100%)',
                             border: '1px solid #eaecf3',
                             borderRadius: RADIUS.lg,
@@ -552,6 +568,36 @@ const AttendanceConfig: React.FC = () => {
                         ))}
                       </div>
                     </div>
+                  </ConfigSectionCard>
+                </Grid>
+
+                {/* ── Break Deductions card ────────────────────── */}
+                {/* Belongs on THIS tab: the Deduction value is displayed in the Daily
+                    Shift Time tiles above, and it is computed from punches. It was
+                    briefly under Leaves purely because that tab had the reusable row
+                    component — configuring a value from a different tab than the one
+                    that shows it. */}
+                <Grid item xs={12} lg={7}>
+                  <ConfigSectionCard
+                    title="Break Deductions"
+                    description="How much unpaid break time comes off a worked day, and on which days"
+                    icon="bi-cup-hot"
+                    iconColor="amber"
+                    primaryAction={{
+                      label: 'Configure',
+                      icon: 'bi-pencil',
+                      variant: 'outline',
+                      onClick: () => setShowDeductionRulesModal(true),
+                    }}
+                  >
+                    <p style={{
+                      fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted,
+                      margin: 0, fontWeight: 400,
+                    }}>
+                      Rules decide the threshold, the duration, and whether a deduction
+                      applies on weekends and holidays. Currently deducting{' '}
+                      <strong style={{ color: C.textPrimary }}>{deductionTime}</strong>.
+                    </p>
                   </ConfigSectionCard>
                 </Grid>
 
@@ -755,6 +801,14 @@ const AttendanceConfig: React.FC = () => {
         open={showOtherSettingsModal}
         onClose={() => { setShowOtherSettingsModal(false); loadOtherSettingsData(); }}
         mountKey={otherSettingsKey}
+        scope={configScope}
+      />
+
+      {/* Break Deductions — configurable rules replacing the single Deduction Time */}
+      <DeductionRules
+        open={showDeductionRulesModal}
+        onClose={() => setShowDeductionRulesModal(false)}
+        scope={configScope}
       />
 
       {/* Sandwich Leave — self-contained GlassDialog */}
@@ -767,7 +821,7 @@ const AttendanceConfig: React.FC = () => {
       <AddonLeavesModal open={showAddonLeavesModal} onClose={() => setShowAddonLeavesModal(false)} />
 
       {/* Auto-Allocation Policy — GlassDialog */}
-      <LeavePolicyModal open={showLeavePolicyModal} onClose={() => setShowLeavePolicyModal(false)} />
+      <LeavePolicyModal open={showLeavePolicyModal} onClose={() => setShowLeavePolicyModal(false)} scope={configScope} />
 
       {/* Leave Types & Balance — GlassDialog */}
       <LeaveTypesBalanceModal open={showLeaveTypesModal} onClose={() => setShowLeaveTypesModal(false)} />

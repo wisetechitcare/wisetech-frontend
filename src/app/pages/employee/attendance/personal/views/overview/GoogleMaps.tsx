@@ -55,11 +55,18 @@ function GoogleMaps(): JSX.Element {
     setInfoWindowShown((prev) => !prev);
   }, []);
 
+  // Text alternative for the (visual, non-keyboard) map — WCAG 1.1.1. Screen
+  // readers announce the resolved location instead of an unlabeled map widget.
+  const locationText = isValidPosition
+    ? `Map showing your current location${currentAddress ? `: ${currentAddress}` : ` at latitude ${position.latitude}, longitude ${position.longitude}`}.`
+    : 'Map unavailable — waiting for a valid location.';
+
   return (
     <div className="leaflet-map-container" style={{ width: '100%', height: '100%', minHeight: '400px', position: 'relative' }}>
       <style>{`
         ${mapStyles}
       `}</style>
+      <p className="visually-hidden" role="status">{locationText}</p>
       {isValidPosition ? (
         <MapContainer
           center={defaultCenter as [number, number]}

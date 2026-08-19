@@ -534,7 +534,7 @@ const Custom = ({ startDate, endDate }: Props) => {
               cancellationRes?.data || [],
               "value",
               "name",
-              ""
+              "budget"
             ),
           });
       } catch (error) {

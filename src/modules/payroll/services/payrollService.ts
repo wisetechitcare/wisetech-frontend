@@ -16,6 +16,8 @@ export interface PayrollComponent {
   direction: string;
   calculationType: string;
   enableInOnboarding: boolean;
+  /** '' = applies to every employee; otherwise the one employee this row is scoped to. */
+  employeeId: string;
   applyDuration: string;
   defaultAmount?: number | null;
   defaultPercentage?: number | null;
@@ -70,8 +72,16 @@ export interface ComponentDependency {
 export type DependencyMap = Record<string, ComponentDependency>;
 
 export const deductionMasterService = {
-  getAll: async (): Promise<PayrollComponent[]> => {
-    const res = await axios.get(`${API_URL}/salary-component-master`);
+  /**
+   * Without a period: the whole catalogue (the Salary Master screen).
+   * With one: only what applies to that employee in that month — company-wide rows plus
+   * their own, one version per key. An employee's salary screen must pass the period, or
+   * it lists components assigned to other people and other months.
+   */
+  getAll: async (scope?: { employeeId?: string; date?: string }): Promise<PayrollComponent[]> => {
+    const res = await axios.get(`${API_URL}/salary-component-master`, {
+      params: scope?.date ? { employeeId: scope.employeeId, date: scope.date } : undefined,
+    });
     return res.data?.data?.items || [];
   },
   getOne: async (id: string): Promise<{ item: PayrollComponent; versions: ComponentVersion[]; audits: ComponentAuditEntry[] }> => {
@@ -82,9 +92,10 @@ export const deductionMasterService = {
     const res = await axios.post(`${API_URL}/salary-component-master/seed`);
     return res.data?.data?.items || [];
   },
-  create: async (data: Partial<PayrollComponent>): Promise<PayrollComponent> => {
+  /** `employeeIds` assigns the component to those employees (one row each); omit for company-wide. */
+  create: async (data: Partial<PayrollComponent> & { employeeIds?: string[] }): Promise<PayrollComponent[]> => {
     const res = await axios.post(`${API_URL}/salary-component-master`, data);
-    return res.data?.data?.item;
+    return res.data?.data?.items || [];
   },
   update: async (id: string, data: Partial<PayrollComponent>): Promise<PayrollComponent> => {
     const res = await axios.put(`${API_URL}/salary-component-master/${id}`, data);
@@ -217,6 +228,19 @@ export const payrollService = {
    */
   downloadSalarySlip: async (salaryId: string) => {
     const response = await axios.get(`${API_URL}/payroll/salary/${salaryId}/download-slip`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
+  /**
+   * Download the Salary Slip PDF for a payroll month.
+   * Works even when that month has no saved salary record yet (the in-progress
+   * current month) — the backend renders the same slip template from live data.
+   */
+  downloadSalarySlipForPeriod: async (employeeId: string, month: number, year: number) => {
+    const response = await axios.get(`${API_URL}/payroll/salary-slip`, {
+      params: { employeeId, month, year },
       responseType: 'blob'
     });
     return response.data;

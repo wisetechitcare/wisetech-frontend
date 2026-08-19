@@ -20,8 +20,16 @@ import { Chip, type ChipProps } from '@mui/material';
 // import from @app/theme/tokens directly (DESIGN_SYSTEM.md Phase 1).
 import { tonePair, type SemanticTone } from '@app/theme/tokens';
 
-/** hex → rgba at the given alpha. Accepts #rgb or #rrggbb. */
-const rgba = (hex: string, a: number): string => {
+/**
+ * hex → rgba at the given alpha. Accepts #rgb or #rrggbb.
+ *
+ * Exported because it IS the kit's tint formula: any surface that needs a soft
+ * tone fill (chips, count badges, accent tiles) must derive it here rather than
+ * hand-rolling an rgba, and must not use `tonePair().soft` — those pastels are
+ * light-mode values and wash out on the dark canvas, whereas an alpha tint over
+ * the surface stays correct in both modes.
+ */
+export const toneAlpha = (hex: string, a: number): string => {
     let h = hex.replace('#', '');
     if (h.length === 3) h = h.split('').map((c) => c + c).join('');
     const n = parseInt(h, 16);
@@ -52,9 +60,9 @@ export function ToneChip({ tone = 'neutral', color, solid = false, dense = false
                     fontWeight: 600,
                     borderRadius: 999,
                     maxWidth: '100%',
-                    backgroundColor: solid ? fg : rgba(fg, 0.12),
+                    backgroundColor: solid ? fg : toneAlpha(fg, 0.12),
                     color: solid ? '#fff' : fg,
-                    border: `1px solid ${solid ? 'transparent' : rgba(fg, 0.28)}`,
+                    border: `1px solid ${solid ? 'transparent' : toneAlpha(fg, 0.28)}`,
                     '& .MuiChip-label': { px: dense ? 0.75 : 1, overflow: 'hidden', textOverflow: 'ellipsis' },
                 },
                 ...(Array.isArray(sx) ? sx : [sx]),
