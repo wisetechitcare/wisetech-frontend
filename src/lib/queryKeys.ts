@@ -53,6 +53,6 @@ export const queryKeys = {
     application: (id: string) => [...queryKeys.recruitment.all, 'application', id] as const,
     notes: (applicationId: string) => [...queryKeys.recruitment.all, 'notes', applicationId] as const,
     postings: () => [...queryKeys.recruitment.all, 'postings'] as const,
-    overview: () => [...queryKeys.recruitment.all, 'overview'] as const,
+    overview: (range: Record<string, unknown> = {}) => [...queryKeys.recruitment.all, 'overview', range] as const,
   },
 } as const;

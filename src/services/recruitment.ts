@@ -505,12 +505,26 @@ export interface RecruitmentOverview {
         avgTimeToHireDays: number | null;
     };
     funnel: Array<{ id: string; name: string; color?: string | null; count: number; sortOrder: number; isHiredOutcome: boolean; isRejectedOutcome: boolean }>;
+    /** Cumulative conversion against the top stage — not stage-to-stage, which flatters. */
+    funnelConversion: Array<{ id: string; name: string; count: number; pctOfTop: number | null }>;
+    /** Dwell time and current backlog per stage. openCount/oldestOpenDays are the bottleneck. */
+    stageDurations: Array<{
+        statusId: string; name: string; color?: string | null; sortOrder: number;
+        avgDays: number | null; samples: number; openCount: number; oldestOpenDays: number | null;
+    }>;
+    timeToHire: { count: number; avgDays: number | null; medianDays: number | null; p90Days: number | null };
     requisitionsByStatus: { pending: number; approved: number; rejected: number };
-    candidatesBySource: Array<{ id: string; name: string; color?: string | null; count: number }>;
+    candidatesBySource: Array<{ id: string; name: string; color?: string | null; count: number; hires: number; hireRatePct: number | null }>;
     offersByAcceptance: Array<{ status: string; count: number }>;
+    /** The window the server actually applied, echoed so the UI cannot mislabel it. */
+    range: { from: string | null; to: string | null };
 }
 
-export const getRecruitmentOverview = async (): Promise<RecruitmentOverview | null> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_OVERVIEW}`);
+export const getRecruitmentOverview = async (range: { from?: string; to?: string } = {}): Promise<RecruitmentOverview | null> => {
+    const qs = new URLSearchParams();
+    if (range.from) qs.set("from", range.from);
+    if (range.to) qs.set("to", range.to);
+    const suffix = qs.toString() ? `?${qs}` : "";
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_OVERVIEW}${suffix}`);
     return data?.overview ?? null;
 };
