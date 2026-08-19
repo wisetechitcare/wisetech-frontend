@@ -198,6 +198,49 @@ export const archiveApplication = async (id: string) => {
     return data;
 };
 
+// ─── Candidate detail + notes ────────────────────────────────────────────────
+export interface ApplicationNote {
+    id: string;
+    applicationId: string;
+    authorId?: string | null;
+    body: string;
+    createdAt: string;
+}
+
+/** Stage transition as recorded by the server, newest first. */
+export interface StageHistoryEntry {
+    id: string;
+    fromStatusId?: string | null;
+    toStatusId?: string | null;
+    changedById?: string | null;
+    isAutomated: boolean;
+    note?: string | null;
+    changedAt: string;
+}
+
+export type ApplicationDetail = Application & { stageHistory?: StageHistoryEntry[] };
+
+/** The full record behind one pipeline row — the endpoint existed with no caller until now. */
+export const getApplicationById = async (id: string): Promise<ApplicationDetail | null> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_BY_ID.replace(":id", id)}`);
+    return data?.application ?? null;
+};
+
+export const getApplicationNotes = async (applicationId: string): Promise<ApplicationNote[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_NOTES.replace(":id", applicationId)}`);
+    return data?.notes ?? [];
+};
+
+export const createApplicationNote = async (applicationId: string, body: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_NOTES.replace(":id", applicationId)}`, { body });
+    return data;
+};
+
+export const deleteApplicationNote = async (id: string) => {
+    const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.DELETE_APPLICATION_NOTE.replace(":id", id)}`);
+    return data;
+};
+
 // ─── Convert-to-employee hand-off ────────────────────────────────────────────
 // PipelineView stashes the application id, then opens the New Employee wizard;
 // on a successful create the wizard consumes the stash and links the two records

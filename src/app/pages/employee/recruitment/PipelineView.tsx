@@ -16,6 +16,7 @@ import {
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
+import CandidateDrawer from "./CandidateDrawer";
 
 interface PendingMove {
     application: Application;
@@ -41,6 +42,9 @@ const PipelineView = () => {
     const [rejectReasonId, setRejectReasonId] = useState("");
     const [rejectNote, setRejectNote] = useState("");
     const [dragId, setDragId] = useState<string | null>(null);
+    // The candidate record the recruiter is looking at. The board card had no click
+    // target at all before this, so the pipeline had no unit of work.
+    const [openCandidate, setOpenCandidate] = useState<Application | null>(null);
     const [interviewsFor, setInterviewsFor] = useState<Application | null>(null);
     const [offerFor, setOfferFor] = useState<Application | null>(null);
 
@@ -192,13 +196,20 @@ const PipelineView = () => {
                                     <Chip size="small" label={cards.length} />
                                 </Stack>
                                 <Stack spacing={1}>
+                                    {/* Drag moves a candidate between stages; a plain click opens
+                                        them. onClick is guarded on dragId so releasing a drag is
+                                        never treated as a click. */}
                                     {cards.map((a) => (
                                         <Box
                                             key={a.id}
                                             draggable
                                             onDragStart={() => setDragId(a.id)}
                                             onDragEnd={() => setDragId(null)}
-                                            sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "background.paper", boxShadow: 1, cursor: "grab", opacity: dragId === a.id ? 0.5 : 1 }}
+                                            onClick={() => { if (!dragId) setOpenCandidate(a); }}
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenCandidate(a); } }}
+                                            sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "background.paper", boxShadow: 1, cursor: "grab", opacity: dragId === a.id ? 0.5 : 1, "&:hover": { boxShadow: 3 } }}
                                         >
                                             <Typography sx={{ fontWeight: 600, fontSize: 13.5 }}>
                                                 {a.applicant?.firstName} {a.applicant?.lastName ?? ""}
@@ -236,6 +247,9 @@ const PipelineView = () => {
                                 <TableCell align="center">{scoreLabel(a) ?? "—"}</TableCell>
                                 <TableCell align="right">
                                     <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                        <WtButton size="small" ghost startIcon={<KTIcon iconName="profile-circle" className="fs-6" />} onClick={() => setOpenCandidate(a)}>
+                                            Open
+                                        </WtButton>
                                         <WtButton size="small" ghost startIcon={<KTIcon iconName="message-text-2" className="fs-6" />} onClick={() => setInterviewsFor(a)}>
                                             Interviews
                                         </WtButton>
@@ -348,6 +362,16 @@ const PipelineView = () => {
                     )}
                 </DialogContent>
             </GlassDialog>
+
+            {/* Full candidate record. Mounted only while open so its queries do not run for
+                every row in the pipeline. */}
+            {openCandidate && (
+                <CandidateDrawer
+                    application={openCandidate}
+                    statuses={statuses}
+                    onClose={() => setOpenCandidate(null)}
+                />
+            )}
         </Box>
     );
 };

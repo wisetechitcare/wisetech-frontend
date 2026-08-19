@@ -40,6 +40,8 @@ export const RECRUITMENT = {
     GET_APPLICATION_INTERVIEWS: "api/recruitment/applications/:id/interviews",
     SUBMIT_SCORECARD: "api/recruitment/interviews/:id/scorecard",
     GET_APPLICATION_EVALUATION: "api/recruitment/applications/:id/evaluation",
+    GET_APPLICATION_NOTES: "api/recruitment/applications/:id/notes",
+    DELETE_APPLICATION_NOTE: "api/recruitment/notes/:id",
     // Offers (Phase 5)
     CREATE_OFFER: "api/recruitment/offers",
     GET_OFFER_BY_ID: "api/recruitment/offers/:id",
