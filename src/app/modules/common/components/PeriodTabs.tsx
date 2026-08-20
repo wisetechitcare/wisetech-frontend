@@ -90,7 +90,13 @@ const PeriodTabs = ({
                 // On mobile each tab flexes to an equal share so the group fills
                 // the full width evenly; on desktop they hug their label.
                 flex: isMobile ? 1 : 'none',
-                px: 1.75,
+                // The group clips (overflow: hidden + nowrap labels), so padding decides how
+                // many tabs survive. Five modes at the desktop padding need ~350px, which a
+                // 360px phone does not have — the last tab ("All Time") was silently cut off.
+                // Tightening the mobile padding buys back ~60px and fits five.
+                // ponytail: fits 5 tabs at 360px; a 6th or a longer label would clip again —
+                // at that point let the group wrap on mobile instead of shrinking padding.
+                px: isMobile ? 1 : 1.75,
                 py: 0,
                 color: 'text.secondary',
                 fontSize: 12,

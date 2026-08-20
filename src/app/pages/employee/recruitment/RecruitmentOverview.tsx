@@ -19,7 +19,7 @@ const BarRow = ({ label, count, max, color }: { label: string; count: number; ma
     const pct = max > 0 && count > 0 ? Math.max(5, Math.round((count / max) * 100)) : 0;
     return (
         <Stack direction="row" alignItems="center" spacing={1.25} sx={{ minWidth: 0 }}>
-            <Typography noWrap title={label} sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 96, sm: 132 }, flexShrink: 0, color: "text.secondary" }}>
+            <Typography noWrap title={label} sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 88, sm: 132 }, flexShrink: 0, color: "text.secondary" }}>
                 {label}
             </Typography>
             <Tooltip title={`${count}`} arrow placement="top">
@@ -114,17 +114,17 @@ const RecruitmentOverview = () => {
 
     const kpiTiles: Array<{ label: string; value: number | string; trio: Trio; icon: string }> = [
         { label: "Open Roles", value: kpis.openRequisitions, trio: TRIO.blue, icon: "questionnaire-tablet" },
-        { label: "Candidates in Process", value: kpis.activeCandidates, trio: TRIO.purple, icon: "profile-circle" },
-        { label: "Interviews Booked", value: kpis.interviewsScheduled, trio: TRIO.cyan, icon: "message-text-2" },
-        { label: "Offers Awaiting Reply", value: kpis.offersOutstanding, trio: TRIO.amber, icon: "dollar" },
-        { label: "People Hired", value: kpis.hires, trio: TRIO.green, icon: "user-tick" },
+        { label: "In Process", value: kpis.activeCandidates, trio: TRIO.purple, icon: "profile-circle" },
+        { label: "Interviews", value: kpis.interviewsScheduled, trio: TRIO.cyan, icon: "message-text-2" },
+        { label: "Offers Out", value: kpis.offersOutstanding, trio: TRIO.amber, icon: "dollar" },
+        { label: "Hired", value: kpis.hires, trio: TRIO.green, icon: "user-tick" },
         // The median, not the average: one long-running role drags an average away from
         // reality, so "typical" is both the plainer word and the accurate one.
-        { label: "Typical Time to Hire", value: timeToHire.medianDays == null ? "—" : dayWord(timeToHire.medianDays), trio: TRIO.slate, icon: "chart-simple" },
+        { label: "Time to Hire", value: timeToHire.medianDays == null ? "—" : dayWord(timeToHire.medianDays), trio: TRIO.slate, icon: "chart-simple" },
     ];
 
     return (
-        <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
+        <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
             <ListHeader
                 title="Recruitment Overview"
                 subtitle={`How hiring is going — showing ${period.label}.`}
@@ -136,12 +136,22 @@ const RecruitmentOverview = () => {
                         // Compact labels: this control sits in a header that also carries a
                         // title, and its own docblock recommends compact where width is tight.
                         dateStyle="compact"
+                        navMinWidth={150}
                         onChange={onPeriodChange}
                     />
                 }
             />
 
-            <AutoGrid min={200} sx={{ mb: 2 }}>
+            <AutoGrid
+                min={200}
+                sx={{
+                    mb: 2,
+                    gridTemplateColumns: {
+                        xs: "repeat(2, minmax(0, 1fr))",
+                        sm: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))",
+                    },
+                }}
+            >
                 {kpiTiles.map((t) => <StatTile key={t.label} label={t.label} value={t.value} trio={t.trio} icon={t.icon} />)}
             </AutoGrid>
 
