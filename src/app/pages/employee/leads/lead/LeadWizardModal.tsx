@@ -22,10 +22,7 @@ import dayjs from "dayjs";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import TextAreaInput from "@app/modules/common/inputs/TextAreaInput";
-import {
-  leadAndProjectTemplateTypeId,
-  prefixIdentifier,
-} from "@constants/statistics";
+import { prefixIdentifier } from "@constants/statistics";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@redux/store";
 import {
@@ -831,14 +828,6 @@ const LeadWizardModal = ({
         projectHandledByEntries: [],
         projectPrefix: "",
 
-        // additional details
-        // Additional fields for web-dev type
-        ...(leadTemplateId?.toString() ===
-          leadAndProjectTemplateTypeId.webDev?.toString() && {
-          type: "", // web-dev specific type
-          numberOfPages: "",
-        }),
-
         // Always include addresses for all forms
         addresses: [
           {
@@ -1219,13 +1208,6 @@ const LeadWizardModal = ({
       otherPoint3Description:
         leadData.additionalDetails?.otherPoint3Description || "",
 
-      // Additional fields for web-dev type
-      ...(leadTemplateId?.toString() ===
-        leadAndProjectTemplateTypeId.webDev?.toString() && {
-        type: additionalDetailsArray[0]?.type || "",
-        numberOfPages: additionalDetailsArray[0]?.numberOfPages || "",
-      }),
-
       // Always include addresses for all forms
       addresses:
         addresses.length > 0
@@ -1348,68 +1330,6 @@ const LeadWizardModal = ({
   const initialValues = useMemo(() => {
     return buildInitialValues(currLeadData);
   }, [currLeadData, initialFormData?.id, isEditMode]);
-
-  // console.log("Form initial values:", initialValues);
-
-  // const formData = {
-  //   // Project Details
-  //   leadTemplateId: leadTemplateId, // or 'mep' or 'web-dev' based on the form type
-  //   projectName: '',
-  //   description: '',
-  //   statusId: '',
-  //   source: '',
-  //   budget: '',
-  //   company: '',
-  //   contactPerson: '',
-  //   leadSource: '',
-  //   service: '',
-  //   category: '',
-  //   subCategory: '',
-  //   startDate: '',
-  //   endDate: '',
-  //   rate: '',
-  //   cost: '',
-  //   companyId: '',
-  //   branchId: '',
-  //   contactRoleId: '',
-  //   leadInquiryDate: '',
-  //   leadAssignedTo: '',
-
-  //   // Referrals (for blank type)
-  //   referrals: [
-  //     {
-  //       id: '',
-  //       referralType: '',
-  //       referringCompany: '',
-  //       referringContact: '',
-  //       referredByContactId: ''
-  //     }
-  //   ],
-
-  //   // Additional fields for web-dev type
-  //   ...(leadTemplateId === leadAndProjectTemplateTypeId.webDev && {
-  //     type: '', // web-dev specific type
-  //     numberOfPages: ''
-  //   }),
-
-  //   // Additional fields for mep type
-  //   ...(leadTemplateId === leadAndProjectTemplateTypeId.mep && {
-  //     projectArea: '',
-  //     projectAddress: '',
-  //     zipCode: '',
-  //     mapLocation: '',
-  //     latitude: '',
-  //     longitude: '',
-  //     country: '',
-  //     state: '',
-  //     city: '',
-  //     locality: '',
-  //     poNumber: '',
-  //     poDate: ''
-  //   }),
-  //   // Common additional fields
-  //   // description: '' // Additional description field
-  // };
 
   useEffect(() => {
     if (initialFormData?.id) {
@@ -2418,10 +2338,7 @@ const LeadWizardModal = ({
       errorConfirmation("Inquiry No. is required");
       return;
     }
-    const additionalDetailsFields = [
-      "projectArea", "addresses",
-      ...((leadTemplateId === leadAndProjectTemplateTypeId.webDev) ? ["type", "numberOfPages"] : [])
-    ];
+    const additionalDetailsFields = ["projectArea", "addresses"];
 
     const selectedCountryData = countries.find(
       (c) => c.id === formData.country,

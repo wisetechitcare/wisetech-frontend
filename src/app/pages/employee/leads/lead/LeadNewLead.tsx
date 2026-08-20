@@ -18,11 +18,9 @@ import {
 import { deleteLead, getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference, getUserTablePreferences } from "@services/users";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import DetailsModal from "./DetailsModal";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
-import { leadAndProjectTemplateTypeId } from "@constants/statistics";
 import {
   deleteConfirmation,
   errorConfirmation,
@@ -187,7 +185,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   // ── Data state ──────────────────────────────────────────────────────────────
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [tableData, setTableData] = useState<any[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -1045,29 +1042,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     }
   };
 
-  const handleOpenModal = () => setIsModalOpen(true);
-  const handleCloseModal = () => setIsModalOpen(false);
   function handleCloseChartSettingsModal() {
     setShowChartSettingsModal(false);
   }
-
-  const templateData = [
-    {
-      id: leadAndProjectTemplateTypeId.newLead,
-      title: "Blank Lead",
-      description: "",
-    },
-    {
-      id: leadAndProjectTemplateTypeId.mep,
-      title: "MEP Lead",
-      description: "Template",
-    },
-    {
-      id: leadAndProjectTemplateTypeId.webDev,
-      title: "Web Development Template Lead",
-      description: "Template",
-    },
-  ];
 
   const leadsExportColumns = useMemo(() => [
     { key: 'inquiryDate', header: 'Inquiry Date', type: 'text' as const },
@@ -1918,11 +1895,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         }}
       />
 
-      <DetailsModal
-        open={isModalOpen}
-        onClose={handleCloseModal}
-        Datas={templateData}
-      />
       {formValues && (
         <LeadWizardModal
           key={formValues?.id || "new-lead-modal"}

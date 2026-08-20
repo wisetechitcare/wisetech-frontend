@@ -57,10 +57,8 @@ interface ProjectData {
   lastEditedBy: string;
   lastEdited: string;
   notes: string;
-  type?: string;
   latitude?: string;
   longitude?: string;
-  numberOfPages?: string;
   // Project Detail fields
   plotArea?: string;
   plotAreaUnit?: string;
@@ -207,8 +205,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       createdDate: lead.createdAt ? dayjs(lead.createdAt).format("DD/M/YYYY, h:mmA") : '-',
       lastEditedBy: lead.updatedBy?.users?.firstName+" "+lead.updatedBy?.users?.lastName || '-',
       lastEdited: lead.updatedAt ? dayjs(lead.updatedAt).format("DD/M/YYYY, h:mmA") : '-',
-      type: lead?.additionalDetails?.type || "-",
-      numberOfPages: lead?.additionalDetails?.numberOfPages || "-",
       projectAddress: lead?.additionalDetails?.projectAddress || '-',
       city: lead?.additionalDetails?.city || '-',
       state: lead?.additionalDetails?.state || '-',
@@ -271,10 +267,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
     latitude: '',
     longitude: '',
     notes: '-',
-    // ...(leadTemplateId && leadTemplateId == leadAndProjectTemplateTypeId.webDev && {
-      type: "-",
-      numberOfPages: "-",
-    // }),
     // Project Detail fields
     plotArea: '',
     plotAreaUnit: 'sqft',
@@ -717,10 +709,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
               <InfoRow label="PO Number" value={projectData.poNumber} />
               <InfoRow label="PO Date" value={projectData.poDate} />
             </>} */}
-            {leadTemplateId==leadAndProjectTemplateTypeId.webDev && <>
-              <InfoRow label="Type" value={projectData?.type || "-"} />
-              <InfoRow label="Number Of Pages" value={projectData?.numberOfPages || "-"} />
-            </>}
           </InfoCard>
         </div>
 
