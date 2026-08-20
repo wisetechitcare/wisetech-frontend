@@ -370,6 +370,7 @@ export const OPTIONS = {
     CREATE_PREFIX_SETTING: 'api/options/prefix-settings',
     UPDATE_PREFIX_SETTING: 'api/options/prefix-settings/:id',
     DELETE_PREFIX_SETTING: 'api/options/prefix-settings/:id',
+    GET_LEAD_NUMBER_PREVIEW: 'api/options/lead-number-preview',
     COUNTRIES: 'api/options/countries',
     STATES: 'api/options/states',
     CITIES: 'api/options/cities',

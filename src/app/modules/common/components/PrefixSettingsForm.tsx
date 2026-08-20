@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Formik, Form as FormikForm, Field } from 'formik';
+import { Formik, Form as FormikForm, Field, useFormikContext } from 'formik';
+import { useOrgScope } from '@hooks/useOrgScope';
 import * as Yup from 'yup';
 // import NumberInput from '../inputs/NumberInput'; // Commented out - replaced with fiscal year selector
 import TextInput from '../inputs/TextInput';
@@ -23,6 +24,14 @@ interface PrefixSettingsFormProps {
   typeLabel: string; // e.g. 'Lead', 'Project', 'Company'
   typeValue: string; // e.g. 'LEAD', 'PROJECT', 'COMPANY' (enum value)
   onSuccess?: () => void; // Optional callback on successful save
+  /**
+   * Scope the setting to one organization instead of the single global row.
+   *
+   * Used by LEAD, where each organization numbers its leads under its own prefix
+   * (WISETECH MEP → WT/OFFER, Associates → WTA/OFFER). PROJECT and COMPANY leave
+   * this off and keep editing the one global row they have always used.
+   */
+  perOrganization?: boolean;
 }
 
 export interface PrefixSetting {
@@ -30,6 +39,8 @@ export interface PrefixSetting {
   year: string;
   prefix: string;
   identifier: string;
+  /** null on the global/default row; set on an organization's own row. */
+  organizationId?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -38,6 +49,7 @@ export interface PrefixSettingsFormValues {
   year: string;
   prefix: string;
   identifier: string;
+  organizationId?: string | null;
   id?: string;
 }
 
@@ -126,15 +138,61 @@ const convertOldYearFormatToFullDate = (yearFormat: string): string => {
   return yearFormat;
 };
 
+/**
+ * Live "this is what your numbers will look like" line, built from the values
+ * currently in the form rather than from what is saved — so the effect of an
+ * edit is visible before it is committed. The trailing 001 is illustrative; the
+ * real sequence continues from whatever the organization has already issued.
+ */
+const PrefixPreview: React.FC<{ typeLabel: string; organizationName: string }> = ({
+  typeLabel,
+  organizationName,
+}) => {
+  const { values } = useFormikContext<PrefixSettingsFormValues>();
+  const prefix = (values.prefix || '').trim();
+  if (!prefix) return null;
+
+  const shortYear = convertFiscalYearToYearFormat(values.year || '');
+  const sample = shortYear ? `${prefix}/${shortYear}/001` : `${prefix}/001`;
+
+  return (
+    <div className="mt-2">
+      <span className="text-muted fs-8 me-2">Preview</span>
+      <span className="fw-bold text-gray-800">{sample}</span>
+      <span className="text-muted fs-8 ms-2">
+        {organizationName
+          ? `— format used for new ${typeLabel.toLowerCase()}s in ${organizationName}`
+          : `— format used for new ${typeLabel.toLowerCase()}s`}
+      </span>
+    </div>
+  );
+};
+
 const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
   typeLabel,
   typeValue,
   onSuccess,
+  perOrganization = false,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentPrefix, setCurrentPrefix] = useState<PrefixSetting | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [companyFiscalYear, setCompanyFiscalYear] = useState<string>('');
+
+  // Which organization's setting is on screen. Reuses the shared org-scope hook
+  // rather than fetching organizations again; includeAll is off because a prefix
+  // always belongs to exactly one organization.
+  const orgScope = useOrgScope({ includeAll: false, initialScopeId: '' });
+  const selectedOrgId = perOrganization ? orgScope.scopeId : '';
+  const selectedOrgName = orgScope.selected?.name ?? '';
+
+  // Default to the first organization so the form is never stranded on an empty
+  // selection the user has to discover.
+  useEffect(() => {
+    if (perOrganization && !orgScope.scopeId && orgScope.organizations.length) {
+      orgScope.setScopeId(orgScope.organizations[0].id);
+    }
+  }, [perOrganization, orgScope.scopeId, orgScope.organizations, orgScope.setScopeId]);
 
   const validationSchema = Yup.object().shape({
     year: Yup.string()
@@ -147,6 +205,9 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
 
   // Fetch existing prefix setting for this type and company fiscal year
   useEffect(() => {
+    // Per-organization mode has nothing to load until an organization is chosen.
+    if (perOrganization && !selectedOrgId) return;
+
     const fetchData = async () => {
       try {
         setIsLoading(true);
@@ -156,8 +217,15 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
           fetchAllPrefixSettings(),
           fetchCompanyOverview()
         ]);
+        // Match on organization too, so switching organizations shows that
+        // organization's own row and never edits another's by mistake. A missing
+        // row is a real state here (nothing configured yet), not an error.
         const prefixForType = prefixResponse.data?.prefixSettings.find(
-          (prefix: PrefixSetting) => prefix.identifier === typeValue
+          (prefix: PrefixSetting) =>
+            prefix.identifier === typeValue &&
+            (perOrganization
+              ? prefix.organizationId === selectedOrgId
+              : !prefix.organizationId)
         );
         setCurrentPrefix(prefixForType || null);
         // Set company fiscal year (keep in full date format)
@@ -173,7 +241,7 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
     };
 
     fetchData();
-  }, [typeValue]);
+  }, [typeValue, perOrganization, selectedOrgId]);
 
   const handleSubmit = async (values: PrefixSettingsFormValues) => {
     try {
@@ -207,6 +275,7 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
       : companyFiscalYear || getDefaultFiscalYear(),
     prefix: currentPrefix?.prefix || '',
     identifier: typeValue,
+    ...(perOrganization ? { organizationId: selectedOrgId } : {}),
     ...(currentPrefix?.id ? { id: currentPrefix.id } : {}),
   };
 
@@ -230,6 +299,35 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
           {error && (
             <div className="alert alert-danger mb-4" role="alert">
               {error}
+            </div>
+          )}
+
+          {/* Which organization's prefix is being edited. Shown first because it
+              scopes everything below it. */}
+          {perOrganization && (
+            <div className="row">
+              <div className="col-md-4 mb-4">
+                <label className="form-label">
+                  Organization <span className="text-danger">*</span>
+                </label>
+                <select
+                  className="form-select"
+                  value={selectedOrgId}
+                  onChange={(e) => orgScope.setScopeId(e.target.value)}
+                  disabled={orgScope.isLoading}
+                >
+                  {orgScope.selectOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {!currentPrefix && !isLoading && selectedOrgId && (
+                  <div className="text-warning mt-1 fs-8 fw-semibold">
+                    No {typeLabel.toLowerCase()} prefix configured for {selectedOrgName} yet.
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -294,11 +392,15 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
             </div>
           </div>
 
+          {/* What the configured prefix + year actually produce, so the format is
+              confirmed before saving rather than discovered on the first lead. */}
+          <PrefixPreview typeLabel={typeLabel} organizationName={perOrganization ? selectedOrgName : ''} />
+
           <div className="mt-4">
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={isSubmitting || isLoading}
+              disabled={isSubmitting || isLoading || (perOrganization && !selectedOrgId)}
             >
               {currentPrefix ? 'Update' : 'Create'} Prefix
             </button>
