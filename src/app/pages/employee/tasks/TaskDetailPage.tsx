@@ -19,13 +19,16 @@
  */
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { RootState } from '@redux/store';
 import {
     Box, Button, Chip, CircularProgress, Divider, Grid, IconButton, Menu, MenuItem,
-    Stack, Tab, Tabs, Typography, alpha, useTheme,
+    Stack, Tab, Tabs, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { confirmDialog, toast } from '@app/modules/common/components/ui';
+import { confirmDialog, toast, WhatsAppIcon } from '@app/modules/common/components/ui';
 import { formatDate } from '@utils/dateFormats';
+import { PATH_SEPARATOR } from '@utils/presetTaskHierarchy';
 import {
     TaskRow, apiErrorMessage, employeeName, shortTaskId, isTaskOverdue, clampProgress, subtaskProgress,
 } from './taskDomain';
@@ -33,18 +36,32 @@ import {
     useTask, useSubtasks, useTaskTimesheets, useTaskStatuses, useMoveTaskStage, useDeleteTask,
 } from './useTaskQueries';
 import {
-    TaskScopeBadge, TaskStatusBadge, TaskPriorityBadge, TaskProgress, AssigneeAvatar, TaskStateBlock,
+    TaskScopeBadge, TaskStatusBadge, TaskPriorityBadge, TaskProgress, TaskAssignees, TaskStateBlock,
 } from './components/primitives';
+import { GENERAL_PREFIX } from './components/ProjectRail';
+import { NotifyOnWhatsAppDialog, notifiableFromTask } from './components/NotifyOnWhatsAppDialog';
 import TaskSubtasksPanel from './components/TaskSubtasksPanel';
 import TaskTimePanel from './components/TaskTimePanel';
 import TaskFormDialog from './components/TaskFormDialog';
 
 const InfoRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <Grid item xs={12} sm={6} md={4}>
-        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', fontSize: 10, letterSpacing: '.05em', display: 'block' }}>
-            {label}
-        </Typography>
-        <Box sx={{ mt: 0.4 }}>{children}</Box>
+        {/* Each fact in its own cell. Bare label/value pairs on a white card ran together into
+            one grey field once there were nine of them; a faint surface per cell gives the eye
+            somewhere to stop without drawing a single line on the page. */}
+        <Box
+            sx={{
+                height: '100%',
+                px: 1.25, py: 1,
+                borderRadius: 1.5,
+                bgcolor: (t) => alpha(t.palette.text.primary, t.palette.mode === 'dark' ? 0.05 : 0.028),
+            }}
+        >
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', fontSize: 9.5, letterSpacing: '.06em', display: 'block' }}>
+                {label}
+            </Typography>
+            <Box sx={{ mt: 0.5 }}>{children}</Box>
+        </Box>
     </Grid>
 );
 
@@ -57,12 +74,32 @@ const CARD_SX = {
     bgcolor: 'background.paper',
 } as const;
 
+/**
+ * One heading treatment for every card, with its own glyph.
+ *
+ * The panels each set their own `subtitle2` before this, which is fine until there are six of
+ * them down a page and nothing tells them apart at a glance. An icon is faster to find than a
+ * word, and it costs the card no extra height.
+ */
+const CardTitle = ({ icon, children, action }: { icon: string; children: React.ReactNode; action?: React.ReactNode }) => (
+    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.25 }}>
+        <Box sx={{ color: 'primary.main', lineHeight: 0 }}>
+            <KTIcon iconName={icon} className="fs-5" />
+        </Box>
+        <Typography variant="subtitle2" sx={{ flex: 1, fontWeight: 700, color: 'text.primary' }}>
+            {children}
+        </Typography>
+        {action}
+    </Stack>
+);
+
 const Plain = ({ children }: { children: React.ReactNode }) => (
     <Typography variant="body2" sx={{ color: 'text.primary' }}>{children}</Typography>
 );
 
 export const TaskDetailPage = () => {
     const theme = useTheme();
+    const dark = theme.palette.mode === 'dark';
     const navigate = useNavigate();
     const { taskId } = useParams<{ taskId: string }>();
     const now = useMemo(() => new Date(), []);
@@ -71,17 +108,59 @@ export const TaskDetailPage = () => {
     const [stageAnchor, setStageAnchor] = useState<HTMLElement | null>(null);
     const [editOpen, setEditOpen] = useState(false);
     const [subtaskOpen, setSubtaskOpen] = useState(false);
+    const [notifyOpen, setNotifyOpen] = useState(false);
+    const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
 
     const taskQuery = useTask(taskId);
     const subtasksQuery = useSubtasks(taskId);
     const timesheetsQuery = useTaskTimesheets(taskId);
-    const statusesQuery = useTaskStatuses();
+    // Scoped to the task's own project, so the stage picker offers the lanes its board actually
+    // has. Read from the query rather than the derived `task` below, which is not in scope yet.
+    const statusesQuery = useTaskStatuses(
+        (taskQuery.data?.data?.task ?? taskQuery.data?.task)?.leadId || undefined,
+    );
     const moveStage = useMoveTaskStage();
     const deleteTask = useDeleteTask();
 
     const task: TaskRow | undefined = taskQuery.data?.data?.task ?? taskQuery.data?.task;
     const subtasks: TaskRow[] = subtasksQuery.data?.tasks ?? [];
     const statuses = statusesQuery.data?.taskStatuses ?? [];
+    /**
+     * May this reader rewrite the task, or only report progress on it? Answered by the server
+     * with the same rule its update path enforces, so the page cannot offer an edit that fails
+     * on save. Defaults to restricted while the answer is in flight.
+     */
+    const canEdit: boolean = taskQuery.data?.data?.canEdit ?? taskQuery.data?.canEdit ?? false;
+
+    /**
+     * The configuration ancestors of this task's name, e.g. ['Bill', 'hmmm'] for 'Bill → hmmm →
+     * Nah'. The server sends `taskParentPath` already derived; `taskPath` minus the last entry is
+     * the same thing, and is the fallback for a payload that predates the split.
+     */
+    const ancestors: string[] = task?.taskParentPath?.length
+        ? task.taskParentPath
+        : (task?.taskPath ?? []).slice(0, -1);
+
+    /**
+     * Where "Back to tasks" goes: the board this task belongs to.
+     *
+     * A project task returns to its project; a GENERAL task returns to its own row in the rail,
+     * which is the scope the workspace uses for one. Falls back to the bare route when the task
+     * has neither — nothing to point at, so the workspace picks its own default.
+     */
+    const backToBoard = task
+        ? `/tasks?scope=${encodeURIComponent(task.leadId || `${GENERAL_PREFIX}${task.id}`)}`
+        : '/tasks';
+
+    /**
+     * Who could be sent a WhatsApp note about this task — everybody on it except the reader.
+     * Nobody needs a message from themselves, and the list is empty for a task nobody else is on,
+     * which is what hides the action rather than a separate flag.
+     */
+    const notifiablePeople = useMemo(
+        () => (task ? notifiableFromTask(task, currentEmployeeId) : []),
+        [task, currentEmployeeId],
+    );
 
     if (taskQuery.isLoading) {
         return <Stack alignItems="center" sx={{ py: 10 }}><CircularProgress /></Stack>;
@@ -124,20 +203,40 @@ export const TaskDetailPage = () => {
      * The old flow toasted "deleted successfully" from inside the confirm dialog, before the
      * request was even sent — so a failed delete still told the user it had worked.
      */
+    // Entries already logged against this task — what the confirm dialog promises to keep.
+    const loggedEntries: number = timesheetsQuery.data?.summary?.totalEntries ?? 0;
+
     const handleDelete = async () => {
+        // The logged hours are the thing people are actually afraid of losing, so the dialog
+        // answers that before it is asked. The server keeps them — deletion is soft on purpose
+        // — and a timesheet still names the task it was logged against afterwards.
         const ok = await confirmDialog({
             icon: 'warning',
             title: 'Delete this task?',
-            text: 'This cannot be undone.',
+            text: loggedEntries > 0
+                ? `The ${loggedEntries} logged timesheet ${loggedEntries === 1 ? 'entry' : 'entries'} on this task will be kept — `
+                  + 'they stay in timesheets and in the project cost. The task itself cannot be brought back.'
+                : 'This cannot be undone.',
         });
         if (!ok) return;
         try {
-            await deleteTask.mutateAsync(task.id);
-            void toast({ icon: 'success', title: 'Task deleted' });
-            navigate('/tasks');
+            const result: any = await deleteTask.mutateAsync(task.id);
+            void toast({
+                icon: 'success',
+                title: 'Task deleted',
+                // The API says whether any logs were preserved; repeating its own sentence keeps
+                // the two surfaces from drifting into different promises.
+                text: result?.message && result.message !== 'Task deleted successfully'
+                    ? result.message
+                    : undefined,
+                timer: 3200,
+            });
+            // Back to the board it was on — the same destination as the Back button, because
+            // deleting a task does not change which project you were working in.
+            navigate(backToBoard);
         } catch (error) {
-            // The server blocks deletion when subtasks or timesheets exist, and its message
-            // names which — that reason is far more useful than a generic failure.
+            // Only live subtasks block a delete now, and the server's message names how many —
+            // far more useful than a generic failure.
             void toast({ icon: 'error', title: 'Cannot delete task', text: apiErrorMessage(error), timer: 4200 });
         }
     };
@@ -146,15 +245,57 @@ export const TaskDetailPage = () => {
         <Box sx={{ maxWidth: 1400, mx: 'auto', p: { xs: 1.5, md: 3 } }}>
             {/* ── header ── */}
             <Stack spacing={1.5}>
+                {/* Back to THIS task's board, not to whatever the workspace would land on by
+                    itself. Derived from the task rather than from history, so it is equally right
+                    when the page was opened from a link, a notification or a fresh tab — where
+                    `navigate(-1)` would leave the app entirely. */}
                 <Button
-                    onClick={() => navigate('/tasks')}
+                    onClick={() => navigate(backToBoard)}
                     startIcon={<KTIcon iconName="arrow-left" className="fs-6" />}
-                    sx={{ alignSelf: 'flex-start', textTransform: 'none', color: 'text.secondary', fontWeight: 600 }}
+                    // A real control, not grey text with an arrow. This is the only way out of a
+                    // full-page detail view, and it was the quietest thing on the screen — set in
+                    // the same disabled grey used for placeholder values two cards below it.
+                    sx={{
+                        alignSelf: 'flex-start',
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        borderRadius: 999,
+                        pl: 1.25, pr: 2, py: 0.75,
+                        color: 'primary.main',
+                        border: '1px solid',
+                        borderColor: alpha(theme.palette.primary.main, 0.28),
+                        bgcolor: alpha(theme.palette.primary.main, dark ? 0.16 : 0.06),
+                        transition: 'background-color .15s, border-color .15s, transform .15s',
+                        // The arrow leads on hover — the gesture the button describes.
+                        '& .MuiButton-startIcon': { transition: 'transform .15s' },
+                        '&:hover': {
+                            bgcolor: alpha(theme.palette.primary.main, dark ? 0.26 : 0.12),
+                            borderColor: 'primary.main',
+                            '& .MuiButton-startIcon': { transform: 'translateX(-2px)' },
+                        },
+                        '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+                    }}
                 >
                     Back to tasks
                 </Button>
 
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'flex-start' }}>
+                {/* The header is a SURFACE now, like every panel below it. It used to sit on the
+                    raw page background, which made the most important thing on the screen the
+                    only thing without a card — and left the title, the badges and the actions
+                    reading as three unrelated rows. */}
+                <Stack
+                    direction={{ xs: 'column', md: 'row' }}
+                    spacing={1.5}
+                    alignItems={{ md: 'flex-start' }}
+                    sx={{
+                        ...CARD_SX,
+                        p: { xs: 1.75, md: 2.25 },
+                        // A stage-coloured keyline: the one fact about a task that changes most
+                        // often, readable before a word has been read.
+                        borderLeft: '4px solid',
+                        borderLeftColor: task.status?.color || theme.palette.primary.main,
+                    }}
+                >
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
                             <TaskScopeBadge scope={task.taskScope} />
@@ -178,37 +319,105 @@ export const TaskDetailPage = () => {
                                 Subtask of {task.parentTask?.taskName || 'another task'}
                             </Button>
                         )}
+                        {/* Where this task sits in the CONFIGURATION tree — the ancestors of the
+                            preset it was created from, derived server-side from `presetTaskId`.
+                            Above the name rather than beside it, because it reads as the address
+                            of the thing whose name follows: Bill → hmmm → **Nah**.
+
+                            Absent for a custom-named task, which has no place in that tree, so
+                            the line simply does not appear. */}
+                        {!!ancestors.length && (
+                            <Stack
+                                direction="row" alignItems="center" flexWrap="wrap" useFlexGap
+                                sx={{ mb: 0.25, columnGap: 0.5, rowGap: 0.25 }}
+                            >
+                                {ancestors.map((step, i) => (
+                                    <Stack key={`${step}-${i}`} direction="row" alignItems="center" spacing={0.5}>
+                                        {i > 0 && (
+                                            <Box sx={{ color: 'text.disabled', lineHeight: 0, mt: '1px' }}>
+                                                <KTIcon iconName="right" className="fs-9" />
+                                            </Box>
+                                        )}
+                                        <Typography
+                                            variant="caption"
+                                            sx={{ fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}
+                                        >
+                                            {step}
+                                        </Typography>
+                                    </Stack>
+                                ))}
+                            </Stack>
+                        )}
                         <Typography variant="h5" component="div" sx={{ fontWeight: 700, lineHeight: 1.25, color: 'text.primary' }}>
                             {task.taskName}
                         </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.25 }}>
-                            {task.taskScope === 'PROJECT'
-                                ? (task.lead?.title || 'Project unavailable')
-                                : 'Internal task — no project'}
-                        </Typography>
+                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.5, minWidth: 0 }}>
+                            <Box sx={{ color: 'text.disabled', lineHeight: 0 }}>
+                                <KTIcon iconName={task.taskScope === 'PROJECT' ? 'office-bag' : 'home-2'} className="fs-7" />
+                            </Box>
+                            <Typography variant="body2" noWrap sx={{ color: 'text.secondary' }}>
+                                {task.taskScope === 'PROJECT'
+                                    ? (task.lead?.title || 'Project unavailable')
+                                    : 'Internal task — no project'}
+                            </Typography>
+                        </Stack>
                     </Box>
 
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {/* The stage control carries the stage's configured colour, so the
+                            control and the badge in the card below cannot disagree. */}
                         <Button
                             variant="outlined"
                             onClick={(e) => setStageAnchor(e.currentTarget)}
                             disabled={moveStage.isPending}
+                            startIcon={
+                                <Box sx={{
+                                    width: 8, height: 8, borderRadius: '50%',
+                                    bgcolor: task.status?.color || theme.palette.primary.main,
+                                }} />
+                            }
                             endIcon={<KTIcon iconName="down" className="fs-8" />}
-                            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, borderColor: 'divider' }}
+                            sx={{
+                                textTransform: 'none', fontWeight: 600, borderRadius: 1.5,
+                                borderColor: alpha(task.status?.color || theme.palette.primary.main, 0.4),
+                                color: 'text.primary',
+                                '&:hover': {
+                                    borderColor: task.status?.color || theme.palette.primary.main,
+                                    bgcolor: alpha(task.status?.color || theme.palette.primary.main, 0.06),
+                                },
+                            }}
                         >
                             {task.status?.name ?? 'No stage'}
                         </Button>
                         <Button
                             variant="outlined"
                             onClick={() => setEditOpen(true)}
-                            startIcon={<KTIcon iconName="pencil" className="fs-7" />}
+                            startIcon={<KTIcon iconName={canEdit ? 'pencil' : 'chart-simple'} className="fs-7" />}
                             sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, borderColor: 'divider' }}
                         >
-                            Edit
+                            {canEdit ? 'Edit' : 'Update progress'}
                         </Button>
-                        <IconButton onClick={handleDelete} aria-label="Delete task" sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
-                            <KTIcon iconName="trash" className="fs-6" />
-                        </IconButton>
+                        {canEdit && (
+                        <Tooltip title="Delete this task">
+                            <IconButton
+                                onClick={handleDelete}
+                                aria-label="Delete task"
+                                sx={{
+                                    border: '1px solid', borderColor: 'divider', borderRadius: 1.5,
+                                    color: 'text.secondary',
+                                    // Neutral until reached for: destructive controls should not
+                                    // shout from a page you are only reading.
+                                    '&:hover': {
+                                        color: 'error.main',
+                                        borderColor: alpha(theme.palette.error.main, 0.5),
+                                        bgcolor: alpha(theme.palette.error.main, 0.08),
+                                    },
+                                }}
+                            >
+                                <KTIcon iconName="trash" className="fs-6" />
+                            </IconButton>
+                        </Tooltip>
+                        )}
                     </Stack>
                 </Stack>
             </Stack>
@@ -249,21 +458,48 @@ export const TaskDetailPage = () => {
                     <Grid item xs={12} md={8}>
                       <Stack spacing={2}>
                         <Box sx={CARD_SX}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>Description</Typography>
+                            <CardTitle icon="document">Description</CardTitle>
                             <Typography variant="body2" sx={{ color: task.taskDescription ? 'text.primary' : 'text.disabled', whiteSpace: 'pre-wrap' }}>
                                 {task.taskDescription || 'No description provided.'}
                             </Typography>
                         </Box>
 
                         <Box sx={CARD_SX}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.25 }}>Task information</Typography>
+                        <CardTitle icon="information-5">Task information</CardTitle>
                         <Grid container spacing={2}>
                             <InfoRow label="Stage"><TaskStatusBadge status={task.status} /></InfoRow>
                             <InfoRow label="Priority">
                                 {task.priority ? <TaskPriorityBadge priority={task.priority} /> : <Plain>—</Plain>}
                             </InfoRow>
-                            <InfoRow label="Assignee"><AssigneeAvatar employee={task.assignedTo} showName /></InfoRow>
+                            {/* "Assign to", matching the form. The noun read as a property of the
+                                task and left people asking whether it meant who assigned it. */}
+                            <InfoRow label="Assign to">
+                                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
+                                    <TaskAssignees assignees={task.assignees} fallback={task.assignedTo} size={26} showName />
+                                    {/* The manual third channel. Offered to whoever may edit the
+                                        task — the same people who could have assigned it — and
+                                        long after the assignment, because a reminder is as often
+                                        the point as the first announcement. */}
+                                    {canEdit && notifiablePeople.length > 0 && (
+                                        <Tooltip title="Send a WhatsApp note from your own number">
+                                            <IconButton
+                                                size="small"
+                                                aria-label="Send a WhatsApp note"
+                                                onClick={() => setNotifyOpen(true)}
+                                                sx={{ color: 'success.main' }}
+                                            >
+                                                <WhatsAppIcon size={16} />
+                                            </IconButton>
+                                        </Tooltip>
+                                    )}
+                                </Stack>
+                            </InfoRow>
                             <InfoRow label="Scope"><TaskScopeBadge scope={task.taskScope} /></InfoRow>
+                            {!!ancestors.length && (
+                                <InfoRow label="Hierarchy">
+                                    <Plain>{[...ancestors, task.taskName].join(PATH_SEPARATOR)}</Plain>
+                                </InfoRow>
+                            )}
                             <InfoRow label="Project">
                                 <Plain>{task.taskScope === 'PROJECT' ? (task.lead?.title || '—') : 'Not applicable'}</Plain>
                             </InfoRow>
@@ -300,14 +536,32 @@ export const TaskDetailPage = () => {
                     <Grid item xs={12} md={4}>
                         <Stack spacing={2}>
                             <Box sx={CARD_SX}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.25 }}>
-                                    Progress — {clampProgress(task.progress)}%
-                                </Typography>
+                                {/* The number leads, because it is the whole point of the panel;
+                                    the bar under it is the same figure, read at a glance. */}
+                                <CardTitle
+                                    icon="chart-simple"
+                                    action={
+                                        <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1, color: 'primary.main' }}>
+                                            {clampProgress(task.progress)}%
+                                        </Typography>
+                                    }
+                                >
+                                    Progress
+                                </CardTitle>
                                 <TaskProgress value={task.progress} height={8} />
                             </Box>
 
                             <Box sx={CARD_SX}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.25 }}>Subtasks</Typography>
+                                <CardTitle
+                                    icon="tree"
+                                    action={subTotal ? (
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                                            {subDone}/{subTotal}
+                                        </Typography>
+                                    ) : undefined}
+                                >
+                                    Subtasks
+                                </CardTitle>
                                 {subtasks.length === 0 ? (
                                     <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                                         None yet — break this task down from the Subtasks tab.
@@ -323,7 +577,7 @@ export const TaskDetailPage = () => {
                             </Box>
 
                             <Box sx={CARD_SX}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.25 }}>Time</Typography>
+                                <CardTitle icon="time">Time</CardTitle>
                                 <Stack direction="row" justifyContent="space-between" alignItems="baseline">
                                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>Logged</Typography>
                                     <Typography variant="body2" sx={{ fontWeight: 700 }}>
@@ -338,15 +592,20 @@ export const TaskDetailPage = () => {
                                         {timesheetsQuery.data?.summary?.totalEntries ?? 0}
                                     </Typography>
                                 </Stack>
-                                <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mt: 0.5 }}>
-                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>Labour cost</Typography>
-                                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                        {/* The server decides whether cost may be shown; the client never guesses. */}
-                                        {timesheetsQuery.data?.costVisible
-                                            ? (timesheetsQuery.data?.summary?.totalCostFormatted || '—')
-                                            : 'Restricted'}
-                                    </Typography>
-                                </Stack>
+                                {/* Money only for those entitled to it — an administrator, or this
+                                    project's primary manager. The row is OMITTED rather than shown
+                                    as "Restricted": a redaction label advertises that a figure
+                                    exists and that you are not trusted with it, on a panel most
+                                    people open to read hours. The server redacts the value either
+                                    way; this only decides whether to draw the line. */}
+                                {timesheetsQuery.data?.costVisible && (
+                                    <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mt: 0.5 }}>
+                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>Labour cost</Typography>
+                                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                            {timesheetsQuery.data?.summary?.totalCostFormatted || '—'}
+                                        </Typography>
+                                    </Stack>
+                                )}
                             </Box>
                         </Stack>
                     </Grid>
@@ -388,7 +647,16 @@ export const TaskDetailPage = () => {
                 open={editOpen}
                 onClose={() => setEditOpen(false)}
                 task={task as never}
+                progressOnly={!canEdit}
                 onSaved={() => taskQuery.refetch()}
+            />
+
+            <NotifyOnWhatsAppDialog
+                open={notifyOpen}
+                onClose={() => setNotifyOpen(false)}
+                taskId={task.id}
+                taskName={task.taskName}
+                people={notifiablePeople}
             />
 
             <TaskFormDialog

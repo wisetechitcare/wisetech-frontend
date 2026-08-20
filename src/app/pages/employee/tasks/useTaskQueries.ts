@@ -24,6 +24,9 @@ import {
     getAvailableProjects,
     getBoardProjects,
     getProjectAssignees,
+    getProjectTeam,
+    removeProjectTeamMember,
+    promoteProjectTeamMember,
     getGeneralAssignees,
     createTask,
     updateTask,
@@ -73,21 +76,42 @@ export const useSubtasks = (id: string | undefined) =>
         enabled: !!id,
     });
 
+/**
+ * A task's timesheets — and, inside them, who is on the clock right now.
+ *
+ * Polled while the tab is open, because a running timer is somebody ELSE's action: the manager
+ * who started it and the person whose task it is are looking at two different browsers, and
+ * neither invalidates the other's cache. Thirty seconds is chosen against what the data is worth
+ * — a stopwatch that is up to half a minute stale still answers "is anyone working on this", and
+ * the elapsed figure itself ticks locally from the server's start time, so the display stays
+ * smooth between refetches.
+ *
+ * `refetchIntervalInBackground` is left off deliberately: a hidden tab polling every 30s for the
+ * rest of the day is somebody's battery.
+ */
 export const useTaskTimesheets = (id: string | undefined) =>
     useQuery({
         queryKey: queryKeys.tasks.timesheets(id ?? ''),
         queryFn: () => getTimesheetByTaskId(id as string),
         enabled: !!id,
+        refetchInterval: 30_000,
+        refetchOnWindowFocus: true,
     });
 
 // Configuration — changes rarely, so a long stale time keeps the board from refetching stages
 // on every mount. Invalidated explicitly when Configure writes.
 const CONFIG_STALE = 5 * 60 * 1000;
 
-export const useTaskStatuses = () =>
+/**
+ * The stages a board may show. Pass the project and you get its OWN lanes alongside the
+ * company-wide ones; omit it and you get the company-wide set alone — which is what every
+ * caller used to do, and why a lane created on a project's board never appeared in the task
+ * form's Stage list.
+ */
+export const useTaskStatuses = (projectId?: string) =>
     useQuery({
-        queryKey: queryKeys.tasks.statuses(),
-        queryFn: getAllTasksStatus,
+        queryKey: queryKeys.tasks.statuses(projectId),
+        queryFn: () => getAllTasksStatus(projectId),
         staleTime: CONFIG_STALE,
     });
 
@@ -135,6 +159,62 @@ export const useProjectAssignees = (projectId: string | undefined) =>
         queryFn: () => getProjectAssignees(projectId as string),
         enabled: !!projectId,
     });
+
+/**
+ * One project's whole internal team. Fetched only while the dialog that shows it is open —
+ * the board header itself already has the first faces from the rail payload, so nothing needs
+ * this until somebody asks to see everyone.
+ */
+export const useProjectTeam = (projectId: string | undefined, enabled = true) =>
+    useQuery({
+        queryKey: queryKeys.tasks.projectTeam(projectId ?? ''),
+        queryFn: () => getProjectTeam(projectId as string),
+        enabled: !!projectId && enabled,
+        staleTime: CONFIG_STALE,
+    });
+
+/**
+ * Remove one person from a project's team.
+ *
+ * Invalidates the whole task dataset, not just the team: the removal unassigns their tasks on
+ * that project, so the board, the table and the rail's avatar stack are all now stale. This is
+ * the one mutation in the module whose effects reach outside its own query.
+ */
+export const useRemoveProjectTeamMember = () => {
+    const qc = useQueryClient();
+    const invalidate = useInvalidateTasks();
+    return useMutation({
+        mutationFn: ({ projectId, employeeId }: { projectId: string; employeeId: string }) =>
+            removeProjectTeamMember(projectId, employeeId),
+        onSuccess: (_data, { projectId }) => {
+            invalidate();
+            qc.invalidateQueries({ queryKey: queryKeys.tasks.projectTeam(projectId) });
+            qc.invalidateQueries({ queryKey: queryKeys.tasks.projectAssignees(projectId) });
+        },
+    });
+};
+
+/**
+ * Promote a team member to project manager.
+ *
+ * Invalidates as broadly as the removal does: project authority decides who may be ASSIGNED work
+ * and who may create it, so the assignee selectors and the creatable-project list are both stale
+ * the moment this succeeds.
+ */
+export const usePromoteProjectManager = () => {
+    const qc = useQueryClient();
+    const invalidate = useInvalidateTasks();
+    return useMutation({
+        mutationFn: ({ projectId, employeeId }: { projectId: string; employeeId: string }) =>
+            promoteProjectTeamMember(projectId, employeeId),
+        onSuccess: (_data, { projectId }) => {
+            invalidate();
+            qc.invalidateQueries({ queryKey: queryKeys.tasks.projectTeam(projectId) });
+            qc.invalidateQueries({ queryKey: queryKeys.tasks.projectAssignees(projectId) });
+            qc.invalidateQueries({ queryKey: queryKeys.tasks.availableProjects() });
+        },
+    });
+};
 
 export const useGeneralAssignees = (enabled = true) =>
     useQuery({
@@ -242,8 +322,11 @@ export const useDeleteTimesheet = () => {
 export const useCreateBoardList = () => {
     const invalidate = useInvalidateTasks();
     return useMutation({
-        mutationFn: ({ name, projectId }: { name: string; projectId: string }) =>
-            createTasksStatus({ name, projectId }),
+        // No `projectId` = a company-wide stage. Omitted from the payload entirely rather than
+        // sent as null: the handler reads its presence to decide which authorization branch
+        // applies, and a stray key is not a decision anyone made.
+        mutationFn: ({ name, projectId }: { name: string; projectId?: string }) =>
+            createTasksStatus(projectId ? { name, projectId } : { name }),
         onSuccess: invalidate,
     });
 };

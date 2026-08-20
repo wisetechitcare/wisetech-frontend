@@ -44,18 +44,21 @@ import {
     TaskRow, isTaskOverdue, loggedSeconds, formatDuration, shortTaskId,
 } from '../taskDomain';
 import {
-    TaskScopeBadge, TaskPriorityBadge, TaskProgress, AssigneeAvatar, TaskDueDate, FinalStageMark,
+    TaskScopeBadge, TaskPriorityBadge, TaskProgress, TaskAssignees, TaskDueDate, FinalStageMark,
 } from './primitives';
 
 export interface TaskCardProps {
     task: TaskRow;
     now: Date;
     onOpen: (taskId: string) => void;
-    /** Set while this card is the one being dragged, so it can dim in place. */
-    isDragging?: boolean;
-    /** `height` is the card's rendered height, so the board can hold open a gap of exactly that. */
-    onDragStart?: (taskId: string, height: number) => void;
-    onDragEnd?: () => void;
+    /**
+     * Dragging is no longer this component's business.
+     *
+     * The card used to own the whole gesture — `draggable`, a hand-built `setDragImage` clone,
+     * and a dance to stop the browser snapshotting the faded original. `SortableItem` wraps it
+     * now: it registers the drag, draws the insertion edge, and renders THIS component again as
+     * the floating preview. What is left here is a card.
+     */
     /** Touch fallback for stage moves — the board supplies the menu. */
     onRequestMove?: (task: TaskRow, anchor: HTMLElement) => void;
 }
@@ -71,88 +74,16 @@ const MetaChip = ({ icon, label }: { icon: string; label: string }) => (
 );
 
 const TaskCardBase = ({
-    task, now, onOpen, isDragging, onDragStart, onDragEnd, onRequestMove,
+    task, now, onOpen, onRequestMove,
 }: TaskCardProps) => {
     const theme = useTheme();
+    const dark = theme.palette.mode === 'dark';
     const overdue = isTaskOverdue(task, now);
     const logged = loggedSeconds(task.timesheets);
     const subtaskCount = task._count?.subtasks ?? 0;
-    /** The node handed to `setDragImage`, alive until the browser has captured it. */
-    const ghostRef = useRef<HTMLElement | null>(null);
-    /** Measured at drag start; the board sizes its drop trace from it on the first `drag`. */
-    const heightRef = useRef(0);
-    const startedRef = useRef(false);
-
-    const buildGhost = (event: React.DragEvent<HTMLDivElement>) => {
-        const node = event.currentTarget;
-        const rect = node.getBoundingClientRect();
-        const ghost = node.cloneNode(true) as HTMLElement;
-
-        // Exactly over the original, so it is in the viewport (Chrome will not reliably rasterize
-        // a node parked off-screen) and invisible (it is the same card, in the same place).
-        ghost.style.position = 'fixed';
-        ghost.style.top = `${rect.top}px`;
-        ghost.style.left = `${rect.left}px`;
-        ghost.style.width = `${rect.width}px`;
-        ghost.style.height = `${rect.height}px`;
-        ghost.style.margin = '0';
-        ghost.style.zIndex = '1';
-        ghost.style.pointerEvents = 'none';
-        // Stated, not inherited. The ghost must be SOLID: the class it was cloned from can carry
-        // the dragging card's own fade, and the board's surface behind it is backdrop-filtered.
-        ghost.style.opacity = '1';
-        ghost.style.backgroundColor = theme.palette.background.paper;
-        ghost.style.backdropFilter = 'none';
-        ghost.style.filter = 'none';
-        // The tilt lives here rather than on the real card, so nothing the user is looking at
-        // moves — and no scale, because scaling a snapshot is exactly what blurred it.
-        ghost.style.transform = 'rotate(3deg)';
-        ghost.style.boxShadow = `0 18px 40px ${alpha(theme.palette.common.black, 0.4)}`;
-
-        document.body.appendChild(ghost);
-        ghostRef.current = ghost;
-        // Grabbed under the cursor where it was actually picked up, so the card does not jump.
-        event.dataTransfer.setDragImage(ghost, event.clientX - rect.left, event.clientY - rect.top);
-    };
-
-    const dropGhost = () => {
-        ghostRef.current?.remove();
-        ghostRef.current = null;
-    };
-
-    /**
-     * The drag is genuinely under way: the image has been captured, so the clone can go and the
-     * card can dim. Idempotent — `drag` fires continuously.
-     */
-    const beginDrag = () => {
-        if (startedRef.current) return;
-        startedRef.current = true;
-        dropGhost();
-        onDragStart?.(task.id, heightRef.current);
-    };
-
-    // A drag that ends with the card unmounting (it moved lane, and the board re-rendered) never
-    // fires this card's `dragend` — without this the clone would outlive the board.
-    useEffect(() => dropGhost, []);
-
     return (
         <Card
             elevation={0}
-            draggable={!!onDragStart}
-            onDragStart={(e) => {
-                // The id travels in the drag payload so a drop handler never has to consult
-                // component state to know what was dropped.
-                e.dataTransfer.setData('text/plain', task.id);
-                e.dataTransfer.effectAllowed = 'move';
-                startedRef.current = false;
-                heightRef.current = e.currentTarget.getBoundingClientRect().height;
-                buildGhost(e);
-                // Nothing else happens here. The card must NOT dim inside this handler: a faded
-                // card is what the browser snapshots if it declines the clone, and that is the
-                // see-through ghost. `onDrag` takes over once the image is safely captured.
-            }}
-            onDrag={beginDrag}
-            onDragEnd={() => { dropGhost(); startedRef.current = false; onDragEnd?.(); }}
             onClick={() => onOpen(task.id)}
             onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(task.id); }
@@ -162,20 +93,19 @@ const TaskCardBase = ({
             aria-label={`${task.taskName}, ${task.taskScope.toLowerCase()} task`}
             sx={{
                 p: 1.5,
-                cursor: onDragStart ? 'grab' : 'pointer',
+                // The grab cursor comes from SortableItem, which knows whether this
+                // card is actually draggable here.
+                cursor: 'inherit',
                 borderRadius: 2,
                 border: '1px solid',
                 borderColor: overdue ? alpha(theme.palette.error.main, 0.35) : 'divider',
                 bgcolor: 'background.paper',
-                // The card being dragged stays put as a faint outline of where it came from —
-                // the thing that makes a long drag legible.
-                opacity: isDragging ? 0.35 : 1,
+                // The dragged card's slot is dimmed by SortableItem, so nothing is needed here.
                 boxShadow: `0 1px 2px ${alpha(theme.palette.common.black, theme.palette.mode === 'dark' ? 0.4 : 0.06)}`,
                 transition: theme.transitions.create(
                     ['border-color', 'box-shadow', 'transform', 'opacity'],
                     { duration: 160, easing: theme.transitions.easing.easeOut },
                 ),
-                '&:active': { cursor: onDragStart ? 'grabbing' : 'pointer' },
                 '&:hover': {
                     borderColor: alpha(theme.palette.primary.main, 0.45),
                     boxShadow: `0 6px 18px ${alpha(theme.palette.common.black, theme.palette.mode === 'dark' ? 0.5 : 0.1)}`,
@@ -233,12 +163,24 @@ const TaskCardBase = ({
 
                 {/* ── band 2: what it says ── */}
                 <Box sx={{ minWidth: 0 }}>
-                    {/* A subtask must announce its parent — on a board it is otherwise
-                        indistinguishable from independent work. */}
+                    {/* A subtask must READ as a subtask.
+                        This used to be 10px disabled-grey text with a small glyph — the same
+                        weight and colour as the project line two rows below it, so the one line
+                        that says "this is part of something bigger" looked like more metadata.
+                        It is now a tinted pill with the parent's name and a return arrow, which
+                        is the shape the eye already reads as "belongs to". */}
                     {task.parentTaskId && (
-                        <Stack direction="row" spacing={0.4} alignItems="center" sx={{ color: 'text.disabled', mb: 0.25 }}>
-                            <KTIcon iconName="tree" className="fs-9" />
-                            <Typography variant="caption" noWrap sx={{ fontSize: 10, minWidth: 0 }}>
+                        <Stack
+                            direction="row" spacing={0.4} alignItems="center"
+                            sx={{
+                                mb: 0.5, maxWidth: '100%', width: 'fit-content',
+                                px: 0.6, py: 0.15, borderRadius: 0.75,
+                                bgcolor: alpha(theme.palette.secondary.main, dark ? 0.24 : 0.12),
+                                color: theme.palette.secondary.main,
+                            }}
+                        >
+                            <KTIcon iconName="arrow-down-left" className="fs-9" />
+                            <Typography variant="caption" noWrap sx={{ fontSize: 10, fontWeight: 700, minWidth: 0 }}>
                                 {task.parentTask?.taskName || 'Subtask'}
                             </Typography>
                         </Stack>
@@ -272,11 +214,21 @@ const TaskCardBase = ({
 
                 {/* ── band 3: who and when ── */}
                 <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
-                    <AssigneeAvatar employee={task.assignedTo} size={24} />
+                    {/* Everyone on it, owner first — a shared task shows as a group. */}
+                    <TaskAssignees assignees={task.assignees} fallback={task.assignedTo} size={24} max={2} />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                         <TaskDueDate task={task} now={now} pill />
                     </Box>
-                    {subtaskCount > 0 && <MetaChip icon="tree" label={String(subtaskCount)} />}
+                    {/* "3 subtasks", not a bare "3" beside a glyph nobody has to decode. This is
+                        the other half of telling the two apart: a card either belongs to a
+                        parent (the pill above) or HAS children (this chip), and a card with
+                        neither is standalone work. */}
+                    {subtaskCount > 0 && (
+                        <MetaChip
+                            icon="tree"
+                            label={`${subtaskCount} subtask${subtaskCount === 1 ? '' : 's'}`}
+                        />
+                    )}
                     {logged > 0 && <MetaChip icon="timer" label={formatDuration(logged)} />}
                 </Stack>
             </Stack>

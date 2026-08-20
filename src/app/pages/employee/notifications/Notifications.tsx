@@ -16,6 +16,7 @@ import {
 } from '../../../../utils/notificationStyles';
 import { Pagination, Spinner, Alert } from 'react-bootstrap';
 import { KTIcon } from '../../../../_metronic/helpers';
+import AssignedTasksInbox from './AssignedTasksInbox';
 
 interface Notification {
   id: string;
@@ -27,9 +28,15 @@ interface Notification {
   status?: string;
 }
 
-// Filter tabs
+// Filter tabs.
+//
+// 'tasks' is not a filter over notifications like the others — it swaps the list for the work
+// currently assigned to you (see AssignedTasksInbox). It lives here rather than on its own page
+// because this IS the inbox: "what needs me" is one question, whether the answer arrived as an
+// alert or as a task somebody handed over.
 const FILTER_TABS = [
   { key: 'all',           label: 'All' },
+  { key: 'tasks',         label: 'Tasks' },
   { key: 'checkin',       label: 'Check-In' },
   { key: 'checkout',      label: 'Checkout' },
   { key: 'late',          label: 'Late / Penalty' },
@@ -52,13 +59,17 @@ const LATE_TYPES = new Set([
   ATTENDANCE_NOTIFICATION_TYPE.SALARY_DEDUCTION,
 ]);
 
+const TASK_TYPES = new Set(['TASK_ASSIGNED']);
+
 function matchesFilter(notification: Notification, filter: FilterKey): boolean {
   if (filter === 'all') return true;
+  // The Tasks tab renders its own list; nothing is filtered for it here.
+  if (filter === 'tasks') return false;
   const s = notification.status ?? '';
   if (filter === 'checkin')  return CHECKIN_TYPES.has(s as any);
   if (filter === 'checkout') return CHECKOUT_TYPES.has(s as any);
   if (filter === 'late')     return LATE_TYPES.has(s as any);
-  if (filter === 'other')    return !CHECKIN_TYPES.has(s as any) && !CHECKOUT_TYPES.has(s as any) && !LATE_TYPES.has(s as any);
+  if (filter === 'other')    return !CHECKIN_TYPES.has(s as any) && !CHECKOUT_TYPES.has(s as any) && !LATE_TYPES.has(s as any) && !TASK_TYPES.has(s);
   return true;
 }
 
@@ -122,7 +133,7 @@ const Notifications: React.FC = () => {
             <KTIcon iconName="notification-on" className="text-primary fs-2x me-2" />
             Notifications
           </h2>
-          <p className="text-muted mb-0 small">Your attendance alerts and system messages</p>
+          <p className="text-muted mb-0 small">Your tasks, attendance alerts and system messages</p>
         </div>
         <button
           onClick={handleMarkAllAsRead}
@@ -154,7 +165,9 @@ const Notifications: React.FC = () => {
       {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
 
       {/* ── Content ── */}
-      {loading ? (
+      {activeFilter === 'tasks' ? (
+        <AssignedTasksInbox />
+      ) : loading ? (
         <div className="d-flex justify-content-center align-items-center py-5">
           <Spinner animation="border" variant="primary" />
         </div>
@@ -231,7 +244,7 @@ const Notifications: React.FC = () => {
       )}
 
       {/* ── Pagination ── */}
-      {totalPages > 1 && !loading && (
+      {totalPages > 1 && !loading && activeFilter !== 'tasks' && (
         <div className="d-flex justify-content-center mt-5">
           <Pagination>
             <Pagination.First onClick={() => setPage(1)} disabled={page === 1} />

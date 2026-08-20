@@ -22,7 +22,6 @@ import {
     filtersToQuery, activeFilterCount,
     apiErrorMessage, employeeName, initialsOf, shortTaskId,
     TaskScope,
-    mainPresets, subPresets, presetTaskName, presetPairForName,
 } from '../taskDomain';
 
 const NOW = new Date('2026-08-12T10:00:00.000Z');
@@ -304,41 +303,30 @@ describe('display helpers', () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Preset task tree — merged in from main (preset tasks are a two-level Task → Sub-task tree)
+// Preset link — the configuration node a task was created from
 // ═════════════════════════════════════════════════════════════════════════════
-describe('preset task tree', () => {
-    const presets = [
-        { id: 'm1', name: 'Drawing', parentId: null },
-        { id: 'm2', name: 'Survey', parentId: null },
-        { id: 's1', name: 'Drawing-DD', parentId: 'm1' },
-        { id: 's2', name: 'Drawing-GFC', parentId: 'm1' },
-    ];
+describe('preset link on the payload', () => {
+    const base = {
+        taskScope: 'PROJECT' as TaskScope, taskTypeMode: 'PRESETS' as const,
+        taskName: 'Drawing-GFC', projectId: 'p1',
+    };
 
-    it('main tasks are the roots', () => {
-        assert.deepEqual(mainPresets(presets).map((p) => p.id), ['m1', 'm2']);
+    it('sends the chosen node id, which is what the hierarchy is derived from', () => {
+        // The NAME alone cannot answer "where does this sit" — the same name may appear in more
+        // than one branch. The server builds taskPath/taskHierarchy from this id.
+        assert.equal(buildTaskPayload({ ...base, presetTaskId: 'n7' }).presetTaskId, 'n7');
     });
 
-    it('sub-tasks are filed under their main task only', () => {
-        assert.deepEqual(subPresets(presets, 'm1').map((p) => p.id), ['s1', 's2']);
-        assert.deepEqual(subPresets(presets, 'm2'), []);
-        assert.deepEqual(subPresets(presets, undefined), []);
+    it('sends null rather than an empty string when nothing is picked', () => {
+        // '' would read as a supplied-but-unresolvable reference, the same trap projectId has.
+        assert.equal(buildTaskPayload(base).presetTaskId, null);
     });
 
-    it('the LAST choice names the task — sub-task wins over main', () => {
-        assert.equal(presetTaskName(presets, 'm1', 's2'), 'Drawing-GFC');
-        assert.equal(presetTaskName(presets, 'm1', ''), 'Drawing');
-        assert.equal(presetTaskName(presets, undefined, undefined), '');
-    });
-
-    it('an edited task maps its stored NAME back onto the pair it came from', () => {
-        // Tasks are stored by name, not preset id, so reopening one has to resolve backwards
-        // or both pickers show empty.
-        assert.deepEqual(presetPairForName(presets, 'Drawing-DD'), { mainTaskId: 'm1', subTaskId: 's1' });
-        assert.deepEqual(presetPairForName(presets, 'Survey'), { mainTaskId: 'm2', subTaskId: '' });
-    });
-
-    it('a name that matches no preset resolves to nothing rather than guessing', () => {
-        assert.deepEqual(presetPairForName(presets, 'Typed by hand'), { mainTaskId: '', subTaskId: '' });
-        assert.deepEqual(presetPairForName(presets, undefined), { mainTaskId: '', subTaskId: '' });
+    it('CUSTOM clears the link, even if a preset was chosen before the switch', () => {
+        // Otherwise a hand-typed name would keep pointing at a configuration node it no longer
+        // has anything to do with, and the task would show that node's hierarchy.
+        const payload = buildTaskPayload({ ...base, taskTypeMode: 'CUSTOM', presetTaskId: 'n7' });
+        assert.equal(payload.presetTaskId, null);
+        assert.equal(payload.taskType, 'CUSTOM');
     });
 });

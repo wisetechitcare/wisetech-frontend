@@ -9,7 +9,7 @@
  * **No hardcoded colours.** Everything resolves through the MUI theme or a stage's own
  * configured colour, so light and dark both work without a second stylesheet.
  */
-import { Box, Chip, LinearProgress, Stack, Tooltip, Typography, Avatar, alpha, useTheme } from '@mui/material';
+import { Box, Chip, LinearProgress, Stack, Tooltip, Typography, Avatar, AvatarGroup, alpha, useTheme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import {
     TaskScope, TaskStatusRef, employeeName, initialsOf, clampProgress, dueLabel, isTaskOverdue, isTaskFinal,
@@ -168,7 +168,9 @@ export const AssigneeAvatar = ({
     size = 22,
     showName = false,
 }: {
-    employee?: { avatar?: string | null; users?: { firstName?: string; lastName?: string } | null } | null;
+    // Nullable name parts, matching `employeeName()` and what the API actually sends — a
+    // narrower type here forced every caller holding a real payload to cast.
+    employee?: { avatar?: string | null; users?: { firstName?: string | null; lastName?: string | null } | null } | null;
     size?: number;
     showName?: boolean;
 }) => {
@@ -200,6 +202,171 @@ export const AssigneeAvatar = ({
             {showName && (
                 <Typography variant="caption" noWrap sx={{ color: 'text.secondary', minWidth: 0 }}>
                     {name}
+                </Typography>
+            )}
+        </Stack>
+    );
+};
+
+export interface TeamMemberRef {
+    id: string;
+    avatar?: string | null;
+    users?: { firstName?: string | null; lastName?: string | null } | null;
+}
+
+/**
+ * A team, as a stack of faces — the people who can actually be assigned on a project.
+ *
+ * Lives here rather than beside the surface that happens to draw it: it started in the project
+ * rail's rows, where it repeated the same three faces down the whole list and said nothing about
+ * the project you were actually looking at. It now sits once in the board header, on the SELECTED
+ * project, which is the only place the answer is worth screen space. A primitive, so moving it
+ * again is moving one JSX line.
+ *
+ * `total` is the real headcount, which may exceed `members.length` — the API sends a preview of
+ * the team plus a count, so the "+N" is honest about people it never sent.
+ */
+export const TeamAvatars = ({
+    members,
+    total,
+    size = 24,
+    max = 3,
+    onClick,
+    label = 'View the project team',
+}: {
+    members: TeamMemberRef[];
+    /** Full headcount. Defaults to what was passed when the API sent no separate count. */
+    total?: number;
+    size?: number;
+    max?: number;
+    /** Makes the stack a button — the faces are a preview, and the click is how you see the rest. */
+    onClick?: () => void;
+    /** Tooltip and accessible name for the clickable form. */
+    label?: string;
+}) => {
+    const theme = useTheme();
+    if (!members.length) return null;
+
+    const group = (
+        <AvatarGroup
+            max={max}
+            total={total ?? members.length}
+            sx={{
+                '& .MuiAvatar-root': {
+                    width: size, height: size, fontSize: size * 0.42, fontWeight: 700,
+                    borderColor: theme.palette.background.paper,
+                    bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.3 : 0.16),
+                    color: theme.palette.primary.main,
+                },
+            }}
+        >
+            {members.map((m) => {
+                const name = employeeName(m);
+                return (
+                    // The per-face tooltip is dropped in the clickable form: a tooltip on each
+                    // avatar and another on the button underneath fight each other, and the one
+                    // that matters is the one naming what the click does.
+                    onClick ? (
+                        <Avatar key={m.id} src={m.avatar || undefined} alt={name}>{initialsOf(name)}</Avatar>
+                    ) : (
+                        <Tooltip key={m.id} title={name}>
+                            <Avatar src={m.avatar || undefined} alt={name}>{initialsOf(name)}</Avatar>
+                        </Tooltip>
+                    )
+                );
+            })}
+        </AvatarGroup>
+    );
+
+    if (!onClick) return group;
+
+    return (
+        <Tooltip title={label}>
+            <Box
+                component="button" type="button" onClick={onClick} aria-label={label}
+                sx={{
+                    border: 0, p: 0.25, bgcolor: 'transparent', cursor: 'pointer',
+                    borderRadius: 999, display: 'inline-flex', alignItems: 'center',
+                    transition: 'background-color .15s, transform .15s',
+                    '&:hover': {
+                        bgcolor: alpha(theme.palette.primary.main, 0.08),
+                        // A stack that lifts slightly is the affordance — an avatar row is not
+                        // otherwise something anyone expects to be able to press.
+                        transform: 'translateY(-1px)',
+                    },
+                    '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+                }}
+            >
+                {group}
+            </Box>
+        </Tooltip>
+    );
+};
+
+/** A task's roster row, as every task payload carries it. */
+export interface TaskAssigneeRef {
+    employeeId: string;
+    isOwner: boolean;
+    employee?: {
+        id: string;
+        avatar?: string | null;
+        users?: { firstName?: string | null; lastName?: string | null } | null;
+    } | null;
+}
+
+/**
+ * The people on a task — owner first, then everyone it is shared with.
+ *
+ * One component so a card, a table row and the detail header cannot disagree about who is on a
+ * task or which of them owns it. Falls back to the single `assignedTo` for rows saved before
+ * tasks could be shared, so an old task still shows its assignee instead of nothing.
+ */
+export const TaskAssignees = ({
+    assignees,
+    fallback,
+    size = 24,
+    max = 3,
+    showName = false,
+}: {
+    assignees?: TaskAssigneeRef[];
+    /** The legacy single assignee, used when the roster is absent. */
+    fallback?: TeamMemberRef | null;
+    size?: number;
+    max?: number;
+    /** Name the owner in full — for surfaces with room, like the detail page. */
+    showName?: boolean;
+}) => {
+    const people = (assignees ?? [])
+        .slice()
+        .sort((a, b) => Number(b.isOwner) - Number(a.isOwner));
+
+    if (!people.length) return <AssigneeAvatar employee={fallback} size={size} showName={showName} />;
+
+    const owner = people[0];
+    const shared = people.slice(1);
+
+    // One person is just an assignee — no stack, no "+0", nothing to explain.
+    if (!shared.length) {
+        return <AssigneeAvatar employee={owner.employee} size={size} showName={showName} />;
+    }
+
+    return (
+        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+            {/* The owner is drawn at full size and first; the others follow as a stack, so
+                "who answers for this" survives being one of five faces. */}
+            <AssigneeAvatar employee={owner.employee} size={size} />
+            <TeamAvatars
+                members={shared.map((a) => ({
+                    id: a.employeeId,
+                    avatar: a.employee?.avatar,
+                    users: a.employee?.users,
+                }))}
+                size={size - 2}
+                max={max}
+            />
+            {showName && (
+                <Typography variant="caption" noWrap sx={{ color: 'text.secondary', minWidth: 0 }}>
+                    {employeeName(owner.employee)} +{shared.length}
                 </Typography>
             )}
         </Stack>

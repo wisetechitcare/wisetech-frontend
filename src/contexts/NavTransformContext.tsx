@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { IconButton, Tooltip, type IconButtonProps } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { useIsMobile } from '@components/navigation/BottomNavigation/useIsMobile';
+import { isWorkspacePath } from '@components/workspace/appSlug';
 
 /**
  * "Transform" — swaps the left sidebar for container-based navigation on the Dashboard.
@@ -110,15 +111,22 @@ export function NavTransformProvider({ children }: { children: ReactNode }) {
 export function NavTransformToggle(props: IconButtonProps) {
   const { enabled, toggle } = useNavTransform();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const isMobile = useIsMobile();
 
   const handleClick = useCallback(() => {
-    // Switching ON lands on the workspace launcher; switching OFF leaves /workspace, which
-    // does not exist in sidebar mode, for the dashboard. Either way the user is never left
-    // on a page whose navigation just disappeared.
-    navigate(enabled ? '/dashboard' : '/workspace');
+    // STAY ON THE PAGE. Both shells render the same routes — WorkspaceShell is a pathless
+    // layout route wrapping every destination — so switching navigation is a change of
+    // chrome, not of screen. Sending the user to the launcher or the dashboard threw away
+    // whatever they were reading, which is the opposite of what the switch is for.
+    //
+    // /workspace/* is the sole exception: it exists only in shell mode, so switching OFF
+    // from there has to land somewhere that still exists. WorkspaceShell redirects it too,
+    // but doing it here means the URL is never momentarily pointed at a route the chosen
+    // mode does not have.
+    if (enabled && isWorkspacePath(pathname)) navigate('/dashboard');
     toggle();
-  }, [enabled, navigate, toggle]);
+  }, [enabled, pathname, navigate, toggle]);
 
   // Ctrl+I / Cmd+I mirrors the button, alongside GlobalSearch's Ctrl+K. Not bound on mobile
   // for the same reason the button is not rendered there: there is nothing to switch between.
@@ -145,7 +153,7 @@ export function NavTransformToggle(props: IconButtonProps) {
   if (isMobile) return null;
 
   return (
-    <Tooltip title={enabled ? 'Switch to the sidebar (Ctrl+I)' : 'Switch to the workspace launcher (Ctrl+I)'}>
+    <Tooltip title={enabled ? 'Switch to the sidebar (Ctrl+I)' : 'Switch to the workspace shell (Ctrl+I)'}>
       <IconButton
         onClick={handleClick}
         aria-pressed={enabled}

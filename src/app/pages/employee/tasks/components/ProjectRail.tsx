@@ -3,7 +3,7 @@
  *
  * Lists the things a person actually works on:
  *
- *   - **Projects**, by name, with their internal team's faces and a visible-task count.
+ *   - **Projects**, by name, with their project number and a visible-task count.
  *   - **General tasks**, by name, flagged GENERAL — because a task with no project has nowhere
  *     else to live, and a single catch-all bucket hid what was inside it.
  *
@@ -14,16 +14,20 @@
  * their own visible task set.
  *
  * There is no project STATUS chip: every project that reaches this rail is Received, so the chip
- * carried no information. The row shows the team instead.
+ * carried no information — and no team faces either. Repeating the same three avatars down 113
+ * rows priced a scannable list in the one dimension it cannot spare (row width) to answer a
+ * question about a project nobody has selected yet. The team is drawn once, in the board header,
+ * for the project actually being looked at (TasksWorkspace → TeamAvatars).
  */
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import {
-    Avatar, AvatarGroup, Box, Chip, CircularProgress, InputAdornment, Stack, TextField,
+    Avatar, Box, Chip, CircularProgress, InputAdornment, Stack, TextField,
     Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { employeeName, initialsOf } from '../taskDomain';
+import { usePinnedProjects, partitionPinned } from '../usePinnedProjects';
 import { TaskStateBlock } from './primitives';
 
 export interface RailMember {
@@ -61,35 +65,6 @@ export interface ProjectRailProps {
     className?: string;
 }
 
-/** Stacked faces of a project's internal team — the people who can actually be assigned. */
-const TeamAvatars = ({ members, total }: { members: RailMember[]; total: number }) => {
-    const theme = useTheme();
-    if (!members.length) return null;
-    return (
-        <AvatarGroup
-            max={3}
-            total={total}
-            sx={{
-                '& .MuiAvatar-root': {
-                    width: 20, height: 20, fontSize: 8.5, fontWeight: 700,
-                    borderColor: theme.palette.background.paper,
-                    bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.3 : 0.16),
-                    color: theme.palette.primary.main,
-                },
-            }}
-        >
-            {members.map((m) => {
-                const name = employeeName(m);
-                return (
-                    <Tooltip key={m.id} title={name}>
-                        <Avatar src={m.avatar || undefined} alt={name}>{initialsOf(name)}</Avatar>
-                    </Tooltip>
-                );
-            })}
-        </AvatarGroup>
-    );
-};
-
 export const ProjectRail = ({
     projects, generalTasks, selected, onSelect, isLoading, className,
 }: ProjectRailProps) => {
@@ -120,7 +95,23 @@ export const ProjectRail = ({
         transition: 'background-color .15s, border-color .15s',
         '&:hover': { bgcolor: active ? undefined : 'action.hover' },
         '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 },
+        // The pin is chrome until it is used: it appears on hover, on keyboard focus, and stays
+        // put once a row is actually pinned. Same behaviour as the aside menu's pin button, which
+        // does it in CSS — here the rows are MUI, so it is stated where the row is styled.
+        '& .rail-pin': { opacity: 0, transition: 'opacity .15s, color .15s' },
+        '&:hover .rail-pin, & .rail-pin:focus-visible, & .rail-pin.pinned': { opacity: 1 },
     });
+
+    /**
+     * The select half of a project row. The row can no longer BE the button — a pin button nested
+     * inside another button is invalid HTML and browsers resolve it by dropping one of them.
+     */
+    const selectSx = {
+        flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1.25,
+        p: 0, border: 0, bgcolor: 'transparent', color: 'inherit',
+        textAlign: 'left' as const, cursor: 'pointer',
+        '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2, borderRadius: 4 },
+    };
 
     const IconTile = ({ icon, active }: { icon: string; active: boolean }) => (
         <Box
@@ -136,6 +127,80 @@ export const ProjectRail = ({
         >
             <KTIcon iconName={icon} className="fs-5" />
         </Box>
+    );
+
+    const { isPinned, togglePin } = usePinnedProjects();
+    // Pinned rows keep their own order and are drawn above everything else, under a heading —
+    // the same shape the aside menu's Pinned section uses.
+    const { pinned: pinnedProjects, rest: unpinnedProjects } = partitionPinned(filteredProjects, isPinned);
+
+    const ProjectRow = ({ p }: { p: RailProject }) => {
+        const active = selected === p.id;
+        const pinned = isPinned(p.id);
+        return (
+            <Box sx={rowSx(active)}>
+                <Box
+                    component="button" type="button" aria-current={active}
+                    onClick={() => onSelect(p.id)} sx={selectSx}
+                >
+                    <IconTile icon="office-bag" active={active} />
+
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" noWrap sx={{ fontWeight: 600, color: 'inherit' }}>
+                            {p.title || 'Untitled project'}
+                        </Typography>
+                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                            <Typography variant="caption" noWrap sx={{ color: 'text.secondary' }}>
+                                {p.projectNumber || '—'}
+                            </Typography>
+                            {typeof p.taskCount === 'number' && p.taskCount > 0 && (
+                                <>
+                                    <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
+                                    <Typography variant="caption" noWrap sx={{ color: 'text.secondary' }}>
+                                        {p.taskCount} task{p.taskCount === 1 ? '' : 's'}
+                                    </Typography>
+                                </>
+                            )}
+                        </Stack>
+                    </Box>
+                </Box>
+
+                {/* Same wording, same icons, same aria as the sidebar's pin button — one pin
+                    gesture in the product, learned once. */}
+                <Tooltip title={pinned ? 'Unpin from top' : 'Pin to top'}>
+                    <Box
+                        component="button" type="button"
+                        className={clsx('rail-pin', { pinned })}
+                        aria-label={pinned ? `Unpin ${p.title || 'project'} from top` : `Pin ${p.title || 'project'} to top`}
+                        aria-pressed={pinned}
+                        onClick={() => togglePin(p.id)}
+                        sx={{
+                            flexShrink: 0, border: 0, p: 0.5, lineHeight: 0, borderRadius: 1,
+                            bgcolor: 'transparent', cursor: 'pointer',
+                            color: pinned ? 'primary.main' : 'text.disabled',
+                            '&:hover': { color: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.1) },
+                            '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 1 },
+                        }}
+                    >
+                        <i className={clsx('bi', pinned ? 'bi-pin-angle-fill' : 'bi-pin-angle')} />
+                    </Box>
+                </Tooltip>
+            </Box>
+        );
+    };
+
+    /** A heading inside the list — "Pinned", and the "All projects" it sits above. */
+    const SectionLabel = ({ text }: { text: string }) => (
+        <Typography
+            variant="caption"
+            sx={{
+                px: 1.5, pt: 1, pb: 0.5, display: 'block',
+                fontWeight: 700, fontSize: 9.5, letterSpacing: '.08em',
+                color: 'text.disabled', textTransform: 'uppercase',
+            }}
+        >
+            {text}
+        </Typography>
     );
 
     const empty = !isLoading && projects.length === 0 && generalTasks.length === 0;
@@ -201,47 +266,35 @@ export const ProjectRail = ({
                     </Typography>
                 )}
 
+                {/* ── pinned projects ──
+                    Headed and separated rather than silently sorted to the top: a row that moves
+                    with no explanation reads as a bug, and the heading is what makes "I put it
+                    there" legible. Search still applies — a pinned project that does not match
+                    what you typed is not an exception to the filter. */}
+                {pinnedProjects.length > 0 && (
+                    <>
+                        <SectionLabel text="Pinned" />
+                        {pinnedProjects.map((p) => <ProjectRow key={p.id} p={p} />)}
+                        {unpinnedProjects.length > 0 && (
+                            // `'1px'`, not `1`. MUI's sizing system reads a numeric width/height
+                            // of 1 or less as a FRACTION of the parent, so `height: 1` meant 100%
+                            // — a full-height grey slab filling the rail between the pinned rows
+                            // and the rest, which is exactly what appeared the moment anything
+                            // was pinned.
+                            <Box sx={{ height: '1px', bgcolor: 'divider', mx: 1.25, my: 0.75 }} />
+                        )}
+                    </>
+                )}
+
                 {/* ── projects ── */}
-                {filteredProjects.map((p) => {
-                    const active = selected === p.id;
-                    return (
-                        <Box
-                            key={p.id} component="button" type="button" aria-current={active}
-                            onClick={() => onSelect(p.id)} sx={rowSx(active)}
-                        >
-                            <IconTile icon="office-bag" active={active} />
-
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography variant="body2" noWrap sx={{ fontWeight: 600, color: 'inherit' }}>
-                                    {p.title || 'Untitled project'}
-                                </Typography>
-                                <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                                    <Typography variant="caption" noWrap sx={{ color: 'text.secondary' }}>
-                                        {p.projectNumber || '—'}
-                                    </Typography>
-                                    {typeof p.taskCount === 'number' && p.taskCount > 0 && (
-                                        <>
-                                            <Box sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
-                                            <Typography variant="caption" noWrap sx={{ color: 'text.secondary' }}>
-                                                {p.taskCount} task{p.taskCount === 1 ? '' : 's'}
-                                            </Typography>
-                                        </>
-                                    )}
-                                </Stack>
-                            </Box>
-
-                            {/* The team's faces, in place of a status chip — every project that
-                                reaches this rail is Received, so the chip said nothing. */}
-                            <Box sx={{ flexShrink: 0 }}>
-                                <TeamAvatars members={p.members ?? []} total={p.memberCount ?? (p.members?.length ?? 0)} />
-                            </Box>
-                        </Box>
-                    );
-                })}
+                {pinnedProjects.length > 0 && unpinnedProjects.length > 0 && (
+                    <SectionLabel text="All projects" />
+                )}
+                {unpinnedProjects.map((p) => <ProjectRow key={p.id} p={p} />)}
 
                 {/* ── general tasks ── */}
                 {filteredGeneral.length > 0 && filteredProjects.length > 0 && (
-                    <Box sx={{ height: 1, bgcolor: 'divider', mx: 1.25, my: 0.75 }} />
+                    <Box sx={{ height: '1px', bgcolor: 'divider', mx: 1.25, my: 0.75 }} />
                 )}
 
                 {filteredGeneral.map((t) => {

@@ -52,6 +52,30 @@ export interface TaskRow {
     billingType?: 'BILLABLE' | 'NON_BILLABLE';
     _count?: { subtasks?: number };
     createdAt?: string;
+    /** The configuration node this task was created from. Null for CUSTOM names. */
+    presetTaskId?: string | null;
+    /**
+     * The task's place in the CONFIGURATION tree, derived server-side from `presetTaskId` and
+     * never stored: `taskPath` is the full chain including the task's own name, `taskParentPath`
+     * the ancestors alone. Empty for a custom-named task, which has no place in that tree.
+     */
+    taskPath?: string[];
+    taskParentPath?: string[];
+    taskHierarchy?: string;
+    /**
+     * Everyone working on the task, the owner included (flagged `isOwner`). `assignedToId` above
+     * stays the ONE accountable owner; this is the group it is shared with. Server-ordered
+     * owner-first, so `assignees[0]` is the owner whenever there is one.
+     */
+    assignees?: Array<{
+        employeeId: string;
+        isOwner: boolean;
+        employee?: {
+            id: string;
+            avatar?: string | null;
+            users?: { firstName?: string | null; lastName?: string | null } | null;
+        } | null;
+    }>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -201,9 +225,20 @@ export interface TaskFormValues {
     statusId?: string;
     priorityId?: string;
     parentTaskId?: string;
-    /** Preset mode only — the Main Task / Sub-task pair the name was picked from. */
-    mainTaskId?: string;
-    subTaskId?: string;
+    /**
+     * Everyone the task is shared with, owner included. Sent as `assigneeIds`; the server
+     * authorises every id with the same rule the owner takes. Undefined means the form never
+     * touched the roster, and it must be left exactly as it is.
+     */
+    assigneeIds?: string[];
+    /**
+     * Preset mode only — the configuration node the name was picked from.
+     *
+     * This is what makes a task's hierarchy knowable: the server derives `taskPath` /
+     * `taskHierarchy` from it on read. The NAME alone cannot, because the same name can
+     * legitimately appear in more than one branch.
+     */
+    presetTaskId?: string;
     startDate?: string | null;
     dueDate?: string | null;
     progress?: number | string;
@@ -235,9 +270,15 @@ export const buildTaskPayload = (values: TaskFormValues): Record<string, unknown
         startDate: values.startDate || null,
         dueDate: values.dueDate || null,
         billingType: values.billingType || 'BILLABLE',
+        // Explicit null on CUSTOM, so switching a task off presets CLEARS the link rather than
+        // leaving it pointing at a node whose name the task no longer carries.
+        presetTaskId: values.taskTypeMode === 'CUSTOM' ? null : (values.presetTaskId || null),
     };
     if (!isGeneral && values.projectId) payload.projectId = values.projectId;
     if (values.parentTaskId) payload.parentTaskId = values.parentTaskId;
+    // Omitted entirely when the form never touched it — the server reads ABSENCE as "leave the
+    // roster alone", which is a different instruction from an empty list ("nobody but the owner").
+    if (values.assigneeIds) payload.assigneeIds = values.assigneeIds;
     if (values.progress !== undefined && values.progress !== '') {
         payload.progress = clampProgress(Number(values.progress));
     }
@@ -338,7 +379,7 @@ export const shortTaskId = (id: string): string => `#${String(id).slice(0, 8)}`;
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Preset task tree (from main: preset tasks are a two-level Task -> Sub-task tree)
+// Preset task tree (any depth: a preset's parentId is what makes it a tree)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface PresetTask {
@@ -347,38 +388,14 @@ export interface PresetTask {
     parentId?: string | null;
 }
 
-/** Main tasks are the roots — a preset with no parent. */
-export const mainPresets = (presets: PresetTask[]): PresetTask[] =>
-    presets.filter((p) => !p.parentId);
-
-/** The sub-tasks filed under one main task. Empty when it has none, which is legal. */
-export const subPresets = (presets: PresetTask[], mainId: string | undefined): PresetTask[] =>
-    mainId ? presets.filter((p) => p.parentId === mainId) : [];
-
 /**
- * Which name gets saved.
+ * Preset tasks are a TREE OF ANY DEPTH, so there are no "main" and "sub" helpers here.
  *
- * Whichever of the pair was chosen LAST wins: picking a sub-task names the task after it,
- * picking only a main task names it after that. Tasks are stored by name, not by preset id,
- * so this is the single place that decision is made.
+ * There used to be: `mainPresets` (roots), `subPresets` (direct children), `presetTaskName` and
+ * `presetPairForName`, backing a fixed Main task + Sub-task pair of dropdowns. That shape could
+ * only ever describe two levels — a grandchild was unreachable — and it round-tripped by NAME,
+ * which is ambiguous the moment two branches contain the same name.
+ *
+ * The tree helpers live in `@utils/presetTaskHierarchy` and the picker is
+ * `components/HierarchicalTaskSelect`. A task now stores `presetTaskId`, and its own name.
  */
-export const presetTaskName = (
-    presets: PresetTask[],
-    mainId: string | undefined,
-    subId: string | undefined,
-): string => {
-    const chosen = presets.find((p) => p.id === (subId || mainId));
-    return chosen?.name ?? '';
-};
-
-/** On edit the task carries only a name, so map it back onto the pair it came from. */
-export const presetPairForName = (
-    presets: PresetTask[],
-    name: string | undefined,
-): { mainTaskId: string; subTaskId: string } => {
-    const hit = presets.find((p) => p.name === name);
-    if (!hit) return { mainTaskId: '', subTaskId: '' };
-    return hit.parentId
-        ? { mainTaskId: hit.parentId, subTaskId: hit.id }
-        : { mainTaskId: hit.id, subTaskId: '' };
-};

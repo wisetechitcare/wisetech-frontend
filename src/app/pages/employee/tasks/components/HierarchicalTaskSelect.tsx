@@ -1,5 +1,5 @@
 import React, { useContext, useMemo, useState } from 'react';
-import { Tooltip } from '@mui/material';
+import { Tooltip, alpha, useTheme } from '@mui/material';
 import Select, { components, MenuProps, OptionProps, SingleValueProps } from 'react-select';
 import { useField } from 'formik';
 import HighlightErrors from '@app/modules/errors/components/HighlightErrors';
@@ -30,9 +30,28 @@ import {
  * name; the path is only ever derived for display.
  */
 
-const ACCENT = '#1E3A8A';
-const MUTED = '#8893a0';
-const BORDER = '#e9ecef';
+/**
+ * The picker's palette, from the MUI theme.
+ *
+ * These were three hardcoded hex constants, which was fine while the only consumers were the
+ * light-only legacy screens. The Tasks workspace dialog is themed and has a dark mode, and a
+ * white menu with near-black text pasted into it is not a styling nit — it is unreadable. In
+ * LIGHT mode the values are unchanged: `primary.main` IS `#1E3A8A` (theme/tokens.ts → brand).
+ */
+const usePickerColors = () => {
+    const theme = useTheme();
+    const dark = theme.palette.mode === 'dark';
+    return {
+        accent: theme.palette.primary.main,
+        muted: theme.palette.text.secondary,
+        border: theme.palette.divider,
+        paper: theme.palette.background.paper,
+        text: theme.palette.text.primary,
+        headerHover: alpha(theme.palette.primary.main, dark ? 0.16 : 0.06),
+        optionHover: alpha(theme.palette.primary.main, dark ? 0.2 : 0.08),
+        optionSelected: alpha(theme.palette.primary.main, dark ? 0.3 : 0.14),
+    };
+};
 
 export interface HierarchicalTaskOption {
     value: string;
@@ -106,6 +125,7 @@ const DrillContext = React.createContext<DrillState>({
  */
 const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
     const drill = useContext(DrillContext);
+    const C = usePickerColors();
     const [headerHover, setHeaderHover] = useState(false);
     const showHeader = !drill.searching && drill.path.length > 0;
     const currentName = drill.path[drill.path.length - 1] || '';
@@ -135,8 +155,8 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                         alignItems: 'center',
                         gap: 8,
                         padding: '8px 10px',
-                        borderBottom: `1px solid ${BORDER}`,
-                        background: headerHover ? '#f3f5fb' : '#fff',
+                        borderBottom: `1px solid ${C.border}`,
+                        background: headerHover ? C.headerHover : C.paper,
                         position: 'sticky',
                         top: 0,
                         zIndex: 1,
@@ -154,8 +174,8 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                         onClick={(e) => { e.stopPropagation(); drill.goUp(); }}
                         aria-label="Back to the previous level"
                         style={{
-                            border: `1px solid ${BORDER}`,
-                            background: '#fff',
+                            border: `1px solid ${C.border}`,
+                            background: C.paper,
                             borderRadius: 6,
                             width: 24,
                             height: 24,
@@ -163,7 +183,7 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                             alignItems: 'center',
                             justifyContent: 'center',
                             cursor: 'pointer',
-                            color: ACCENT,
+                            color: C.accent,
                             flexShrink: 0,
                             lineHeight: 1,
                             padding: 0,
@@ -176,7 +196,7 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                     <span
                         style={{
                             fontSize: 11.5,
-                            color: MUTED,
+                            color: C.muted,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
@@ -193,7 +213,7 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                         style={{
                             fontSize: 11,
                             fontWeight: 500,
-                            color: headerHover ? ACCENT : MUTED,
+                            color: headerHover ? C.accent : C.muted,
                             whiteSpace: 'nowrap',
                             flexShrink: 0,
                             transition: 'color .15s ease',
@@ -212,6 +232,7 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
 const TaskOption = (props: OptionProps<HierarchicalTaskOption, false>) => {
     const { label, parentPath, hasChildren } = props.data;
     const drill = useContext(DrillContext);
+    const C = usePickerColors();
 
     return (
         <components.Option {...props}>
@@ -234,7 +255,7 @@ const TaskOption = (props: OptionProps<HierarchicalTaskOption, false>) => {
                         <div
                             style={{
                                 fontSize: 11,
-                                color: MUTED,
+                                color: C.muted,
                                 marginTop: 1,
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
@@ -247,7 +268,7 @@ const TaskOption = (props: OptionProps<HierarchicalTaskOption, false>) => {
                     )}
                 </div>
                 {!drill.searching && hasChildren && (
-                    <i className="bi bi-chevron-right" style={{ fontSize: 10, color: MUTED, flexShrink: 0 }} />
+                    <i className="bi bi-chevron-right" style={{ fontSize: 10, color: C.muted, flexShrink: 0 }} />
                 )}
             </div>
         </components.Option>
@@ -257,6 +278,7 @@ const TaskOption = (props: OptionProps<HierarchicalTaskOption, false>) => {
 /** Closed control: the task's own name, with its ancestors smaller and muted beneath. */
 const TaskSingleValue = (props: SingleValueProps<HierarchicalTaskOption, false>) => {
     const { label, parentPath } = props.data;
+    const C = usePickerColors();
     return (
         <components.SingleValue {...props}>
             <div style={{ minWidth: 0 }}>
@@ -267,7 +289,7 @@ const TaskSingleValue = (props: SingleValueProps<HierarchicalTaskOption, false>)
                     <div
                         style={{
                             fontSize: 11,
-                            color: MUTED,
+                            color: C.muted,
                             lineHeight: 1.3,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -287,31 +309,44 @@ const TaskSingleValue = (props: SingleValueProps<HierarchicalTaskOption, false>)
 // otherwise remount the menu on every keystroke and lose focus.
 const SELECT_COMPONENTS = { Menu: TaskMenu, Option: TaskOption, SingleValue: TaskSingleValue };
 
-interface Props {
-    formikField: string;
-    inputLabel: React.ReactNode;
+export interface HierarchicalTaskPickerProps {
+    /** Selected node id. `''` for none. */
+    value: string;
+    /** Fires with the whole option, so the caller can store both the id and the node's name. */
+    onChange: (option: HierarchicalTaskOption | null) => void;
     options: HierarchicalTaskOption[];
+    /** Omit on forms that draw their own label (MUI). */
+    inputLabel?: React.ReactNode;
     isRequired?: boolean;
     placeholder?: string;
     disabled?: boolean;
-    /** Fires with the whole option, so the caller can also store the node's name. */
-    onChange?: (option: HierarchicalTaskOption | null) => void;
+    hasError?: boolean;
     /** Rendered under the field — used to show the selected node's full hierarchy. */
     helpText?: React.ReactNode;
+    name?: string;
 }
 
-const HierarchicalTaskSelect: React.FC<Props> = ({
-    formikField,
-    inputLabel,
+/**
+ * The picker itself — CONTROLLED, and knowing nothing about any form library.
+ *
+ * Split out of the Formik version below so the MUI task dialog (plain `useState`) can use the
+ * very same control. `useField` throws outside a `<Formik>`, and hooks cannot be called
+ * conditionally, so "works with and without Formik" has to be two components over one core
+ * rather than one component with a branch. The Formik binding is the thin half.
+ */
+export const HierarchicalTaskPicker: React.FC<HierarchicalTaskPickerProps> = ({
+    value,
+    onChange: commitValue,
     options,
+    inputLabel,
     isRequired = false,
     placeholder = 'Search and select a task…',
     disabled = false,
-    onChange,
+    hasError = false,
     helpText,
+    name,
 }) => {
-    const [field, meta, helpers] = useField(formikField);
-    const hasError = !!(meta.touched && meta.error);
+    const C = usePickerColors();
 
     // The node currently being browsed; null = the top level.
     const [level, setLevel] = useState<HierarchicalTaskOption | null>(null);
@@ -320,7 +355,7 @@ const HierarchicalTaskSelect: React.FC<Props> = ({
 
     const searching = inputValue.trim().length > 0;
     const byId = useMemo(() => new Map(options.map((o) => [o.value, o])), [options]);
-    const selected = useMemo(() => byId.get(field.value) || null, [byId, field.value]);
+    const selected = useMemo(() => byId.get(value) || null, [byId, value]);
 
     // One level at a time while browsing; the whole tree while searching. A node whose
     // parent is not among the options (promoted orphan) belongs to the top level.
@@ -335,11 +370,7 @@ const HierarchicalTaskSelect: React.FC<Props> = ({
     const goUp = () => setLevel(level?.parentId ? byId.get(level.parentId) || null : null);
 
     const commit = (option: HierarchicalTaskOption | null) => {
-        // Mirrors DropdownInput: set the value (which validates against the patched
-        // values), then mark touched WITHOUT re-validating the stale snapshot.
-        helpers.setValue(option?.value || '');
-        helpers.setTouched(true, false);
-        onChange?.(option);
+        commitValue(option);
         setInputValue('');
         setMenuOpen(false);
     };
@@ -363,15 +394,17 @@ const HierarchicalTaskSelect: React.FC<Props> = ({
 
     return (
         <div className="d-flex flex-column fv-row">
-            <div className="d-flex flex-row justify-content-between align-items-center gap-2 mb-2">
-                <label className={`d-flex align-items-center fs-6 form-label mb-0 ${isRequired ? 'required' : ''}`}>
-                    {inputLabel}
-                </label>
-            </div>
+            {inputLabel && (
+                <div className="d-flex flex-row justify-content-between align-items-center gap-2 mb-2">
+                    <label className={`d-flex align-items-center fs-6 form-label mb-0 ${isRequired ? 'required' : ''}`}>
+                        {inputLabel}
+                    </label>
+                </div>
+            )}
 
             <DrillContext.Provider value={drill}>
             <Select<HierarchicalTaskOption, false>
-                name={formikField}
+                name={name}
                 options={visibleOptions}
                 value={selected}
                 onChange={handleChange}
@@ -415,22 +448,80 @@ const HierarchicalTaskSelect: React.FC<Props> = ({
                 }
                 menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
                 menuPosition="fixed"
+                // react-select paints its own white surface and near-black text, neither of
+                // which comes from the theme. Every colour below is stated so the control is
+                // legible in dark mode; the light values are what it already looked like.
                 styles={{
                     menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                    menu: (base) => ({ ...base, zIndex: 9999 }),
+                    menu: (base) => ({
+                        ...base, zIndex: 9999, backgroundColor: C.paper,
+                        border: `1px solid ${C.border}`,
+                    }),
                     control: (base, state) => ({
                         ...base,
-                        boxShadow: state.isFocused ? `0 0 0 1px ${ACCENT}` : base.boxShadow,
+                        backgroundColor: C.paper,
+                        borderColor: state.isFocused ? C.accent : C.border,
+                        boxShadow: state.isFocused ? `0 0 0 1px ${C.accent}` : base.boxShadow,
+                        '&:hover': { borderColor: C.accent },
                     }),
-                    option: (base) => ({ ...base, paddingTop: 6, paddingBottom: 6 }),
-                    singleValue: (base) => ({ ...base, lineHeight: 1.25 }),
+                    option: (base, state) => ({
+                        ...base,
+                        paddingTop: 6,
+                        paddingBottom: 6,
+                        color: C.text,
+                        backgroundColor: state.isSelected
+                            ? C.optionSelected
+                            : state.isFocused ? C.optionHover : 'transparent',
+                    }),
+                    singleValue: (base) => ({ ...base, lineHeight: 1.25, color: C.text }),
+                    input: (base) => ({ ...base, color: C.text }),
+                    placeholder: (base) => ({ ...base, color: C.muted }),
+                    noOptionsMessage: (base) => ({ ...base, color: C.muted }),
+                    indicatorSeparator: (base) => ({ ...base, backgroundColor: C.border }),
                 }}
             />
             </DrillContext.Provider>
 
             {helpText}
-            <HighlightErrors isRequired={isRequired} formikField={formikField} />
         </div>
+    );
+};
+
+interface Props extends Omit<HierarchicalTaskPickerProps, 'value' | 'onChange' | 'hasError' | 'name'> {
+    formikField: string;
+    inputLabel: React.ReactNode;
+    /** Fires with the whole option, so the caller can also store the node's name. */
+    onChange?: (option: HierarchicalTaskOption | null) => void;
+}
+
+/**
+ * The Formik binding — value in, value out, plus the field's error line.
+ *
+ * This is what every existing consumer (Configure, the legacy task form) imports, and its API is
+ * unchanged. All the behaviour lives in the picker above.
+ */
+const HierarchicalTaskSelect: React.FC<Props> = ({
+    formikField, isRequired = false, onChange, helpText, ...rest
+}) => {
+    const [field, meta, helpers] = useField(formikField);
+
+    return (
+        <HierarchicalTaskPicker
+            {...rest}
+            name={formikField}
+            isRequired={isRequired}
+            value={field.value || ''}
+            hasError={!!(meta.touched && meta.error)}
+            onChange={(option) => {
+                // Mirrors DropdownInput: set the value (which validates against the patched
+                // values), then mark touched WITHOUT re-validating the stale snapshot.
+                helpers.setValue(option?.value || '');
+                helpers.setTouched(true, false);
+                onChange?.(option);
+            }}
+            // Kept inside the field wrapper so the error still sits directly under the control.
+            helpText={<>{helpText}<HighlightErrors isRequired={isRequired} formikField={formikField} /></>}
+        />
     );
 };
 

@@ -135,8 +135,10 @@ const App = () => {
     }
   }, [isAuthenticated, currentUser?.id, dispatch]);
 
-  // Global real-time sync: backend socket events → eventBus → component refetches
-  useRealtimeSync(isAuthenticated ? currentUser?.id : null);
+  // Global real-time sync: backend socket events → eventBus → component refetches.
+  // BOTH ids: broadcast events are addressed by user, but every personal notification the server
+  // pushes (`newNotification`) is addressed by EMPLOYEE id — see useRealtimeSync.
+  useRealtimeSync(isAuthenticated ? currentUser?.id : null, isAuthenticated ? employeeId : null);
 
   // Browser push notifications: register SW + subscribe when employee is loaded
   usePushSubscription(isAuthenticated ? employeeId : null);

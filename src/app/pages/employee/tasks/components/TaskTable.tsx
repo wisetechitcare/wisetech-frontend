@@ -17,7 +17,7 @@ import {
     TaskRow, loggedSeconds, formatDuration, shortTaskId, employeeName,
 } from '../taskDomain';
 import {
-    TaskScopeBadge, TaskStatusBadge, TaskPriorityBadge, TaskProgress, AssigneeAvatar, TaskDueDate, TaskStateBlock,
+    TaskScopeBadge, TaskStatusBadge, TaskPriorityBadge, TaskProgress, TaskAssignees, TaskDueDate, TaskStateBlock,
 } from './primitives';
 
 export interface TaskTableProps {
@@ -193,7 +193,7 @@ export const TaskTable = ({
                                     <TableCell sx={hideSx('lg')}><TaskPriorityBadge priority={task.priority} /></TableCell>
 
                                     <TableCell sx={hideSx('md')}>
-                                        <AssigneeAvatar employee={task.assignedTo} showName />
+                                        <TaskAssignees assignees={task.assignees} fallback={task.assignedTo} showName />
                                     </TableCell>
 
                                     <TableCell sx={{ minWidth: 120, ...hideSx('sm') }}>

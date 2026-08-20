@@ -34,7 +34,7 @@
  * from making somebody's own work unreadable. The shell around it stays entirely theme-driven.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Badge, Box, Button, Chip, CircularProgress, IconButton, Stack, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
@@ -45,7 +45,7 @@ import { TaskFilterState, filtersToQuery, apiErrorMessage, activeFilterCount } f
 import {
     useTaskBoard, useTaskList, useTaskStatuses, useTaskPriorities,
     useAvailableProjects, useBoardProjects, useMoveTaskStage, useCreateBoardList, useDeleteBoardList,
-    useReorderBoardTasks,
+    useReorderBoardTasks, useReorderStatuses,
 } from './useTaskQueries';
 import {
     boardBackgroundCss, boardInk, describeBackground, hasWallpaper, useBoardBackground,
@@ -55,12 +55,21 @@ import TaskTable from './components/TaskTable';
 import TaskFilterDrawer from './components/TaskFilterDrawer';
 import TaskFormDialog from './components/TaskFormDialog';
 import BoardBackgroundDialog from './components/BoardBackgroundDialog';
+import ProjectTeamDialog from './components/ProjectTeamDialog';
 import BoardBottomNav, { WorkspacePanel } from './components/BoardBottomNav';
 import ProjectRail, { RailProject, RailGeneralTask, GENERAL_PREFIX } from './components/ProjectRail';
-import { TaskStateBlock } from './components/primitives';
+import { readPinnedProjects } from './usePinnedProjects';
+import { TaskStateBlock, TeamAvatars } from './components/primitives';
 
 type ViewMode = 'kanban' | 'table';
 const VIEW_KEY = 'wt.tasks.view';
+/**
+ * The board's selection, in the URL.
+ *
+ * A search param rather than localStorage: this is WHERE YOU ARE, not a preference, and putting
+ * it in the address makes the board reloadable, linkable, and reachable again by Back.
+ */
+const SCOPE_PARAM = 'scope';
 /** Which panes are open. Remembered, because it is a way of working, not a one-off choice. */
 const PANELS_KEY = 'wt.tasks.panels';
 
@@ -154,8 +163,19 @@ export const TasksWorkspace = () => {
     const [view, setView] = useState<ViewMode>(
         () => (localStorage.getItem(VIEW_KEY) as ViewMode) || 'kanban',
     );
-    /** Empty until the rail loads, then defaulted to the first entry (see the effect below). */
-    const [scopeSel, setScopeSel] = useState<string>('');
+    /**
+     * Which project (or general task) the board is showing — kept IN THE URL as `?scope=`.
+     *
+     * It used to be component state alone, so leaving for a task and coming back remounted the
+     * workspace with nothing selected and the landing effect below picked the first project.
+     * "Back to tasks" therefore always dropped you on somebody else's board.
+     *
+     * Written with `replace`, matching the `?tab=` precedent on the project detail page: flipping
+     * between projects is not navigation, so it must not stack a history entry per click — Back
+     * would then walk you through every project you had looked at.
+     */
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [scopeSel, setScopeSel] = useState<string>(() => searchParams.get(SCOPE_PARAM) ?? '');
     const [filters, setFilters] = useState<TaskFilterState>({ sortBy: 'createdAt', sortDir: 'desc' });
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -164,6 +184,8 @@ export const TasksWorkspace = () => {
     const [createInStage, setCreateInStage] = useState<string | undefined>();
     const [backdropOpen, setBackdropOpen] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
+    /** The board header's avatar stack is a preview; this is where the rest of the team lives. */
+    const [teamOpen, setTeamOpen] = useState(false);
     /**
      * Which panes are on screen. Not exclusive: Projects and the Task Board compose, and either
      * can be the only thing showing. The board is what you get on a fresh browser.
@@ -191,10 +213,24 @@ export const TasksWorkspace = () => {
     // The RAIL lists projects whose tasks the caller can SEE (browse). The FORM keeps using
     // available-projects, which is where they may CREATE. Two questions, two lists, on purpose.
     const railQuery = useBoardProjects();
-    const projects: RailProject[] = railQuery.data?.projects ?? [];
-    const generalTasks: RailGeneralTask[] = railQuery.data?.generalTasks ?? [];
+    // Memoised on the query result: `?? []` hands back a NEW array every render, and three
+    // effects below depend on these — including the one that validates `?scope=` and can call
+    // setState. Stable identities keep those effects tied to the data actually changing.
+    const projects: RailProject[] = useMemo(() => railQuery.data?.projects ?? [], [railQuery.data]);
+    const generalTasks: RailGeneralTask[] = useMemo(() => railQuery.data?.generalTasks ?? [], [railQuery.data]);
     // Still needed for the filter dropdown, which mirrors the create-authorised set.
     const projectsQuery = useAvailableProjects();
+
+    // Publish the selection to the URL so a reload, a shared link and the browser's own Back
+    // button all land on the board that was actually open.
+    useEffect(() => {
+        if (!scopeSel) return;
+        if (searchParams.get(SCOPE_PARAM) === scopeSel) return;
+        const next = new URLSearchParams(searchParams);
+        next.set(SCOPE_PARAM, scopeSel);
+        setSearchParams(next, { replace: true });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [scopeSel]);
 
     const generalId = scopeSel.startsWith(GENERAL_PREFIX) ? scopeSel.slice(GENERAL_PREFIX.length) : null;
     const activeProject = projects.find((p) => p.id === scopeSel);
@@ -207,9 +243,30 @@ export const TasksWorkspace = () => {
      */
     useEffect(() => {
         if (scopeSel) return;
-        if (projects.length) setScopeSel(projects[0].id);
+        // A pin is a standing answer to "which project do I open on", so it outranks first-in-list.
+        // Read from storage rather than the rail's hook: the rail is a child, and on a fresh load
+        // with the projects pane closed it may not even be mounted.
+        const pins = readPinnedProjects();
+        const firstPinned = projects.find((p) => pins.includes(p.id));
+        if (firstPinned) setScopeSel(firstPinned.id);
+        else if (projects.length) setScopeSel(projects[0].id);
         else if (generalTasks.length) setScopeSel(GENERAL_PREFIX + generalTasks[0].id);
     }, [scopeSel, projects, generalTasks]);
+
+    /**
+     * A `?scope=` from the URL is a CLAIM, not a fact: the link may be old, the project may have
+     * been closed, or it may belong to somebody whose access differs from this reader's. Once the
+     * rail has actually answered, anything it does not list is dropped so the landing effect
+     * above can pick a real default — otherwise a stale link shows an empty board with a title
+     * for a project that is not there.
+     */
+    useEffect(() => {
+        if (!scopeSel || !railQuery.isSuccess) return;
+        const known = scopeSel.startsWith(GENERAL_PREFIX)
+            ? generalTasks.some((t) => GENERAL_PREFIX + t.id === scopeSel)
+            : projects.some((p) => p.id === scopeSel);
+        if (!known) setScopeSel('');
+    }, [scopeSel, railQuery.isSuccess, projects, generalTasks]);
 
     /**
      * The rail selection is a SCOPE, applied as a normal filter — so it composes with everything
@@ -230,12 +287,15 @@ export const TasksWorkspace = () => {
         { ...query, page: String(page + 1), limit: String(rowsPerPage) },
         view === 'table',
     );
-    const statusesQuery = useTaskStatuses();
+    // Same scope as the board itself, so the filter drawer cannot offer a stage this board does
+    // not have — and does not hide one it does.
+    const statusesQuery = useTaskStatuses(activeProject ? scopeSel : undefined);
     const prioritiesQuery = useTaskPriorities();
     const moveStage = useMoveTaskStage();
     const createList = useCreateBoardList();
     const deleteList = useDeleteBoardList();
     const reorderTasks = useReorderBoardTasks();
+    const reorderStatuses = useReorderStatuses();
 
     const columns: BoardColumn[] = boardQuery.data?.columns ?? [];
     const boardTotal = boardQuery.data?.total ?? 0;
@@ -345,6 +405,24 @@ export const TasksWorkspace = () => {
                         </Box>
 
                         <Stack direction="row" spacing={1} alignItems="center">
+                            {/* The project's team, for the project on screen. It used to sit on
+                                every row of the rail, where the same faces repeated down the list
+                                and answered for projects nobody had opened. One place, one
+                                project, at the head of the board it belongs to.
+
+                                Project scope only: a GENERAL task has no team by definition, and
+                                the component draws nothing when the API sent no members, so the
+                                control row does not shift as the selection changes. */}
+                            {!activeGeneral && (
+                                <TeamAvatars
+                                    members={activeProject?.members ?? []}
+                                    total={activeProject?.memberCount ?? activeProject?.members?.length}
+                                    size={28}
+                                    onClick={() => setTeamOpen(true)}
+                                    label={`View the team on ${activeProject?.title || 'this project'}`}
+                                />
+                            )}
+
                             {/* Board vs Table stays on top, where it has always been: it chooses
                                 how THIS pane draws its data, which is a different question from
                                 the bottom bar's "which panes am I looking at". */}
@@ -379,8 +457,12 @@ export const TasksWorkspace = () => {
                                 </Badge>
                             </Tooltip>
 
-                            {/* The swatch IS the current backdrop, so the button shows the
-                                setting instead of describing it. */}
+                            {/* A BUTTON, not a swatch. It used to paint itself with the current
+                                backdrop so it showed the setting rather than describing it —
+                                which made one control in a row of five change colour on its own,
+                                and on a dark or photographic backdrop it stopped reading as a
+                                button at all. The backdrop is on screen behind it already; the
+                                tooltip still names the current choice. */}
                             <Tooltip title={`Board background — ${describeBackground(background)}`}>
                                 <IconButton
                                     size="small"
@@ -390,10 +472,12 @@ export const TasksWorkspace = () => {
                                         border: `1px solid ${theme.palette.divider}`,
                                         borderRadius: 1.5,
                                         width: 34, height: 34,
-                                        overflow: 'hidden',
-                                        background: boardBackgroundCss(background),
-                                        color: ink === 'light' ? theme.palette.common.white : theme.palette.common.black,
-                                        '&:hover': { borderColor: theme.palette.primary.main },
+                                        color: 'text.secondary',
+                                        '&:hover': {
+                                            color: 'primary.main',
+                                            bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                            borderColor: theme.palette.primary.main,
+                                        },
                                     }}
                                 >
                                     <KTIcon iconName="picture" className="fs-5" />
@@ -522,9 +606,27 @@ export const TasksWorkspace = () => {
                                         // Only with a project in view: a lane created here belongs
                                         // to THAT project's board and appears on no other. With a
                                         // general task selected there is no board to add it to.
+                                        // A company-wide stage carries NO projectId — that is
+                                        // exactly what makes it company-wide, and the server
+                                        // refuses it without the Configure permission.
                                         onCreateList={activeProject
-                                            ? (name) => createList.mutateAsync({ name, projectId: scopeSel })
+                                            ? (name, applyToAll) => createList.mutateAsync({
+                                                name,
+                                                projectId: applyToAll ? undefined : scopeSel,
+                                            })
                                             : undefined}
+                                        // From the SERVER, not `usePermission`: that helper
+                                        // treats a blanket `*.*.all` wildcard as satisfying any
+                                        // key, so it offered "apply to all projects" to ordinary
+                                        // users whose request the API then refused.
+                                        canCreateGlobalList={boardQuery.data?.canManageConfig === true}
+                                        // Lane order is a STAGE property (`sortOrder`), so it is
+                                        // stored where stages are stored and the same reorder
+                                        // endpoint Configure uses. Dragging a lane on the board
+                                        // and dragging a row in Configure are one operation.
+                                        onReorderLanes={(statusIds) => reorderStatuses.mutateAsync(
+                                            statusIds.map((id, index) => ({ id, sortOrder: index })),
+                                        )}
                                         onDeleteList={activeProject
                                             ? (statusId) => deleteList.mutateAsync(statusId)
                                             : undefined}
@@ -571,6 +673,17 @@ export const TasksWorkspace = () => {
                 defaultStatusId={createInStage}
                 defaultProjectId={activeProject ? scopeSel : undefined}
                 defaultScope={activeGeneral ? 'GENERAL' : undefined}
+            />
+
+            {/* Seeded with the header's own faces so it opens filled rather than empty, and
+                queried only while open — see ProjectTeamDialog. */}
+            <ProjectTeamDialog
+                open={teamOpen}
+                onClose={() => setTeamOpen(false)}
+                projectId={activeProject?.id}
+                projectTitle={activeProject?.title}
+                seed={activeProject?.members ?? []}
+                totalCount={activeProject?.memberCount}
             />
 
             <BoardBackgroundDialog

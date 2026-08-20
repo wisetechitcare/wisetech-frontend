@@ -923,9 +923,18 @@ export const TASKS = {
     GET_AVAILABLE_PROJECTS: "/api/task-and-time/task/available-projects",
     GET_GENERAL_ASSIGNEES: "/api/task-and-time/task/general-assignees",
     GET_PROJECT_ASSIGNEES: "/api/task-and-time/task/project/:projectId/assignees",
+    // The whole internal team of one project (board header dialog). Rail-authorized, unlike
+    // GET_PROJECT_ASSIGNEES which is filtered to whom the caller may assign.
+    GET_PROJECT_TEAM: "/api/task-and-time/task/project/:projectId/team",
+    // Remove ONE person from that team, from the board dialog.
+    REMOVE_PROJECT_TEAM_MEMBER: "/api/task-and-time/task/project/:projectId/team/:employeeId",
+    // Promote a team member to project manager, from the board dialog.
+    PROMOTE_PROJECT_TEAM_MEMBER: "/api/task-and-time/task/project/:projectId/team/:employeeId/promote",
     // Phase 4 — Kanban board + subtasks + stage ordering
     GET_TASK_BOARD: "/api/task-and-time/task/board",
     GET_BOARD_PROJECTS: "/api/task-and-time/task/board-projects",
+    /** The assigner's own WhatsApp link for one person on a task. Gated on edit rights server-side. */
+    GET_TASK_WHATSAPP_NUDGE: "/api/task-and-time/task/:id/whatsapp/:employeeId",
     GET_TASK_SUBTASKS: "/api/task-and-time/task/:id/subtasks",
     REORDER_TASK_STATUSES: "/api/task-and-time/task-statuses/reorder",
     /** Card order within ONE lane — the whole lane, top to bottom. */

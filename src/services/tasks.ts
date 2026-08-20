@@ -4,10 +4,15 @@ import { Task } from "@mui/icons-material";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 
-export const getAllTasksStatus = async () => {
+/**
+ * Task stages. With a `projectId`, the server returns the company-wide stages PLUS that
+ * project's own board lanes; without one, only the company-wide set — so anything that shows
+ * stages for a specific project must pass it, or that project's own lanes are invisible.
+ */
+export const getAllTasksStatus = async (projectId?: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${TASKS.GET_ALL_TASK_STATUSES}`;
-        const { data } = await axios.get(endpoint);
+        const { data } = await axios.get(endpoint, projectId ? { params: { projectId } } : undefined);
         return data;
     } catch (err) {
         throw err;
@@ -356,6 +361,59 @@ export const getProjectAssignees = async (projectId: string) => {
   }
 };
 
+/**
+ * Everyone on ONE project's internal team — the board header's team dialog.
+ *
+ * Deliberately not `getProjectAssignees`: that list is filtered to whom the caller may ASSIGN, so
+ * it comes back empty for a member without create authority. "Who is on this project" is a
+ * different question, and one every person who can see the project may ask.
+ */
+export const getProjectTeam = async (projectId: string) => {
+  try {
+    const endpoint = `${API_BASE_URL}${TASKS.GET_PROJECT_TEAM.replace(':projectId', projectId)}`;
+    const { data } = await axios.get(endpoint);
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Take one person off a project's internal team.
+ *
+ * Their tasks on that project are unassigned server-side, in the same transaction — the response
+ * says how many, so the UI can report what actually happened rather than guess.
+ */
+export const removeProjectTeamMember = async (projectId: string, employeeId: string) => {
+  try {
+    const endpoint = `${API_BASE_URL}${TASKS.REMOVE_PROJECT_TEAM_MEMBER
+      .replace(':projectId', projectId)
+      .replace(':employeeId', employeeId)}`;
+    const { data } = await axios.delete(endpoint);
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Make a team member a project manager of that project.
+ *
+ * Server-side this writes through the project screen's own roster sync, so the promotion shows
+ * up there too — this is not a second, parallel notion of who manages a project.
+ */
+export const promoteProjectTeamMember = async (projectId: string, employeeId: string) => {
+  try {
+    const endpoint = `${API_BASE_URL}${TASKS.PROMOTE_PROJECT_TEAM_MEMBER
+      .replace(':projectId', projectId)
+      .replace(':employeeId', employeeId)}`;
+    const { data } = await axios.post(endpoint);
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 /** Phase 3 — whom the caller may assign a GENERAL task to (management scope, never project). */
 export const getGeneralAssignees = async () => {
   try {
@@ -418,6 +476,38 @@ export const getTaskList = async (params: Record<string, string> = {}) => {
   try {
     const { data } = await axios.get(url(TASKS.GET_ALL_TASKS, params));
     return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/** What the ASSIGNER needs to WhatsApp one assignee about a task. */
+export interface TaskWhatsAppNudge {
+  employeeId: string;
+  name: string;
+  /** Digits only, country code included — already in the shape `wa.me` expects. */
+  phone: string;
+  message: string;
+  /** The `wa.me` link, text pre-filled. Opening it composes; it never sends by itself. */
+  url: string;
+}
+
+/**
+ * Fetch the WhatsApp link for one person on a task.
+ *
+ * `nudge` is `null` when we hold no number for them — a legitimate answer, not an error, so the
+ * caller should say so rather than opening WhatsApp on an empty conversation. The response
+ * carries a personal phone number and the API releases it only to somebody who may edit the task.
+ */
+export const getTaskWhatsAppNudge = async (
+  taskId: string,
+  employeeId: string,
+): Promise<TaskWhatsAppNudge | null> => {
+  try {
+    const { data } = await axios.get(
+      url(TASKS.GET_TASK_WHATSAPP_NUDGE.replace(':id', taskId).replace(':employeeId', employeeId)),
+    );
+    return (data?.nudge ?? null) as TaskWhatsAppNudge | null;
   } catch (error) {
     throw error;
   }
