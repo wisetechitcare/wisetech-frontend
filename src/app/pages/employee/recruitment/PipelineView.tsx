@@ -188,7 +188,7 @@ const PipelineView = () => {
                                 key={s.id}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={() => { const app = applications.find((a) => a.id === dragId); if (app) attemptMove(app, s); setDragId(null); }}
-                                sx={{ minWidth: 250, maxWidth: 280, flex: "0 0 auto", bgcolor: "action.hover", borderRadius: 2, p: 1 }}
+                                sx={{ minWidth: { xs: 210, sm: 250 }, maxWidth: { xs: 240, sm: 280 }, flex: "0 0 auto", bgcolor: "action.hover", borderRadius: 2, p: 1 }}
                             >
                                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1, px: 0.5 }}>
                                     <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: s.color ?? "#888" }} />
@@ -246,7 +246,7 @@ const PipelineView = () => {
                                 </TableCell>
                                 <TableCell align="center">{scoreLabel(a) ?? "—"}</TableCell>
                                 <TableCell align="right">
-                                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                    <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
                                         <WtButton size="small" ghost startIcon={<KTIcon iconName="profile-circle" className="fs-6" />} onClick={() => setOpenCandidate(a)}>
                                             Open
                                         </WtButton>
@@ -286,7 +286,7 @@ const PipelineView = () => {
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
-                        <Stack direction="row" spacing={2}>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField label="First name" required size="small" sx={{ flex: 1 }} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
                             <TextField label="Last name" size="small" sx={{ flex: 1 }} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
                         </Stack>

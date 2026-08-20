@@ -33,7 +33,7 @@ const experience = (months?: number | null) => {
 /** One labelled fact. Renders nothing when there is no value, so the grid stays dense. */
 const Fact = ({ label, value }: { label: string; value?: string | number | null }) =>
     value === null || value === undefined || value === "" ? null : (
-        <Box sx={{ minWidth: 150 }}>
+        <Box sx={{ minWidth: { xs: 130, sm: 150 } }}>
             <Typography variant="caption" sx={{ opacity: 0.65, display: "block" }}>{label}</Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>{value}</Typography>
         </Box>
@@ -105,6 +105,7 @@ const CandidateDrawer = ({ application, statuses, onClose }: Props) => {
             open
             onClose={onClose}
             maxWidth="md"
+            fullWidth
             header={
                 <GlassHeader
                     title={fullName(a)}
@@ -114,7 +115,7 @@ const CandidateDrawer = ({ application, statuses, onClose }: Props) => {
                 />
             }
         >
-            <Box sx={{ px: 1, pb: 2 }}>
+            <Box sx={{ px: { xs: 0.5, sm: 1 }, pb: 2 }}>
                 {/* ── Identity + the four factors the score is actually computed from ── */}
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
                     <ToneChip tone="brand" color={a.status?.color ?? undefined} label={statusName} dense />
@@ -123,7 +124,7 @@ const CandidateDrawer = ({ application, statuses, onClose }: Props) => {
                     {a.convertedEmployeeId && <ToneChip tone="success" label="Converted to employee" dense />}
                 </Stack>
 
-                <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
+                <Stack direction="row" spacing={{ xs: 1.5, sm: 3 }} flexWrap="wrap" useFlexGap>
                     <Fact label="Email" value={a.applicant?.email} />
                     <Fact label="Phone" value={a.applicant?.phone} />
                     <Fact label="Experience" value={experience(a.applicant?.totalExperienceMonths)} />
@@ -134,7 +135,7 @@ const CandidateDrawer = ({ application, statuses, onClose }: Props) => {
                     <Fact label="Requisition" value={a.requisition?.title} />
                 </Stack>
 
-                <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                <Stack direction="row" spacing={1} sx={{ mt: 2 }} flexWrap="wrap" useFlexGap>
                     {a.applicant?.resumeS3Url && (
                         <WtButton size="small" ghost startIcon={<KTIcon iconName="document" className="fs-6" />}
                             onClick={() => window.open(a.applicant!.resumeS3Url as string, "_blank", "noopener")}>
@@ -159,7 +160,11 @@ const CandidateDrawer = ({ application, statuses, onClose }: Props) => {
 
                 {/* ── Notes: the thing that did not exist ── */}
                 <Section title="Notes" icon="notepad">
-                    <Stack direction="row" spacing={1} alignItems="flex-start">
+                    <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                        alignItems={{ xs: "stretch", sm: "flex-start" }}
+                    >
                         <TextField
                             fullWidth multiline minRows={2} size="small" placeholder="What did you learn about this candidate?"
                             value={draft} onChange={(e) => setDraft(e.target.value)}
@@ -180,7 +185,7 @@ const CandidateDrawer = ({ application, statuses, onClose }: Props) => {
                             {notes.map((n) => (
                                 <Box key={n.id} sx={{ p: 1.5, borderRadius: 2, bgcolor: "action.hover" }}>
                                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                                        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", flex: 1 }}>{n.body}</Typography>
+                                        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>{n.body}</Typography>
                                         <WtButton size="small" ghost tone="danger" onClick={() => confirmRemove(n.id)}
                                             startIcon={<KTIcon iconName="trash" className="fs-7" />}>
                                             {""}

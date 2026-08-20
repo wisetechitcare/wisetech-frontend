@@ -18,7 +18,7 @@ const titleCase = (s: string) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : s
 const BarRow = ({ label, count, max, color }: { label: string; count: number; max: number; color?: string | null }) => {
     const pct = max > 0 && count > 0 ? Math.max(5, Math.round((count / max) * 100)) : 0;
     return (
-        <Stack direction="row" alignItems="center" spacing={1.25}>
+        <Stack direction="row" alignItems="center" spacing={1.25} sx={{ minWidth: 0 }}>
             <Typography noWrap title={label} sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 96, sm: 132 }, flexShrink: 0, color: "text.secondary" }}>
                 {label}
             </Typography>
@@ -54,7 +54,7 @@ const dayWord = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays }: {
     name: string; color?: string | null; avgDays: number | null; samples: number; openCount: number; oldestOpenDays: number | null;
 }) => (
-    <Stack direction="row" alignItems="center" spacing={1.25} sx={{ py: 0.5 }}>
+    <Stack direction="row" alignItems="center" spacing={1.25} flexWrap="wrap" useFlexGap sx={{ py: 0.5 }}>
         <Box sx={{ width: 8, height: 8, borderRadius: 999, bgcolor: color || FALLBACK_BAR, flexShrink: 0 }} />
         <Typography noWrap title={name} sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 96, sm: 150 }, flexShrink: 0 }}>{name}</Typography>
         <Typography sx={{ fontSize: 12.5, color: "text.secondary", flex: 1, minWidth: 0 }}>
@@ -133,6 +133,9 @@ const RecruitmentOverview = () => {
                         initialMode="allyear"
                         allowedModes={["daily", "weekly", "monthly", "yearly", "allyear"]}
                         storageKey="recruitment:overview:period"
+                        // Compact labels: this control sits in a header that also carries a
+                        // title, and its own docblock recommends compact where width is tight.
+                        dateStyle="compact"
                         onChange={onPeriodChange}
                     />
                 }

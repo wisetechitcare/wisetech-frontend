@@ -91,7 +91,7 @@ const PostingsView = () => {
                 <AutoGrid min={320}>
                     {postings.map((p) => (
                         <GlassCard key={p.id} preset="row" interactive sx={{ display: "flex", flexDirection: "column", gap: 1, height: "100%", p: 1.75 }}>
-                            <Stack direction="row" alignItems="flex-start" spacing={1}>
+                            <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ minWidth: 0 }}>
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
                                     <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3, wordBreak: "break-word" }}>{p.title}</Typography>
                                     {p.requisition?.prefix && (
@@ -110,7 +110,7 @@ const PostingsView = () => {
                             {/* Spacer keeps the action row pinned to the bottom so tiles align in the grid. */}
                             <Box sx={{ flex: 1 }} />
 
-                            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+                            <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
                                 <FormControlLabel
                                     sx={{ mr: 0, ml: 0, gap: 0.75 }}
                                     control={<WtSwitch size="sm" checked={p.isPublished} onChange={(e) => publishMut.mutate({ id: p.id, isPublished: e.target.checked })} />}
