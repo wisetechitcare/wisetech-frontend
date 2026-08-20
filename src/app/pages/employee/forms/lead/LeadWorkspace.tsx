@@ -93,6 +93,14 @@ interface LeadWorkspaceProps {
   // ── Misc ───────────────────────────────────────────────────────────────────
   prefix: string;
   setPrefix: (val: string) => void;
+  /** Organizations the user may file a lead under, as `{ value, label }`. */
+  organizationOptions?: { value: string; label: string }[];
+  /** Switch the lead's organization; also re-numbers it (see LeadWizardModal). */
+  onOrganizationChange?: (organizationId: string, setFieldValue: Function) => void;
+  /** Why no inquiry number could be generated, if that happened. */
+  prefixError?: string | null;
+  /** Called when the number is edited by hand, so re-numbering can ask first. */
+  onPrefixManualEdit?: () => void;
   isEditMode: boolean;
   currLeadData?: any;
   hasDefaultStatus: () => boolean;
@@ -422,6 +430,15 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         label: "Lead Name",
         value: values.projectName || "—",
         isStrong: true,
+        stepId: "overview",
+      },
+      {
+        // Kept visible through every step: it drives the inquiry number, so it
+        // should not be something the user has to go back to step 1 to recall.
+        label: "Organization",
+        value:
+          props.organizationOptions?.find((o) => o.value === values.organizationId)?.label ||
+          "—",
         stepId: "overview",
       },
       {

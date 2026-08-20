@@ -18,6 +18,7 @@ import {
 import { deleteLead, getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference, getUserTablePreferences } from "@services/users";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import SelectLeadOrganizationDialog from "./SelectLeadOrganizationDialog";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
@@ -185,6 +186,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   // ── Data state ──────────────────────────────────────────────────────────────
+  // New leads pick their organization before the wizard opens — it decides the
+  // lead's prefix and number series.
+  const [showOrgPicker, setShowOrgPicker] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [tableData, setTableData] = useState<any[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -1415,7 +1419,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 </button>
                 <button
                   className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
-                  onClick={() => setFormValues({ leadTemplateId: "blank" })}
+                  onClick={() => setShowOrgPicker(true)}
                   style={{
                     backgroundColor: "#1E3A8A",
                     color: "#fff",
@@ -1892,6 +1896,17 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 state: { leadData: row.original.id },
               }),
           }),
+        }}
+      />
+
+      <SelectLeadOrganizationDialog
+        open={showOrgPicker}
+        onClose={() => setShowOrgPicker(false)}
+        onContinue={(organizationId) => {
+          setShowOrgPicker(false);
+          // Whatever goes in here lands in the wizard's initial form values. Only
+          // the id travels — the wizard resolves the name from its own org list.
+          setFormValues({ leadTemplateId: "blank", organizationId });
         }}
       />
 

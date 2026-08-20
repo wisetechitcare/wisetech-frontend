@@ -240,6 +240,10 @@ export function mapLeadToFormInitialValues(
               poDate: (additional.poDate || firstAdditional.poDate)
                 ? dayjs(additional.poDate || firstAdditional.poDate).format("YYYY-MM-DD")
                 : "",
+              // The lead's OWN organization — never the one currently selected
+              // elsewhere. Legacy leads have none and show as unassigned until
+              // someone picks one.
+              organizationId: lead?.organizationId || "",
               // Additional fields for mep / blank
               ...((leadTemplateId == leadAndProjectTemplateTypeId.mep || leadTemplateId == leadAndProjectTemplateTypeId.newLead) && {
                 projectAreas: projectAreas,
