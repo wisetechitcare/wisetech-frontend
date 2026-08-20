@@ -59,6 +59,15 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import LeadBulkImport from "./LeadBulkImport";
+import { useOrgScope } from "@hooks/useOrgScope";
+
+/**
+ * Leads created before organizations existed carry no organizationId. They are
+ * shown and filtered as "Unassigned" rather than hidden — the sentinel is only a
+ * filter value, never written to a lead.
+ */
+const UNASSIGNED_ORG_VALUE = "__unassigned__";
+const UNASSIGNED_ORG_LABEL = "Unassigned";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -250,6 +259,12 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   // ── Status & assigned filters ────────────────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState<string>("");
+  // Empty = all organizations; UNASSIGNED_ORG_VALUE = leads that predate them.
+  const [organizationFilter, setOrganizationFilter] = useState<string>("");
+  const { organizations: leadOrganizations } = useOrgScope({
+    includeAll: false,
+    initialScopeId: "",
+  });
   const [assignedToFilter, setAssignedToFilter] = useState<string>("");
 
   // ── Redux ────────────────────────────────────────────────────────────────────
@@ -515,6 +530,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           return {
             id: lead.id,
             prefix: lead?.prefix || "",
+            organizationId: lead?.organizationId || "",
+            // Leads created before organizations existed have none; the column
+            // and filter both call that out rather than showing a blank cell.
+            organization: lead?.organization?.name || UNASSIGNED_ORG_LABEL,
             projectName: lead.title || "",
             totalCost:
               Array.isArray(lead.commercials) && lead.commercials.length > 0
@@ -746,6 +765,20 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
         return typeof v === "object" ? v.name || "N/A" : v || "N/A";
+      },
+    },
+    {
+      accessorKey: "organization",
+      header: "Organization",
+      size: 170,
+      Cell: ({ cell }: { cell: any }) => {
+        const name = cell.getValue() as string;
+        const isUnassigned = !name || name === UNASSIGNED_ORG_LABEL;
+        return (
+          <span style={isUnassigned ? { color: "#98A2B3", fontStyle: "italic" } : undefined}>
+            {isUnassigned ? UNASSIGNED_ORG_LABEL : name}
+          </span>
+        );
       },
     },
     {
@@ -1054,6 +1087,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     { key: 'inquiryDate', header: 'Inquiry Date', type: 'text' as const },
     { key: 'prefix', header: 'Inquiry ID', type: 'text' as const },
     { key: 'projectName', header: 'Project Name', type: 'text' as const },
+    { key: 'organization', header: 'Organization', type: 'text' as const },
     { key: 'totalCost', header: 'Total Cost', type: 'currency' as const, showTotal: true },
     { key: 'client', header: 'Client', type: 'text' as const },
     { key: 'service', header: 'Service', type: 'text' as const },
@@ -1227,6 +1261,11 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       const statusMatch = statusFilter
         ? item.status?.name?.toLowerCase() === statusFilter.toLowerCase()
         : true;
+      const organizationMatch = organizationFilter
+        ? organizationFilter === UNASSIGNED_ORG_VALUE
+          ? !item.organizationId
+          : item.organizationId === organizationFilter
+        : true;
       const assignedMatch = assignedToFilter
         ? assignedToFilter === "__NA__"
           ? !item.assignedTo
@@ -1257,7 +1296,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           item.area?.toLowerCase().includes(q);
       }
 
-      return dateMatch && statusMatch && assignedMatch && searchMatch;
+      return dateMatch && statusMatch && organizationMatch && assignedMatch && searchMatch;
     });
   }, [
     filteredByProps,
@@ -1272,6 +1311,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     customStartDate,
     customEndDate,
     statusFilter,
+    organizationFilter,
     assignedToFilter,
     debouncedSearchText,
     employeeMap,
@@ -1280,15 +1320,27 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     subCategoryMap,
   ]);
 
+  // Organization filter options: every organization the user can see, plus an
+  // "Unassigned" entry only when legacy leads without one are actually present —
+  // no point offering a filter that can only ever return nothing.
+  const organizationFilterOptions = useMemo(() => {
+    const options = leadOrganizations.map((org) => ({ value: org.id, label: org.name }));
+    const hasUnassigned = (tableData ?? []).some((item: any) => !item.organizationId);
+    return hasUnassigned
+      ? [...options, { value: UNASSIGNED_ORG_VALUE, label: UNASSIGNED_ORG_LABEL }]
+      : options;
+  }, [leadOrganizations, tableData]);
+
   // Only show the full-page loader on the INITIAL load (no data yet). Placed AFTER all
   // hooks so the hook order is identical on every render (React requires this — an early
   // return before a hook causes "Rendered fewer hooks than expected"). On subsequent
   // refetches the table stays mounted instead of flashing the loader.
   if (loading && tableData.length === 0) return <Loader />;
 
-  const hasAnyFilter = statusFilter || assignedToFilter || debouncedSearchText;
+  const hasAnyFilter = statusFilter || organizationFilter || assignedToFilter || debouncedSearchText;
   const clearAllFilters = () => {
     setStatusFilter("");
+    setOrganizationFilter("");
     setAssignedToFilter("");
     setSearchText("");
     setDebouncedSearchText("");
@@ -1632,6 +1684,57 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   ))}
                 </Select>
               </FormControl>
+
+              {/* Organization Filter — same pill treatment as Status. Hidden when
+                  there is only one organization and nothing legacy to separate. */}
+              {organizationFilterOptions.length > 1 && (
+                <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 170 }}>
+                  <Select
+                    value={organizationFilter}
+                    onChange={(e) => setOrganizationFilter(e.target.value)}
+                    displayEmpty
+                    sx={pillSelectSx(!!organizationFilter)}
+                    renderValue={(val) => {
+                      if (!val) {
+                        return (
+                          <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
+                            Organization
+                          </span>
+                        );
+                      }
+                      const label =
+                        organizationFilterOptions.find((o) => o.value === val)?.label ?? val;
+                      return (
+                        <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
+                          <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                            {label}
+                          </span>
+                          <span
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setOrganizationFilter("");
+                            }}
+                            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#1E3A8A", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                          >
+                            ✕
+                          </span>
+                        </span>
+                      );
+                    }}
+                    MenuProps={menuSx}
+                  >
+                    <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
+                      All Organizations
+                    </MenuItem>
+                    {organizationFilterOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value} sx={{ fontSize: "12px" }}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
 
               {/* Assigned To Autocomplete */}
               <Autocomplete
