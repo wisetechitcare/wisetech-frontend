@@ -38,6 +38,7 @@ import YearlyPerformanceAnalytics from "./charts/YearlyPerformanceAnalytics";
 import MonthlyBarWithTarget from "./charts/MonthlyBarWithTarget";
 import {
   LeadOverviewDashboard,
+  ChartMetric,
   AnalyticsCard,
   AnalyticsHeader,
   RankedBarChart,
@@ -49,6 +50,8 @@ import {
 interface Props {
   startDate: dayjs.Dayjs;
   endDate: dayjs.Dayjs;
+  /** Plot lead count or lead value. Owned by LeadsOverviewToggle. */
+  metric?: ChartMetric;
 }
 
 /** Aggregate the nested location analytics into ranked chart data by locality. */
@@ -64,7 +67,7 @@ const aggregateLocations = (rows: any[]): ChartDatum[] => {
   return Array.from(map.values()).filter((d) => d.value > 0);
 };
 
-const Yearly = ({ startDate, endDate }: Props) => {
+const Yearly = ({ startDate, endDate, metric = "count" }: Props) => {
   const [chartData, setChartData] = useState<any>({
     statusData: [],
     serviceData: [],
@@ -475,7 +478,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
             cancellationApiRes?.data || [],
             "value",
             "name",
-            ""
+            "budget"
           ),
         });
       } catch (error) {
@@ -605,7 +608,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
   );
 
   const clientAnalysisSlot = settings?.showLeadsByCompanyType ? (
-    <ClientAnalysisSection startDate={startDates} endDate={endDates} />
+    <ClientAnalysisSection startDate={startDates} endDate={endDates} metric={metric} />
   ) : null;
 
   const geographySlot = settings?.showLeadsByLocation ? (
@@ -614,6 +617,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
         data={locationRes?.data || []}
         startDate={startDate || undefined}
         endDate={endDate || undefined}
+        metric={metric}
       />
     </section>
   ) : null;
@@ -622,6 +626,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
     <div className="">
       {/* Sections grouped into focused tabs via the shared dashboard. */}
       <LeadOverviewDashboard
+        metric={metric}
         statusData={chartData.statusData}
         serviceData={chartData.serviceData}
         categoryData={chartData.categoryData}

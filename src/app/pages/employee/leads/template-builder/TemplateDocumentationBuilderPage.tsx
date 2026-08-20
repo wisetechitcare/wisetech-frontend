@@ -55,8 +55,8 @@ const PlaceholderDocumentationTable = lazy(
 const TEMPLATE_STORAGE_KEY = "proposal-template-documentation-live-draft";
 
 const documentationBreadcrumbs = [
-  { title: "QC", path: "/qc/leads", isSeparator: false, isActive: false },
-  { title: "Leads", path: "/qc/leads", isSeparator: false, isActive: false },
+  { title: "QC", path: "/leads", isSeparator: false, isActive: false },
+  { title: "Leads", path: "/leads", isSeparator: false, isActive: false },
 ];
 
 const typeOptions = Array.from(

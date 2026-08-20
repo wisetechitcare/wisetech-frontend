@@ -207,7 +207,7 @@ export interface ActiveNavLocation {
  *
  * "Which section am I in" must have exactly one answer. When two non-alias entries
  * point at the same path the winner is whichever is declared first, which is silent,
- * order-dependent, and how /finance/bills came to render as "HR Department >
+ * order-dependent, and how /finance/reimbursements came to render as "HR Department >
  * Reimbursements". Either the route belongs to one section, or the other entry is a
  * shortcut and should carry `alias: true`.
  *
@@ -265,7 +265,7 @@ export function useActiveNavLocation(): ActiveNavLocation | null {
 
     // Shortcuts are excluded: an alias points at a route another container owns, so
     // letting it match would make "which container am I in" depend on declaration
-    // ORDER rather than ownership — the same bug that made /finance/bills resolve to
+    // ORDER rather than ownership — the same bug that made /finance/reimbursements resolve to
     // HR instead of Finance.
     const matches = flat.filter(({ link }) =>
       !link.alias && !!link.to && (pathname === link.to || pathname.startsWith(`${link.to}/`)));

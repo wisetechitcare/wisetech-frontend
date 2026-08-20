@@ -177,10 +177,10 @@ export interface UnifiedSearchResult {
 export const STATIC_SEARCH_INDEX: Omit<UnifiedSearchResult, 'id'>[] = [
   // Core Pages
   { title: 'Dashboard', subtitle: 'Main Overview', type: 'Navigation', path: '/dashboard', icon: 'element-11', tags: ['home', 'main', 'index'] },
-  { title: 'Leads', subtitle: 'Manage Inquiries', type: 'Navigation', path: '/qc/leads', icon: 'graph-3', tags: ['inquiry', 'sales', 'potential'] },
-  { title: 'Companies', subtitle: 'Client Companies', type: 'Navigation', path: '/qc/companies', icon: 'briefcase', tags: ['client', 'organization', 'firm'] },
-  { title: 'Contacts', subtitle: 'Client Contacts', type: 'Navigation', path: '/qc/contacts', icon: 'profile-circle', tags: ['people', 'person', 'phonebook'] },
-  { title: 'Projects', subtitle: 'Manage Projects', type: 'Navigation', path: '/qc/projects', icon: 'element-11', tags: ['work', 'plan', 'active'] },
+  { title: 'Leads', subtitle: 'Manage Inquiries', type: 'Navigation', path: '/leads', icon: 'graph-3', tags: ['inquiry', 'sales', 'potential'] },
+  { title: 'Companies', subtitle: 'Client Companies', type: 'Navigation', path: '/companies', icon: 'briefcase', tags: ['client', 'organization', 'firm'] },
+  { title: 'Contacts', subtitle: 'Client Contacts', type: 'Navigation', path: '/contacts', icon: 'profile-circle', tags: ['people', 'person', 'phonebook'] },
+  { title: 'Projects', subtitle: 'Manage Projects', type: 'Navigation', path: '/projects', icon: 'element-11', tags: ['work', 'plan', 'active'] },
   { title: 'Employees', subtitle: 'Staff Management', type: 'Navigation', path: '/employees', icon: 'profile-user', tags: ['staff', 'workers', 'team'] },
   { title: 'Tasks', subtitle: 'Daily Tasks', type: 'Navigation', path: '/tasks', icon: 'check-square', tags: ['todo', 'action', 'assignment'] },
   
@@ -188,7 +188,7 @@ export const STATIC_SEARCH_INDEX: Omit<UnifiedSearchResult, 'id'>[] = [
   { title: 'Attendance', subtitle: 'Attendance & Leaves', type: 'Navigation', path: '/employees/attendance-and-leaves', icon: 'calendar-tick', tags: ['leave', 'holiday', 'absent', 'present', 'clock'] },
   { title: 'Salary', subtitle: 'Payroll & Salary', type: 'Navigation', path: '/finance/salary', icon: 'wallet', tags: ['pay', 'money', 'income', 'payroll', 'slip'] },
   { title: 'Loans', subtitle: 'Employee Loans', type: 'Navigation', path: '/finance/loans', icon: 'bank', tags: ['advance', 'borrow', 'credit', 'money'] },
-  { title: 'Reimbursements', subtitle: 'Bills & Expenses', type: 'Navigation', path: '/finance/bills', icon: 'bill', tags: ['expense', 'claim', 'money', 'refund'] },
+  { title: 'Reimbursements', subtitle: 'Bills & Expenses', type: 'Navigation', path: '/finance/reimbursements', icon: 'bill', tags: ['expense', 'claim', 'money', 'refund'] },
   { title: 'Timesheet', subtitle: 'My Time Sheet', type: 'Navigation', path: '/tasks/timesheet', icon: 'time', tags: ['hours', 'log', 'work'] },
   { title: 'Employee Timesheet', subtitle: 'Team Time Sheets', type: 'Navigation', path: '/tasks/employee-timesheet', icon: 'timer', tags: ['team', 'hours', 'log'] },
   

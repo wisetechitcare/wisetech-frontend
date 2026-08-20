@@ -1,6 +1,6 @@
 import { FC } from 'react'
 import clsx from 'clsx'
-import {useLocation} from 'react-router'
+import {useLocation} from 'react-router-dom'
 import {checkIsActive, KTIcon, WithChildren} from '../../../helpers'
 import {useLayout} from '../../core'
 import {useSidebarCollapse} from '../../core/SidebarCollapseContext'

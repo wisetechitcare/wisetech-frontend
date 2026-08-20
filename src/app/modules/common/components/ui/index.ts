@@ -57,6 +57,8 @@ export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
 export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
 export type { ToolbarFilterSelectProps, FilterSelectTheme } from './ToolbarFilterSelect';
+export { OrgFilterToolbar, useOrgFilters } from './OrgFilterToolbar';
+export type { OrgFilterState, OrgFilterableRow, EmployeeStatusFilter } from './OrgFilterToolbar';
 export { hoverLiftSx, pressableSx, MOTION_KEYFRAMES } from './motion';
 export { GlassNotification, GlassToastProvider, useGlassToast } from './GlassNotification';
 export type { GlassNotificationProps, GlassToastOptions } from './GlassNotification';

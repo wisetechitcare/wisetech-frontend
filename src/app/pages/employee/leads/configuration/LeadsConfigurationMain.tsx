@@ -1079,7 +1079,7 @@ const LeadsConfigurationMain = () => {
                 </div>
                 <div style={{ display: 'flex', gap: SP.sm, flexShrink: 0 }}>
                   <Link
-                    to="/qc/leads/documentation-builder"
+                    to="/leads/documentation-builder"
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -1103,7 +1103,7 @@ const LeadsConfigurationMain = () => {
                     Docs & Validation
                   </Link>
                   <Link
-                    to="/qc/leads/configuration"
+                    to="/leads/configuration"
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',

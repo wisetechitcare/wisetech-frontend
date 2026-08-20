@@ -7,6 +7,9 @@ import { hasPermission } from '@utils/authAbac';
 import { can } from '@utils/can';
 import { isSectionBlocked, isSubsectionVisible, anyChildGranted } from '@utils/accessAreas';
 import { fetchPendingApprovals } from '@services/employee';
+import { fetchInboxCount } from '@services/inbox';
+import { useEventBus } from './useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags';
 import { useRootOrgName } from './useRootOrgNames';
 import { RootState } from '@redux/store';
@@ -43,7 +46,7 @@ export interface NavigationItem {
    * department. Only one of them owns the route, though, and "where am I" has to
    * have a single answer: without this flag the breadcrumb and the rail highlight
    * resolve to whichever section happens to appear FIRST in the tree, which is why
-   * /finance/bills read as "HR Department > Reimbursements".
+   * /finance/reimbursements read as "HR Department > Reimbursements".
    *
    * Set it on the shortcut, never on the owner.
    */
@@ -52,6 +55,9 @@ export interface NavigationItem {
 
 export function useNavigation() {
   const intl = useIntl();
+  const [inboxCount, setInboxCount] = useState(0);
+  // Distinct from the inbox count: this one is the approver queue's depth, shown on the
+  // My Team → Approvals row, and is genuinely approver-only.
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
 
   // Subscribe to capabilities + blocked sections so the menu re-evaluates
@@ -60,6 +66,20 @@ export function useNavigation() {
   const blockedSections = useSelector((state: RootState) => (state as any).authz?.blockedSections);
   // Drives the dynamic "<Org> Team" label on the Employees row (see below).
   const orgName = useRootOrgName();
+
+  // The Inbox badge counts the CALLER'S OWN open tasks, whoever they are. It used to count
+  // pending approvals and was skipped entirely for anyone without `approvals.approve.team`, so an
+  // employee with a queried expense saw a zero — and no Inbox row at all to put it on.
+  const refreshInboxCount = () => {
+    fetchInboxCount()
+      .then(setInboxCount)
+      .catch(() => setInboxCount(0));
+  };
+
+  useEffect(refreshInboxCount, [capabilities]);
+  // The badge counted work that had already been done — it was fetched once and never again, so
+  // answering a question left a "1" sitting in the sidebar over an empty inbox.
+  useEventBus(EVENT_KEYS.reimbursementChanged, refreshInboxCount);
 
   useEffect(() => {
     if (!can('approvals.approve.team')) {
@@ -91,14 +111,19 @@ export function useNavigation() {
       // NEW_MY_TEAM_IA that path is a redirect to /my-team/approvals (PrivateRoutes),
       // so the row could never match the URL and would never light up as active.
       // Target the destination directly while the flag is on.
+      // The Inbox is EVERY employee's own task list — approvals to give, questions to answer,
+      // expenses that came back rejected. Gating it on an approval permission (as it was) left the
+      // employee half of every workflow with nowhere the product told them to look, which is the
+      // whole reason the action layer exists. Always visible; the page is scoped to the caller
+      // server-side and simply says "you are all caught up" when there is nothing.
       {
         type: 'item',
         id: 'inbox',
-        to: NEW_MY_TEAM_IA ? '/my-team/approvals' : '/approvals/inbox',
+        to: '/inbox',
         title: 'Inbox',
         fontIcon: 'bi-inbox',
-        badgeCount: pendingApprovalsCount,
-        visible: can('approvals.approve.team') || can('approvals.view.team'),
+        badgeCount: inboxCount,
+        visible: true,
       },
       {
         type: 'item',
@@ -206,8 +231,8 @@ export function useNavigation() {
           { type: 'item', id: 'tm-members', to: '/my-team/members', title: 'Members', visible: true },
           { type: 'item', id: 'tm-attendance', to: '/my-team/attendance', title: 'Attendance', visible: true },
           { type: 'item', id: 'tm-leaves', to: '/my-team/leaves', title: 'Leaves', visible: true },
-          // Shortcut into Finance's route — Finance owns /finance/bills. See `alias`.
-          { type: 'item', id: 'tm-reimbursements', to: '/finance/bills', title: 'Reimbursements', visible: true, alias: true },
+          // Shortcut into Finance's route — Finance owns /finance/reimbursements. See `alias`.
+          { type: 'item', id: 'tm-reimbursements', to: '/finance/reimbursements', title: 'Reimbursements', visible: true, alias: true },
           { type: 'item', id: 'tm-salary', to: '/my-team/salary', title: 'Salary', visible: true },
           { type: 'item', id: 'tm-tasks', to: '/my-team/tasks', title: 'Tasks', visible: true },
           { type: 'item', id: 'tm-projects', to: '/my-team/projects', title: 'Projects', visible: true },
@@ -277,7 +302,7 @@ export function useNavigation() {
       {
         type: 'item',
         id: 'crm-leads',
-        to: '/qc/leads',
+        to: '/leads',
         title: 'Leads',
         fontIcon: 'bi-megaphone',
         visible: !isSectionBlocked('crm.leads'),
@@ -285,7 +310,7 @@ export function useNavigation() {
       {
         type: 'item',
         id: 'crm-companies',
-        to: '/qc/companies',
+        to: '/companies',
         title: 'Companies',
         fontIcon: 'bi-building',
         visible: !isSectionBlocked('crm.companies'),
@@ -293,7 +318,7 @@ export function useNavigation() {
       {
         type: 'item',
         id: 'crm-contacts',
-        to: '/qc/contacts',
+        to: '/contacts',
         title: 'Contacts',
         fontIcon: 'bi-person-lines-fill',
         visible: !isSectionBlocked('crm.contacts'),
@@ -313,7 +338,7 @@ export function useNavigation() {
       {
         type: 'item',
         id: 'projects-projects',
-        to: '/qc/projects',
+        to: '/projects',
         title: 'Projects',
         fontIcon: 'bi-briefcase',
         visible: !isSectionBlocked('projects'),
@@ -398,7 +423,7 @@ export function useNavigation() {
       {
         type: 'item',
         id: 'fin-reimbursements',
-        to: '/finance/bills',
+        to: '/finance/reimbursements',
         title: 'Reimbursements',
         fontIcon: 'bi-receipt',
         visible: !isSectionBlocked('finance') && isSubsectionVisible('finance.reimbursements', hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
@@ -468,7 +493,7 @@ export function useNavigation() {
       {
         type: 'item',
         id: 'org-teams',
-        to: '/company/teams',
+        to: '/tasks/calendar',
         title: 'Teams',
         fontIcon: 'bi-people',
         visible: isSubsectionVisible('settings.teams', hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
@@ -510,7 +535,7 @@ export function useNavigation() {
     ];
 
     return items;
-  }, [intl, pendingApprovalsCount, capabilities, blockedSections, orgName]);
+  }, [intl, inboxCount, pendingApprovalsCount, capabilities, blockedSections, orgName]);
 
   return menu;
 }

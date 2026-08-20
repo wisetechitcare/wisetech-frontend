@@ -9,6 +9,8 @@ import ServiceCategoryTabs, { BreakdownTab } from "./ServiceCategoryTabs";
 import AcquisitionGauge from "./AcquisitionGauge";
 import {
   ChartDatum,
+  ChartMetric,
+  applyMetric,
   computeExecutiveKpis,
   generateServiceInsights,
 } from "./leadAnalyticsUtils";
@@ -62,6 +64,11 @@ export interface LeadOverviewDashboardProps {
   slots?: LeadOverviewSlots;
   /** Persist the active tab per period view. */
   tabStorageKey?: string;
+  /**
+   * Plot lead COUNT or lead VALUE. Amount reads the `totalCost` every datum
+   * already carries, so switching needs no extra fetch.
+   */
+  metric?: ChartMetric;
 }
 
 const isEmpty = (d?: ChartDatum[]) =>
@@ -100,6 +107,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   onCancellationReasonSelect,
   slots,
   tabStorageKey = "leadOverviewActiveTab",
+  metric = "count",
 }) => {
   const kpis = useMemo(
     () => computeExecutiveKpis(statusData, serviceData),
@@ -119,15 +127,30 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
     [kpis]
   );
 
-  // Transform service data for revenue ranking: swap value (volume) and totalCost (revenue)
-  const serviceDataByRevenue = useMemo(
-    () =>
-      serviceData.map((s) => ({
-        ...s,
-        volumeValue: s.value, // Store original volume
-        value: s.totalCost || 0, // Use revenue as ranking value
-      })),
-    [serviceData]
+  const isAmount = metric === "amount";
+  // Re-point each dataset at the chosen measure. Every chart below plots `value`
+  // and derives share % from it, so this one mapping switches the whole page.
+  // (Replaces an unused serviceDataByRevenue that did the same swap for services
+  // only and was never rendered.)
+  const statusByMetric = useMemo(() => applyMetric(statusData, metric), [statusData, metric]);
+  const serviceByMetric = useMemo(() => applyMetric(serviceData, metric), [serviceData, metric]);
+  const categoryByMetric = useMemo(() => applyMetric(categoryData, metric), [categoryData, metric]);
+  const subcategoryByMetric = useMemo(
+    () => applyMetric(subcategoryData || [], metric),
+    [subcategoryData, metric]
+  );
+  const sourceByMetric = useMemo(() => applyMetric(sourceData, metric), [sourceData, metric]);
+  const referralByMetric = useMemo(
+    () => applyMetric(referralSourceData, metric),
+    [referralSourceData, metric]
+  );
+  const directByMetric = useMemo(
+    () => applyMetric(directSourceData, metric),
+    [directSourceData, metric]
+  );
+  const cancellationByMetric = useMemo(
+    () => applyMetric(cancellationReasonData, metric),
+    [cancellationReasonData, metric]
   );
 
   const showStatus = settings?.showLeadsStatusChart;
@@ -163,7 +186,13 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   ) : null;
 
   const pipelineSection = showStatus ? (
-    <PipelinePerformance statusData={statusData} onSelect={onStatusSelect} />
+    <PipelinePerformance
+      statusData={statusByMetric}
+      // Health stays scored on counts — a few high-value leads shouldn't swing it.
+      healthData={statusData}
+      metric={metric}
+      onSelect={onStatusSelect}
+    />
   ) : null;
 
   // Service / Category / Sub-Category folded into ONE ranked-bar card with a tab
@@ -175,8 +204,10 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
       id: "services",
       label: "Services",
       cardTitle: "Service Mix",
-      cardSubtitle: "Distribution by lead volume · revenue in tooltip",
-      data: serviceData,
+      cardSubtitle: isAmount
+        ? "Distribution by lead value · count in tooltip"
+        : "Distribution by lead volume · revenue in tooltip",
+      data: serviceByMetric,
       onSelect: onServiceSelect,
       emptyHint: "Add services to see the distribution.",
     });
@@ -186,8 +217,10 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
       id: "categories",
       label: "Categories",
       cardTitle: "Top Categories",
-      cardSubtitle: "Ranked by lead volume · revenue in tooltip",
-      data: categoryData,
+      cardSubtitle: isAmount
+        ? "Ranked by lead value · count in tooltip"
+        : "Ranked by lead volume · revenue in tooltip",
+      data: categoryByMetric,
       onSelect: onCategorySelect,
       emptyHint: "Create project categories to view the ranking.",
     });
@@ -195,8 +228,10 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
       id: "subcategories",
       label: "Sub-Categories",
       cardTitle: "Top Sub Categories",
-      cardSubtitle: "Ranked by lead volume · revenue in tooltip",
-      data: subcategoryData || [],
+      cardSubtitle: isAmount
+        ? "Ranked by lead value · count in tooltip"
+        : "Ranked by lead volume · revenue in tooltip",
+      data: subcategoryByMetric,
       onSelect: onSubcategorySelect,
       emptyHint: "Create sub categories to view the ranking.",
     });
@@ -206,7 +241,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div className="row g-3">
         <div className="col-12">
-          <ServiceCategoryTabs tabs={breakdownTabs} />
+          <ServiceCategoryTabs tabs={breakdownTabs} metric={metric} entityLabel="Leads" />
         </div>
       </div>
       {showCancellation && (
@@ -219,12 +254,22 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
           />
           <AnalyticsCard
             title="Cancellation Reasons"
-            subtitle="Ranked by volume"
+            subtitle={isAmount ? "Ranked by lost value · count in tooltip" : "Ranked by volume"}
             index={0}
-            isEmpty={isEmpty(cancellationReasonData)}
-            emptyHint="No cancelled leads in this period."
+            isEmpty={isEmpty(cancellationByMetric)}
+            emptyHint={
+              isAmount
+                ? "No value attached to cancelled leads in this period."
+                : "No cancelled leads in this period."
+            }
           >
-            <RankedBarChart data={cancellationReasonData} onSelect={onCancellationReasonSelect} valueLabel title="Cancellation Reasons" />
+            <RankedBarChart
+              data={cancellationByMetric}
+              onSelect={onCancellationReasonSelect}
+              valueLabel
+              title="Cancellation Reasons"
+              metric={metric}
+            />
           </AnalyticsCard>
         </>
       )}
@@ -237,22 +282,40 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
       <div className="row g-3">
         {showSource && (
           <div className="col-12 col-lg-4">
-            <AnalyticsCard title="By Source" index={0} isEmpty={isEmpty(sourceData)} emptyHint="No source data.">
-              <AcquisitionGauge data={sourceData} onSelect={onSourceSelect} limit={8} height={260} />
+            <AnalyticsCard
+              title="By Source"
+              subtitle={isAmount ? "By lead value" : undefined}
+              index={0}
+              isEmpty={isEmpty(sourceByMetric)}
+              emptyHint="No source data."
+            >
+              <AcquisitionGauge data={sourceByMetric} onSelect={onSourceSelect} limit={8} height={260} metric={metric} />
             </AnalyticsCard>
           </div>
         )}
         {showReferral && (
           <div className="col-12 col-lg-4">
-            <AnalyticsCard title="By Referral Source" index={1} isEmpty={isEmpty(referralSourceData)} emptyHint="No referral data.">
-              <AcquisitionGauge data={referralSourceData} onSelect={onReferralSelect} limit={8} height={260} />
+            <AnalyticsCard
+              title="By Referral Source"
+              subtitle={isAmount ? "By lead value" : undefined}
+              index={1}
+              isEmpty={isEmpty(referralByMetric)}
+              emptyHint="No referral data."
+            >
+              <AcquisitionGauge data={referralByMetric} onSelect={onReferralSelect} limit={8} height={260} metric={metric} />
             </AnalyticsCard>
           </div>
         )}
         {showDirect && (
           <div className="col-12 col-lg-4">
-            <AnalyticsCard title="By Direct Source" index={2} isEmpty={isEmpty(directSourceData)} emptyHint="No direct-source data.">
-              <AcquisitionGauge data={directSourceData} onSelect={onDirectSelect} limit={8} height={260} />
+            <AnalyticsCard
+              title="By Direct Source"
+              subtitle={isAmount ? "By lead value" : undefined}
+              index={2}
+              isEmpty={isEmpty(directByMetric)}
+              emptyHint="No direct-source data."
+            >
+              <AcquisitionGauge data={directByMetric} onSelect={onDirectSelect} limit={8} height={260} metric={metric} />
             </AnalyticsCard>
           </div>
         )}

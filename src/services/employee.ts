@@ -1553,8 +1553,18 @@ export const fetchReimbursementBatchById = async (batchId: string) => {
     return data;
 };
 
-export const processBatchRequestAction = async (batchId: string, requestId: string, action: 'approve' | 'reject', comments?: string) => {
-    const { data } = await axios.put(`${API_BASE_URL}/${EMPLOYEE.PROCESS_BATCH_REQUEST}/${batchId}/requests/${requestId}`, { action, comments });
+export const processBatchRequestAction = async (
+    batchId: string,
+    requestId: string,
+    action: 'approve' | 'reject' | 'request-info',
+    comments?: string,
+    /** Only meaningful for 'request-info' — files the question under a query category. */
+    category?: string,
+) => {
+    const { data } = await axios.put(
+        `${API_BASE_URL}/${EMPLOYEE.PROCESS_BATCH_REQUEST}/${batchId}/requests/${requestId}`,
+        { action, comments, category },
+    );
     return data;
 };
 
@@ -2490,23 +2500,6 @@ export const updateReimbursementPaymentById = async (id: string, payload: {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_REIMBURSEMENT_PAYMENT}/${id}`;
         const { data } = await axios.patch(endpoint, payload);
-        return data?.data?.payment;
-    } catch (err) {
-        throw err;
-    }
-}
-
-export const createAdvanceReimbursementPayment = async (payload: {
-    employeeId: string;
-    amountPaid: number;
-    paymentDate: string;
-    paymentMethod: string;
-    transactionId?: string;
-    remarks?: string;
-}) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_ADVANCE_REIMBURSEMENT_PAYMENT}`;
-        const { data } = await axios.post(endpoint, payload);
         return data?.data?.payment;
     } catch (err) {
         throw err;

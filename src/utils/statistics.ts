@@ -131,7 +131,6 @@ export async function fetchEmpMonthlyStatistics(
         const monthlyRequestTable = transformAttendanceRequest(attendanceRequests);
         store.dispatch(saveMonthlyRequestTable(monthlyRequestTable));
         console.log("debugger:: ", empAttendanceStatistics);
-        // debugger;
         store.dispatch(saveMonthlyStatistics(empAttendanceStatistics));
 
         const dates = generateDateRange(startDate, endDate);
@@ -140,7 +139,6 @@ export async function fetchEmpMonthlyStatistics(
         // console.log("MonthlyTable:: ",monthlyTable);
         // console.log("empAttendanceStatistics:: ",empAttendanceStatistics);
 
-        // debugger;
         store.dispatch(saveMonthlyTable(monthlyTable));
 
         filterLeavesPublicHolidays(startDate, endDate);
@@ -249,7 +247,6 @@ export function filterLeavesPublicHolidays(
 
     // Get all leaves from store
     const allLeaves = store.getState().attendanceStats.leaves;
-    // debugger;
     // Filter leaves with single, consistent logic
     const leaves: CustomLeaves[] = allLeaves.filter((leave: CustomLeaves) => {
         if (leave.status !== LeaveStatus.Approved && (!countUnapprovedLeaves || leave.status == LeaveStatus.Rejected)) {
@@ -1193,7 +1190,6 @@ export function donutaDataLabel(
             }
             // If it's weekend/holiday with no attendance, keep the original count (no reduction)
         }
-        // debugger;
     });
 
     // Update final counts
@@ -1533,7 +1529,6 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
         // console.log("isWorkMethodOnSite:: ", isWorkMethodOnSite);
         // console.log("finalTime:: ", finalTime);
         // console.log("earlyCheckInThreshold:: ", earlyCheckInThreshold);
-        // debugger
         if (compareTimes(checkIn, earlyCheckInThreshold)) {
             statMap.set(EARLY_CHECKIN, statMap.get(EARLY_CHECKIN)! + 1);
         } else {
@@ -2818,7 +2813,6 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
             attendanceRecord?.checkOut
         );
 
-        // debugger;
 
         if (!isPastOrPresentDate) {
             return {
@@ -3001,8 +2995,18 @@ export async function fetchEmpMonthlyReimbursements(month: Dayjs, empId = store.
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
-            expenseDate: formattedDate,
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
@@ -3033,8 +3037,18 @@ export async function fetchEmpYearlyReimbursements(year: Dayjs, empId = store.ge
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
-            expenseDate: formattedDate,
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
@@ -3061,10 +3075,21 @@ export async function fetchMonthlyReimbursementsOfAllEmp(month: Dayjs) {
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
             ID: data?.employee?.employeeCode,
-            name: `${data.employee?.users?.firstName} ${data.employee?.users?.lastName}`,
-            expenseDate: formattedDate,
+            name: [data.employee?.users?.firstName, data.employee?.users?.lastName]
+                .filter(Boolean).join(' ').trim() || 'N/A',  // P1-6: was "undefined undefined"
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
@@ -3074,8 +3099,8 @@ export async function fetchMonthlyReimbursementsOfAllEmp(month: Dayjs) {
 }
 
 export async function fetchYearlyReimbursementsOfAllEmp(year: Dayjs) {
-    const startDate = (year.startOf('year').format('YYYY-MM-DD'));
-    const endDate = (year.endOf('year').format('YYYY-MM-DD'));
+    // Fiscal, not calendar (Q2). This surface was calendar-bounded while its label said fiscal.
+    const { startDate, endDate } = await generateFiscalYearFromGivenYear(year);
     const { data: { reimbursements: empYearlyReimbursements } } = await fetchReimbursementsForAllEmployees(startDate, endDate);
     empYearlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
         new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
@@ -3092,10 +3117,21 @@ export async function fetchYearlyReimbursementsOfAllEmp(year: Dayjs) {
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
             ID: data.employee?.employeeCode,
-            name: `${data.employee?.users?.firstName} ${data.employee?.users?.lastName}`,
-            expenseDate: formattedDate,
+            name: [data.employee?.users?.firstName, data.employee?.users?.lastName]
+                .filter(Boolean).join(' ').trim() || 'N/A',  // P1-6: was "undefined undefined"
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
@@ -3121,10 +3157,21 @@ export async function fetchAllTimeReimbursementsOfAllEmp() {
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
             ID: data.employee?.employeeCode,
-            name: `${data.employee?.users?.firstName} ${data.employee?.users?.lastName}`,
-            expenseDate: formattedDate,
+            name: [data.employee?.users?.firstName, data.employee?.users?.lastName]
+                .filter(Boolean).join(' ').trim() || 'N/A',  // P1-6: was "undefined undefined"
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
@@ -3160,8 +3207,18 @@ export async function fetchEmpAlltimeReimbursements(empId = store.getState().emp
         return {
             ...data,
             day: date.toLocaleDateString('en-GB', { weekday: 'long' }),
-            type: data?.reimbursementType?.type || "-NA-",
-            expenseDate: formattedDate,
+            type: data?.reimbursementType?.type || "N/A",
+            // P1-3: the API returns `rejectReason` but the tables read `rejectionReason`, so a
+            // rejected row never showed why. Carry both spellings rather than chase every reader.
+            rejectReason: data.rejectReason ?? null,
+            rejectionReason: data.rejectReason ?? null,
+            // P1-5: lead-as-master — saveReimbursement resolves projectId to leadId and drops the
+            // original, so readers looking only at `project.title` found nothing.
+            projectTitle: data.lead?.title ?? data.project?.title ?? null,
+            // P1-7: keep the real Date so the column sorts chronologically. Overwriting it
+            // with "05 Jan 2026" made every table sort dates alphabetically.
+            expenseDate: data.expenseDate,
+            expenseDateLabel: formattedDate,
             status: (data.status == 0 ? 'Pending' : (data.status == 1 ? 'Approved' : (data.status == 2 ? 'Rejected' : '-')))
         }
 
@@ -4004,7 +4061,6 @@ export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeeken
         //   const entryNew = entry;
         //   console.log("Entry:::: ",entryNew);
 
-        //   debugger;
         return {
             ...entry,
             isWeekendOrHoliday: isHoliday || isWeekend,

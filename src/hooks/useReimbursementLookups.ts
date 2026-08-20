@@ -20,6 +20,78 @@ import { getProjectsByCompanyId } from "@services/projects";
  * projects that appear in the visible data in a single pass.
  */
 
+
+/**
+ * Module-level caches, shared by every instance of this hook.
+ *
+ * The hook is instantiated three times across the reimbursement screens, and each copy fetched
+ * company types, client companies and per-company projects independently on mount — the same
+ * responses, three times, on every page load. Nothing here changes during a session.
+ *
+ * The in-flight promises are cached too, not just the results: without that, three components
+ * mounting in the same tick all miss the empty cache and fire the request anyway.
+ */
+let baseCache: { types: Record<string, string>; companies: Record<string, string> } | null = null;
+let baseInFlight: Promise<{ types: Record<string, string>; companies: Record<string, string> }> | null = null;
+
+/** Projects keyed by the company they belong to; each company is fetched at most once. */
+const projectCache: Record<string, string> = {};
+const projectInFlight = new Map<string, Promise<void>>();
+
+const loadBaseLookups = () => {
+    if (baseCache) return Promise.resolve(baseCache);
+    if (baseInFlight) return baseInFlight;
+
+    baseInFlight = (async () => {
+        const [typesRes, companiesRes] = await Promise.all([
+            getAllCompanyTypes(),
+            getAllClientCompanies(),
+        ]);
+
+        const types: Record<string, string> = {};
+        for (const ct of (typesRes?.companyTypes ?? []) as any[]) {
+            if (ct?.id) types[ct.id] = ct.name ?? ct.id;
+        }
+
+        const rawCompanies: any[] =
+            companiesRes?.data?.companies ||
+            companiesRes?.clientCompanies ||
+            companiesRes?.data?.clientCompanies ||
+            companiesRes?.companies ||
+            [];
+        const companies: Record<string, string> = {};
+        for (const c of rawCompanies) {
+            if (c?.id) companies[c.id] = c.companyName ?? c.id;
+        }
+
+        baseCache = { types, companies };
+        return baseCache;
+    })().catch((err) => {
+        // Clear the in-flight promise so a later mount can retry rather than inheriting a
+        // permanently rejected one.
+        baseInFlight = null;
+        throw err;
+    });
+
+    return baseInFlight;
+};
+
+const loadProjectsForCompany = (companyId: string): Promise<void> => {
+    const existing = projectInFlight.get(companyId);
+    if (existing) return existing;
+
+    const p = getProjectsByCompanyId(companyId)
+        .then((res: any) => {
+            for (const proj of (res?.projects || res?.data?.projects || []) as any[]) {
+                if (proj?.id) projectCache[proj.id] = proj.title ?? proj.id;
+            }
+        })
+        .catch(() => { projectInFlight.delete(companyId); });
+
+    projectInFlight.set(companyId, p);
+    return p;
+};
+
 interface LookupMaps {
   resolveClientType: (id: string | null | undefined) => string;
   resolveClientCompany: (id: string | null | undefined) => string;
@@ -40,33 +112,10 @@ export function useReimbursementLookups(rows: any[] = []): LookupMaps {
 
     const load = async () => {
       try {
-        const [typesRes, companiesRes] = await Promise.all([
-          getAllCompanyTypes(),
-          getAllClientCompanies(),
-        ]);
-
+        const { types, companies } = await loadBaseLookups();
         if (cancelled) return;
-
-        // Build company-type map  { id → name }
-        const types: any[] = typesRes?.companyTypes || [];
-        const typeMap: Record<string, string> = {};
-        types.forEach((ct: any) => {
-          if (ct?.id) typeMap[ct.id] = ct.name ?? ct.id;
-        });
-        setCompanyTypeMap(typeMap);
-
-        // Build client-company map  { id → companyName }
-        const companies: any[] =
-          companiesRes?.data?.companies ||
-          companiesRes?.clientCompanies ||
-          companiesRes?.data?.clientCompanies ||
-          companiesRes?.companies ||
-          [];
-        const companyMap: Record<string, string> = {};
-        companies.forEach((c: any) => {
-          if (c?.id) companyMap[c.id] = c.companyName ?? c.id;
-        });
-        setClientCompanyMap(companyMap);
+        setCompanyTypeMap(types);
+        setClientCompanyMap(companies);
       } catch (err) {
         console.error("[useReimbursementLookups] Failed to load base lookup data", err);
       } finally {
@@ -96,29 +145,11 @@ export function useReimbursementLookups(rows: any[] = []): LookupMaps {
     let cancelled = false;
 
     const fetchProjects = async () => {
-      const results = await Promise.allSettled(
-        uniqueCompanyIds.map((companyId) =>
-          getProjectsByCompanyId(companyId).then((res) => ({
-            companyId,
-            projects: res?.projects || res?.data?.projects || [],
-          }))
-        )
-      );
-
+      await Promise.allSettled(uniqueCompanyIds.map(loadProjectsForCompany));
       if (cancelled) return;
-
-      const newEntries: Record<string, string> = {};
-      results.forEach((result) => {
-        if (result.status === "fulfilled") {
-          result.value.projects.forEach((p: any) => {
-            if (p?.id) newEntries[p.id] = p.title ?? p.id;
-          });
-        }
-      });
-
-      if (Object.keys(newEntries).length > 0) {
-        setProjectMap((prev) => ({ ...prev, ...newEntries }));
-      }
+      // The cache is shared, so publish the whole thing rather than a delta — another instance
+      // may have filled entries this one never asked for.
+      setProjectMap({ ...projectCache });
     };
 
     fetchProjects();

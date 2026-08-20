@@ -5,7 +5,7 @@ import { convertToChartData } from "@utils/leadsProjectCompaniesStatistics";
 import AnalyticsHeader from "@pages/dashboard/leadAnalytics/AnalyticsHeader";
 import AnalyticsCard from "@pages/dashboard/leadAnalytics/AnalyticsCard";
 import RankedBarChart from "@pages/dashboard/leadAnalytics/RankedBarChart";
-import { ChartDatum } from "@pages/dashboard/leadAnalytics/leadAnalyticsUtils";
+import { ChartDatum, ChartMetric, applyMetric } from "@pages/dashboard/leadAnalytics/leadAnalyticsUtils";
 import { ChartDialogModal } from "@pages/employee/leads/overview/components/ChartDialogModal";
 
 type ExternalMode = "companyType" | "company" | "contact";
@@ -22,10 +22,14 @@ const isEmpty = (d?: ChartDatum[]) =>
 const ProjectTeamsSection = ({
   startDate,
   endDate,
+  metric = "count",
 }: {
   startDate?: Dayjs;
   endDate?: Dayjs;
+  /** Plot project COUNT or project VALUE — both rows already carry `budget`. */
+  metric?: ChartMetric;
 }) => {
+  const isAmount = metric === "amount";
   const startStr = startDate ? startDate.format("YYYY-MM-DD") : "";
   const endStr = endDate ? endDate.format("YYYY-MM-DD") : "";
 
@@ -149,6 +153,11 @@ const ProjectTeamsSection = ({
     </div>
   );
 
+  // One swap per dataset — RankedBarChart plots `value` and keeps the count as
+  // `volumeValue`, so Amount answers "which team delivers the most value".
+  const internalByMetric = applyMetric(internalData, metric);
+  const externalByMetric = applyMetric(externalData, metric);
+
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
@@ -156,25 +165,39 @@ const ProjectTeamsSection = ({
         <div className="col-12 col-lg-6">
           <AnalyticsCard
             title="Projects by Internal Team"
-            subtitle="Execution team · NA = no team assigned"
+            subtitle={`Execution team${isAmount ? " · by project value" : ""} · NA = no team assigned`}
             index={0}
-            isEmpty={isEmpty(internalData)}
+            isEmpty={isEmpty(internalByMetric)}
             emptyHint="No projects with an execution team in this period."
           >
-            <RankedBarChart data={internalData} onSelect={onInternalClick} valueLabel />
+            <RankedBarChart
+              data={internalByMetric}
+              onSelect={onInternalClick}
+              valueLabel
+              metric={metric}
+              entityLabel="Projects"
+            />
           </AnalyticsCard>
         </div>
         <div className="col-12 col-lg-6">
           <AnalyticsCard
             title="Projects by External Team"
-            subtitle={`Grouped by ${MODE_LABEL[externalMode]} · NA = no external team`}
+            subtitle={`Grouped by ${MODE_LABEL[externalMode]}${
+              isAmount ? " · by project value" : ""
+            } · NA = no external team`}
             index={1}
-            isEmpty={isEmpty(externalData)}
+            isEmpty={isEmpty(externalByMetric)}
             emptyHint="No external-team data in this period."
             headerRight={toggle}
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%" }}>
-              <RankedBarChart data={externalData} onSelect={onExternalClick} valueLabel />
+              <RankedBarChart
+                data={externalByMetric}
+                onSelect={onExternalClick}
+                valueLabel
+                metric={metric}
+                entityLabel="Projects"
+              />
             </div>
           </AnalyticsCard>
         </div>

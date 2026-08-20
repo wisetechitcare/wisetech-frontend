@@ -1,12 +1,10 @@
 import { FC, lazy, Suspense, useEffect, useState } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { MasterLayout } from '../../_metronic/layout/MasterLayout'
 import TopBarProgress from 'react-topbar-progress-indicator'
 import { DashboardWrapper } from '../pages/dashboard/DashboardWrapper'
-import { MenuTestPage } from '../pages/MenuTestPage'
 import { getCSSVariableValue } from '../../_metronic/assets/ts/_utils'
 import { WithChildren } from '../../_metronic/helpers'
-import BuilderPageWrapper from '../pages/layout-builder/BuilderPageWrapper'
 import { hasPermission } from '@utils/authAbac'
 import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from '@constants/statistics'
 import { RootState, store } from '@redux/store'
@@ -99,6 +97,15 @@ const RolesPermissions = lazy(() => import('@pages/admin/RolesPermissions').then
 const WorkspaceShell = lazy(() => import('@components/workspace/WorkspaceShell'))
 const WorkspaceHomeStage = lazy(() => import('@components/workspace/pages/HomeStage'))
 const AppWorkspacePage = lazy(() => import('@components/workspace/pages/AppWorkspacePage'))
+
+/**
+ * Old detail URL kept alive. `<Navigate>` cannot interpolate a route param, so the
+ * param is read here and spliced into the new path.
+ */
+const LegacyLeadRedirect: FC = () => {
+  const { leadId } = useParams()
+  return <Navigate to={`/leads/${leadId}`} replace />
+}
 const PrivateRoutes = () => {
   const [isStored, setIsStored] = useState(false)
   const employeeId = useSelector(
@@ -137,7 +144,7 @@ const PrivateRoutes = () => {
             states, not two components faking continuity.
 
             It wraps everything on purpose. While it only wrapped /workspace/*, opening an
-            actual module (/employees, /qc/companies) unmounted the shell and the rail
+            actual module (/employees, /companies) unmounted the shell and the rail
             vanished mid-journey, which is exactly the "it doesn't navigate through the
             section" problem. A workspace you fall out of is not a workspace.
 
@@ -149,6 +156,22 @@ const PrivateRoutes = () => {
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
         {/* Pages */}
         <Route path='dashboard' element={<DashboardWrapper />} />
+
+        {/* ── Legacy URL redirects ──────────────────────────────────────────────────
+            These paths shipped, so they are in bookmarks, in already-sent emails, and
+            — for /finance/bills — written into notification ROWS in the database by
+            the backend. Renaming without these would break every one of them, so the
+            old path stays as a one-line redirect rather than a 404. */}
+        <Route path='/finance/bills' element={<Navigate to='/finance/reimbursements' replace />} />
+        <Route path='/qc/leads' element={<Navigate to='/leads' replace />} />
+        <Route path='/qc/leads/configuration' element={<Navigate to='/leads/configuration' replace />} />
+        <Route path='/qc/leads/wizard-beta' element={<Navigate to='/leads/wizard-beta' replace />} />
+        <Route path='/qc/leads/documentation-builder' element={<Navigate to='/leads/documentation-builder' replace />} />
+        <Route path='/qc/projects' element={<Navigate to='/projects' replace />} />
+        <Route path='/qc/contacts' element={<Navigate to='/contacts' replace />} />
+        <Route path='/qc/companies' element={<Navigate to='/companies' replace />} />
+        <Route path='/company/teams' element={<Navigate to='/tasks/calendar' replace />} />
+        <Route path='/employee/lead/:leadId' element={<LegacyLeadRedirect />} />
         {/* `/home` was the legacy Transform launcher; the workspace shell supersedes it.
             In classic-sidebar mode WorkspaceShell bounces /workspace/* to /dashboard, so this
             resolves correctly in both navigation modes without reading the flag twice. */}
@@ -167,15 +190,19 @@ const PrivateRoutes = () => {
           <Route path='leaves' element={<Navigate to='/my-team/overview' replace />} />
 
           <Route path='salary' element={<Navigate to='/finance/salary' replace />} />
-          {/* Phase 4 §27 — was '/tasks/employee-level-teams', a route that never existed: it fell
-              through to '/tasks/:taskId' and rendered a crashed detail page on every click. */}
-          <Route path='tasks' element={<Navigate to='/tasks' replace />} />
-          <Route path='projects' element={<Navigate to='/qc/projects' replace />} />
-          <Route path='leads' element={<Navigate to='/qc/leads' replace />} />
+          {/* Phase 4 §27 — this was '/tasks/employee-level-teams', a route that never existed:
+              it fell through to '/tasks/:taskId' and rendered a crashed detail page on every
+              click. The destination below is the real team page defined further down this file.
+              '/projects' and '/leads' are the current homes of both screens; the '/qc/*' paths
+              they used to live at are now redirect stubs a few lines above. */}
+          <Route path='tasks' element={<Navigate to='/company/employee-level-teams' replace />} />
+          <Route path='projects' element={<Navigate to='/projects' replace />} />
+          <Route path='leads' element={<Navigate to='/leads' replace />} />
           <Route path='approvals' element={<MyTeamApprovals />} />
           <Route path='delegations' element={<MyTeamDelegations />} />
         </Route>}
 
+        <Route path='inbox' element={<Navigate to='/my-team/approvals' replace />} />
         {NEW_MY_TEAM_IA && <Route path='approvals/inbox/*' element={<Navigate to='/my-team/approvals' replace />} />}
         {NEW_MY_TEAM_IA && <Route path='approvals/my-team/*' element={<Navigate to='/my-team/overview' replace />} />}
         {NEW_MY_TEAM_IA && <Route path='approvals/delegations/*' element={<Navigate to='/my-team/delegations' replace />} />}
@@ -185,10 +212,8 @@ const PrivateRoutes = () => {
         {!NEW_MY_TEAM_IA && <Route path='approvals/inbox' element={<MyTeamApprovals />} />}
         {!NEW_MY_TEAM_IA && <Route path='approvals/my-team' element={<MyTeamOverview />} />}
         {!NEW_MY_TEAM_IA && <Route path='approvals/delegations' element={<MyTeamDelegations />} />}
-        <Route path='builder' element={<BuilderPageWrapper />} />
-        <Route path='menu-test' element={<MenuTestPage />} />
         <Route
-          path='/qc/leads/documentation-builder'
+          path='/leads/documentation-builder'
           element={
             <SuspensedView>
               <TemplateDocumentationBuilderPage />
@@ -234,7 +259,7 @@ const PrivateRoutes = () => {
         {/* The Accounts queue used to live under Finance; keep the old link working. */}
         <Route path='/finance/billing-queue' element={<Navigate to='/billing/accounts' replace />} />
         {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
-          path='/finance/bills'
+          path='/finance/reimbursements'
           element={
             <SuspensedView>
               <AdminAndEmployeeReimbursementViewer />
@@ -516,14 +541,14 @@ const PrivateRoutes = () => {
             </SectionGuard>}
         />
         <Route
-          path='/qc/leads/configuration'
+          path='/leads/configuration'
           element={
             <SuspensedView>
               <ProposalConfigurationPage />
             </SuspensedView>}
         />
         <Route
-          path='/qc/leads'
+          path='/leads'
           element={
             <SectionGuard module='crm.leads'>
               <SuspensedView>
@@ -542,14 +567,14 @@ const PrivateRoutes = () => {
         />
         {/* Opt-in beta: migrated EnterpriseForm wizard UI (classic flow stays default) */}
         <Route
-          path='/qc/leads/wizard-beta'
+          path='/leads/wizard-beta'
           element={
             <SuspensedView>
               <LeadWizardBetaPage />
             </SuspensedView>}
         />
         <Route
-          path='/qc/leads/wizard-beta/:id'
+          path='/leads/wizard-beta/:id'
           element={
             <SuspensedView>
               <LeadWizardBetaPage />
@@ -622,7 +647,7 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path='/company/teams'
+          path='/tasks/calendar'
           element={
             <SuspensedView>
               <TasksMainCalenderPage />
@@ -639,15 +664,7 @@ const PrivateRoutes = () => {
         />
 
         <Route
-          path='/employee/lead/:leadId'
-          element={
-            <SuspensedView>
-              <EntityDetailPage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/qc/projects'
+          path='/projects'
           element={
             <SectionGuard module='projects'>
               <SuspensedView>
@@ -657,7 +674,7 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path='/qc/contacts'
+          path='/contacts'
           element={
             <SectionGuard module='crm.contacts'>
               <SuspensedView>
@@ -667,7 +684,7 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path='/qc/companies'
+          path='/companies'
           element={
             <SectionGuard module='crm.companies'>
               <SuspensedView>
