@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Formik, Form as FormikForm, Field, useFormikContext } from 'formik';
 import { useOrgScope } from '@hooks/useOrgScope';
 import * as Yup from 'yup';
@@ -304,9 +304,11 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
 
           {/* Which organization's prefix is being edited. Shown first because it
               scopes everything below it. */}
-          {perOrganization && (
-            <div className="row">
-              <div className="col-md-4 mb-4">
+          <div className="row">
+            {/* Which organization's prefix is being edited. Shown first because it
+                scopes everything below it. */}
+            {perOrganization && (
+              <div className="col-md-3 mb-4">
                 <label className="form-label">
                   Organization <span className="text-danger">*</span>
                 </label>
@@ -328,12 +330,10 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="row">
             {/* Type (readonly) */}
-            <div className="col-md-4 mb-4">
+            <div className={perOrganization ? "col-md-3 mb-4" : "col-md-4 mb-4"}>
               <label className="form-label">Type</label>
               <input
                 className="form-control"
@@ -345,7 +345,7 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
             </div>
 
             {/* Fiscal Year (date range picker) */}
-            <div className="col-md-4 mb-4">
+            <div className={perOrganization ? "col-md-3 mb-4" : "col-md-4 mb-4"}>
               <label className="form-label">Fiscal Year <span className="text-danger">*</span></label>
               <Field name="year">
                 {({ field, form }: any) => (
@@ -382,7 +382,7 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
             </div>
 
             {/* Prefix (text) */}
-            <div className="col-md-4 mb-4">
+            <div className={perOrganization ? "col-md-3 mb-4" : "col-md-4 mb-4"}>
               <TextInput
                 isRequired={true}
                 formikField="prefix"
