@@ -468,11 +468,15 @@ export interface JobPosting {
     id: string; requisitionId: string; publicSlug: string; title: string;
     descriptionHtml?: string | null; location?: string | null; isRemote: boolean;
     employmentType?: string | null; isPublished: boolean; publishedAt?: string | null; expiresAt?: string | null;
+    /** Publish this role's CTC band publicly. Off by default; the server redacts the
+     *  numbers entirely when it is false, so they never reach the careers site. */
+    showSalary?: boolean;
     requisition?: { id: string; title: string; prefix?: string | null } | null;
 }
 export interface PostingPayload {
     requisitionId?: string; title?: string; descriptionHtml?: string | null; location?: string | null;
     isRemote?: boolean; employmentType?: string | null; expiresAt?: string | null; isPublished?: boolean; isActive?: boolean;
+    showSalary?: boolean;
 }
 
 export const getPostings = async (): Promise<JobPosting[]> => {
