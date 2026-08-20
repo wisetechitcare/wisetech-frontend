@@ -127,11 +127,15 @@ const RecruitmentOverview = () => {
         <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
             <ListHeader
                 title="Recruitment Overview"
-                subtitle={`How hiring is going — showing ${period.label}.`}
+                subtitle={
+                    period.label === "Pick a range"
+                        ? "Choose a start and end date to see that period."
+                        : `How hiring is going — showing ${period.label}.`
+                }
                 actions={
                     <PeriodFilter
                         initialMode="allyear"
-                        allowedModes={["daily", "weekly", "monthly", "yearly", "allyear"]}
+                        allowedModes={["daily", "weekly", "monthly", "yearly", "allyear", "custom"]}
                         storageKey="recruitment:overview:period"
                         // Compact labels: this control sits in a header that also carries a
                         // title, and its own docblock recommends compact where width is tight.
