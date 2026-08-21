@@ -57,7 +57,7 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
         fontSize: "14px",
       }}
       onClick={() => {
-        navigate(`/employee/lead/${row.original.id}`);
+        navigate(`/leads/${row.original.id}`);
       }}
     >
       {row.original.title}

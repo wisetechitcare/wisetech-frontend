@@ -26,6 +26,7 @@ interface PaymentModalProps {
     fixedDeductions?: number;
     statutoryBreakdown?: any; // { PF: 100, PT: 200, ... }
     govtPayments?: any[]; // raw govt payment records { deductionType: 'PT'|'TDS'|'PF', paidAmount: number }
+    initialCategory?: string; // payment category to open on (SALARY | GOVERNMENT | ...)
 }
 
 const paymentSchema = Yup.object({
@@ -62,6 +63,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     fixedDeductions = 0,
     statutoryBreakdown = {},
     govtPayments = [],
+    initialCategory,
 }) => {
     const salaryInHand = Math.max(0, netPayable);
     const salaryPending = Math.max(0, salaryInHand - salaryPaid);
@@ -73,7 +75,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           paymentDate.getMonth() === currentDate.getMonth()
         : true;
 
-    const [activeTab, setActiveTab] = useState('SALARY');
+    const [activeTab, setActiveTab] = useState(initialCategory || 'SALARY');
 
     const paymentMethods = [
         { label: 'Bank Transfer', value: 'BANK_TRANSFER' },
@@ -164,6 +166,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     const displayGovType = govtDeductions.length === 1
         ? govtDeductions[0].label
         : 'Government Deductions';
+
+    // Default govt selection: the first deduction that still has dues.
+    const firstUnpaidGovt = govtDeductions.find(d => !isDeductionFullyPaid(d.value, d.amount)) || govtDeductions[0];
 
     return (
         <Modal show={show} onHide={onHide} size="xl" centered className="wt-payment-modal shadow-lg overflow-hidden">
@@ -321,8 +326,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                         ...initialValues,
                         paymentType: activeTab,
                         salaryAmount: Math.trunc(initialValues.salaryAmount || payableAmount),
-                        govAmount: Math.trunc(initialValues.govAmount || 0),
-                        govType: initialValues.govType || (hasGovtDeductions ? govtDeductions[0].value : ''),
+                        govAmount: Math.trunc(initialValues.govAmount
+                            || (initialCategory === 'GOVERNMENT' && firstUnpaidGovt
+                                ? Math.max(0, firstUnpaidGovt.amount - getPaidForDeduction(firstUnpaidGovt.value))
+                                : 0)),
+                        govType: initialValues.govType || (hasGovtDeductions ? firstUnpaidGovt.value : ''),
                         govChallan: initialValues.govChallan || '',
                         companyType: initialValues.companyType || (hasCompanyDeductions ? companyDeductions[0].value : ''),
                         companyAmount: Math.trunc(initialValues.companyAmount || (hasCompanyDeductions ? companyPending : 0)),

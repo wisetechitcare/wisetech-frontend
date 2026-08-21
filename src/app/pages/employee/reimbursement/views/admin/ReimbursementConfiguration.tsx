@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import Settings from './Settings';
 import ReimbursementEmployeeLimit from './ReimbursementEmployeeLimit';
+import QueryTopics from './QueryTopics';
 import { ConfigPageLayout, C, KEYFRAMES } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
 
 const TABS: ConfigTab[] = [
-  { id: 'categories', label: 'Reimbursement Categories', icon: 'bi-tag'          },
-  { id: 'limits',     label: 'Employee Limits',          icon: 'bi-shield-check' },
+  { id: 'categories', label: 'Reimbursement Categories', icon: 'bi-tag'             },
+  { id: 'limits',     label: 'Employee Limits',          icon: 'bi-shield-check'    },
+  { id: 'topics',     label: 'Question Topics',          icon: 'bi-question-circle' },
 ];
 
 const ReimbursementConfiguration: React.FC = () => {
@@ -21,7 +23,7 @@ const ReimbursementConfiguration: React.FC = () => {
       >
         <ConfigPageLayout
           title="Reimbursement Configuration"
-          subtitle="Manage reimbursement categories and per-request employee limits"
+          subtitle="Manage reimbursement categories, per-request employee limits and query topics"
           tabs={TABS}
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -29,6 +31,7 @@ const ReimbursementConfiguration: React.FC = () => {
           <div key={activeTab} className="cfg-fade-in">
             {activeTab === 'categories' && <Settings />}
             {activeTab === 'limits'     && <ReimbursementEmployeeLimit />}
+            {activeTab === 'topics'     && <QueryTopics />}
           </div>
         </ConfigPageLayout>
       </div>

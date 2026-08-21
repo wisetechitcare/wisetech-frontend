@@ -69,7 +69,17 @@ export const errorConfirmation = (message: string, title: string = 'Error') => {
     });
 };
 
-export const deleteConfirmation = async (message: string, confirmButtonText: string = "Delete", swalFireTitle: string = "Deleted") => {
+/**
+ * Confirms a deletion.
+ *
+ * NOTE: by default this shows the success message as soon as the user confirms — BEFORE the
+ * caller has actually deleted anything, so a delete that then fails still reports success.
+ * Pass `announce: false` to suppress it and report the real outcome yourself.
+ *
+ * The default is unchanged because 44 call sites rely on it; each should move to
+ * `announce: false` as it gains real error handling.
+ */
+export const deleteConfirmation = async (message: string, confirmButtonText: string = "Delete", swalFireTitle: string = "Deleted", announce: boolean = true) => {
     const result = await Swal.fire({
         ...commonOptions,
         title: "Confirm Deletion",
@@ -86,7 +96,7 @@ export const deleteConfirmation = async (message: string, confirmButtonText: str
     });
 
     if (result.isConfirmed) {
-        await successConfirmation(message);
+        if (announce) await successConfirmation(message);
         return true;
     }
     return false;

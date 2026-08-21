@@ -88,6 +88,33 @@ export function hasPermission(
     editOwn: { action: "update", scope: "self" },
   };
 
+  let dynamicRoles: Record<string, any> = {};
+  let emp: any = {};
+
+  try {
+    const rapState = store.getState().rolesAndPermissions.rap;
+    dynamicRoles = rapState ? JSON.parse(rapState) : {};
+
+    const empState = store.getState().rolesAndPermissions.emp;
+    emp = empState ? JSON.parse(empState) : {};
+  } catch (e) {
+    console.error("Error parsing roles and permissions state:", e);
+  }
+
+  // Ownership is checked BEFORE the RBAC early-returns below, not after.
+  //
+  // These same two rules used to live at the bottom of the roles loop only. Because `can(...)`
+  // returned early, a grant of e.g. `finance.update.self` satisfied the canonical key and the
+  // function returned true without ever comparing `data.employeeId` to the current user — so a
+  // self-scoped grant authorised editing ANYONE's row as far as the UI was concerned.
+  const targetEmployeeId = data?.employeeId?.toString();
+  const currentEmployeeId = emp?.id?.toString();
+  const lowerAction = action?.toLocaleLowerCase() ?? "";
+  if (targetEmployeeId) {
+    if (lowerAction.includes("own") && targetEmployeeId !== currentEmployeeId) return false;
+    if (lowerAction.includes("other") && targetEmployeeId === currentEmployeeId) return false;
+  }
+
   // UI control paths (e.g. "finance->salary") map directly to a full RBAC key.
   const directKey = uiControlToPermissionKey[resource];
   if (directKey && can(directKey)) return true;
@@ -100,19 +127,6 @@ export function hasPermission(
     if (can(canonicalKey)) return true;
   }
 
-  let dynamicRoles: Record<string, any> = {};
-  let emp: any = {};
-  
-  try {
-    const rapState = store.getState().rolesAndPermissions.rap;
-    dynamicRoles = rapState ? JSON.parse(rapState) : {};
-    
-    const empState = store.getState().rolesAndPermissions.emp;
-    emp = empState ? JSON.parse(empState) : {};
-  } catch (e) {
-    console.error("Error parsing roles and permissions state:", e);
-  }
-  
   if (!emp || !Array.isArray(emp.roles)) {
     return false;
   }

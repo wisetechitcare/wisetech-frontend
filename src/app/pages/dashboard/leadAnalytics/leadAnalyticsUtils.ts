@@ -14,7 +14,40 @@ export interface ChartDatum {
   color?: string;
   totalCost?: number;
   id?: string;
+  /** The original count, preserved when `value` has been re-pointed at money. */
+  volumeValue?: number;
 }
+
+/* ── Metric mode (count vs amount) ──────────────────────────────────────── */
+
+/**
+ * Which measure the charts plot. `count` is the row count (leads / projects);
+ * `amount` is the money every ChartDatum already carries as `totalCost`, mapped
+ * from the backend's budget / totalBudget.
+ */
+export type ChartMetric = "count" | "amount";
+
+/**
+ * Re-point a dataset at the chosen measure.
+ *
+ * In `amount` mode `value` becomes the row's money, so every downstream chart —
+ * they all plot `value` and derive share % from it — switches over without
+ * needing to know a metric exists. The count survives as `volumeValue`, which
+ * RankedBarChart already reads for its tooltip and volume sort.
+ *
+ * Rows with no money resolve to 0 rather than being dropped, so a status that
+ * exists but has no budget still shows up (at 0) instead of vanishing from the
+ * distribution when you flip the toggle.
+ */
+export const applyMetric = (data: ChartDatum[], metric: ChartMetric): ChartDatum[] => {
+  const safe = Array.isArray(data) ? data : [];
+  if (metric === "count") return safe;
+  return safe.map((d) => ({
+    ...d,
+    volumeValue: d.value,
+    value: Number(d.totalCost) || 0,
+  }));
+};
 
 /* ── Status colour system ──────────────────────────────────────────────── */
 

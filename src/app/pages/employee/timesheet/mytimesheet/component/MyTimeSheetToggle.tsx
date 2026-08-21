@@ -8,7 +8,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/components/TimePeriodDropdown";
-import DetailsModal from "@pages/employee/leads/lead/DetailsModal";
 import MyTimeSheetPorject from "./MyTimeSheetPorject";
 import { AppDispatch, RootState } from "@redux/store";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
@@ -28,24 +27,6 @@ interface MaterialToggleProps {
     dateSettingsEnabled: boolean;
 }
 
-const templateData = [
-    {
-        id: 'blank',
-        title: 'Blank Project',
-        description: ""
-    },
-    {
-        id: 'mep',
-        title: 'MEP project',
-        description: 'Template',
-    },
-    {
-        id: 'web-dev',
-        title: 'Web Development Template',
-        description: 'Template',
-    }
-];
-
 const MyTimeSheetToggle = ({
     toggleItemsActions,
     fromAdmin = false,
@@ -63,8 +44,7 @@ const MyTimeSheetToggle = ({
     );
     const [startDate, setStartDate] = useState<Dayjs | null>(today);
     const [endDate, setEndDate] = useState<Dayjs | null>(today);
-    const [showModal, setShowModal] = useState(false);
-    
+
     // Date navigation states
     const [currentDay, setCurrentDay] = useState(today);
     const [currentWeekStart, setCurrentWeekStart] = useState(today.startOf("week").add(1, "day"));
@@ -306,12 +286,6 @@ const MyTimeSheetToggle = ({
             </div>
 
             <MyTimeSheetPorject startDate={startDate} endDate={endDate} />
-
-            <DetailsModal
-                open={showModal}
-                onClose={() => setShowModal(false)}
-                Datas={templateData}
-            />
         </>
     );
 };

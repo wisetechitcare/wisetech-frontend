@@ -3,7 +3,8 @@ import dayjs from "dayjs";
 import AnalyticsCard from "./AnalyticsCard";
 import AnalyticsHeader from "./AnalyticsHeader";
 import RankedBarChart from "./RankedBarChart";
-import { ChartDatum } from "./leadAnalyticsUtils";
+import { ChartDatum, ChartMetric, applyMetric } from "./leadAnalyticsUtils";
+import { formatCurrencyCompact } from "@utils/currency";
 import { getLeadsByExternalReferralAnalytics } from "@services/lead";
 import { convertToChartData } from "@utils/leadsProjectCompaniesStatistics";
 import { ChartDialogModal } from "@pages/employee/leads/overview/components/ChartDialogModal";
@@ -13,6 +14,12 @@ interface Props {
   /** Formatted range (YYYY-MM-DD) — must match the other analytics calls on the page. */
   startDate: string;
   endDate: string;
+  /**
+   * Plot lead COUNT or lead VALUE. The payload already carries `totalBudget` per
+   * row, so Amount answers "which company/contact brings the most money" without
+   * an extra fetch.
+   */
+  metric?: ChartMetric;
 }
 
 const isEmpty = (d?: ChartDatum[]) =>
@@ -33,7 +40,8 @@ type ViewKey = "companyType" | "company" | "contact";
  * and contact names room to breathe. Self-contained: fetches its own analytics for
  * the given range so pages only drop it in with the dates they already compute.
  */
-const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate }) => {
+const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate, metric = "count" }) => {
+  const isAmount = metric === "amount";
   const [companyTypeData, setCompanyTypeData] = useState<ChartDatum[]>([]);
   const [companyData, setCompanyData] = useState<ChartDatum[]>([]);
   const [contactData, setContactData] = useState<ChartDatum[]>([]);
@@ -66,6 +74,18 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate }) => {
     };
   }, [startDate, endDate]);
 
+  // Re-point each breakdown at the chosen measure. RankedBarChart plots `value`
+  // and keeps the count as `volumeValue` for its tooltip, so one swap covers all
+  // three views. Drill-down still matches on label, and `id` survives the map.
+  const byMetric = React.useMemo(
+    () => ({
+      companyType: applyMetric(companyTypeData, metric),
+      company: applyMetric(companyData, metric),
+      contact: applyMetric(contactData, metric),
+    }),
+    [companyTypeData, companyData, contactData, metric]
+  );
+
   const views: {
     key: ViewKey;
     label: string;
@@ -81,7 +101,7 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate }) => {
       label: "Company Type",
       icon: "bi-diagram-3",
       accent: "#6366F1",
-      data: companyTypeData,
+      data: byMetric.companyType,
       title: "Leads by Company Type",
       emptyHint: "No company-type data for this period.",
     },
@@ -90,7 +110,7 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate }) => {
       label: "Company",
       icon: "bi-building",
       accent: "#0EA5E9",
-      data: companyData,
+      data: byMetric.company,
       barColor: "#0EA5E9",
       title: "Leads by Company",
       emptyHint: "No company data for this period.",
@@ -100,7 +120,7 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate }) => {
       label: "Contact",
       icon: "bi-person",
       accent: "#8B5CF6",
-      data: contactData,
+      data: byMetric.contact,
       barColor: "#8B5CF6",
       title: "Leads by Contact",
       emptyHint: "No contact data for this period.",
@@ -108,7 +128,8 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate }) => {
   ];
 
   const activeView = views.find((v) => v.key === view) || views[0];
-  const totalLeads = activeView.data.reduce((sum, d) => sum + (d.value || 0), 0);
+  // Sum of whatever is plotted — lead count in Number mode, money in Amount mode.
+  const activeTotal = activeView.data.reduce((sum, d) => sum + (d.value || 0), 0);
 
   // Drill-down: each bar's ChartDatum already carries the real backend id (the
   // companyTypeId / referringCompanyId / referredByContactId, or the "__NA__"
@@ -180,7 +201,11 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate }) => {
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <AnalyticsHeader
         title="Client Analysis"
-        subtitle="Which clients and segments generate the most leads"
+        subtitle={
+          isAmount
+            ? "Which clients and segments bring in the most value"
+            : "Which clients and segments generate the most leads"
+        }
         icon="bi-buildings"
         accent="#EC4899"
       />
@@ -188,8 +213,14 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate }) => {
         title={`By ${activeView.label}`}
         subtitle={
           isEmpty(activeView.data)
-            ? "Ranked by lead volume"
-            : `Ranked by lead volume · ${activeView.data.length} groups · ${totalLeads} referral leads`
+            ? isAmount
+              ? "Ranked by lead value"
+              : "Ranked by lead volume"
+            : isAmount
+            ? `Ranked by lead value · ${activeView.data.length} groups · ${formatCurrencyCompact(
+                activeTotal
+              )} referral value`
+            : `Ranked by lead volume · ${activeView.data.length} groups · ${activeTotal} referral leads`
         }
         index={0}
         isEmpty={isEmpty(activeView.data)}
@@ -204,6 +235,7 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate }) => {
           height={400}
           barColor={activeView.barColor}
           title={activeView.title}
+          metric={metric}
         />
       </AnalyticsCard>
 

@@ -13,6 +13,8 @@ interface QuickPayModalProps {
     employeeId: string;
     employeeName: string;
     month: Dayjs;
+    // Payment category the dialog opens on (e.g. 'GOVERNMENT' from a "Pay Govt" button)
+    initialCategory?: string;
     onClose: () => void;
 }
 
@@ -21,7 +23,7 @@ interface QuickPayModalProps {
 // so the caller only needs an employee id. Payment success flips the
 // attendanceStats.toggleChange flag, which the payroll tables already watch to
 // refetch their data.
-const QuickPayModal: React.FC<QuickPayModalProps> = ({ employeeId, employeeName, month, onClose }) => {
+const QuickPayModal: React.FC<QuickPayModalProps> = ({ employeeId, employeeName, month, initialCategory, onClose }) => {
     const [monthlyApiData, setMonthlyApiData] = useState<any>(null);
     const companyIdFromStore = useSelector((state: RootState) => state.company.currentCompany.id);
 
@@ -113,6 +115,7 @@ const QuickPayModal: React.FC<QuickPayModalProps> = ({ employeeId, employeeName,
             fixedDeductions={summaryData.totalFixedDeduction}
             statutoryBreakdown={apiSalaryData?.deductionBreakdown?.fixed || {}}
             govtPayments={(apiSalaryData as any)?.govtPayments || []}
+            initialCategory={initialCategory}
         />
     );
 };

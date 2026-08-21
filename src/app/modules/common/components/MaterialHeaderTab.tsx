@@ -247,7 +247,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                         </span>
                     ) : <span className="mht-label">{tabItem.title}</span>;
 
-                    return <Tab key={key} label={label} icon={icon} />;
+                    return <Tab key={key} label={label} icon={icon} disableRipple disableFocusRipple />;
                 })}
         </CustomizedTabs>
     );

@@ -23,6 +23,16 @@ import { WtSwitch, TRIO, AppIcon } from "@app/modules/common/components/ui";
 import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 
 interface LeadSectionsProps {
+  // ── Organization (drives the lead's prefix and inquiry-number series) ──────
+  /** Organizations the user may file this lead under, as `{ value, label }`. */
+  organizationOptions?: { value: string; label: string }[];
+  /** Switch organizations; re-numbers the lead (confirming first if hand-edited). */
+  onOrganizationChange?: (organizationId: string, setFieldValue: Function) => void;
+  /** Why no inquiry number could be generated, if that happened. */
+  prefixError?: string | null;
+  /** Fired when the inquiry number is edited by hand. */
+  onPrefixManualEdit?: () => void;
+
   // dropdown arrays
   categories: any[];
   subcategories: any[];
@@ -1564,6 +1574,22 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
         Lead Information
       </div>
       <Grid container spacing={3}>
+        {/* Organization — sits directly above the inquiry number because it is
+            what decides the number's prefix and series. */}
+        {!!props.organizationOptions?.length && (
+          <Grid item xs={12} md={4}>
+            <DropDownInput
+              formikField="organizationId"
+              inputLabel="Organization"
+              options={props.organizationOptions}
+              isRequired={true}
+              onChange={(option: any) =>
+                props.onOrganizationChange?.(option?.value || "", setFieldValue)
+              }
+            />
+          </Grid>
+        )}
+
         {/* Inquiry No + Revision No (read-only) + Date */}
         <Grid item xs={12} md={4}>
           <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
@@ -1584,10 +1610,18 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
             <PrefixInlineEdit
               value={props.prefix}
               label=""
-              onChange={props.setPrefix}
+              onChange={(next: string) => {
+                props.setPrefix(next);
+                props.onPrefixManualEdit?.();
+              }}
               disabled={false}
             />
           </Box>
+          {props.prefixError && (
+            <Typography sx={{ mt: 0.6, fontSize: "12px", color: "#B42318" }}>
+              {props.prefixError}
+            </Typography>
+          )}
         </Grid>
         <Grid item xs={12} md={4}>
           <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>

@@ -29,6 +29,7 @@ import LeadByLocationChart from "@pages/employee/leads/overview/commonComponents
 import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/YearlyStatusCountChart";
 import { ChartDialogModal } from "@pages/employee/leads/overview/components/ChartDialogModal";
 import { ProjectLeadAnalyticsDashboard } from "@pages/dashboard/projectAnalytics";
+import { ChartMetric } from "@pages/dashboard/leadAnalytics";
 import ProjectTeamsSection from "./ProjectTeamsSection";
 import Loader from "@app/modules/common/utils/Loader";
 import { Modal } from "react-bootstrap";
@@ -134,6 +135,11 @@ const ProjectOverview = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
+
+  // Plot project COUNT or project VALUE. Every chart datum already carries the
+  // money as `totalCost` (mapped from the API's budget / totalBudget), so this
+  // is a pure display switch — no refetch when it changes.
+  const [metric, setMetric] = useState<ChartMetric>("count");
 
   const [chartData, setChartData] = useState<any>({
     statusData: [],
@@ -423,6 +429,35 @@ const ProjectOverview = () => {
           </div>
         </div>
 
+        {/* Measure switch — flips every chart that has money on it between
+            project COUNT and project VALUE. Sits with the period controls
+            because it scopes the whole page, not one card. */}
+        <div
+          className="d-flex align-items-center gap-2"
+          style={{ flexShrink: 0, minWidth: 0 }}
+        >
+          <span
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: 11.5,
+              fontWeight: 600,
+              color: "#94A3B8",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Based on
+          </span>
+          <PeriodTabs
+            value={metric}
+            options={[
+              { label: "Number", value: "count" },
+              { label: "Amount", value: "amount" },
+            ]}
+            onChange={(val) => setMetric(val as ChartMetric)}
+            ariaLabel="measure selection"
+          />
+        </div>
+
         {/* Sub-tabs (Summary / Services & Insights / Teams) portal into here,
             sharing the same row and sitting on the right — mirrors the Leads Overview.
             flexShrink:0 keeps the tabs at natural width so they never clip on desktop;
@@ -478,6 +513,7 @@ const ProjectOverview = () => {
           locationData={chartData.locationData}
           settings={settings}
           showKpis={false}
+          metric={metric}
           onStatusSelect={handleStatusChartClick}
           onServiceSelect={handleServiceChartClick}
           onCategorySelect={handleCategoryChartClick}
@@ -487,7 +523,14 @@ const ProjectOverview = () => {
               settings?.showProjectsMonthlyStatus !== false ? (
                 <YearlyStatusCountChart
                   data={chartData.yearlyData}
-                  title="Monthly Projects Trend"
+                  // The month-wise endpoint returns counts only (no budget), so
+                  // this chart can't follow the Amount toggle — say so in the
+                  // title instead of looking like it ignored the switch.
+                  title={
+                    metric === "amount"
+                      ? "Monthly Projects Trend (by count)"
+                      : "Monthly Projects Trend"
+                  }
                   height={400}
                   stacked={true}
                   isThisBelongsToLead={true}
@@ -505,9 +548,10 @@ const ProjectOverview = () => {
                   endDate={endDate}
                   entityScope="project"
                   receivedOnly
+                  metric={metric}
                 />
               ) : null,
-            teams: <ProjectTeamsSection startDate={startDate} endDate={endDate} />,
+            teams: <ProjectTeamsSection startDate={startDate} endDate={endDate} metric={metric} />,
           }}
         />
       </div>

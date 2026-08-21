@@ -1,6 +1,6 @@
 import { Field, useField } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
-import  Select  from "react-select";
+import  Select, { components as RSComponents }  from "react-select";
 import React, { useState, useMemo } from "react";
 import { Box } from "@mui/material";
 import { FixedSizeList as List } from "react-window";
@@ -43,10 +43,33 @@ function VirtualizedMenuList(props: any) {
     );
 }
 
+/**
+ * The option row is clamped to one line, so a long label is ellipsised. Carry the full
+ * text in `title` — otherwise the truncated part is simply unreadable, and for project
+ * names the part that gets cut is the end, which is where the status sits.
+ */
+function TitledOption(props: any) {
+    return (
+        <RSComponents.Option
+            {...props}
+            innerProps={{
+                ...props.innerProps,
+                title: typeof props.label === 'string' ? props.label : undefined,
+            }}
+        />
+    );
+}
+
 interface DropDownInputProps {
     isRequired: boolean;
     inputLabel: string | React.ReactNode;
     options: any;
+    /**
+     * Formik field this writes to. Pass `''` for a FILTER-ONLY dropdown: one that
+     * narrows another control but is not part of the record. Without that escape
+     * hatch the only way to reuse this component as a filter was to give it a real
+     * field name, which then rode along into the submitted payload.
+     */
     formikField: string;
     placeholder?: string;
     showAddBtn?: boolean;
@@ -89,12 +112,20 @@ function DropDownInput({
     smartFilterFunction, // Added: Smart filter and sort function
     disableAlphabeticalSort = false,
 }: DropDownInputProps) {
-    const [field, meta, helpers] = useField(formikField);
+    // Filter-only mode. useField still runs (hooks cannot be conditional) but against a
+    // name nothing reads, and setValue is never called — so Formik's `values` stays clean
+    // and the key cannot leak into a submitted payload.
+    const isFilterOnly = !formikField;
+    const [field, meta, helpers] = useField(formikField || '__filterOnly');
     const [show, setShow] = useState(false);
     const hasError = !!(meta.touched && meta.error);
     const [inputValue, setInputValue] = useState('');
     
     const handleChange = (selectedOption: any) => {
+        if (isFilterOnly) {
+            propOnChange?.(selectedOption);
+            return;
+        }
         // `setValue` validates against the values PATCHED with the new selection, so it
         // is the only one of the two that can see what was just chosen.
         helpers.setValue(selectedOption?.value || "");
@@ -200,6 +231,21 @@ function DropDownInput({
             // fontStyle: state.isDisabled ? 'italic' : provided.fontStyle,
             cursor: state.isDisabled ? 'not-allowed' : 'pointer',
             color: state.isDisabled ? '#999' : provided.color,
+            // ONE line per option, always.
+            //
+            // Above VIRTUALIZE_THRESHOLD the menu is windowed, and react-window gives every
+            // row the same absolutely-positioned OPTION_ROW_HEIGHT box. A label long enough
+            // to wrap does not make its row taller — it overflows and paints on top of the
+            // row beneath it. Long project and company names did exactly that.
+            //
+            // Clamping here rather than in the virtualiser keeps the two renderings
+            // identical: a small menu and a windowed one lay an option out the same way.
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            height: OPTION_ROW_HEIGHT,
+            display: 'flex',
+            alignItems: 'center',
         }),
         menuPortal: (provided: any) => ({
             ...provided,
@@ -208,6 +254,16 @@ function DropDownInput({
         menu: (provided: any) => ({
             ...provided,
             zIndex: 9999,
+            // The menu is portaled to <body> with position:fixed, so it is NOT clipped by the
+            // dialog it was opened from and may be wider than its own control. Size it to the
+            // longest option instead of forcing every long project name through a 250px box.
+            //
+            // The cap is what keeps this honest on a phone: 92vw can never overflow the
+            // viewport, and 760px stops a single pathological label stretching the menu across
+            // a desktop screen.
+            width: 'max-content',
+            minWidth: '100%',
+            maxWidth: 'min(92vw, 760px)',
         }),
     });
 
@@ -265,6 +321,7 @@ function DropDownInput({
             components={{
                 ...(sortedOptions.length > VIRTUALIZE_THRESHOLD ? { MenuList: VirtualizedMenuList } : {}),
                 DropdownIndicator,
+                ...(!showColor && !showAvatar ? { Option: TitledOption } : {}),
                 ...(showColor ? {
                     Option: ColourOption,
                     SingleValue,
@@ -288,7 +345,7 @@ function DropDownInput({
             filterOption={enableSmartSort ? null : filterOption} // Disable built-in filtering when using smart sort
         />
 
-            <HighlightErrors isRequired={isRequired} formikField={formikField} />
+            {!isFilterOnly && <HighlightErrors isRequired={isRequired} formikField={formikField} />}
             <CommonModal functionToCallOnModalSubmit={functionToCallOnModalSubmit} show={show} setShow={setShow} fieldName={fieldName} functionToSetFieldOptions={functionToSetFieldOptions}/>
         </div>
     )

@@ -1,6 +1,6 @@
 import {FC} from 'react'
 import clsx from 'clsx'
-import {useLocation} from 'react-router'
+import {useLocation} from 'react-router-dom'
 import {OverlayTrigger, Tooltip} from 'react-bootstrap'
 import {checkIsActive, WithChildren} from '../../../helpers'
 import {useLayout} from '../../core'

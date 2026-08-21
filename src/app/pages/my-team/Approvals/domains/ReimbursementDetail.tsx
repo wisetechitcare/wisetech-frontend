@@ -1,6 +1,8 @@
 /**
- * Reimbursement detail — adapts the existing canonical `BatchDetailModal` to the domain contract.
- * No new UI: this is the same modal the reimbursement module already uses.
+ * Reimbursement detail — adapts the canonical `BatchDetailModal` to the domain contract.
+ *
+ * No `filterStatus`: the batch view shows every request now, including the rejected ones. Hiding
+ * part of a batch was how the old screens avoided having to describe a mixed one.
  */
 import { BatchDetailModal } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
 import type { ApprovalDetailProps } from './types';
@@ -10,7 +12,6 @@ export default function ReimbursementDetail({ step, onClose, onDone }: ApprovalD
         <BatchDetailModal
             batchId={step.instance.requestId}
             approvalInstanceId={step.instance.id}
-            filterStatus={step._splitStatus ?? null}
             onClose={onClose}
             onBatchActionDone={onDone}
         />

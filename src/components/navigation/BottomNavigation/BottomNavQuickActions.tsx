@@ -14,7 +14,7 @@ interface QuickAction {
 
 const QUICK_ACTIONS: QuickAction[] = [
   { id: 'markAttendance', label: 'Mark Attendance', icon: 'bi-fingerprint', to: '/employee/attendance-and-leaves', quickAction: 'markAttendance' },
-  { id: 'newExpense', label: 'New Expense', icon: 'bi-receipt', to: '/finance/bills', quickAction: 'newExpense' },
+  { id: 'newExpense', label: 'New Expense', icon: 'bi-receipt', to: '/finance/reimbursements', quickAction: 'newExpense' },
   { id: 'newTask', label: 'New Task', icon: 'bi-list-check', to: '/tasks', quickAction: 'newTask' },
 ]
 

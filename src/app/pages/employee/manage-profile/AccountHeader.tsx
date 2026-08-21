@@ -1,8 +1,7 @@
 ﻿import React from "react";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Dropdown1 } from "@metronic/partials";
-import { useLocation } from "react-router";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const AccountHeader: React.FC = () => {

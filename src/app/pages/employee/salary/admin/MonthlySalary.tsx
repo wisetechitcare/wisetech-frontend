@@ -1,7 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Dayjs } from "dayjs";
-import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import SalarySummaryCard from "./SalarySummaryCard";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -9,6 +8,11 @@ import ExportButton from "@app/modules/common/components/ExportButton";
 import { useSalaryFilters, SalaryFilterToolbar, StatusFilter } from "./SalaryTableFilters";
 import { useSalaryMaster } from "@modules/payroll/hooks/useSalaryComponentNames";
 import QuickPayModal from "@modules/payroll/components/modals/QuickPayModal";
+import { saveSelectedEmployee } from "@redux/slices/employee";
+import { Dialog, DialogTitle, DialogContent, IconButton, Box, CircularProgress } from "@mui/material";
+import { Close } from "@mui/icons-material";
+import SalaryView from "../personal/SalaryView";
+import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 
 interface MonthlySalaryProps {
   month: Dayjs;
@@ -29,14 +33,48 @@ interface SalarySummary {
 
 const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isLoading = false, onStatusFilterChange }) => {
 
-  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
   // Employee selected via the Pay button — opens the payout dialog on this page
-  const [payTarget, setPayTarget] = useState<{ employeeId: string; name: string } | null>(null);
+  const [payTarget, setPayTarget] = useState<{ employeeId: string; name: string; category?: 'SALARY' | 'GOVERNMENT' } | null>(null);
+  // Employee details modal state
+  const [selectedEmpForDetail, setSelectedEmpForDetail] = useState<any | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const filters = useSalaryFilters(employeesData);
   const { filteredEmployeeSummaries, statusFilter } = filters;
+
+  // Fetch full employee data when a row is clicked
+  const handleRowClick = async (employeeId: string, rowName?: string, rowId?: string) => {
+    if (!employeeId) return;
+    setLoadingDetail(true);
+    try {
+      const response = await fetchCurrentEmployeeByEmpId(employeeId);
+      const fullEmployee = response?.data?.employee;
+
+      if (!fullEmployee) {
+        console.warn('Employee data not found in response');
+        setSelectedEmpForDetail(null);
+        return;
+      }
+
+      // Preserve the display name from the table row if available
+      if (rowName && !fullEmployee.users?.firstName) {
+        fullEmployee._displayName = rowName;
+        fullEmployee._displayId = rowId;
+      }
+
+      console.log('📋 Loaded employee:', fullEmployee);
+      dispatch(saveSelectedEmployee(fullEmployee));
+      setSelectedEmpForDetail(fullEmployee);
+    } catch (error) {
+      console.error('Error fetching employee details:', error);
+      setSelectedEmpForDetail(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   const { resolveComponent } = useSalaryMaster();
   const tds1Comp = resolveComponent('Professional Fees');
@@ -115,6 +153,17 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         netAmount: rawTotals.netAmount ?? '-',
         amountPaid: rawTotals.amountPaid ?? '-',
         dueAmount: rawTotals.dueAmount ?? '-',
+        // Statutory (govt) dues still unpaid — TDS/PT/TDS2 owed minus non-retention
+        // challans paid. Falls back to governmentPaid for stale API responses.
+        govtOwed: (Number(rawTotals.professionalFeesDeducted) || 0)
+          + (Number(rawTotals.tds2Deducted) || 0)
+          + (Number(rawTotals.professionalTaxDeducted) || 0),
+        govtPending: Math.max(0,
+          (Number(rawTotals.professionalFeesDeducted) || 0)
+          + (Number(rawTotals.tds2Deducted) || 0)
+          + (Number(rawTotals.professionalTaxDeducted) || 0)
+          - (Number(rawTotals.statutoryPaid ?? rawTotals.governmentPaid) || 0)
+        ),
         professionalFees: rawTotals.professionalFeesDeducted ?? 0,
         tds2: rawTotals.tds2Deducted ?? 0,
         professionalTax: rawTotals.professionalTaxDeducted ?? 0,
@@ -163,16 +212,16 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
     return tableData.reduce(
       (acc: any, r: any) => {
-        acc.basicSalary             += num(r.basicSalary);
-        acc.overTimeAmount          += num(r.overTimeAmount);
+        acc.basicSalary += num(r.basicSalary);
+        acc.overTimeAmount += num(r.overTimeAmount);
         acc.totalSalaryAfterAttendance += num(r.totalSalaryAfterAttendance);
-        acc.professionalFees        += num(r.professionalFees);
-        acc.tds2                    += num(r.tds2);
-        acc.professionalTax         += num(r.professionalTax);
-        acc.retention               += num(r.retention);
-        acc.netAmount               += num(r.netAmount);
-        acc.amountPaid              += num(r.amountPaid);
-        acc.dueAmount               += num(r.dueAmount);
+        acc.professionalFees += num(r.professionalFees);
+        acc.tds2 += num(r.tds2);
+        acc.professionalTax += num(r.professionalTax);
+        acc.retention += num(r.retention);
+        acc.netAmount += num(r.netAmount);
+        acc.amountPaid += num(r.amountPaid);
+        acc.dueAmount += num(r.dueAmount);
         return acc;
       },
       { basicSalary: 0, overTimeAmount: 0, totalSalaryAfterAttendance: 0, professionalFees: 0, tds2: 0, professionalTax: 0, retention: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
@@ -180,20 +229,20 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
   }, [tableData]);
 
   const exportColumns = useMemo(() => [
-    { key: 'id',              header: 'ID',                  type: 'text'     as const },
-    { key: 'name',            header: 'Name',                type: 'text'     as const },
-    { key: 'subOrganization', header: 'Sub Organization',    type: 'text'     as const },
-    { key: 'department',      header: 'Department',          type: 'text'     as const },
-    { key: 'branch',          header: 'Branch',              type: 'text'     as const },
-    { key: 'basicSalary',     header: 'Basic Salary',        type: 'currency' as const, showTotal: true },
-    { key: 'overTimeAmount',  header: 'Over Time Amount',    type: 'currency' as const, showTotal: true },
+    { key: 'id', header: 'ID', type: 'text' as const },
+    { key: 'name', header: 'Name', type: 'text' as const },
+    { key: 'subOrganization', header: 'Sub Organization', type: 'text' as const },
+    { key: 'department', header: 'Department', type: 'text' as const },
+    { key: 'branch', header: 'Branch', type: 'text' as const },
+    { key: 'basicSalary', header: 'Basic Salary', type: 'currency' as const, showTotal: true },
+    { key: 'overTimeAmount', header: 'Over Time Amount', type: 'currency' as const, showTotal: true },
     { key: 'totalSalaryAfterAttendance', header: 'Total Salary After Attendance Adjustments', type: 'currency' as const, showTotal: true },
-    { key: 'retention',       header: 'Retention',           type: 'currency' as const, showTotal: true },
-    { key: 'professionalFees',header: tds1Name,              type: 'currency' as const, showTotal: true },
-    { key: 'tds2',            header: tds2Name,              type: 'currency' as const, showTotal: true },
-    { key: 'professionalTax', header: 'Prof. Tax',           type: 'currency' as const, showTotal: true },
-    { key: 'netAmount',       header: 'Net Payable',         type: 'currency' as const, showTotal: true },
-    { key: 'amountPaid',      header: 'Paid',                type: 'currency' as const, showTotal: true, color: '#1d4ed8' },
+    { key: 'retention', header: 'Retention', type: 'currency' as const, showTotal: true },
+    { key: 'professionalFees', header: tds1Name, type: 'currency' as const, showTotal: true },
+    { key: 'tds2', header: tds2Name, type: 'currency' as const, showTotal: true },
+    { key: 'professionalTax', header: 'Prof. Tax', type: 'currency' as const, showTotal: true },
+    { key: 'netAmount', header: 'Net Payable', type: 'currency' as const, showTotal: true },
+    { key: 'amountPaid', header: 'Paid', type: 'currency' as const, showTotal: true, color: '#1d4ed8' },
     {
       key: 'dueAmount', header: 'Due Amount', type: 'currency' as const, showTotal: true,
       color: (val: any) => {
@@ -203,16 +252,16 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         return '#16a34a';
       },
     },
-    { key: 'totalWorkingTime',header: 'Total Working Time',  type: 'text'     as const },
-    { key: 'workedTime',      header: 'Worked Time',         type: 'text'     as const },
-    { key: 'overTime',        header: 'Over Time',           type: 'text'     as const },
-    { key: 'totalDays',       header: 'Total Days',          type: 'number'   as const },
-    { key: 'present',         header: 'Present',             type: 'number'   as const },
-    { key: 'absent',          header: 'Absent',              type: 'number'   as const },
-    { key: 'late',            header: 'Late',                type: 'number'   as const },
-    { key: 'paidLeave',       header: 'Paid Leave',          type: 'number'   as const },
-    { key: 'unpaidLeave',     header: 'Unpaid Leave',        type: 'number'   as const },
-    { key: 'extraDay',        header: 'Extra Day',           type: 'number'   as const },
+    { key: 'totalWorkingTime', header: 'Total Working Time', type: 'text' as const },
+    { key: 'workedTime', header: 'Worked Time', type: 'text' as const },
+    { key: 'overTime', header: 'Over Time', type: 'text' as const },
+    { key: 'totalDays', header: 'Total Days', type: 'number' as const },
+    { key: 'present', header: 'Present', type: 'number' as const },
+    { key: 'absent', header: 'Absent', type: 'number' as const },
+    { key: 'late', header: 'Late', type: 'number' as const },
+    { key: 'paidLeave', header: 'Paid Leave', type: 'number' as const },
+    { key: 'unpaidLeave', header: 'Unpaid Leave', type: 'number' as const },
+    { key: 'extraDay', header: 'Extra Day', type: 'number' as const },
   ], [tds1Name, tds2Name]);
 
   return (
@@ -372,11 +421,11 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                 if (renderedCellValue === "-" || renderedCellValue === null || renderedCellValue === undefined) return "-";
                 const amount = Math.round(Number(renderedCellValue));
                 if (amount < 0) {
-                    return <span className="text-info fw-bold">Paid Extra (₹{Math.abs(amount).toLocaleString('en-IN')})</span>;
+                  return <span className="text-info fw-bold">Paid Extra (₹{Math.abs(amount).toLocaleString('en-IN')})</span>;
                 } else if (amount > 0) {
-                    return <span className="text-danger fw-bold">₹{amount.toLocaleString('en-IN')}</span>;
+                  return <span className="text-danger fw-bold">₹{amount.toLocaleString('en-IN')}</span>;
                 } else {
-                    return <span className="text-success fw-bold">₹0</span>;
+                  return <span className="text-success fw-bold">₹0</span>;
                 }
               },
               Footer: () => {
@@ -446,21 +495,64 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               header: "Action",
               Cell: ({ row }: any) => {
                 if (!row.original.employeeId) return "-";
-                const amount = Math.round(Number(row.original.dueAmount || 0));
-                if (amount <= 0) {
-                    return <span className="text-success fw-bold">Settled</span>;
+                const salaryDue = Math.round(Number(row.original.dueAmount) || 0);
+                const govtDue = Math.round(Number(row.original.govtPending) || 0);
+                const openPay = (e: React.MouseEvent, category?: 'SALARY' | 'GOVERNMENT') => {
+                  e.stopPropagation();
+                  setPayTarget({ employeeId: row.original.employeeId, name: row.original.name, category });
+                };
+
+                // Two payment tracks, color-coded like the payout dialog:
+                // navy = salary to employee, rose = statutory to government.
+                const btnBase: React.CSSProperties = {
+                  width: 92, height: 28, borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', lineHeight: 1,
+                };
+                const navyBtn: React.CSSProperties = {
+                  ...btnBase, backgroundColor: '#1E3A8A', color: '#fff', border: '1px solid #1E3A8A',
+                };
+                const roseBtn: React.CSSProperties = {
+                  ...btnBase, backgroundColor: '#FFF1F4', color: '#D9214E', border: '1px solid #F9C9D4',
+                };
+                // Salary and govt dues are paid separately — keep an action available
+                // until BOTH are settled (salary paid alone must not hide it).
+                // The label alone carries the state: "Pay Govt" = salary settled,
+                // only the statutory dues remain. Tooltip has the detail.
+                if (salaryDue > 0 || govtDue > 0) {
+                  const salarySettled = salaryDue <= 0;
+                  const govtSettled = Math.round(Number(row.original.govtOwed) || 0) > 0 && govtDue <= 0;
+                  return (
+                    <button
+                      style={salarySettled ? roseBtn : navyBtn}
+                      title={salarySettled ? 'Salary paid ✓ — govt. deduction pending' : govtDue > 0 ? 'Salary & govt. deduction pending' : govtSettled ? 'Govt. paid ✓ — salary pending' : 'Salary pending'}
+                      onClick={(e) => openPay(e, salarySettled ? 'GOVERNMENT' : undefined)}
+                    >
+                      {salarySettled ? 'Pay Govt' : 'Pay'}
+                    </button>
+                  );
                 }
                 return (
-                  <button 
-                    className="btn btn-sm btn-primary py-1 px-3"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPayTarget({ employeeId: row.original.employeeId, name: row.original.name });
-                    }}
-                  >
-                    Pay
-                  </button>
-                )
+                  <div className="d-flex align-items-center justify-content-center" style={{ gap: 6 }}>
+                    <span style={{
+                      fontSize: 12, fontWeight: 700, color: '#0F8A5F', backgroundColor: '#E8FFF3',
+                      borderRadius: 999, padding: '5px 12px', lineHeight: '14px', whiteSpace: 'nowrap',
+                    }}>
+                      Paid ✓
+                    </span>
+                    <button
+                      style={{
+                        width: 28, height: 28, borderRadius: 8, display: 'inline-flex',
+                        alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                        backgroundColor: '#fff', border: '1px solid #E1E3EA', color: '#5E6278',
+                      }}
+                      title="Edit payouts"
+                      onClick={openPay}
+                    >
+                      <i className="bi bi-pencil" style={{ fontSize: 12 }} />
+                    </button>
+                  </div>
+                );
               }
             },
           ]}
@@ -475,8 +567,9 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
           muiTableProps={{
             muiTableBodyRowProps: ({ row }: any) => ({
               onClick: () => {
-                const empId = row.original.employeeId;
-                if (empId) navigate('/finance/salary', { state: { goToSearchEmployee: true, employeeId: empId } });
+                if (row.original.employeeId) {
+                  handleRowClick(row.original.employeeId, row.original.name, row.original.id);
+                }
               },
               sx: { cursor: row.original.employeeId ? 'pointer' : 'default' },
             }),
@@ -490,9 +583,58 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
           employeeId={payTarget.employeeId}
           employeeName={payTarget.name}
           month={month}
+          initialCategory={payTarget.category}
           onClose={() => setPayTarget(null)}
         />
       )}
+
+      {/* Employee Salary Details Modal */}
+      <Dialog
+        open={!!selectedEmpForDetail}
+        onClose={() => setSelectedEmpForDetail(null)}
+        maxWidth="lg"
+        fullWidth
+        // Below react-bootstrap's modal layer (backdrop 1050 / modal 1055) so the
+        // nested PaymentModal etc. inside SalaryReport stack above this dialog.
+        // disableEnforceFocus: MUI's focus trap would steal focus back from them.
+        sx={{ zIndex: 1040 }}
+        disableEnforceFocus
+        PaperProps={{
+          sx: { maxHeight: '90vh', overflowY: 'auto' }
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            {selectedEmpForDetail?.users?.firstName || selectedEmpForDetail?._displayName} {selectedEmpForDetail?.users?.lastName && selectedEmpForDetail.users.lastName} {selectedEmpForDetail?.employeeCode && `(${selectedEmpForDetail.employeeCode})`}
+          </Box>
+          <IconButton
+            onClick={() => setSelectedEmpForDetail(null)}
+            size="small"
+            sx={{ ml: 2 }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {loadingDetail ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 5 }}>
+              <CircularProgress />
+            </Box>
+          ) : selectedEmpForDetail ? (
+            <Box
+              sx={{
+                '& > *': { mb: 2 },
+                '& .fw-bold': { fontWeight: 600 },
+                '& .fs-1': { fontSize: '1.5rem' },
+                '& .mt-5': { marginTop: '1rem' },
+                '& .mt-8': { marginTop: '2rem' }
+              }}
+            >
+              <SalaryView fromAdmin={true} />
+            </Box>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

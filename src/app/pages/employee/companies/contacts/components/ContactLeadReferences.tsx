@@ -24,7 +24,7 @@ const ContactLeadReferences: React.FC<{ referrals?: LeadReferral[] }> = ({ refer
           <button
             className="btn btn-link p-0 text-start text-decoration-none fw-semibold"
             style={{ color: "inherit", fontSize: "14px" }}
-            onClick={() => navigate(`/employee/lead/${ref.lead!.id}`)}
+            onClick={() => navigate(`/leads/${ref.lead!.id}`)}
           >
             {ref.lead.title || ref.lead.id}
           </button>
@@ -110,7 +110,7 @@ const ContactLeadReferences: React.FC<{ referrals?: LeadReferral[] }> = ({ refer
                 "& .MuiTableCell-root:first-of-type": { borderLeftColor: `${color} !important` },
               },
             },
-            onClick: () => row.original?.lead?.id && navigate(`/employee/lead/${row.original.lead.id}`),
+            onClick: () => row.original?.lead?.id && navigate(`/leads/${row.original.lead.id}`),
           };
         },
       }}
