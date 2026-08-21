@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import dayjs from 'dayjs';
-import { computeAbsentEntries } from './absentDays';
+import { computeAbsentEntries, computeLeaveDaysByDate } from './absentDays';
 
 /**
  * The three defects this function was extracted to make testable. Each test below fails
@@ -124,5 +124,60 @@ describe('computeAbsentEntries — edges', () => {
             roster: [{ _id: 'gone', isActive: false }],
         });
         expect(entries).toHaveLength(1);
+    });
+});
+
+describe('computeLeaveDaysByDate', () => {
+    const leave = (employeeId: string, dateFrom: string, dateTo: string) =>
+        ({ employeeId, dateFrom, dateTo });
+
+    const runLeave = (start: string, end: string, leaves: ReturnType<typeof leave>[]) =>
+        computeLeaveDaysByDate({
+            start: dayjs(start), end: dayjs(end), isNonWorking, leaves,
+        });
+
+    const daysFor = (m: ReturnType<typeof runLeave>, id: string) =>
+        [...m.entries()].filter(([, v]) => v.has(id)).map(([k]) => k).sort();
+
+    test('SKIPS a public holiday inside the leave span — the bug this fixes', () => {
+        // 15 Aug is Independence Day. A leave spanning it must not report that day as
+        // on-leave, because the absent walk already treats it as a non-working day.
+        const days = daysFor(runLeave('2026-08-13', '2026-08-18', [leave('e1', '2026-08-13', '2026-08-18')]), 'e1');
+        expect(days).not.toContain('2026-08-15');
+        expect(days).toContain('2026-08-13');
+    });
+
+    test('skips the alternate off-Saturday too', () => {
+        const days = daysFor(runLeave('2026-08-06', '2026-08-10', [leave('e1', '2026-08-06', '2026-08-10')]), 'e1');
+        expect(days).not.toContain('2026-08-08');
+    });
+
+    test('skips the weekly off', () => {
+        expect(daysFor(runLeave('2026-08-16', '2026-08-16', [leave('e1', '2026-08-16', '2026-08-16')]), 'e1'))
+            .toEqual([]);
+    });
+
+    test('clips a leave that starts before or ends after the window', () => {
+        const days = daysFor(runLeave('2026-08-17', '2026-08-19', [leave('e1', '2026-01-01', '2026-12-31')]), 'e1');
+        expect(days).toEqual(['2026-08-17', '2026-08-18', '2026-08-19']);
+    });
+
+    test('counts a person once when two approved leaves overlap the same day', () => {
+        const m = runLeave('2026-08-17', '2026-08-17', [
+            leave('e1', '2026-08-17', '2026-08-17'),
+            leave('e1', '2026-08-17', '2026-08-18'),
+        ]);
+        expect(m.get('2026-08-17')!.size).toBe(1);
+    });
+
+    test('ignores a record with no employee or an unparseable date', () => {
+        const m = computeLeaveDaysByDate({
+            start: dayjs('2026-08-17'), end: dayjs('2026-08-17'), isNonWorking,
+            leaves: [
+                { employeeId: '', dateFrom: '2026-08-17', dateTo: '2026-08-17' },
+                { employeeId: 'e1', dateFrom: 'nonsense', dateTo: 'nonsense' },
+            ],
+        });
+        expect(m.size).toBe(0);
     });
 });

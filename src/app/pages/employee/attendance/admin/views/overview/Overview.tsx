@@ -42,7 +42,7 @@ import { isCheckOutMissing } from "@app/modules/common/components/attendanceDura
 import ReorderableGroup from "@app/modules/common/components/ReorderableGroup";
 import { pressableProps } from "@app/modules/common/components/ui/a11y";
 import "./OverviewStatsGrid.css";
-import { ToneChip } from '@app/modules/common/components/ui';
+import { ToneChip, AppIcon } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { DATE_FORMATS, formatDateLong } from '@utils/dateFormats';
 import { filterActiveEmployees } from '@utils/activeEmployee';
@@ -54,7 +54,7 @@ import {
     type EmployeeStatItem,
 } from '@app/modules/common/components/EmployeeStatGrid';
 import type { EmployeeStatGroup } from '@app/modules/common/components/employeeStatGrouping';
-import { computeAbsentEntries } from "./absentDays";
+import { computeAbsentEntries, computeLeaveDaysByDate } from "./absentDays";
 
 // Sort/search/close modal shell and the employee card grid are shared with the
 // Dashboard daily overview — see the two components above, not a local copy.
@@ -460,25 +460,18 @@ function Overview({ date, range }: OverviewProps) {
         if (!presentByDay.has(k)) presentByDay.set(k, new Set());
         presentByDay.get(k)!.add(att.employeeId);
     }
-    const leaveByDay = new Map<string, Map<string, any>>(); // dateKey -> empId -> leave record
-    if (useRange && range?.start && range?.end) {
-        const rStart = range.start.startOf("day");
-        const rEnd = range.end.startOf("day");
-        for (const lr of rangeLeaveRecords) {
-            let d = dayjs(lr.dateFrom).startOf("day");
-            const lEnd = dayjs(lr.dateTo).startOf("day");
-            while (d.isBefore(lEnd) || d.isSame(lEnd, "day")) {
-                const inRange = (d.isAfter(rStart) || d.isSame(rStart, "day")) && (d.isBefore(rEnd) || d.isSame(rEnd, "day"));
-                const isWorking = weekends?.[d.format("dddd").toLowerCase()] !== "0";
-                if (inRange && isWorking) {
-                    const k = d.format("YYYY-MM-DD");
-                    if (!leaveByDay.has(k)) leaveByDay.set(k, new Map());
-                    if (!leaveByDay.get(k)!.has(lr.employeeId)) leaveByDay.get(k)!.set(lr.employeeId, { ...lr, _leaveDate: d });
-                }
-                d = d.add(1, "day");
-            }
-        }
-    }
+    // dateKey -> empId -> leave record. Extracted alongside the absent walk so both use the
+    // SAME working-day predicate — this loop used to test the weekly pattern only, so a
+    // leave spanning a holiday still counted as an on-leave day while the absent walk
+    // skipped that day entirely.
+    const leaveByDay: Map<string, Map<string, any>> = (useRange && range?.start && range?.end)
+        ? computeLeaveDaysByDate({
+            start: range.start,
+            end: range.end,
+            isNonWorking: checkIfWeekendOrHoliday,
+            leaves: rangeLeaveRecords as any,
+        })
+        : new Map();
     // One entry per (employee, leave day) — On-Leave modal list + count.
     const leaveDayEntries = Array.from(leaveByDay.values()).flatMap((m) =>
         Array.from(m.values()).map((lr) => ({
@@ -757,12 +750,12 @@ function Overview({ date, range }: OverviewProps) {
                                         <ToneChip tone="warning" dense label={leaveType} />
                                     </div>
                                     <div className="small mt-1 text-gray-700">
-                                        <i className="bi bi-calendar3 me-1"></i>
+                                        <AppIcon name="bi-calendar3" className="me-1" />
                                         {isSameDay ? startDate : `${startDate} to ${endDate}`}
                                     </div>
                                     {reason && (
                                         <div className="small mt-1 text-muted text-truncate" title={reason} style={{ maxWidth: 220 }}>
-                                            <i className="bi bi-chat-square-text me-1"></i>{reason}
+                                            <AppIcon name="bi-chat-square-text" className="me-1" />{reason}
                                         </div>
                                     )}
                                 </>
@@ -939,7 +932,7 @@ function Overview({ date, range }: OverviewProps) {
                                         date on all 30 cards was noise no other stat modal had. */}
                                     <div className="d-flex align-items-center gap-2 small mt-1 flex-wrap">
                                         {att?.checkIn && (
-                                            <span className="text-gray-700"><i className="bi bi-clock me-1"></i>{dayjs(att.checkIn).format('h:mm A')}</span>
+                                            <span className="text-gray-700"><AppIcon name="bi-clock" className="me-1" />{dayjs(att.checkIn).format('h:mm A')}</span>
                                         )}
                                         {workingMethod && (
                                             <ToneChip tone="cyan" dense label={workingMethod} />
@@ -947,11 +940,11 @@ function Overview({ date, range }: OverviewProps) {
                                         {att?.checkInLocation && (
                                             att.latitude && att.longitude ? (
                                                 <a href={`https://www.google.com/maps?q=${att.latitude},${att.longitude}`} target="_blank" rel="noopener noreferrer" className="text-truncate d-inline-block" style={{ maxWidth: 180 }} onClick={(e) => e.stopPropagation()}>
-                                                    <i className="bi bi-geo-alt me-1"></i>{att.checkInLocation}
+                                                    <AppIcon name="bi-geo-alt" className="me-1" />{att.checkInLocation}
                                                 </a>
                                             ) : (
                                                 <span className="text-muted text-truncate d-inline-block" style={{ maxWidth: 180 }}>
-                                                    <i className="bi bi-geo-alt me-1"></i>{att.checkInLocation}
+                                                    <AppIcon name="bi-geo-alt" className="me-1" />{att.checkInLocation}
                                                 </span>
                                             )
                                         )}
@@ -1020,7 +1013,7 @@ function Overview({ date, range }: OverviewProps) {
                                     )}
                                     {additionalInfo[emp._id] && (
                                         <div className="text-primary small mt-1">
-                                            <i className="bi bi-info-circle me-1"></i>
+                                            <AppIcon name="bi-info-circle" className="me-1" />
                                             {additionalInfo[emp._id]}
                                         </div>
                                     )}

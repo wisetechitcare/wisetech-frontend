@@ -75,3 +75,64 @@ export function computeAbsentEntries<T extends { _id?: string }>(
 
     return entries;
 }
+
+/** An approved leave overlapping the window, as the board receives it. */
+export interface LeaveRecordLike {
+    employeeId: string;
+    dateFrom: string | Date;
+    dateTo: string | Date;
+    [key: string]: unknown;
+}
+
+export interface LeaveDayOptions {
+    start: dayjs.Dayjs;
+    end: dayjs.Dayjs;
+    /** Same predicate `computeAbsentEntries` uses — see the note there. */
+    isNonWorking: (date: Date) => boolean;
+    leaves: readonly LeaveRecordLike[];
+}
+
+/**
+ * employeeIds on approved leave, per day, across a range.
+ *
+ * Shares `isNonWorking` with the absent walk on purpose. This used to test only the
+ * branch's weekly pattern, so a leave spanning a public holiday or an alternate
+ * off-Saturday still counted that day as "on leave" — while the absent walk skipped it
+ * entirely. The two halves of the same board disagreed about what a working day is.
+ *
+ * This is a HEADCOUNT for display, not a charging decision. On a day the company does not
+ * work, "N people on leave" is meaningless — nobody was expected in. Whether a holiday
+ * inside a leave span is deducted from salary is the sandwich engine's call and is
+ * deliberately not reimplemented here.
+ *
+ * First record wins for a given (day, employee), matching the previous behaviour: two
+ * overlapping approved leaves must not count the person twice.
+ */
+export function computeLeaveDaysByDate(
+    opts: LeaveDayOptions,
+): Map<string, Map<string, LeaveRecordLike & { _leaveDate: dayjs.Dayjs }>> {
+    const byDay = new Map<string, Map<string, LeaveRecordLike & { _leaveDate: dayjs.Dayjs }>>();
+    const start = opts.start.startOf('day');
+    const end = opts.end.startOf('day');
+
+    for (const leave of opts.leaves) {
+        if (!leave?.employeeId) continue;
+        let d = dayjs(leave.dateFrom).startOf('day');
+        const leaveEnd = dayjs(leave.dateTo).startOf('day');
+        if (!d.isValid() || !leaveEnd.isValid()) continue;
+
+        // Clip to the window first so a long leave does not walk the whole year.
+        if (d.isBefore(start)) d = start;
+        const stop = leaveEnd.isAfter(end) ? end : leaveEnd;
+
+        for (; d.isBefore(stop) || d.isSame(stop, 'day'); d = d.add(1, 'day')) {
+            if (opts.isNonWorking(d.toDate())) continue;
+            const key = d.format('YYYY-MM-DD');
+            if (!byDay.has(key)) byDay.set(key, new Map());
+            const slot = byDay.get(key)!;
+            if (!slot.has(leave.employeeId)) slot.set(leave.employeeId, { ...leave, _leaveDate: d });
+        }
+    }
+
+    return byDay;
+}
