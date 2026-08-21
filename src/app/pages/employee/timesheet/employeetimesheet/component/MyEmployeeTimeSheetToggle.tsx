@@ -7,7 +7,6 @@ import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/componen
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import { usePersistedState } from "@app/modules/common/hooks/usePersistedState";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
-import DetailsModal from "@pages/employee/leads/lead/DetailsModal";
 import { AppDispatch, RootState } from "@redux/store";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { selectIsInitialized, initializeChartSettings } from "@redux/slices/leadProjectCompanies";
@@ -27,23 +26,6 @@ interface MaterialToggleProps {
     dateSettingsEnabled: boolean;
 }
 
-const templateData = [
-    {
-        id: 'blank',
-        title: 'Blank Project',
-        description: ""
-    },
-    {
-        id: 'mep',
-        title: 'MEP project',
-        description: 'Template',
-    },
-    {
-        id: 'web-dev',
-        title: 'Web Development Template',
-        description: 'Template',
-    }
-];
 
 const MyEmployeeTimeSheetToggle = ({
     toggleItemsActions,
@@ -60,8 +42,7 @@ const MyEmployeeTimeSheetToggle = ({
     );
     const [startDate, setStartDate] = useState<Dayjs | null>(today);
     const [endDate, setEndDate] = useState<Dayjs | null>(today);
-    const [showModal, setShowModal] = useState(false);
-    
+
     // Date navigation states
     const [currentDay, setCurrentDay] = useState(today);
     const [currentWeekStart, setCurrentWeekStart] = useState(today.startOf("week").add(1, "day"));
@@ -274,12 +255,6 @@ const MyEmployeeTimeSheetToggle = ({
             </div>
 
             <MyEmployeesTimeSheetPorject startDate={startDate} endDate={endDate} />
-
-            <DetailsModal
-                open={showModal}
-                onClose={() => setShowModal(false)}
-                Datas={templateData}
-            />
         </>
     );
 };

@@ -949,7 +949,7 @@ const LeadsConfigurationMain = () => {
             {/* Lead Prefix Settings */}
             <ConfigSectionCard
               title="Lead Prefix Settings"
-              description="Configure the auto-generated prefix format for new lead IDs."
+              description="Set each organization's lead prefix. New leads are numbered using the prefix of the organization they are created in."
               icon="bi-hash"
               iconColor="amber"
               loading={loading}
@@ -957,6 +957,7 @@ const LeadsConfigurationMain = () => {
               <PrefixSettingsForm
                 typeLabel="Lead"
                 typeValue="LEAD"
+                perOrganization
               />
             </ConfigSectionCard>
           </div>

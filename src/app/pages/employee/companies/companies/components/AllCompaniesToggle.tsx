@@ -153,11 +153,6 @@ const CompanyDetails = () => {
       id: leadAndProjectTemplateTypeId.mep,
       title: 'MEP Lead',
       description: 'Template',
-    },
-    {
-      id: leadAndProjectTemplateTypeId.webDev,
-      title: 'Web Development Template Lead',
-      description: 'Template',
     }
   ];
 
