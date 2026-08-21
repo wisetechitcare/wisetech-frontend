@@ -56,7 +56,12 @@ export function AppIcon({ name, className = 'fs-4', color, fallbackSize, style, 
         return (
             <i
                 {...rest}
-                className={`bi ${name}`}
+                // `className` carries the SIZE (`fs-*`) and was being dropped on this branch,
+                // so an unmapped icon silently rendered at whatever font-size it inherited
+                // while its mapped neighbours honoured theirs — two icon sizes in one row,
+                // depending on nothing the caller can see. `fs-*` is a plain font-size
+                // utility, so it applies to a Bootstrap <i> exactly as it does to a keenicon.
+                className={`bi ${name}${className ? ` ${className}` : ''}`}
                 style={{
                     ...style,
                     ...(fallbackSize ? { fontSize: `${fallbackSize}px` } : null),

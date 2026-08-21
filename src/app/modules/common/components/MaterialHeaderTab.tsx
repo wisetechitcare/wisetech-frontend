@@ -135,6 +135,13 @@ const CustomizedTabs = styled(Tabs)({
             // A glyph carries far less ink than a word, so matching the label's alpha
             // makes it read as fainter. It gets a little more at every state.
             color: 'rgba(255, 255, 255, 0.92)',
+            /* Duotone icons draw their secondary shapes at opacity 0.3. That is tuned for
+             * dark ink on a white page; on this saturated blue bar it lands around 0.28
+             * effective white, so half of every glyph disappears and the icon reads as a
+             * broken fragment rather than a shape. Lifted for THIS bar only — 0.3 is still
+             * right everywhere the icon sits on a light surface, so this is not changed
+             * globally. `[class*="path"]` covers path1…path6; the split differs per icon. */
+            '& [class*="path"]': { opacity: 0.72 },
         },
         // Underline lives on the text label ONLY (.mht-label wraps just the
         // title text — never the icon). Always underlined but transparent, so
@@ -155,8 +162,16 @@ const CustomizedTabs = styled(Tabs)({
         '&.Mui-selected .mht-label': {
             textDecorationColor: '#ffffff',
         },
-        '&.Mui-selected .mht-icon': { color: '#ffffff' },
-        '&:hover .mht-icon': { color: '#ffffff' },
+        // Selected/hover: full white AND the duotone secondary shapes come almost all the
+        // way up, so the active tab's icon reads as one solid glyph.
+        '&.Mui-selected .mht-icon': {
+            color: '#ffffff',
+            '& [class*="path"]': { opacity: 0.88 },
+        },
+        '&:hover .mht-icon': {
+            color: '#ffffff',
+            '& [class*="path"]': { opacity: 0.88 },
+        },
         // Subtle feedback when hovering a non-selected tab.
         '&:hover': {
             color: '#ffffff',
