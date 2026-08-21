@@ -193,11 +193,25 @@ optional second `description` line).
 The three wrappers stay, because a form field, a toolbar filter and a standalone control
 genuinely differ in binding and layout:
 
-| Context | Use |
-|---|---|
-| Formik form field | `DropdownInput` |
-| Standalone / redux-bound | `SelectInput` |
-| Toolbar filter | `ToolbarFilterSelect` |
+| Context | Use | Engine |
+|---|---|---|
+| Formik form field | `DropdownInput` | `WtSelect` |
+| Standalone / redux-bound | `SelectInput` | `WtSelect` |
+| Country / state field | `LocationDropdown` | `WtSelect` |
+| Reimbursement type field | `ReimbursementDropdown` | `WtSelect` |
+| Toolbar filter | `ToolbarFilterSelect` | **MUI `Select`** — see below |
+
+`ToolbarFilterSelect` deliberately does NOT use `WtSelect`. It is a compact toolbar
+control whose floating uppercase label is MUI's own notched `InputLabel`; routing it
+through a react-select engine would lose that label and its wiring. Two engines is correct
+here — one for rich, searchable, large-list selects, one for small MUI-native controls.
+What was never correct was nine wrappers each re-deriving menu behaviour.
+
+`DropdownInput` keeps only what is genuinely its own — the Formik binding, the label row,
+the "+ Add" affordance, and the option renderers (colour dot / avatar / titled row). Menu
+behaviour, control styling, windowing and ARIA come from the engine. Its appearance is now
+driven by **kit tokens, not the vendored Metronic `.react-select-styled` SCSS**, in line
+with the MUI + Tailwind standard.
 
 **Do not add a fourth wrapper.** If a screen needs something none of them do, add the prop
 to `WtSelect` and let the wrapper pass it through. This codebase already grew nine select

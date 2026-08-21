@@ -74,6 +74,32 @@ export interface WtSelectProps {
     /** How each row renders. `avatar`/`colour` expect that field on the option. */
     optionVariant?: 'plain' | 'avatar' | 'colour';
 
+    /**
+     * Tints the control (border, focus ring, chevron, value text) with the SELECTED
+     * option's colour. For colour-coded pickers — status, leave type, deduction state —
+     * where the chosen colour is the signal, not decoration.
+     */
+    accentColor?: string;
+    /** Fires as the user types. Needed by call sites that re-rank options per keystroke. */
+    onInputChange?: (value: string) => void;
+    defaultInputValue?: string;
+    /**
+     * Per-call-site react-select component overrides, merged OVER the engine's own.
+     * A documented extension point, not a styling escape hatch — visual decisions belong
+     * in the engine so they apply everywhere.
+     */
+    components?: Record<string, any>;
+    /** react-select's own per-option renderer, for rows the variants above do not cover. */
+    formatOptionLabel?: (option: any, meta: any) => React.ReactNode;
+    /**
+     * Let a long option label WRAP instead of ellipsising.
+     *
+     * Turning this on also disables windowing, and that is not incidental: the windowed
+     * list positions rows at a FIXED height, so a row allowed to grow to two lines would
+     * overlap the one beneath it. Wrapping and windowing are mutually exclusive by
+     * construction — use this for short, wordy lists, not for long ones.
+     */
+    allowOptionWrap?: boolean;
     /** Above this many options the menu switches to windowed rendering. */
     virtualizeThreshold?: number;
     filterOption?: any;
@@ -177,6 +203,12 @@ export function WtSelect({
     error = false,
     size = 'md',
     optionVariant = 'plain',
+    accentColor,
+    onInputChange,
+    defaultInputValue,
+    formatOptionLabel,
+    allowOptionWrap = false,
+    components: componentOverrides,
     virtualizeThreshold = DEFAULT_VIRTUALIZE_THRESHOLD,
     filterOption,
     menuPortalTarget,
@@ -194,7 +226,9 @@ export function WtSelect({
     const styles = useMemo(() => {
         const surface = dark ? '#161B22' : T.color.surface;
         const ink = dark ? '#E6EDF3' : T.color.ink;
-        const line = error ? T.color.danger : dark ? '#30363D' : T.color.line;
+        // Precedence: an error always outranks the accent tint. A field that is both
+        // colour-coded and invalid must read as invalid.
+        const line = error ? T.color.danger : accentColor || (dark ? '#30363D' : T.color.line);
         const minHeight = size === 'sm' ? 34 : 42;
 
         return {
@@ -202,20 +236,33 @@ export function WtSelect({
             control: (base: any, state: any) => ({
                 ...base,
                 minHeight,
-                backgroundColor: state.isDisabled ? (dark ? '#0D1117' : T.color.panelAlt) : surface,
-                borderColor: state.isFocused && !error ? T.color.brand : line,
+                backgroundColor: state.isDisabled
+                    ? (dark ? '#0D1117' : T.color.panelAlt)
+                    : accentColor && !error
+                        // 15% of the accent over the surface — readable in both themes
+                        // without hand-picking a second colour per tone.
+                        ? `color-mix(in srgb, ${accentColor} 15%, ${surface})`
+                        : surface,
+                borderColor: state.isFocused && !error ? (accentColor || T.color.brand) : line,
                 borderRadius: 8,
                 // A brand ring on focus, a danger ring on error — never both, and never the
                 // default browser outline, which is invisible against the navy brand.
                 boxShadow: state.isFocused
-                    ? `0 0 0 3px ${error ? 'rgba(178,58,48,0.16)' : T.color.brandRing}`
+                    ? `0 0 0 3px ${error
+                        ? 'rgba(178,58,48,0.16)'
+                        : accentColor
+                            ? `color-mix(in srgb, ${accentColor} 24%, transparent)`
+                            : T.color.brandRing}`
                     : 'none',
                 cursor: state.isDisabled ? 'not-allowed' : 'pointer',
-                '&:hover': { borderColor: error ? T.color.danger : T.color.brand },
+                '&:hover': { borderColor: error ? T.color.danger : accentColor || T.color.brand },
             }),
             menu: (base: any) => ({ ...base, backgroundColor: surface, zIndex: 9999 }),
             option: (base: any, state: any) => ({
                 ...base,
+                ...(allowOptionWrap
+                    ? { whiteSpace: 'normal', lineHeight: 1.4, minHeight: 40, display: 'flex', alignItems: 'center' }
+                    : null),
                 fontSize: size === 'sm' ? 12.5 : 13.5,
                 color: state.isDisabled ? T.color.inkFaint : ink,
                 backgroundColor: state.isSelected
@@ -227,7 +274,8 @@ export function WtSelect({
                 // Selected rows read as selected without relying on colour alone.
                 fontWeight: state.isSelected ? 600 : 400,
             }),
-            singleValue: (base: any) => ({ ...base, color: ink }),
+            singleValue: (base: any) => ({ ...base, color: accentColor || ink }),
+            dropdownIndicator: (base: any) => ({ ...base, color: accentColor || base.color }),
             input: (base: any) => ({ ...base, color: ink }),
             placeholder: (base: any) => ({ ...base, color: T.color.inkFaint }),
             multiValue: (base: any) => ({ ...base, backgroundColor: T.color.brandSoft, borderRadius: 6 }),
@@ -238,7 +286,7 @@ export function WtSelect({
                 textTransform: 'uppercase', color: T.color.inkFaint,
             }),
         };
-    }, [dark, error, size]);
+    }, [dark, error, size, accentColor, allowOptionWrap]);
 
     const Cmp: any = isCreatable ? CreatableSelect : Select;
 
@@ -253,6 +301,8 @@ export function WtSelect({
             value={value ?? null}
             onChange={onChange}
             onBlur={onBlur}
+            onInputChange={onInputChange}
+            defaultInputValue={defaultInputValue}
             placeholder={placeholder}
             isMulti={isMulti}
             isClearable={isClearable}
@@ -260,14 +310,18 @@ export function WtSelect({
             isDisabled={isDisabled || isLoading}
             isLoading={isLoading}
             filterOption={filterOption}
+            formatOptionLabel={formatOptionLabel}
             className={className}
             classNamePrefix={classNamePrefix}
             styles={styles}
             components={{
-                ...(flatCount > virtualizeThreshold ? { MenuList: VirtualizedMenuList } : {}),
+                // Windowing is skipped when wrapping is on — see allowOptionWrap.
+                ...(!allowOptionWrap && flatCount > virtualizeThreshold ? { MenuList: VirtualizedMenuList } : {}),
                 ...(optionVariant !== 'plain'
                     ? { Option: RichOption, ...(isMulti ? {} : { SingleValue: RichSingleValue }) }
                     : {}),
+                // Last, so a call site can replace a renderer the engine chose.
+                ...(componentOverrides ?? {}),
             }}
             // Tell the user WHY the list is empty. A bare "No options" reads as broken when
             // the real cause is a filter that matched nothing.
