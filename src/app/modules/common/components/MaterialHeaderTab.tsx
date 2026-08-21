@@ -115,20 +115,26 @@ const CustomizedTabs = styled(Tabs)({
     '& .MuiTab-textColorPrimary': {
         textTransform: 'none',
         fontWeight: '600',
-        // Inactive: muted white on the dark-blue bar.
-        color: 'rgba(255, 255, 255, 0.7)',
+        // Inactive: muted white on the dark-blue bar. 0.7 reads fine for a 13px text
+        // label but leaves a thin-stroke glyph looking washed out, so the icon gets a
+        // little more than the label (below).
+        color: 'rgba(255, 255, 255, 0.78)',
         fontSize: '13px',
-        // Every tab icon is a plain glyph, centred in a 26px space.
-        // No background boxes — just the glyph color (white when selected,
-        // muted white when unselected).
-        '& .bi': {
-            width: '26px',
-            height: '26px',
+        /* The icon is a KTIcon <i> inside `.mht-icon` — NOT an <svg> and NOT a `.bi`.
+         * The two rules written for those shapes never matched anything this component
+         * renders, which is why the icons had no size, no spacing and no emphasis of
+         * their own. `marginRight` is the gap the icon never had: MUI's default icon
+         * margins are reset above for the row layout, and nothing put it back. */
+        '& .mht-icon': {
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             lineHeight: 1,
             flexShrink: 0,
+            marginRight: '10px',
+            // A glyph carries far less ink than a word, so matching the label's alpha
+            // makes it read as fainter. It gets a little more at every state.
+            color: 'rgba(255, 255, 255, 0.92)',
         },
         // Underline lives on the text label ONLY (.mht-label wraps just the
         // title text — never the icon). Always underlined but transparent, so
@@ -149,9 +155,8 @@ const CustomizedTabs = styled(Tabs)({
         '&.Mui-selected .mht-label': {
             textDecorationColor: '#ffffff',
         },
-        '&.Mui-selected .bi': {
-            color: '#ffffff',
-        },
+        '&.Mui-selected .mht-icon': { color: '#ffffff' },
+        '&:hover .mht-icon': { color: '#ffffff' },
         // Subtle feedback when hovering a non-selected tab.
         '&:hover': {
             color: '#ffffff',
@@ -206,9 +211,14 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                         ? undefined
                         : (typeof tabItem.icon === 'string'
                             ? (tabItem.icon.startsWith('bi-') || tabItem.icon.startsWith('bi ')
-                                // Bootstrap icon (same system as the sidebar). The `.bi` class
-                                // also enables the boxed selected-tab styling defined above.
-                                ? <AppIcon name={tabItem.icon} />
+                                /* Wrapped in a span ON PURPOSE. MUI's Tab clones the icon element
+                                 * and overwrites its `className` with `MuiTab-iconWrapper` — and
+                                 * AppIcon takes `className` as its SIZE prop, forwarding it to
+                                 * KTIcon. Passing AppIcon directly therefore destroyed `fs-*`, and
+                                 * the icon font fell back to the tab's inherited 13px, which is why
+                                 * these glyphs were barely legible. The wrapper absorbs MUI's class
+                                 * so the size survives. */
+                                ? <span className="mht-icon"><AppIcon name={tabItem.icon} className="fs-3" /></span>
                                 : <img src={tabItem.icon} alt={tabItem.title} width={24} height={24} style={{ marginRight: '1px' }} />)
                             : (() => {
                                 const Icon = tabItem.icon as React.ElementType<SvgIconProps>;
