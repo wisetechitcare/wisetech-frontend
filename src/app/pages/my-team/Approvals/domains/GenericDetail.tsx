@@ -59,7 +59,30 @@ export default function GenericDetail({
                     {summary.chips?.map((c) => <ToneChip key={c.label} tone={c.tone} label={c.label} size="small" />)}
                 </Stack>
 
-                {summary.facts.length > 0 && (
+                {/* Labelled rows where the domain provides them. A modal has the room to say
+                    which value is which, and "2026.08.18 · 12:01 → 19:15 · 7h 14m" on one line
+                    still asks the reader to work out what each number is. */}
+                {summary.rows?.length ? (
+                    <Stack gap={0.75} sx={{ p: 1.25, borderRadius: '10px', bgcolor: 'action.hover' }}>
+                        {summary.rows.map((r) => (
+                            <Stack key={r.label} direction="row" gap={1.5} alignItems="baseline" sx={{ minWidth: 0 }}>
+                                <Typography sx={{
+                                    fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em',
+                                    textTransform: 'uppercase', color: 'text.secondary',
+                                    width: 82, flex: 'none',
+                                }}>
+                                    {r.label}
+                                </Typography>
+                                <Typography sx={{
+                                    fontSize: 13.5, fontWeight: 700, color: 'text.primary',
+                                    fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere',
+                                }}>
+                                    {r.value}
+                                </Typography>
+                            </Stack>
+                        ))}
+                    </Stack>
+                ) : summary.facts.length > 0 && (
                     <Typography sx={{ fontSize: 13.5, color: 'text.primary', fontWeight: 600 }}>
                         {summary.facts.join(' · ')}
                     </Typography>
@@ -98,11 +121,13 @@ export default function GenericDetail({
 
                 {canDecide && (onApprove || onReject) && (
                     <Stack direction="row" gap={1} sx={{ pt: 0.5 }}>
+                        {/* Same tones as the queue card and LeaveDetail — a grey "Reject" beside a
+                            brand-blue "Approve" read as the cancel button of the dialog. */}
                         {onApprove && (
-                            <WtButton size="small" onClick={onApprove} sx={{ flex: 1 }}>Approve</WtButton>
+                            <WtButton size="small" tone="success" onClick={onApprove} sx={{ flex: 1 }}>Approve</WtButton>
                         )}
                         {onReject && (
-                            <WtButton size="small" ghost onClick={onReject} sx={{ flex: 1 }}>Reject</WtButton>
+                            <WtButton size="small" tone="danger" onClick={onReject} sx={{ flex: 1 }}>Reject</WtButton>
                         )}
                     </Stack>
                 )}
