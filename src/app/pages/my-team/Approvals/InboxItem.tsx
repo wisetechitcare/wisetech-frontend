@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import { KTIcon } from '@metronic/helpers';
 import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
-import { formatDate } from '@utils/dateFormats';
+import { formatDate, formatTime } from '@utils/dateFormats';
 import EmployeeIdentityCell from '@app/modules/common/components/EmployeeIdentityCell';
 import { getApprovalDomain } from './domains/registry';
 import type { ApprovalStep } from './domains/types';
@@ -46,10 +46,24 @@ export interface ItemSummary {
     statusFlow?: string | null;
     /** Every outstanding wait, one row each. Falls back to `step.waitingOn` when absent. */
     waits?: WaitOwner[];
+    /**
+     * The same facts, labelled, for the detail dialog. `facts` is a one-line summary for a card;
+     * in a modal the reader has room to be told WHICH date and WHICH time each value is, instead
+     * of decoding a dot-separated run of numbers.
+     */
+    rows?: Array<{ label: string; value: string }>;
 }
 
 const money = (v: unknown) =>
     `₹${Number(v ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** Worked span between two punches, `7h 14m`. Null unless both exist and run forwards. */
+const workedSpan = (from?: string | null, to?: string | null): string | null => {
+    if (!from || !to) return null;
+    const mins = dayjs(to).diff(dayjs(from), 'minute');
+    if (!Number.isFinite(mins) || mins <= 0) return null;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+};
 
 const range = (from?: string | null, to?: string | null): string | null => {
     if (!from) return null;
@@ -78,9 +92,28 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
     }
 
     if (type === 'attendance') {
-        const punches = [d.checkIn, d.checkOut].filter(Boolean).join(' -> ');
-        const facts = [range(d.dateFrom, d.dateTo), punches || null].filter(Boolean) as string[];
-        return { title: d.subType || 'Attendance correction', facts, note: d.reason || d.description };
+        // `checkIn`/`checkOut` are full ISO instants. Printed as-is they read
+        // "2026-08-18T06:31:00.000Z -> 2026-08-18T13:45:00.000Z" — the date twice over, in the
+        // wrong format, plus a zone suffix, for what is a punch pair on one day.
+        const day = d.dateFrom ?? d.checkIn ?? d.checkOut;
+        const inAt = d.checkIn ? formatTime(d.checkIn) : null;
+        const outAt = d.checkOut ? formatTime(d.checkOut) : null;
+        const worked = workedSpan(d.checkIn, d.checkOut);
+
+        const facts = [
+            day ? formatDate(day) : null,
+            inAt && outAt ? `${inAt} → ${outAt}` : inAt ? `In ${inAt}` : outAt ? `Out ${outAt}` : null,
+            worked,
+        ].filter(Boolean) as string[];
+
+        const rows = [
+            day ? { label: 'Date', value: formatDate(day) } : null,
+            { label: 'Check-in', value: inAt ?? 'Not requested' },
+            { label: 'Check-out', value: outAt ?? 'Not requested' },
+            worked ? { label: 'Hours', value: worked } : null,
+        ].filter(Boolean) as ItemSummary['rows'];
+
+        return { title: d.subType || 'Attendance correction', facts, rows, note: d.reason || d.description };
     }
 
     if (type === 'reimbursement') {
@@ -332,6 +365,16 @@ export default function InboxItemCard({
                             }}>
                                 {hasResubmitted ? '⟳ Resubmitted' : (domain?.label ?? type)}
                             </Typography>
+                            {/* How long it has waited. The left edge was already tinted by age,
+                                which tells you nothing unless you know the code. */}
+                            <Box sx={{ flex: 1 }} />
+                            <Typography sx={{
+                                fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap',
+                                fontVariantNumeric: 'tabular-nums',
+                                color: age.tone === 'neutral' ? 'text.disabled' : tonePair(age.tone).fg,
+                            }}>
+                                {age.label}
+                            </Typography>
                         </Box>
 
                         {/* Who sent it. The compact card showed only the submission id, so a queue of
@@ -347,10 +390,13 @@ export default function InboxItemCard({
 
                         {/* Meta info: facts + value */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 1, gap: 1 }}>
-                            <Box>
+                            <Box sx={{ minWidth: 0 }}>
+                                {/* All of them. This took `facts.slice(0, 1)`, so an attendance
+                                    card showed the date and dropped the punch times and hours —
+                                    everything the approver is actually deciding on. */}
                                 {summary.facts.length > 0 && (
-                                    <Typography sx={{ fontSize: '11px', color: 'text.secondary', lineHeight: 1.25 }}>
-                                        {summary.facts.slice(0, 1).join(' · ')}
+                                    <Typography sx={{ fontSize: '11px', color: 'text.secondary', lineHeight: 1.35 }}>
+                                        {summary.facts.join(' · ')}
                                     </Typography>
                                 )}
                             </Box>
