@@ -18,6 +18,7 @@ import { useReimbursementLookups } from "@hooks/useReimbursementLookups";
 import { Modal } from "react-bootstrap";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import { Tooltip } from "@mui/material";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ---------------------------------------------------------------------------
 // DocumentPreviewModal
@@ -337,7 +338,7 @@ function Monthly({ month, showEditDeleteOption=false, showIdCol=false, showName=
             {renderedCellValue ? (
               <KTIcon iconName="eye" className="fs-3" />
             ) : (
-              <i className="bi bi-file-earmark-x fs-3 text-danger"></i>
+              <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
             )}
           </button>
         ),

@@ -31,6 +31,7 @@ import eventBus from "../../../../../utils/EventBus";
 import { ConfigSectionCard, KEYFRAMES } from "@app/modules/configuration";
 import Holiday from "@pages/company/Holiday";
 import { T } from "@app/modules/common/components/ui/tokens";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // Interface for the transformed holiday data displayed in the table
 interface PublicHoliday {
@@ -533,7 +534,7 @@ const PREMIUM_TABLE_CSS = `
         <div className="prem-table-header">
           <div style={{ display: 'flex', gap: '16px' }}>
             <div className="prem-icon-box">
-              <i className="bi bi-calendar-heart" />
+              <AppIcon name="bi-calendar-heart" />
             </div>
             <div>
               <h2 style={{ fontWeight: 700, fontSize: '18px', color: '#1B2230', margin: '0 0 4px 0', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center' }}>
@@ -560,7 +561,7 @@ const PREMIUM_TABLE_CSS = `
                 }}
                 onClick={() => setShowAddModal(true)}
               >
-                <i className="bi bi-plus-lg" style={{ fontSize: 14 }} />
+                <AppIcon name="bi-plus-lg" className="fs-6" />
                 Add Holiday
               </button>
             )}

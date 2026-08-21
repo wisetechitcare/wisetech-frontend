@@ -3,6 +3,7 @@ import HighlightErrors from "../../errors/components/HighlightErrors";
 import  Select  from "react-select"
 import { useMemo } from "react";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
+import { FLOATING_MENU_PROPS } from "./selectMenuProps";
 
 interface DropDownInputProps {
     isRequired: boolean;
@@ -29,7 +30,7 @@ function ReimbursementDropdown({ formikField, inputLabel, options, isRequired, p
     return (
         <div className="d-flex flex-column fv-row">
             <label className={`form-label ${isRequired ? 'required' : ''}`}>{inputLabel}</label>
-            <Select
+            <Select{...FLOATING_MENU_PROPS}
                 name={formikField}
                 options={sortedOptions}
                 onChange={handleChange}

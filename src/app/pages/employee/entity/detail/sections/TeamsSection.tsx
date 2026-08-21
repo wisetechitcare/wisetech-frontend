@@ -14,6 +14,7 @@ import { getAllCompanyTypes, getAllClientCompanies, getAllClientContacts, getAll
 import { getAllTeams, getAllTeamsMember } from '@services/projects';
 import { EmptyState } from '../widgets';
 import { employeeNameById, fmtDate, DASH } from '../entityViewModel';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * Teams — the collaboration roster for a lead/project, split in two:
@@ -86,7 +87,7 @@ const ManagerCell: React.FC<{
   if (!isManager) {
     return (
       <button type="button" disabled={!id} style={{ ...makeManagerBtn, opacity: id ? 1 : 0.5 }} onClick={() => onChange([...managerIds, id])}>
-        <i className="bi bi-person-badge" /> Make Manager
+        <AppIcon name="bi-person-badge" /> Make Manager
       </button>
     );
   }
@@ -95,11 +96,11 @@ const ManagerCell: React.FC<{
       <span style={managerBadge(isPrimary)}>{isPrimary ? 'Primary Manager' : 'Manager'}</span>
       {!isPrimary && (
         <button type="button" title="Make primary manager" style={managerIconBtn} onClick={() => onChange([id, ...managerIds.filter(m => m !== id)])}>
-          <i className="bi bi-star" />
+          <AppIcon name="bi-star" />
         </button>
       )}
       <button type="button" title="Remove as manager" style={managerIconBtn} onClick={() => onChange(managerIds.filter(m => m !== id))}>
-        <i className="bi bi-x-lg" />
+        <AppIcon name="bi-x-lg" />
       </button>
     </div>
   );
@@ -609,14 +610,14 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
               const teamPicker = (
                 <div style={{ flex: 1, minWidth: 260, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 8, background: '#2563eb14', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <i className="bi bi-diagram-3" />
+                    <AppIcon name="bi-diagram-3" />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Execution Team</div>
                     <div style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team?.name || 'No team selected'}</div>
                   </div>
                   <button type="button" onClick={openTeamModal} style={{ ...addBtn, marginTop: 0, flexShrink: 0, whiteSpace: 'nowrap' }}>
-                    <i className="bi bi-arrow-left-right" /> {team?.name ? 'Change Team' : 'Assign Team'}
+                    <AppIcon name="bi-arrow-left-right" /> {team?.name ? 'Change Team' : 'Assign Team'}
                   </button>
                 </div>
               );
@@ -648,7 +649,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                   <div>
                     {!persisted && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', marginBottom: 10, borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe', fontFamily: 'Inter', fontSize: 12.5, color: '#1e40af' }}>
-                        <i className="bi bi-info-circle" />
+                        <AppIcon name="bi-info-circle" />
                         <span>Showing the <strong>{team?.name}</strong>. Click <strong>Edit</strong> to set each member's start/end dates &amp; status, then Save to start tracking.</span>
                       </div>
                     )}
@@ -730,14 +731,14 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <div style={{ flex: 1, minWidth: 150 }}>
                           <ManagerCell employeeId={m.employeeId} managerIds={draftManagerIds} onChange={ids => set({ managerIds: ids })} />
                         </div>
-                        <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
+                        <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><AppIcon name="bi-trash" /></button>
                       </div>
                     ))}
                   </div>
-                  <button type="button" onClick={add} style={addBtn}><i className="bi bi-plus-lg" /> Add member</button>
+                  <button type="button" onClick={add} style={addBtn}><AppIcon name="bi-plus-lg" /> Add member</button>
                   {teamMembers.length > 0 && (
                     <button type="button" onClick={seedFromTeam} style={seedBtn}>
-                      <i className="bi bi-people-fill" /> Seed from {team?.name || 'team'}
+                      <AppIcon name="bi-people-fill" /> Seed from {team?.name || 'team'}
                     </button>
                   )}
                 </div>
@@ -766,7 +767,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
               </div>
               <SearchableSelectEditor value={draftTeamId} options={teamOptions} onChange={setDraftTeamId} placeholder="Select execution team" />
               <div style={{ display: 'flex', gap: 8, marginTop: 12, padding: '10px 12px', borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe', fontFamily: 'Inter', fontSize: 12.5, color: '#1e40af' }}>
-                <i className="bi bi-info-circle" style={{ marginTop: 1 }} />
+                <AppIcon name="bi-info-circle" style={{ marginTop: 1 }} />
                 <span>
                   Members already on this project are <strong>kept</strong>. The selected team's members are <strong>added</strong> to the roster.
                   On the next step you can mark anyone active or inactive and pick the project manager(s). Status is unaffected.
@@ -784,7 +785,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 disabled={!draftTeamId}
                 style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
               >
-                Continue <i className="bi bi-arrow-right" />
+                Continue <AppIcon name="bi-arrow-right" />
               </button>
             </Modal.Footer>
           </>
@@ -793,14 +794,14 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             <Modal.Body style={{ padding: 16 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
                 <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#475569' }}>
-                  Roster for <strong style={{ color: '#1E293B' }}>{selectedTeamName}</strong> — grouped below into your project's <strong>Current Team</strong> and the <strong>Incoming</strong> members from {selectedTeamName}. Mark anyone active/inactive, assign project manager(s), or remove a row entirely with <i className="bi bi-trash" />.
+                  Roster for <strong style={{ color: '#1E293B' }}>{selectedTeamName}</strong> — grouped below into your project's <strong>Current Team</strong> and the <strong>Incoming</strong> members from {selectedTeamName}. Mark anyone active/inactive, assign project manager(s), or remove a row entirely with <AppIcon name="bi-trash" />.
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" onClick={() => markAllActive(true)} style={{ ...addBtn, marginTop: 0, borderColor: '#16a34a55', color: '#15803d' }}>
-                    <i className="bi bi-check-all" /> Mark all active
+                    <AppIcon name="bi-check-all" /> Mark all active
                   </button>
                   <button type="button" onClick={() => markAllActive(false)} style={{ ...addBtn, marginTop: 0 }}>
-                    <i className="bi bi-slash-circle" /> Mark all inactive
+                    <AppIcon name="bi-slash-circle" /> Mark all inactive
                   </button>
                 </div>
               </div>
@@ -854,7 +855,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                                 <div style={{ flex: 1, minWidth: 150 }}>
                                   <ManagerCell employeeId={x.m.employeeId} managerIds={managerDraft} onChange={setManagerDraft} />
                                 </div>
-                                <button type="button" onClick={() => removeRosterRow(x.i)} title="Remove from roster" style={removeBtn}><i className="bi bi-trash" /></button>
+                                <button type="button" onClick={() => removeRosterRow(x.i)} title="Remove from roster" style={removeBtn}><AppIcon name="bi-trash" /></button>
                               </div>
                             </React.Fragment>
                           ))}
@@ -874,7 +875,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
             </Modal.Body>
             <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6', justifyContent: 'space-between' }}>
               <button type="button" className="btn btn-light btn-sm" onClick={() => setTeamStep(1)} disabled={savingTeam}>
-                <i className="bi bi-arrow-left" /> Back
+                <AppIcon name="bi-arrow-left" /> Back
               </button>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" className="btn btn-light btn-sm" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
@@ -1082,12 +1083,12 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                           <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.startDate} onChange={v => update(i, { startDate: v })} /></div>
                           <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.endDate} onChange={v => update(i, { endDate: v })} /></div>
                           <div style={{ flex: 1, minWidth: 110 }}><ToggleEditor value={t.isActive !== false} onChange={v => applyStatusToggle(v, t, patch => update(i, patch))} onLabel="Active" offLabel="Inactive" /></div>
-                          <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
+                          <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><AppIcon name="bi-trash" /></button>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <button type="button" onClick={add} style={addBtn}><i className="bi bi-plus-lg" /> Add client company connection</button>
+                  <button type="button" onClick={add} style={addBtn}><AppIcon name="bi-plus-lg" /> Add client company connection</button>
                 </div>
               );
             }}

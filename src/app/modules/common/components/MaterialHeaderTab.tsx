@@ -1,6 +1,7 @@
 import { styled, SvgIconProps, Tab, Tabs } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { T } from './ui/tokens';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export type TabItem = {
     title: string;
@@ -207,7 +208,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                             ? (tabItem.icon.startsWith('bi-') || tabItem.icon.startsWith('bi ')
                                 // Bootstrap icon (same system as the sidebar). The `.bi` class
                                 // also enables the boxed selected-tab styling defined above.
-                                ? <i className={`bi ${tabItem.icon}`} />
+                                ? <AppIcon name={tabItem.icon} />
                                 : <img src={tabItem.icon} alt={tabItem.title} width={24} height={24} style={{ marginRight: '1px' }} />)
                             : (() => {
                                 const Icon = tabItem.icon as React.ElementType<SvgIconProps>;

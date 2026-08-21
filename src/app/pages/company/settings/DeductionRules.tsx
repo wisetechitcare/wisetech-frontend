@@ -61,7 +61,14 @@ const APPLIES_ON: Array<{ value: AppliesOn; label: string; hint: string }> = [
     { value: 'non_working_day', label: 'Non-working days only', hint: 'Only weekends and holidays' },
 ];
 
-const DAY_KINDS: DayKind[] = ['working', 'weekend', 'holiday'];
+// Value is the wire enum; label is what the user reads. The picker used to render the
+// raw key, so the control showed "working" / "weekend" in lower case next to every other
+// Title Case control on the screen.
+const DAY_KINDS: Array<{ value: DayKind; label: string }> = [
+    { value: 'working', label: 'Working day' },
+    { value: 'weekend', label: 'Weekend' },
+    { value: 'holiday', label: 'Public holiday' },
+];
 
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
@@ -141,7 +148,11 @@ export default function DeductionRules({ open, onClose, readOnly = false, scope,
     useEffect(() => { if (open && !loading) void runPreview(); }, [open, loading, rules, runPreview]);
 
     const save = async () => {
-        if (!draft?.name?.trim()) return;
+        // Both are marked required in the form, so both are enforced here. Without the
+        // deductMinutes guard a rule could be saved with 0, which passes every check and
+        // then silently deducts nothing — indistinguishable from a rule that is not working.
+        // A 0 THRESHOLD stays legal: "deduct 60m after 0m worked" means always deduct.
+        if (!draft?.name?.trim() || !(Number(draft.deductMinutes) > 0)) return;
         setSaving(true);
         try {
             if (draft.id) await updateDeductionRule(draft.id, draft);
@@ -270,7 +281,10 @@ export default function DeductionRules({ open, onClose, readOnly = false, scope,
                             </Grid>
                             <Grid item xs={12} md={4}>
                                 <StatTile
-                                    label="Credited for the probe"
+                                    // "probe" is this file's internal name for the preview inputs
+                                    // (probeMinutes/probeDayKind) — it meant nothing to the admin
+                                    // reading the tile. Named after what the tile actually shows.
+                                    label="Credited in preview"
                                     value={outcome ? asDuration(outcome.netMinutes) : '—'}
                                     trio={TRIO.amber} icon="time"
                                 />
@@ -301,7 +315,7 @@ export default function DeductionRules({ open, onClose, readOnly = false, scope,
                                         onChange={(e) => setProbeDayKind(e.target.value as DayKind)}
                                     >
                                         {DAY_KINDS.map((k) => (
-                                            <MenuItem key={k} value={k}>{k}</MenuItem>
+                                            <MenuItem key={k.value} value={k.value}>{k.label}</MenuItem>
                                         ))}
                                     </TextField>
                                     <WtButton inverted onClick={() => void runPreview()} disabled={previewing}>
@@ -350,9 +364,14 @@ export default function DeductionRules({ open, onClose, readOnly = false, scope,
                             }
                         >
                             {!rules.length ? (
-                                <Typography sx={{ fontSize: 13, color: 'text.secondary', py: 1 }}>
-                                    No rules — no break time is deducted from any day.
-                                </Typography>
+                                // Suppressed while a draft is open: "No rules" sitting directly
+                                // above a half-filled New Rule form reads as if the form is not
+                                // going to count for anything.
+                                draft ? null : (
+                                    <Typography sx={{ fontSize: 13, color: 'text.secondary', py: 1 }}>
+                                        No rules — no break time is deducted from any day.
+                                    </Typography>
+                                )
                             ) : readOnly ? (
                                 <Box>{rules.map((r) => <Box key={r.id}>{renderRule(r)}</Box>)}</Box>
                             ) : (
@@ -392,9 +411,15 @@ export default function DeductionRules({ open, onClose, readOnly = false, scope,
                                         />
                                         <TextField
                                             size="small" type="number" label="Deduct (minutes)" required
+                                            inputProps={{ min: 1 }}
                                             value={draft.deductMinutes ?? 0}
                                             onChange={(e) => setDraft({ ...draft, deductMinutes: Number(e.target.value) })}
-                                            helperText={`= ${asDuration(Number(draft.deductMinutes) || 0)}`}
+                                            error={!(Number(draft.deductMinutes) > 0)}
+                                            helperText={
+                                                Number(draft.deductMinutes) > 0
+                                                    ? `= ${asDuration(Number(draft.deductMinutes))}`
+                                                    : 'Must be at least 1 — a 0-minute rule deducts nothing.'
+                                            }
                                         />
                                     </Box>
                                     <TextField
@@ -426,7 +451,10 @@ export default function DeductionRules({ open, onClose, readOnly = false, scope,
                                     ))}
 
                                     <Stack direction="row" spacing={1}>
-                                        <WtButton onClick={() => void save()} disabled={saving || !draft.name?.trim()}>
+                                        <WtButton
+                                            onClick={() => void save()}
+                                            disabled={saving || !draft.name?.trim() || !(Number(draft.deductMinutes) > 0)}
+                                        >
                                             {saving ? 'Saving…' : 'save rule'}
                                         </WtButton>
                                         <WtButton ghost onClick={() => setDraft(null)}>cancel</WtButton>

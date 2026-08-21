@@ -22,7 +22,7 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import { WtDateField } from "@app/modules/common/components/ui";
+import { WtDateField, AppIcon } from "@app/modules/common/components/ui";
 import { useEffect, useMemo, useState } from "react";
 import Select from "react-select";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
@@ -1048,7 +1048,7 @@ const NewCompanyForm: React.FC<Props> = ({
                             whiteSpace: "nowrap",
                           }}
                         >
-                          <i className="bi bi-gear-fill" style={{ fontSize: "15px", lineHeight: 1 }} />
+                          <AppIcon name="bi-gear-fill" className="fs-5" style={{ lineHeight: 1 }} />
                           Manage Sections &amp; Fields
                         </button>
                       </div>

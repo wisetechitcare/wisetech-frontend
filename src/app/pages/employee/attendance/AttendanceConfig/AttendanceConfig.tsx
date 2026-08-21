@@ -26,6 +26,7 @@ import {
   ENFORCE_ONSITE_DEADLINE_KEY,
   LATE_NIGHT_WAIVER_KEY,
   LATE_NIGHT_WAIVER_TIME_KEY,
+  REQUIRE_SITE_HYBRID_APPROVAL_KEY,
 } from '@constants/configurations-key';
 import { onSiteAndHolidayWeekendSettingsOnOffName } from '@constants/statistics';
 import Loader from '@app/modules/common/utils/Loader';
@@ -41,12 +42,14 @@ import {
   KEYFRAMES,
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface OtherSettingsData {
   enableLunchDeduction: boolean;
   onSiteHolidayWeekendSettings: boolean;
+  requireSiteHybridApproval: boolean;
   allowedDistance: number;
   restrictAttendanceRequestDays: number;
   showDataUpToToday: boolean;
@@ -291,6 +294,7 @@ const AttendanceConfig: React.FC = () => {
   const [otherSettingsData, setOtherSettingsData] = useState<OtherSettingsData>({
     enableLunchDeduction: false,
     onSiteHolidayWeekendSettings: false,
+    requireSiteHybridApproval: false,
     allowedDistance: 12,
     restrictAttendanceRequestDays: 7,
     showDataUpToToday: false,
@@ -381,10 +385,13 @@ const AttendanceConfig: React.FC = () => {
       else if (typeof restrictDays !== 'number' || restrictDays < 1) restrictDays = 7;
 
       const onSiteVal = leaveConfig?.[onSiteAndHolidayWeekendSettingsOnOffName];
+      // Free read — leaveConfig is the LEAVE_MANAGEMENT bag already fetched above.
+      const siteHybridApprovalVal = leaveConfig?.[REQUIRE_SITE_HYBRID_APPROVAL_KEY];
 
       setOtherSettingsData({
         enableLunchDeduction:         lunchConfig?.disableLaunchDeductionTime ?? false,
         onSiteHolidayWeekendSettings: onSiteVal === '1' || onSiteVal === 1,
+        requireSiteHybridApproval:    siteHybridApprovalVal === '1' || siteHybridApprovalVal === 1,
         allowedDistance:              appSettings?.distanceAllowedInMeters || 12,
         restrictAttendanceRequestDays: restrictDays,
         showDataUpToToday:            dateConfig?.useDateSettings ?? false,
@@ -558,7 +565,7 @@ const AttendanceConfig: React.FC = () => {
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               flexShrink: 0,
                             }}>
-                              <i className={`bi ${icon}`} style={{ fontSize: '13px', color: '#6b7280' }} />
+                              <AppIcon name={icon} className="fs-7" color="#6b7280" />
                             </div>
                             <div style={{ minWidth: 0 }}>
                               <div style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 500, color: '#9ca3af', marginBottom: '1px' }}>{label}</div>
@@ -571,38 +578,17 @@ const AttendanceConfig: React.FC = () => {
                   </ConfigSectionCard>
                 </Grid>
 
-                {/* ── Break Deductions card ────────────────────── */}
-                {/* Belongs on THIS tab: the Deduction value is displayed in the Daily
-                    Shift Time tiles above, and it is computed from punches. It was
-                    briefly under Leaves purely because that tab had the reusable row
-                    component — configuring a value from a different tab than the one
-                    that shows it. */}
-                <Grid item xs={12} lg={7}>
-                  <ConfigSectionCard
-                    title="Break Deductions"
-                    description="How much unpaid break time comes off a worked day, and on which days"
-                    icon="bi-cup-hot"
-                    iconColor="amber"
-                    primaryAction={{
-                      label: 'Configure',
-                      icon: 'bi-pencil',
-                      variant: 'outline',
-                      onClick: () => setShowDeductionRulesModal(true),
-                    }}
-                  >
-                    <p style={{
-                      fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted,
-                      margin: 0, fontWeight: 400,
-                    }}>
-                      Rules decide the threshold, the duration, and whether a deduction
-                      applies on weekends and holidays. Currently deducting{' '}
-                      <strong style={{ color: C.textPrimary }}>{deductionTime}</strong>.
-                    </p>
-                  </ConfigSectionCard>
-                </Grid>
+                {/* ── Right column: Attendance Settings + Break Deductions ─────── */}
+                {/* Pairs with Daily Shift Time to fill the row exactly (7 + 5 = 12).
+                    Break Deductions used to sit at lg={7}, which overflowed the 12-column
+                    row and wrapped, leaving ~42% of the first row empty.
 
-                {/* ── Other Settings card ──────────────────────── */}
+                    The two cards are STACKED inside this one column rather than being
+                    separate grid items: Daily Shift Time is much taller than Attendance
+                    Settings, so a sibling grid item would start a new row and leave the
+                    space under Attendance Settings empty. Stacking fills that gap. */}
                 <Grid item xs={12} lg={5}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <ConfigSectionCard
                     title="Attendance Settings"
                     description="Control policies, distance limits, and request windows"
@@ -631,6 +617,11 @@ const AttendanceConfig: React.FC = () => {
                       enabled={otherSettingsData.onSiteHolidayWeekendSettings}
                     />
                     <SettingToggleRow
+                      label="Site & Hybrid Attendance Approval"
+                      value=""
+                      enabled={otherSettingsData.requireSiteHybridApproval}
+                    />
+                    <SettingToggleRow
                       label="Check-in Distance (meters)"
                       value={`${otherSettingsData.allowedDistance} m`}
                     />
@@ -643,6 +634,34 @@ const AttendanceConfig: React.FC = () => {
                       value={otherSettingsData.monthlyAnnualLeaveLimit}
                     />
                   </ConfigSectionCard>
+
+                  {/* Belongs on THIS tab: the Deduction value is displayed in the Daily
+                      Shift Time tiles opposite, and it is computed from punches. It was
+                      briefly under Leaves purely because that tab had the reusable row
+                      component — configuring a value from a different tab than the one
+                      that shows it. */}
+                  <ConfigSectionCard
+                    title="Break Deductions"
+                    description="How much unpaid break time comes off a worked day, and on which days"
+                    icon="bi-cup-hot"
+                    iconColor="amber"
+                    primaryAction={{
+                      label: 'Configure',
+                      icon: 'bi-pencil',
+                      variant: 'outline',
+                      onClick: () => setShowDeductionRulesModal(true),
+                    }}
+                  >
+                    <p style={{
+                      fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted,
+                      margin: 0, fontWeight: 400,
+                    }}>
+                      Rules decide the threshold, the duration, and whether a deduction
+                      applies on weekends and holidays. Currently deducting{' '}
+                      <strong style={{ color: C.textPrimary }}>{deductionTime}</strong>.
+                    </p>
+                  </ConfigSectionCard>
+                  </Box>
                 </Grid>
               </Grid>
 
@@ -764,9 +783,9 @@ const AttendanceConfig: React.FC = () => {
                   }}
                   onClick={() => setShowAppearanceModal(true)}
                 >
-                  <i className="bi bi-palette" style={{ fontSize: 18, color: '#7c3aed' }} />
+                  <AppIcon name="bi-palette" className="fs-3" color="#7c3aed" />
                   Open Appearance Editor
-                  <i className="bi bi-arrow-right ms-auto" style={{ fontSize: 14, color: '#9ca3af' }} />
+                  <AppIcon name="bi-arrow-right" className="ms-auto fs-6" color="#9ca3af" />
                 </button>
                 <div style={{ padding: '16px 24px' }}>
                   <p style={{ fontFamily: FONT.body, fontSize: 13, color: C.textMuted, margin: 0 }}>

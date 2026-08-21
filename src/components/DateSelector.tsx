@@ -1,4 +1,5 @@
 import React from 'react';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface DateSelectorProps {
     onPrevious: () => void;
@@ -40,7 +41,7 @@ const DateSelector: React.FC<DateSelectorProps> = ({
                 onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.color = '#374151'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
             >
-                <i className="bi bi-chevron-left" style={{ fontSize: 10, lineHeight: 1 }} />
+                <AppIcon name="bi-chevron-left" className="fs-9" style={{ lineHeight: 1 }} />
             </button>
 
             <span style={{
@@ -65,7 +66,7 @@ const DateSelector: React.FC<DateSelectorProps> = ({
                 onMouseEnter={e => { if (!disableNext) { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.color = '#374151'; } }}
                 onMouseLeave={e => { if (!disableNext) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9ca3af'; } }}
             >
-                <i className="bi bi-chevron-right" style={{ fontSize: 10, lineHeight: 1 }} />
+                <AppIcon name="bi-chevron-right" className="fs-9" style={{ lineHeight: 1 }} />
             </button>
         </div>
     );

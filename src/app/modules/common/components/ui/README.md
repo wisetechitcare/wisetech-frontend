@@ -33,6 +33,7 @@ are built from.
 | Brand logo glyph (WhatsApp…) | `WhatsAppIcon` from `brandIcons` | `KTIcon iconName="whatsapp"` — the duotone font paints its first layer at 40% opacity, so the mark washes out |
 | Close (×) | `WtCloseButton` (`ui/tw/WtCloseButton`) | a `&times;` in an `IconButton` |
 | Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` | a bespoke `<select>` or `FormControl` |
+| Dropdown ENGINE | `WtSelect` | react-select directly, or a new wrapper |
 | Dropdown (in a form) | `DropdownInput` (Formik) | react-select directly |
 | Dropdown (standalone) | `SelectInput` | a new select component |
 | Toggle | `WtSwitch` / `WtSwitchField` | raw `<Switch>`, `.form-switch` |
@@ -175,3 +176,36 @@ The v3 prefix form is not the canonical syntax here.
    export in this folder is the pattern.
 5. Export it from `index.ts` with a one-line comment, and **add a row to the
    table above.** An undocumented kit component gets reinvented.
+
+
+## Selects — one engine, three wrappers
+
+`WtSelect` is the **engine**: menu portalled to `<body>`, `menuPlacement: auto` (flips up
+when there is no room below), a bounded self-scrolling menu, z-index above MUI's dialog
+layer, windowed rendering past ~80 options, theme-aware light/dark, and keyboard + ARIA
+inherited from react-select rather than re-invented.
+
+It exposes what an enterprise select needs and none of the wrappers previously had:
+`isMulti`, `isClearable`, `isLoading`, `isCreatable`, `isDisabled`, grouped options with
+headings, `error` state, `size`, and `optionVariant` (`plain` | `avatar` | `colour`, with an
+optional second `description` line).
+
+The three wrappers stay, because a form field, a toolbar filter and a standalone control
+genuinely differ in binding and layout:
+
+| Context | Use |
+|---|---|
+| Formik form field | `DropdownInput` |
+| Standalone / redux-bound | `SelectInput` |
+| Toolbar filter | `ToolbarFilterSelect` |
+
+**Do not add a fourth wrapper.** If a screen needs something none of them do, add the prop
+to `WtSelect` and let the wrapper pass it through. This codebase already grew nine select
+wrappers — two of them (`DropdownInput` and `FormikDropdownInput`) were both Formik +
+react-select, i.e. the same component twice — which is exactly how dropdowns ended up
+opening downward into nothing on some screens and behind the dialog on others.
+
+`FormikDropdownInput` has since been **deleted**; its six call sites moved to
+`DropdownInput`. It always painted a status circle on every option, defaulting to amber,
+so lists whose options carried no colour showed a uniform dot that meant nothing. Colour is
+now shown only where it carries meaning, via `showColor`.

@@ -4,6 +4,7 @@ import { AuditEntityType, AuditChangeSet } from './audit.service';
 import { useAuditTimeline } from './hooks';
 import { ChangeSetCard } from './ChangeSetCard';
 import { categoryMeta, isBaselineEntry } from './tokens';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Props {
   type: AuditEntityType;
@@ -170,17 +171,7 @@ const BaselineGroup: React.FC<{
               {entries.length} automated pre-audit {entries.length === 1 ? 'entry' : 'entries'} · {open ? 'hide' : 'show'} detail
             </div>
           </div>
-          <i
-            className="bi bi-chevron-down"
-            style={{
-              color: C.textMuted,
-              fontSize: 13,
-              flexShrink: 0,
-              transition: 'transform .28s cubic-bezier(.4,0,.2,1)',
-              transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            }}
-            aria-hidden
-          />
+          <AppIcon name="bi-chevron-down" className="fs-7" color={C.textMuted} style={{ flexShrink: 0, transition: 'transform .28s cubic-bezier(.4,0,.2,1)', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }} aria-hidden />
         </button>
 
         <div
@@ -290,7 +281,7 @@ export const AuditTimeline: React.FC<Props> = ({ type, id, onCompare, onReset })
     return (
       <Centered icon="bi bi-exclamation-triangle" title="Couldn't load the audit trail" subtitle="The server returned an error.">
         <button type="button" style={{ ...BTN.outline, marginTop: 14 }} onClick={() => refetch()}>
-          <i className="bi bi-arrow-clockwise" aria-hidden /> Retry
+          <AppIcon name="bi-arrow-clockwise" aria-hidden /> Retry
         </button>
       </Centered>
     );
@@ -301,11 +292,11 @@ export const AuditTimeline: React.FC<Props> = ({ type, id, onCompare, onReset })
       <span style={{ fontFamily: FONT.body, fontSize: 12, color: C.textMuted, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
         {query.isFetching ? (
           <>
-            <i className="bi bi-arrow-repeat ci-spin" aria-hidden /> Syncing…
+            <AppIcon name="bi-arrow-repeat" className="ci-spin" aria-hidden /> Syncing…
           </>
         ) : (
           <>
-            <i className="bi bi-clock-history" aria-hidden />
+            <AppIcon name="bi-clock-history" aria-hidden />
             {changeSets.length} change{changeSets.length === 1 ? '' : 's'} on record
           </>
         )}
@@ -379,11 +370,11 @@ export const AuditTimeline: React.FC<Props> = ({ type, id, onCompare, onReset })
           >
             {query.isFetchingNextPage ? (
               <>
-                <i className="bi bi-arrow-repeat ci-spin" aria-hidden /> Loading…
+                <AppIcon name="bi-arrow-repeat" className="ci-spin" aria-hidden /> Loading…
               </>
             ) : (
               <>
-                <i className="bi bi-arrow-down-circle" aria-hidden /> Load more
+                <AppIcon name="bi-arrow-down-circle" aria-hidden /> Load more
               </>
             )}
           </button>

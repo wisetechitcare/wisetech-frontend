@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
 import DropdownChevron from "./DropdownChevron";
+import { FLOATING_MENU_BEHAVIOUR } from "./selectMenuProps";
 
 interface LocationDropdownProps {
     isRequired: boolean;
@@ -39,7 +40,7 @@ const LocationDropdown = ({ formikField, inputLabel, options, isRequired, placeh
             onClick={(e)=>{e.preventDefault(); handleShow();}}
             >+ Add</button>}
         </div>
-            <Select
+            <Select{...FLOATING_MENU_BEHAVIOUR}
                 name={formikField}
                 isDisabled={isDisabled}
                 options={sortedOptions}

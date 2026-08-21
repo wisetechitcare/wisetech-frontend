@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import ReactECharts from "echarts-for-react";
 import { useIsMobile } from "@components/navigation/BottomNavigation/useIsMobile";
 import { ChartDatum, buildPalette, toRanked } from "./leadAnalyticsUtils";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface RankedBarChartProps {
   data: ChartDatum[];
@@ -212,7 +213,7 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
             }}
             title={`Sort ${sortDir === "asc" ? "ascending" : "descending"}`}
           >
-            <i className={`bi ${sortDir === "asc" ? "bi-sort-up" : "bi-sort-down"}`} />
+            <AppIcon name={sortDir === "asc" ? "bi-sort-up" : "bi-sort-down"} />
           </button>
         </div>
 
@@ -237,7 +238,7 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
               padding: 0,
             }}
           >
-            <i className="bi bi-arrows-fullscreen" style={{ fontSize: 11 }} />
+            <AppIcon name="bi-arrows-fullscreen" className="fs-8" />
           </button>
         )}
       </div>
@@ -257,7 +258,7 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
             className="btn btn-sm btn-link text-primary fw-semibold p-0"
             style={{ fontSize: 12, textDecoration: "none" }}
           >
-            View all {rankedAll.length} <i className="bi bi-arrows-fullscreen" style={{ fontSize: 10 }} />
+            View all {rankedAll.length} <AppIcon name="bi-arrows-fullscreen" className="fs-9" />
           </button>
         </div>
       )}
@@ -341,7 +342,7 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
                   }}
                   title={`Sort ${sortDir === "asc" ? "ascending" : "descending"}`}
                 >
-                  <i className={`bi ${sortDir === "asc" ? "bi-sort-up" : "bi-sort-down"}`} />
+                  <AppIcon name={sortDir === "asc" ? "bi-sort-up" : "bi-sort-down"} />
                 </button>
 
                 <button
@@ -360,7 +361,7 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
                     cursor: "pointer",
                   }}
                 >
-                  <i className="bi bi-fullscreen-exit" style={{ fontSize: 13 }} /> Close
+                  <AppIcon name="bi-fullscreen-exit" className="fs-7" /> Close
                 </button>
               </div>
             </div>

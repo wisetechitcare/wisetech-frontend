@@ -1,5 +1,6 @@
 import React from 'react';
 import { C, FONT, SP, RADIUS, BTN, KEYFRAMES } from '../modules/configuration/ConfigDesignSystem';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Props {
   children: React.ReactNode;
@@ -95,7 +96,7 @@ class ErrorBoundary extends React.Component<Props, State> {
                 flexShrink: 0,
               }}
             >
-              <i className="bi bi-exclamation-triangle" style={{ fontSize: 20, color: '#fff' }} />
+              <AppIcon name="bi-exclamation-triangle" className="fs-2" color="#fff" />
             </div>
             <div>
               <h3 style={{
@@ -203,7 +204,7 @@ class ErrorBoundary extends React.Component<Props, State> {
                 onClick={() => window.history.back()}
                 style={{ ...BTN.secondary, padding: '9px 20px' }}
               >
-                <i className="bi bi-arrow-left" style={{ fontSize: 13 }} />
+                <AppIcon name="bi-arrow-left" className="fs-7" />
                 Go back
               </button>
               <button
@@ -211,7 +212,7 @@ class ErrorBoundary extends React.Component<Props, State> {
                 onClick={() => window.location.reload()}
                 style={{ ...BTN.primary, padding: '9px 20px' }}
               >
-                <i className="bi bi-arrow-clockwise" style={{ fontSize: 13 }} />
+                <AppIcon name="bi-arrow-clockwise" className="fs-7" />
                 Reload page
               </button>
             </div>

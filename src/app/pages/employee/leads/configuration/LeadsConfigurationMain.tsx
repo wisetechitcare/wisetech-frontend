@@ -37,6 +37,7 @@ import {
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
 import { ProjectPointsConfigSection } from '@app/modules/projectPoints';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ─── ColorChip ────────────────────────────────────────────────────────────────
 
@@ -139,7 +140,7 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, badge, onEdit, onDel
             transition: 'background 0.15s ease',
           }}
         >
-          <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+          <AppIcon name="bi-pencil" className="fs-8" />
         </button>
         <button
           onClick={onDelete}
@@ -155,7 +156,7 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, badge, onEdit, onDel
             transition: 'background 0.15s ease',
           }}
         >
-          <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+          <AppIcon name="bi-trash" className="fs-8" />
         </button>
       </div>
     </div>
@@ -185,7 +186,7 @@ const EmptyState: React.FC<{ label: string }> = ({ label }) => (
     fontFamily: FONT.body,
     fontSize: '13px',
   }}>
-    <i className="bi bi-inbox" style={{ fontSize: '28px', display: 'block', marginBottom: '8px', opacity: 0.4 }} />
+    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: 'block', marginBottom: '8px', opacity: 0.4 }} />
     No {label} configured yet
   </div>
 );
@@ -256,7 +257,7 @@ const PaymentPlanChip: React.FC<{
               padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center',
             }}
           >
-            <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+            <AppIcon name="bi-pencil" className="fs-8" />
           </button>
           <button
             onClick={onDelete}
@@ -265,7 +266,7 @@ const PaymentPlanChip: React.FC<{
               padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center',
             }}
           >
-            <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+            <AppIcon name="bi-trash" className="fs-8" />
           </button>
         </div>
       </div>
@@ -329,7 +330,7 @@ const MeetingScheduleChip: React.FC<{
               padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center',
             }}
           >
-            <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+            <AppIcon name="bi-pencil" className="fs-8" />
           </button>
           <button
             onClick={onDelete}
@@ -338,7 +339,7 @@ const MeetingScheduleChip: React.FC<{
               padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center',
             }}
           >
-            <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+            <AppIcon name="bi-trash" className="fs-8" />
           </button>
         </div>
       </div>
@@ -1067,7 +1068,7 @@ const LeadsConfigurationMain = () => {
                   justifyContent: 'center',
                   flexShrink: 0,
                 }}>
-                  <i className="bi bi-file-earmark-word" style={{ fontSize: '22px', color: '#7c3aed' }} />
+                  <AppIcon name="bi-file-earmark-word" className="fs-1" color="#7c3aed" />
                 </div>
                 <div style={{ flex: 1, minWidth: '200px' }}>
                   <div style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '14px', color: C.textPrimary, marginBottom: '4px' }}>
@@ -1099,7 +1100,7 @@ const LeadsConfigurationMain = () => {
                     onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d1d5e0'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(24,28,50,0.06)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = 'none'; }}
                   >
-                    <i className="bi bi-book" style={{ fontSize: '13px' }} />
+                    <AppIcon name="bi-book" className="fs-7" />
                     Docs & Validation
                   </Link>
                   <Link
@@ -1124,7 +1125,7 @@ const LeadsConfigurationMain = () => {
                     onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`; }}
                     onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`; }}
                   >
-                    <i className="bi bi-box-arrow-up-right" style={{ fontSize: '13px' }} />
+                    <AppIcon name="bi-box-arrow-up-right" className="fs-7" />
                     Open Builder
                   </Link>
                 </div>

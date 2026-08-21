@@ -4,6 +4,7 @@ import { Col, Card } from "react-bootstrap";
 import { ChartDialogModal } from "../../leads/overview/components/ChartDialogModal";
 
 import { Dayjs } from "dayjs";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 type TransformedSeriesItem = {
   label: string;
@@ -376,7 +377,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
                   }}
                 >
                   <div>
-                    <i className="bi bi-graph-up-arrow" style={{ fontSize: "32px", color: "#9CAFC9" }}></i>
+                    <AppIcon name="bi-graph-up-arrow" className="fs-2hx" color="#9CAFC9" />
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>

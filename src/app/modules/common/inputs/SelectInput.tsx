@@ -5,6 +5,7 @@ import { useDispatch } from 'react-redux';
 import { saveCurrentBranchInfo, saveCurrentCompanyInfo } from '@redux/slices/company';
 import { useMemo } from 'react';
 import { sortOptionsAlphabetically } from '@utils/sortUtils';
+import { FLOATING_MENU_BEHAVIOUR } from "./selectMenuProps";
 
 const colors = {
     white: '#fff',
@@ -84,7 +85,9 @@ function SelectInput({ options, placeholder, dropdown, value, passData }: Select
             placeholder={placeholder}
             options={sortedOptions}
             styles={customStyles}
-            menuPortalTarget={document.body}
+            // Portalled AND flipped: this portalled but always opened downward with no
+            // height cap, so a select low in the viewport opened into nothing.
+            {...FLOATING_MENU_BEHAVIOUR}
             {...(!isEmpty(value) ? { value } : {})}
             onChange={(option: any) => {
                 if (dropdown === "company") {

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { ResponsiveContainer } from "recharts";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface FullScreenChartModalProps {
   show: boolean;
@@ -27,7 +28,7 @@ const FullScreenChartModal: React.FC<FullScreenChartModalProps> = ({
     >
       <Modal.Header closeButton className="border-0 shadow-sm sticky-top bg-white z-index-1 px-8 py-5">
         <Modal.Title id="full-screen-chart-title" className="fw-bold fs-2 text-dark d-flex align-items-center gap-3">
-          <i className="bi bi-graph-up-arrow fs-2 text-primary"></i>
+          <AppIcon name="bi-graph-up-arrow" className="fs-2 text-primary" />
           {title}
         </Modal.Title>
       </Modal.Header>
@@ -48,21 +49,21 @@ const FullScreenChartModal: React.FC<FullScreenChartModalProps> = ({
                     className="btn-icon btn-active-light-primary shadow-sm rounded-circle w-45px h-45px border-0" 
                     onClick={() => zoomIn()}
                   >
-                    <i className="bi bi-plus-lg fs-3"></i>
+                    <AppIcon name="bi-plus-lg" className="fs-3" />
                   </Button>
                   <Button 
                     variant="white" 
                     className="btn-icon btn-active-light-primary shadow-sm rounded-circle w-45px h-45px border-0" 
                     onClick={() => zoomOut()}
                   >
-                    <i className="bi bi-dash-lg fs-3"></i>
+                    <AppIcon name="bi-dash-lg" className="fs-3" />
                   </Button>
                   <Button 
                     variant="white" 
                     className="btn-icon btn-active-light-primary shadow-sm rounded-circle w-45px h-45px border-0" 
                     onClick={() => resetTransform()}
                   >
-                    <i className="bi bi-arrow-counterclockwise fs-3"></i>
+                    <AppIcon name="bi-arrow-counterclockwise" className="fs-3" />
                   </Button>
                 </div>
                 

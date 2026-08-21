@@ -16,6 +16,7 @@ import { successConfirmation } from "@utils/modal";
 import Tooltip from "@mui/material/Tooltip";
 import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface AttendanceRequestLimitResetRequest {
   id: string;
@@ -257,10 +258,7 @@ function AttendanceRequestLimitReset() {
             placement="top"
             title="Approving this request will double the employee's current attendance request limit"
           >
-            <i
-              className="bi bi-question-circle ms-2"
-              style={{ fontSize: '1rem', cursor: 'pointer' }}
-            ></i>
+            <AppIcon name="bi-question-circle" className="ms-2" style={{ fontSize: '1rem', cursor: 'pointer' }} />
           </Tooltip>
         </h3>
         <MaterialTable

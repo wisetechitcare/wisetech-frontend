@@ -34,7 +34,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { IReimbursementsCreate } from '@models/employee';
 import { useEventBus } from '@hooks/useEventBus';
-import { WtButton } from '@app/modules/common/components/ui';
+import { WtButton, AppIcon } from '@app/modules/common/components/ui';
 import { EVENT_KEYS } from '@constants/eventKeys';
 
 const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
@@ -1146,7 +1146,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         >
           {row.original.document
             ? <KTIcon iconName='eye' className='fs-3' />
-            : <i className='bi bi-file-earmark-x fs-3 text-danger'></i>
+            : <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
           }
         </button>
       ),

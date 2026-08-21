@@ -1,3 +1,4 @@
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import React from "react";
 import { useFormikContext } from "formik";
 import dayjs from "dayjs";
@@ -543,16 +544,16 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         props.isEditMode ? (
           <>
             <span className={`wizard-meta-chip is-accent`}>
-              <i className="bi bi-clock-history" /> Revision {props.currLeadData?.revisionCount ?? 0}
+              <AppIcon name="bi-clock-history" /> Revision {props.currLeadData?.revisionCount ?? 0}
             </span>
             {currentStatusName && (
               <span className="wizard-meta-chip">
-                <i className="bi bi-flag" /> {currentStatusName}
+                <AppIcon name="bi-flag" /> {currentStatusName}
               </span>
             )}
             {props.currLeadData?.prefix && (
               <span className="wizard-meta-chip">
-                <i className="bi bi-hash" /> {props.currLeadData.prefix}
+                <AppIcon name="bi-hash" /> {props.currLeadData.prefix}
               </span>
             )}
           </>

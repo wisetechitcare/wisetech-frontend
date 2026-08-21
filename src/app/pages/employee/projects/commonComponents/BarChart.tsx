@@ -4,6 +4,7 @@ import { ApexOptions } from "apexcharts";
 import { FilterDropdown } from "./FilterDropdown";
 import { clamp } from "lodash";
 import { FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface BarChartData {
   label: string;
@@ -676,7 +677,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                 }}
               >
                 <div>
-                  <i className="bi bi-bar-chart" style={{ fontSize: "32px", color: "#9CAFC9" }}></i>
+                  <AppIcon name="bi-bar-chart" className="fs-2hx" color="#9CAFC9" />
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>

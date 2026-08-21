@@ -15,6 +15,7 @@ import {
   summarizeStatusGroups,
   toneColor,
 } from "./leadAnalyticsUtils";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface PipelinePerformanceProps {
   statusData: ChartDatum[];
@@ -96,7 +97,7 @@ const KpiPill: React.FC<PillProps> = ({
             flexShrink: 0,
           }}
         >
-          <i className={`bi ${icon}`} style={{ fontSize: 14 }} />
+          <AppIcon name={icon} className="fs-6" />
         </span>
         <span
           style={{
@@ -464,7 +465,7 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                     width: "100%",
                   }}
                 >
-                  <i className="bi bi-stars" style={{ color: "#F59E0B" }} />
+                  <AppIcon name="bi-stars" color="#F59E0B" />
                   What This Means
                   <span
                     style={{
@@ -516,7 +517,7 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                                 borderLeft: `3px solid ${c}`,
                               }}
                             >
-                              <i className={`bi ${ins.icon}`} style={{ color: c, fontSize: 13, marginTop: 1, flexShrink: 0 }} />
+                              <AppIcon name={ins.icon} className="fs-7" color={c} style={{ marginTop: 1, flexShrink: 0 }} />
                               <span
                                 style={{
                                   fontFamily: "Inter, sans-serif",

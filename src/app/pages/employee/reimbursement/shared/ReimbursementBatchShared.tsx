@@ -16,6 +16,7 @@ import { successConfirmation, errorConfirmation } from '@utils/modal';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import dayjs from 'dayjs';
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -384,7 +385,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           >
             {renderedCellValue
               ? <KTIcon iconName='eye' className='fs-3' />
-              : <i className='bi bi-file-earmark-x fs-3 text-danger'></i>}
+              : <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />}
           </button>
         ),
       },

@@ -27,6 +27,7 @@ import { RootState } from '@redux/store';
 import { Tooltip } from '@mui/material';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // Sentinel batch id for reimbursements that have no batch (batch_id = NULL).
 // These are legacy/imported records that were never submitted through the
@@ -356,7 +357,7 @@ function SubmissionDetailModal({
             {renderedCellValue ? (
               <KTIcon iconName="eye" className="fs-3" />
             ) : (
-              <i className="bi bi-file-earmark-x fs-3 text-danger"></i>
+              <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
             )}
           </button>
         ),

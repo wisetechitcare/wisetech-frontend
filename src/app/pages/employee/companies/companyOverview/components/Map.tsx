@@ -32,6 +32,7 @@ import { flagLocationError } from "@services/companies";
 import { Modal, Form, Button } from "react-bootstrap";
 import { successConfirmation } from "@utils/modal";
 import { mapStyles } from "./mapTheme";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -1008,7 +1009,7 @@ const PillDropdown = ({
         onClick={() => { if (!disabled) setOpen(o => !o); }}
       >
         <span className="pill-dd-label">{label}</span>
-        <i className="bi bi-chevron-down pill-dd-caret" />
+        <AppIcon name="bi-chevron-down" className="pill-dd-caret" />
       </button>
 
       {open && pos && createPortal(
@@ -1020,7 +1021,7 @@ const PillDropdown = ({
           style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.width }}
         >
           <div className="pill-dd-search-row">
-            <i className="bi bi-search pill-dd-search-icon" />
+            <AppIcon name="bi-search" className="pill-dd-search-icon" />
             <input
               ref={searchRef}
               className="pill-dd-search"
@@ -1556,7 +1557,7 @@ export default function Maps({
   const renderMapSearch = () => (
     <div className="map-search-wrapper" ref={searchRef}>
       <div className="map-search-row">
-        <i className="bi bi-search" style={{ color: '#94a3b8', fontSize: 13, flexShrink: 0 }} />
+        <AppIcon name="bi-search" className="fs-7" color="#94a3b8" style={{ flexShrink: 0 }} />
         <input
           type="text"
           className="map-search-input"
@@ -2589,7 +2590,7 @@ export default function Maps({
               onClick={() => setIsMobileFilterOpen(true)}
               aria-label={`Open filters${activeFilterCount > 0 ? `, ${activeFilterCount} active` : ''}`}
             >
-              <i className="bi bi-sliders2" style={{ fontSize: 13 }} />
+              <AppIcon name="bi-sliders2" className="fs-7" />
               Filters
               {activeFilterCount > 0 && (
                 <span className="mobile-filter-badge">{activeFilterCount}</span>
@@ -2630,7 +2631,7 @@ export default function Maps({
               }}
               title="Show only international (non-India) projects"
             >
-              <i className="bi bi-globe2 me-1" style={{ fontSize: 11 }} />
+              <AppIcon name="bi-globe2" className="me-1 fs-8" />
               World ({worldCount})
             </div>
 
@@ -2774,7 +2775,7 @@ export default function Maps({
                     className={`mf-toggle-btn${isWorldFilter ? ' active' : ''}`}
                     onClick={() => { setIsWorldFilter(true); setSelectedCountry(null); setSelectedState(null); setSelectedCity(null); setSelectedLocality(null); }}
                   >
-                    <i className="bi bi-globe2 me-1" style={{ fontSize: 12 }} />
+                    <AppIcon name="bi-globe2" className="me-1 fs-7" />
                     International ({worldCount})
                   </button>
                 </div>

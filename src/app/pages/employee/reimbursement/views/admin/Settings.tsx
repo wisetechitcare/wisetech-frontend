@@ -22,6 +22,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import * as Yup from "yup";
 import IconPickerModal, { SelectedIcon } from "./IconPickerModal";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -211,7 +212,7 @@ const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit
               transition: "background 0.15s ease",
             }}
           >
-            <i className="bi bi-pencil" style={{ fontSize: "11px" }} />
+            <AppIcon name="bi-pencil" className="fs-8" />
           </button>
           <button
             onClick={onDelete}
@@ -227,7 +228,7 @@ const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit
               transition: "background 0.15s ease",
             }}
           >
-            <i className="bi bi-trash" style={{ fontSize: "11px" }} />
+            <AppIcon name="bi-trash" className="fs-8" />
           </button>
         </div>
       )}
@@ -243,7 +244,7 @@ const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const EmptyState: React.FC = () => (
   <div style={{ textAlign: "center", padding: "28px 16px", color: C.textMuted, fontFamily: FONT.body, fontSize: "13px" }}>
-    <i className="bi bi-inbox" style={{ fontSize: "28px", display: "block", marginBottom: "8px", opacity: 0.4 }} />
+    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: "block", marginBottom: "8px", opacity: 0.4 }} />
     No reimbursement categories configured yet
   </div>
 );

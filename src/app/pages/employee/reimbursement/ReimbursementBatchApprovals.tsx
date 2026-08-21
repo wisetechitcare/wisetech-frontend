@@ -22,6 +22,7 @@ import {
   fmtAmount,
   statusBadge,
 } from './shared/ReimbursementBatchShared';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 
 type TabKey = 'pending' | 'approved' | 'rejected' | 'completed';
@@ -318,7 +319,7 @@ function ReimbursementBatchApprovals() {
             >
               {isProcessing
                 ? <span className='spinner-border spinner-border-sm' style={{ color: 'white', width: 14, height: 14 }} />
-                : <i className='bi bi-check-lg fs-6' style={{ color: 'white' }} />}
+                : <AppIcon name="bi-check-lg" className="fs-6" color="white" />}
             </button>
             <button
               className='btn btn-icon btn-sm rounded-circle'
@@ -327,7 +328,7 @@ function ReimbursementBatchApprovals() {
               disabled={isProcessing}
               onClick={() => setRejectTarget(r)}
             >
-              <i className='bi bi-x-lg fs-6' style={{ color: 'white' }} />
+              <AppIcon name="bi-x-lg" className="fs-6" color="white" />
             </button>
           </div>
         );

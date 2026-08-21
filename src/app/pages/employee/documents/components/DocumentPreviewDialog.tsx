@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Typography } from "@mui/material";
-import { GlassDialog, GlassHeader, WtButton, ToneChip, toast } from "@app/modules/common/components/ui";
+import { GlassDialog, GlassHeader, WtButton, ToneChip, toast, AppIcon } from "@app/modules/common/components/ui";
 import { downloadDocumentFile } from "@services/employee";
 import type { VaultDocument } from "@services/employee";
 import { DOCUMENT_KINDS, getFileKind, resolveFileName } from "../documentKinds";
@@ -73,7 +73,7 @@ const DocumentPreviewDialog: React.FC<DocumentPreviewDialogProps> = ({ employeeI
           <WtButton
             ghost
             size="small"
-            startIcon={<i className="bi bi-box-arrow-up-right" aria-hidden />}
+            startIcon={<AppIcon name="bi-box-arrow-up-right" aria-hidden />}
             onClick={() => window.open(doc.path, "_blank", "noopener,noreferrer")}
           >
             Open

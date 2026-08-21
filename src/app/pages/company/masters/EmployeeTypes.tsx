@@ -23,6 +23,7 @@ import {
   RADIUS,
   KEYFRAMES,
 } from '@app/modules/configuration';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const employeeTypeSchema = Yup.object({
     employeeType: Yup.string().required().label('Employee Type'),
@@ -128,7 +129,7 @@ function EmployeeTypes() {
                           onClick={() => handleEditClick(row.original.id)}
                           style={{ cursor: 'pointer' }}
                       >
-                          <i className="bi bi-pencil" style={{ fontSize: '16px' }} />
+                          <AppIcon name="bi-pencil" className="fs-4" />
                       </button>
                   ),
               });
@@ -205,7 +206,7 @@ function EmployeeTypes() {
                       e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`;
                     }}
                   >
-                    <i className="bi bi-plus-lg" style={{ fontSize: '14px' }} />
+                    <AppIcon name="bi-plus-lg" className="fs-6" />
                     New Employee Type
                   </button>
                 ) : null

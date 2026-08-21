@@ -11,6 +11,7 @@ import {
 import { Card } from "react-bootstrap";
 
 import dayjs, { Dayjs } from "dayjs";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
  
 type Filters = {
   country: string;
@@ -642,7 +643,7 @@ export default function ProjectByLocationAndStatus({
                 }}
               >
                 <div>
-                  <i className="bi bi-geo-alt" style={{ fontSize: "32px", color: "#9CAFC9" }}></i>
+                  <AppIcon name="bi-geo-alt" className="fs-2hx" color="#9CAFC9" />
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>

@@ -36,6 +36,7 @@ import { setFeatureConfiguration } from "@redux/slices/featureConfiguration";
 import { filter, has } from "lodash";
 import RaiseRequestForEmployee from "./RaiseRequestForEmployee";
 import { validatePreviousDaysAttendance } from "@utils/attendanceValidation";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Cell {
     date: string;
@@ -796,7 +797,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                         }
                     </Typography>
                     <IconButton onClick={handleClose} size="small" aria-label="close">
-                        <i className="bi bi-x-lg" />
+                        <AppIcon name="bi-x-lg" />
                     </IconButton>
                 </DialogTitle>
                 <DialogContent>
@@ -810,7 +811,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                     style={{ border: "1px solid rgb(175, 16, 16)" }}
                                     onClick={() => handleRequestTypeSelection('checkin')}
                                 >
-                                    {/* <i className='bi bi-box-arrow-in-right me-2'></i> */}
+                                    {/* <AppIcon name="bi-box-arrow-in-right" className="me-2" /> */}
                                     Check-In Request
                                 </button>
                                 <button
@@ -820,14 +821,14 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                     onClick={() => hasCheckInData && handleRequestTypeSelection('checkout')}
                                     disabled={!hasCheckInData}
                                 >
-                                    {/* <i className='bi bi-box-arrow-right me-2'></i> */}
+                                    {/* <AppIcon name="bi-box-arrow-right" className="me-2" /> */}
                                     Check-Out Request
                                 </button>
                             </div>
                             {!hasCheckInData && (
                                 <div className='mt-3 text-center'>
                                     <small className='text-muted'>
-                                        <i className='bi bi-info-circle me-1'></i>
+                                        <AppIcon name="bi-info-circle" className="me-1" />
                                         Since check-in is not present, please create a check-in request first
                                     </small>
                                 </div>
@@ -844,7 +845,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                     </button>
                                     <div className='mt-2'>
                                         <small className='text-muted'>
-                                            <i className='bi bi-info-circle me-1'></i>
+                                            <AppIcon name="bi-info-circle" className="me-1" />
                                             Use this option to raise attendance request on behalf of another employee
                                         </small>
                                     </div>
@@ -946,7 +947,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                                 setRequestType(null);
                                             }}
                                         >
-                                            <i className='bi bi-arrow-left me-2 text-white'></i>
+                                            <AppIcon name="bi-arrow-left" className="me-2 text-white" />
                                             Back
                                         </button>
                                         <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || limitMessage || !canSubmitRequest || isValidating}>

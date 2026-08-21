@@ -8,6 +8,7 @@ import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
 import { ColourOption, SingleValue, AvatarOption, AvatarSingleValue } from "./ColorInDropdwon";
 import DropdownChevron from "./DropdownChevron";
+import { FLOATING_MENU_BEHAVIOUR } from "./selectMenuProps";
 
 // Plain react-select renders EVERY option to the DOM, so menus with thousands of
 // options (e.g. the full contacts list) are slow to open and scroll. For large lists
@@ -274,8 +275,15 @@ function DropDownInput({
                 } : {}),
             }}
             styles={getCustomStyles(showColor ? selectedValue?.color : undefined)}
-            menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-            menuPosition="fixed"
+            // Portal + fixed positioning + auto flip + a bounded, scrollable menu.
+            // This used to portal but always open DOWNWARD with no height cap, so a field
+            // near the bottom of a dialog opened into no space and the list ran off-screen.
+            // `maxMenuHeight` also feeds VirtualizedMenuList's `maxHeight`, so the windowed
+            // and plain menus cap at the same place.
+            {...FLOATING_MENU_BEHAVIOUR}
+            // A dropdown that filters to nothing should say why, not just "No options".
+            noOptionsMessage={({ inputValue }: { inputValue: string }) =>
+                inputValue ? `No matches for "${inputValue}"` : 'No options available'}
             defaultInputValue={defaultValue}
             filterOption={enableSmartSort ? null : filterOption} // Disable built-in filtering when using smart sort
         />

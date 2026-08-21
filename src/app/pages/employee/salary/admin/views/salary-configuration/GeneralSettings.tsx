@@ -9,6 +9,7 @@ import { fetchConfiguration, updateConfigurationById, createNewConfiguration } f
 import { EXCLUDE_FROM_LATE_ATTENDANCE, PAYMENT_MODE } from '@constants/configurations-key';
 import { successConfirmation } from '@utils/modal';
 import { fetchCheckinDeadlineOverrides, saveCheckinDeadlineOverrides, ICheckinDeadlineSaveItem } from '@services/employee';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const HHMM_24H = /^([01]\d|2[0-3]):([0-5]\d)$/;
 /** Convert a company "Check-in time" (e.g. "10:00 AM" or "10:00") to 24h "HH:MM", else "". */
@@ -221,7 +222,7 @@ function GeneralSettings() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 3px 10px rgba(30, 58, 138,0.25)', flexShrink: 0,
         }}>
-          <i className="bi bi-gear-fill" style={{ fontSize: '15px', color: '#fff' }} />
+          <AppIcon name="bi-gear-fill" className="fs-5" color="#fff" />
         </div>
         <div>
           <h2 style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '16px', color: '#181C32', margin: 0, letterSpacing: '-0.2px' }}>
@@ -258,7 +259,7 @@ function GeneralSettings() {
             boxShadow: '0 2px 10px rgba(30, 58, 138,0.12)', flexShrink: 0,
             border: '1px solid rgba(30, 58, 138,0.08)',
           }}>
-            <i className="bi bi-wallet2"></i>
+            <AppIcon name="bi-wallet2" />
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -327,7 +328,7 @@ function GeneralSettings() {
             onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(30, 58, 138,0.28)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(30, 58, 138,0.2)'; }}
           >
-            <i className="bi bi-check-lg" style={{ fontSize: '14px' }}></i> Save
+            <AppIcon name="bi-check-lg" className="fs-6" /> Save
           </button>
         </div>
       </div>
@@ -357,7 +358,7 @@ function GeneralSettings() {
             boxShadow: '0 2px 10px rgba(0,133,219,0.12)', flexShrink: 0,
             border: '1px solid rgba(0,133,219,0.08)',
           }}>
-            <i className="bi bi-person-x"></i>
+            <AppIcon name="bi-person-x" />
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -420,7 +421,7 @@ function GeneralSettings() {
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0085db'; e.currentTarget.style.color = '#0085db'; e.currentTarget.style.backgroundColor = '#f0f8ff'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(0,133,219,0.12)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(24,28,50,0.05)'; }}
           >
-            Configure <i className="bi bi-arrow-right" style={{ fontSize: '13px' }}></i>
+            Configure <AppIcon name="bi-arrow-right" className="fs-7" />
           </button>
         </div>
       </div>
@@ -449,7 +450,7 @@ function GeneralSettings() {
             boxShadow: '0 2px 10px rgba(114,57,234,0.12)', flexShrink: 0,
             border: '1px solid rgba(114,57,234,0.08)',
           }}>
-            <i className="bi bi-clock-history"></i>
+            <AppIcon name="bi-clock-history" />
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -497,7 +498,7 @@ function GeneralSettings() {
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#7239EA'; e.currentTarget.style.color = '#7239EA'; e.currentTarget.style.backgroundColor = '#f7f3fe'; }}
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.backgroundColor = '#fff'; }}
           >
-            Configure <i className="bi bi-arrow-right" style={{ fontSize: '13px' }}></i>
+            Configure <AppIcon name="bi-arrow-right" className="fs-7" />
           </button>
         </div>
       </div>

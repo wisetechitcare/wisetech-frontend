@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Modal, Button, Form, Spinner } from "react-bootstrap";
 import { getMonthlyTargets, saveMonthlyTargets } from "@services/lead";
 import dayjs from "dayjs";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const modalStyles = `
   .no-spinner::-webkit-inner-spin-button,
@@ -104,11 +105,11 @@ const ManageTargetModal: React.FC<ManageTargetModalProps> = ({ show, onHide, onS
       <Modal.Body>
         <div className="d-flex justify-content-between align-items-center mb-4 bg-light p-2 rounded-3 border">
           <Button variant="link" className="text-dark p-0 border-0 shadow-none" onClick={() => setCurrentYear(currentYear - 1)}>
-            <i className="bi bi-chevron-left"></i>
+            <AppIcon name="bi-chevron-left" />
           </Button>
           <h5 className="fw-bold m-0 text-primary">{currentYear}</h5>
           <Button variant="link" className="text-dark p-0 border-0 shadow-none" onClick={() => setCurrentYear(currentYear + 1)}>
-            <i className="bi bi-chevron-right"></i>
+            <AppIcon name="bi-chevron-right" />
           </Button>
         </div>
 

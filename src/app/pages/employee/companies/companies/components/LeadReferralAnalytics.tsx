@@ -3,6 +3,7 @@ import ReactApexChart from "react-apexcharts";
 import dayjs, { Dayjs } from "dayjs";
 import { formatCurrencyCompact } from "@utils/currency";
 import { PeriodMode } from "@app/modules/common/components/PeriodFilter";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface ReferredLead {
   id: string;
@@ -206,7 +207,7 @@ const LeadReferralAnalytics: React.FC<Props> = ({ referredLeads, totalCount, mod
         <div className="d-flex flex-wrap align-items-center justify-content-between mb-4" style={{ gap: 12 }}>
           <div className="d-flex align-items-center" style={{ gap: 10 }}>
             <span className="d-inline-flex align-items-center justify-content-center" style={{ width: 34, height: 34, borderRadius: 10, background: "#fbf3f3", color: ACCENT }}>
-              <i className="bi bi-graph-up-arrow" style={{ fontSize: 16 }} />
+              <AppIcon name="bi-graph-up-arrow" className="fs-4" />
             </span>
             <span className="fw-bold fs-5 text-gray-900">Referred Leads — Business</span>
           </div>

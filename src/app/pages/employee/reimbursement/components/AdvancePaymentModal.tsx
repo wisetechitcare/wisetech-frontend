@@ -4,7 +4,7 @@ import { Formik, Form as FormikForm, FormikValues } from 'formik';
 import * as Yup from 'yup';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import DateInput from '@app/modules/common/inputs/DateInput';
-import FormikDropdownInput from '@app/modules/common/inputs/FormikDropdownInput';
+import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { KTIcon } from '@metronic/helpers';
 import { IReimbursementPayment } from '@models/employee';
 
@@ -101,7 +101,7 @@ const AdvancePaymentModal: React.FC<AdvancePaymentModalProps> = ({
                                         />
                                     </Col>
                                     <Col md={6}>
-                                        <FormikDropdownInput
+                                        <DropDownInput
                                             inputLabel="Disbursement Mode"
                                             formikField="paymentMethod"
                                             options={paymentMethods}

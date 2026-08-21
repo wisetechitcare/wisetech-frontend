@@ -18,6 +18,12 @@ export type { ActionIconButtonProps, ActionTone } from './ActionIconButton';
 // Brand marks as inline SVG. The duotone icon font paints its first layer at 40%
 // opacity, which erases a logo's recognisable shape — these are solid single paths.
 export { WhatsAppIcon } from './brandIcons';
+// The one icon element: resolves legacy `bi-*` names to keenicons and renders KTIcon.
+export { AppIcon, type AppIconProps } from './AppIcon';
+// The one select ENGINE. Wrappers (DropdownInput / SelectInput / ToolbarFilterSelect)
+// delegate to this so menu behaviour and theming are defined once, not per screen.
+export { WtSelect, type WtSelectProps, type WtSelectOption, type WtSelectGroup } from './WtSelect';
+export { BI_TO_KEENICON, keeniconFor } from './iconMap';
 export type { BrandIconProps } from './brandIcons';
 export type { ToneChipProps } from './chips';
 export {

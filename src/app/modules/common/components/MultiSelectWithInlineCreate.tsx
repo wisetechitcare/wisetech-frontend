@@ -3,6 +3,7 @@ import Select, { components, MultiValue, ActionMeta } from 'react-select';
 import { Modal } from 'react-bootstrap';
 import { useFormikContext } from 'formik';
 import { sortOptionsAlphabetically } from '@utils/sortUtils';
+import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
 
 // TypeScript interfaces
 export interface Option {
@@ -205,7 +206,7 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
           {inputLabel}
         </label>
         
-        <Select
+        <Select{...FLOATING_MENU_BEHAVIOUR}
           isMulti
           name={formikField}
           options={sortedOptions}
@@ -257,7 +258,7 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
                   {parentSelectLabel}
                 </label>
                 {parentOptions && parentOptions.length > 0 ? (
-                  <Select
+                  <Select{...FLOATING_MENU_BEHAVIOUR}
                     options={sortOptionsAlphabetically(parentOptions)}
                     value={parentOptions.find((o) => o.value === parentId) || null}
                     onChange={(opt: any) => setParentId(opt?.value || '')}
