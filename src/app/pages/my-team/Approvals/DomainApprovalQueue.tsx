@@ -383,7 +383,7 @@ function ExpandedDetail({
                         <button className='btn btn-sm btn-light-danger py-1 px-3 fs-8' onClick={() => onDecide(s.id!, 'rejected')}>Reject</button>
                       </span>
                     )}
-                    {pending && !canDecide && <span className='badge badge-light-warning text-warning fs-8'>Pending</span>}
+                    {pending && !canDecide && <span className='badge badge-light-warning text-warning fs-8'>Waiting</span>}
                   </span>
                 </div>
               );
@@ -598,11 +598,11 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           // opening from this cell, and "5" told them nothing about whether four of those five
           // were already dealt with.
           const pills: Array<{ label: string; tone: SemanticTone }> = [];
-          if (d?.pendingCount) pills.push({ label: `${d.pendingCount} pending`, tone: 'warning' });
-          if (d?.queriedCount) pills.push({ label: `${d.queriedCount} query`, tone: 'cyan' });
+          if (d?.pendingCount) pills.push({ label: `${d.pendingCount} waiting`, tone: 'warning' });
+          if (d?.queriedCount) pills.push({ label: `${d.queriedCount} question${d.queriedCount === 1 ? '' : 's'}`, tone: 'cyan' });
           if (d?.approvedCount) pills.push({ label: `${d.approvedCount} approved`, tone: 'success' });
           if (d?.rejectedCount) pills.push({ label: `${d.rejectedCount} rejected`, tone: 'danger' });
-          if (d?.resubmittedCount) pills.push({ label: `${d.resubmittedCount} resubmitted`, tone: 'indigo' });
+          if (d?.resubmittedCount) pills.push({ label: `${d.resubmittedCount} sent again`, tone: 'indigo' });
           return (
             <div
               role='button'
@@ -866,8 +866,8 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         const approveTitle = awaiting == null
           ? 'Approve'
           : awaiting === 0
-            ? 'Nothing on this submission is awaiting your decision — open it to review'
-            : `Approve the ${awaiting} request${awaiting === 1 ? '' : 's'} awaiting you`;
+            ? 'Nothing here needs your decision — open it to have a look'
+            : `Approve the ${awaiting} request${awaiting === 1 ? '' : 's'} waiting for you`;
 
         return (
           <div className='d-flex align-items-center gap-1 flex-wrap'>
@@ -906,8 +906,8 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             <WtIconButton
               color={tonePair('danger').fg}
               title={awaiting == null ? 'Reject'
-                : awaiting === 0 ? 'Nothing on this submission is awaiting your decision'
-                  : `Reject the ${awaiting} request${awaiting === 1 ? '' : 's'} awaiting you`}
+                : awaiting === 0 ? 'Nothing here needs your decision'
+                  : `Reject the ${awaiting} request${awaiting === 1 ? '' : 's'} waiting for you`}
               disabled={isProcessing || awaiting === 0}
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); setRejectTarget(step); }}
             >
@@ -1006,16 +1006,16 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       <div className='card'>
         <div className='card-body d-flex flex-column align-items-center justify-content-center py-20'>
           <KTIcon iconName='lock' className='fs-3x text-muted mb-4' />
-          <span className='text-muted fs-6'>You do not have permission to view pending approvals.</span>
+          <span className='text-muted fs-6'>You do not have access to approvals.</span>
         </div>
       </div>
     );
   }
 
   const TABS: { key: TabKey; label: string }[] = [
-    { key: 'pending', label: 'Pending My Action' },
-    { key: 'awaiting', label: 'Awaiting Others' },
-    { key: 'completed', label: 'Completed' },
+    { key: 'pending', label: 'Waiting for you' },
+    { key: 'awaiting', label: 'With someone else' },
+    { key: 'completed', label: 'Finished' },
   ];
 
   return (

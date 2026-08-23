@@ -24,7 +24,7 @@ export interface Outcome {
 /**
  * What happened to a closed request.
  *
- * The Resolved lane had been rendering the same chrome as the open lanes: an ageing clock, an
+ * The Finished lane had been rendering the same chrome as the open lanes: an ageing clock, an
  * urgency-tinted rail and a "Next: …" line. None of the three can be true there. `ageOf` measures
  * time since SUBMISSION and only ever counts up, so a decided request kept ageing forever and
  * every card older than four days took the danger colour — which is why the whole board read red
@@ -44,10 +44,10 @@ export const outcomeOf = (step: ApprovalStep): Outcome => {
 
 export const ageOf = (since?: string | null): Ageing => {
     const days = since ? Math.max(0, dayjs().diff(dayjs(since), 'day')) : 0;
-    if (days >= 4) return { days, label: `${days}d waiting`, tone: 'danger' };
-    if (days >= 2) return { days, label: `${days}d waiting`, tone: 'warning' };
-    if (days >= 1) return { days, label: '1d waiting', tone: 'neutral' };
-    return { days, label: 'Today', tone: 'neutral' };
+    if (days >= 4) return { days, label: `Waiting ${days} days`, tone: 'danger' };
+    if (days >= 2) return { days, label: `Waiting ${days} days`, tone: 'warning' };
+    if (days >= 1) return { days, label: 'Waiting 1 day', tone: 'neutral' };
+    return { days, label: 'Came in today', tone: 'neutral' };
 };
 
 /**
@@ -90,7 +90,8 @@ const workedSpan = (from?: string | null, to?: string | null): string | null => 
     if (!from || !to) return null;
     const mins = dayjs(to).diff(dayjs(from), 'minute');
     if (!Number.isFinite(mins) || mins <= 0) return null;
-    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+    const [h, m] = [Math.floor(mins / 60), mins % 60];
+    return m ? `${h}h ${m}m` : `${h}h`;
 };
 
 const range = (from?: string | null, to?: string | null): string | null => {
@@ -101,8 +102,8 @@ const range = (from?: string | null, to?: string | null): string | null => {
 
 /**
  * `variant` is the TAB the card is sitting in. A part-decided batch appears in both: the lines
- * still in front of you under "Needs my action", the ones you have already approved under
- * "Waiting on others". Each card describes only its own slice, so the two never claim the same
+ * still in front of you under "Waiting for you", the ones you have already approved under
+ * "With someone else". Each card describes only its own slice, so the two never claim the same
  * expense twice.
  */
 export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'done' = 'mine'): ItemSummary => {
@@ -113,9 +114,9 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         const facts = [range(d.dateFrom, d.dateTo), d.totalDays ? `${d.totalDays} day${d.totalDays === 1 ? '' : 's'}` : null]
             .filter(Boolean) as string[];
         const chips: ItemSummary['chips'] = [];
-        if (d.isHalfDay) chips.push({ label: `Half day${d.halfDaySession ? ` . ${d.halfDaySession}` : ''}`, tone: 'cyan' });
-        if (d.unpaidDays) chips.push({ label: `${d.unpaidDays} unpaid`, tone: 'warning' });
-        if (d.segments?.length > 1) chips.push({ label: `${d.segments.length} segments`, tone: 'indigo' });
+        if (d.isHalfDay) chips.push({ label: `Half day${d.halfDaySession ? ` (${d.halfDaySession})` : ''}`, tone: 'cyan' });
+        if (d.unpaidDays) chips.push({ label: `${d.unpaidDays} unpaid day${d.unpaidDays === 1 ? '' : 's'}`, tone: 'warning' });
+        if (d.segments?.length > 1) chips.push({ label: `${d.segments.length} parts`, tone: 'indigo' });
         return { title: d.subType || 'Leave', facts, note: d.reason || d.description, chips };
     }
 
@@ -141,7 +142,7 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
             worked ? { label: 'Hours', value: worked } : null,
         ].filter(Boolean) as ItemSummary['rows'];
 
-        return { title: d.subType || 'Attendance correction', facts, rows, note: d.reason || d.description };
+        return { title: d.subType || 'Attendance change', facts, rows, note: d.reason || d.description };
     }
 
     if (type === 'reimbursement') {
@@ -173,10 +174,10 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
             const awaitingApproval = (d.pendingCount ?? 0);
             const ownChips: ItemSummary['chips'] = [];
             if (awaitingApproval > 0) {
-                ownChips.push({ label: `${awaitingApproval} awaiting approval`, tone: 'warning' });
+                ownChips.push({ label: `${awaitingApproval} waiting for approval`, tone: 'warning' });
             }
             if (d.queriedCount > 0) {
-                ownChips.push({ label: `${d.queriedCount} question open`, tone: 'cyan' });
+                ownChips.push({ label: `${d.queriedCount} question to answer`, tone: 'cyan' });
             }
             if (d.approvedCount > 0) ownChips.push({ label: `${d.approvedCount} approved`, tone: 'success' });
             if (rejectedChip) ownChips.push(rejectedChip);
@@ -191,8 +192,8 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         const withOthersCount = inProgressCount + (d.queriedCount ?? 0);
         if (variant === 'awaiting' && withOthersCount > 0) {
             const withOthersChips: ItemSummary['chips'] = [];
-            if (inProgressCount > 0) withOthersChips.push({ label: `${inProgressCount} with next approver`, tone: 'neutral' });
-            if (d.queriedCount > 0) withOthersChips.push({ label: `${d.queriedCount} awaiting employee response`, tone: 'cyan' });
+            if (inProgressCount > 0) withOthersChips.push({ label: `${inProgressCount} with the next approver`, tone: 'neutral' });
+            if (d.queriedCount > 0) withOthersChips.push({ label: `${d.queriedCount} waiting for the employee to reply`, tone: 'cyan' });
             if (rejectedChip) withOthersChips.push(rejectedChip);
 
             // Both halves get named. `waitingOn` carries the next approver whenever ANY line is
@@ -202,7 +203,7 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
                 .filter(Boolean).join(' ').trim();
             const waits: WaitOwner[] = [];
             if (d.queriedCount > 0) {
-                waits.push({ reason: 'Query', who: employeeName || 'the employee', tone: 'cyan' });
+                waits.push({ reason: 'Question', who: employeeName || 'the employee', tone: 'cyan' });
             }
             if (inProgressCount > 0) {
                 const next = step.waitingOn?.role === 'APPROVER' ? step.waitingOn.name : null;
@@ -217,7 +218,7 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
                 ],
                 chips: withOthersChips,
                 statusFlow: inProgressCount > 0
-                    ? `✓ Approved by you • now with the next approver`
+                    ? `✓ You approved it • now with the next approver`
                     : `❓ Waiting for the employee to answer`,
                 value: money((d.inProgressAmount ?? 0) + (d.queriedAmount ?? 0)),
             };
@@ -225,26 +226,26 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
 
         // Determine primary status chips to show (most important first)
         if (hasResubmitted) {
-            chips.push({ label: `${d.resubmittedCount} item${d.resubmittedCount === 1 ? '' : 's'} awaiting re-review`, tone: 'indigo' });
+            chips.push({ label: `${d.resubmittedCount} item${d.resubmittedCount === 1 ? '' : 's'} to look at again`, tone: 'indigo' });
         }
 
         if (hasPending && !hasResubmitted) {
-            chips.push({ label: `${readyCount} item${readyCount === 1 ? '' : 's'} ready for approval`, tone: 'warning' });
+            chips.push({ label: `${readyCount} item${readyCount === 1 ? '' : 's'} for you to decide`, tone: 'warning' });
         } else if (hasPending && hasResubmitted) {
-            chips.push({ label: `${readyCount} item${readyCount === 1 ? '' : 's'} also pending`, tone: 'warning' });
+            chips.push({ label: `${readyCount} item${readyCount === 1 ? '' : 's'} also waiting`, tone: 'warning' });
         }
 
         // Queried, approved and rejected lines are somebody else's business — the query is with the
-        // employee, the decisions are done. On "Needs my action" they are noise; the Resolved tab
+        // employee, the decisions are done. On "Waiting for you" they are noise; the Finished tab
         // (variant 'done') is where the whole batch is described.
         if (variant === 'done') {
             if (hasQueried) {
-                chips.push({ label: `${d.queriedCount} item${d.queriedCount === 1 ? '' : 's'} awaiting employee response`, tone: 'cyan' });
+                chips.push({ label: `${d.queriedCount} item${d.queriedCount === 1 ? '' : 's'} waiting for the employee to reply`, tone: 'cyan' });
             }
             if (hasApproved) chips.push({ label: `${d.approvedCount} approved`, tone: 'success' });
         }
         // Rejections belong to the tabs that describe a batch, not the one that asks for work:
-        // on "Needs my action" a refused line read as part of what was still waiting on you.
+        // on "Waiting for you" a refused line read as part of what was still waiting on you.
         if (variant !== 'mine' && rejectedChip) chips.push(rejectedChip);
 
         // The card counts what opening it will show. A card reading "5 expenses · ₹5.00" that opens
@@ -263,13 +264,13 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         let statusFlow: string | null = null;
         // Status flow tells the story of where this approval is right now
         if (hasResubmitted && hasPending) {
-            statusFlow = `✓ Employee responded • ${d.resubmittedCount} ${d.resubmittedCount === 1 ? 'expense needs' : 'expenses need'} your review`;
+            statusFlow = `✓ The employee replied • ${d.resubmittedCount} ${d.resubmittedCount === 1 ? 'expense needs' : 'expenses need'} your review`;
         } else if (hasResubmitted) {
-            statusFlow = `✓ Employee responded • Awaiting your decision`;
+            statusFlow = `✓ The employee replied • Waiting for your decision`;
         } else if (hasQueried && !hasPending && !hasApproved && !hasRejected) {
-            statusFlow = `❓ Waiting for employee to answer your ${d.queriedCount === 1 ? 'question' : 'questions'}`;
+            statusFlow = `❓ Waiting for the employee to answer your ${d.queriedCount === 1 ? 'question' : 'questions'}`;
         } else if (hasPending && !hasQueried) {
-            statusFlow = `→ Awaiting your decision`;
+            statusFlow = `→ Waiting for your decision`;
         } else if (inProgressCount > 0) {
             // Nothing here is yours any more, but the batch is not finished either — "Completed"
             // would have been a lie and "pending" a demand for action that does not exist.
@@ -278,7 +279,7 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
             const parts = [];
             if (hasApproved) parts.push(`${d.approvedCount} approved`);
             if (hasRejected) parts.push(`${d.rejectedCount} rejected`);
-            statusFlow = `✓ Completed • ${parts.join(', ')}`;
+            statusFlow = `✓ Finished • ${parts.join(', ')}`;
         }
 
         return {
@@ -518,7 +519,7 @@ export default function InboxItemCard({
                                     fontSize: '11px', color: 'text.secondary', lineHeight: 1.25,
                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                 }}>
-                                    {step.waitingOn.role === 'EMPLOYEE' ? 'Waiting on ' : 'Next: '}
+                                    {step.waitingOn.role === 'EMPLOYEE' ? 'Waiting for ' : 'Now with '}
                                     <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
                                         {step.waitingOn.name}
                                     </Box>
