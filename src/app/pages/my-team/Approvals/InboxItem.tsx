@@ -14,6 +14,34 @@ export interface Ageing {
     tone: SemanticTone;
 }
 
+export interface Outcome {
+    label: string;
+    tone: SemanticTone;
+    /** When this approver acted. Null if the backend never stamped the step. */
+    at: string | null;
+}
+
+/**
+ * What happened to a closed request.
+ *
+ * The Resolved lane had been rendering the same chrome as the open lanes: an ageing clock, an
+ * urgency-tinted rail and a "Next: …" line. None of the three can be true there. `ageOf` measures
+ * time since SUBMISSION and only ever counts up, so a decided request kept ageing forever and
+ * every card older than four days took the danger colour — which is why the whole board read red
+ * while nothing on it needed attention. And a finished request has no next approver.
+ *
+ * The one thing the lane exists to tell you — approved or rejected — was the one thing missing.
+ * `instance.status` is the request's final outcome and has always been on the payload.
+ */
+export const outcomeOf = (step: ApprovalStep): Outcome => {
+    const at = step.actedAt ?? null;
+    switch ((step.instance.status || '').toLowerCase()) {
+        case 'approved': return { label: 'Approved', tone: 'success', at };
+        case 'rejected': return { label: 'Rejected', tone: 'danger', at };
+        default: return { label: 'Closed', tone: 'neutral', at };
+    }
+};
+
 export const ageOf = (since?: string | null): Ageing => {
     const days = since ? Math.max(0, dayjs().diff(dayjs(since), 'day')) : 0;
     if (days >= 4) return { days, label: `${days}d waiting`, tone: 'danger' };
@@ -309,6 +337,9 @@ export default function InboxItemCard({
     const summary = summarise(step, variant);
     const since = (step.requestDetails as any)?.submittedAt ?? step.instance.createdAt;
     const age = ageOf(since);
+    // The Resolved lane: nothing here is waiting, so nothing here is urgent. See `outcomeOf`.
+    const isDone = variant === 'done';
+    const outcome = isDone ? outcomeOf(step) : null;
     const requester = step.instance.employee?.users
         ? `${step.instance.employee.users.firstName} ${step.instance.employee.users.lastName}`.trim()
         : 'Employee';
@@ -343,9 +374,18 @@ export default function InboxItemCard({
             role="button"
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
         >
+            {/* The rail. On the open lanes it is an urgency gauge — it widens and reddens as a
+                request ages, which is worth shouting about while someone still has to act.
+                On Resolved it goes back to the domain's own colour, matching the eyebrow: an
+                age-tinted rail there marked every card older than four days as critical, so a
+                board where nothing needed attention was almost entirely red, and the signal
+                was worth nothing on the lanes that DO need it. */}
             <Box sx={{
-                position: 'absolute', left: 0, top: 0, bottom: 0, width: compact ? 3 : (hasResubmitted ? 5 : (age.days >= 2 ? 5 : 3)),
-                bgcolor: hasResubmitted ? highlightPair.fg : (age.days >= 4 ? tonePair('danger').fg : age.days >= 2 ? tonePair('warning').fg : pair.fg),
+                position: 'absolute', left: 0, top: 0, bottom: 0,
+                width: compact ? 3 : (hasResubmitted ? 5 : (!isDone && age.days >= 2 ? 5 : 3)),
+                bgcolor: hasResubmitted ? highlightPair.fg
+                    : isDone ? pair.fg
+                    : (age.days >= 4 ? tonePair('danger').fg : age.days >= 2 ? tonePair('warning').fg : pair.fg),
             }} />
 
             <Box sx={{ p: compact ? 2 : { pl: { xs: 2.5, sm: 3 }, pr: { xs: 2, sm: 2.5 }, py: { xs: 2, sm: 2.5 } }, flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -365,16 +405,21 @@ export default function InboxItemCard({
                             }}>
                                 {hasResubmitted ? '⟳ Resubmitted' : (domain?.label ?? type)}
                             </Typography>
-                            {/* How long it has waited. The left edge was already tinted by age,
-                                which tells you nothing unless you know the code. */}
+                            {/* How long it has waited — or, once it is closed, what happened to it.
+                                The left edge was already tinted by age, which tells you nothing
+                                unless you know the code. */}
                             <Box sx={{ flex: 1 }} />
-                            <Typography sx={{
-                                fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap',
-                                fontVariantNumeric: 'tabular-nums',
-                                color: age.tone === 'neutral' ? 'text.disabled' : tonePair(age.tone).fg,
-                            }}>
-                                {age.label}
-                            </Typography>
+                            {outcome ? (
+                                <ToneChip dense tone={outcome.tone} label={outcome.label} />
+                            ) : (
+                                <Typography sx={{
+                                    fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap',
+                                    fontVariantNumeric: 'tabular-nums',
+                                    color: age.tone === 'neutral' ? 'text.disabled' : tonePair(age.tone).fg,
+                                }}>
+                                    {age.label}
+                                </Typography>
+                            )}
                         </Box>
 
                         {/* Who sent it. The compact card showed only the submission id, so a queue of
@@ -423,7 +468,24 @@ export default function InboxItemCard({
                         {/* Whose move it is. A queue row that says how long it has waited but not
                             who it is waiting ON leaves you opening the card to find out — and a
                             batch stuck behind two different people needs both of them named. */}
-                        {summary.waits?.length ? (
+                        {/* Whose move it is — or, on Resolved, when it stopped being anyone's.
+                            A closed request has no next approver, so the "Next: …" line there was
+                            naming someone who owes nothing. The decision date takes the same slot,
+                            which keeps the card's rhythm and answers the question that lane is
+                            actually asked: when did this land? */}
+                        {isDone ? (outcome?.at && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1, minWidth: 0 }}>
+                                <Box component="span" sx={{ color: 'text.disabled', display: 'inline-flex' }}>
+                                    <KTIcon iconName="check-circle" className="fs-8" />
+                                </Box>
+                                <Typography sx={{ fontSize: '11px', color: 'text.secondary', lineHeight: 1.25 }}>
+                                    Decided{' '}
+                                    <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                                        {formatDate(outcome.at)}
+                                    </Box>
+                                </Typography>
+                            </Box>
+                        )) : summary.waits?.length ? (
                             <Stack gap={0.4} sx={{ mb: 1, minWidth: 0 }}>
                                 {summary.waits.map((w) => (
                                     <Box key={w.reason} sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
@@ -537,12 +599,23 @@ export default function InboxItemCard({
                             </Typography>
                             {step.delegatedFrom && <ToneChip dense tone="cyan" label={`via ${step.delegatedFrom}`} />}
                             <Box sx={{ flex: 1 }} />
-                            <Typography sx={{
-                                fontSize: 11.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-                                color: age.tone === 'neutral' ? theme.palette.text.disabled : tonePair(age.tone).fg,
-                            }}>
-                                {age.label}
-                            </Typography>
+                            {outcome ? (
+                                <Stack direction="row" alignItems="center" gap={1}>
+                                    {outcome.at && (
+                                        <Typography sx={{ fontSize: 11.5, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                                            {formatDate(outcome.at)}
+                                        </Typography>
+                                    )}
+                                    <ToneChip dense tone={outcome.tone} label={outcome.label} />
+                                </Stack>
+                            ) : (
+                                <Typography sx={{
+                                    fontSize: 11.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                                    color: age.tone === 'neutral' ? theme.palette.text.disabled : tonePair(age.tone).fg,
+                                }}>
+                                    {age.label}
+                                </Typography>
+                            )}
                         </Stack>
 
                         <Stack direction="row" alignItems="flex-start" gap={2} sx={{ minWidth: 0 }}>
