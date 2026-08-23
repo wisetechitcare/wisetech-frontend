@@ -1,7 +1,6 @@
 import { styled, SvgIconProps, Tab, Tabs } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { T } from './ui/tokens';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export type TabItem = {
     title: string;
@@ -97,10 +96,9 @@ const CustomizedTabs = styled(Tabs)({
         gap: '2px',
     },
     '& .MuiTabs-indicator': {
-        // The selected tab is highlighted with a raised glass "pill" (below),
-        // mirroring the aside menu's active item — so the bottom underline
-        // indicator is not needed (it was invisible anyway: same #1E3A8A
-        // colour as the bar background).
+        // The selected tab is a solid pill (below), so the bottom underline
+        // indicator is not needed — it was invisible anyway, being the same
+        // #1E3A8A as the bar it sat on.
         display: 'none',
     },
     '& .MuiTab-root': {
@@ -134,15 +132,16 @@ const CustomizedTabs = styled(Tabs)({
     '& .MuiTab-textColorPrimary': {
         textTransform: 'none',
         fontWeight: '600',
-        // Inactive: muted white on the dark-blue bar.
-        color: 'rgba(255, 255, 255, 0.8)',
+        // Inactive: near-white on the navy bar (~5.2:1).
+        color: 'rgba(255, 255, 255, 0.86)',
         fontSize: '13px',
         letterSpacing: '0.01em',
-        /* The icon is a KTIcon <i> inside `.mht-icon` — NOT an <svg> and NOT a `.bi`.
-         * The two rules written for those shapes never matched anything this component
-         * renders, which is why the icons had no size, no spacing and no emphasis of
-         * their own. `marginRight` is the gap the icon never had: MUI's default icon
-         * margins are reset above for the row layout, and nothing put it back. */
+        /* The icon is a single-layer Bootstrap glyph (see the render function for
+         * why it is not a duotone keenicon here). `color: inherit` is the point:
+         * icon and label then share one alpha in every state, so the pair reads as
+         * one object and no state needs its own icon rule. `marginRight` is the gap
+         * the icon never had — MUI's icon margins are reset above for the row
+         * layout, and nothing put one back. */
         '& .mht-icon': {
             display: 'inline-flex',
             alignItems: 'center',
@@ -150,64 +149,32 @@ const CustomizedTabs = styled(Tabs)({
             lineHeight: 1,
             flexShrink: 0,
             marginRight: '9px',
-            // A glyph carries far less ink than a word, so matching the label's alpha
-            // makes it read as fainter. It gets a little more at every state.
-            color: 'rgba(255, 255, 255, 0.95)',
-            /* THE reason these icons looked broken. A duotone keenicon draws its backdrop
-             * layer with `opacity: .3` on `.path1:BEFORE` — the pseudo-element, not the
-             * span. Overriding the span (`[class*="path"]`) could never lift it, because
-             * the two opacities multiply: .72 on the span still landed at ~.22 on screen,
-             * while quietly dimming the solid layers to .72. Half of every glyph was
-             * effectively invisible on this saturated navy. Target the pseudo-element,
-             * and only `.path1` — it is the only layer the duotone sheet fades. */
-            '& .path1:before': { opacity: 0.5 },
+            color: 'inherit',
+            '& i': { fontSize: '17px', lineHeight: 1 },
         },
-        // Underline lives on the text label ONLY (.mht-label wraps just the
-        // title text — never the icon). Always underlined but transparent, so
-        // selecting simply fades the underline colour in (line position never
-        // jumps, and text-decoration-color is animatable).
-        '& .mht-label': {
-            textDecoration: 'underline',
-            textDecorationColor: 'transparent',
-            textDecorationThickness: '2px',
-            textUnderlineOffset: '5px',
-            transition: 'text-decoration-color 0.25s ease',
-        },
-        // Selected: a raised frosted-glass pill — lit top edge, translucent white
-        // fill, soft drop shadow — so the active tab looks pressed out of the bar
-        // instead of merely being brighter text.
+        // Selected: a flat surface-white pill with navy ink. Highest contrast the bar
+        // can offer in both directions (6.5:1 either way), and the active tab reads as
+        // a physical chip lifted off the gradient rather than as brighter text. The
+        // pill stays white in dark mode ON PURPOSE — the bar itself is fixed brand
+        // chrome, so `background.paper` would put dark-on-dark ink here.
         '&.Mui-selected': {
-            color: '#ffffff',
+            color: T.color.brand,
             fontWeight: '700',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.12) 100%)',
-            borderColor: 'rgba(255, 255, 255, 0.28)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.38), 0 2px 8px rgba(6,12,35,0.3)',
-            backdropFilter: 'blur(6px)',
+            backgroundColor: T.color.surface,
+            borderColor: T.color.surface,
+            boxShadow: '0 1px 2px rgba(6,12,35,0.3), 0 6px 16px -6px rgba(6,12,35,0.55)',
         },
-        '&.Mui-selected .mht-label': {
-            textDecorationColor: 'rgba(255, 255, 255, 0.92)',
-        },
-        // Selected/hover: full white AND the backdrop layer comes almost all the
-        // way up, so the active tab's icon reads as one solid glyph.
-        '&.Mui-selected .mht-icon': {
-            color: '#ffffff',
-            '& .path1:before': { opacity: 0.85 },
-        },
-        '&:hover .mht-icon': {
-            color: '#ffffff',
-            '& .path1:before': { opacity: 0.7 },
-        },
-        // Subtle feedback when hovering a non-selected tab.
+        // Inactive hover: the pill's ghost, so the target is felt before it is taken.
         '&:hover': {
             color: '#ffffff',
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            borderColor: 'rgba(255, 255, 255, 0.14)',
+            backgroundColor: 'rgba(255, 255, 255, 0.12)',
+            borderColor: 'rgba(255, 255, 255, 0.16)',
         },
-        // Hovering the selected tab lifts the pill a touch rather than swapping it.
+        // Hovering the selected tab tints the pill instead of swapping it out.
         '&.Mui-selected:hover': {
-            color: '#ffffff',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.16) 100%)',
-            borderColor: 'rgba(255, 255, 255, 0.34)',
+            color: T.color.brand,
+            backgroundColor: T.color.brandSoft,
+            borderColor: T.color.brandSoft,
         },
     },
     "@media (min-width: 480px)": {
@@ -253,14 +220,24 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                         ? undefined
                         : (typeof tabItem.icon === 'string'
                             ? (tabItem.icon.startsWith('bi-') || tabItem.icon.startsWith('bi ')
-                                /* Wrapped in a span ON PURPOSE. MUI's Tab clones the icon element
-                                 * and overwrites its `className` with `MuiTab-iconWrapper` — and
-                                 * AppIcon takes `className` as its SIZE prop, forwarding it to
-                                 * KTIcon. Passing AppIcon directly therefore destroyed `fs-*`, and
-                                 * the icon font fell back to the tab's inherited 13px, which is why
-                                 * these glyphs were barely legible. The wrapper absorbs MUI's class
-                                 * so the size survives. */
-                                ? <span className="mht-icon"><AppIcon name={tabItem.icon} className="fs-3" /></span>
+                                /* The one place in the app that deliberately does NOT go through
+                                 * AppIcon/KTIcon — for the same reason `brandIcons` exists (see
+                                 * ui/README.md). A duotone keenicon is DEFINED against a light
+                                 * surface: it paints its body layer at `opacity: .3`, which is
+                                 * ~3:1 as dark ink on white but only 1.9:1 as white ink on this
+                                 * navy bar — under WCAG 1.4.11's 3:1 floor for graphical objects,
+                                 * i.e. genuinely invisible. No opacity value fixes it either:
+                                 * raise the body layer to full white and the detail paths, being
+                                 * the same white, vanish INTO it — `calendar-tick` becomes a white
+                                 * blob. A duotone needs two tones, and this bar only has one.
+                                 * Bootstrap Icons are already loaded app-wide (style.react.scss),
+                                 * are single-layer monoline, and are exactly the names the call
+                                 * sites already pass — so the glyph renders at full strength with
+                                 * no mapping table and no new dependency.
+                                 * The wrapping span is ON PURPOSE: MUI's Tab clones the icon and
+                                 * merges `MuiTab-iconWrapper` into its className, so `.mht-icon`
+                                 * survives as the hook the CSS above sizes and colours. */
+                                ? <span className="mht-icon"><i className={`bi ${tabItem.icon.replace(/^bi /, '')}`} aria-hidden="true" /></span>
                                 : <img src={tabItem.icon} alt={tabItem.title} width={24} height={24} style={{ marginRight: '1px' }} />)
                             : (() => {
                                 const Icon = tabItem.icon as React.ElementType<SvgIconProps>;
@@ -269,8 +246,8 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
 
                     const hasBadge = typeof tabItem.badge === 'number' && tabItem.badge > 0;
                     const isSelected = value === index;
-                    // Title text always sits in .mht-label so the selected
-                    // underline applies to the text only (never icon/badge).
+                    // Title text always sits in .mht-label, so a label-only treatment
+                    // can never catch the icon or the badge.
                     const label = hasBadge ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                             <span className="mht-label">{tabItem.title}</span>
@@ -282,10 +259,11 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                                     padding: '0 5px',
                                     borderRadius: '9px',
                                     // Badge tracks the tab's state so it reads as part of the
-                                    // tab rather than a floating chip: solid white on the active
-                                    // tab, soft translucent white on inactive tabs.
-                                    background: isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.25)',
-                                    color: isSelected ? '#1E3A8A' : '#ffffff',
+                                    // tab rather than a floating chip: it inverts against the
+                                    // white pill on the active tab, and is a soft translucent
+                                    // white on the inactive ones.
+                                    background: isSelected ? T.color.brand : 'rgba(255, 255, 255, 0.25)',
+                                    color: '#ffffff',
                                     fontSize: '11px',
                                     fontWeight: 700,
                                     lineHeight: 1,
