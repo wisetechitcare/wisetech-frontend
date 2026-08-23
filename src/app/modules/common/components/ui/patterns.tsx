@@ -58,14 +58,46 @@ export function IconBox({ icon, trio, size = 40, fs = 'fs-2' }: { icon: string; 
   );
 }
 
-/** Pill status chip — a dot + label, optionally a live pulse (`.sw-dot-pulse` keyframe) and a tooltip. */
-export function StatusBadge({ trio, label, pulse, title }: { trio: Trio; label: string; pulse?: boolean; title?: string }) {
+/**
+ * Pill status chip — a dot + label, optionally a live pulse (`.sw-dot-pulse` keyframe) and a
+ * tooltip.
+ *
+ * Supplying `onClick` turns it into a real toggle: keyboard-operable (Enter/Space), announced
+ * via `aria-pressed`, and it stops `pointerdown` so clicking it inside a draggable row never
+ * starts a drag. Promoted from a local copy in SandwhichLeave rather than left there — that
+ * copy hardcoded the trio's light-mode hex and so went invisible in dark mode, which is
+ * exactly what `toneSurface` exists to prevent.
+ */
+export function StatusBadge({ trio, label, pulse, title, onClick, disabled }: {
+  trio: Trio; label: string; pulse?: boolean; title?: string;
+  /** Present = interactive toggle. Absent = static chip, unchanged. */
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
   const t = toneSurface(trio, useTheme().palette.mode === 'dark');
+  const interactive = !!onClick;
   const badge = (
-    <Box sx={{
-      display: 'inline-flex', alignItems: 'center', gap: '6px', px: '10px', py: '3px',
-      borderRadius: 999, bgcolor: t.bg, border: `1px solid ${t.bd}`, flexShrink: 0, userSelect: 'none',
-    }}>
+    <Box
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive && !disabled ? 0 : undefined}
+      aria-pressed={interactive ? pulse : undefined}
+      aria-disabled={interactive ? disabled : undefined}
+      onClick={interactive && !disabled ? onClick : undefined}
+      onKeyDown={interactive && !disabled ? (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick!(); }
+      } : undefined}
+      onPointerDown={interactive ? (e: React.PointerEvent) => e.stopPropagation() : undefined}
+      sx={{
+        display: 'inline-flex', alignItems: 'center', gap: '6px', px: '10px', py: '3px',
+        borderRadius: 999, bgcolor: t.bg, border: `1px solid ${t.bd}`, flexShrink: 0, userSelect: 'none',
+        ...(interactive && {
+          cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.6 : 1, transition: EASE_200,
+          '&:hover': disabled ? {} : { filter: 'brightness(0.96)', boxShadow: SHADOW_REST },
+          '&:active': disabled ? {} : { transform: 'scale(0.95)' },
+          '&:focus-visible': { outline: `2px solid ${t.fg}`, outlineOffset: 2 },
+        }),
+      }}
+    >
       <Box className={pulse ? 'sw-dot-pulse' : undefined} sx={{ width: 7, height: 7, borderRadius: 999, bgcolor: t.fg }} />
       <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: t.fg, lineHeight: 1, whiteSpace: 'nowrap' }}>{label}</Typography>
     </Box>

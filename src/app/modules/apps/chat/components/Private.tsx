@@ -2,6 +2,7 @@
 import {FC} from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../../../_metronic/helpers'
 import {ChatInner, Dropdown1} from '../../../../../_metronic/partials'
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const Private: FC = () => {
   return (
@@ -291,7 +292,7 @@ const Private: FC = () => {
                     data-kt-menu-placement='bottom-end'
                     data-kt-menu-flip='top-end'
                   >
-                    <i className='bi bi-three-dots fs-2'></i>
+                    <AppIcon name="bi-three-dots" className="fs-2" />
                   </button>
                   <Dropdown1 />
                 </div>

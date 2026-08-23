@@ -89,6 +89,16 @@ module.exports = {
         selector: "JSXOpeningElement[name.name='Switch']",
         message: 'Use WtSwitch / WtSwitchField from @app/modules/common/components/ui — not a raw MUI Switch. See CLAUDE.md → UI standard.',
       },
+      /* Hardcoded background colours. A literal #fff paints the same pixel in both themes, so
+       * the surface stays white on a dark page — the single most common way dark mode breaks
+       * here, and it was shipping in 67 files when this rule was added. Covers gradients too,
+       * since `linear-gradient(180deg, #ffffff …)` is the same bug wearing a hat.
+       * `color:` is deliberately NOT covered: text on a tinted surface is a different problem
+       * and banning it here would bury this signal under hundreds of unrelated warnings. */
+      {
+        selector: "Property[key.name=/^(background|backgroundColor|backgroundImage|bgcolor)$/] > Literal[value=/#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})/]",
+        message: 'Hardcoded background colour — this stays the same in dark mode. Use a theme token (`background.paper`, `background.default`, `action.hover`) or `toneSurface(trio, dark)` for tinted surfaces. See CLAUDE.md → Styling rules.',
+      },
       // Native `title` on an interactive element renders the BROWSER's tooltip — pale, OS-styled,
       // ~1s delay — which is why the app currently shows two different tooltip designs (79 MUI
       // Tooltips vs 624 raw titles). Use the kit: WtIconButton takes `title` as a prop and turns

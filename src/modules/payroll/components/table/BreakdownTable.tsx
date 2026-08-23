@@ -3,6 +3,7 @@ import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { BreakdownTableProps } from '../../types/payroll.types';
 import { formatINRDecimal, formatValue, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 import { formatCurrencyDecimal } from '@utils/currency';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const BreakdownTable: React.FC<BreakdownTableProps> = ({
     data,
@@ -232,7 +233,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                         <div className="d-none d-md-block">
                             <OverlayTrigger placement="top" overlay={renderTooltip}>
                                 <span className="btn btn-icon btn-circle btn-sm" style={{ backgroundColor: '#dbeafe' }}>
-                                    <i className="bi bi-info-circle text-gray-600 fs-6"></i>
+                                    <AppIcon name="bi-info-circle" className="text-gray-600 fs-6" />
                                 </span>
                             </OverlayTrigger>
                         </div>

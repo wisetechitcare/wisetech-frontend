@@ -13,6 +13,7 @@ import Swal from 'sweetalert2';
 import MeetingsForm from '../../attendance/personal/views/my-leaves/MeetingsForm';
 import PremiumButton from '@app/modules/common/components/PremiumButton';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Meeting {
   _id: string;
@@ -126,7 +127,7 @@ const Meetings = () => {
                 onClick={() => handleDelete(row.original._id)}
                 title="Delete Meeting"
               >
-                <i className="bi bi-trash fs-4"></i>
+                <AppIcon name="bi-trash" className="fs-4" />
               </button>
             )}
           </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FileCheck2, FileText } from "lucide-react";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import FileInput from "@app/modules/common/inputs/FileInput";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * One configured onboarding document type, rendered as an ATTACHMENT FIELD.
@@ -54,7 +55,7 @@ function Documents({ formikProps, index, setFile }: any) {
                 the upload is disabled until the employee record exists. */}
             {!formikProps.values.userId && showInfo && (
                 <div className="ob-doc-card-note" role="status">
-                    <i className="bi bi-info-circle" aria-hidden />
+                    <AppIcon name="bi-info-circle" aria-hidden />
                     <span>Save the employee&apos;s details first, then upload documents here.</span>
                 </div>
             )}

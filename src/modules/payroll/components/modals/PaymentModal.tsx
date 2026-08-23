@@ -4,7 +4,7 @@ import { Formik, Form as FormikForm, FormikValues } from 'formik';
 import * as Yup from 'yup';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import DateInput from '@app/modules/common/inputs/DateInput';
-import FormikDropdownInput from '@app/modules/common/inputs/FormikDropdownInput';
+import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { KTIcon } from '@metronic/helpers';
 import { formatINR2 } from '../../utils/payrollFormatters';
 
@@ -359,7 +359,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                             </h4>
 
                                             <div className="mb-6">
-                                                <FormikDropdownInput
+                                                <DropDownInput
                                                     inputLabel="Payment Category"
                                                     formikField="paymentType"
                                                     options={availablePaymentModes}
@@ -383,7 +383,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                             </div>
 
                                             <div className="mb-6">
-                                                <FormikDropdownInput
+                                                <DropDownInput
                                                     inputLabel="Disbursement Mode"
                                                     formikField="paymentMethod"
                                                     options={paymentMethods}
@@ -464,7 +464,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                         )}
                                                         <Row className="g-5">
                                                             <Col md={4}>
-                                                                <FormikDropdownInput
+                                                                <DropDownInput showColor
                                                                     inputLabel="Deduction Type"
                                                                     formikField="govType"
                                                                     options={govtDeductions.map(d => {
@@ -530,7 +530,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                     <div>
                                                         <Row className="g-5">
                                                             <Col md={6}>
-                                                                <FormikDropdownInput
+                                                                <DropDownInput showColor
                                                                     inputLabel="Deduction Type"
                                                                     formikField="companyType"
                                                                     options={companyDeductions.map(d => {

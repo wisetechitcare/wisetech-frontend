@@ -4,6 +4,7 @@ import { EmptyState } from '../widgets';
 import { DASH } from '../entityViewModel';
 import type { EntityVM } from '../facets';
 import { getAllClientCompanies, getAllCompanyTypes } from '@services/companies';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const Td: React.FC<{ children?: React.ReactNode; strong?: boolean }> = ({ children, strong }) => (
   <td style={{ padding: '11px 12px', borderBottom: '1px solid #F4F6F9', fontSize: 13, color: strong ? '#1E293B' : '#475569', fontWeight: strong ? 700 : 500, whiteSpace: 'nowrap' }}>
@@ -76,7 +77,7 @@ const DocumentsSection: React.FC<{ vm: EntityVM; onExport?: () => void; children
         actions={
           onExport ? (
             <button type="button" onClick={onExport} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#7239ea', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontFamily: 'Inter', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              <i className="bi bi-plus-lg" /> Generate
+              <AppIcon name="bi-plus-lg" /> Generate
             </button>
           ) : undefined
         }

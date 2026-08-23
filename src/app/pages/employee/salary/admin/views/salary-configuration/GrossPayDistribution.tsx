@@ -15,6 +15,7 @@ import { fetchConfiguration, updateConfigurationById } from "@services/company";
 import { GROSS_PAY } from "@constants/configurations-key";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface ISalary {
   name: string,
@@ -267,7 +268,7 @@ const GrossPayDistribution = () => {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 3px 10px rgba(30, 58, 138,0.25)', flexShrink: 0,
           }}>
-            <i className="bi bi-cash-stack" style={{ fontSize: '15px', color: '#fff' }} />
+            <AppIcon name="bi-cash-stack" className="fs-5" color="#fff" />
           </div>
           <div>
             <h2 style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '16px', color: '#181C32', margin: 0, letterSpacing: '-0.2px' }}>
@@ -294,7 +295,7 @@ const GrossPayDistribution = () => {
               onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(30, 58, 138,0.28)'; }}
               onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(30, 58, 138,0.2)'; }}
             >
-              <i className="bi bi-plus-lg"></i> Add New Category
+              <AppIcon name="bi-plus-lg" /> Add New Category
             </button>
           </div>
         )}
@@ -337,7 +338,7 @@ const GrossPayDistribution = () => {
           alignItems: 'center',
           gap: '12px'
         }}>
-          <i className="bi bi-exclamation-triangle-fill fs-3 text-danger"></i>
+          <AppIcon name="bi-exclamation-triangle-fill" className="fs-3 text-danger" />
           <p className="text-danger mb-0 fw-bold" style={{ fontFamily: 'Inter, sans-serif' }}>
             Total value is more than 100% please verify and rebalance
           </p>
@@ -370,7 +371,7 @@ const GrossPayDistribution = () => {
                 cursor: 'pointer'
               }}
             >
-              <i className="bi bi-x"></i>
+              <AppIcon name="bi-x" />
             </button>
           </div>
           <Formik

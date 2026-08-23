@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { ACCESS_AREAS, AccessArea } from "@utils/accessAreas";
 import LiveCountdown from "./LiveCountdown";
-import { WtDateTimeField } from "@app/modules/common/components/ui";
+import { WtDateTimeField, AppIcon } from "@app/modules/common/components/ui";
 
 const ACCENT = "#1E3A8A";
 
@@ -128,10 +128,10 @@ const LeafControls: React.FC<{
 
       {variant === "role" ? (
         level === "none" ? (
-          <span className="text-muted fs-9"><i className="bi bi-dash-circle me-1" />Not granted</span>
+          <span className="text-muted fs-9"><AppIcon name="bi-dash-circle" className="me-1" />Not granted</span>
         ) : null
       ) : level === "none" ? (
-        <span className="badge badge-light-danger fs-9"><i className="bi bi-eye-slash me-1" />Blocked</span>
+        <span className="badge badge-light-danger fs-9"><AppIcon name="bi-eye-slash" className="me-1" />Blocked</span>
       ) : (
         <div className="d-flex align-items-center" style={{ gap: 8 }}>
           {expiry ? (
@@ -143,7 +143,7 @@ const LeafControls: React.FC<{
                 onClick={() => setTimerOpen((o) => !o)}
                 style={{ border: "none", background: "transparent", color: ACCENT, cursor: "pointer", padding: 2, display: "inline-flex" }}
               >
-                <i className="bi bi-pencil-square" style={{ fontSize: 13 }} />
+                <AppIcon name="bi-pencil-square" className="fs-7" />
               </button>
               <button
                 type="button"
@@ -151,7 +151,7 @@ const LeafControls: React.FC<{
                 onClick={() => onSetExpiry?.(module, null)}
                 style={{ border: "none", background: "transparent", color: "#aab2bd", cursor: "pointer", padding: 2, display: "inline-flex" }}
               >
-                <i className="bi bi-x-circle" style={{ fontSize: 13 }} />
+                <AppIcon name="bi-x-circle" className="fs-7" />
               </button>
             </>
           ) : (
@@ -165,7 +165,7 @@ const LeafControls: React.FC<{
                 border: `1px dashed ${hexToRgba(ACCENT, 0.45)}`,
               }}
             >
-              <i className="bi bi-hourglass-split" style={{ fontSize: 12 }} />
+              <AppIcon name="bi-hourglass-split" className="fs-7" />
               Set timer
             </button>
           )}
@@ -174,7 +174,7 @@ const LeafControls: React.FC<{
 
       {variant === "employee" && isCustom && (
         <button type="button" className="btn btn-link btn-sm p-0 text-decoration-none text-muted" style={{ fontSize: 12 }} onClick={() => onResetToRole?.(module)}>
-          <i className="bi bi-arrow-counterclockwise me-1" />Reset to role
+          <AppIcon name="bi-arrow-counterclockwise" className="me-1" />Reset to role
         </button>
       )}
 
@@ -185,7 +185,7 @@ const LeafControls: React.FC<{
         >
           <div className="d-flex align-items-center justify-content-between mb-2">
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: ACCENT }}>
-              <i className="bi bi-hourglass-split me-1" />Grant access for
+              <AppIcon name="bi-hourglass-split" className="me-1" />Grant access for
             </span>
             <button
               type="button"
@@ -263,7 +263,7 @@ const AccessControlTree: React.FC<Props> = ({ levels, expiries, customModules, d
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
-          <i className="bi bi-search" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "#aab2bd" }} />
+          <AppIcon name="bi-search" className="fs-7" color="#aab2bd" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)" }} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -272,15 +272,15 @@ const AccessControlTree: React.FC<Props> = ({ levels, expiries, customModules, d
           />
           {query && (
             <button type="button" onClick={() => setQuery("")} title="Clear" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aab2bd" }}>
-              <i className="bi bi-x-lg" style={{ fontSize: 11 }} />
+              <AppIcon name="bi-x-lg" className="fs-8" />
             </button>
           )}
         </div>
         <button type="button" onClick={expandAll} disabled={allExpanded || !!q} style={toolBtn(allExpanded || !!q)}>
-          <i className="bi bi-arrows-expand" /> Expand all
+          <AppIcon name="bi-arrows-expand" /> Expand all
         </button>
         <button type="button" onClick={collapseAll} disabled={allCollapsed || !!q} style={toolBtn(allCollapsed || !!q)}>
-          <i className="bi bi-arrows-collapse" /> Collapse all
+          <AppIcon name="bi-arrows-collapse" /> Collapse all
         </button>
       </div>
 
@@ -305,7 +305,7 @@ const AccessControlTree: React.FC<Props> = ({ levels, expiries, customModules, d
                     onClick={() => hasChildren && toggle(node.key)}
                     style={{ width: 16, textAlign: "center", flexShrink: 0, color: "#8893a0", cursor: hasChildren ? "pointer" : "default", transition: "transform .18s ease", transform: open ? "rotate(90deg)" : "rotate(0deg)", visibility: hasChildren ? "visible" : "hidden" }}
                   >
-                    <i className="bi bi-chevron-right" style={{ fontSize: 10 }} />
+                    <AppIcon name="bi-chevron-right" className="fs-9" />
                   </span>
                   <span style={{ fontWeight: hasChildren ? 600 : 500, fontSize: hasChildren ? 13.5 : 12.5, color: "#1f2733", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {node.label}

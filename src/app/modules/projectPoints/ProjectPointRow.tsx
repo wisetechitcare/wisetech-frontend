@@ -1,5 +1,6 @@
 import React from "react";
 import type { ProjectPointValue } from "@services/projectPoints";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface ProjectPointRowProps {
     row: ProjectPointValue;
@@ -59,7 +60,7 @@ const ProjectPointRow: React.FC<ProjectPointRowProps> = ({
             {/* Order / drag affordance */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 2 }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8" }}>{index + 1}</span>
-                <i className="bi bi-grip-vertical" style={{ color: "#cbd5e1", fontSize: 14 }} />
+                <AppIcon name="bi-grip-vertical" className="fs-6" color="#cbd5e1" />
             </div>
 
             {/* Heading */}
@@ -93,15 +94,15 @@ const ProjectPointRow: React.FC<ProjectPointRowProps> = ({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2, paddingTop: 4 }}>
                 <button type="button" title="Move up" style={iconBtn("#64748b", index === 0)}
                     disabled={disabled || index === 0} onClick={onMoveUp}>
-                    <i className="bi bi-arrow-up" />
+                    <AppIcon name="bi-arrow-up" />
                 </button>
                 <button type="button" title="Move down" style={iconBtn("#64748b", index === total - 1)}
                     disabled={disabled || index === total - 1} onClick={onMoveDown}>
-                    <i className="bi bi-arrow-down" />
+                    <AppIcon name="bi-arrow-down" />
                 </button>
                 <button type="button" title="Remove" style={iconBtn("#ef4444")}
                     disabled={disabled} onClick={onRemove}>
-                    <i className="bi bi-trash" />
+                    <AppIcon name="bi-trash" />
                 </button>
             </div>
         </div>

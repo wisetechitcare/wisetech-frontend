@@ -45,7 +45,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { IReimbursementsCreate } from '@models/employee';
 import { useEventBus } from '@hooks/useEventBus';
-import { WtButton } from '@app/modules/common/components/ui';
+import { WtButton, AppIcon } from '@app/modules/common/components/ui';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation, describeLimitBreach } from './utils/reimbursementSchema';
 
@@ -687,7 +687,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         >
           {row.original.document
             ? <KTIcon iconName='eye' className='fs-3' />
-            : <i className='bi bi-file-earmark-x fs-3 text-danger'></i>
+            : <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
           }
         </button>
       ),

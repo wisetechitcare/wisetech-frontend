@@ -6,6 +6,7 @@ import { DiffViewer, DiffMode } from './DiffViewer';
 import { ResetModal } from './ResetModal';
 import { initials, displayActor } from './tokens';
 import { fromNow, fullDateTime } from './time';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * Version History — the default, business-user experience.
@@ -52,17 +53,17 @@ const CompareDrawer: React.FC<{
       >
         <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 700, color: C.textPrimary }}>
-            <i className="bi bi-arrow-left-right" style={{ marginRight: 8, color: C.primary }} aria-hidden />
+            <AppIcon name="bi-arrow-left-right" color={C.primary} style={{ marginRight: 8 }} aria-hidden />
             Version {from} vs Current (Version {to})
           </div>
           <button type="button" onClick={onClose} aria-label="Close" style={{ ...BTN.ghost, padding: 6, fontSize: 16 }}>
-            <i className="bi bi-x-lg" aria-hidden />
+            <AppIcon name="bi-x-lg" aria-hidden />
           </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
           {diff.isLoading ? (
             <div style={{ textAlign: 'center', padding: '30px 0', color: C.textMuted, fontFamily: FONT.body, fontSize: 13 }}>
-              <i className="bi bi-arrow-repeat ci-spin" style={{ fontSize: 22 }} aria-hidden /> Comparing…
+              <AppIcon name="bi-arrow-repeat" className="ci-spin fs-1" aria-hidden /> Comparing…
             </div>
           ) : diff.isError ? (
             <div style={{ color: C.danger, fontFamily: FONT.body, fontSize: 13 }}>Couldn't compare these versions.</div>
@@ -157,7 +158,7 @@ const VersionCard: React.FC<{
                 onClick={onCompare}
                 style={{ ...BTN.outline, padding: '5px 12px', fontSize: 12 }}
               >
-                <i className="bi bi-arrow-left-right" aria-hidden /> Compare
+                <AppIcon name="bi-arrow-left-right" aria-hidden /> Compare
               </button>
             )}
             {canReset && (
@@ -171,7 +172,7 @@ const VersionCard: React.FC<{
                   cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5,
                 }}
               >
-                <i className="bi bi-arrow-counterclockwise" aria-hidden /> Reset To This Version
+                <AppIcon name="bi-arrow-counterclockwise" aria-hidden /> Reset To This Version
               </button>
             )}
           </div>
@@ -189,7 +190,7 @@ export const VersionHistory: React.FC<Props> = ({ type, id, isAdmin }) => {
   if (query.isLoading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 0', color: C.textMuted, fontFamily: FONT.body, fontSize: 13 }}>
-        <i className="bi bi-arrow-repeat ci-spin" style={{ fontSize: 22 }} aria-hidden /> Loading version history…
+        <AppIcon name="bi-arrow-repeat" className="ci-spin fs-1" aria-hidden /> Loading version history…
       </div>
     );
   }
@@ -197,7 +198,7 @@ export const VersionHistory: React.FC<Props> = ({ type, id, isAdmin }) => {
     return (
       <div style={{ textAlign: 'center', padding: '40px 0', color: C.textMuted, fontFamily: FONT.body, fontSize: 13 }}>
         Couldn't load version history.
-        <div><button type="button" style={{ ...BTN.outline, marginTop: 14 }} onClick={() => query.refetch()}><i className="bi bi-arrow-clockwise" aria-hidden /> Retry</button></div>
+        <div><button type="button" style={{ ...BTN.outline, marginTop: 14 }} onClick={() => query.refetch()}><AppIcon name="bi-arrow-clockwise" aria-hidden /> Retry</button></div>
       </div>
     );
   }
@@ -208,7 +209,7 @@ export const VersionHistory: React.FC<Props> = ({ type, id, isAdmin }) => {
   if (versions.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 16px', color: C.textMuted }}>
-        <i className="bi bi-clock-history" style={{ fontSize: 30, display: 'block', marginBottom: 10 }} aria-hidden />
+        <AppIcon name="bi-clock-history" className="fs-2qx" style={{ display: 'block', marginBottom: 10 }} aria-hidden />
         <div style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 700, color: C.textSecondary }}>No versions yet</div>
         <div style={{ fontFamily: FONT.body, fontSize: 13, marginTop: 4 }}>A version is saved each time this record is edited.</div>
       </div>
@@ -278,9 +279,9 @@ export const VersionHistory: React.FC<Props> = ({ type, id, isAdmin }) => {
         <div style={{ textAlign: 'center', paddingTop: 4 }}>
           <button type="button" style={{ ...BTN.secondary }} disabled={query.isFetchingNextPage} onClick={() => query.fetchNextPage()}>
             {query.isFetchingNextPage ? (
-              <><i className="bi bi-arrow-repeat ci-spin" aria-hidden /> Loading…</>
+              <><AppIcon name="bi-arrow-repeat" className="ci-spin" aria-hidden /> Loading…</>
             ) : (
-              <><i className="bi bi-arrow-down-circle" aria-hidden /> Show older versions</>
+              <><AppIcon name="bi-arrow-down-circle" aria-hidden /> Show older versions</>
             )}
           </button>
         </div>

@@ -3,6 +3,7 @@ import { useThemeMode } from "@metronic/partials";
 import HighlightErrors from '@app/modules/errors/components/HighlightErrors';
 import Select, { MultiValue, ActionMeta, OnChangeValue, components } from 'react-select'
 import { sortOptionsAlphabetically } from '@utils/sortUtils';
+import { FLOATING_MENU_BEHAVIOUR, MENU_PORTAL_STYLE } from '@app/modules/common/inputs/selectMenuProps';
 
 type OptionType = {
   value: string
@@ -200,7 +201,11 @@ function MultiSelectInput({
         components={{
           Option: CustomOption
         }}
+        {...FLOATING_MENU_BEHAVIOUR}
         styles={{
+          // Portal z-index. Merged into this object rather than spread as a `styles` prop,
+          // which would have replaced everything below it.
+          ...MENU_PORTAL_STYLE,
           // Control styling (main input box)
           control: (base: any, state: any) => ({
             ...base,

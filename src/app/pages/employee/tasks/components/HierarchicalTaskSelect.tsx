@@ -8,6 +8,8 @@ import {
     PresetTaskLike,
     flattenPresetTasks,
 } from '@utils/presetTaskHierarchy';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
 
 /**
  * HierarchicalTaskSelect
@@ -169,7 +171,7 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                             padding: 0,
                         }}
                     >
-                        <i className="bi bi-arrow-left" style={{ fontSize: 11 }} />
+                        <AppIcon name="bi-arrow-left" className="fs-8" />
                     </button>
                     </Tooltip>
 
@@ -247,7 +249,7 @@ const TaskOption = (props: OptionProps<HierarchicalTaskOption, false>) => {
                     )}
                 </div>
                 {!drill.searching && hasChildren && (
-                    <i className="bi bi-chevron-right" style={{ fontSize: 10, color: MUTED, flexShrink: 0 }} />
+                    <AppIcon name="bi-chevron-right" className="fs-9" color={MUTED} style={{ flexShrink: 0 }} />
                 )}
             </div>
         </components.Option>
@@ -371,6 +373,7 @@ const HierarchicalTaskSelect: React.FC<Props> = ({
 
             <DrillContext.Provider value={drill}>
             <Select<HierarchicalTaskOption, false>
+                {...FLOATING_MENU_BEHAVIOUR}
                 name={formikField}
                 options={visibleOptions}
                 value={selected}

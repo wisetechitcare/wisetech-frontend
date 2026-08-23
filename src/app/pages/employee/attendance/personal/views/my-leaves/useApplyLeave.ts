@@ -37,8 +37,7 @@ import {
 import { fetchConfiguration, fetchLeaveOptions, fetchSalaryDataForDateRangeMonthly, fetchAllPublicHolidays, fetchCompanyOverview } from '@services/company';
 import { setMonthlyApiData } from '@redux/slices/salaryData';
 import { LEAVE_POLICY_KEY } from '@constants/configurations-key';
-import { buildCumulativeInputs } from '@utils/balanceProgressUtils';
-import { calculateFiscalMonth } from '@utils/fiscalYearHelper';
+import { buildCumulativeInputs, getAccrualWindow } from '@utils/balanceProgressUtils';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 
 const DEFAULT_PRIORITY = ['Casual Leaves', 'Sick Leaves', 'Floater Leaves', 'Annual Leaves'];
@@ -76,6 +75,9 @@ export interface UseApplyLeaveArgs {
     employeeId: string;
     branchId?: string;
     dateOfJoining?: string | Date | null;
+    /** Closes the accrual window for a leaver. Optional — omitting it means "still employed",
+     *  which yields a window open to the fiscal year end and so never under-grants. */
+    dateOfExit?: string | Date | null;
     workingAndOffDays?: Record<string, string>;
     holidays?: string[];
 }
@@ -134,7 +136,7 @@ function toUiTypes(leavesSummary: any, idByName: Map<string, string>): UiLeaveTy
 }
 
 export function useApplyLeave(args: UseApplyLeaveArgs) {
-    const { employeeId, branchId, dateOfJoining, workingAndOffDays, holidays } = args;
+    const { employeeId, branchId, dateOfJoining, dateOfExit, workingAndOffDays, holidays } = args;
 
     const dispatch = useDispatch();
 
@@ -156,6 +158,18 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
         { totalPaidAllocated: 0, usedPlusPendingPaid: 0 },
     );
     const [sameDayPenalty, setSameDayPenalty] = useState<SameDayPenaltyConfig | null>(null);
+    /**
+     * Is this employee still inside their probation window?
+     *
+     * Hoisted to one definition because it now drives BOTH the allocation preview (paid leave is
+     * forced to Unpaid) and the display gate in ApplyLeave (paid-balance figures are withheld, since
+     * advertising a balance that cannot be spent is what confuses new joiners). Two copies of this
+     * predicate would eventually disagree and show a paid balance on a screen that books Unpaid.
+     */
+    const probationActive = useMemo(
+        () => probation.enabled && isWithinProbation(dateOfJoining, probation.durationDays),
+        [probation.enabled, probation.durationDays, dateOfJoining],
+    );
     // This employee's existing leaves, fetched fresh on mount. Used ONLY to compute blocked
     // dates in the calendar — kept local (not dispatched to the shared leaves slice) so it
     // never overwrites the transformed data the My-Leaves table renders from.
@@ -352,16 +366,22 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                           : b,
                   )
                 : balances;
-            const probationActive = probation.enabled && isWithinProbation(dateOfJoining, probation.durationDays);
             const order = s.leaveTypeName
                 ? [s.leaveTypeName]
                 : priority.filter((t) => !(s.excludeSick && /sick/i.test(t)));
             // A leave with any half-day date books no interior sandwich rows (Model B) and a half day
             // can't itself sandwich, so disable the sandwich preview when any half is present.
             const effectiveSandwich = anyHalf ? [] : sandwichDates;
-            // Fiscal month from dateTo — matches the BE (getFiscalMonthIndex(dateTo)) so the preview
-            // applies the SAME cumulative cap the server books against (spill-to-unpaid or block).
-            const fiscalMonthIndex = calculateFiscalMonth(new Date(s.to + 'T00:00:00').getMonth() + 1, 4);
+            // Accrual window as of dateTo — mirrors the BE (leaveAllocationService.resolveLeaveContext
+            // calls getAccrualWindow with asOf = dateTo) so the preview applies the SAME cumulative cap
+            // the server books against. Counted from the employee's JOINING month, so a mid-year joiner
+            // is not shown capacity for months before they were hired.
+            const fyStartYear = (() => {
+                const to = new Date(s.to + 'T00:00:00');
+                // April starts the fiscal year: Jan–Mar still belong to the FY that began last year.
+                return to.getMonth() + 1 >= 4 ? to.getFullYear() : to.getFullYear() - 1;
+            })();
+            const accrual = getAccrualWindow(fyStartYear, dateOfJoining, dateOfExit, new Date(s.to + 'T00:00:00'));
             return allocateLeave({
                 chargeableDates,
                 sandwichDates: effectiveSandwich,
@@ -377,12 +397,13 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                     // already inside usedPlusPendingPaid, and double-counting them would fire the
                     // cumulative cap against a leave that is merely being re-saved.
                     usedPlusPendingPaid: Math.max(0, cumulativePool.usedPlusPendingPaid - creditPaidDays),
-                    fiscalMonthIndex,
+                    elapsedMonths: accrual.elapsedMonths,
+                    eligibleMonths: accrual.eligibleMonths,
                     overflow,
                 },
             });
         },
-        [balances, priority, probation, dateOfJoining, workingAndOffDays, holidaySet, cumulativePool, overflow],
+        [balances, priority, probation, probationActive, dateOfJoining, dateOfExit, workingAndOffDays, holidaySet, cumulativePool, overflow],
     );
 
     const submit = useCallback(
@@ -476,5 +497,5 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
         [],
     );
 
-    return { loading, submitting, types, balances, priority, overflow, probation, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated: cumulativePool.totalPaidAllocated, usedPaidLeaves: cumulativePool.usedPlusPendingPaid };
+    return { loading, submitting, types, balances, priority, overflow, probation, probationActive, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated: cumulativePool.totalPaidAllocated, usedPaidLeaves: cumulativePool.usedPlusPendingPaid };
 }

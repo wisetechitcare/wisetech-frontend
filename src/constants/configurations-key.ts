@@ -13,6 +13,14 @@ export const GRACE_TIME_ON_SITE_KEY = 'Grace Time - On Site';
  */
 export const ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY =
   'On-site, Holiday & Weekend Settings for late attendance';
+/**
+ * When "1", an On-site or Hybrid check-in/check-out does NOT land in attendance directly —
+ * it becomes a pending attendance request on the approval workflow, and the real attendance
+ * row is written only once it is approved. Default OFF.
+ * Must match backend services/utils/onsiteGraceResolver.ts.
+ */
+export const REQUIRE_SITE_HYBRID_APPROVAL_KEY =
+  'Require Approval for Site & Hybrid Attendance';
 /** No late mark the day after a work day that ran past LATE_NIGHT_WAIVER_TIME_KEY.
  *  Must match backend utils/lateNightWaiver.ts. */
 export const LATE_NIGHT_WAIVER_KEY = 'Late Night Waiver';

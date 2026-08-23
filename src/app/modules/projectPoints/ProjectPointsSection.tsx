@@ -1,6 +1,7 @@
 import React from "react";
 import type { ProjectPointValue } from "@services/projectPoints";
 import ProjectPointRow from "./ProjectPointRow";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface ProjectPointsSectionProps {
     /** Current rows (controlled). */
@@ -64,7 +65,7 @@ const ProjectPointsSection: React.FC<ProjectPointsSectionProps> = ({
                         cursor: disabled ? "not-allowed" : "pointer",
                     }}
                 >
-                    <i className="bi bi-plus-lg" /> Add Point
+                    <AppIcon name="bi-plus-lg" /> Add Point
                 </button>
             </div>
 

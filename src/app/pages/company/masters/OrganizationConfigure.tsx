@@ -7,7 +7,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
 import OrganizationConfigureForm from "./components/OrganizationConfigureForm";
-import { ActionIconButton } from "@app/modules/common/components/ui";
+import { ActionIconButton, AppIcon } from "@app/modules/common/components/ui";
 import {
   ConfigPageLayout,
   ConfigSectionCard,
@@ -54,7 +54,7 @@ const NameChip: React.FC<NameChipProps> = ({ name, onEdit, onDelete }) => {
         transition: 'opacity 0.15s ease',
       }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0, paddingLeft: '4px' }}>
-        <i className="bi bi-dash-circle" style={{ fontSize: '11px', color: C.textMuted, flexShrink: 0 }} />
+        <AppIcon name="bi-dash-circle" className="fs-8" color={C.textMuted} style={{ flexShrink: 0 }} />
         <span style={{
           fontFamily: FONT.body, fontWeight: 500, fontSize: '13px',
           color: C.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -80,7 +80,7 @@ const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const EmptyState: React.FC<{ label: string }> = ({ label }) => (
   <div style={{ textAlign: 'center', padding: '28px 16px', color: C.textMuted, fontFamily: FONT.body, fontSize: '13px' }}>
-    <i className="bi bi-inbox" style={{ fontSize: '28px', display: 'block', marginBottom: '8px', opacity: 0.4 }} />
+    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: 'block', marginBottom: '8px', opacity: 0.4 }} />
     No {label} configured yet
   </div>
 );

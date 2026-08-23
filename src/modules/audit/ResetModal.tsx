@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { C, FONT, RADIUS, BTN } from '@/app/modules/configuration/ConfigDesignSystem';
 import { AuditEntityType } from './audit.service';
 import { useResetPreview, useReset } from './hooks';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Props {
   type: AuditEntityType;
@@ -92,7 +93,7 @@ export const ResetModal: React.FC<Props> = ({ type, id, targetVersion, onClose, 
               }}
               aria-hidden
             >
-              <i className="bi bi-exclamation-triangle-fill" style={{ fontSize: 16 }} />
+              <AppIcon name="bi-exclamation-triangle-fill" className="fs-4" />
             </div>
             <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, color: C.textPrimary }}>
               Reset to Version {targetVersion}
@@ -104,7 +105,7 @@ export const ResetModal: React.FC<Props> = ({ type, id, targetVersion, onClose, 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 22px 8px' }}>
           {preview.isLoading ? (
             <div style={{ padding: '24px 0', textAlign: 'center', color: C.textMuted, fontFamily: FONT.body, fontSize: 13 }}>
-              <i className="bi bi-arrow-repeat ci-spin" style={{ fontSize: 20 }} aria-hidden /> Checking impact…
+              <AppIcon name="bi-arrow-repeat" className="ci-spin fs-2" aria-hidden /> Checking impact…
             </div>
           ) : preview.isError ? (
             <div style={{ padding: '20px 0', color: C.danger, fontFamily: FONT.body, fontSize: 13 }}>
@@ -182,7 +183,7 @@ export const ResetModal: React.FC<Props> = ({ type, id, targetVersion, onClose, 
                     color: '#9b1c44',
                   }}
                 >
-                  <i className="bi bi-exclamation-octagon-fill" style={{ marginRight: 6 }} aria-hidden />
+                  <AppIcon name="bi-exclamation-octagon-fill" style={{ marginRight: 6 }} aria-hidden />
                   {resetError}
                 </div>
               )}
@@ -217,11 +218,11 @@ export const ResetModal: React.FC<Props> = ({ type, id, targetVersion, onClose, 
           >
             {reset.isPending ? (
               <>
-                <i className="bi bi-arrow-repeat ci-spin" aria-hidden /> Resetting…
+                <AppIcon name="bi-arrow-repeat" className="ci-spin" aria-hidden /> Resetting…
               </>
             ) : (
               <>
-                <i className="bi bi-arrow-counterclockwise" aria-hidden /> Reset Version
+                <AppIcon name="bi-arrow-counterclockwise" aria-hidden /> Reset Version
               </>
             )}
           </button>

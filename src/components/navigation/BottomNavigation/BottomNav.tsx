@@ -11,6 +11,7 @@ import { BottomNavQuickActions } from './BottomNavQuickActions'
 import { BottomNavBadge } from './BottomNavBadge'
 import { sumBadges } from './utils'
 import './BottomNav.css'
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const INDICATOR_LAYOUT_ID = 'bottom-nav-active-pill'
 
@@ -70,7 +71,7 @@ function BottomNavBar() {
               aria-expanded={quickActionsOpen}
               onClick={() => setQuickActionsOpen(true)}
             >
-              <i className="bi bi-plus-lg" />
+              <AppIcon name="bi-plus-lg" />
             </button>
           </div>
 

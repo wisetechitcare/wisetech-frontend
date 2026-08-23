@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMediaQuery, useTheme } from "@mui/material";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export interface AnalyticsTab {
   id: string;
@@ -114,10 +115,7 @@ const AnalyticsTabs: React.FC<Props> = ({
             }}
           >
             {t.icon && (
-              <i
-                className={`bi ${t.icon}`}
-                style={{ fontSize: 14, color: isActive ? accent : "#94A3B8" }}
-              />
+              <AppIcon name={t.icon} className="fs-6" color={isActive ? accent : "#94A3B8"} />
             )}
             {t.label}
           </button>

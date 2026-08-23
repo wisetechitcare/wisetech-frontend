@@ -11,6 +11,7 @@ import {
   RADIUS,
   KEYFRAMES,
 } from '@app/modules/configuration';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ─── ColorChip ────────────────────────────────────────────────────────────────
 
@@ -65,13 +66,13 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
           onClick={onEdit}
           style={{ background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
         >
-          <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+          <AppIcon name="bi-pencil" className="fs-8" />
         </button>
         <button
           onClick={onDelete}
           style={{ background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
         >
-          <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+          <AppIcon name="bi-trash" className="fs-8" />
         </button>
       </div>
     </div>
@@ -86,7 +87,7 @@ const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const EmptyState: React.FC<{ label: string }> = ({ label }) => (
   <div style={{ textAlign: 'center', padding: '28px 16px', color: C.textMuted, fontFamily: FONT.body, fontSize: '13px' }}>
-    <i className="bi bi-inbox" style={{ fontSize: '28px', display: 'block', marginBottom: '8px', opacity: 0.4 }} />
+    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: 'block', marginBottom: '8px', opacity: 0.4 }} />
     No {label} configured yet
   </div>
 );

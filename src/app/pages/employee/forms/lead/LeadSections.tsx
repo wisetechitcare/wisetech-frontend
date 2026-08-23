@@ -14,13 +14,12 @@ import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextAreaInput from "@app/modules/common/inputs/TextAreaInput";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import MultiSelectWithInlineCreate from "@app/modules/common/components/MultiSelectWithInlineCreate";
-import FormikDropdownInput from "@app/modules/common/inputs/FormikDropdownInput";
 import PrefixInlineEdit from "@app/modules/common/components/PrefixInlineEdit";
 import { CommercialsGrid } from "../shared/CommercialsGrid";
 import { PaymentStageSelector } from "./PaymentStageSelector";
 import { MeetingScheduleSelector } from "./MeetingScheduleSelector";
 import { SectionWrapper } from "./SectionWrapper";
-import { WtSwitch, TRIO } from "@app/modules/common/components/ui";
+import { WtSwitch, TRIO, AppIcon } from "@app/modules/common/components/ui";
 import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 
 interface LeadSectionsProps {
@@ -1175,7 +1174,7 @@ const PoFileUpload: React.FC = () => {
           </>
         ) : url ? (
           <>
-            <i className={`bi ${icon}`} style={{ fontSize: 22, color, flexShrink: 0 }} />
+            <AppIcon name={icon} className="fs-1" style={{ color, flexShrink: 0 }} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#181c32", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {fileName}
@@ -1183,20 +1182,20 @@ const PoFileUpload: React.FC = () => {
               <div style={{ fontSize: 11, color: "#a1a5b7" }}>Uploaded</div>
             </div>
             <IconButton size="small" title="Preview" onClick={() => window.open(url, "_blank", "noopener,noreferrer")}>
-              <i className="bi bi-eye" style={{ fontSize: 15, color: "#5e6278" }} />
+              <AppIcon name="bi-eye" className="fs-5" color="#5e6278" />
             </IconButton>
             <IconButton size="small" title="Replace" disabled={!!busy} onClick={openPicker}>
-              <i className="bi bi-arrow-repeat" style={{ fontSize: 15, color: "#5e6278" }} />
+              <AppIcon name="bi-arrow-repeat" className="fs-5" color="#5e6278" />
             </IconButton>
             <IconButton size="small" title="Remove" disabled={!!busy} onClick={remove}>
               {busy === "remove"
                 ? <CircularProgress size={14} />
-                : <i className="bi bi-trash" style={{ fontSize: 15, color: "#d13438" }} />}
+                : <AppIcon name="bi-trash" className="fs-5" color="#d13438" />}
             </IconButton>
           </>
         ) : (
           <>
-            <i className="bi bi-cloud-arrow-up" style={{ fontSize: 20, color: "#7e8299", flexShrink: 0 }} />
+            <AppIcon name="bi-cloud-arrow-up" className="fs-2" color="#7e8299" style={{ flexShrink: 0 }} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#3f4254" }}>
                 Choose a file <span style={{ fontWeight: 400, color: "#a1a5b7" }}>or drop it here</span>

@@ -1,7 +1,14 @@
 import axios from "axios";
 import { ROLES } from "@constants/api-endpoint";
+import { cachedRequest, invalidateRequestCache } from "./_requestCache";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
+
+// Roles+permissions are a lookup set: the dynamic-roles object is rebuilt from it on
+// nearly every screen, so ~12 components each dispatched a fetch on mount and one page
+// load hit /api/roles 20+ times. Share the in-flight promise and cache briefly; every
+// mutation below invalidates the key so reads stay fresh.
+const LOOKUP_TTL = 5 * 60_000;
 
 /**
  * Fetches all roles.
@@ -11,9 +18,11 @@ const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
  */
 export const fetchRoles = async () => {
     try {
-        const endpoint = `${API_BASE_URL}/${ROLES.GET_ALL_ROLES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest('roles', async () => {
+            const endpoint = `${API_BASE_URL}/${ROLES.GET_ALL_ROLES}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, LOOKUP_TTL);
     } catch (error) {
         throw error;
     }
@@ -47,6 +56,7 @@ export const createRole = async (role: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${ROLES.CREATE_ROLE}`;
         const { data } = await axios.post(endpoint, role);
+        invalidateRequestCache('roles');
         return data;
     } catch (error) {
         throw error;
@@ -65,6 +75,7 @@ export const updateRoleById = async (roleId: string, role: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${ROLES.UPDATE_ROLE.replace(":id", roleId)}`;
         const { data } = await axios.put(endpoint, role);
+        invalidateRequestCache('roles');
         return data;
     } catch (error) {
         throw error;
@@ -82,6 +93,7 @@ export const deleteRoleById = async (roleId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${ROLES.DELETE_ROLE.replace(":id", roleId)}`;
         const { data } = await axios.delete(endpoint);
+        invalidateRequestCache('roles');
         return data;
     } catch (error) {
         throw error;
@@ -117,6 +129,7 @@ export const createPermissionForRoleById = async (roleId: string, permission: an
     try {
         const endpoint = `${API_BASE_URL}/${ROLES.CREATE_PERMISSION_FOR_ROLE.replace(":id", roleId)}`;
         const { data } = await axios.post(endpoint, permission);
+        invalidateRequestCache('roles');
         return data;
     } catch (error) {
         throw error;
@@ -136,6 +149,7 @@ export const updatePermissionForRoleById = async (roleId: string, permissionId: 
     try {
         const endpoint = `${API_BASE_URL}/${ROLES.UPDATE_PERMISSION_FOR_ROLE.replace(":roleId", roleId).replace(":permissionId", permissionId)}`;
         const { data } = await axios.put(endpoint, permission);
+        invalidateRequestCache('roles');
         return data;
     } catch (error) {
         throw error;
@@ -154,6 +168,7 @@ export const deletePermissionForRoleById = async (roleId: string, permissionId: 
     try {
         const endpoint = `${API_BASE_URL}/${ROLES.DELETE_PERMISSION_FOR_ROLE.replace(":roleId", roleId).replace(":permissionId", permissionId)}`;
         const { data } = await axios.delete(endpoint);
+        invalidateRequestCache('roles');
         return data;
     } catch (error) {
         throw error;
@@ -163,12 +178,14 @@ export const deletePermissionForRoleById = async (roleId: string, permissionId: 
 export const addEmployeeToRole = async (roleId: string, employeeId: string) => {
     const endpoint = `${API_BASE_URL}/${ROLES.ADD_EMPLOYEE_TO_ROLE.replace(":id", roleId)}`;
     const { data } = await axios.post(endpoint, { employeeId });
+    invalidateRequestCache('roles');
     return data;
 }
 
 export const removeEmployeeFromRole = async (roleId: string, employeeId: string) => {
     const endpoint = `${API_BASE_URL}/${ROLES.REMOVE_EMPLOYEE_FROM_ROLE.replace(":id", roleId).replace(":employeeId", employeeId)}`;
     const { data } = await axios.delete(endpoint);
+    invalidateRequestCache('roles');
     return data;
 }
 
@@ -190,5 +207,6 @@ export const getRoleAccess = async (roleId: string): Promise<{ sectionLevels: Re
 export const setRoleSectionAccess = async (roleId: string, module: string, level: 'none' | 'view' | 'edit') => {
     const endpoint = `${API_BASE_URL}/${ROLES.SET_ROLE_SECTION_ACCESS.replace(":id", roleId)}`;
     const { data } = await axios.put(endpoint, { module, level });
+    invalidateRequestCache('roles');
     return data?.data;
 }

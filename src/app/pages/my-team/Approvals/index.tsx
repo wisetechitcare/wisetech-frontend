@@ -53,30 +53,30 @@ import InboxItemCard, { ageOf } from './InboxItem';
 type Segment = 'mine' | 'awaiting' | 'done';
 
 /**
- * Named for what is in them, not for how they read as a set.
+ * Named for what is in them, in the words someone would use out loud.
  *
- * "Needs you / With others / Done" was shorter and meant nothing on first sight — a label has to
- * survive being read by someone who has never seen this screen. `hint` says the rest out loud
- * under the active tab rather than leaving it to be inferred.
+ * A label has to survive being read by a person who has never seen this screen and does not know
+ * what an "instance", a "step" or a "query" is. So: who is holding it right now. `hint` says the
+ * rest under the active tab rather than leaving it to be inferred.
  */
 const SEGMENTS: Array<{ key: Segment; label: string; hint: string; blank: string }> = [
     {
         key: 'mine',
-        label: 'Needs my action',
-        hint: 'Waiting on you — approvals to decide, and questions on your own expenses.',
-        blank: 'Nothing is waiting on you.',
+        label: 'Waiting for You',
+        hint: 'Yours to deal with — requests to approve or reject, and questions asked about your own expenses.',
+        blank: 'Nothing is waiting for you.',
     },
     {
         key: 'awaiting',
-        label: 'Waiting on others',
-        hint: 'Sitting with someone else — requests you submitted, and approvals you have passed on.',
-        blank: 'Nothing is sitting with anyone else.',
+        label: 'With Someone Else',
+        hint: 'Nothing for you to do yet — requests you sent in, and ones you have already passed on.',
+        blank: 'Nothing is with anyone else right now.',
     },
     {
         key: 'done',
-        label: 'Resolved',
-        hint: 'Already dealt with — decided approvals, and questions you have answered.',
-        blank: 'Nothing has been resolved yet.',
+        label: 'Finished',
+        hint: 'All done — requests that were approved or rejected, and questions you have answered.',
+        blank: 'Nothing has finished yet.',
     },
 ];
 
@@ -91,10 +91,10 @@ const MY_TASK_TYPES = new Set(['QUERY_RECEIVED', 'REJECTION_RECEIVED', 'ACTION_R
 const AWAITING_TASK_TYPES = new Set<string>([]);
 
 const TASK_STYLE: Record<string, { tone: SemanticTone; icon: string; cta: string; label: string; doneLabel: string }> = {
-    QUERY_RECEIVED: { tone: 'warning', icon: 'message-text-2', cta: 'Respond', label: 'Query received', doneLabel: 'Query answered' },
-    REJECTION_RECEIVED: { tone: 'danger', icon: 'cross-circle', cta: 'Mark as seen', label: 'Expense rejected', doneLabel: 'Seen' },
-    ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open', label: 'Action required', doneLabel: 'Action completed' },
-    QUERY_RESPONSE_RECEIVED: { tone: 'cyan', icon: 'message-text-2', cta: 'Review', label: 'Response received', doneLabel: 'Response reviewed' },
+    QUERY_RECEIVED: { tone: 'warning', icon: 'message-text-2', cta: 'Answer', label: 'Question for You', doneLabel: 'You Answered' },
+    REJECTION_RECEIVED: { tone: 'danger', icon: 'cross-circle', cta: 'Mark as Seen', label: 'Expense Rejected', doneLabel: 'You Have Seen This' },
+    ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open', label: 'Needs Your Attention', doneLabel: 'Sorted' },
+    QUERY_RESPONSE_RECEIVED: { tone: 'cyan', icon: 'message-text-2', cta: 'Review', label: 'They Answered You', doneLabel: 'You Reviewed It' },
 };
 
 export default function Approvals() {
@@ -127,8 +127,8 @@ export default function Approvals() {
     const fetchSegment = useCallback(async (seg: Segment) => {
         const [approvals, myTasks] = await Promise.all([
             seg === 'mine' ? fetchPendingApprovals() : fetchAllApprovalInstances(seg === 'done' ? 'completed' : 'awaiting'),
-            // Your own items appear in two of the three tabs: open ones under "Pending my
-            // action", and closed ones under "Completed" — a question you answered IS
+            // Your own items appear in two of the three tabs: open ones under "Waiting for
+            // you", and closed ones under "Finished" — a question you answered IS
             // something you completed, and Completed listing only approval instances meant
             // your own half of the workflow vanished the moment you dealt with it.
             // Awaiting tasks (e.g., query responses) appear in the "Awaiting others" segment.
@@ -206,7 +206,7 @@ export default function Approvals() {
         deciding; the "waiting N days" line below still surfaces that, without ordering the
         whole list around it.)
 
-        In "Pending my action", resubmitted items still float above the rest: the employee has
+        In "Waiting for you", resubmitted items still float above the rest: the employee has
         already answered a query and is blocked on a re-review, which is more urgent than a
         first look. Within each of those two groups the order is newest first. */
     const sorted = useMemo(() => {

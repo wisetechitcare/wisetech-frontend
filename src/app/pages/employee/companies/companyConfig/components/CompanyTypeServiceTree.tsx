@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from "react";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * CompanyTypeServiceTree
@@ -102,7 +103,7 @@ const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (
         transition: "all .15s ease",
       }}
     >
-      <i className={`bi ${icon}`} style={{ fontSize: 13, lineHeight: 1 }} />
+      <AppIcon name={icon} className="fs-7" style={{ lineHeight: 1 }} />
     </button>
   );
 };
@@ -227,7 +228,7 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
-          <i className="bi bi-search" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "#aab2bd" }} />
+          <AppIcon name="bi-search" className="fs-7" color="#aab2bd" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)" }} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -236,15 +237,15 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
           />
           {query && (
             <button type="button" onClick={() => setQuery("")} title="Clear" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aab2bd" }}>
-              <i className="bi bi-x-lg" style={{ fontSize: 11 }} />
+              <AppIcon name="bi-x-lg" className="fs-8" />
             </button>
           )}
         </div>
         <button type="button" onClick={expandAll} disabled={allExpanded || !!q} style={{ ...toolBtn(false), opacity: allExpanded || !!q ? 0.55 : 1, cursor: allExpanded || !!q ? "not-allowed" : "pointer" }}>
-          <i className="bi bi-arrows-expand" /> Expand all
+          <AppIcon name="bi-arrows-expand" /> Expand all
         </button>
         <button type="button" onClick={collapseAll} disabled={allCollapsed || !!q} style={{ ...toolBtn(false), opacity: allCollapsed || !!q ? 0.55 : 1, cursor: allCollapsed || !!q ? "not-allowed" : "pointer" }}>
-          <i className="bi bi-arrows-collapse" /> Collapse all
+          <AppIcon name="bi-arrows-collapse" /> Collapse all
         </button>
       </div>
 
@@ -293,7 +294,7 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
                     onClick={() => hasChildren && toggle(node.key)}
                     style={{ width: 16, textAlign: "center", flexShrink: 0, color: "#8893a0", cursor: hasChildren ? "pointer" : "default", transition: "transform .18s ease", transform: open ? "rotate(90deg)" : "rotate(0deg)", visibility: hasChildren ? "visible" : "hidden" }}
                   >
-                    <i className="bi bi-chevron-right" style={{ fontSize: 10 }} />
+                    <AppIcon name="bi-chevron-right" className="fs-9" />
                   </span>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: dotColor(node), flexShrink: 0, boxShadow: node.kind === "type" ? `0 0 0 2px ${dotColor(node)}28` : "none" }} />
                   <span style={{ fontWeight: node.kind === "type" ? 600 : node.kind === "group" ? 600 : 400, fontSize: node.kind === "type" ? 13.5 : 12.5, color: node.kind === "group" ? "#8893a0" : "#1f2733", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

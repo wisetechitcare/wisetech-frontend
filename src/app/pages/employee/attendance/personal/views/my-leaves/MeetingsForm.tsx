@@ -1,3 +1,4 @@
+import { FLOATING_MENU_BEHAVIOUR, MENU_PORTAL_STYLE } from '@app/modules/common/inputs/selectMenuProps';
 import { useState, useEffect, useMemo } from 'react';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
@@ -18,6 +19,7 @@ import TextInput from '@app/modules/common/inputs/TextInput';
 import { UAParser } from 'ua-parser-js';
 import { KTIcon } from '@metronic/helpers';
 import { T } from '@app/modules/common/components/ui/tokens';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const SectionHeading = ({ icon, label }: { icon: string; label: string }) => (
     <div className="d-flex align-items-center gap-2 mb-4">
@@ -292,6 +294,10 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
     }, []);
 
     const selectStyles = useMemo(() => ({
+        // Portal z-index for all five selects on this form. Their menus are portalled to
+        // <body> (see FLOATING_MENU_BEHAVIOUR on each) so they escape the dialog's
+        // overflow clipping; without this they would paint behind it.
+        ...MENU_PORTAL_STYLE,
         control: (provided: any, state: any) => ({
             ...provided,
             borderRadius: '8px',
@@ -447,7 +453,7 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                                 className="btn btn-sm fw-semibold flex-fill d-flex align-items-center justify-content-center gap-1.5"
                                                 style={toggleBtnStyle(values.isOnline === opt.value)}
                                             >
-                                                {values.isOnline === opt.value && <i className="bi bi-check-circle-fill" style={{ fontSize: 12 }} />}
+                                                {values.isOnline === opt.value && <AppIcon name="bi-check-circle-fill" className="fs-7" />}
                                                 {opt.label}
                                             </button>
                                         ))}
@@ -490,6 +496,7 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                                 setFieldValue('internalParticipants', []);
                                                 setFieldValue('externalParticipants', []);
                                             }}
+                                            {...FLOATING_MENU_BEHAVIOUR}
                                             styles={selectStyles}
                                             isClearable
                                             isLoading={loadingData}
@@ -509,6 +516,7 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                                 setFieldValue('internalParticipants', []);
                                                 setFieldValue('externalParticipants', []);
                                             }}
+                                            {...FLOATING_MENU_BEHAVIOUR}
                                             styles={selectStyles}
                                             isClearable
                                             isDisabled={!values.fileLocationCompanyType}
@@ -558,6 +566,7 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                                     setTeamLoading(false);
                                                 }
                                             }}
+                                            {...FLOATING_MENU_BEHAVIOUR}
                                             styles={selectStyles}
                                             isClearable
                                             placeholder="Select project"
@@ -583,6 +592,7 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                         onChange={(selected: any) =>
                                             setFieldValue('internalParticipants', selected?.map((s: any) => s.value) || [])
                                         }
+                                        {...FLOATING_MENU_BEHAVIOUR}
                                         styles={selectStyles}
                                         isLoading={teamLoading}
                                         formatOptionLabel={renderParticipantOption}
@@ -611,6 +621,7 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                         onChange={(selected: any) =>
                                             setFieldValue('externalParticipants', selected?.map((s: any) => s.value) || [])
                                         }
+                                        {...FLOATING_MENU_BEHAVIOUR}
                                         styles={selectStyles}
                                         isLoading={teamLoading}
                                         formatOptionLabel={renderParticipantOption}
@@ -704,7 +715,7 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                                         </>
                                     ) : (
                                         <>
-                                            <i className="bi bi-check2" style={{ fontSize: 14 }} />
+                                            <AppIcon name="bi-check2" className="fs-6" />
                                             Submit
                                         </>
                                     )}
