@@ -8,6 +8,7 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import { saveAs } from 'file-saver';
+import { DRILLDOWN_Z_INDEX } from '@app/modules/common/components/DrillDownDialog';
 
 // ─── Column definition ─────────────────────────────────────────────────────────
 
@@ -68,6 +69,14 @@ export interface ExportButtonProps<T = any> {
     /** Extra sx applied to the outer ButtonGroup */
     sx?: object;
 }
+
+/**
+ * Column-visibility map supplied by the surrounding table (accessorKey → visible).
+ * Any ExportButton rendered inside a table drops the columns the user toggled off,
+ * so the file matches what is on screen. A key the map does not mention stays in —
+ * export columns that have no table counterpart must not silently vanish.
+ */
+export const ExportVisibilityContext = React.createContext<Record<string, boolean> | null>(null);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -368,6 +377,12 @@ function ExportButton<T = any>({
      * A function anchor is re-evaluated every time the popover positions itself, so it always
      * reads the node that is on screen right now.
      */
+    const visibility = React.useContext(ExportVisibilityContext);
+    const exportCols = React.useMemo(
+        () => (visibility ? columns.filter(c => visibility[c.key] !== false) : columns),
+        [columns, visibility],
+    );
+
     const groupRef = useRef<HTMLDivElement>(null);
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState<'xlsx' | 'csv' | null>(null);
@@ -388,9 +403,9 @@ function ExportButton<T = any>({
         setLoading(type);
         try {
             if (type === 'xlsx') {
-                await exportXlsx(data, columns, filename, title, subtitle, sheetName, showTotals, totalLabel);
+                await exportXlsx(data, exportCols, filename, title, subtitle, sheetName, showTotals, totalLabel);
             } else {
-                exportCsv(data, columns, filename, title, showTotals, totalLabel);
+                exportCsv(data, exportCols, filename, title, showTotals, totalLabel);
             }
         } finally {
             setLoading(null);
@@ -455,6 +470,14 @@ function ExportButton<T = any>({
                 anchorEl={() => groupRef.current as HTMLElement}
                 open={open && !!groupRef.current}
                 onClose={handleClose}
+                /**
+                 * A Menu is a portal at the theme's modal layer (1300). Inside a chart
+                 * drill-down — which pins its Dialog at DRILLDOWN_Z_INDEX so it can clear
+                 * a fullscreen chart — that puts the menu BEHIND the dialog: the button
+                 * "does nothing" because the format list is painted underneath. Sit above
+                 * the highest surface this button can be rendered on.
+                 */
+                sx={{ zIndex: DRILLDOWN_Z_INDEX + 100 }}
                 slotProps={{
                     paper: {
                         elevation: 3,
