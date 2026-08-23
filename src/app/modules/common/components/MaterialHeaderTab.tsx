@@ -134,13 +134,19 @@ const tabsSx: SxProps<Theme> = {
              * screen, while quietly dimming the solid strokes to .72. So half of
              * every glyph was under 3:1 and the other half had been dulled.
              * Stock .3 is tuned for dark ink on a white page; on this bar it
-             * measures 1.9:1. .62 puts the backdrop at 3.4:1 against the BRIGHTEST
-             * end of the gradient — clearing WCAG 1.4.11's 3:1 floor for a graphical
-             * object right where the bar fights it hardest — while staying far
-             * enough below the solid strokes for the two tones to still read as two.
+             * measures 1.9:1 — under WCAG 1.4.11's 3:1 floor for a graphical object.
              * `.path1` is the only layer the duotone sheet fades (verified across
-             * all 357 icons), so nothing else needs touching. */
-            '& .path1:before': { opacity: 0.62 },
+             * all 357 icons), so nothing else needs touching.
+             *
+             * .72 measures 4.2:1 against the BRIGHTEST end of the gradient, where the
+             * bar fights the glyph hardest, and makes it read as ONE white object
+             * with an internal tonal step rather than a white mark floating on a blue
+             * one — the "white tone" the bar was asked for. It is also close to the
+             * ceiling:
+             * the detail strokes are the same white, so past ~.85 they stop
+             * separating from the backdrop and the glyph collapses into a
+             * silhouette. Two tones is what makes a duotone a shape. */
+            '& .path1:before': { opacity: 0.72 },
             // Bootstrap fallback: AppIcon renders a plain `.bi` for any name missing
             // from iconMap, and that one sizes by font-size, not by an `fs-*` class.
             '& .bi': { fontSize: '19px', lineHeight: 1 },
@@ -161,8 +167,8 @@ const tabsSx: SxProps<Theme> = {
         '&.Mui-selected .mht-label': { textDecorationColor: '#ffffff' },
         // Selected/hover: the backdrop layer comes up further still, so the active
         // tab's icon reads as the most solid glyph in the row.
-        '&.Mui-selected .mht-icon .path1:before': { opacity: 0.8 },
-        '&:hover .mht-icon .path1:before': { opacity: 0.8 },
+        '&.Mui-selected .mht-icon .path1:before': { opacity: 0.85 },
+        '&:hover .mht-icon .path1:before': { opacity: 0.85 },
         // Subtle feedback when hovering a non-selected tab.
         '&:hover': { color: '#ffffff', backgroundColor: 'rgba(255, 255, 255, 0.12)' },
         // Hovering the selected tab keeps it as-is (no light pill fill).
