@@ -32,6 +32,7 @@ if git rev-parse --verify -q origin/main >/dev/null; then
   files=$(git diff --name-only --diff-filter=ACMR origin/main...HEAD -- '*.ts' '*.tsx' | grep -v '^src/_metronic/' || true)
   if [ -n "$files" ]; then
     echo "pre-push: eslint on branch-changed files..."
-    echo "$files" | xargs pnpm exec eslint --quiet
+    # -n 50: batch so a large-diff branch doesn't blow Windows' 8191-char command limit.
+    echo "$files" | xargs -n 50 pnpm exec eslint --quiet
   fi
 fi
