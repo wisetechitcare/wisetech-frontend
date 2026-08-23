@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import { KTIcon } from '@metronic/helpers';
 import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
-import { formatDate, formatTime } from '@utils/dateFormats';
+import { formatDate, formatDateRange, formatTime } from '@utils/dateFormats';
 import EmployeeIdentityCell from '@app/modules/common/components/EmployeeIdentityCell';
 import { getApprovalDomain } from './domains/registry';
 import type { ApprovalStep } from './domains/types';
@@ -96,8 +96,23 @@ const workedSpan = (from?: string | null, to?: string | null): string | null => 
 
 const range = (from?: string | null, to?: string | null): string | null => {
     if (!from) return null;
-    if (!to || dayjs(from).isSame(dayjs(to), 'day')) return formatDate(from);
-    return `${formatDate(from)} - ${formatDate(to)}`;
+    const start = dayjs(from);
+    if (!start.isValid()) return null;
+    const end = to && dayjs(to).isValid() ? dayjs(to) : start;
+    // `20 Jul, 2026` / `29 - 30 Jul, 2026`.
+    return formatDateRange(start, end, true);
+};
+
+/**
+ * `subType` is not something the employee typed — the backend derives it from which punches the
+ * request carries (checkIn only / checkOut only / both). "Regularization" is the word the HR
+ * system uses for that; it is not a word most people know, and the approver reading the card is
+ * being asked to decide on it. These say what is actually being asked for.
+ */
+const ATTENDANCE_TITLES: Record<string, string> = {
+    'Check-In': 'Check-in Correction',
+    'Check-Out': 'Check-out Correction',
+    Regularization: 'Attendance Correction',
 };
 
 /**
@@ -130,9 +145,10 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         const worked = workedSpan(d.checkIn, d.checkOut);
 
         const facts = [
-            day ? formatDate(day) : null,
-            inAt && outAt ? `${inAt} → ${outAt}` : inAt ? `In ${inAt}` : outAt ? `Out ${outAt}` : null,
-            worked,
+            day ? range(day) : null,
+            inAt ? `In ${inAt}` : null,
+            outAt ? `Out ${outAt}` : null,
+            worked ? `${worked} total` : null,
         ].filter(Boolean) as string[];
 
         const rows = [
@@ -142,7 +158,11 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
             worked ? { label: 'Hours', value: worked } : null,
         ].filter(Boolean) as ItemSummary['rows'];
 
-        return { title: d.subType || 'Attendance change', facts, rows, note: d.reason || d.description };
+        const subType = d.subType as string | undefined;
+        return {
+            title: (subType && ATTENDANCE_TITLES[subType]) || subType || 'Attendance Correction',
+            facts, rows, note: d.reason || d.description,
+        };
     }
 
     if (type === 'reimbursement') {
@@ -182,7 +202,7 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
             if (d.approvedCount > 0) ownChips.push({ label: `${d.approvedCount} approved`, tone: 'success' });
             if (rejectedChip) ownChips.push(rejectedChip);
             return {
-                title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense claim',
+                title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense Claim',
                 facts: [`${d.totalRequests ?? 0} expense${(d.totalRequests ?? 0) === 1 ? '' : 's'}`],
                 chips: ownChips,
                 value: d.totalAmount != null ? money(d.totalAmount) : null,
@@ -211,7 +231,7 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
             }
             return {
                 waits,
-                title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense claim',
+                title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense Claim',
                 facts: [
                     `${withOthersCount} of ${d.totalRequests ?? withOthersCount} expense${(d.totalRequests ?? withOthersCount) === 1 ? '' : 's'}`,
                     money((d.inProgressAmount ?? 0) + (d.queriedAmount ?? 0)),
@@ -283,7 +303,7 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         }
 
         return {
-            title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense claim',
+            title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense Claim',
             facts: facts.filter(Boolean),
             chips,
             statusFlow,
@@ -455,6 +475,22 @@ export default function InboxItemCard({
                                 </Typography>
                             )}
                         </Box>
+
+                        {/* Why they asked. `summarise` has always returned this — the employee's own
+                            remarks on an attendance fix, the reason on a leave — and only the full
+                            card rendered it, so on the board you were asked to approve or reject
+                            without being told what it was for. Two lines, clamped: enough to decide
+                            or to know you need to open it. */}
+                        {summary.note && (
+                            <Typography sx={{
+                                fontSize: '11px', color: 'text.secondary', lineHeight: 1.45, mb: 1,
+                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                            }}>
+                                <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>Reason: </Box>
+                                {summary.note}
+                            </Typography>
+                        )}
 
                         {/* Status chips. Was chips[0] only, which dropped the rejected count off a
                             mixed batch — the one line an approver most needs to see is gone. */}

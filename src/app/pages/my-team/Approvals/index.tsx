@@ -62,13 +62,13 @@ type Segment = 'mine' | 'awaiting' | 'done';
 const SEGMENTS: Array<{ key: Segment; label: string; hint: string; blank: string }> = [
     {
         key: 'mine',
-        label: 'Waiting for you',
+        label: 'Waiting for You',
         hint: 'Yours to deal with — requests to approve or reject, and questions asked about your own expenses.',
         blank: 'Nothing is waiting for you.',
     },
     {
         key: 'awaiting',
-        label: 'With someone else',
+        label: 'With Someone Else',
         hint: 'Nothing for you to do yet — requests you sent in, and ones you have already passed on.',
         blank: 'Nothing is with anyone else right now.',
     },
@@ -91,10 +91,10 @@ const MY_TASK_TYPES = new Set(['QUERY_RECEIVED', 'REJECTION_RECEIVED', 'ACTION_R
 const AWAITING_TASK_TYPES = new Set<string>([]);
 
 const TASK_STYLE: Record<string, { tone: SemanticTone; icon: string; cta: string; label: string; doneLabel: string }> = {
-    QUERY_RECEIVED: { tone: 'warning', icon: 'message-text-2', cta: 'Answer', label: 'Question for you', doneLabel: 'You answered' },
-    REJECTION_RECEIVED: { tone: 'danger', icon: 'cross-circle', cta: 'Mark as seen', label: 'Expense rejected', doneLabel: 'You have seen this' },
-    ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open', label: 'Needs your attention', doneLabel: 'Sorted' },
-    QUERY_RESPONSE_RECEIVED: { tone: 'cyan', icon: 'message-text-2', cta: 'Review', label: 'They answered you', doneLabel: 'You reviewed it' },
+    QUERY_RECEIVED: { tone: 'warning', icon: 'message-text-2', cta: 'Answer', label: 'Question for You', doneLabel: 'You Answered' },
+    REJECTION_RECEIVED: { tone: 'danger', icon: 'cross-circle', cta: 'Mark as Seen', label: 'Expense Rejected', doneLabel: 'You Have Seen This' },
+    ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open', label: 'Needs Your Attention', doneLabel: 'Sorted' },
+    QUERY_RESPONSE_RECEIVED: { tone: 'cyan', icon: 'message-text-2', cta: 'Review', label: 'They Answered You', doneLabel: 'You Reviewed It' },
 };
 
 export default function Approvals() {

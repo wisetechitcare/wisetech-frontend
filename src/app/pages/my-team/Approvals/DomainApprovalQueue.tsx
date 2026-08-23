@@ -842,7 +842,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           // says PARTIALLY_PROCESSED outright.
           const processing = (step.requestDetails as any)?.processingStatus as string | undefined;
           if (processing === 'PARTIALLY_PROCESSED') {
-            return <ToneChip dense tone='indigo' label='Partially processed' />;
+            return <ToneChip dense tone='indigo' label='Partially Processed' />;
           }
           const isApproved = processing ? processing === 'APPROVED' : step.instance.status === 'approved';
           return (
@@ -933,7 +933,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
               <ToneChip
                 dense
                 tone='warning'
-                label='Info requested'
+                label='Info Requested'
                 title='You asked the employee a question. It stays here until they reply.'
                 sx={{ width: '100%', mt: 0.5 }}
               />
@@ -1013,8 +1013,8 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
   }
 
   const TABS: { key: TabKey; label: string }[] = [
-    { key: 'pending', label: 'Waiting for you' },
-    { key: 'awaiting', label: 'With someone else' },
+    { key: 'pending', label: 'Waiting for You' },
+    { key: 'awaiting', label: 'With Someone Else' },
     { key: 'completed', label: 'Finished' },
   ];
 
