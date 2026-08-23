@@ -27,18 +27,24 @@ interface MaterialTabProps {
     headerAction?: React.ReactNode;
 }
 
-// The sticky gradient bar. When a `headerAction` is present the bar becomes a
-// flex row (tabs left, action right); the gradient + sticky positioning live
-// here so the action sits ON the bar. When there's no action the tabs render
-// exactly as before (the CustomizedTabs still owns its own gradient — see below).
+// The bar's surface: the brand navy gradient with a soft top-to-bottom sheen over
+// it, a hairline highlight on the top edge and a shadow underneath — so the sticky
+// bar reads as a raised piece of chrome rather than a flat band of colour. Shared
+// by both render paths (HeaderBar owns it when a `headerAction` is present, the
+// tabs strip owns it otherwise) so the two can never drift apart.
+const BAR_SURFACE = {
+    background: `linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 46%, rgba(0,0,0,0.07) 100%), ${T.color.brandGradientLeftToRight}`,
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(255,255,255,0.07), 0 10px 24px -14px rgba(8,14,40,0.7)',
+} as const;
+
 const HeaderBar = styled('div')({
     position: 'sticky',
     top: '0px',
     zIndex: 50,
     display: 'flex',
     alignItems: 'center',
-    background: T.color.brandGradientLeftToRight,
-    minHeight: '44px',
+    ...BAR_SURFACE,
+    minHeight: '48px',
     "@media (min-width: 480px)": { top: '74px' },
     "@media (max-width: 1024px)": { top: '0px' },
 });
@@ -56,51 +62,57 @@ const CustomizedTabs = styled(Tabs)({
     position: 'sticky',
     top: '0px',
     zIndex: 1000,
-    // Brand gradient (left → right) from the design tokens — bright blue
-    // on the left flowing to deep navy on the right.
-    background: T.color.brandGradientLeftToRight,
+    ...BAR_SURFACE,
     // Slim bar with a little breathing room so the selected pill sits centred
-    // (MUI Tabs default to a tall 48px).
-    minHeight: '44px',
+    // (MUI Tabs default to a tall 48px of pure text).
+    minHeight: '48px',
+    padding: '0 6px',
     scrollbarWidth: "none",
     msOverflowStyle: "none",
     "&::-webkit-scrollbar": {
         display: "none",
     },
     // When nested inside HeaderBar (headerAction present) the bar owns the
-    // gradient + sticky, so the tabs go transparent and flex to fill the row.
+    // surface + sticky, so the tabs go transparent and flex to fill the row.
     "&.mht-tabs--in-bar": {
         background: 'transparent',
+        boxShadow: 'none',
         position: 'static',
         flex: 1,
         minWidth: 0,
-        minHeight: '44px',
+        minHeight: '48px',
+    },
+    // The scroll arrows sit ON the navy bar and inherit dark ink, which made them
+    // invisible against it. Paint them white, and fade rather than hide the
+    // disabled one so the affordance stays where the eye last saw it.
+    '& .MuiTabs-scrollButtons': {
+        color: 'rgba(255, 255, 255, 0.85)',
+        width: '28px',
+        '&.Mui-disabled': { opacity: 0.22 },
     },
     // Vertically centre the tabs so the selected pill has even top/bottom gaps.
     '& .MuiTabs-flexContainer': {
         alignItems: 'center',
-        minHeight: '44px',
+        minHeight: '48px',
+        gap: '2px',
     },
     '& .MuiTabs-indicator': {
-        // The selected tab is highlighted with a filled "pill" (below),
+        // The selected tab is highlighted with a raised glass "pill" (below),
         // mirroring the aside menu's active item — so the bottom underline
         // indicator is not needed (it was invisible anyway: same #1E3A8A
         // colour as the bar background).
         display: 'none',
     },
     '& .MuiTab-root': {
-        paddingTop: '3px',
-        paddingBottom: '3px',
-        paddingLeft: '16px',
-        paddingRight: '16px',
+        padding: '4px 14px',
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: '32px',
-        margin: '0 3px',
-        borderRadius: '8px',
-        transition: 'background-color .15s ease, color .15s ease',
+        minHeight: '34px',
+        borderRadius: '10px',
+        border: '1px solid transparent',
+        transition: 'background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease',
         '& svg': {
             fontSize: '18px',
             marginRight: '9px',
@@ -111,15 +123,21 @@ const CustomizedTabs = styled(Tabs)({
             marginTop: 0,
             marginBottom: 0,
         },
+        // Keyboard users get a ring — ripples are disabled on these tabs, so
+        // without this there is no visible focus state at all.
+        '&.Mui-focusVisible': {
+            outline: '2px solid rgba(255, 255, 255, 0.8)',
+            outlineOffset: '1px',
+        },
+        '@media (max-width: 600px)': { padding: '4px 10px' },
     },
     '& .MuiTab-textColorPrimary': {
         textTransform: 'none',
         fontWeight: '600',
-        // Inactive: muted white on the dark-blue bar. 0.7 reads fine for a 13px text
-        // label but leaves a thin-stroke glyph looking washed out, so the icon gets a
-        // little more than the label (below).
-        color: 'rgba(255, 255, 255, 0.78)',
+        // Inactive: muted white on the dark-blue bar.
+        color: 'rgba(255, 255, 255, 0.8)',
         fontSize: '13px',
+        letterSpacing: '0.01em',
         /* The icon is a KTIcon <i> inside `.mht-icon` — NOT an <svg> and NOT a `.bi`.
          * The two rules written for those shapes never matched anything this component
          * renders, which is why the icons had no size, no spacing and no emphasis of
@@ -131,17 +149,18 @@ const CustomizedTabs = styled(Tabs)({
             justifyContent: 'center',
             lineHeight: 1,
             flexShrink: 0,
-            marginRight: '10px',
+            marginRight: '9px',
             // A glyph carries far less ink than a word, so matching the label's alpha
             // makes it read as fainter. It gets a little more at every state.
-            color: 'rgba(255, 255, 255, 0.92)',
-            /* Duotone icons draw their secondary shapes at opacity 0.3. That is tuned for
-             * dark ink on a white page; on this saturated blue bar it lands around 0.28
-             * effective white, so half of every glyph disappears and the icon reads as a
-             * broken fragment rather than a shape. Lifted for THIS bar only — 0.3 is still
-             * right everywhere the icon sits on a light surface, so this is not changed
-             * globally. `[class*="path"]` covers path1…path6; the split differs per icon. */
-            '& [class*="path"]': { opacity: 0.72 },
+            color: 'rgba(255, 255, 255, 0.95)',
+            /* THE reason these icons looked broken. A duotone keenicon draws its backdrop
+             * layer with `opacity: .3` on `.path1:BEFORE` — the pseudo-element, not the
+             * span. Overriding the span (`[class*="path"]`) could never lift it, because
+             * the two opacities multiply: .72 on the span still landed at ~.22 on screen,
+             * while quietly dimming the solid layers to .72. Half of every glyph was
+             * effectively invisible on this saturated navy. Target the pseudo-element,
+             * and only `.path1` — it is the only layer the duotone sheet fades. */
+            '& .path1:before': { opacity: 0.5 },
         },
         // Underline lives on the text label ONLY (.mht-label wraps just the
         // title text — never the icon). Always underlined but transparent, so
@@ -154,33 +173,41 @@ const CustomizedTabs = styled(Tabs)({
             textUnderlineOffset: '5px',
             transition: 'text-decoration-color 0.25s ease',
         },
-        // Selected: white text + white underline under the text only.
+        // Selected: a raised frosted-glass pill — lit top edge, translucent white
+        // fill, soft drop shadow — so the active tab looks pressed out of the bar
+        // instead of merely being brighter text.
         '&.Mui-selected': {
             color: '#ffffff',
             fontWeight: '700',
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.12) 100%)',
+            borderColor: 'rgba(255, 255, 255, 0.28)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.38), 0 2px 8px rgba(6,12,35,0.3)',
+            backdropFilter: 'blur(6px)',
         },
         '&.Mui-selected .mht-label': {
-            textDecorationColor: '#ffffff',
+            textDecorationColor: 'rgba(255, 255, 255, 0.92)',
         },
-        // Selected/hover: full white AND the duotone secondary shapes come almost all the
+        // Selected/hover: full white AND the backdrop layer comes almost all the
         // way up, so the active tab's icon reads as one solid glyph.
         '&.Mui-selected .mht-icon': {
             color: '#ffffff',
-            '& [class*="path"]': { opacity: 0.88 },
+            '& .path1:before': { opacity: 0.85 },
         },
         '&:hover .mht-icon': {
             color: '#ffffff',
-            '& [class*="path"]': { opacity: 0.88 },
+            '& .path1:before': { opacity: 0.7 },
         },
         // Subtle feedback when hovering a non-selected tab.
         '&:hover': {
             color: '#ffffff',
-            backgroundColor: 'rgba(255, 255, 255, 0.12)',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderColor: 'rgba(255, 255, 255, 0.14)',
         },
-        // Hovering the selected tab keeps it as-is (no light pill fill).
+        // Hovering the selected tab lifts the pill a touch rather than swapping it.
         '&.Mui-selected:hover': {
             color: '#ffffff',
-            backgroundColor: 'transparent',
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.16) 100%)',
+            borderColor: 'rgba(255, 255, 255, 0.34)',
         },
     },
     "@media (min-width: 480px)": {
