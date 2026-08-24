@@ -22,6 +22,7 @@ import {
   RADIUS,
   KEYFRAMES,
 } from '@app/modules/configuration';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface weekends {
     id: string,
@@ -161,7 +162,7 @@ function WeekendsAndWorkingDays() {
                         onMouseEnter={(e) => e.currentTarget.style.color = C.primaryMid}
                         onMouseLeave={(e) => e.currentTarget.style.color = C.primary}
                     >
-                        <i className="bi bi-pencil" style={{ fontSize: '16px' }} />
+                        <AppIcon name="bi-pencil" className="fs-4" />
                     </button>
                 ),
             });

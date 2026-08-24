@@ -5,6 +5,7 @@ import Chart from "react-apexcharts";
 import { Col, Card, Form } from "react-bootstrap";
 import ProjectConfigForm from "../configure/components/ProjectConfigForm";
 import { ProjectItem } from "@models/clientProject";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 type PieChartDataItem = {
   label: string;
@@ -500,7 +501,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 }}
               >
                 <div>
-                  <i className="bi bi-bar-chart" style={{ fontSize: "32px", color: "#9CAFC9" }}></i>
+                  <AppIcon name="bi-bar-chart" className="fs-2hx" color="#9CAFC9" />
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>

@@ -14,16 +14,25 @@ import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextAreaInput from "@app/modules/common/inputs/TextAreaInput";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import MultiSelectWithInlineCreate from "@app/modules/common/components/MultiSelectWithInlineCreate";
-import FormikDropdownInput from "@app/modules/common/inputs/FormikDropdownInput";
 import PrefixInlineEdit from "@app/modules/common/components/PrefixInlineEdit";
 import { CommercialsGrid } from "../shared/CommercialsGrid";
 import { PaymentStageSelector } from "./PaymentStageSelector";
 import { MeetingScheduleSelector } from "./MeetingScheduleSelector";
 import { SectionWrapper } from "./SectionWrapper";
-import { WtSwitch, TRIO } from "@app/modules/common/components/ui";
+import { WtSwitch, TRIO, AppIcon } from "@app/modules/common/components/ui";
 import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 
 interface LeadSectionsProps {
+  // ── Organization (drives the lead's prefix and inquiry-number series) ──────
+  /** Organizations the user may file this lead under, as `{ value, label }`. */
+  organizationOptions?: { value: string; label: string }[];
+  /** Switch organizations; re-numbers the lead (confirming first if hand-edited). */
+  onOrganizationChange?: (organizationId: string, setFieldValue: Function) => void;
+  /** Why no inquiry number could be generated, if that happened. */
+  prefixError?: string | null;
+  /** Fired when the inquiry number is edited by hand. */
+  onPrefixManualEdit?: () => void;
+
   // dropdown arrays
   categories: any[];
   subcategories: any[];
@@ -1165,7 +1174,7 @@ const PoFileUpload: React.FC = () => {
           </>
         ) : url ? (
           <>
-            <i className={`bi ${icon}`} style={{ fontSize: 22, color, flexShrink: 0 }} />
+            <AppIcon name={icon} className="fs-1" style={{ color, flexShrink: 0 }} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#181c32", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {fileName}
@@ -1173,20 +1182,20 @@ const PoFileUpload: React.FC = () => {
               <div style={{ fontSize: 11, color: "#a1a5b7" }}>Uploaded</div>
             </div>
             <IconButton size="small" title="Preview" onClick={() => window.open(url, "_blank", "noopener,noreferrer")}>
-              <i className="bi bi-eye" style={{ fontSize: 15, color: "#5e6278" }} />
+              <AppIcon name="bi-eye" className="fs-5" color="#5e6278" />
             </IconButton>
             <IconButton size="small" title="Replace" disabled={!!busy} onClick={openPicker}>
-              <i className="bi bi-arrow-repeat" style={{ fontSize: 15, color: "#5e6278" }} />
+              <AppIcon name="bi-arrow-repeat" className="fs-5" color="#5e6278" />
             </IconButton>
             <IconButton size="small" title="Remove" disabled={!!busy} onClick={remove}>
               {busy === "remove"
                 ? <CircularProgress size={14} />
-                : <i className="bi bi-trash" style={{ fontSize: 15, color: "#d13438" }} />}
+                : <AppIcon name="bi-trash" className="fs-5" color="#d13438" />}
             </IconButton>
           </>
         ) : (
           <>
-            <i className="bi bi-cloud-arrow-up" style={{ fontSize: 20, color: "#7e8299", flexShrink: 0 }} />
+            <AppIcon name="bi-cloud-arrow-up" className="fs-2" color="#7e8299" style={{ flexShrink: 0 }} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#3f4254" }}>
                 Choose a file <span style={{ fontWeight: 400, color: "#a1a5b7" }}>or drop it here</span>
@@ -1565,6 +1574,22 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
         Lead Information
       </div>
       <Grid container spacing={3}>
+        {/* Organization — sits directly above the inquiry number because it is
+            what decides the number's prefix and series. */}
+        {!!props.organizationOptions?.length && (
+          <Grid item xs={12} md={4}>
+            <DropDownInput
+              formikField="organizationId"
+              inputLabel="Organization"
+              options={props.organizationOptions}
+              isRequired={true}
+              onChange={(option: any) =>
+                props.onOrganizationChange?.(option?.value || "", setFieldValue)
+              }
+            />
+          </Grid>
+        )}
+
         {/* Inquiry No + Revision No (read-only) + Date */}
         <Grid item xs={12} md={4}>
           <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
@@ -1585,10 +1610,18 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
             <PrefixInlineEdit
               value={props.prefix}
               label=""
-              onChange={props.setPrefix}
+              onChange={(next: string) => {
+                props.setPrefix(next);
+                props.onPrefixManualEdit?.();
+              }}
               disabled={false}
             />
           </Box>
+          {props.prefixError && (
+            <Typography sx={{ mt: 0.6, fontSize: "12px", color: "#B42318" }}>
+              {props.prefixError}
+            </Typography>
+          )}
         </Grid>
         <Grid item xs={12} md={4}>
           <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>

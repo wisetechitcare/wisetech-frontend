@@ -28,6 +28,7 @@ import TeamsSection from './detail/sections/TeamsSection';
 import BillingSection from './detail/sections/BillingSection';
 import MeetingsList from '@app/modules/common/components/MeetingsList';
 import ProjectStatusControl from './detail/ProjectStatusControl';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * Unified Entity detail page. ONE entity, ONE page. The Lead is the master; the
@@ -227,7 +228,7 @@ const EntityDetailPage: React.FC = () => {
                     <>
                       <span style={{ color: '#CBD5E1' }}>•</span>
                       <span className="d-inline-flex align-items-center gap-1" style={{ color: '#F59E0B' }}>
-                        <i className="bi bi-star-fill" style={{ fontSize: '11px', marginTop: '-1px' }} /> {lead.priority}
+                        <AppIcon name="bi-star-fill" className="fs-8" style={{ marginTop: '-1px' }} /> {lead.priority}
                       </span>
                     </>
                   )}
@@ -285,7 +286,7 @@ const EntityDetailPage: React.FC = () => {
                     onClick={openEdit}
                     style={{ backgroundColor: '#1E3A8A', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
                   >
-                    <i className="bi bi-pencil-fill" style={{ fontSize: '12px' }} /> Edit
+                    <AppIcon name="bi-pencil-fill" className="fs-7" /> Edit
                   </button>
 
                   <button
@@ -294,7 +295,7 @@ const EntityDetailPage: React.FC = () => {
                     onClick={() => setShowProposalModal(true)}
                     style={{ backgroundColor: '#7239ea', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
                   >
-                    <i className="bi bi-file-earmark-arrow-down-fill" style={{ fontSize: '13px' }} /> Export
+                    <AppIcon name="bi-file-earmark-arrow-down-fill" className="fs-7" /> Export
                   </button>
                 </>
               )}

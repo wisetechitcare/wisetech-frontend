@@ -1,6 +1,7 @@
 import React from 'react';
 import { FormControl, InputLabel, MenuItem, Select, alpha } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * ToolbarFilterSelect — the app's standard toolbar filter control.
@@ -60,7 +61,7 @@ export interface ToolbarFilterSelectProps {
 
 const FieldIcon = ({ icon, color }: { icon: string; color: string }) =>
     icon.startsWith('bi-')
-        ? <i className={`bi ${icon}`} style={{ fontSize: 14, color, lineHeight: 1 }} />
+        ? <AppIcon name={icon} className="fs-6" style={{ color, lineHeight: 1 }} />
         : <KTIcon iconName={icon} className="fs-6" />;
 
 export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({

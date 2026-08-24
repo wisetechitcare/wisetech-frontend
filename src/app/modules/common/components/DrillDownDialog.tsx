@@ -27,7 +27,7 @@ export interface DrillDownDialogProps {
  *
  * Kept below the app's toast/avatar layer (9999+) so feedback still wins.
  */
-const DRILLDOWN_Z_INDEX = 2100;
+export const DRILLDOWN_Z_INDEX = 2100;
 
 /**
  * Shared shell for chart drill-down modals.

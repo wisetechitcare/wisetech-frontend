@@ -6,7 +6,7 @@ import {
     Table, TableHead, TableBody, TableRow, TableCell, TextField, MenuItem, DialogContent, DialogActions,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
-import { ListHeader, GlassDialog, GlassHeader, WtButton, ToneChip, toast } from "@app/modules/common/components/ui";
+import { ListHeader, GlassDialog, GlassHeader, WtButton, ToneChip, toast, AppIcon } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { getRequisitions, type JobRequisition } from "@services/recruitment";
 import {
@@ -161,8 +161,8 @@ const PipelineView = () => {
                             size="small" exclusive value={mode} onChange={(_e, v) => v && setMode(v)}
                             sx={{ "& .MuiToggleButton-root": { textTransform: "none", px: 1.25 } }}
                         >
-                            <ToggleButton value="board"><i className="bi bi-kanban" />&nbsp;Board</ToggleButton>
-                            <ToggleButton value="list"><i className="bi bi-list-ul" />&nbsp;List</ToggleButton>
+                            <ToggleButton value="board"><AppIcon name="bi-kanban" />&nbsp;Board</ToggleButton>
+                            <ToggleButton value="list"><AppIcon name="bi-list-ul" />&nbsp;List</ToggleButton>
                         </ToggleButtonGroup>
                         <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setCreateOpen(true)}>
                             New application

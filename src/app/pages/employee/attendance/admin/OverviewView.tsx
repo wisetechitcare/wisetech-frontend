@@ -46,9 +46,6 @@ const PeriodAttendanceSummary = lazy(
 const OpenAttendanceRequests = lazy(
   () => import("./views/overview/OpenAttendanceRequests"),
 );
-const AttendanceSyncConflicts = lazy(
-  () => import("./views/overview/AttendanceSyncConflicts"),
-);
 const AllLeaveRequest = lazy(() => import("./views/overview/AllLeaveRequest"));
 const LeaveManagementRequests = lazy(
   () => import("./views/overview/LeaveManagementRequests"),
@@ -392,12 +389,6 @@ function OverviewView() {
       <LazySection minHeight="400px" rootMargin="300px">
         <Suspense fallback={<Loader />}>
           <LeaveManagementRequests />
-        </Suspense>
-      </LazySection>
-
-      <LazySection minHeight="200px" rootMargin="300px">
-        <Suspense fallback={<Loader />}>
-          <AttendanceSyncConflicts />
         </Suspense>
       </LazySection>
 

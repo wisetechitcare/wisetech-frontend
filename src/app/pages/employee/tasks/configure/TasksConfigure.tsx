@@ -13,7 +13,7 @@
 //   deleteStakeholderService,
 // } from "@services/projects";
 
-import { ActionIconButton } from '@app/modules/common/components/ui';
+import { ActionIconButton, AppIcon } from '@app/modules/common/components/ui';
 import {
   getAllTasksStatus,
   createTasksStatus,
@@ -467,7 +467,7 @@ const TasksConfigure = () => {
                 ))}
                 {projectCategories.length === 0 && (
                   <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted, fontFamily: FONT.body }}>
-                    <i className="bi bi-inbox" style={{ fontSize: '24px', display: 'block', marginBottom: SP.sm, opacity: 0.4 }} />
+                    <AppIcon name="bi-inbox" className="fs-1" style={{ display: 'block', marginBottom: SP.sm, opacity: 0.4 }} />
                     No statuses configured yet
                   </div>
                 )}
@@ -503,7 +503,7 @@ const TasksConfigure = () => {
                 ))}
                 {projectSubcategories.length === 0 && (
                   <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted, fontFamily: FONT.body }}>
-                    <i className="bi bi-inbox" style={{ fontSize: '24px', display: 'block', marginBottom: SP.sm, opacity: 0.4 }} />
+                    <AppIcon name="bi-inbox" className="fs-1" style={{ display: 'block', marginBottom: SP.sm, opacity: 0.4 }} />
                     No priorities configured yet
                   </div>
                 )}

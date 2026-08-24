@@ -11,6 +11,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropdownInput from "@app/modules/common/inputs/DropdownInput";
 import { WtSwitch } from "@app/modules/common/components/ui";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // Interfaces matching the specific JSON structure
 interface IRuleTill {
@@ -449,7 +450,7 @@ function DeductionRules() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 3px 10px rgba(30, 58, 138,0.25)', flexShrink: 0,
           }}>
-            <i className="bi bi-dash-square-fill" style={{ fontSize: '15px', color: '#fff' }} />
+            <AppIcon name="bi-dash-square-fill" className="fs-5" color="#fff" />
           </div>
           <div>
             <h2 style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '16px', color: '#181C32', margin: 0, letterSpacing: '-0.2px' }}>
@@ -471,7 +472,7 @@ function DeductionRules() {
         {/* Card header */}
         <div className="sc-card-header" style={styles.cardHeader}>
           <div style={styles.cardHeaderLeft}>
-            <div style={styles.cardIcon}><i className="bi bi-bank"></i></div>
+            <div style={styles.cardIcon}><AppIcon name="bi-bank" /></div>
             <div>
               <h3 style={styles.cardTitle}>Professional Tax</h3>
               <p style={styles.cardSubtitle}>Monthly salary-based tax deductions per gender</p>
@@ -485,7 +486,7 @@ function DeductionRules() {
               onMouseOver={(e) => { e.currentTarget.style.borderColor = '#1E3A8A'; e.currentTarget.style.color = '#1E3A8A'; e.currentTarget.style.backgroundColor = '#EEF3FC'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(30, 58, 138,0.12)'; }}
               onMouseOut={(e)  => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(24,28,50,0.06)'; }}
             >
-              <i className="bi bi-pencil-square" style={{ fontSize: '13px' }}></i> Configure
+              <AppIcon name="bi-pencil-square" className="fs-7" /> Configure
             </button>
           )}
         </div>
@@ -507,7 +508,7 @@ function DeductionRules() {
                     fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 700,
                     letterSpacing: '0.5px', textTransform: 'uppercase' as const, flexShrink: 0,
                   }}>
-                    <i className="bi bi-gender-male" style={{ fontSize: '12px' }}></i> Male
+                    <AppIcon name="bi-gender-male" className="fs-7" /> Male
                   </span>
                   <div style={styles.genderLine}></div>
                   <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: '#A1A5B7', flexShrink: 0 }}>
@@ -568,7 +569,7 @@ function DeductionRules() {
                     fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 700,
                     letterSpacing: '0.5px', textTransform: 'uppercase' as const, flexShrink: 0,
                   }}>
-                    <i className="bi bi-gender-female" style={{ fontSize: '12px' }}></i> Female
+                    <AppIcon name="bi-gender-female" className="fs-7" /> Female
                   </span>
                   <div style={styles.genderLine}></div>
                   <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: '#A1A5B7', flexShrink: 0 }}>
@@ -616,7 +617,7 @@ function DeductionRules() {
               </div>
             </>
           ) : (
-            <div style={styles.noData}><i className="bi bi-info-circle me-2"></i>No Professional Tax rules configured</div>
+            <div style={styles.noData}><AppIcon name="bi-info-circle" className="me-2" />No Professional Tax rules configured</div>
           )}
         </div>
       </div>
@@ -630,7 +631,7 @@ function DeductionRules() {
         {/* Card header */}
         <div className="sc-card-header" style={{ ...styles.cardHeader, background: 'linear-gradient(135deg, #ffffff 0%, #f7fbff 100%)' }}>
           <div style={styles.cardHeaderLeft}>
-            <div style={styles.cardIconBlue}><i className="bi bi-shield-check"></i></div>
+            <div style={styles.cardIconBlue}><AppIcon name="bi-shield-check" /></div>
             <div>
               <h3 style={styles.cardTitle}>Employee Provident Fund (EPF)</h3>
               <p style={styles.cardSubtitle}>Percentage-based retirement savings deduction</p>
@@ -644,7 +645,7 @@ function DeductionRules() {
               onMouseOver={(e) => { e.currentTarget.style.borderColor = '#0085db'; e.currentTarget.style.color = '#0085db'; e.currentTarget.style.backgroundColor = '#e1f0fa'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(0,133,219,0.12)'; }}
               onMouseOut={(e)  => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(24,28,50,0.06)'; }}
             >
-              <i className="bi bi-pencil-square" style={{ fontSize: '13px' }}></i> Configure
+              <AppIcon name="bi-pencil-square" className="fs-7" /> Configure
             </button>
           )}
         </div>
@@ -684,14 +685,14 @@ function DeductionRules() {
                     borderRadius: '9px', padding: '6px 14px',
                     fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 700,
                   }}>
-                    <i className="bi bi-percent" style={{ fontSize: '12px' }}></i>
+                    <AppIcon name="bi-percent" className="fs-7" />
                     {providentFund.deduction}% of Basic
                   </span>
                 </div>
               </div>
             </div>
           ) : (
-            <div style={styles.noData}><i className="bi bi-info-circle me-2"></i>No EPF configured</div>
+            <div style={styles.noData}><AppIcon name="bi-info-circle" className="me-2" />No EPF configured</div>
           )}
         </div>
       </div>
@@ -727,7 +728,7 @@ function DeductionRules() {
                 cursor: 'pointer'
               }}
             >
-              <i className="bi bi-x"></i>
+              <AppIcon name="bi-x" />
             </button>
           </div>
 

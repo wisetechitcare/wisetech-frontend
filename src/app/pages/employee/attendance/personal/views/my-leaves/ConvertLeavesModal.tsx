@@ -12,6 +12,7 @@ import { successConfirmation } from '@utils/modal';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { ANNUAL_LEAVES, CASUAL_LEAVES, FLOATER_LEAVES, MATERNAL_LEAVES, SICK_LEAVES, LEAVE_MANAGEMENT_TYPE } from '@constants/statistics';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface EncashTransferLeavesModalProps {
     show: boolean;
@@ -814,7 +815,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                         marginBottom: '24px',
                     }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                            <i className="bi bi-info-circle" style={{ color: '#856404', fontSize: '16px', marginTop: '2px' }}></i>
+                            <AppIcon name="bi-info-circle" className="fs-4" color="#856404" style={{ marginTop: '2px' }} />
                             <div style={{ flex: 1 }}>
                                 <div style={{
                                     fontSize: '13px',

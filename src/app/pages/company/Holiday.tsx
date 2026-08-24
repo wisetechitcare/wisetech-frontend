@@ -23,10 +23,22 @@ const usersBreadcrumbs: Array<PageLink> = [
     },
 ];
 
+/**
+ * Defaults matter more here than they look.
+ *
+ * `isActive: false` meant a holiday HR had just deliberately added did nothing until
+ * someone noticed and switched it on — there is no reason to create an inactive holiday.
+ *
+ * `isFixed: false` hid the "Repeats On" section, which only renders for Fixed. So the
+ * recurrence rule was unreachable unless HR happened to toggle Fixed first, which is why
+ * 10 of 21 masters carry no rule and have to be dated by hand every single year.
+ * Defaulting to Fixed puts that field in front of them; a genuinely movable festival is
+ * one click to Floating.
+ */
 const initialValues: IHoliday = {
     name: "",
-    isFixed: false,
-    isActive: false,
+    isFixed: true,
+    isActive: true,
     colorCode: "",
     companyId: "",
     recurrenceMonth: null,
@@ -188,6 +200,16 @@ function Holiday({
                                         </button>
                                     ))}
                                 </div>
+                                {/* Say the cost out loud. Floating is the right answer for a
+                                    lunar festival, but it means somebody has to enter a date
+                                    every year — and forgetting is what leaves a month looking
+                                    like a working day when it should be a holiday. */}
+                                {!formik.values.isFixed && (
+                                    <p className="fs-8 mb-0 mt-2" style={{ color: '#92400e' }}>
+                                        Floating: someone must set this date by hand every year.
+                                        Choose Fixed if it falls on the same date annually.
+                                    </p>
+                                )}
                             </div>
 
                             <div className="col-6">

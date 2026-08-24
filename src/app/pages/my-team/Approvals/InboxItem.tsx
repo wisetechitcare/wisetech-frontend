@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import { KTIcon } from '@metronic/helpers';
 import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
-import { formatDate } from '@utils/dateFormats';
+import { formatDate, formatDateRange, formatTime } from '@utils/dateFormats';
 import EmployeeIdentityCell from '@app/modules/common/components/EmployeeIdentityCell';
 import { getApprovalDomain } from './domains/registry';
 import type { ApprovalStep } from './domains/types';
@@ -14,12 +14,40 @@ export interface Ageing {
     tone: SemanticTone;
 }
 
+export interface Outcome {
+    label: string;
+    tone: SemanticTone;
+    /** When this approver acted. Null if the backend never stamped the step. */
+    at: string | null;
+}
+
+/**
+ * What happened to a closed request.
+ *
+ * The Finished lane had been rendering the same chrome as the open lanes: an ageing clock, an
+ * urgency-tinted rail and a "Next: …" line. None of the three can be true there. `ageOf` measures
+ * time since SUBMISSION and only ever counts up, so a decided request kept ageing forever and
+ * every card older than four days took the danger colour — which is why the whole board read red
+ * while nothing on it needed attention. And a finished request has no next approver.
+ *
+ * The one thing the lane exists to tell you — approved or rejected — was the one thing missing.
+ * `instance.status` is the request's final outcome and has always been on the payload.
+ */
+export const outcomeOf = (step: ApprovalStep): Outcome => {
+    const at = step.actedAt ?? null;
+    switch ((step.instance.status || '').toLowerCase()) {
+        case 'approved': return { label: 'Approved', tone: 'success', at };
+        case 'rejected': return { label: 'Rejected', tone: 'danger', at };
+        default: return { label: 'Closed', tone: 'neutral', at };
+    }
+};
+
 export const ageOf = (since?: string | null): Ageing => {
     const days = since ? Math.max(0, dayjs().diff(dayjs(since), 'day')) : 0;
-    if (days >= 4) return { days, label: `${days}d waiting`, tone: 'danger' };
-    if (days >= 2) return { days, label: `${days}d waiting`, tone: 'warning' };
-    if (days >= 1) return { days, label: '1d waiting', tone: 'neutral' };
-    return { days, label: 'Today', tone: 'neutral' };
+    if (days >= 4) return { days, label: `Waiting ${days} days`, tone: 'danger' };
+    if (days >= 2) return { days, label: `Waiting ${days} days`, tone: 'warning' };
+    if (days >= 1) return { days, label: 'Waiting 1 day', tone: 'neutral' };
+    return { days, label: 'Came in today', tone: 'neutral' };
 };
 
 /**
@@ -46,21 +74,51 @@ export interface ItemSummary {
     statusFlow?: string | null;
     /** Every outstanding wait, one row each. Falls back to `step.waitingOn` when absent. */
     waits?: WaitOwner[];
+    /**
+     * The same facts, labelled, for the detail dialog. `facts` is a one-line summary for a card;
+     * in a modal the reader has room to be told WHICH date and WHICH time each value is, instead
+     * of decoding a dot-separated run of numbers.
+     */
+    rows?: Array<{ label: string; value: string }>;
 }
 
 const money = (v: unknown) =>
     `₹${Number(v ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+/** Worked span between two punches, `7h 14m`. Null unless both exist and run forwards. */
+const workedSpan = (from?: string | null, to?: string | null): string | null => {
+    if (!from || !to) return null;
+    const mins = dayjs(to).diff(dayjs(from), 'minute');
+    if (!Number.isFinite(mins) || mins <= 0) return null;
+    const [h, m] = [Math.floor(mins / 60), mins % 60];
+    return m ? `${h}h ${m}m` : `${h}h`;
+};
+
 const range = (from?: string | null, to?: string | null): string | null => {
     if (!from) return null;
-    if (!to || dayjs(from).isSame(dayjs(to), 'day')) return formatDate(from);
-    return `${formatDate(from)} - ${formatDate(to)}`;
+    const start = dayjs(from);
+    if (!start.isValid()) return null;
+    const end = to && dayjs(to).isValid() ? dayjs(to) : start;
+    // `20 Jul, 2026` / `29 - 30 Jul, 2026`.
+    return formatDateRange(start, end, true);
+};
+
+/**
+ * `subType` is not something the employee typed — the backend derives it from which punches the
+ * request carries (checkIn only / checkOut only / both). "Regularization" is the word the HR
+ * system uses for that; it is not a word most people know, and the approver reading the card is
+ * being asked to decide on it. These say what is actually being asked for.
+ */
+const ATTENDANCE_TITLES: Record<string, string> = {
+    'Check-In': 'Check-in Correction',
+    'Check-Out': 'Check-out Correction',
+    Regularization: 'Attendance Correction',
 };
 
 /**
  * `variant` is the TAB the card is sitting in. A part-decided batch appears in both: the lines
- * still in front of you under "Needs my action", the ones you have already approved under
- * "Waiting on others". Each card describes only its own slice, so the two never claim the same
+ * still in front of you under "Waiting for you", the ones you have already approved under
+ * "With someone else". Each card describes only its own slice, so the two never claim the same
  * expense twice.
  */
 export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'done' = 'mine'): ItemSummary => {
@@ -71,16 +129,40 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         const facts = [range(d.dateFrom, d.dateTo), d.totalDays ? `${d.totalDays} day${d.totalDays === 1 ? '' : 's'}` : null]
             .filter(Boolean) as string[];
         const chips: ItemSummary['chips'] = [];
-        if (d.isHalfDay) chips.push({ label: `Half day${d.halfDaySession ? ` . ${d.halfDaySession}` : ''}`, tone: 'cyan' });
-        if (d.unpaidDays) chips.push({ label: `${d.unpaidDays} unpaid`, tone: 'warning' });
-        if (d.segments?.length > 1) chips.push({ label: `${d.segments.length} segments`, tone: 'indigo' });
+        if (d.isHalfDay) chips.push({ label: `Half day${d.halfDaySession ? ` (${d.halfDaySession})` : ''}`, tone: 'cyan' });
+        if (d.unpaidDays) chips.push({ label: `${d.unpaidDays} unpaid day${d.unpaidDays === 1 ? '' : 's'}`, tone: 'warning' });
+        if (d.segments?.length > 1) chips.push({ label: `${d.segments.length} parts`, tone: 'indigo' });
         return { title: d.subType || 'Leave', facts, note: d.reason || d.description, chips };
     }
 
     if (type === 'attendance') {
-        const punches = [d.checkIn, d.checkOut].filter(Boolean).join(' -> ');
-        const facts = [range(d.dateFrom, d.dateTo), punches || null].filter(Boolean) as string[];
-        return { title: d.subType || 'Attendance correction', facts, note: d.reason || d.description };
+        // `checkIn`/`checkOut` are full ISO instants. Printed as-is they read
+        // "2026-08-18T06:31:00.000Z -> 2026-08-18T13:45:00.000Z" — the date twice over, in the
+        // wrong format, plus a zone suffix, for what is a punch pair on one day.
+        const day = d.dateFrom ?? d.checkIn ?? d.checkOut;
+        const inAt = d.checkIn ? formatTime(d.checkIn) : null;
+        const outAt = d.checkOut ? formatTime(d.checkOut) : null;
+        const worked = workedSpan(d.checkIn, d.checkOut);
+
+        const facts = [
+            day ? range(day) : null,
+            inAt ? `In ${inAt}` : null,
+            outAt ? `Out ${outAt}` : null,
+            worked ? `${worked} total` : null,
+        ].filter(Boolean) as string[];
+
+        const rows = [
+            day ? { label: 'Date', value: formatDate(day) } : null,
+            { label: 'Check-in', value: inAt ?? 'Not requested' },
+            { label: 'Check-out', value: outAt ?? 'Not requested' },
+            worked ? { label: 'Hours', value: worked } : null,
+        ].filter(Boolean) as ItemSummary['rows'];
+
+        const subType = d.subType as string | undefined;
+        return {
+            title: (subType && ATTENDANCE_TITLES[subType]) || subType || 'Attendance Correction',
+            facts, rows, note: d.reason || d.description,
+        };
     }
 
     if (type === 'reimbursement') {
@@ -112,15 +194,15 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
             const awaitingApproval = (d.pendingCount ?? 0);
             const ownChips: ItemSummary['chips'] = [];
             if (awaitingApproval > 0) {
-                ownChips.push({ label: `${awaitingApproval} awaiting approval`, tone: 'warning' });
+                ownChips.push({ label: `${awaitingApproval} waiting for approval`, tone: 'warning' });
             }
             if (d.queriedCount > 0) {
-                ownChips.push({ label: `${d.queriedCount} question open`, tone: 'cyan' });
+                ownChips.push({ label: `${d.queriedCount} question to answer`, tone: 'cyan' });
             }
             if (d.approvedCount > 0) ownChips.push({ label: `${d.approvedCount} approved`, tone: 'success' });
             if (rejectedChip) ownChips.push(rejectedChip);
             return {
-                title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense claim',
+                title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense Claim',
                 facts: [`${d.totalRequests ?? 0} expense${(d.totalRequests ?? 0) === 1 ? '' : 's'}`],
                 chips: ownChips,
                 value: d.totalAmount != null ? money(d.totalAmount) : null,
@@ -130,8 +212,8 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         const withOthersCount = inProgressCount + (d.queriedCount ?? 0);
         if (variant === 'awaiting' && withOthersCount > 0) {
             const withOthersChips: ItemSummary['chips'] = [];
-            if (inProgressCount > 0) withOthersChips.push({ label: `${inProgressCount} with next approver`, tone: 'neutral' });
-            if (d.queriedCount > 0) withOthersChips.push({ label: `${d.queriedCount} awaiting employee response`, tone: 'cyan' });
+            if (inProgressCount > 0) withOthersChips.push({ label: `${inProgressCount} with the next approver`, tone: 'neutral' });
+            if (d.queriedCount > 0) withOthersChips.push({ label: `${d.queriedCount} waiting for the employee to reply`, tone: 'cyan' });
             if (rejectedChip) withOthersChips.push(rejectedChip);
 
             // Both halves get named. `waitingOn` carries the next approver whenever ANY line is
@@ -141,7 +223,7 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
                 .filter(Boolean).join(' ').trim();
             const waits: WaitOwner[] = [];
             if (d.queriedCount > 0) {
-                waits.push({ reason: 'Query', who: employeeName || 'the employee', tone: 'cyan' });
+                waits.push({ reason: 'Question', who: employeeName || 'the employee', tone: 'cyan' });
             }
             if (inProgressCount > 0) {
                 const next = step.waitingOn?.role === 'APPROVER' ? step.waitingOn.name : null;
@@ -149,14 +231,14 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
             }
             return {
                 waits,
-                title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense claim',
+                title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense Claim',
                 facts: [
                     `${withOthersCount} of ${d.totalRequests ?? withOthersCount} expense${(d.totalRequests ?? withOthersCount) === 1 ? '' : 's'}`,
                     money((d.inProgressAmount ?? 0) + (d.queriedAmount ?? 0)),
                 ],
                 chips: withOthersChips,
                 statusFlow: inProgressCount > 0
-                    ? `✓ Approved by you • now with the next approver`
+                    ? `✓ You approved it • now with the next approver`
                     : `❓ Waiting for the employee to answer`,
                 value: money((d.inProgressAmount ?? 0) + (d.queriedAmount ?? 0)),
             };
@@ -164,26 +246,26 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
 
         // Determine primary status chips to show (most important first)
         if (hasResubmitted) {
-            chips.push({ label: `${d.resubmittedCount} item${d.resubmittedCount === 1 ? '' : 's'} awaiting re-review`, tone: 'indigo' });
+            chips.push({ label: `${d.resubmittedCount} item${d.resubmittedCount === 1 ? '' : 's'} to look at again`, tone: 'indigo' });
         }
 
         if (hasPending && !hasResubmitted) {
-            chips.push({ label: `${readyCount} item${readyCount === 1 ? '' : 's'} ready for approval`, tone: 'warning' });
+            chips.push({ label: `${readyCount} item${readyCount === 1 ? '' : 's'} for you to decide`, tone: 'warning' });
         } else if (hasPending && hasResubmitted) {
-            chips.push({ label: `${readyCount} item${readyCount === 1 ? '' : 's'} also pending`, tone: 'warning' });
+            chips.push({ label: `${readyCount} item${readyCount === 1 ? '' : 's'} also waiting`, tone: 'warning' });
         }
 
         // Queried, approved and rejected lines are somebody else's business — the query is with the
-        // employee, the decisions are done. On "Needs my action" they are noise; the Resolved tab
+        // employee, the decisions are done. On "Waiting for you" they are noise; the Finished tab
         // (variant 'done') is where the whole batch is described.
         if (variant === 'done') {
             if (hasQueried) {
-                chips.push({ label: `${d.queriedCount} item${d.queriedCount === 1 ? '' : 's'} awaiting employee response`, tone: 'cyan' });
+                chips.push({ label: `${d.queriedCount} item${d.queriedCount === 1 ? '' : 's'} waiting for the employee to reply`, tone: 'cyan' });
             }
             if (hasApproved) chips.push({ label: `${d.approvedCount} approved`, tone: 'success' });
         }
         // Rejections belong to the tabs that describe a batch, not the one that asks for work:
-        // on "Needs my action" a refused line read as part of what was still waiting on you.
+        // on "Waiting for you" a refused line read as part of what was still waiting on you.
         if (variant !== 'mine' && rejectedChip) chips.push(rejectedChip);
 
         // The card counts what opening it will show. A card reading "5 expenses · ₹5.00" that opens
@@ -202,13 +284,13 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
         let statusFlow: string | null = null;
         // Status flow tells the story of where this approval is right now
         if (hasResubmitted && hasPending) {
-            statusFlow = `✓ Employee responded • ${d.resubmittedCount} ${d.resubmittedCount === 1 ? 'expense needs' : 'expenses need'} your review`;
+            statusFlow = `✓ The employee replied • ${d.resubmittedCount} ${d.resubmittedCount === 1 ? 'expense needs' : 'expenses need'} your review`;
         } else if (hasResubmitted) {
-            statusFlow = `✓ Employee responded • Awaiting your decision`;
+            statusFlow = `✓ The employee replied • Waiting for your decision`;
         } else if (hasQueried && !hasPending && !hasApproved && !hasRejected) {
-            statusFlow = `❓ Waiting for employee to answer your ${d.queriedCount === 1 ? 'question' : 'questions'}`;
+            statusFlow = `❓ Waiting for the employee to answer your ${d.queriedCount === 1 ? 'question' : 'questions'}`;
         } else if (hasPending && !hasQueried) {
-            statusFlow = `→ Awaiting your decision`;
+            statusFlow = `→ Waiting for your decision`;
         } else if (inProgressCount > 0) {
             // Nothing here is yours any more, but the batch is not finished either — "Completed"
             // would have been a lie and "pending" a demand for action that does not exist.
@@ -217,11 +299,11 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
             const parts = [];
             if (hasApproved) parts.push(`${d.approvedCount} approved`);
             if (hasRejected) parts.push(`${d.rejectedCount} rejected`);
-            statusFlow = `✓ Completed • ${parts.join(', ')}`;
+            statusFlow = `✓ Finished • ${parts.join(', ')}`;
         }
 
         return {
-            title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense claim',
+            title: d.submissionId ? `Submission ${d.submissionId}` : 'Expense Claim',
             facts: facts.filter(Boolean),
             chips,
             statusFlow,
@@ -276,6 +358,9 @@ export default function InboxItemCard({
     const summary = summarise(step, variant);
     const since = (step.requestDetails as any)?.submittedAt ?? step.instance.createdAt;
     const age = ageOf(since);
+    // The Resolved lane: nothing here is waiting, so nothing here is urgent. See `outcomeOf`.
+    const isDone = variant === 'done';
+    const outcome = isDone ? outcomeOf(step) : null;
     const requester = step.instance.employee?.users
         ? `${step.instance.employee.users.firstName} ${step.instance.employee.users.lastName}`.trim()
         : 'Employee';
@@ -310,9 +395,18 @@ export default function InboxItemCard({
             role="button"
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
         >
+            {/* The rail. On the open lanes it is an urgency gauge — it widens and reddens as a
+                request ages, which is worth shouting about while someone still has to act.
+                On Resolved it goes back to the domain's own colour, matching the eyebrow: an
+                age-tinted rail there marked every card older than four days as critical, so a
+                board where nothing needed attention was almost entirely red, and the signal
+                was worth nothing on the lanes that DO need it. */}
             <Box sx={{
-                position: 'absolute', left: 0, top: 0, bottom: 0, width: compact ? 3 : (hasResubmitted ? 5 : (age.days >= 2 ? 5 : 3)),
-                bgcolor: hasResubmitted ? highlightPair.fg : (age.days >= 4 ? tonePair('danger').fg : age.days >= 2 ? tonePair('warning').fg : pair.fg),
+                position: 'absolute', left: 0, top: 0, bottom: 0,
+                width: compact ? 3 : (hasResubmitted ? 5 : (!isDone && age.days >= 2 ? 5 : 3)),
+                bgcolor: hasResubmitted ? highlightPair.fg
+                    : isDone ? pair.fg
+                    : (age.days >= 4 ? tonePair('danger').fg : age.days >= 2 ? tonePair('warning').fg : pair.fg),
             }} />
 
             <Box sx={{ p: compact ? 2 : { pl: { xs: 2.5, sm: 3 }, pr: { xs: 2, sm: 2.5 }, py: { xs: 2, sm: 2.5 } }, flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -332,6 +426,21 @@ export default function InboxItemCard({
                             }}>
                                 {hasResubmitted ? '⟳ Resubmitted' : (domain?.label ?? type)}
                             </Typography>
+                            {/* How long it has waited — or, once it is closed, what happened to it.
+                                The left edge was already tinted by age, which tells you nothing
+                                unless you know the code. */}
+                            <Box sx={{ flex: 1 }} />
+                            {outcome ? (
+                                <ToneChip dense tone={outcome.tone} label={outcome.label} />
+                            ) : (
+                                <Typography sx={{
+                                    fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap',
+                                    fontVariantNumeric: 'tabular-nums',
+                                    color: age.tone === 'neutral' ? 'text.disabled' : tonePair(age.tone).fg,
+                                }}>
+                                    {age.label}
+                                </Typography>
+                            )}
                         </Box>
 
                         {/* Who sent it. The compact card showed only the submission id, so a queue of
@@ -347,10 +456,13 @@ export default function InboxItemCard({
 
                         {/* Meta info: facts + value */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 1, gap: 1 }}>
-                            <Box>
+                            <Box sx={{ minWidth: 0 }}>
+                                {/* All of them. This took `facts.slice(0, 1)`, so an attendance
+                                    card showed the date and dropped the punch times and hours —
+                                    everything the approver is actually deciding on. */}
                                 {summary.facts.length > 0 && (
-                                    <Typography sx={{ fontSize: '11px', color: 'text.secondary', lineHeight: 1.25 }}>
-                                        {summary.facts.slice(0, 1).join(' · ')}
+                                    <Typography sx={{ fontSize: '11px', color: 'text.secondary', lineHeight: 1.35 }}>
+                                        {summary.facts.join(' · ')}
                                     </Typography>
                                 )}
                             </Box>
@@ -363,6 +475,22 @@ export default function InboxItemCard({
                                 </Typography>
                             )}
                         </Box>
+
+                        {/* Why they asked. `summarise` has always returned this — the employee's own
+                            remarks on an attendance fix, the reason on a leave — and only the full
+                            card rendered it, so on the board you were asked to approve or reject
+                            without being told what it was for. Two lines, clamped: enough to decide
+                            or to know you need to open it. */}
+                        {summary.note && (
+                            <Typography sx={{
+                                fontSize: '11px', color: 'text.secondary', lineHeight: 1.45, mb: 1,
+                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                            }}>
+                                <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>Reason: </Box>
+                                {summary.note}
+                            </Typography>
+                        )}
 
                         {/* Status chips. Was chips[0] only, which dropped the rejected count off a
                             mixed batch — the one line an approver most needs to see is gone. */}
@@ -377,7 +505,24 @@ export default function InboxItemCard({
                         {/* Whose move it is. A queue row that says how long it has waited but not
                             who it is waiting ON leaves you opening the card to find out — and a
                             batch stuck behind two different people needs both of them named. */}
-                        {summary.waits?.length ? (
+                        {/* Whose move it is — or, on Resolved, when it stopped being anyone's.
+                            A closed request has no next approver, so the "Next: …" line there was
+                            naming someone who owes nothing. The decision date takes the same slot,
+                            which keeps the card's rhythm and answers the question that lane is
+                            actually asked: when did this land? */}
+                        {isDone ? (outcome?.at && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1, minWidth: 0 }}>
+                                <Box component="span" sx={{ color: 'text.disabled', display: 'inline-flex' }}>
+                                    <KTIcon iconName="check-circle" className="fs-8" />
+                                </Box>
+                                <Typography sx={{ fontSize: '11px', color: 'text.secondary', lineHeight: 1.25 }}>
+                                    Decided{' '}
+                                    <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                                        {formatDate(outcome.at)}
+                                    </Box>
+                                </Typography>
+                            </Box>
+                        )) : summary.waits?.length ? (
                             <Stack gap={0.4} sx={{ mb: 1, minWidth: 0 }}>
                                 {summary.waits.map((w) => (
                                     <Box key={w.reason} sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
@@ -410,7 +555,7 @@ export default function InboxItemCard({
                                     fontSize: '11px', color: 'text.secondary', lineHeight: 1.25,
                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                 }}>
-                                    {step.waitingOn.role === 'EMPLOYEE' ? 'Waiting on ' : 'Next: '}
+                                    {step.waitingOn.role === 'EMPLOYEE' ? 'Waiting for ' : 'Now with '}
                                     <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
                                         {step.waitingOn.name}
                                     </Box>
@@ -491,12 +636,23 @@ export default function InboxItemCard({
                             </Typography>
                             {step.delegatedFrom && <ToneChip dense tone="cyan" label={`via ${step.delegatedFrom}`} />}
                             <Box sx={{ flex: 1 }} />
-                            <Typography sx={{
-                                fontSize: 11.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-                                color: age.tone === 'neutral' ? theme.palette.text.disabled : tonePair(age.tone).fg,
-                            }}>
-                                {age.label}
-                            </Typography>
+                            {outcome ? (
+                                <Stack direction="row" alignItems="center" gap={1}>
+                                    {outcome.at && (
+                                        <Typography sx={{ fontSize: 11.5, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                                            {formatDate(outcome.at)}
+                                        </Typography>
+                                    )}
+                                    <ToneChip dense tone={outcome.tone} label={outcome.label} />
+                                </Stack>
+                            ) : (
+                                <Typography sx={{
+                                    fontSize: 11.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                                    color: age.tone === 'neutral' ? theme.palette.text.disabled : tonePair(age.tone).fg,
+                                }}>
+                                    {age.label}
+                                </Typography>
+                            )}
                         </Stack>
 
                         <Stack direction="row" alignItems="flex-start" gap={2} sx={{ minWidth: 0 }}>

@@ -455,11 +455,16 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
 
   return (
     <>
-      <Modal 
+      <Modal
         open={openModal}
         onClose={handleCloseModal}
         aria-labelledby="salary-report-title"
         aria-describedby="salary-report-description"
+        // Below react-bootstrap's modal layer (backdrop 1050 / modal 1055) so the
+        // nested payment/gross modals inside SalaryReport stack above this modal.
+        // disableEnforceFocus: MUI's focus trap would steal focus back from them.
+        sx={{ zIndex: 1040 }}
+        disableEnforceFocus
       >
         <Box sx={{
           position: 'absolute',

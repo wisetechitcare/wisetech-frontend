@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { getMeetingsByProject, getMeetingsByContact, getMeetingsByEmployee } from '@services/employee';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * MeetingsList — read-only roster of meetings linked to a record, shared by the
@@ -99,7 +100,7 @@ const MeetingsList: React.FC<{ mode: 'project' | 'contact' | 'employee'; targetI
             {/* Header strip */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderBottom: meetings.length ? '1px solid #EEF2F6' : 'none' }}>
                 <div style={{ width: 38, height: 38, borderRadius: 10, background: '#1E3A8A14', color: '#1E3A8A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <i className="bi bi-camera-video" style={{ fontSize: 17 }} />
+                    <AppIcon name="bi-camera-video" className="fs-3" />
                 </div>
                 <div>
                     <div style={{ fontFamily: 'Inter', fontSize: 14, fontWeight: 700, color: '#1E293B' }}>Meetings</div>
@@ -113,7 +114,7 @@ const MeetingsList: React.FC<{ mode: 'project' | 'contact' | 'employee'; targetI
 
             {meetings.length === 0 ? (
                 <div style={{ padding: '36px 16px', textAlign: 'center' }}>
-                    <i className="bi bi-camera-video-off" style={{ fontSize: 26, color: '#CBD5E1' }} />
+                    <AppIcon name="bi-camera-video-off" className="fs-2x" color="#CBD5E1" />
                     <div style={{ fontFamily: 'Inter', fontSize: 13.5, fontWeight: 600, color: '#475569', marginTop: 10 }}>
                         No meetings yet
                     </div>
@@ -159,13 +160,13 @@ const MeetingsList: React.FC<{ mode: 'project' | 'contact' | 'employee'; targetI
                                             {m.isOnline ? (
                                                 m.meetingLink ? (
                                                     <a href={m.meetingLink} target="_blank" rel="noreferrer" style={{ color: '#1E3A8A', fontWeight: 600 }}>
-                                                        <i className="bi bi-camera-video me-1" />Online · Join
+                                                        <AppIcon name="bi-camera-video" className="me-1" />Online · Join
                                                     </a>
                                                 ) : (
-                                                    <span><i className="bi bi-camera-video me-1" />Online</span>
+                                                    <span><AppIcon name="bi-camera-video" className="me-1" />Online</span>
                                                 )
                                             ) : (
-                                                <span title={m.location || ''}><i className="bi bi-geo-alt me-1" />{m.location || 'Offline'}</span>
+                                                <span title={m.location || ''}><AppIcon name="bi-geo-alt" className="me-1" />{m.location || 'Offline'}</span>
                                             )}
                                         </td>
                                         <td style={{ ...td, whiteSpace: 'nowrap' }}>{m.organizerName || '—'}</td>

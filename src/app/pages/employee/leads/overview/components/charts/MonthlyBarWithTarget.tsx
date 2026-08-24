@@ -18,6 +18,7 @@ import {
   Line,
   ComposedChart,
 } from "recharts";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface MonthlyBarWithTargetProps {
   title?: string;
@@ -70,7 +71,7 @@ const CustomTooltip = ({ active, payload, label, showFullDigits }: any) => {
           className="fw-bold text-dark mb-3 border-bottom pb-2"
           style={{ fontSize: "13px", letterSpacing: "-0.01em" }}
         >
-          <i className="bi bi-calendar3 me-2 text-primary"></i>
+          <AppIcon name="bi-calendar3" className="me-2 text-primary" />
           {label} Performance
         </p>
         <div className="d-flex flex-column gap-2">
@@ -285,7 +286,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                   height: "32px",
                 }}
               >
-                <i className="bi bi-gear-fill"></i>
+                <AppIcon name="bi-gear-fill" />
                 SET TARGET
               </Button>
               <div
@@ -299,10 +300,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                 onClick={toggleExpand}
                 style={{ width: "32px", height: "32px" }}
               >
-                <i
-                  className={`bi ${isExpanded ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"}`}
-                  style={{ fontSize: "12px" }}
-                ></i>
+                <AppIcon name={isExpanded ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"} className="fs-7" />
               </Button>
             </div>
           </div>
@@ -325,10 +323,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                     textDecoration: "none",
                   }}
                 >
-                  <i
-                    className="bi bi-chevron-left"
-                    style={{ fontSize: "12px" }}
-                  ></i>
+                  <AppIcon name="bi-chevron-left" className="fs-7" />
                 </Button>
                 <div className="px-3 border-start border-end">
                   <span
@@ -353,10 +348,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                     textDecoration: "none",
                   }}
                 >
-                  <i
-                    className="bi bi-chevron-right"
-                    style={{ fontSize: "12px" }}
-                  ></i>
+                  <AppIcon name="bi-chevron-right" className="fs-7" />
                 </Button>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { Modal } from "react-bootstrap";
 import { useEffect, useState } from "react";
 import LeadWizardModal from "./LeadWizardModal";
+import SelectLeadOrganizationDialog from "./SelectLeadOrganizationDialog";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 
 interface DetailsModalProps {
@@ -15,15 +16,22 @@ const DetailsModal = ({ open, onClose, closeDetailsModal, Datas, onLeadCreated }
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [currentTemplate, setCurrentTemplate] = useState<any | null>(null);
+  const [showOrgPicker, setShowOrgPicker] = useState(false);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
 
+  // Picking a template is only half the decision — a lead also needs the
+  // organization that supplies its prefix and number series, so the org dialog
+  // comes next and the wizard only opens once both are settled. Without this the
+  // save would be rejected by the server after the whole form was filled in.
   const handleTemplateClick = (template: any) => {
     setCurrentTemplate(template);
-    setShowLeadForm(true);
+    setShowOrgPicker(true);
   };
 
   const handleLeadFormClose = () => {
     setShowLeadForm(false);
     setCurrentTemplate(null);
+    setOrganizationId(null);
     onClose();
   };
 
@@ -207,16 +215,32 @@ const DetailsModal = ({ open, onClose, closeDetailsModal, Datas, onLeadCreated }
         `}</style>
       </Modal>
 
+      {/* Which organization the lead belongs to — asked after the template and
+          before the form, for the same reason as on the leads page. */}
+      <SelectLeadOrganizationDialog
+        open={showOrgPicker}
+        onClose={() => {
+          setShowOrgPicker(false);
+          setCurrentTemplate(null);
+        }}
+        onContinue={(selectedOrganizationId) => {
+          setShowOrgPicker(false);
+          setOrganizationId(selectedOrganizationId);
+          setShowLeadForm(true);
+        }}
+      />
+
       {/* Lead Form Modal */}
-      {currentTemplate && (
+      {currentTemplate && organizationId && (
         <LeadWizardModal
-          key={`new-lead-${currentTemplate.id}`}
+          key={`new-lead-${currentTemplate.id}-${organizationId}`}
           leadTemplateId={currentTemplate.id}
           open={showLeadForm}
           onClose={handleLeadFormClose}
           onSubmit={handleLeadSubmit}
           title={`New ${currentTemplate.title}`}
           initialData={{...currentTemplate, title: ''}}
+          initialFormData={{ organizationId }}
         />
       )}
     </>

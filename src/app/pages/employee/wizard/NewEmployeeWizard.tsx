@@ -40,14 +40,13 @@ import {
   updatePreviousExpDetails,
   updateRejoinHistoryDetails,
   deleteAllRejoinHistoryByEmployeeId,
-  fetchApprovalWorkflowConfigs,
-  saveApprovalWorkflowChain,
 } from "@services/employee";
-import { validateApprovalChain } from "@app/components/ApprovalSettings";
+import { persistApprovalChains } from "@app/components/ApprovalSettings";
 import { fetchCompanyOverview } from "@services/company";
 import { takeConversion, clearConversion, linkConvertedEmployee } from "@services/recruitment";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * Professional Fees helpers
@@ -698,6 +697,9 @@ const newEmployeeWizardSchema = [
     // Marked required in the UI (AppSettings) — enforce it here so the asterisk is honest.
     // Defaults to "1" in initialState, so this never blocks a real submission.
     isEmployeeActive: Yup.string().required().label("Is Employee Active"),
+    // Same deal: marked required in the UI, enforced here so the asterisk is honest.
+    // Defaults to "0" (not exempt) in initialState, so this never blocks a real submission.
+    exemptFromSiteHybridApproval: Yup.string().required().label("Exempt from Site & Hybrid Attendance Approval"),
     // Optional, and zero is a legitimate value — an unpaid intern or a joiner whose
     // package is not agreed yet. Only the shape is checked; the backend's old
     // `min(1000)` floor (which 422'd a zero CTC after the whole onboarding had already
@@ -823,6 +825,8 @@ const initialState = {
   dateOfExit: "", rejoinHistory: [{ dateOfReJoining: "", dateOfReExit: "", reason: "" }],
   employeeStatusId: "", employeeStatusConfigId: "", ctcInLpa: "", appRole: "",
   allowOverTime: "0",
+  // Per-employee opt-out of the company "Require Approval for Site & Hybrid Attendance" setting.
+  exemptFromSiteHybridApproval: "0",
   // Approval chains picked during onboarding. Declared here (not written in by the
   // section) so the key survives Formik's `enableReinitialize` and so a blank set
   // compares equal to the pristine form — otherwise it would look like a draft.
@@ -899,6 +903,7 @@ const saveNewEmployee = async (values: any, userId: string) => {
     anniversary, documentFields, documentInfo, appRole, isAdmin, rejoinHistory,
     teamId, shift, experienceLevel, employeeLevelId,
     allowOverTime,
+    exemptFromSiteHybridApproval,
     professionalFeesEnabled, professionalFeesAmount,
     professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
     tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
@@ -961,6 +966,7 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
     ...(employeeLevelId && { employeeLevelId }),
     ...(allowOverTime && { allowOverTime }),
+    ...(exemptFromSiteHybridApproval && { exemptFromSiteHybridApproval }),
     // Leave Settings section removed — no longer needed
     // ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
     ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
@@ -1696,22 +1702,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     { key: "leave", label: "Leave" },
     { key: "reimbursement", label: "Reimbursement" },
   ];
-  const getMissingApprovalWorkflows = async (): Promise<string[]> => {
-    if (!employeeId) return [];
-    try {
-      const res = await fetchApprovalWorkflowConfigs(employeeId);
-      const configs: any[] = res?.data || res || [];
-      return REQUIRED_APPROVAL_WORKFLOWS
-        .filter(({ key }) => !configs.some((c: any) =>
-          c?.workflowType === key && Number(c?.level) === 1 && c?.isActive && c?.approverId))
-        .map(({ label }) => label);
-    } catch (error) {
-      // Don't hard-block a save on a transient fetch failure.
-      console.error("Failed to verify approval settings:", error);
-      return [];
-    }
-  };
-
   /**
    * Writes the approval chains chosen during onboarding, once the employee row they
    * belong to exists.
@@ -1725,28 +1715,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
    * chain must not fail the onboarding. Anything skipped is still settable from the
    * employee's own App Settings, and the edit screen blocks a save until it is.
    */
-  const saveApprovalChains = async (chains: any, targetEmployeeId: string) => {
-    if (!chains || !targetEmployeeId) return;
-
-    for (const type of ["attendance", "leave", "reimbursement"] as const) {
-      const chain: string[] = Array.isArray(chains?.[type]) ? chains[type] : [];
-      // Untouched chain — leave it unset rather than posting an empty one.
-      if (!chain.some(Boolean)) continue;
-      // Same rules the inline Save enforces, so onboarding can't create a chain the
-      // edit screen would refuse.
-      if (validateApprovalChain(chain)) continue;
-
-      try {
-        await saveApprovalWorkflowChain(
-          targetEmployeeId,
-          type,
-          chain.map((approverId, index) => ({ level: index + 1, approverId: approverId || null }))
-        );
-      } catch (error) {
-        console.error(`Failed to save ${type} approval chain:`, error);
-      }
-    }
-  };
+  // Delegates to the shared writer in ApprovalSettings so this screen and App Settings
+  // cannot drift on validation or on which chains get written.
+  const saveApprovalChains = persistApprovalChains;
 
   /**
    * The single terminal save. `EnterpriseFormWizard` owns step navigation now, so
@@ -1761,14 +1732,23 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
    */
   const handleFinalSubmit = async (values: any, actions: FormikValues) => {
     if (editMode) {
-      const missingApproval = await getMissingApprovalWorkflows();
+      // Checked against the FORM, not the server: the chains are ordinary unsaved form
+      // fields now, so a server read here would judge the copy this save is about to
+      // replace. Same bar as the create path below.
+      const missingApproval = REQUIRED_APPROVAL_WORKFLOWS
+        .filter(({ key }) => !values?.approvalChains?.[key]?.[0])
+        .map(({ label }) => label);
       if (missingApproval.length) {
         errorConfirmation(
-          `Please configure Approval Settings before saving.<br><br>Missing a Level 1 approver for: <strong>${missingApproval.join(", ")}</strong>.<br>Open the Payroll &amp; Access step → Approval Settings and save each chain.`
+          `Please configure Approval Settings before saving.<br><br>Missing a Level 1 approver for: <strong>${missingApproval.join(", ")}</strong>.<br>Open the Payroll &amp; Access step → Approval Settings.`
         );
         return;
       }
-      try { setIsSubmitting(true); await updateWizardData(values); }
+      try {
+        setIsSubmitting(true);
+        await updateWizardData(values);
+        await saveApprovalChains(values.approvalChains, employeeId as string);
+      }
       catch (error) {
         // Never fail silently — surface the reason so the user knows what went wrong
         // (e.g. a half-filled row the backend rejected) instead of a dead-end submit.
@@ -2116,7 +2096,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                       wizard so it never disturbs the sticky header/footer layout. */}
                   {!editMode && showDraftNotice && (
                     <div className="ob-draft-notice" role="status">
-                      <i className="bi bi-clock-history ob-draft-notice-icon" aria-hidden></i>
+                      <AppIcon name="bi-clock-history" className="ob-draft-notice-icon" aria-hidden />
                       <span className="ob-draft-notice-text">
                         Restored your unsaved draft — pick up where you left off.
                         <span className="ob-draft-notice-sub">

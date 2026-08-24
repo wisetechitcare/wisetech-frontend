@@ -1,5 +1,6 @@
 import { ButtonHTMLAttributes, ReactNode } from 'react';
 import './PremiumButton.css';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export interface PremiumButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Bootstrap-icon class rendered before the label, e.g. "bi-plus". */
@@ -45,7 +46,7 @@ const PremiumButton = ({
 
   return (
     <button type={type} className={classes} {...rest}>
-      {iconNode ?? (icon ? <i className={`bi ${icon}`} aria-hidden="true" /> : null)}
+      {iconNode ?? (icon ? <AppIcon name={icon} aria-hidden="true" /> : null)}
       {children}
     </button>
   );

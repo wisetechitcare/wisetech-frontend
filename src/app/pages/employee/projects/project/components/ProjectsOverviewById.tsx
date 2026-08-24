@@ -14,6 +14,7 @@ import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
 // Audit (change history)
 import { VersionHistory } from "@modules/audit/VersionHistory";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const ProjectOverviewById = ({
   projectId,
@@ -1239,7 +1240,7 @@ const ProjectOverviewById = ({
                     overflow: "hidden"
                   }}
                 >
-                  <i className="bi bi-building" style={{ fontSize: "24px", color: "#1E1E1E" }}></i>
+                  <AppIcon name="bi-building" className="fs-1" color="#1E1E1E" />
                 </div>
                 <span
                   style={{

@@ -1,3 +1,4 @@
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import React from "react";
 import { useFormikContext } from "formik";
 import dayjs from "dayjs";
@@ -93,6 +94,14 @@ interface LeadWorkspaceProps {
   // ── Misc ───────────────────────────────────────────────────────────────────
   prefix: string;
   setPrefix: (val: string) => void;
+  /** Organizations the user may file a lead under, as `{ value, label }`. */
+  organizationOptions?: { value: string; label: string }[];
+  /** Switch the lead's organization; also re-numbers it (see LeadWizardModal). */
+  onOrganizationChange?: (organizationId: string, setFieldValue: Function) => void;
+  /** Why no inquiry number could be generated, if that happened. */
+  prefixError?: string | null;
+  /** Called when the number is edited by hand, so re-numbering can ask first. */
+  onPrefixManualEdit?: () => void;
   isEditMode: boolean;
   currLeadData?: any;
   hasDefaultStatus: () => boolean;
@@ -425,6 +434,15 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         stepId: "overview",
       },
       {
+        // Kept visible through every step: it drives the inquiry number, so it
+        // should not be something the user has to go back to step 1 to recall.
+        label: "Organization",
+        value:
+          props.organizationOptions?.find((o) => o.value === values.organizationId)?.label ||
+          "—",
+        stepId: "overview",
+      },
+      {
         label: "Inquiry Date",
         value: formattedInquiryDate,
         stepId: "overview",
@@ -543,16 +561,16 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         props.isEditMode ? (
           <>
             <span className={`wizard-meta-chip is-accent`}>
-              <i className="bi bi-clock-history" /> Revision {props.currLeadData?.revisionCount ?? 0}
+              <AppIcon name="bi-clock-history" /> Revision {props.currLeadData?.revisionCount ?? 0}
             </span>
             {currentStatusName && (
               <span className="wizard-meta-chip">
-                <i className="bi bi-flag" /> {currentStatusName}
+                <AppIcon name="bi-flag" /> {currentStatusName}
               </span>
             )}
             {props.currLeadData?.prefix && (
               <span className="wizard-meta-chip">
-                <i className="bi bi-hash" /> {props.currLeadData.prefix}
+                <AppIcon name="bi-hash" /> {props.currLeadData.prefix}
               </span>
             )}
           </>

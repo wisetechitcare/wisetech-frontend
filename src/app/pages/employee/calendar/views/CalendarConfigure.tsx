@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import RenameHoliday from './RenameHoliday'
 import WeekendsAndWorkingDays from './WeekendsAndWorkingDays'
-import WorkCalendarSettings from '@pages/company/settings/WorkCalendarSettings'
 import {
   SHOW_BIRTHDAYS_INTERNAL,
   SHOW_BIRTHDAYS_INTERNAL_INACTIVE,
@@ -33,6 +32,7 @@ import {
 } from '@app/modules/configuration'
 import type { ConfigTab } from '@app/modules/configuration'
 import { T as UI_T } from '@app/modules/common/components/ui/tokens'
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface CalendarSetting {
   id: string | null;
@@ -191,7 +191,7 @@ const PremiumSettingCard: React.FC<PremiumSettingCardProps> = ({ label, descript
   <div className="prem-card">
     <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
       <div className="prem-icon-box">
-        <i className={`bi ${icon}`} />
+        <AppIcon name={icon} />
       </div>
       <div>
         <h3 style={{ fontSize: '15.5px', fontWeight: 700, color: '#1B2230', margin: '0 0 4px 0', letterSpacing: '-0.2px' }}>{label}</h3>
@@ -201,7 +201,7 @@ const PremiumSettingCard: React.FC<PremiumSettingCardProps> = ({ label, descript
     <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <SettingPreview setting={setting} />
       <button className="prem-btn" onClick={onAction}>
-        <i className="bi bi-gear-fill" style={{ fontSize: '12px' }} /> Configure
+        <AppIcon name="bi-gear-fill" className="fs-7" /> Configure
       </button>
     </div>
   </div>
@@ -230,7 +230,6 @@ function CalendarConfigure() {
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
-  const [showWorkCalendar, setShowWorkCalendar] = useState(false)
   const [modalTitle, setModalTitle] = useState('');
   const [editingModuleKey, setEditingModuleKey] = useState('');
   const [editingSetting, setEditingSetting] = useState<CalendarSetting | null>(null);
@@ -502,32 +501,17 @@ function CalendarConfigure() {
           {/* ══════════════════════════════════════════════════════ */}
           {/* TAB: Weekends & Working Days */}
           {/* ══════════════════════════════════════════════════════ */}
+          {/* A Work Calendar row used to sit under this tab. Removed: nothing in the app
+              could create a WorkCalendar, so its modal could only ever say "Nothing to
+              configure". The weekly pattern lives on the branch (Weekends & Working Days)
+              and one-off off-days are rows on the Holidays screen. */}
           {activeTab === 'weekends' && (
             <div key="weekends" className="cfg-fade-in">
               <WeekendsAndWorkingDays />
-
-              {/* The work calendar belongs beside the weekly pattern, not under
-                  Attendance: both answer "which days does this branch work?", and the
-                  calendar is what turns that pattern plus its exceptions into the
-                  weekend/holiday classification every engine reads. */}
-              <div style={{ marginTop: 24 }}>
-                <ConfigSettingsRow
-                  label="Work Calendar"
-                  description="Alternate Saturdays, one-off off days, and the holidays that override the weekly pattern"
-                  icon="bi-calendar3"
-                  iconColor="green"
-                  actionLabel="Configure"
-                  actionIcon="bi-arrow-right"
-                  onAction={() => setShowWorkCalendar(true)}
-                />
-              </div>
             </div>
           )}
         </ConfigPageLayout>
       </div>
-
-      {/* Work Calendar — the weekly pattern's exceptions live with the pattern */}
-      <WorkCalendarSettings open={showWorkCalendar} onClose={() => setShowWorkCalendar(false)} />
 
       {/* Reusable Form Modal */}
       <CalendarConfigForm

@@ -12,6 +12,7 @@ import { useEventBus } from '@hooks/useEventBus';
 import { errorConfirmation } from '@utils/modal';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface OrganisationInfoProps {
     onEditClick?: () => void;
@@ -212,7 +213,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                 </div>
             ) : (
                 <div style={{ width: 84, height: 84, borderRadius: 16, border: '1.5px dashed #d3dae6', background: '#f7f9fc', display: 'grid', placeItems: 'center', color: '#aab4c6' }}>
-                    <i className="bi bi-image" style={{ fontSize: 28 }} />
+                    <AppIcon name="bi-image" className="fs-2qx" />
                 </div>
             )}
             <span style={{ fontFamily: 'Inter', fontWeight: 600, fontSize: 'clamp(11px, 2vw, 13px)', color: url ? '#2c3e50' : '#9aa4b6' }}>{label}</span>
@@ -261,7 +262,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                             style={{ fontSize: 'clamp(12px, 2.5vw, 14px)' }}
                             onClick={onBranchesClick}
                         >
-                            <i className="bi bi-geo-alt me-2"></i>
+                            <AppIcon name="bi-geo-alt" className="me-2" />
                             <span className="d-none d-sm-inline">Branches</span>
                             <span className="d-inline d-sm-none">Branch</span>
                         </button>
@@ -273,7 +274,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                         className="btn flex-grow-1 flex-sm-grow-0 d-flex align-items-center justify-content-center"
                         style={{ backgroundColor: '#25D366', borderColor: '#25D366', color: 'white', fontSize: 'clamp(12px, 2.5vw, 14px)', gap: '8px' }}
                     >
-                        <i className="bi bi-whatsapp"></i>
+                        <AppIcon name="bi-whatsapp" />
                         <span>Share</span>
                     </button>
                     {/* PDF Download Button — generates on demand (see handleDownloadPdf) */}
@@ -292,7 +293,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                             </>
                         ) : (
                             <>
-                                <i className="bi bi-download me-2"></i>
+                                <AppIcon name="bi-download" className="me-2" />
                                 <span className="d-none d-sm-inline">Download PDF</span>
                                 <span className="d-inline d-sm-none">PDF</span>
                             </>
@@ -320,7 +321,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                         <div className="d-flex flex-column h-100" style={{ padding: 'clamp(16px, 3vw, 24px)', gap: 'clamp(14px, 3vw, 20px)' }}>
                             <div className="d-flex align-items-center gap-2">
                                 <div className="bg-light rounded-circle d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', backgroundColor: '#e6eaf1' }}>
-                                    <i className="bi bi-building fs-2 text-primary"></i>
+                                    <AppIcon name="bi-building" className="fs-2 text-primary" />
                                 </div>
                                 <h5 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(16px, 3vw, 19px)', letterSpacing: '0.19px', color: 'black' }}>
                                     Logo & Stamp

@@ -1,7 +1,8 @@
 import { useField } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
-import Select from "react-select";
+import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
 import { useState, useMemo } from "react";
+import { Box } from "@mui/material";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
 import DropdownChevron from "./DropdownChevron";
@@ -32,36 +33,49 @@ const LocationDropdown = ({ formikField, inputLabel, options, isRequired, placeh
     }, [options]);
 
     return (
-        <div className="d-flex flex-column fv-row">
-     <div className="d-flex flex-row justify-content-between align-items-center mb-2">
-            <label className={`d-flex align-items-center fs-6 form-label mb-0 ${isRequired ? 'required' : ''}`}>{inputLabel}</label>
-            {showAddBtn && <button className="btn btn-sm border-dark"
-            onClick={(e)=>{e.preventDefault(); handleShow();}}
-            >+ Add</button>}
-        </div>
-            <Select
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+     <Box sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            {/* Asterisk rendered explicitly — it came from Metronic's `.required::after`,
+                which disappears with the Bootstrap class. */}
+            <Box component="label" sx={{
+                display: 'flex', alignItems: 'center', gap: 0.5, mb: 0,
+                fontSize: 13.5, fontWeight: 500, color: 'text.primary',
+            }}>
+                {inputLabel}
+                {isRequired && <Box component="span" aria-hidden sx={{ color: 'error.main' }}>*</Box>}
+            </Box>
+            {showAddBtn && (
+                <Box component="button" type="button"
+                    onClick={(e: React.MouseEvent) => { e.preventDefault(); handleShow(); }}
+                    sx={{
+                        flexShrink: 0, border: 0, background: 'none', p: 0,
+                        fontSize: 12, fontWeight: 600, lineHeight: 1.2,
+                        color: 'primary.main', cursor: 'pointer',
+                        '&:hover': { textDecoration: 'underline' },
+                    }}
+                >+ Add</Box>
+            )}
+        </Box>
+            <WtSelect
                 name={formikField}
                 isDisabled={isDisabled}
                 options={sortedOptions}
                 onChange={handleChange}
                 placeholder={placeholder}
-                classNamePrefix={"react-select"}
-                className='react-select-styled'
                 value={value}
-                // Portal the menu to <body> so it renders above (and escapes the
-                // overflow of) any modal/dialog it's used inside.
-                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                styles={{ menuPortal: (base: any) => ({ ...base, zIndex: 9999 }) }}
                 components={{ DropdownIndicator: DropdownChevron }}
-                filterOption={(option, inputValue) => {
-                  if (!inputValue) return true;
-                  return option.label.toLowerCase().startsWith(inputValue.toLowerCase());
+                // Prefix match, not substring: country/state lists are long and
+                // alphabetical, so typing "in" should reach India rather than every
+                // name that merely contains "in".
+                filterOption={(option: any, inputValue: string) => {
+                    if (!inputValue) return true;
+                    return String(option.label).toLowerCase().startsWith(inputValue.toLowerCase());
                 }}
             />
             
             <HighlightErrors isRequired={isRequired} formikField={formikField} />
              <CommonModal functionToCallOnModalSubmit={functionToCallOnModalSubmit} show={show} setShow={setShow} fieldName={fieldName} functionToSetFieldOptions={functionToSetFieldOptions}/>
-        </div>
+        </Box>
     )
 }
 

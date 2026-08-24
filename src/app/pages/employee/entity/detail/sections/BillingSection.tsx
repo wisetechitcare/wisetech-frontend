@@ -1,4 +1,5 @@
 import React from 'react';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * Billing — the project's financial workspace (invoices, payments, ledger, taxes…).
@@ -18,7 +19,7 @@ const BillingSection: React.FC<{ lead?: any }> = () => (
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
     >
-      <i className="bi bi-receipt-cutoff" style={{ fontSize: 34 }} />
+      <AppIcon name="bi-receipt-cutoff" className="fs-2hx" />
     </div>
 
     <span

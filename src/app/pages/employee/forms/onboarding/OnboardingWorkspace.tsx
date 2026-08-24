@@ -45,6 +45,7 @@ import OnboardingWizard, { OnboardingGroup } from "./OnboardingWizard";
 import * as S from "./OnboardingSections";
 import type { OnboardingSectionsProps } from "./OnboardingSections";
 import { formatBloodGroup } from "@utils/employeeFormat";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * Employee Onboarding wizard configuration.
@@ -795,12 +796,12 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
           <>
             {values.companyEmailId && (
               <span className="wizard-meta-chip">
-                <i className="bi bi-envelope" /> {values.companyEmailId}
+                <AppIcon name="bi-envelope" /> {values.companyEmailId}
               </span>
             )}
             {values.dateOfJoining && (
               <span className="wizard-meta-chip is-accent">
-                <i className="bi bi-calendar-check" /> Joined {fmtDate(values.dateOfJoining)}
+                <AppIcon name="bi-calendar-check" /> Joined {fmtDate(values.dateOfJoining)}
               </span>
             )}
           </>

@@ -8,6 +8,7 @@ import {useListView} from '../core/ListViewProvider'
 import {UsersListLoading} from '../components/loading/UsersListLoading'
 import {createUser, updateUser} from '../core/_requests'
 import {useQueryResponse} from '../core/QueryResponseProvider'
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 type Props = {
   isUserLoading: boolean
@@ -109,7 +110,7 @@ const UserEditModalForm: FC<Props> = ({user, isUserLoading}) => {
               data-bs-toggle='tooltip'
               title='Change avatar'
             >
-              <i className='bi bi-pencil-fill fs-7'></i>
+              <AppIcon name="bi-pencil-fill" className="fs-7" />
 
               <input type='file' name='avatar' accept='.png, .jpg, .jpeg' />
               <input type='hidden' name='avatar_remove' />
@@ -123,7 +124,7 @@ const UserEditModalForm: FC<Props> = ({user, isUserLoading}) => {
               data-bs-toggle='tooltip'
               title='Cancel avatar'
             >
-              <i className='bi bi-x fs-2'></i>
+              <AppIcon name="bi-x" className="fs-2" />
             </span> */}
               {/* end::Cancel */}
 
@@ -134,7 +135,7 @@ const UserEditModalForm: FC<Props> = ({user, isUserLoading}) => {
               data-bs-toggle='tooltip'
               title='Remove avatar'
             >
-              <i className='bi bi-x fs-2'></i>
+              <AppIcon name="bi-x" className="fs-2" />
             </span> */}
               {/* end::Remove */}
             </div>

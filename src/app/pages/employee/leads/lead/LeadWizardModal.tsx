@@ -22,10 +22,7 @@ import dayjs from "dayjs";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import TextAreaInput from "@app/modules/common/inputs/TextAreaInput";
-import {
-  leadAndProjectTemplateTypeId,
-  prefixIdentifier,
-} from "@constants/statistics";
+import { prefixIdentifier } from "@constants/statistics";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@redux/store";
 import {
@@ -57,11 +54,13 @@ import {
 import {
   fetchAllCities,
   fetchAllCountries,
-  fetchAllPrefixSettings,
   fetchAllStates,
+  fetchLeadNumberPreview,
 } from "@services/options";
 import { convertFiscalYearToYearFormat } from "@app/modules/common/components/PrefixSettingsForm";
 import PrefixInlineEdit from "@app/modules/common/components/PrefixInlineEdit";
+import { confirmDialog } from "@app/modules/common/components/ui";
+import { useOrgScope } from "@hooks/useOrgScope";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import {
@@ -87,7 +86,6 @@ import LeadsConfigForm from "../configuration/components/LeadsConfigForm";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import CompanyConfigForm from "@pages/employee/companies/companyConfig/components/CompanyConfigForm";
-import FormikDropdownInput from "@app/modules/common/inputs/FormikDropdownInput";
 import SubCompanyForm from "@pages/employee/companies/companies/components/SubCompanryForm";
 import MultiSelectWithInlineCreate, {
   Option,
@@ -494,6 +492,18 @@ const LeadWizardModal = ({
     (state: RootState) => state.employee?.currentEmployee?.id,
   );
   const [prefix, setPrefix] = useState("");
+  // Set when a number could not be previewed (usually: the organization has no
+  // lead prefix configured). Surfaced next to the Inquiry No. field.
+  const [prefixError, setPrefixError] = useState<string | null>(null);
+  // True once the user edits the number by hand, so switching organizations asks
+  // before overwriting it instead of silently discarding their value.
+  const [prefixManuallyEdited, setPrefixManuallyEdited] = useState(false);
+  // Organizations the user may file this lead under. includeAll is off — a lead
+  // belongs to exactly one.
+  const { selectOptions: organizationOptions } = useOrgScope({
+    includeAll: false,
+    initialScopeId: "",
+  });
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
   const [currLeadData, setCurrLeadData] = useState<any>();
   const [filteredSubCompanies, setFilteredSubCompanies] = useState<any[]>([]);
@@ -831,14 +841,6 @@ const LeadWizardModal = ({
         projectHandledByEntries: [],
         projectPrefix: "",
 
-        // additional details
-        // Additional fields for web-dev type
-        ...(leadTemplateId?.toString() ===
-          leadAndProjectTemplateTypeId.webDev?.toString() && {
-          type: "", // web-dev specific type
-          numberOfPages: "",
-        }),
-
         // Always include addresses for all forms
         addresses: [
           {
@@ -875,6 +877,9 @@ const LeadWizardModal = ({
 
         // status: 'new',
         budget: "",
+        // Preselected by the organization dialog that opens before this wizard;
+        // ...initialFormData below carries the chosen value in.
+        organizationId: "",
         ...(initialData?.id && { leadTemplateId: initialData.id }),
         ...initialFormData,
       };
@@ -1219,13 +1224,6 @@ const LeadWizardModal = ({
       otherPoint3Description:
         leadData.additionalDetails?.otherPoint3Description || "",
 
-      // Additional fields for web-dev type
-      ...(leadTemplateId?.toString() ===
-        leadAndProjectTemplateTypeId.webDev?.toString() && {
-        type: additionalDetailsArray[0]?.type || "",
-        numberOfPages: additionalDetailsArray[0]?.numberOfPages || "",
-      }),
-
       // Always include addresses for all forms
       addresses:
         addresses.length > 0
@@ -1349,68 +1347,6 @@ const LeadWizardModal = ({
     return buildInitialValues(currLeadData);
   }, [currLeadData, initialFormData?.id, isEditMode]);
 
-  // console.log("Form initial values:", initialValues);
-
-  // const formData = {
-  //   // Project Details
-  //   leadTemplateId: leadTemplateId, // or 'mep' or 'web-dev' based on the form type
-  //   projectName: '',
-  //   description: '',
-  //   statusId: '',
-  //   source: '',
-  //   budget: '',
-  //   company: '',
-  //   contactPerson: '',
-  //   leadSource: '',
-  //   service: '',
-  //   category: '',
-  //   subCategory: '',
-  //   startDate: '',
-  //   endDate: '',
-  //   rate: '',
-  //   cost: '',
-  //   companyId: '',
-  //   branchId: '',
-  //   contactRoleId: '',
-  //   leadInquiryDate: '',
-  //   leadAssignedTo: '',
-
-  //   // Referrals (for blank type)
-  //   referrals: [
-  //     {
-  //       id: '',
-  //       referralType: '',
-  //       referringCompany: '',
-  //       referringContact: '',
-  //       referredByContactId: ''
-  //     }
-  //   ],
-
-  //   // Additional fields for web-dev type
-  //   ...(leadTemplateId === leadAndProjectTemplateTypeId.webDev && {
-  //     type: '', // web-dev specific type
-  //     numberOfPages: ''
-  //   }),
-
-  //   // Additional fields for mep type
-  //   ...(leadTemplateId === leadAndProjectTemplateTypeId.mep && {
-  //     projectArea: '',
-  //     projectAddress: '',
-  //     zipCode: '',
-  //     mapLocation: '',
-  //     latitude: '',
-  //     longitude: '',
-  //     country: '',
-  //     state: '',
-  //     city: '',
-  //     locality: '',
-  //     poNumber: '',
-  //     poDate: ''
-  //   }),
-  //   // Common additional fields
-  //   // description: '' // Additional description field
-  // };
-
   useEffect(() => {
     if (initialFormData?.id) {
       async function fetchLeadById() {
@@ -1426,30 +1362,76 @@ const LeadWizardModal = ({
       }
       fetchLeadById();
     } else {
-      async function fetchPrefixSettings() {
-        const {
-          data: { prefixSettings },
-        } = await fetchAllPrefixSettings();
-        const currentPrefix = prefixSettings.find(
-          (prefix: any) => prefix.identifier == prefixIdentifier.LEAD,
-        );
-        if (currentPrefix && Object.keys(currentPrefix)?.length) {
-          // Convert stored fiscal year to display format (e.g. "2026-04-01 to 2027-03-31" → "2026-27")
-          const formattedYear = convertFiscalYearToYearFormat(
-            currentPrefix.year,
+      // New lead: the number comes from the selected organization's series.
+      // This is a PREVIEW only — the number written to the lead is issued by the
+      // server at create time, so a concurrent create can take this one and the
+      // saved lead will differ. That is why nothing here reserves a value.
+      const organizationId = initialFormData?.organizationId;
+      if (!organizationId) return;
+
+      let cancelled = false;
+      (async () => {
+        try {
+          const { data } = await fetchLeadNumberPreview(organizationId);
+          if (!cancelled) setPrefix(data?.preview || "");
+        } catch (error: any) {
+          if (cancelled) return;
+          // Most likely the organization has no lead prefix configured. Leave the
+          // field empty and say why, rather than showing another organization's
+          // number — the create would be rejected anyway.
+          setPrefix("");
+          setPrefixError(
+            error?.response?.data?.detail ||
+            "Could not generate an inquiry number for this organization.",
           );
-          // Count only leads in THIS fiscal year so the counter resets each new fiscal year
-          const {
-            data: { count },
-          } = await getLeadsCountByFiscalYear(formattedYear, currentPrefix.prefix);
-          // Generate prefix: prefix/year/count format
-          const generatedPrefix = `${currentPrefix.prefix}/${formattedYear}/${String(count + 1).padStart(3, "0")}`;
-          setPrefix(generatedPrefix);
         }
-      }
-      fetchPrefixSettings();
+      })();
+      return () => { cancelled = true; };
     }
-  }, [initialFormData?.id]);
+  }, [initialFormData?.id, initialFormData?.organizationId]);
+  /**
+   * Move the lead to a different organization.
+   *
+   * The inquiry number belongs to the organization's series, so it has to follow
+   * — but a number the user typed themselves is theirs to keep, and may already
+   * be on a document that went out. So an auto-generated number is replaced
+   * silently, while a hand-edited one is only replaced with consent.
+   */
+  const handleOrganizationChange = async (
+    organizationId: string,
+    setFieldValue: (field: string, value: any) => void,
+  ) => {
+    setFieldValue("organizationId", organizationId);
+    setPrefixError(null);
+
+    if (!organizationId) return;
+
+    if (prefixManuallyEdited && prefix) {
+      const confirmed = await confirmDialog({
+        title: "Regenerate inquiry number?",
+        text:
+          "You edited the inquiry number by hand. The new organization numbers its " +
+          "leads under a different prefix — regenerate the number to match it, or " +
+          "keep the one you entered.",
+        confirmText: "Regenerate",
+        cancelText: "Keep current number",
+      });
+      if (!confirmed) return;
+    }
+
+    try {
+      const { data } = await fetchLeadNumberPreview(organizationId);
+      setPrefix(data?.preview || "");
+      setPrefixManuallyEdited(false);
+    } catch (error: any) {
+      setPrefix("");
+      setPrefixError(
+        error?.response?.data?.detail ||
+        "Could not generate an inquiry number for this organization.",
+      );
+    }
+  };
+
   // Validation schema - Only project name and status are required
   const validationSchema = Yup.object().shape({
     projectName: Yup.string().required("Lead name is required"),
@@ -2418,10 +2400,7 @@ const LeadWizardModal = ({
       errorConfirmation("Inquiry No. is required");
       return;
     }
-    const additionalDetailsFields = [
-      "projectArea", "addresses",
-      ...((leadTemplateId === leadAndProjectTemplateTypeId.webDev) ? ["type", "numberOfPages"] : [])
-    ];
+    const additionalDetailsFields = ["projectArea", "addresses"];
 
     const selectedCountryData = countries.find(
       (c) => c.id === formData.country,
@@ -3284,6 +3263,12 @@ const LeadWizardModal = ({
                       handleContactChange={handleWizardContactChange}
                       prefix={prefix}
                       setPrefix={setPrefix}
+                      organizationOptions={organizationOptions}
+                      onOrganizationChange={(organizationId, setFieldValue) =>
+                        handleOrganizationChange(organizationId, setFieldValue as any)
+                      }
+                      prefixError={prefixError}
+                      onPrefixManualEdit={() => setPrefixManuallyEdited(true)}
                       isEditMode={isEditMode}
                       currLeadData={currLeadData}
                       hasDefaultStatus={hasDefaultStatus}

@@ -3,6 +3,7 @@ import { Modal } from 'react-bootstrap';
 import { v4 as uuidv4 } from 'uuid';
 import { IFormField, IFormSection, FormFieldType } from '@models/company';
 import { IconClose } from '@app/modules/common/components/icons/OrgIcons';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export type { IFormField as SchemaField, IFormSection as SchemaSection, FormFieldType as FieldType };
 
@@ -340,7 +341,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 26px', borderBottom: `1px solid ${C.line}`, background: C.surface }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 10, background: C.brandSoft, border: `1px solid ${C.brandBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.brand }}><i className="bi bi-gear-fill" style={{ fontSize: 17, lineHeight: 1 }} /></div>
+          <div style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 10, background: C.brandSoft, border: `1px solid ${C.brandBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.brand }}><AppIcon name="bi-gear-fill" className="fs-3" style={{ lineHeight: 1 }} /></div>
           <div>
             <div style={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 17, color: C.ink }}>Manage Form Fields</div>
             <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 1 }}>

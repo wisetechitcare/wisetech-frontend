@@ -19,6 +19,7 @@ import {
 } from "@services/lead";
 import ManageTargetModal from "../modals/ManageTargetModal";
 import dayjs from "dayjs";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface PerformanceData {
   receivedCount: number;
@@ -241,7 +242,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
 
           <div className="mt-2 pt-2 border-top d-flex justify-content-between gap-4">
             <span className="text-info fw-bold" style={{ fontSize: "11px" }}>
-              <i className="bi bi-lightning-charge-fill me-1"></i>
+              <AppIcon name="bi-lightning-charge-fill" className="me-1" />
               Required Daily Pace:
             </span>
             <span className="text-info fw-bold" style={{ fontSize: "11px" }}>
@@ -360,7 +361,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                     height: "32px",
                   }}
                 >
-                  <i className="bi bi-gear-fill"></i>
+                  <AppIcon name="bi-gear-fill" />
                   SET TARGET
                 </Button>
               ) : (
@@ -377,7 +378,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                     height: "32px",
                   }}
                 >
-                  <i className="bi bi-gear-fill"></i>
+                  <AppIcon name="bi-gear-fill" />
                   SET TARGET
                 </Button>
               )}
@@ -393,10 +394,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                 onClick={toggleExpand}
                 style={{ width: "32px", height: "32px" }}
               >
-                <i
-                  className={`bi ${isExpanded ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"}`}
-                  style={{ fontSize: "12px" }}
-                ></i>
+                <AppIcon name={isExpanded ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"} className="fs-7" />
               </Button>
             </div>
           </div>
@@ -417,10 +415,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                     textDecoration: "none",
                   }}
                 >
-                  <i
-                    className="bi bi-chevron-left"
-                    style={{ fontSize: "12px" }}
-                  ></i>
+                  <AppIcon name="bi-chevron-left" className="fs-7" />
                 </Button>
                 <div className="px-3 border-start border-end">
                   <span
@@ -445,10 +440,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                     textDecoration: "none",
                   }}
                 >
-                  <i
-                    className="bi bi-chevron-right"
-                    style={{ fontSize: "12px" }}
-                  ></i>
+                  <AppIcon name="bi-chevron-right" className="fs-7" />
                 </Button>
               </div>
             </div>

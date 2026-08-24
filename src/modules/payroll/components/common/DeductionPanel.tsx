@@ -3,6 +3,7 @@ import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { DeductionBreakdownProps } from '../../types/payroll.types';
 import { formatINRDecimal, formatINRDecimalTruncated, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 import { formatCurrencyDecimal } from '@utils/currency';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     deductionBreakdown,
@@ -346,7 +347,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                     <div className="d-none d-md-block">
                         <OverlayTrigger placement="top" overlay={renderTooltip}>
                             <span className="btn btn-icon btn-circle btn-sm bg-light">
-                                <i className="bi bi-info-circle text-gray-600 fs-6"></i>
+                                <AppIcon name="bi-info-circle" className="text-gray-600 fs-6" />
                             </span>
                         </OverlayTrigger>
                     </div>
