@@ -167,9 +167,13 @@ export default function Approvals() {
             );
             setCounts(
                 SEGMENTS.reduce((acc, s, i) => {
-                    // Tasks only count where they are listed — the "awaiting"/"done" lists render
-                    // steps alone, so folding tasks in there would badge rows nobody can see.
-                    acc[s.key] = results[i].steps.length + (s.key === 'mine' ? results[i].tasks.length : 0);
+                    // Steps AND tasks, in every segment. The list below renders `sortedTasks`
+                    // unconditionally, so counting tasks only under "mine" made the Resolved
+                    // badge read lower than the rows it was sitting above — an answered query
+                    // is listed there but was not being counted. `fetchSegment` has already
+                    // dropped the tasks that do not belong to this segment, so there is nothing
+                    // left to exclude here.
+                    acc[s.key] = results[i].steps.length + results[i].tasks.length;
                     return acc;
                 }, {} as Record<Segment, number>),
             );
@@ -238,13 +242,15 @@ export default function Approvals() {
 
     /** Only domains that actually have something. A tab for an empty domain is furniture. */
     const domainCounts = useMemo(() => {
-        const counts = new Map<string, number>();
+        // Local name kept distinct from the `counts` tab-badge state above; they are different
+        // numbers over different populations and shadowing one with the other invites a mix-up.
+        const perDomain = new Map<string, number>();
         for (const s of sorted) {
             const type = (s.instance.workflowType || '').toLowerCase();
             const key = APPROVAL_DOMAIN_KEYS.includes(type) ? type : 'other';
-            counts.set(key, (counts.get(key) ?? 0) + 1);
+            perDomain.set(key, (perDomain.get(key) ?? 0) + 1);
         }
-        return counts;
+        return perDomain;
     }, [sorted]);
 
     const visible = useMemo(
@@ -259,7 +265,10 @@ export default function Approvals() {
         if (domainFilter && !domainCounts.has(domainFilter)) setDomainFilter(null);
     }, [domainCounts, domainFilter]);
 
-    const total = visible.length + (segment === 'mine' ? tasks.length : 0);
+    // Exactly what the list below renders: the domain-filtered steps plus the tasks, which are
+    // rendered in every segment. This drives the "nothing here" state, so counting tasks only
+    // under "mine" showed the empty message above a list that had rows in it.
+    const total = visible.length + sortedTasks.length;
     // The list is newest-first, so the item that has waited longest is the LAST one, not the
     // first. Reading sorted[0] here after the flip would have reported the newest item's age
     // as the backlog.
