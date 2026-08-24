@@ -1,9 +1,3 @@
-/* eslint-disable no-restricted-syntax -- Hardcoded light-palette background colours, moved here
- * VERBATIM from ApplyLeave.tsx (which carries the same violations under the UI ratchet). The whole
- * modal is light-only today, so theming just this grid would leave it inconsistent with the card it
- * sits in. These come off in the design pass that themes the modal as a unit — the disable is
- * scoped to this file so that work has an obvious place to start, rather than adding a new entry to
- * .eslint-ui-baseline.cjs, which by its own header may only ever shrink. */
 /**
  * LeaveCalendar — the month grid, its day-state colouring, the anchored tooltip, the legend and
  * the holiday chips.
@@ -29,6 +23,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { rgba, tintOf, borderOf } from '@utils/leaveTypeColors';
 import { ACCENT, RED, PJK, DAY_NAMES, pad, navBtnSt } from './tokens';
+import { useLeavePalette } from './theme';
 
 export interface LeaveCalendarProps {
     /** Displayed month. */
@@ -89,6 +84,9 @@ function LeaveCalendarBase({
     small,
 }: LeaveCalendarProps) {
     const s = sel;
+    // Neutrals only. Leave-type colours stay as configured — they are admin-set identity, not
+    // surface, and must not be theme-swapped behind the admin's back.
+    const P = useLeavePalette();
     const [hoverDate, setHoverDate] = useState<string | null>(null);
     const [hoverTip, setHoverTip] = useState<{ x: number; y: number; below: boolean; text: string; color: string | null } | null>(null);
     const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -149,11 +147,11 @@ function LeaveCalendarBase({
 
         const st: React.CSSProperties = {
             position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: '100%', height: sz, border: 'none', background: '#fff', color: '#2b2e30',
+            width: '100%', height: sz, border: 'none', background: P.surface, color: P.ink,
             fontSize: small ? 13 : 14, fontWeight: 500, borderRadius: rad, cursor: disabled ? 'default' : 'pointer',
         };
-        if (past || workedToday)  { st.opacity = 0.4; st.color = '#a6a8ab'; }
-        if (blocked && !past) { st.background = '#f3eaec'; st.color = RED; st.textDecoration = 'line-through'; }
+        if (past || workedToday)  { st.opacity = 0.4; st.color = P.inkDisabled; }
+        if (blocked && !past) { st.background = rgba(RED, P.dark ? 0.22 : 0.09); st.color = RED; st.textDecoration = 'line-through'; }
         // Holiday — colour from customColors.attendanceOverview.holidayColor
         if (holiday && !charged && !blocked) {
             st.background = rgba(holidayCol, 0.12); st.color = holidayCol; st.boxShadow = `inset 0 0 0 1px ${rgba(holidayCol, 0.30)}`;
@@ -210,7 +208,7 @@ function LeaveCalendarBase({
         // Today — solid ACCENT filled background with white numeral.
         if (iso === today && !past && !blocked && !workedToday) {
             st.background   = ACCENT;
-            st.color        = '#fff';
+            st.color        = '#fff'; // white on the solid ACCENT fill, in both themes
             st.fontWeight   = 700;
             st.borderRadius = rad;
             st.boxShadow    = 'none';
@@ -336,44 +334,44 @@ function LeaveCalendarBase({
         });
 
     return (
-        <div style={{ border: '1px solid #e6e6e8', borderTop: small ? '1px solid #e6e6e8' : `3px solid ${ACCENT}`, borderRadius: 13, padding: small ? 12 : '15px 16px' }}>
+        <div style={{ border: `1px solid ${P.line}`, borderTop: small ? `1px solid ${P.line}` : `3px solid ${ACCENT}`, borderRadius: 13, padding: small ? 12 : '15px 16px' }}>
             {hoverTip && createPortal(
-                <div role="tooltip" style={{ position: 'fixed', left: Math.max(8, Math.min(hoverTip.x, window.innerWidth - 8)), top: hoverTip.y, transform: `translate(-50%, ${hoverTip.below ? '0' : '-100%'})`, zIndex: 100000, pointerEvents: 'none', background: '#2b2e30', color: '#fff', padding: '7px 11px', borderRadius: 9, fontSize: 12, fontWeight: 600, lineHeight: 1.35, textAlign: 'left', boxShadow: '0 8px 24px rgba(0,0,0,0.24)', display: 'flex', alignItems: 'center', gap: 7, width: 'max-content', maxWidth: 250, fontFamily: PJK }}>
+                <div role="tooltip" style={{ position: 'fixed', left: Math.max(8, Math.min(hoverTip.x, window.innerWidth - 8)), top: hoverTip.y, transform: `translate(-50%, ${hoverTip.below ? '0' : '-100%'})`, zIndex: 100000, pointerEvents: 'none', background: P.tooltipBg, color: P.tooltipInk, padding: '7px 11px', borderRadius: 9, fontSize: 12, fontWeight: 600, lineHeight: 1.35, textAlign: 'left', boxShadow: '0 8px 24px rgba(0,0,0,0.24)', display: 'flex', alignItems: 'center', gap: 7, width: 'max-content', maxWidth: 250, fontFamily: PJK }}>
                     {hoverTip.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: hoverTip.color, flexShrink: 0 }} />}
                     <span>{hoverTip.text}</span>
                 </div>,
                 document.body,
             )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: small ? 10 : 12 }}>
-                <button onClick={() => nav(-1)} style={navBtnSt(small)}>‹</button>
-                <span style={{ fontSize: small ? 14 : 15, fontWeight: 700, color: '#2b2e30', fontFamily: PJK }}>{monthLabel}</span>
-                <button onClick={() => nav(1)} style={navBtnSt(small)}>›</button>
+                <button onClick={() => nav(-1)} style={navBtnSt(small, P)}>‹</button>
+                <span style={{ fontSize: small ? 14 : 15, fontWeight: 700, color: P.ink, fontFamily: PJK }}>{monthLabel}</span>
+                <button onClick={() => nav(1)} style={navBtnSt(small, P)}>›</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: small ? 2 : 4, marginBottom: small ? 2 : 4 }}>
-                {labels.map((w, i) => <div key={i} style={{ textAlign: 'center', fontSize: small ? 10 : 11, fontWeight: 600, color: i === 6 ? RED : '#727577', textTransform: 'uppercase' }}>{w}</div>)}
+                {labels.map((w, i) => <div key={i} style={{ textAlign: 'center', fontSize: small ? 10 : 11, fontWeight: 600, color: i === 6 ? RED : P.inkMuted, textTransform: 'uppercase' }}>{w}</div>)}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', columnGap: 0, rowGap: small ? 2 : 4 }}>{cells}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px', marginTop: 13, paddingTop: 11, borderTop: '1px solid #f0f0f1' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 13, height: 13, borderRadius: 4, border: `1.5px solid ${ACCENT}`, flexShrink: 0 }} />Today</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: tintOf('casual', colorOf), border: `1px solid ${borderOf('casual', colorOf)}`, flexShrink: 0 }} />Charged</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(teamOffCol, 0.12), outline: `1.5px dashed ${rgba(teamOffCol, 0.55)}`, outlineOffset: '-2px', flexShrink: 0 }} />Team Off</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(holidayCol, 0.12), border: `1px solid ${rgba(holidayCol, 0.30)}`, flexShrink: 0 }} />Holiday</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(weekendCol, 0.10), border: `1px solid ${rgba(weekendCol, 0.25)}`, flexShrink: 0 }} />Saturday</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(RED, 0.07), border: `1px solid ${rgba(RED, 0.20)}`, flexShrink: 0 }} />Sunday</span>
-                {sandwichDays > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ position: 'relative', width: 20, height: 12, borderRadius: 3, background: tintOf('unpaid', colorOf), border: `1px solid ${borderOf('unpaid', colorOf)}`, borderBottom: `2px solid ${sandwichCol}`, flexShrink: 0, overflow: 'hidden' }}><span style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: `6px solid ${sandwichCol}`, borderLeft: '6px solid transparent' }} /></span>Sandwich · Unpaid</span>}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px', marginTop: 13, paddingTop: 11, borderTop: `1px solid ${P.lineSoft}` }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: P.inkMuted, fontWeight: 500 }}><span style={{ width: 13, height: 13, borderRadius: 4, border: `1.5px solid ${ACCENT}`, flexShrink: 0 }} />Today</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: P.inkMuted, fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: tintOf('casual', colorOf), border: `1px solid ${borderOf('casual', colorOf)}`, flexShrink: 0 }} />Charged</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: P.inkMuted, fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(teamOffCol, 0.12), outline: `1.5px dashed ${rgba(teamOffCol, 0.55)}`, outlineOffset: '-2px', flexShrink: 0 }} />Team Off</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: P.inkMuted, fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(holidayCol, 0.12), border: `1px solid ${rgba(holidayCol, 0.30)}`, flexShrink: 0 }} />Holiday</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: P.inkMuted, fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(weekendCol, 0.10), border: `1px solid ${rgba(weekendCol, 0.25)}`, flexShrink: 0 }} />Saturday</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: P.inkMuted, fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(RED, 0.07), border: `1px solid ${rgba(RED, 0.20)}`, flexShrink: 0 }} />Sunday</span>
+                {sandwichDays > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: P.inkMuted, fontWeight: 500 }}><span style={{ position: 'relative', width: 20, height: 12, borderRadius: 3, background: tintOf('unpaid', colorOf), border: `1px solid ${borderOf('unpaid', colorOf)}`, borderBottom: `2px solid ${sandwichCol}`, flexShrink: 0, overflow: 'hidden' }}><span style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: `6px solid ${sandwichCol}`, borderLeft: '6px solid transparent' }} /></span>Sandwich · Unpaid</span>}
             </div>
             {small && monthHolidays.length > 0 && (
-                <div style={{ marginTop: 11, paddingTop: 11, borderTop: '1px solid #f0f0f1' }}>
-                    <div style={{ fontSize: 10.5, fontWeight: 700, color: '#8b8e91', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>
+                <div style={{ marginTop: 11, paddingTop: 11, borderTop: `1px solid ${P.lineSoft}` }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: P.inkFaint, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>
                         Holidays in {new Date(y, m, 1).toLocaleString('en-US', { month: 'long' })}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {monthHolidays.map((h) => (
-                            <div key={h.iso} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '8px 12px', borderRadius: 999, border: '1px solid #eceef0', background: '#fff', boxShadow: '0 1px 2px rgba(16,24,40,0.05)' }}>
+                            <div key={h.iso} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '8px 12px', borderRadius: 999, border: `1px solid ${P.line}`, background: P.surfaceAlt, boxShadow: P.dark ? 'none' : '0 1px 2px rgba(16,24,40,0.05)' }}>
                                 <span style={{ width: 36, height: 36, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: rgba(h.color, 0.15), boxShadow: `inset 0 0 0 1px ${rgba(h.color, 0.25)}`, fontSize: 17, flexShrink: 0 }}>🎉</span>
                                 <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                                        <span style={{ fontSize: 13, fontWeight: 700, color: '#2b2e30', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.name}</span>
+                                        <span style={{ fontSize: 13, fontWeight: 700, color: P.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.name}</span>
                                         {h.long && <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 700, color: '#1d7a4d', background: 'rgba(29,122,77,0.10)', border: '1px solid rgba(29,122,77,0.22)', borderRadius: 99, padding: '1px 7px', textTransform: 'uppercase', letterSpacing: '.02em' }}>Long weekend</span>}
                                     </span>
                                     <span style={{ fontSize: 11.5, fontWeight: 600, color: h.color }}>{h.subtitle}</span>

@@ -1,6 +1,3 @@
-/* eslint-disable no-restricted-syntax -- Hardcoded light-palette backgrounds, moved here verbatim
- * from ApplyLeave.tsx. See the same note in ./LeaveCalendar.tsx: removed by the design pass that
- * themes the modal as a unit, not by adding rows to the shrink-only UI ratchet. */
 /**
  * Shared tokens + primitives for the Apply-Leave modal.
  *
@@ -13,6 +10,7 @@
  * codebase, and re-exporting the modal's parts through an index would recreate it.
  */
 import React from 'react';
+import { leavePalette, type LeavePalette } from './theme';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 export const ACCENT   = '#1E3A8A';
@@ -40,14 +38,23 @@ export function expandRange(fromISO: string, toISO: string): string[] {
 }
 
 // ── Style atoms ───────────────────────────────────────────────────────────────
-export const navBtnSt = (small?: boolean): React.CSSProperties => ({
+export const navBtnSt = (small?: boolean, P: LeavePalette = leavePalette(false)): React.CSSProperties => ({
     width: small ? 34 : 38, height: small ? 34 : 38,
-    border: '1px solid #e6e6e8', borderRadius: 10, background: '#fff', cursor: 'pointer', fontSize: 16,
+    border: `1px solid ${P.line}`, borderRadius: 10, background: P.surface, color: P.ink,
+    cursor: 'pointer', fontSize: 16,
 });
 
-export const errBox: React.CSSProperties = {
-    background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, color: '#991b1b',
-};
+/** Error/blocking notice. Dark keeps the same rose hue at a weight that reads on a dark surface,
+ *  rather than inverting to a light box that would glare. */
+export const errBoxOf = (dark: boolean): React.CSSProperties => dark
+    ? { background: 'rgba(225,29,72,.14)', border: '1px solid rgba(225,29,72,.34)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, color: '#fda4af' }
+    /* eslint-disable-next-line no-restricted-syntax -- this IS the light branch of a function that
+       takes `dark`; the dark branch is the line above. The rule matches a literal and cannot see
+       the branch, so the token it asks for is the thing this function already implements. */
+    : { background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, color: '#991b1b' };
+
+/** Light-mode default, kept so existing call sites compile unchanged. */
+export const errBox: React.CSSProperties = errBoxOf(false);
 
 // ── Primitives ────────────────────────────────────────────────────────────────
 /** Inline padlock. Kept local to the modal so this adds no icon-kit import — the `ui/` barrel is a
@@ -61,7 +68,10 @@ export const LockGlyph = ({ size = 12, color = AMBER }: { size?: number; color?:
 );
 
 export const Toggle = ({ on, color, onClick, disabled }: { on: boolean; color: string; onClick: () => void; disabled?: boolean }) => (
-    <button onClick={() => { if (!disabled) onClick(); }} disabled={disabled} style={{ width: 42, height: 24, borderRadius: 999, background: on ? color : '#d9d9d9', position: 'relative', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, flexShrink: 0, transition: 'background .15s' }}>
+    <button onClick={() => { if (!disabled) onClick(); }} disabled={disabled} style={{ width: 42, height: 24, borderRadius: 999, background: on ? color : 'rgba(128,134,142,.45)', position: 'relative', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, flexShrink: 0, transition: 'background .15s' }}>
+        {/* The knob is white against BOTH the brand-on and the neutral-off track, so it is contrast
+            against the track rather than against the page and correctly does not follow the palette. */}
+        {/* eslint-disable-next-line no-restricted-syntax -- see above: contrast against the track, not the surface. */}
         <span style={{ position: 'absolute', top: 3, left: on ? 21 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,.25)', transition: 'left .15s' }} />
     </button>
 );
