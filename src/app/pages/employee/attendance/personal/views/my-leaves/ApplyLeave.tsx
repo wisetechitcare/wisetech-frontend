@@ -15,7 +15,6 @@
  *  - Per-type solid tint bands + unpaid hatch + inset border rings
  */
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { useApplyLeave, type ApplyLeaveState } from './useApplyLeave';
@@ -27,37 +26,25 @@ import { rgba, tintOf, borderOf, resolveLeaveTypeColor } from '@utils/leaveTypeC
 import { accruedTillNow, getAccrualWindow } from '@utils/balanceProgressUtils';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
-
-// ── Brand tokens ──────────────────────────────────────────────────────────────
-const ACCENT   = '#1E3A8A';
-/** Probation / locked state. Matches the amber the My-Leaves probation banner already uses. */
-const AMBER    = '#8a5a1e';
-const RED      = '#A64652';
-const RED_DARK = '#9C3F48';
-
-/** Inline padlock. Kept local so this file adds no icon-kit import — the `ui/` barrel is a
- *  known tsc-timeout trap and this is the only icon the probation state needs. */
-const LockGlyph = ({ size = 12, color = AMBER }: { size?: number; color?: string }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.4}
-        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-        <rect x="3" y="11" width="18" height="11" rx="2" />
-        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-);
-const GREEN    = '#3E8E6E';
-const PJK      = "'Plus Jakarta Sans', system-ui, sans-serif";
+// Shared tokens + primitives — ONE definition, also used by the extracted sub-components.
+import {
+    ACCENT, AMBER, RED, RED_DARK, GREEN, PJK, DAY_NAMES,
+    pad, isoOf, expandRange, navBtnSt, errBox, LockGlyph, Toggle, DRow,
+} from './apply-leave/tokens';
+import LeaveCalendar from './apply-leave/LeaveCalendar';
 
 const BLANK: ApplyLeaveState = {
     from: null, to: null, isHalfDay: false, halfDaySession: null, firstDayHalf: null, lastDayHalf: null,
     leaveTypeId: undefined, leaveTypeName: undefined, excludeSick: false, reason: '', files: [],
 };
 
+/** Stable empty lookup — see the holidayNames/holidayColors note below. */
+const EMPTY_MAP: Record<string, string> = {};
+
 /** Clear every half-day marker — used whenever the selected range changes. */
 const HALF_RESET: Partial<ApplyLeaveState> = { isHalfDay: false, halfDaySession: null, firstDayHalf: null, lastDayHalf: null };
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
-const pad       = (n: number) => String(n).padStart(2, '0');
-const isoOf     = (d: Date)   => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const fmt       = (iso?: string | null) => iso ? new Date(String(iso).slice(0, 10) + 'T00:00:00').toLocaleString('en-US', { month: 'short', day: 'numeric' }) : '—';
 const daysLabel = (n: number) => n === 1 ? '1 day' : `${n} days`;
 const initialsOf = (name: string) =>
@@ -66,14 +53,6 @@ const initialsOf = (name: string) =>
 // Calendar colour system — the SINGLE source of truth lives in utils/leaveTypeColors.
 // rgba / tintOf / borderOf are imported; colorOf (below) delegates to resolveLeaveTypeColor.
 
-const DAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-
-function expandRange(fromISO: string, toISO: string): string[] {
-    const out: string[] = [];
-    for (let d = new Date(fromISO + 'T00:00:00'); d <= new Date(toISO + 'T00:00:00'); d.setDate(d.getDate() + 1))
-        out.push(isoOf(d));
-    return out;
-}
 function useIsMobile(bp = 768) {
     const [m, setM] = useState(() => typeof window !== 'undefined' ? window.innerWidth < bp : false);
     useEffect(() => { const f = () => setM(window.innerWidth < bp); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f); }, [bp]);
@@ -279,8 +258,10 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     // Union of Redux-sourced holiday dates and the modal's own fresh fetch, so holidays always
     // mark even if no other screen pre-loaded them. Names come from the fresh fetch.
     const holidaySet  = useMemo(() => new Set([...(holidays || []), ...(holidayInfo?.dates || [])]), [holidays, holidayInfo]);
-    const holidayNames = holidayInfo?.names ?? {};
-    const holidayColors = holidayInfo?.colors ?? {};
+    // EMPTY_MAP, not a fresh `{}`: these are memo-compared props on LeaveCalendar, and a new object
+    // literal every render would defeat the memo the grid depends on to avoid rebuilding 42 buttons.
+    const holidayNames = holidayInfo?.names ?? EMPTY_MAP;
+    const holidayColors = holidayInfo?.colors ?? EMPTY_MAP;
     const unpaidLabel = useMemo(() => balances.find(b => !b.isPaid)?.leaveType ?? 'Unpaid', [balances]);
     const allocSubtitle = useMemo(
         () => (priority.length ? [...priority, unpaidLabel] : ['Unpaid']).join(' → '),
@@ -494,7 +475,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         const d = new Date(iso + 'T00:00:00');
         setCal({ y: d.getFullYear(), m: d.getMonth() });
     }, [blockedDates, today, todayDone]);
-    const nav = (d: number) => setCal(c => { let m = c.m + d, y = c.y; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } return { y, m }; });
+    const nav = useCallback((d: number) => setCal(c => { let m = c.m + d, y = c.y; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } return { y, m }; }), []);
 
     const onSubmit = async () => {
         if (!canSubmit) return; setError(null);
@@ -616,313 +597,18 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         </div>
     );
 
-    /**
-     * PERF — why the hover state lives HERE and not in the parent.
-     *
-     * `Calendar` is declared inside ApplyLeave's body, so every parent render produces a NEW
-     * component identity and React unmounts + remounts this whole subtree (42 day buttons, the
-     * legend, the holiday chips). While the hover state sat in the parent, moving the pointer
-     * across the grid re-rendered ApplyLeave and therefore REMOUNTED the calendar on every single
-     * cell — which is what made hovering feel heavy and made the tooltip stutter. Keeping
-     * `hoverDate` / `hoverTip` local confines a hover to one cheap re-render of this component and
-     * leaves the rest of the modal untouched. (A remount still happens when the parent's own state
-     * changes — picking a date, toggling a half — which is both rare and exactly when clearing the
-     * hover is the desired behaviour, so the parent no longer resets it by hand.)
-     */
-    const Calendar = ({ small }: { small?: boolean }) => {
-        const [hoverDate, setHoverDate] = useState<string | null>(null);
-        const [hoverTip, setHoverTip] = useState<{ x: number; y: number; below: boolean; text: string; color: string | null } | null>(null);
-        const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-        useEffect(() => () => { if (tipTimer.current) clearTimeout(tipTimer.current); }, []);
-        /**
-         * Anchor the tooltip to the CELL, not the cursor: a cursor-following label jitters on every
-         * mousemove and always lags the pointer. It sits above the day, flipping below when the cell
-         * is too near the top of the viewport for the label to fit.
-         *
-         * `transient` is the touch path — there is no hover on a phone, so tapping an unavailable
-         * day reveals WHY it is unavailable and the label clears itself.
-         */
-        const showTip = (el: HTMLElement, text: string, color: string | null, transient = false) => {
-            const r = el.getBoundingClientRect();
-            const below = r.top < 76;
-            if (tipTimer.current) clearTimeout(tipTimer.current);
-            setHoverTip({ x: r.left + r.width / 2, y: below ? r.bottom + 10 : r.top - 10, below, text, color });
-            if (transient) tipTimer.current = setTimeout(() => setHoverTip(null), 2400);
-        };
-        const hideTip = () => { if (tipTimer.current) clearTimeout(tipTimer.current); setHoverTip(null); };
-        const { y, m } = cal;
-        // Monday-first week: shift the JS Sun=0 lead so Monday occupies column 0.
-        const lead = (new Date(y, m, 1).getDay() + 6) % 7, dim = new Date(y, m + 1, 0).getDate();
-        // Hover preview: only active while a single day is selected (awaiting range extension)
-        const isPickingRange = !!(s.from && s.to === s.from);
-        const previewEnd = isPickingRange && hoverDate && hoverDate > s.from! ? hoverDate : null;
-        const end = previewEnd ?? s.to ?? s.from;
-        const sz = small ? 40 : 44, rad = small ? 9 : 10;
-        const hasWod = Object.keys(workingAndOffDays).length > 0;
-        const cells: React.ReactNode[] = [];
-        for (let i = 0; i < lead; i++) cells.push(<div key={'l' + i} />);
-        for (let d = 1; d <= dim; d++) {
-            const iso      = `${y}-${pad(m + 1)}-${pad(d)}`;
-            const beforeDoj = !!dateOfJoining && iso < dateOfJoining;
-            const past     = iso < today || beforeDoj;
-            // Backdating is allowed across the whole CURRENT fiscal year: any past date on/after the
-            // joining date and on/after 1 April is SELECTABLE so an employee can record a leave they
-            // forgot to apply for (the backend charges the late-apply penalty). Dates before the
-            // fiscal year, before joining, or already taken stay blocked.
-            const beforeFy = iso < fyStart;
-            const backdated = iso < today && !beforeDoj && !beforeFy;
-            const blocked  = blockedDates.has(iso);
-            // Today is already fully worked (check-in AND check-out) - there is no day left to take.
-            const workedToday = iso === today && todayDone;
-            const disabled = beforeDoj || blocked || beforeFy || workedToday;
-            const isEp       = iso === s.from || iso === s.to;
-            const isHoverEnd = !isEp && !!previewEnd && iso === previewEnd;
-            const inRange    = !!(s.from && end && iso > s.from && iso < end);
-            const wd         = new Date(iso + 'T00:00:00').getDay();
-            const weekend  = wd === 0 || wd === 6;
-            const offDay   = hasWod ? workingAndOffDays[DAY_NAMES[wd]] === '0' : weekend;
-            const teamOff  = offDay && !weekend;
-            const holiday  = holidaySet.has(iso);
-            const seg      = segByDate.get(iso), charged = !!seg;
-            // sandwichCharged: interior off-day excluded from salary (Model B — not booked as leave)
-            const sandwichCharged = sandwichDateSet.has(iso);
-            const dtColor  = charged ? colorOf(seg!.leaveType) : ACCENT;
-
-            const st: React.CSSProperties = {
-                position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '100%', height: sz, border: 'none', background: '#fff', color: '#2b2e30',
-                fontSize: small ? 13 : 14, fontWeight: 500, borderRadius: rad, cursor: disabled ? 'default' : 'pointer',
-            };
-            if (past || workedToday)  { st.opacity = 0.4; st.color = '#a6a8ab'; }
-            if (blocked && !past) { st.background = '#f3eaec'; st.color = RED; st.textDecoration = 'line-through'; }
-            // Holiday — colour from customColors.attendanceOverview.holidayColor
-            if (holiday && !charged && !blocked) {
-                st.background = rgba(holidayCol, 0.12); st.color = holidayCol; st.boxShadow = `inset 0 0 0 1px ${rgba(holidayCol, 0.30)}`;
-            }
-            // Off-days — three distinct identities so they never read as the same swatch:
-            //  • Team Off (branch-configured weekday off) → teal tint + dashed ring (its own colour,
-            //    plus a non-colour cue for accessibility)
-            //  • Sunday → RED (matches the column header)
-            //  • Saturday / other weekend → weekendCol from config
-            if (offDay && !charged && !blocked && !holiday) {
-                if (teamOff) {
-                    st.background     = rgba(teamOffCol, 0.12);
-                    st.color          = teamOffCol;
-                    // Dashed ring (via outline → no layout shift) is the non-colour cue that sets
-                    // Team Off apart from the SOLID rings on weekend/holiday cells.
-                    st.outline        = `1.5px dashed ${rgba(teamOffCol, 0.55)}`;
-                    st.outlineOffset  = '-3px';
-                    st.borderRadius   = rad;
-                } else {
-                    const isSun   = wd === 0;
-                    const offCol  = isSun ? RED : weekendCol;
-                    const offAlpha = isSun ? 0.07 : 0.10;
-                    st.background = rgba(offCol, offAlpha);
-                    st.color      = offCol;
-                    st.boxShadow  = `inset 0 0 0 1px ${rgba(offCol, isSun ? 0.20 : 0.25)}`;
-                }
-            }
-            // In-range uncharged — light accent band so the selection reads cohesively.
-            if (inRange && !charged && !blocked && !holiday) {
-                st.background = rgba(ACCENT, 0.07); st.color = ACCENT; st.borderRadius = 0;
-                st.boxShadow  = `inset 0 0 0 1px ${rgba(ACCENT, 0.16)}`;
-            }
-            // Charged by leave type — solid config colour for all types including Unpaid.
-            // Selected days are shown purely by this allocation colouring (no separate endpoint mark).
-            if (charged) {
-                st.background   = tintOf(seg!.leaveType, colorOf);
-                st.color        = dtColor;
-                st.borderRadius = 0;
-                st.borderTop    = `1px solid ${borderOf(seg!.leaveType, colorOf)}`;
-                st.borderBottom = `1px solid ${borderOf(seg!.leaveType, colorOf)}`;
-            }
-            // Sandwich — premium: soft Unpaid tint, readable dark numeral, 2px accent underline
-            // (a small corner ribbon marks it in the cell body). Overrides the off-day tint.
-            if (sandwichCharged) {
-                const uBorder = borderOf('unpaid', colorOf);
-                st.background   = tintOf('unpaid', colorOf);
-                st.color        = sandwichCol;
-                st.fontWeight   = 700;
-                st.borderRadius = 0;
-                st.boxShadow    = 'none';
-                st.borderTop    = `1px solid ${uBorder}`;
-                st.borderBottom = `2px solid ${sandwichCol}`;
-            }
-            // Today — solid ACCENT filled background with white numeral.
-            if (iso === today && !past && !blocked && !workedToday) {
-                st.background   = ACCENT;
-                st.color        = '#fff';
-                st.fontWeight   = 700;
-                st.borderRadius = rad;
-                st.boxShadow    = 'none';
-                st.borderTop    = 'none';
-                st.borderBottom = 'none';
-            }
-            // Selection endpoints (Start/End) — CONNECTED caps so the range reads as ONE continuous
-            // band from start to end. Keep the band/charged fill (never a detached white pill),
-            // round only the OUTER edge (left for start, right for end), and mark it with a 2px ring
-            // in the day's leave-type colour (navy when uncharged). A single-day selection is fully
-            // rounded.
-            if (isEp) {
-                const isStartPt = iso === s.from;
-                const isEndPt   = iso === s.to;
-                const singleDay = !!(s.from && s.to && s.from === s.to);
-                if (!charged && !sandwichCharged) {
-                    st.background = rgba(ACCENT, 0.10);
-                    st.color      = dtColor;
-                }
-                st.fontWeight   = 800;
-                st.boxShadow    = `inset 0 0 0 2px ${dtColor}`;
-                st.borderRadius = singleDay ? rad
-                    : isStartPt ? `${rad}px 0 0 ${rad}px`
-                    : isEndPt   ? `0 ${rad}px ${rad}px 0`
-                    : rad;
-                st.borderTop    = 'none';
-                st.borderBottom = 'none';
-            }
-            // Hover preview end — ghost highlight, indicates where range would end
-            if (isHoverEnd) {
-                st.background   = rgba(ACCENT, 0.18); st.color = ACCENT; st.fontWeight = 700;
-                st.boxShadow    = `inset 0 0 0 2px ${rgba(ACCENT, 0.45)}`;
-                st.borderRadius = `0 ${rad}px ${rad}px 0`;
-                st.borderTop    = 'none'; st.borderBottom = 'none';
-            }
-
-            const tip = beforeDoj ? 'Before joining date' : blocked ? 'Already have a leave here'
-                : workedToday ? 'Already checked in and out today — nothing left to take as leave'
-                : beforeFy ? 'Backdating is limited to this financial year'
-                : iso === today && todayHalfPM ? 'Checked in today — only the PM half can be taken'
-                : backdated ? 'Backdated — late-apply penalty may apply'
-                : isEp     ? `Selected${seg ? ` · ${seg.leaveType}` : ''}`
-                : sandwichCharged ? 'Sandwich — excluded from salary (not a leave-balance day)'
-                : charged  ? `Leave day — ${seg!.leaveType}`
-                : holiday  ? (holidayNames[iso] ? `${holidayNames[iso]} · ${new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}` : 'Public holiday') : teamOff ? 'Team off — not charged'
-                : weekend  ? (wd === 0 ? 'Sunday' : 'Saturday') + ' — not charged' : 'Available';
-
-            const tipColor = isEp ? dtColor
-                : charged ? colorOf(seg!.leaveType)
-                : sandwichCharged ? sandwichCol
-                : holiday ? (holidayColors[iso] || holidayCol)
-                : teamOff ? teamOffCol
-                : null;
-            cells.push(
-                <button key={iso} type="button" style={st}
-                    aria-pressed={isEp || undefined}
-                    aria-label={`${new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} — ${tip}`}
-                    onClick={(e) => {
-                        // In view mode, clicking a date flips the same modal straight into edit (if
-                        // the request is still editable) — no separate button needed.
-                        if (isView) { if (canEditExisting && !past) { onEdit ? onEdit() : setEditing(true); } return; }
-                        // Touch has no hover: tapping an unavailable day explains itself rather than
-                        // doing nothing at all.
-                        if (disabled) { showTip(e.currentTarget, tip, tipColor, true); return; }
-                        pick(iso);
-                    }}
-                    onMouseEnter={(e) => {
-                        if (!disabled && isPickingRange) setHoverDate(iso);
-                        if (!small) showTip(e.currentTarget, tip, tipColor);
-                    }}
-                    onMouseLeave={() => { setHoverDate(null); hideTip(); }}
-                    // Keyboard parity: tabbing through the grid surfaces the same label a mouse gets.
-                    onFocus={(e) => { if (!small) showTip(e.currentTarget, tip, tipColor); }}
-                    onBlur={hideTip}
-                >
-                    {sandwichCharged && (
-                        <span style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: `8px solid ${sandwichCol}`, borderLeft: '8px solid transparent' }} />
-                    )}
-                    {d}
-                </button>
-            );
-        }
-
-        const monthLabel = new Date(y, m, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
-        const labels     = small ? ['M','T','W','T','F','S','S'] : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-
-        // A day is non-working if it's a holiday or a configured off-day (weekend/team-off).
-        const isNonWorkingISO = (i: string): boolean => {
-            if (holidaySet.has(i)) return true;
-            const w = new Date(i + 'T00:00:00').getDay();
-            return hasWod ? workingAndOffDays[DAY_NAMES[w]] === '0' : (w === 0 || w === 6);
-        };
-        // The consecutive non-working run a holiday sits in — its span + length (≥3 ⇒ long weekend).
-        const longWeekendRun = (i: string): { len: number; startISO: string; endISO: string } => {
-            let len = 1, startISO = i, endISO = i;
-            let cur = new Date(i + 'T00:00:00');
-            for (;;) { const p = new Date(cur); p.setDate(p.getDate() - 1); const pi = `${p.getFullYear()}-${pad(p.getMonth() + 1)}-${pad(p.getDate())}`; if (isNonWorkingISO(pi)) { len++; cur = p; startISO = pi; } else break; }
-            cur = new Date(i + 'T00:00:00');
-            for (;;) { const n = new Date(cur); n.setDate(n.getDate() + 1); const ni = `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}`; if (isNonWorkingISO(ni)) { len++; cur = n; endISO = ni; } else break; }
-            return { len, startISO, endISO };
-        };
-        const fmtChipDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-        // Holidays falling in the displayed month — rendered as rich chips below the calendar so the
-        // configured name + duration are visible without hovering (important on touch devices).
-        const monthHolidays = [...holidaySet]
-            .filter((iso) => { const dt = new Date(iso + 'T00:00:00'); return dt.getFullYear() === y && dt.getMonth() === m; })
-            .sort()
-            .map((iso) => {
-                const run  = longWeekendRun(iso);
-                const long = run.len >= 3;
-                return {
-                    iso,
-                    name: holidayNames[iso] || 'Public holiday',
-                    color: holidayColors[iso] || holidayCol,
-                    long,
-                    subtitle: long
-                        ? `${fmtChipDate(run.startISO)} – ${fmtChipDate(run.endISO)} · ${run.len} Days`
-                        : `${fmtChipDate(iso)} · 1 Day`,
-                };
-            });
-
-        return (
-            <div style={{ border: '1px solid #e6e6e8', borderTop: small ? '1px solid #e6e6e8' : `3px solid ${ACCENT}`, borderRadius: 13, padding: small ? 12 : '15px 16px' }}>
-                {hoverTip && createPortal(
-                    <div role="tooltip" style={{ position: 'fixed', left: Math.max(8, Math.min(hoverTip.x, window.innerWidth - 8)), top: hoverTip.y, transform: `translate(-50%, ${hoverTip.below ? '0' : '-100%'})`, zIndex: 100000, pointerEvents: 'none', background: '#2b2e30', color: '#fff', padding: '7px 11px', borderRadius: 9, fontSize: 12, fontWeight: 600, lineHeight: 1.35, textAlign: 'left', boxShadow: '0 8px 24px rgba(0,0,0,0.24)', display: 'flex', alignItems: 'center', gap: 7, width: 'max-content', maxWidth: 250, fontFamily: PJK }}>
-                        {hoverTip.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: hoverTip.color, flexShrink: 0 }} />}
-                        <span>{hoverTip.text}</span>
-                    </div>,
-                    document.body,
-                )}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: small ? 10 : 12 }}>
-                    <button onClick={() => nav(-1)} style={navBtnSt(small)}>‹</button>
-                    <span style={{ fontSize: small ? 14 : 15, fontWeight: 700, color: '#2b2e30', fontFamily: PJK }}>{monthLabel}</span>
-                    <button onClick={() => nav(1)} style={navBtnSt(small)}>›</button>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: small ? 2 : 4, marginBottom: small ? 2 : 4 }}>
-                    {labels.map((w, i) => <div key={i} style={{ textAlign: 'center', fontSize: small ? 10 : 11, fontWeight: 600, color: i === 6 ? RED : '#727577', textTransform: 'uppercase' }}>{w}</div>)}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', columnGap: 0, rowGap: small ? 2 : 4 }}>{cells}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px', marginTop: 13, paddingTop: 11, borderTop: '1px solid #f0f0f1' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 13, height: 13, borderRadius: 4, border: `1.5px solid ${ACCENT}`, flexShrink: 0 }} />Today</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: tintOf('casual', colorOf), border: `1px solid ${borderOf('casual', colorOf)}`, flexShrink: 0 }} />Charged</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(teamOffCol, 0.12), outline: `1.5px dashed ${rgba(teamOffCol, 0.55)}`, outlineOffset: '-2px', flexShrink: 0 }} />Team Off</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(holidayCol, 0.12), border: `1px solid ${rgba(holidayCol, 0.30)}`, flexShrink: 0 }} />Holiday</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(weekendCol, 0.10), border: `1px solid ${rgba(weekendCol, 0.25)}`, flexShrink: 0 }} />Saturday</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(RED, 0.07), border: `1px solid ${rgba(RED, 0.20)}`, flexShrink: 0 }} />Sunday</span>
-                    {sandwichDays > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ position: 'relative', width: 20, height: 12, borderRadius: 3, background: tintOf('unpaid', colorOf), border: `1px solid ${borderOf('unpaid', colorOf)}`, borderBottom: `2px solid ${sandwichCol}`, flexShrink: 0, overflow: 'hidden' }}><span style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: `6px solid ${sandwichCol}`, borderLeft: '6px solid transparent' }} /></span>Sandwich · Unpaid</span>}
-                </div>
-                {small && monthHolidays.length > 0 && (
-                    <div style={{ marginTop: 11, paddingTop: 11, borderTop: '1px solid #f0f0f1' }}>
-                        <div style={{ fontSize: 10.5, fontWeight: 700, color: '#8b8e91', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>
-                            Holidays in {new Date(y, m, 1).toLocaleString('en-US', { month: 'long' })}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {monthHolidays.map((h) => (
-                                <div key={h.iso} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '8px 12px', borderRadius: 999, border: '1px solid #eceef0', background: '#fff', boxShadow: '0 1px 2px rgba(16,24,40,0.05)' }}>
-                                    <span style={{ width: 36, height: 36, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: rgba(h.color, 0.15), boxShadow: `inset 0 0 0 1px ${rgba(h.color, 0.25)}`, fontSize: 17, flexShrink: 0 }}>🎉</span>
-                                    <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                                            <span style={{ fontSize: 13, fontWeight: 700, color: '#2b2e30', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.name}</span>
-                                            {h.long && <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 700, color: '#1d7a4d', background: 'rgba(29,122,77,0.10)', border: '1px solid rgba(29,122,77,0.22)', borderRadius: 99, padding: '1px 7px', textTransform: 'uppercase', letterSpacing: '.02em' }}>Long weekend</span>}
-                                        </span>
-                                        <span style={{ fontSize: 11.5, fontWeight: 600, color: h.color }}>{h.subtitle}</span>
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
+    // The month grid lives in ./apply-leave/LeaveCalendar (module scope + React.memo). Declared
+    // inline here it was remounted — all 42 day buttons — on every parent render, including every
+    // keystroke in the reason field. `calendarProps` bundles its inputs; everything non-primitive
+    // in it is already memoised above, which is what lets memo actually skip work.
+    const onEditRequest = useCallback(() => { if (onEdit) onEdit(); else setEditing(true); }, [onEdit]);
+    const calendarProps = {
+        cal, nav, sel: s, pick,
+        today, fyStart, todayDone, todayHalfPM, dateOfJoining,
+        blockedDates, segByDate, sandwichDateSet, sandwichDays,
+        holidaySet, holidayNames, holidayColors, workingAndOffDays,
+        colorOf, holidayCol, weekendCol, teamOffCol, sandwichCol,
+        isView, canEditExisting, onEditRequest,
     };
 
     // View mode is a read-only review (the approver/employee is inspecting a booked leave, not
@@ -1327,7 +1013,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             );
                         })}
                     </div>
-                    <Calendar small />
+                    <LeaveCalendar {...calendarProps} small />
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 11, padding: '10px 12px', border: '1px solid #e6e6e8', borderRadius: 11 }}>
                         <span style={{ fontSize: 12.5, color: '#5f6266' }}><span style={{ color: '#8b8e91' }}>Dates: </span><strong>{!s.from ? 'None' : s.to && s.to !== s.from ? `${fmt(s.from)} → ${fmt(s.to)}` : fmt(s.from)}</strong></span>
                         <span style={{ fontSize: 13, fontWeight: 700, color: '#2b2e30' }}>{!s.from ? '—' : N === 0 ? '0 days' : daysLabel(N)}</span>
@@ -1415,7 +1101,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             );
                         })}
                     </div>
-                    <div style={{ marginTop: 8 }}><Calendar /></div>
+                    <div style={{ marginTop: 8 }}><LeaveCalendar {...calendarProps} /></div>
                     <HalfDay />
                     {/* Sick confirm — appears in left column below calendar (matches design) */}
                     {sickPromptShow && <div style={{ marginTop: 12 }}><SickConfirm /></div>}
@@ -1506,22 +1192,4 @@ const pillSt = (sel: boolean, color: string): React.CSSProperties => ({
     background: sel ? `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},0.08)` : '#fff',
     color: sel ? color : '#5f6266',
 });
-const navBtnSt = (small?: boolean): React.CSSProperties => ({
-    width: small ? 34 : 38, height: small ? 34 : 38,
-    border: '1px solid #e6e6e8', borderRadius: 10, background: '#fff', cursor: 'pointer', fontSize: 16,
-});
-const errBox: React.CSSProperties = {
-    background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, color: '#991b1b',
-};
-const Toggle = ({ on, color, onClick, disabled }: { on: boolean; color: string; onClick: () => void; disabled?: boolean }) => (
-    <button onClick={() => { if (!disabled) onClick(); }} disabled={disabled} style={{ width: 42, height: 24, borderRadius: 999, background: on ? color : '#d9d9d9', position: 'relative', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, flexShrink: 0, transition: 'background .15s' }}>
-        <span style={{ position: 'absolute', top: 3, left: on ? 21 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,.25)', transition: 'left .15s' }} />
-    </button>
-);
-const DRow = ({ label, value, mt }: { label: string; value: string; mt?: boolean }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: mt ? 7 : 0 }}>
-        <span style={{ fontSize: 12, color: '#8b8e91', fontWeight: 600 }}>{label}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#2b2e30' }}>{value}</span>
-    </div>
-);
 
