@@ -386,7 +386,16 @@ export const TaskFormDialog = ({
             if (isEdit && task) {
                 // Scope and project are immutable after creation — never resend them.
                 const { taskScope, projectId, parentTaskId, ...editable } = payload as Record<string, unknown>;
-                saved = await updateMutation.mutateAsync({ id: task.id, payload: editable });
+                // In progress-only mode, send ONLY the progress.
+                //
+                // The form posts the whole task back, and the API refuses a restricted editor who
+                // touches anything but progress — `assigneeIds` is refused on mention alone, since
+                // the roster lives in its own table with nothing to compare against. So a team
+                // member moved the slider, pressed Save, and the save was rejected every time for
+                // fields they had never edited. Sending one field is also simply what this dialog
+                // promises: "Only the progress can be changed here."
+                const body = progressLock ? { progress: editable.progress } : editable;
+                saved = await updateMutation.mutateAsync({ id: task.id, payload: body });
             } else {
                 saved = await createMutation.mutateAsync(payload);
             }

@@ -124,19 +124,46 @@ function LogTimeAutoCalc({ editTimeSheetData }: { editTimeSheetData: any }) {
   return null;
 }
 
-const validationSchema = Yup.object().shape({
-  projectId: Yup.string().required("Project is required"),
-  taskId: Yup.string().required("Task is required"),
-  startTime: Yup.mixed().required("Start time is required"),
-  endTime: Yup.mixed().optional(),
-  description: Yup.string().optional(),
-  billable: Yup.string()
-    .oneOf(["true", "false"])
-    .required("Billable is required"),
-  logTimeHours: Yup.number().required("Log time hours is required"),
-  logTimeMinutes: Yup.number().required("Log time minutes is required"),
-  logTimeSeconds: Yup.number().required("Log time seconds is required"),
-});
+const validationSchema = Yup.object()
+  .shape({
+    projectId: Yup.string().required("Project is required"),
+    taskId: Yup.string().required("Task is required"),
+    startTime: Yup.string().trim().required("Start time is required"),
+    // Required, because the field is labelled required and an entry is a BLOCK of work. An
+    // entry with no end is a RUNNING timer, and those are only ever created by the timer.
+    endTime: Yup.string()
+      .trim()
+      .required("End time is required")
+      .test(
+        "after-start",
+        "End time must be after the start time",
+        // Both values are "HH:mm" from the same picker, so a string compare is a time
+        // compare. An overnight span would need a date, which this form does not collect.
+        function (value) {
+          const start = this.parent?.startTime;
+          if (!value || !start) return true;   // the required rules report a blank one
+          return String(value) > String(start);
+        },
+      ),
+    description: Yup.string().optional(),
+    billable: Yup.string()
+      .oneOf(["true", "false"])
+      .required("Billable is required"),
+    logTimeHours: Yup.number().required("Log time hours is required"),
+    logTimeMinutes: Yup.number().required("Log time minutes is required"),
+    logTimeSeconds: Yup.number().required("Log time seconds is required"),
+  })
+  .test(
+    "non-zero-duration",
+    "Start and end time cannot be the same",
+    (values: any) => {
+      if (!values?.startTime || !values?.endTime) return true;
+      const total =
+        (values.logTimeHours ?? 0) + (values.logTimeMinutes ?? 0) + (values.logTimeSeconds ?? 0);
+      // A zero-length entry is somebody saving twice, not a block of work.
+      return total > 0;
+    },
+  );
 
 const NewTimeLogForm = ({
   show,
@@ -276,12 +303,16 @@ const NewTimeLogForm = ({
     projectId: editTimeSheetData?.projectId || prefilledProjectId || "",
     taskId: editTimeSheetData?.taskId || prefilledTaskId || "",
     employeeId: editTimeSheetData?.employeeId || "",
+    // EMPTY, not `new Date()`. Seeding "now" made both fields permanently truthy, so
+    // `required()` could never fail: the form showed an empty hh:mm, refused nothing, and
+    // saved the moment you pressed Add Log — silently stamping whatever time it happened to
+    // be. A required field has to be able to be empty for the rule to mean anything.
     startTime: editTimeSheetData?.startTime
       ? formatTime(editTimeSheetData?.startTime)
-      : new Date(),
+      : "",
     endTime: editTimeSheetData?.endTime
       ? formatTime(editTimeSheetData?.endTime)
-      : new Date(),
+      : "",
     description: editTimeSheetData?.description || "",
     billable: editTimeSheetData?.billable !== undefined ? (editTimeSheetData.billable ? "true" : "false") : "true",
     logTime: logTime,

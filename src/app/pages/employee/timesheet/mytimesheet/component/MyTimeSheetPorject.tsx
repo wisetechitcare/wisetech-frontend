@@ -18,6 +18,7 @@ import {
 import { deleteConfirmation } from "@utils/modal";
 import { toast } from "react-toastify";
 import eventBus from "@utils/EventBus";
+import { usePermission } from "@hooks/usePermission";
 import { getAllEmployeeWithMonthDailyHourlySalary } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -53,6 +54,20 @@ const MyTimeSheetProject = ({
   const [selectedTimeSheet, setSelectedTimeSheet] = useState<any>(null);
 
   const navigate = useNavigate();
+  /**
+   * Who may see labour cost.
+   *
+   * The API already decides this — `canViewTaskCost` narrows it to an explicit finance grant or
+   * the project's PRIMARY manager, and strips the fields for everyone else. This only stops the
+   * column being drawn for somebody the server will never fill it for.
+   *
+   * ⚠️ A HINT, not the gate: `usePermission` treats a blanket `*.*.all` wildcard as satisfying
+   * any key, so it can read true for somebody the API still refuses. That is fine — the server
+   * remains the boundary.
+   */
+  const canSeeAllFinance = usePermission('finance.view.all');
+  const canSeeDeptFinance = usePermission('finance.view.department');
+  const canSeeCost = canSeeAllFinance || canSeeDeptFinance;
   // The time log opens as a dialog over this table rather than as a page of
   // its own: it is a detail OF this list, and reading one used to mean leaving.
   const [openLogId, setOpenLogId] = useState<string | null>(null);
@@ -297,11 +312,17 @@ const MyTimeSheetProject = ({
         size: 100,
         Cell: ({ cell }: any) => (cell.getValue() ? "Yes" : "No"),
       },
-      {
-        header: "Cost",
-        accessorKey: "cost",
-        size: 120,
-      },
+      // Labour cost is derived from internal SALARY data. It is a manager's figure, not the
+      // employee's own — an ordinary person reading their timesheet should not be able to
+      // work backwards from it to anybody's pay, their own included. Omitted rather than
+      // blanked: a column of dashes still advertises that a number exists.
+      ...(canSeeCost
+        ? [{
+            header: "Cost",
+            accessorKey: "cost",
+            size: 120,
+          }]
+        : []),
       {
         header: "Project",
         accessorKey: "projectTitle",
@@ -364,7 +385,7 @@ const MyTimeSheetProject = ({
         },
       },
     ],
-    [handleEditTimeSheet, handleDeleteTimeSheet, navigate, findEmployeeName]
+    [handleEditTimeSheet, handleDeleteTimeSheet, navigate, findEmployeeName, canSeeCost]
   );
 
   /**
