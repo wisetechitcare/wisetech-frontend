@@ -149,13 +149,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     return createdDate >= startDateNew && createdDate <= endDateNew;
                 });
 
-                const currentFiscalEncashRequests = requests.filter((req: any) => {
-                    if (req.managementType !== 'CASH') return false;
-                    if (req.status !== 0 && req.status !== 1) return false;
-                    const createdDate = req.createdAt ? dayjs(req.createdAt).format('YYYY-MM-DD') : '';
-                    return createdDate >= startDateNew && createdDate <= endDateNew;
-                });
-
                 currentFiscalTransferRequests.forEach((transferRequest: any) => {
                     if (transferRequest?.leaveTypeIds && Array.isArray(transferRequest.leaveTypeIds)) {
                         transferRequest.leaveTypeIds.forEach((leaveTypeItem: any) => {
@@ -166,15 +159,18 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     }
                 });
 
-                currentFiscalEncashRequests.forEach((encashRequest: any) => {
-                    if (encashRequest?.leaveTypeIds && Array.isArray(encashRequest.leaveTypeIds)) {
-                        encashRequest.leaveTypeIds.forEach((leaveTypeItem: any) => {
-                            const leaveType = leaveTypeItem.leaveType;
-                            const count = leaveTypeItem.count || 0;
-                            currentFiscalTransferred[leaveType] = (currentFiscalTransferred[leaveType] || 0) + count;
-                        });
-                    }
-                });
+                // ENCASHMENT IS NO LONGER SUBTRACTED HERE.
+                //
+                // recalculateBalance now nets encashed days out of availableBalance server-side, so
+                // subtracting them again on this screen would double-count them: encash 4 days and
+                // the card would drop by 8. This subtraction existed because the server did not do
+                // it — which is also why ApplyLeave, which reads availableBalance directly, used to
+                // show days that had already been cashed out.
+                //
+                // Transfers are still subtracted below, and deliberately are NOT deducted
+                // server-side: fiscalYearRollover carries availableBalance forward automatically,
+                // so reducing it for a transfer would make rollover carry the smaller figure and
+                // destroy the days the employee asked to keep.
 
                 setTransferredLeavesInCurrentFiscal(currentFiscalTransferred);
                 setShouldShowConvertButton(!hasPendingOrApprovedRequest);
