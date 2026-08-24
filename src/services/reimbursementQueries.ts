@@ -146,6 +146,17 @@ export const postQueryMessage = async (
     return unwrap<QueryThread>(data, 'query');
 };
 
+/**
+ * Can this thread be closed right now?
+ *
+ * Mirrors `canResolve` in the backend's `reimbursementQueryState` — only an ANSWERED thread
+ * closes, because the approver asked the question and cannot decide it is answered before the
+ * employee has said anything. Every surface offering a Resolve control must ask this first:
+ * BatchWorkflowPanel offered the button on an OPEN thread, directly beneath its own "Awaiting
+ * employee response" chip, and the server rejected the click with a 400 every time.
+ */
+export const canResolveQuery = (status: QueryStatus): boolean => status === 'ANSWERED';
+
 export const resolveQuery = async (queryId: string, note?: string): Promise<QueryThread> => {
     const { data } = await axios.patch(`${BASE}/queries/${queryId}/resolve`, { note });
     return unwrap<QueryThread>(data, 'query');
