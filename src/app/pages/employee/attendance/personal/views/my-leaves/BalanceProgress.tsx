@@ -414,6 +414,21 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
         [proRatedBalances, leaveBalances, leavesTakenCount, transferredLeavesInCurrentFiscal]
     );
 
+    /**
+     * Why the Convert Leaves button is unavailable, or null when it is available.
+     *
+     * Order matters: a zero balance is the more fundamental reason, so it wins when both apply —
+     * telling someone "a request is already pending" when they also have nothing to convert would
+     * send them to check the wrong thing.
+     */
+    const convertBlockedReason = useMemo<string | null>(() => {
+        const paidAvailable = Number(availableLeaves?.totalLeaves ?? 0);
+        if (paidAvailable <= 0) return 'You have no paid leave balance left to convert.';
+        if (!shouldShowConvertButton) return 'You already have a conversion request pending or approved.';
+        return null;
+    }, [availableLeaves, shouldShowConvertButton]);
+    const canConvert = convertBlockedReason === null;
+
     if (!res2 && !res1) {
         return null;
     }
@@ -534,7 +549,25 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                         </div>
                         {/* Converting leave you cannot yet use makes no sense — hide during probation. */}
                         {!fromAdmin && !hidePaidBalances && isFiscalYearCurrentOrFuture && (
-                            <WtButton inverted onClick={() => setShowConvertModal(true)}
+                            /*
+                             * DISABLED, not hidden, when there is nothing to convert.
+                             *
+                             * Hiding the control leaves the employee wondering where it went — and the
+                             * two reasons it can be unavailable are things they should be able to see:
+                             * a zero paid balance, or a conversion request already in flight. The
+                             * server rejects both cases anyway (validateConversion refuses a request
+                             * for more days than are held, and refuses an empty one), so this is the
+                             * same rule stated where the employee can act on it.
+                             *
+                             * `shouldShowConvertButton` was already being computed for the
+                             * one-request-at-a-time rule and then never read by anything — the button
+                             * rendered regardless. It is wired up here.
+                             */
+                            <WtButton
+                                inverted
+                                disabled={!canConvert}
+                                title={convertBlockedReason ?? undefined}
+                                onClick={() => setShowConvertModal(true)}
                                 startIcon={<KTIcon iconName="arrow-two-diagonals" className="fs-5" />}
                                 className="h-11 whitespace-nowrap w-full sm:w-auto">
                                 Convert Leaves

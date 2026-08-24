@@ -354,6 +354,7 @@ export const EMPLOYEE = {
     GET_ALL_LEAVE_MANAGEMENTS: "api/employee/leave-management/all",
     UPDATE_LEAVE_MANAGEMENT: "api/employee/leave-management",
     REVOKE_LEAVE_MANAGEMENT: "api/employee/leave-management/revoke",
+    GET_UNSETTLED_LEAVERS: "api/employee/leave-management/unsettled-leavers",
     DELETE_LEAVE_MANAGEMENT: "api/employee/leave-management/:id"
 }
 

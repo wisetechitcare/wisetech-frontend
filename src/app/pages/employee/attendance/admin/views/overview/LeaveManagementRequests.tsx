@@ -9,6 +9,7 @@ import {
   revokeLeaveManagement,
 } from "@services/employee";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import UnsettledLeaversPanel from "./UnsettledLeaversPanel";
 import dayjs from "dayjs";
 import { KTIcon } from "@metronic/helpers";
 import { successConfirmation, rejectConfirmation, errorConfirmation } from "@utils/modal";
@@ -325,6 +326,11 @@ function LeaveManagementRequests() {
 
   return (
     <>
+      {/* Leavers whose balance nobody converted. Sits ABOVE the pending queue: it is the work that
+          has no request yet, so it would never surface in a list of requests. Renders nothing when
+          the list is empty or the viewer is not Admin/HR. */}
+      <UnsettledLeaversPanel />
+
       <div className="mt-8">
         <div className="mb-2.5 flex items-center gap-3">
           <IconBox icon="dollar" trio={TRIO.purple} size={44} fs="fs-1" />
