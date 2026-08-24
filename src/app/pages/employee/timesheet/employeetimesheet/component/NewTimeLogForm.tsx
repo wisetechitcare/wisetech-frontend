@@ -9,7 +9,6 @@ import {
   GlassDialog, GlassHeader, WtButton, WtSwitchField,
 } from "@app/modules/common/components/ui";
 import { RootState } from "@redux/store";
-import { getAllProjects } from "@services/projects";
 import { createTimeSheet, getAllTasks, updateTask } from "@services/tasks";
 import { successConfirmation } from "@utils/modal";
 import { Formik, Form as FormikForm, Field, FieldArray, useFormikContext } from "formik";
@@ -170,22 +169,31 @@ const NewTimeLogForm = ({
     const fetchProjectsAndTasks = async () => {
       setLoading(true);
       setIsDataLoaded(false);
-      const [projectsData, tasksData] = await Promise.all([
-        getAllProjects(),
-        getAllTasks(),
-      ]);
-      setProjects(projectsData?.data?.projects);
+      const tasksData = await getAllTasks();
       // ONLY tasks this person is on — owner or shared with. Time is logged by the people doing
       // the work, so a task they are not on is one the API will refuse anyway; offering it would
       // just move the refusal to after they had filled the form in.
       const all = tasksData?.data?.tasks || [];
-      setTasks(
-        employeeId
-          ? all.filter((t: any) =>
-              t?.assignedToId === employeeId ||
-              (t?.assignees || []).some((a: any) => a?.employeeId === employeeId))
-          : all
-      );
+      const mine = employeeId
+        ? all.filter((t: any) =>
+            t?.assignedToId === employeeId ||
+            (t?.assignees || []).some((a: any) => a?.employeeId === employeeId))
+        : all;
+      setTasks(mine);
+
+      // ...and the projects are the projects THOSE tasks belong to. It used to be
+      // `getAllProjects()` — every project in the company, including ones the person has no
+      // part in — so the picker offered work they could not possibly be logging against. The
+      // list a person may log to is exactly the list they are on, and their own tasks already
+      // say what that is: no second endpoint, and nothing to keep in step with the first.
+      const byProject = new Map<string, { id: string; title: string }>();
+      for (const t of mine) {
+        const lead = t?.lead;
+        if (lead?.id && !byProject.has(lead.id)) {
+          byProject.set(lead.id, { id: lead.id, title: lead.title || 'Untitled project' });
+        }
+      }
+      setProjects([...byProject.values()] as any);
       setLoading(false);
 
       // If not in edit mode, we can show the form now
@@ -248,6 +256,15 @@ const NewTimeLogForm = ({
   const taskById = (id?: string) => (tasks || []).find((t: any) => t?.id === id) as any;
 
   const seededTaskId = editTimeSheetData?.taskId || prefilledTaskId || "";
+
+  /**
+   * This entry is already attached to a task, so the task and its project are facts, not choices.
+   *
+   * True for anything the timer recorded and for any entry opened from a task. The person can
+   * still correct the hours, say what they did and attach what it produced — everything this
+   * form exists for — but not move the hours onto different work.
+   */
+  const lockedToTask = !!(editTimeSheetData?.taskId || prefilledTaskId);
   /** What the task currently says, so the form can show what a change would actually change. */
   const seededProgressFor = (id?: string) => {
     const value = Number(taskById(id)?.progress ?? 0);
@@ -450,6 +467,10 @@ const NewTimeLogForm = ({
                       size="small"
                       fullWidth
                       autoHighlight
+                      // An entry the timer created already knows its task, and re-pointing it at
+                      // a different one would move hours between pieces of work after the fact.
+                      // Correcting the hours is what this form is for; re-filing them is not.
+                      disabled={lockedToTask}
                       ListboxProps={{ style: { maxHeight: 240 } }}
                       noOptionsText="No task assigned to you matches"
                       renderInput={(params) => (
@@ -458,7 +479,9 @@ const NewTimeLogForm = ({
                           required
                           label="Task"
                           placeholder="Search a task…"
-                          helperText="Only tasks you are assigned to"
+                          helperText={lockedToTask
+                            ? "Set when this entry was recorded"
+                            : "Only tasks you are assigned to"}
                         />
                       )}
                     />
@@ -480,6 +503,11 @@ const NewTimeLogForm = ({
                       size="small"
                       fullWidth
                       autoHighlight
+                      // The project is a PROPERTY of the task, so whenever a task is chosen this
+                      // field only reports it. It said "Set by the task above" while still
+                      // letting itself be changed, which is how an entry could end up filed
+                      // under a project its own task does not belong to.
+                      disabled={lockedToTask || !!values.taskId}
                       ListboxProps={{ style: { maxHeight: 240 } }}
                       noOptionsText="No matching project"
                       renderInput={(params) => (
@@ -487,7 +515,9 @@ const NewTimeLogForm = ({
                           {...params}
                           required
                           label="Project"
-                          helperText={values.taskId ? "Set by the task above" : "Pick a task, or choose the project first"}
+                          helperText={values.taskId
+                            ? "Set by the task above"
+                            : "Only projects you are on"}
                         />
                       )}
                     />

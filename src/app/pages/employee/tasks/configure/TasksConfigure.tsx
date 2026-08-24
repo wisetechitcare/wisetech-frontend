@@ -364,7 +364,10 @@ const TasksConfigure = () => {
   // };
 
 
-  if (loading) {
+  // Only the FIRST load blanks the page. A refetch after a save used to flip this too, which
+  // unmounted the whole tree and reset the scroll position to the top — so saving a subtask
+  // three screens down meant scrolling back to find it.
+  if (loading && !projectServices.length && !projectCategories.length && !projectSubcategories.length) {
     return <Loader />;
   }
 

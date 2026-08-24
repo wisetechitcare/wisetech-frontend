@@ -18,7 +18,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-    Alert, Box, Button, Chip, CircularProgress, Divider, Stack, Tooltip, Typography, alpha, useTheme,
+    Alert, Box, Button, Chip, CircularProgress, Collapse, Divider, Stack, Table, TableBody,
+    TableCell, TableHead, TableRow, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { AppDispatch, RootState } from '@redux/store';
@@ -26,8 +27,22 @@ import { startTimerThunk, pauseTimerThunk, stopTimerThunk, selectTimer } from '@
 import { formatDuration, TaskRow, apiErrorMessage } from '../taskDomain';
 import { formatDateTime } from '@utils/dateFormats';
 import NewTimeLogForm from '@app/pages/employee/timesheet/employeetimesheet/component/NewTimeLogForm';
-import { TaskStateBlock, TaskProgress, AssigneeAvatar } from './primitives';
+import { TaskStateBlock, AssigneeAvatar } from './primitives';
 import { useInvalidateTasks } from '../useTaskQueries';
+import { ViewModeSwitch, WtButton, type ViewMode } from '@app/modules/common/components/ui';
+import TimeLogDetailDialog from '@app/pages/employee/timesheet/components/TimeLogDetailDialog';
+import type { TimeLogAttachment } from '@app/pages/employee/timesheet/components/TimeLogAttachments';
+
+/**
+ * Segment colours for the involvement bar, in order.
+ *
+ * Fixed rather than generated: a task has a handful of people on it, and a palette that wraps is
+ * both predictable and stable across renders — the same person keeps the same colour as long as
+ * the order does. Every value is a MUI palette key resolved at render, so dark mode is handled.
+ */
+const INVOLVEMENT_COLOR_KEYS = ['primary', 'warning', 'success', 'info', 'secondary', 'error'] as const;
+
+/** Same entries, two shapes — cards that carry the whole entry, or a table that scans. */
 
 interface TimesheetRow {
     id: string;
@@ -43,6 +58,10 @@ interface TimesheetRow {
     isRunning?: boolean;
     runningSince?: string | null;
     description?: string | null;
+    /** The task the time was logged against. Already on the payload — see buildTimesheetCostView. */
+    taskName?: string;
+    /** What this block of work produced — drawings, photographs, a signed sheet. */
+    attachments?: TimeLogAttachment[];
 }
 
 /**
@@ -107,6 +126,14 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
     const timer = useSelector(selectTimer);
     const invalidateTasks = useInvalidateTasks();
     const currentEmployeeId = useSelector((s: RootState) => s.employee?.currentEmployee?.id);
+    // Cards by default: an entry's description and its attachments are the parts people came to
+    // read, and neither fits a table row.
+    const [entryView, setEntryView] = useState<ViewMode>('grid');
+    /** The entry being read in full — same dialog My Timesheet opens. */
+    const [openLogId, setOpenLogId] = useState<string | null>(null);
+    /** Closed by default — see the Collapse below. */
+    const [showInvolvement, setShowInvolvement] = useState(false);
+    const INVOLVEMENT_COLORS = INVOLVEMENT_COLOR_KEYS.map((key) => theme.palette[key].main);
 
     const isThisTaskRunning = timer.isRunning && timer.currentTask?.id === task.id;
 
@@ -203,11 +230,15 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
     const handleStop = async () => {
         const timesheetId = timer.currentTask?.timeSheetData?.id;
         await dispatch(stopTimerThunk());
+        // `isRunning` is derived on the SERVER from a null `endTime`, so the card keeps saying
+        // "running" until this list is fetched again. The panel polls every 30s, which is why
+        // stopping used to need a refresh to show the time it had just saved.
+        invalidateTasks();
         if (timesheetId) setReviewTimesheetId(timesheetId);
     };
 
-    const handleStart = () => {
-        dispatch(startTimerThunk({
+    const handleStart = async () => {
+        await dispatch(startTimerThunk({
             taskId: task.id,
             taskName: task.taskName,
             timeSheetData: {
@@ -220,6 +251,10 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                 billable: task.billingType !== 'NON_BILLABLE',
             },
         }));
+        // Starting CREATES the entry server-side, so the list below is out of date the moment it
+        // succeeds. Without this the new card only appeared on the panel's 30-second poll, which
+        // read as the timer having done nothing.
+        invalidateTasks();
     };
 
     if (isError) {
@@ -307,7 +342,7 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                     )}
                 </Box>
                 {isThisTaskRunning ? (
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction="row" spacing={1} alignItems="center">
                         {/* Two distinct actions, because they mean different things: pause keeps
                             this session open (resuming appends to the same entry), stop ends it
                             (the next start opens a new one). This button used to say "Stop"
@@ -333,7 +368,7 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                     <Button
                         variant="contained"
                         startIcon={<KTIcon iconName="time" className="fs-6" />}
-                        onClick={handleStart}
+                        onClick={() => void handleStart()}
                         disabled={timer.isRunning}
                         sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
                     >
@@ -386,36 +421,76 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                 done. The reported figure stays a person's own assessment (the same reason
                 `checkProgress` refuses to roll progress up from subtasks); this sits beside
                 it as evidence. */}
-            {involvement.length > 1 && (
-                <Box>
-                    <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 0.75 }}>
-                        INVOLVEMENT — BY LOGGED TIME
-                    </Typography>
-                    <Stack spacing={0.75}>
-                        {involvement.map((person) => (
-                            <Box key={person.name}>
-                                <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.25 }}>
-                                    <Typography variant="caption" noWrap sx={{ color: 'text.primary', fontWeight: 600 }}>
+            {/* Folded away by default, and opened from the chart button beside the layout
+                switch below. It answers a question people ask occasionally — "who did most of
+                this?" — and it was taking a permanent block of the panel to do it. */}
+            <Collapse in={showInvolvement && involvement.length > 0} unmountOnExit>
+                <Stack spacing={1.25} sx={{ pb: 0.5 }}>
+                    <Box>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 0.75 }}>
+                            INVOLVEMENT — BY LOGGED TIME
+                        </Typography>
+
+                        {/* ONE bar, split by person, rather than a bar EACH.
+                            A row per person grew the panel with the team — six people meant six
+                            labelled bars — while saying nothing a share of a whole says better.
+                            This stays exactly one bar tall however many people are on the task;
+                            the legend below it wraps instead of growing downward forever. */}
+                        <Stack
+                            direction="row"
+                            sx={{
+                                height: 12, borderRadius: 6, overflow: 'hidden',
+                                bgcolor: alpha(theme.palette.text.primary, 0.08),
+                            }}
+                        >
+                            {involvement.map((person, index) => (
+                                <Tooltip
+                                    key={person.name}
+                                    title={`${person.name} — ${person.hours}h (${person.share}%)`}
+                                    arrow
+                                >
+                                    <Box
+                                        sx={{
+                                            width: `${person.share}%`,
+                                            bgcolor: INVOLVEMENT_COLORS[index % INVOLVEMENT_COLORS.length],
+                                            transition: 'width .25s ease',
+                                            '&:hover': { filter: 'brightness(1.1)' },
+                                        }}
+                                    />
+                                </Tooltip>
+                            ))}
+                        </Stack>
+
+                        <Stack direction="row" spacing={1.5} sx={{ mt: 1, flexWrap: 'wrap', rowGap: 0.75 }}>
+                            {involvement.map((person, index) => (
+                                <Stack key={person.name} direction="row" spacing={0.6} alignItems="center" sx={{ minWidth: 0 }}>
+                                    <Box
+                                        sx={{
+                                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                                            bgcolor: INVOLVEMENT_COLORS[index % INVOLVEMENT_COLORS.length],
+                                        }}
+                                    />
+                                    <Typography variant="caption" noWrap sx={{ fontWeight: 600, minWidth: 0 }}>
                                         {person.name}
                                     </Typography>
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', flexShrink: 0, ml: 1 }}>
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', flexShrink: 0 }}>
                                         {person.hours}h · {person.share}%
                                     </Typography>
                                 </Stack>
-                                <TaskProgress value={person.share} height={5} />
-                            </Box>
-                        ))}
-                    </Stack>
-                </Box>
-            )}
+                            ))}
+                        </Stack>
+                    </Box>
 
-            {/* §12 — the distinction that must never be blurred. */}
-            {costVisible && (
-                <Alert severity="info" icon={<KTIcon iconName="information-5" className="fs-6" />} sx={{ borderRadius: 1.5 }}>
-                    Labour cost is derived from internal salary data. It is <strong>not</strong> a client billing
-                    amount{task.taskScope === 'GENERAL' ? ' — general task time is organizational overhead and never reaches a project.' : '.'}
-                </Alert>
-            )}
+                    {/* §12 — the distinction that must never be blurred. It travels with the
+                        cost figures it qualifies, so it is not left explaining nothing. */}
+                    {costVisible && (
+                        <Alert severity="info" icon={<KTIcon iconName="information-5" className="fs-6" />} sx={{ borderRadius: 1.5 }}>
+                            Labour cost is derived from internal salary data. It is <strong>not</strong> a client billing
+                            amount{task.taskScope === 'GENERAL' ? ' — general task time is organizational overhead and never reaches a project.' : '.'}
+                        </Alert>
+                    )}
+                </Stack>
+            </Collapse>
 
             <Divider />
 
@@ -429,62 +504,309 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                     description="Start the timer above, and entries will appear here." />
             )}
 
-            <Stack spacing={1}>
-                {rows.map((row) => (
-                    <Stack
-                        key={row.id}
-                        direction="row" spacing={1.5} alignItems="center"
-                        sx={{ p: 1.25, borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}
-                    >
-                        {/* The face and the name, because a task is worked by several people and
-                            an unattributed row of hours answers nothing. */}
-                        <AssigneeAvatar
-                            employee={{ avatar: row.employeeAvatar, users: nameParts(row.employeeName) }}
-                            size={26}
-                        />
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
-                                {row.employeeName || 'Unknown'}
-                            </Typography>
-                            <Typography variant="caption" noWrap sx={{ color: 'text.secondary', display: 'block' }}>
-                                {row.description || (row.startTime ? formatDateTime(row.startTime) : '—')}
-                            </Typography>
-                        </Box>
-                        <Chip
-                            size="small"
-                            label={row.billable ? 'Billable' : 'Non-billable'}
+            {rows.length > 0 && (
+                <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
+                    {involvement.length > 0 && (
+                        // The OUTER shell matches ViewModeSwitch exactly — same padding, border,
+                        // radius and background — with the pressable 30x26 inside it. Styling the
+                        // button alone made it a whole shell shorter than the switch beside it.
+                        <Box
                             sx={{
-                                height: 20, fontSize: 10, fontWeight: 600, borderRadius: 0.75,
-                                bgcolor: alpha(row.billable ? theme.palette.success.main : theme.palette.text.primary, 0.12),
-                                color: row.billable ? theme.palette.success.main : 'text.secondary',
-                            }}
-                        />
-                        {/* A running entry has no duration yet — it has an elapsed time, which is
-                            a different thing and must not render as an em dash while somebody is
-                            actively working. */}
-                        <Typography
-                            variant="caption"
-                            sx={{
-                                fontWeight: 700, minWidth: 74, textAlign: 'right',
-                                fontVariantNumeric: 'tabular-nums',
-                                color: row.isRunning ? 'success.main' : 'text.primary',
+                                display: 'inline-flex',
+                                p: 0.375,
+                                borderRadius: '10px',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                bgcolor: 'action.hover',
+                                flexShrink: 0,
                             }}
                         >
-                            {row.isRunning ? elapsedSince(row.runningSince) : (row.workedDuration || '—')}
-                        </Typography>
-                        {costVisible && (
-                            <Typography variant="caption" sx={{ color: 'text.secondary', minWidth: 84, textAlign: 'right' }}>
-                                {row.costFormatted || '—'}
-                            </Typography>
-                        )}
-                    </Stack>
-                ))}
-            </Stack>
+                            <Tooltip title={showInvolvement ? 'Hide involvement' : 'Show who did what'}>
+                                <Box
+                                    component="button"
+                                    type="button"
+                                    aria-pressed={showInvolvement}
+                                    aria-label="Involvement chart"
+                                    onClick={() => setShowInvolvement((open) => !open)}
+                                    sx={{
+                                        display: 'grid', placeItems: 'center',
+                                        width: 30, height: 26, p: 0, border: 0,
+                                        borderRadius: '7px', cursor: 'pointer',
+                                        bgcolor: showInvolvement ? 'background.paper' : 'transparent',
+                                        color: showInvolvement ? 'text.primary' : 'text.secondary',
+                                        boxShadow: showInvolvement ? '0 1px 2px rgba(16, 24, 40, 0.10)' : 'none',
+                                        transition: 'background-color .12s ease, color .12s ease',
+                                        '&:hover': { color: 'text.primary' },
+                                    }}
+                                >
+                                    <Box component="i" className="bi-bar-chart-fill" aria-hidden sx={{ fontSize: 13 }} />
+                                </Box>
+                            </Tooltip>
+                        </Box>
+                    )}
+                    <ViewModeSwitch
+                        ariaLabel="Time entry layout"
+                        mode={entryView}
+                        onChange={setEntryView}
+                    />
+                </Stack>
+            )}
+
+            {/* CARDS — the default, because an entry carries more than a table row can hold:
+                what was written, and what it produced. The table is the compact scan. */}
+            {entryView === 'grid' && (
+                // The Inbox card grid, to the same spec: three across on a wide screen, two on a
+                // tablet, one on a phone. Fixed columns rather than auto-fit, because matching
+                // that layout is the point — a card here and a card there should read as the
+                // same object.
+                <Box
+                    sx={{
+                        display: 'grid',
+                        gap: 1.5,
+                        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                    }}
+                >
+                    {rows.map((row) => {
+                        // Running work is the one entry worth spotting across a grid, so it takes
+                        // the accent; everything else is the ordinary brand blue.
+                        const accent = row.isRunning ? theme.palette.success.main : theme.palette.primary.main;
+                        return (
+                            <Box
+                                key={row.id}
+                                tabIndex={0}
+                                onClick={() => setOpenLogId(row.id)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') setOpenLogId(row.id); }}
+                                sx={{
+                                    position: 'relative', cursor: 'pointer', minWidth: 0,
+                                    borderRadius: '12px', overflow: 'hidden',
+                                    border: `1px solid ${theme.palette.divider}`,
+                                    bgcolor: 'background.paper',
+                                    transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+                                    display: 'flex', flexDirection: 'column',
+                                    height: '100%',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',
+                                    '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        borderColor: accent,
+                                        boxShadow: `0 8px 24px -8px ${alpha(accent, 0.15)}, 0 4px 12px rgba(0,0,0,0.03)`,
+                                    },
+                                    '&:focus-visible': { outline: `2px solid ${accent}`, outlineOffset: 2 },
+                                }}
+                            >
+                                <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, bgcolor: accent }} />
+
+                                <Stack gap={1.2} sx={{ p: { xs: 1.75, sm: 2 }, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                    {/* Who — the eyebrow, in the accent, with their face where the
+                                        Inbox card carries its type icon. */}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                                        <AssigneeAvatar
+                                            employee={{ avatar: row.employeeAvatar, users: nameParts(row.employeeName) }}
+                                            size={24}
+                                        />
+                                        <Typography
+                                            noWrap
+                                            sx={{
+                                                fontSize: '10px', fontWeight: 800, letterSpacing: '.08em',
+                                                textTransform: 'uppercase', color: accent, lineHeight: 1, minWidth: 0,
+                                            }}
+                                        >
+                                            {row.employeeName || 'Unknown'}
+                                        </Typography>
+                                    </Box>
+
+                                    {/* What it was logged against, then how long, then when.
+                                        The task is named on the card even though the panel is
+                                        already inside that task: these cards are read on their
+                                        own, and an entry that does not say what it belongs to
+                                        stops making sense the moment it is looked at anywhere
+                                        else. */}
+                                    <Box>
+                                        <Typography
+                                            noWrap
+                                            title={row.taskName || task.taskName}
+                                            sx={{ fontSize: '12px', fontWeight: 700, color: 'text.primary', lineHeight: 1.4 }}
+                                        >
+                                            {row.taskName || task.taskName}
+                                        </Typography>
+                                        <Typography
+                                            sx={{
+                                                fontSize: '14px', fontWeight: 700, lineHeight: 1.4,
+                                                fontVariantNumeric: 'tabular-nums',
+                                                color: row.isRunning ? 'success.main' : 'text.primary',
+                                            }}
+                                        >
+                                            {row.isRunning ? elapsedSince(row.runningSince) : (row.workedDuration || '—')}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '11px', color: 'text.secondary', lineHeight: 1.4 }}>
+                                            {row.startTime ? formatDateTime(row.startTime) : '—'}
+                                        </Typography>
+                                    </Box>
+
+                                    {/* Description — always rendered, so an entry without one is
+                                        the same size as an entry with one. */}
+                                    <Box
+                                        sx={{
+                                            p: 1.25,
+                                            borderRadius: '8px',
+                                            bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.06 : 0.02),
+                                            borderLeft: `3px solid ${theme.palette.divider}`,
+                                            mt: 0.25,
+                                            height: 52,
+                                        }}
+                                    >
+                                        <Typography
+                                            sx={{
+                                                fontSize: '11px',
+                                                color: row.description ? 'text.secondary' : 'text.disabled',
+                                                lineHeight: 1.45,
+                                                fontStyle: 'italic',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 2,
+                                                WebkitBoxOrient: 'vertical',
+                                                overflow: 'hidden',
+                                            }}
+                                        >
+                                            {row.description ? `"${row.description}"` : 'No description'}
+                                        </Typography>
+                                    </Box>
+
+                                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.75 }}>
+                                        <Chip
+                                            size="small"
+                                            label={row.billable ? 'Billable' : 'Non-billable'}
+                                            sx={{
+                                                height: 18, fontSize: 9.5, fontWeight: 700, borderRadius: 0.75,
+                                                bgcolor: alpha(row.billable ? theme.palette.success.main : theme.palette.text.primary, 0.12),
+                                                color: row.billable ? theme.palette.success.main : 'text.secondary',
+                                            }}
+                                        />
+                                        {!!row.attachments?.length && (
+                                            <Chip
+                                                size="small"
+                                                icon={<KTIcon iconName="paper-clip" className="fs-8" />}
+                                                label={row.attachments.length}
+                                                sx={{ height: 18, fontSize: 9.5 }}
+                                            />
+                                        )}
+                                        <Box sx={{ flex: 1 }} />
+                                        {costVisible && (
+                                            <Typography sx={{ fontSize: 10.5, color: 'text.secondary', fontWeight: 700 }}>
+                                                {row.costFormatted || '—'}
+                                            </Typography>
+                                        )}
+                                    </Stack>
+
+                                    {/* The Inbox's full-width outlined action, in the same place
+                                        at the bottom of every card. */}
+                                    <Box sx={{ mt: 'auto', pt: 1 }}>
+                                        <WtButton
+                                            size="small"
+                                            onClick={(e) => { e.stopPropagation(); setOpenLogId(row.id); }}
+                                            sx={{
+                                                width: '100%', fontSize: '11px', fontWeight: 650,
+                                                py: 0.5, px: 1, borderRadius: '8px',
+                                                border: `1px solid ${accent}`,
+                                                color: accent,
+                                                background: 'transparent !important',
+                                                boxShadow: 'none',
+                                                transition: 'all 160ms cubic-bezier(.22,.61,.36,1)',
+                                                '&:hover': {
+                                                    background: `${alpha(accent, 0.08)} !important`,
+                                                    borderColor: accent,
+                                                    color: accent,
+                                                    boxShadow: `0 2px 8px ${alpha(accent, 0.14)}`,
+                                                },
+                                            }}
+                                        >
+                                            Open log
+                                        </WtButton>
+                                    </Box>
+                                </Stack>
+                            </Box>
+                        );
+                    })}
+                </Box>
+            )}
+
+            {entryView === 'list' && (
+                // minWidth + the scroller, so a narrow screen scrolls the table rather than the page.
+                <Box sx={{ overflowX: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+                    <Table size="small" sx={{ minWidth: 780 }}>
+                        <TableHead>
+                            <TableRow>
+                                <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Task</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Billing</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 700 }}>Time</TableCell>
+                                {costVisible && <TableCell align="right" sx={{ fontWeight: 700 }}>Cost</TableCell>}
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {rows.map((row) => (
+                                <TableRow key={row.id} hover>
+                                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.employeeName || 'Unknown'}</TableCell>
+                                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.taskName || task.taskName}</TableCell>
+                                    <TableCell sx={{ whiteSpace: 'nowrap', color: 'text.secondary' }}>
+                                        {row.startTime ? formatDateTime(row.startTime) : '—'}
+                                    </TableCell>
+                                    <TableCell sx={{ minWidth: 220, color: 'text.secondary' }}>
+                                        {row.description || '—'}
+                                        {!!row.attachments?.length && (
+                                            <Box component="span" sx={{ display: 'block', mt: 0.25 }}>
+                                                {row.attachments.map((file: TimeLogAttachment) => (
+                                                    <Typography
+                                                        key={file.url}
+                                                        component="a"
+                                                        href={file.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        variant="caption"
+                                                        sx={{ display: 'block', color: 'primary.main', textDecoration: 'none' }}
+                                                    >
+                                                        {file.fileName}
+                                                    </Typography>
+                                                ))}
+                                            </Box>
+                                        )}
+                                    </TableCell>
+                                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                        {row.billable ? 'Billable' : 'Non-billable'}
+                                    </TableCell>
+                                    <TableCell
+                                        align="right"
+                                        sx={{
+                                            whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', fontWeight: 700,
+                                            color: row.isRunning ? 'success.main' : 'text.primary',
+                                        }}
+                                    >
+                                        {row.isRunning ? elapsedSince(row.runningSince) : (row.workedDuration || '—')}
+                                    </TableCell>
+                                    {costVisible && (
+                                        <TableCell align="right" sx={{ whiteSpace: 'nowrap', color: 'text.secondary' }}>
+                                            {row.costFormatted || '—'}
+                                        </TableCell>
+                                    )}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </Box>
+            )}
 
             {/* The just-stopped entry, held open for its description and any attachment. Reuses
                 the existing Time Log form rather than a second one — an entry edited from the
                 task and the same entry edited from My Timesheet must not be two different
                 forms with two different rules. */}
+            <TimeLogDetailDialog
+                open={!!openLogId}
+                timesheetId={openLogId}
+                onClose={() => setOpenLogId(null)}
+                // The parent owns this query; invalidating the task keys refetches the panel with it.
+                onChanged={invalidateTasks}
+            />
+
             {reviewTimesheetId && (
                 <NewTimeLogForm
                     show

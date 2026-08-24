@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button } from "@mui/material";
+import { Box, Button, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { getAllTasks, getAllTasksWithMetrics, deleteTask } from "@services/tasks";
+import { getTaskList, getAllTasksWithMetrics, getAvailableProjects, deleteTask } from "@services/tasks";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import dayjs from "dayjs";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import { usePermission } from "@hooks/usePermission";
 
 interface DashboardTasksProps {
   onNewTaskClick: () => void;
@@ -21,24 +22,82 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
   const navigate = useNavigate();
   // Fetch tasks data
+  /**
+   * WHOSE tasks this widget is showing.
+   *
+   * `MINE` is the default for everybody, because the dashboard answers "what is on me today".
+   * It used to call the unfiltered list, so anyone with wide visibility — a manager, an admin —
+   * opened their dashboard to every task in their scope, which is a report, not a to-do list.
+   *
+   * A project id switches it to that project's tasks. Offered ONLY to people who actually run a
+   * project (see `manageableProjects`): the switcher is a manager's tool for looking across
+   * their own team's work, and a team member has nothing to switch between.
+   */
+  const [scope, setScope] = useState<string>("MINE");
+
+  /**
+   * Whether to ask for cost at all.
+   *
+   * ⚠️ A HINT, not the gate: `usePermission` treats a blanket `*.*.all` wildcard as satisfying
+   * any key, so this can be true for somebody the API will still refuse. That is fine here —
+   * it exists to stop a guaranteed 403 on every dashboard load, and `canViewAggregateCost` on
+   * the server remains the only thing deciding who sees a salary-derived figure.
+   */
+  // Both hooks called unconditionally — `||` would short-circuit the second one, and a hook
+  // that runs on some renders and not others is the one thing React genuinely cannot survive.
+  const canSeeAllCost = usePermission('finance.view.all');
+  const canSeeDeptCost = usePermission('finance.view.department');
+  const canSeeCost = canSeeAllCost || canSeeDeptCost;
+
+  /**
+   * The projects this person MANAGES — `available-projects` answers "where may I create a task",
+   * which is project-manager authority. Deliberately not the board rail (`board-projects`),
+   * which is every project you are merely a member of: being on a team is not a reason to be
+   * handed the whole team's workload on your own dashboard.
+   */
+  const [manageableProjects, setManageableProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    getAvailableProjects()
+      .then((res: any) => setManageableProjects(res?.projects ?? res?.data?.projects ?? []))
+      // No projects, or no authority to ask: the switcher simply does not appear.
+      .catch(() => setManageableProjects([]));
+  }, []);
+
   const fetchTasks = useCallback(async () => {
     try {
       setIsLoadingTasks(true);
-      const response1 = await getAllTasksWithMetrics();
-      setTasksMetrics(response1.tasks);
 
-      const response = await getAllTasks();
-      setTasks(response.data.tasks);
+      // Scoped SERVER-side. `mine=true` is resolved from the session — there is no employee id
+      // to send and no way to point it at somebody else.
+      const query: Record<string, string> =
+        scope === "MINE" ? { mine: "true" } : { projectId: scope };
+      const response = await getTaskList(query);
+      setTasks(response?.data?.tasks ?? response?.tasks ?? []);
     } catch (error) {
       console.error("Error fetching tasks:", error);
+      setTasks([]);
     } finally {
       setIsLoadingTasks(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  /**
+   * Cost and logged time come from a SEPARATE endpoint, gated on `finance.view` at department
+   * scope or wider. Asking for it without that permission is a guaranteed 403, so it is only
+   * requested by somebody who holds the same key the server checks — the widget used to fire it
+   * on every dashboard load and log a 403 for most of the company.
+   */
+  useEffect(() => {
+    if (!canSeeCost) return;
+    getAllTasksWithMetrics()
+      .then((res: any) => setTasksMetrics(res?.tasks ?? []))
+      .catch(() => setTasksMetrics([]));
+  }, [canSeeCost]);
 
   const handleDeleteTask = async (task: any) => {
     const result = await Swal.fire({
@@ -346,17 +405,67 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
   return (
     <div className="card border-0 rounded-3 mb-5" style={{ boxShadow: '8px 8px 16px 0px rgba(0,0,0,0.04)' }}>
       <div className="card-body p-3 p-md-4">
-        <div className="d-flex align-items-center justify-content-between mb-0">
-          <div
-            style={{
-              fontFamily: "Barlow",
-              fontSize: "24px",
-              fontWeight: "600",
-            }}
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          alignItems={{ xs: "stretch", md: "center" }}
+          justifyContent="space-between"
+          spacing={1.5}
+          sx={{ mb: 0 }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              sx={{ fontFamily: "Barlow", fontSize: "24px", fontWeight: 600, lineHeight: 1.2 }}
+            >
+              Tasks
+            </Typography>
+            {/* Says WHOSE work is on screen. A list that silently changes meaning depending on
+                who is looking is the thing this widget got wrong. */}
+            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+              {scope === "MINE"
+                ? "Assigned to you"
+                : `${manageableProjects.find((p: any) => p?.id === scope)?.title ?? "Project"} — your team's tasks`}
+            </Typography>
+          </Box>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1.25}
+            sx={{ flexShrink: 0, flexWrap: "wrap", rowGap: 1 }}
           >
-            Tasks
-          </div>
-          <div className="d-flex align-items-center gap-3">
+            {/* The project switcher — only for somebody who actually runs a project. A team
+                member has nothing to switch between, so they never see the control at all
+                rather than seeing one with a single disabled option in it. */}
+            {manageableProjects.length > 0 && (
+              <TextField
+                select
+                size="small"
+                value={scope}
+                onChange={(e) => setScope(e.target.value)}
+                SelectProps={{
+                  MenuProps: {
+                    // The dashboard scrolls in its own container. MUI's default menu locks the
+                    // body and compensates with padding, which shunted the whole page down the
+                    // moment the list opened; and without an explicit anchor the menu positions
+                    // itself over the field, scrolling it into view to do so. Pinning it below
+                    // the field and leaving the page's scroll alone keeps the click where the
+                    // user put it.
+                    disableScrollLock: true,
+                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                    transformOrigin: { vertical: 'top', horizontal: 'left' },
+                    PaperProps: { sx: { maxHeight: 320, mt: 0.5 } },
+                  },
+                }}
+                sx={{ minWidth: 210, "& .MuiOutlinedInput-root": { borderRadius: "8px" } }}
+              >
+                <MenuItem value="MINE">My tasks</MenuItem>
+                {manageableProjects.map((project: any) => (
+                  <MenuItem key={project.id} value={project.id}>
+                    {project.projectNumber ? `${project.projectNumber} — ` : ""}
+                    {project.title || "Untitled project"}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
             {/* <Button
               variant="contained"
               color="primary"
@@ -376,26 +485,22 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
             >
               New Task
             </Button> */}
-              <button
-                type="button"
-                className="btn btn-sm"
-                style={{
-                  borderColor: '#1E3A8A',
-                  color: '#1E3A8A',
-                  fontFamily: 'Inter',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  borderRadius: '6px',
-                  border: '1px solid #1E3A8A',
-                  padding: '8px 18px',
-                  whiteSpace: 'nowrap',
-                }}
-                onClick={()=>navigate('/tasks')}
-              >
-                View all
-              </button>
-          </div>
-        </div>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => navigate(scope === "MINE" ? "/tasks" : `/tasks?scope=${encodeURIComponent(scope)}`)}
+              sx={{
+                textTransform: "none",
+                fontWeight: 500,
+                borderRadius: "8px",
+                px: 2.25,
+                whiteSpace: "nowrap",
+              }}
+            >
+              View all
+            </Button>
+          </Stack>
+        </Stack>
 
         <MaterialTable
           columns={columns}

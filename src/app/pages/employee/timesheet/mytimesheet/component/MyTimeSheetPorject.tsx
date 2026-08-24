@@ -21,6 +21,7 @@ import eventBus from "@utils/EventBus";
 import { getAllEmployeeWithMonthDailyHourlySalary } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import TimeLogDetailDialog from "../../components/TimeLogDetailDialog";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
 
 const MyTimeSheetProject = ({
@@ -52,6 +53,9 @@ const MyTimeSheetProject = ({
   const [selectedTimeSheet, setSelectedTimeSheet] = useState<any>(null);
 
   const navigate = useNavigate();
+  // The time log opens as a dialog over this table rather than as a page of
+  // its own: it is a detail OF this list, and reading one used to mean leaving.
+  const [openLogId, setOpenLogId] = useState<string | null>(null);
 
   // Memoized utility functions
   const formatDuration = useCallback((start: string, end: string) => {
@@ -217,9 +221,7 @@ const MyTimeSheetProject = ({
               style={{ cursor: "pointer" }}
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(
-                  `/tasks/timesheet/${taskId?.id}/${employeeId}/${startDates}/${endDates}`
-                );
+                setOpenLogId(taskId?.id ?? null);
               }}
             >
               {taskId?.taskName}
@@ -537,6 +539,15 @@ const MyTimeSheetProject = ({
           timeSheetId={selectedTimeSheet?.id}
         />
       )}
+
+      {/* The row's own detail, over the table it belongs to. `onChanged` reuses the key this
+          screen already refetches on, so an edit or a delete lands without a second mechanism. */}
+      <TimeLogDetailDialog
+        open={!!openLogId}
+        timesheetId={openLogId}
+        onClose={() => setOpenLogId(null)}
+        onChanged={() => eventBus.emit(EVENT_KEYS.NewTimeLogFromCreated, { id: openLogId ?? '' })}
+      />
     </div>
   );
 };

@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import {
-    TaskFormValues, TaskScope, buildTaskPayload, fieldsForScope, validateScopeShape,
+    TaskFormValues, TaskScope, TaskTypeMode, buildTaskPayload, fieldsForScope, validateScopeShape,
     apiErrorMessage, employeeName, initialsOf, clampProgress, PresetTask,
 } from '../taskDomain';
 import { PATH_SEPARATOR, getPresetPath } from '@utils/presetTaskHierarchy';
@@ -60,7 +60,18 @@ export interface TaskFormDialogProps {
         dueDate?: string | null; progress?: number | null; billingType?: 'BILLABLE' | 'NON_BILLABLE';
     } | null;
     /** Creating a subtask: locks scope + project to the parent's, which the server also enforces. */
-    parentTask?: { id: string; taskName: string; taskScope: TaskScope; leadId?: string | null } | null;
+    parentTask?: {
+        id: string;
+        taskName: string;
+        taskScope: TaskScope;
+        leadId?: string | null;
+        /** The parent's project, for display only — a subtask inherits it and cannot change it. */
+        lead?: { id: string; title?: string | null; prefix?: string | null } | null;
+        /** The configuration node the parent came from, used to seed the subtask's own. */
+        presetTaskId?: string | null;
+        /** CUSTOM parents have no preset node — the subtask starts on the custom-name tab too. */
+        taskType?: TaskTypeMode;
+    } | null;
     /**
      * The caller may report progress but not change the task. Answered by the server (`canEdit`
      * on the task payload), never by a permission read in the browser — only the server knows
@@ -119,7 +130,8 @@ export const TaskFormDialog = ({
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [touched, setTouched] = useState(false);
 
-    const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
+    const currentEmployee = useSelector((state: RootState) => state.employee?.currentEmployee);
+    const currentEmployeeId = currentEmployee?.id;
 
     // Who to offer a WhatsApp note to once the task is saved. Held here rather than derived from
     // the form, because the answer is about the SAVED task — including the id a new task only
@@ -158,10 +170,16 @@ export const TaskFormDialog = ({
                 billingType: task.billingType ?? 'BILLABLE',
             });
         } else {
+            // A subtask starts where its parent is: same preset node, same naming mode. It was
+            // opening blank, so every subtask of "web developer → Backend dev → System Design"
+            // had to be walked back down the tree by hand. Both stay editable — this is a
+            // starting point, not a lock.
+            const inheritsPreset = !!parentTask && parentTask.taskType !== 'CUSTOM' && !!parentTask.presetTaskId;
             setValues({
                 taskScope: parentTask?.taskScope ?? defaultScope ?? 'PROJECT',
-                taskTypeMode: 'PRESETS',
-                taskName: '',
+                taskTypeMode: parentTask?.taskType === 'CUSTOM' ? 'CUSTOM' : 'PRESETS',
+                taskName: inheritsPreset ? (parentTask?.taskName ?? '') : '',
+                presetTaskId: inheritsPreset ? (parentTask?.presetTaskId ?? '') : '',
                 taskDescription: '',
                 projectId: parentTask?.leadId ?? defaultProjectId ?? '',
                 parentTaskId: parentTask?.id,
@@ -256,11 +274,27 @@ export const TaskFormDialog = ({
         current && !options.some((o) => o.id === current.id) ? [current, ...options] : options
     );
 
+    const inheritedProject = task?.lead ?? parentTask?.lead ?? null;
     const projectOptions = withCurrent(
         projects as ProjectOption[],
-        task?.lead ? { id: task.lead.id, title: task.lead.title ?? undefined, projectNumber: task.lead.prefix ?? undefined } : null,
+        inheritedProject
+            ? { id: inheritedProject.id, title: inheritedProject.title ?? undefined, projectNumber: inheritedProject.prefix ?? undefined }
+            : null,
     );
-    const assigneeOptions = withCurrent(assignees, task?.assignedTo ?? null);
+
+    /**
+     * Yourself, always available to assign to.
+     *
+     * `project-assignees` answers "whom may I assign", and for somebody with no manager role on
+     * the project that is nobody — the field came up empty under a red "You do not have authority
+     * on this project", with no way to file the subtask they were plainly allowed to create.
+     * Everyone may assign work to themselves, so you are merged into the list and, when the list
+     * would otherwise be empty, selected by default.
+     */
+    const self: AssigneeOption | null = currentEmployeeId
+        ? { id: currentEmployeeId, avatar: currentEmployee?.avatar ?? null, users: currentEmployee?.users ?? null }
+        : null;
+    const assigneeOptions = withCurrent(withCurrent(assignees, task?.assignedTo ?? null), self);
 
     // Autocomplete is controlled by the OPTION, not by the id, so both pickers resolve their
     // current value out of the list they were handed. `?? null` matters: `undefined` would make
@@ -288,9 +322,19 @@ export const TaskFormDialog = ({
      * would submit someone the API refuses, producing a 403 the user cannot explain.
      */
     useEffect(() => {
-        if (!values.assignedToId) return;
         if (assigneesQuery.isLoading) return;
-        if (!assignees.some((a: { id: string }) => a.id === values.assignedToId)) {
+        // Nobody to choose from means you are the only legal answer — pre-fill it rather than
+        // leaving a required field empty next to an error the user cannot act on. Checked BEFORE
+        // the empty-value guard below, which would otherwise return first and never reach this.
+        if (!assignees.length && self && !values.assignedToId) {
+            set({ assignedToId: self.id, assigneeIds: [self.id] });
+            return;
+        }
+        if (!values.assignedToId) return;
+        // Checked against the OPTIONS, not the raw query: the options also carry yourself and the
+        // task's existing assignee, and clearing on the raw list would wipe the self-assignment
+        // made two lines up and then re-make it on the next render, forever.
+        if (!assigneeOptions.some((a) => a.id === values.assignedToId)) {
             setValues((v) => ({ ...v, assignedToId: '' }));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps

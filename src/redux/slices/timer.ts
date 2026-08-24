@@ -149,6 +149,20 @@ export const startTimerThunk = createAsyncThunk(
   }
 );
 
+/**
+ * The one rejection that means "stop trying".
+ *
+ * Everything else is worth keeping the session on screen for — a network blip must never discard
+ * real logged work. This one cannot be recovered from: the row is gone.
+ */
+export const TIMER_ENTRY_GONE = 'This time entry no longer exists — it was deleted elsewhere.';
+
+const isMissingTimesheet = (error: any): boolean => {
+  const status = error?.response?.status ?? error?.statusCode;
+  const text = String(error?.response?.data?.message ?? error?.message ?? '');
+  return status === 404 || /timesheet (with id .*)?not found/i.test(text);
+};
+
 export const pauseTimerThunk = createAsyncThunk(
   'timer/pauseTimer',
   async (_, { getState, rejectWithValue }) => {
@@ -201,6 +215,11 @@ export const pauseTimerThunk = createAsyncThunk(
       };
     } catch (error: any) {
       console.error('Error pausing timer:', error);
+      // The entry this timer was writing into no longer exists — it was deleted from a timesheet
+      // screen while the clock ran. There is nothing to save into and no amount of retrying will
+      // change that, so the caller is told to let the session go instead of showing the same
+      // failure on every tick.
+      if (isMissingTimesheet(error)) return rejectWithValue(TIMER_ENTRY_GONE);
       return rejectWithValue(error.message || 'Failed to pause timer');
     }
   }
@@ -236,7 +255,9 @@ export const stopTimerThunk = createAsyncThunk(
       if (state.timer.isRunning && state.timer.timerStartTime) {
         const result = await dispatch(pauseTimerThunk());
         if (pauseTimerThunk.rejected.match(result)) {
-          return rejectWithValue((result.payload as string) || 'Failed to save time before stopping');
+          const reason = (result.payload as string) || 'Failed to save time before stopping';
+          // A deleted entry still stops: there is no work to lose, only a widget to clear.
+          if (reason !== TIMER_ENTRY_GONE) return rejectWithValue(reason);
         }
       }
       return true;

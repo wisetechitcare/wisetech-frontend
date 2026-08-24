@@ -491,6 +491,10 @@ export const TaskBoard = ({
                             sx={{
                                 borderRadius: 2,
                                 border: '1px solid',
+                                // Every lane is the same surface. Tinting a whole column green
+                                // fought the board's own background and washed out its header;
+                                // "finished" belongs on the CARDS, which is what a reader is
+                                // actually scanning for. The header keeps its label.
                                 borderColor: 'divider',
                                 bgcolor: 'background.paper',
                                 boxShadow: `0 6px 18px ${alpha(theme.palette.common.black, theme.palette.mode === 'dark' ? 0.4 : 0.12)}`,
@@ -536,11 +540,6 @@ export const TaskBoard = ({
                                 >
                                     {column.status.name}
                                 </Typography>
-                                {column.status.isFinal && (
-                                    <Box sx={{ color: theme.palette.success.main, lineHeight: 0 }}>
-                                        <KTIcon iconName="check-circle" className="fs-8" />
-                                    </Box>
-                                )}
                                 <Box sx={{ flex: 1 }} />
 
                                 {/* Only this project's OWN lanes carry a delete. A company-wide

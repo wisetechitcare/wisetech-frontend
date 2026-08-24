@@ -662,7 +662,15 @@ export const TaskDetailPage = () => {
             <TaskFormDialog
                 open={subtaskOpen}
                 onClose={() => setSubtaskOpen(false)}
-                parentTask={{ id: task.id, taskName: task.taskName, taskScope: task.taskScope, leadId: task.leadId }}
+                // `lead` rides along so the subtask form can SHOW the project it inherits —
+                // available-projects is empty for anyone without authority on it.
+                parentTask={{
+                    id: task.id, taskName: task.taskName, taskScope: task.taskScope,
+                    leadId: task.leadId, lead: task.lead ?? null,
+                    // Seeds the subtask's own preset node, so it opens where the parent sits in
+                    // the tree instead of at the top of it.
+                    presetTaskId: task.presetTaskId ?? null, taskType: task.taskType,
+                }}
                 onSaved={() => subtasksQuery.refetch()}
             />
         </Box>

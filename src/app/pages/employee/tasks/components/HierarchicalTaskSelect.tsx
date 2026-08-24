@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Tooltip, alpha, useTheme } from '@mui/material';
 import Select, { components, MenuProps, OptionProps, SingleValueProps } from 'react-select';
 import { useField } from 'formik';
@@ -101,6 +101,16 @@ interface DrillState {
     path: string[];
     goUp: () => void;
     selectCurrent: () => void;
+    /** The row the pointer is on, when that row has children — the open flyout. */
+    hoverId: string | null;
+    setHoverId: (id: string | null) => void;
+    /** That row's children, for the second panel. */
+    childrenOf: (id: string) => HierarchicalTaskOption[];
+    byId: Map<string, HierarchicalTaskOption>;
+    /** Choose this node and close. */
+    pick: (option: HierarchicalTaskOption) => void;
+    /** Make this node the panel on the left — how depth 3+ is reached without a third panel. */
+    drillInto: (option: HierarchicalTaskOption) => void;
 }
 
 /**
@@ -115,7 +125,120 @@ const DrillContext = React.createContext<DrillState>({
     path: [],
     goUp: () => {},
     selectCurrent: () => {},
+    hoverId: null,
+    setHoverId: () => {},
+    childrenOf: () => [],
+    byId: new Map(),
+    pick: () => {},
+    drillInto: () => {},
 });
+
+/**
+ * The second panel — the children of whichever row the pointer is on.
+ *
+ * TWO LAYERS, NEVER THREE. A row here that has children of its own does NOT open a third panel:
+ * clicking it makes it the LEFT panel instead (the breadcrumb header appears, and Back returns).
+ * Nesting past two columns is where a cascading menu turns into something nobody can hit with a
+ * mouse, and the tree here has no depth limit — so depth is handled by re-rooting, not by more
+ * columns.
+ *
+ * Mouse-only, deliberately: react-select still owns the keyboard, and for a keyboard user
+ * pressing Enter on a parent row re-roots to it, which reaches exactly the same nodes. The
+ * flyout is a shortcut, not the only route.
+ */
+const FlyoutPanel = ({ parent }: { parent: HierarchicalTaskOption }) => {
+    const drill = useContext(DrillContext);
+    const C = usePickerColors();
+    const [hoverRow, setHoverRow] = useState<string | null>(null);
+    const panelRef = useRef<HTMLDivElement | null>(null);
+    // Right by default, left when there is no room — measured after paint, because how much
+    // room there is depends on where the menu ended up, which nothing knows in advance.
+    const [flipped, setFlipped] = useState(false);
+    const items = drill.childrenOf(parent.value);
+
+    useLayoutEffect(() => {
+        const el = panelRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        setFlipped(rect.right > window.innerWidth - 8 && rect.width < rect.left);
+    }, [parent.value, items.length]);
+
+    if (!items.length) return null;
+
+    return (
+        <div
+            ref={panelRef}
+            // Anchored to the menu itself, which react-select positions; the portal it lives in
+            // has no clipping ancestor, so the panel can sit outside the menu's own box.
+            style={{
+                position: 'absolute',
+                top: 0,
+                ...(flipped
+                    ? { right: '100%', marginRight: 4 }
+                    : { left: '100%', marginLeft: 4 }),
+                width: 'max-content',
+                minWidth: 160,
+                maxWidth: 280,
+                maxHeight: 280,
+                overflowY: 'auto',
+                background: C.paper,
+                border: `1px solid ${C.border}`,
+                borderRadius: 4,
+                boxShadow: '0 8px 24px rgba(0,0,0,.16)',
+                padding: '4px 0',
+                zIndex: 2,
+            }}
+            // Keeps the menu open: a mousedown in here would blur the input and close everything
+            // before the click landed — the same reason the header does it.
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        >
+            <div
+                style={{
+                    padding: '4px 10px 6px',
+                    fontSize: 11,
+                    color: C.muted,
+                    borderBottom: `1px solid ${C.border}`,
+                    marginBottom: 4,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                }}
+                title={parent.label}
+            >
+                {parent.label}
+            </div>
+
+            {items.map((item) => (
+                <div
+                    key={item.value}
+                    role="option"
+                    aria-selected={false}
+                    onMouseEnter={() => setHoverRow(item.value)}
+                    onMouseLeave={() => setHoverRow(null)}
+                    onClick={() => (item.hasChildren ? drill.drillInto(item) : drill.pick(item))}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '6px 10px',
+                        fontSize: 13,
+                        color: C.text,
+                        cursor: 'pointer',
+                        background: hoverRow === item.value ? C.optionHover : 'transparent',
+                    }}
+                    title={item.hasChildren ? `Open ${item.label}` : item.label}
+                >
+                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.label}
+                    </span>
+                    {item.hasChildren && (
+                        <i className="bi bi-chevron-right" style={{ fontSize: 10, color: C.muted, flexShrink: 0 }} />
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+};
 
 /**
  * Menu header: where you are, how to get back, and how to pick the node you're inside.
@@ -129,9 +252,13 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
     const [headerHover, setHeaderHover] = useState(false);
     const showHeader = !drill.searching && drill.path.length > 0;
     const currentName = drill.path[drill.path.length - 1] || '';
+    // No flyout while searching: results come from every level at once, so "the children of the
+    // row you are on" is not a question the list is answering.
+    const flyoutParent = !drill.searching && drill.hoverId ? drill.byId.get(drill.hoverId) : null;
 
     return (
         <components.Menu {...props}>
+            <div onMouseLeave={() => drill.setHoverId(null)}>
             {showHeader && (
                 // The WHOLE header row picks the node you are inside — the same target
                 // size as any option row, rather than a small button to aim at. The back
@@ -224,6 +351,8 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                 </div>
             )}
             {props.children}
+            {flyoutParent && <FlyoutPanel parent={flyoutParent} />}
+            </div>
         </components.Menu>
     );
 };
@@ -236,7 +365,12 @@ const TaskOption = (props: OptionProps<HierarchicalTaskOption, false>) => {
 
     return (
         <components.Option {...props}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <div
+                style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}
+                // Hovering a parent opens its children beside the menu; hovering a leaf closes
+                // whatever was open, so the panel always describes the row under the pointer.
+                onMouseEnter={() => drill.setHoverId(!drill.searching && hasChildren ? props.data.value : null)}
+            >
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                         style={{
@@ -350,6 +484,7 @@ export const HierarchicalTaskPicker: React.FC<HierarchicalTaskPickerProps> = ({
 
     // The node currently being browsed; null = the top level.
     const [level, setLevel] = useState<HierarchicalTaskOption | null>(null);
+    const [hoverId, setHoverId] = useState<string | null>(null);
     const [inputValue, setInputValue] = useState('');
     const [menuOpen, setMenuOpen] = useState(false);
 
@@ -367,7 +502,10 @@ export const HierarchicalTaskPicker: React.FC<HierarchicalTaskPickerProps> = ({
             : !o.parentId || !byId.has(o.parentId)));
     }, [options, level, searching, byId]);
 
-    const goUp = () => setLevel(level?.parentId ? byId.get(level.parentId) || null : null);
+    const goUp = () => {
+        setHoverId(null);
+        setLevel(level?.parentId ? byId.get(level.parentId) || null : null);
+    };
 
     const commit = (option: HierarchicalTaskOption | null) => {
         commitValue(option);
@@ -380,16 +518,25 @@ export const HierarchicalTaskPicker: React.FC<HierarchicalTaskPickerProps> = ({
         // hit is a real choice, children or not.
         if (option && !searching && option.hasChildren) {
             setLevel(option);
+            setHoverId(null);
             return;
         }
         commit(option);
     };
+
+    const childrenOf = (id: string) => options.filter((o) => o.parentId === id);
 
     const drill: DrillState = {
         searching,
         path: level ? [...level.parentPath, level.label] : [],
         goUp,
         selectCurrent: () => level && commit(level),
+        hoverId,
+        setHoverId,
+        childrenOf,
+        byId,
+        pick: commit,
+        drillInto: (option) => { setLevel(option); setHoverId(null); },
     };
 
     return (
@@ -420,7 +567,7 @@ export const HierarchicalTaskPicker: React.FC<HierarchicalTaskPickerProps> = ({
                     setLevel(selected?.parentId ? byId.get(selected.parentId) || null : null);
                     setMenuOpen(true);
                 }}
-                onMenuClose={() => { setMenuOpen(false); setInputValue(''); }}
+                onMenuClose={() => { setMenuOpen(false); setInputValue(''); setHoverId(null); }}
                 onKeyDown={(e) => {
                     // Left/Backspace on an empty query walks back up a level.
                     if ((e.key === 'ArrowLeft' || e.key === 'Backspace') && !inputValue && level) {
@@ -456,7 +603,16 @@ export const HierarchicalTaskPicker: React.FC<HierarchicalTaskPickerProps> = ({
                     menu: (base) => ({
                         ...base, zIndex: 9999, backgroundColor: C.paper,
                         border: `1px solid ${C.border}`,
+                        // The flyout is a child of the menu positioned at `left: 100%`, so the
+                        // menu must not clip it.
+                        overflow: 'visible',
+                        // Sized to the names it lists, not to the field. A full-width menu over a
+                        // dialog left the flyout with nowhere to go but off the form.
+                        width: 'max-content',
+                        minWidth: 240,
+                        maxWidth: 'min(420px, 60vw)',
                     }),
+                    menuList: (base) => ({ ...base, overflowX: 'visible' }),
                     control: (base, state) => ({
                         ...base,
                         backgroundColor: C.paper,

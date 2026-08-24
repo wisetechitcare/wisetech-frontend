@@ -36,6 +36,9 @@ export const DOCUMENT_HINT = `PDF, JPG or PNG — max ${MAX_DOCUMENT_LABEL}`;
 
 /** Human-readable size, for telling someone exactly how far over they are. */
 export const formatFileSize = (bytes: number): string => {
+  // Callers hand this whatever a payload gave them. A missing or non-numeric size used to render
+  // as "NaN MB" — worse than saying nothing, because it looks like a broken file.
+  if (!Number.isFinite(bytes) || bytes < 0) return '';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   const mb = bytes / (1024 * 1024);

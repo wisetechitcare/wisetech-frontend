@@ -47,6 +47,27 @@ const UPLOAD_CATEGORY = 'timesheet-docs';
 /** Matches the server's own per-entry cap, so the UI refuses before the API has to. */
 const MAX_FILES = 10;
 
+/**
+ * The byte count for a just-uploaded file.
+ *
+ * `/api/files/upload` answers with `size` ALREADY FORMATTED — "123 KB" — so storing it as
+ * `sizeBytes` produced "NaN MB" the next time the entry was opened. The string is parsed back
+ * when that is all there is; the browser's own `file.size` is the fallback, which is the
+ * pre-conversion size and close enough for a label.
+ */
+const bytesFromUpload = (raw: unknown, fallback: number): number => {
+    if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+    if (typeof raw === 'string') {
+        const match = raw.match(/([\d.]+)\s*(B|KB|MB|GB)/i);
+        if (match) {
+            const scale = { b: 1, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3 }[match[2].toLowerCase()] ?? 1;
+            const parsed = Number(match[1]) * scale;
+            if (Number.isFinite(parsed)) return Math.round(parsed);
+        }
+    }
+    return fallback;
+};
+
 const isImage = (a: TimeLogAttachment) =>
     (a.contentType || '').startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(a.fileName);
 
@@ -103,7 +124,7 @@ export const TimeLogAttachments = ({
                     // What the SERVER stored, when it says so — an image comes back as WebP, and
                     // recording the original type would describe a file that no longer exists.
                     contentType: result?.data?.contentType || file.type || null,
-                    sizeBytes: result?.data?.size ?? file.size,
+                    sizeBytes: bytesFromUpload(result?.data?.sizeBytes ?? result?.data?.size, file.size),
                 });
             }
             onChange([...value, ...uploaded]);
@@ -198,9 +219,9 @@ export const TimeLogAttachments = ({
                                 >
                                     {file.fileName}
                                 </Typography>
-                                {!!file.sizeBytes && (
+                                {!!formatFileSize(Number(file.sizeBytes)) && (
                                     <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: 10 }}>
-                                        {formatFileSize(file.sizeBytes)}
+                                        {formatFileSize(Number(file.sizeBytes))}
                                     </Typography>
                                 )}
                             </Box>

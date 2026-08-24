@@ -53,6 +53,8 @@ export type { SettingsSectionProps } from './SettingsSection';
 // defined inside a payroll page that three other features imported across.
 // Exclusive 2–5 way choice (status filter, view switch). Same visual language as
 // TimePeriodSelector, with the choices left open.
+export { ViewModeSwitch } from './ViewModeSwitch';
+export type { ViewModeSwitchProps, ViewMode } from './ViewModeSwitch';
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
 export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';

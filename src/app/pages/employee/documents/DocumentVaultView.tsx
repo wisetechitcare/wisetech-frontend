@@ -7,6 +7,7 @@ import {
   ToneChip,
   toast,
   WtButton,
+  ViewModeSwitch,
 } from "@app/modules/common/components/ui";
 import { formatDate } from "@utils/dateFormats";
 import { downloadDocumentArchive, fetchDocumentVault } from "@services/employee";
@@ -17,7 +18,7 @@ import DocumentCard from "./components/DocumentCard";
 import DocumentListRow from "./components/DocumentListRow";
 import DocumentPreviewDialog from "./components/DocumentPreviewDialog";
 
-type ViewMode = "grid" | "list";
+import type { ViewMode } from "@app/modules/common/components/ui";
 
 const VIEW_MODE_KEY = "wt-documents-view-mode";
 
@@ -85,60 +86,6 @@ const CategoryHead: React.FC<{ category: VaultDocumentCategory; count: number }>
     </Box>
   );
 };
-
-/** Segmented grid/list switch — the file-explorer control, in the kit's language. */
-const ViewModeSwitch: React.FC<{ mode: ViewMode; onChange: (mode: ViewMode) => void }> = ({ mode, onChange }) => (
-  <Box
-    role="group"
-    aria-label="Document layout"
-    sx={{
-      display: "inline-flex",
-      p: 0.375,
-      gap: 0.375,
-      borderRadius: "10px",
-      border: "1px solid",
-      borderColor: "divider",
-      bgcolor: "action.hover",
-      flexShrink: 0,
-    }}
-  >
-    {([
-      { key: "grid" as const, icon: "bi-grid-3x3-gap-fill", label: "Grid view" },
-      { key: "list" as const, icon: "bi-list-ul", label: "List view" },
-    ]).map(({ key, icon, label }) => {
-      const active = mode === key;
-      return (
-        <Box
-          key={key}
-          component="button"
-          type="button"
-          aria-label={label}
-          aria-pressed={active}
-          title={label}
-          onClick={() => onChange(key)}
-          sx={{
-            display: "grid",
-            placeItems: "center",
-            width: 30,
-            height: 26,
-            border: 0,
-            // Metronic's unlayered Bootstrap button rules outrank a utility class
-            // here, so the radius has to be stated in `sx` to hold.
-            borderRadius: "7px",
-            cursor: "pointer",
-            transition: "background-color .12s ease, color .12s ease",
-            bgcolor: active ? "background.paper" : "transparent",
-            color: active ? "text.primary" : "text.secondary",
-            boxShadow: active ? "0 1px 2px rgba(16, 24, 40, 0.10)" : "none",
-            "&:hover": { color: "text.primary" },
-          }}
-        >
-          <Box component="i" className={icon} aria-hidden sx={{ fontSize: 13 }} />
-        </Box>
-      );
-    })}
-  </Box>
-);
 
 const CountPill: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
   <Box sx={{ minWidth: 0 }}>

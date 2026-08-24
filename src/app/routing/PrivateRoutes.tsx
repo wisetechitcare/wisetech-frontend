@@ -69,7 +69,6 @@ const TasksConfigure = lazy(() => import('@pages/employee/tasks/configure/TasksC
 const TaskDetailPage = lazy(() => import('@pages/employee/tasks/TaskDetailPage'))
 const MyTimeSheetMain = lazy(() => import('@pages/employee/timesheet/mytimesheet/MyTimeSheetMain'))
 const EmployeeTimeSheetMain = lazy(() => import('@pages/employee/timesheet/employeetimesheet/EmployeeTimeSheetMain'))
-const TimeSheetByIdOverview = lazy(() => import('@pages/employee/timesheet/mytimesheet/component/TimeSheetByIdOverview'))
 const ShowEmployeeDetailsToggle = lazy(() => import('@pages/employee/ShowEmployeeDetailsToggle'))
 const TaskDetails = lazy(() => import('@pages/employee/tasks/tasks/components/TaskDetails'))
 const TasksMainCalenderPage = lazy(() => import('@pages/employee/tasks/calender/TasksMainCalenderPage'))
@@ -725,13 +724,11 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
+        {/* A time log is now read in a dialog over the timesheet it belongs to, not on a page
+            of its own. Old links land on the list rather than a 404. */}
         <Route
           path='/tasks/timesheet/:timesheetId/:employeeId/:startDate/:endDate'
-          element={
-            <SuspensedView>
-              <TimeSheetByIdOverview />
-            </SuspensedView>
-          }
+          element={<Navigate to='/tasks/timesheet' replace />}
         />
         <Route
           path='/search-results'

@@ -45,8 +45,9 @@ import { TaskFilterState, filtersToQuery, apiErrorMessage, activeFilterCount } f
 import {
     useTaskBoard, useTaskList, useTaskStatuses, useTaskPriorities,
     useAvailableProjects, useBoardProjects, useMoveTaskStage, useCreateBoardList, useDeleteBoardList,
-    useReorderBoardTasks, useReorderStatuses,
+    useReorderBoardTasks, useReorderStatuses, useInvalidateTasks,
 } from './useTaskQueries';
+import { getSocket } from '@utils/socketClient';
 import {
     boardBackgroundCss, boardInk, describeBackground, hasWallpaper, useBoardBackground,
 } from './boardBackground';
@@ -283,6 +284,22 @@ export const TasksWorkspace = () => {
     }, [filters, scopeSel, generalId]);
 
     const boardQuery = useTaskBoard(query, view === 'kanban');
+    const invalidateTasks = useInvalidateTasks();
+
+    /**
+     * Somebody else changed this board — a stage added or removed, or a manager promoted.
+     *
+     * Both used to need a reload: a new lane appeared only on the board that created it, and
+     * being made a project manager left "Add another list" hidden until the next fetch, because
+     * the server decides that. Invalidating is enough — React Query refetches whatever is open,
+     * and the refetch brings the new permissions with it.
+     */
+    useEffect(() => {
+        const socket = getSocket();
+        const onBoardChanged = () => invalidateTasks();
+        socket.on('task_board_updated', onBoardChanged);
+        return () => { socket.off('task_board_updated', onBoardChanged); };
+    }, [invalidateTasks]);
     const listQuery = useTaskList(
         { ...query, page: String(page + 1), limit: String(rowsPerPage) },
         view === 'table',
@@ -506,14 +523,21 @@ export const TasksWorkspace = () => {
                                     </IconButton>
                                 </Tooltip>
                             </RequirePermission>
-                            <Button
-                                variant="contained"
-                                onClick={() => { setCreateInStage(undefined); setCreateOpen(true); }}
-                                startIcon={<KTIcon iconName="plus" className="fs-6" />}
-                                sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, whiteSpace: 'nowrap' }}
-                            >
-                                New task
-                            </Button>
+                            {/* Only for somebody the SERVER says may file one here. A team member
+                                can still break work down — "Add subtask" lives on the task
+                                itself — but the top-level button was shown to everyone and the
+                                API then refused most of them. Project authority is not something
+                                the client can work out for itself, so the board answers it. */}
+                            {boardQuery.data?.canCreateTask !== false && (
+                                <Button
+                                    variant="contained"
+                                    onClick={() => { setCreateInStage(undefined); setCreateOpen(true); }}
+                                    startIcon={<KTIcon iconName="plus" className="fs-6" />}
+                                    sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, whiteSpace: 'nowrap' }}
+                                >
+                                    New task
+                                </Button>
+                            )}
                         </Stack>
                     </Stack>
 
@@ -602,14 +626,22 @@ export const TasksWorkspace = () => {
                                         onOpenTask={(id) => navigate(`/tasks/${id}`)}
                                         onMoveTask={(taskId, statusId) => moveStage.mutateAsync({ taskId, statusId })}
                                         onReorder={(statusId, taskIds) => reorderTasks.mutateAsync({ statusId, taskIds })}
-                                        onAddInStage={(statusId) => { setCreateInStage(statusId); setCreateOpen(true); }}
+                                        // The per-lane "+" files a task too, so it answers to the
+                                        // same permission as the header button.
+                                        onAddInStage={boardQuery.data?.canCreateTask !== false
+                                            ? (statusId) => { setCreateInStage(statusId); setCreateOpen(true); }
+                                            : undefined}
                                         // Only with a project in view: a lane created here belongs
                                         // to THAT project's board and appears on no other. With a
                                         // general task selected there is no board to add it to.
                                         // A company-wide stage carries NO projectId — that is
                                         // exactly what makes it company-wide, and the server
                                         // refuses it without the Configure permission.
-                                        onCreateList={activeProject
+                                        // ...and only for somebody the SERVER says may add one.
+                                        // `canCreateList` is project authority, which the client
+                                        // cannot work out for itself — an ordinary team member
+                                        // was shown the lane and got a 403 for using it.
+                                        onCreateList={activeProject && boardQuery.data?.canCreateList === true
                                             ? (name, applyToAll) => createList.mutateAsync({
                                                 name,
                                                 projectId: applyToAll ? undefined : scopeSel,

@@ -328,7 +328,9 @@ export const ProjectTeamDialog = ({
                                 <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
                                     <RowAction
                                         tone="primary"
-                                        icon="crown-2"
+                                        // Same glyph the Organization's branch cards use for
+                                        // "Promote to sub-organization" — one promote icon, everywhere.
+                                        icon="arrow-up-right"
                                         label={`Make ${employeeName(m)} a project manager`}
                                         busy={busy?.id === m.id && busy.action === 'promote'}
                                         disabled={!!busy}

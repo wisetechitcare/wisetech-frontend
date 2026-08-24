@@ -41,7 +41,7 @@ import { memo, useEffect, useRef } from 'react';
 import { Box, Card, Divider, Stack, Tooltip, Typography, alpha, useTheme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import {
-    TaskRow, isTaskOverdue, loggedSeconds, formatDuration, shortTaskId,
+    TaskRow, isTaskOverdue, isTaskFinal, loggedSeconds, formatDuration, shortTaskId,
 } from '../taskDomain';
 import {
     TaskScopeBadge, TaskPriorityBadge, TaskProgress, TaskAssignees, TaskDueDate, FinalStageMark,
@@ -79,6 +79,8 @@ const TaskCardBase = ({
     const theme = useTheme();
     const dark = theme.palette.mode === 'dark';
     const overdue = isTaskOverdue(task, now);
+    // Finished work, read off the STORED property of its stage — never the stage's name.
+    const done = isTaskFinal(task);
     const logged = loggedSeconds(task.timesheets);
     const subtaskCount = task._count?.subtasks ?? 0;
     return (
@@ -98,8 +100,16 @@ const TaskCardBase = ({
                 cursor: 'inherit',
                 borderRadius: 2,
                 border: '1px solid',
-                borderColor: overdue ? alpha(theme.palette.error.main, 0.35) : 'divider',
-                bgcolor: 'background.paper',
+                // Overdue outranks finished: a card can only be one of them, and a late card is
+                // the one worth interrupting for. The finished tint is deliberately faint — a
+                // wash, not a highlight — because a done card is something the eye should be
+                // able to SKIP, not something competing for attention.
+                borderColor: overdue
+                    ? alpha(theme.palette.error.main, 0.35)
+                    : done ? alpha(theme.palette.success.main, 0.3) : 'divider',
+                bgcolor: !overdue && done
+                    ? alpha(theme.palette.success.main, dark ? 0.09 : 0.045)
+                    : 'background.paper',
                 // The dragged card's slot is dimmed by SortableItem, so nothing is needed here.
                 boxShadow: `0 1px 2px ${alpha(theme.palette.common.black, theme.palette.mode === 'dark' ? 0.4 : 0.06)}`,
                 transition: theme.transitions.create(

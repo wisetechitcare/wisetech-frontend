@@ -18,6 +18,8 @@ import { toast } from "react-toastify";
 import { getAllEmployeeWithMonthDailyHourlySalary } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import eventBus from "@utils/EventBus";
+import TimeLogDetailDialog from "../../components/TimeLogDetailDialog";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
 
 const MyEmployeesTimeSheetPorject = ({
@@ -44,6 +46,9 @@ const MyEmployeesTimeSheetPorject = ({
   const [selectedTimeSheet, setSelectedTimeSheet] = useState<any>(null);
 
   const navigate = useNavigate();
+  // The time log opens as a dialog over this table rather than as a page of
+  // its own: it is a detail OF this list, and reading one used to mean leaving.
+  const [openLogId, setOpenLogId] = useState<string | null>(null);
 
   const formatDuration = useCallback((start: string, end: string) => {
     if (!start || !end) return "-";
@@ -179,9 +184,7 @@ const MyEmployeesTimeSheetPorject = ({
               style={{ cursor: "pointer" }}
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(
-                  `/tasks/timesheet/${taskId?.id}/${taskId?.employeeId}/${startDates}/${endDates}`
-                );
+                setOpenLogId(taskId?.id ?? null);
               }}
             >
               {taskId?.taskName}
@@ -475,6 +478,15 @@ const MyEmployeesTimeSheetPorject = ({
           timeSheetId={selectedTimeSheet?.id}
         />
       )}
+
+      {/* The row's own detail, over the table it belongs to. `onChanged` reuses the key this
+          screen already refetches on, so an edit or a delete lands without a second mechanism. */}
+      <TimeLogDetailDialog
+        open={!!openLogId}
+        timesheetId={openLogId}
+        onClose={() => setOpenLogId(null)}
+        onChanged={() => eventBus.emit(EVENT_KEYS.NewTimeLogFromCreated, { id: openLogId ?? '' })}
+      />
     </div>
   );
 };
