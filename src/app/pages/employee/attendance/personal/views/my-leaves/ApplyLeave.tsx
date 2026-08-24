@@ -14,7 +14,7 @@
  *  - Full 8-state calendar legend
  *  - Per-type solid tint bands + unpaid hatch + inset border rings
  */
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -197,7 +197,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const teamOffCol   = calColors?.teamOffColor         || '#0F766E';
 
     const isMobile  = useIsMobile();
-    const { loading, submitting, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated, usedPaidLeaves, probationActive } = useApplyLeave({
+    const { loading, submitting, refresh, todayPunch, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated, usedPaidLeaves, probationActive } = useApplyLeave({
         employeeId, branchId, dateOfJoining, dateOfExit, workingAndOffDays, holidays,
     });
 
@@ -240,8 +240,6 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const [sickConfirmed, setSickConfirmed] = useState<null | boolean>(null);
     const [lopAck,        setLopAck]        = useState(false);
     const [penaltyAck,    setPenaltyAck]    = useState(false);
-    const [hoverDate,     setHoverDate]     = useState<string | null>(null);
-    const [hoverTip,      setHoverTip]      = useState<{ x: number; y: number; text: string; color: string | null } | null>(null);
     const [priorityOpen,  setPriorityOpen]  = useState(false);
     const [editing,       setEditing]       = useState(mode === 'edit');
     // View = readonly detail; edit = interactive (either opened directly or toggled from view).
@@ -313,6 +311,35 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     }, [s.from, s.to, totalPaidAllocated, usedPaidLeaves, dateOfJoining, dateOfExit]);
     const today      = isoOf(new Date());
     const tomorrow   = isoOf(new Date(Date.now() + 864e5));
+    /**
+     * How far back a "missed to apply" leave may be dated: the 1st of the CURRENT fiscal year
+     * (Apr-Mar). Not the current month - employees do forget to apply, and the late-apply penalty
+     * (not a hard block) is what the policy charges for it. The fiscal year is the real bound,
+     * because balances, the accrual window and the cumulative pool are all FY-scoped: a leave dated
+     * into last FY would be booked against this FY's balance. Mirrors the backend gate in
+     * handlers/employees.ts (createLeaveRequest).
+     */
+    const fyStart = useMemo(() => {
+        const n = new Date();
+        return `${n.getMonth() >= 3 ? n.getFullYear() : n.getFullYear() - 1}-04-01`;
+    }, []);
+    /**
+     * Same-day leave vs. attendance already recorded today:
+     *   'none' -> nothing punched, a full day off is coherent.
+     *   'in'   -> the morning has been worked; only the PM half can honestly be taken (forced below).
+     *   'done' -> checked in AND out, the day is complete - there is no leave left to apply for.
+     * Apply mode only: view/edit render an already-booked request, which this must never re-gate.
+     */
+    const todayDone   = mode === 'apply' && todayPunch === 'done';
+    const todayHalfPM = mode === 'apply' && todayPunch === 'in' && s.from === today;
+    // Force (and lock) the PM half whenever the selection starts today with an open check-in -
+    // single-day leaves via isHalfDay, ranges via the first-day boundary half.
+    useEffect(() => {
+        if (!todayHalfPM) return;
+        setS(p => p.to && p.to !== p.from
+            ? (p.firstDayHalf === 'PM' ? p : { ...p, firstDayHalf: 'PM' })
+            : (p.isHalfDay && p.halfDaySession === 'PM' ? p : { ...p, isHalfDay: true, halfDaySession: 'PM' }));
+    }, [todayHalfPM, s.from, s.to]);
 
     const isPenaltyActive = useMemo(() => {
         if (!sameDayPenalty?.enabled || s.isHalfDay || !s.from) return false;
@@ -421,9 +448,18 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         if (!s.from) return false;
         return expandRange(s.from, s.to || s.from).some(d => blockedDates.has(d));
     }, [s.from, s.to, blockedDates]);
+    /**
+     * A half-day BOUNDARY on a multi-day range is segmented into full + half rows by the
+     * auto-allocation path only; the backend rejects it outright against a single hand-picked leave
+     * type ("A half-day boundary on a multi-day leave requires automatic allocation"). That
+     * combination was previously reachable by hand and failed at submit with a server error; it is
+     * now also reachable automatically, because a range starting on a day you have already checked
+     * into forces a PM first-day half. Surface it as a blocking reason with the fix in it.
+     */
+    const boundaryHalfNeedsAuto = !isSingleDay && !!(s.firstDayHalf || s.lastDayHalf) && !!s.leaveTypeId;
     const canSubmit = !!s.from && N > 0 && !alloc?.blocked && !overlapConflict &&
         !(s.isHalfDay && !s.halfDaySession) && !sickPromptShow && !(unpaidDays > 0 && !lopAck) &&
-        (!isPenaltyActive || penaltyAck);
+        !boundaryHalfNeedsAuto && (!isPenaltyActive || penaltyAck);
 
     // Sandwich days: interior off-days the backend rule engine excludes from SALARY (Model B —
     // salary-only, never booked as a leave-balance row; rule-driven, both bracketing leaves unpaid).
@@ -438,7 +474,6 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 
     const pick = useCallback((iso: string) => {
         setSickConfirmed(null); setLopAck(false); setPenaltyAck(false);
-        setHoverDate(null);
         setS(p => {
             // Idle — first selection → single day (immediately submittable)
             if (!p.from) return { ...p, from: iso, to: iso, ...HALF_RESET };
@@ -453,12 +488,12 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     }, []);
     // Quick-pick: set a single day and navigate to its month
     const pickQuick = useCallback((iso: string) => {
-        if (blockedDates.has(iso)) return;
-        setSickConfirmed(null); setLopAck(false); setPenaltyAck(false); setHoverDate(null);
+        if (blockedDates.has(iso) || (iso === today && todayDone)) return;
+        setSickConfirmed(null); setLopAck(false); setPenaltyAck(false);
         setS(p => ({ ...p, from: iso, to: iso, ...HALF_RESET }));
         const d = new Date(iso + 'T00:00:00');
         setCal({ y: d.getFullYear(), m: d.getMonth() });
-    }, [blockedDates]);
+    }, [blockedDates, today, todayDone]);
     const nav = (d: number) => setCal(c => { let m = c.m + d, y = c.y; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } return { y, m }; });
 
     const onSubmit = async () => {
@@ -471,6 +506,10 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             setResult(r);
             const reqId = r?.requestGroupId ?? r?.id ?? existing?.requestGroupId;
             if (reqId) fetchStatus(reqId).then(setStatus).catch(() => {});
+            // Re-pull balances, the cumulative pool and this employee's leaves NOW, while the success
+            // screen is up. Without it "Apply Another" reuses the pre-submit snapshot: the just-booked
+            // days still look free in the calendar and the remaining-balance figures are one leave stale.
+            refresh();
         } catch (e: any) { setError(e?.message ?? (isEdit ? 'Failed to update leave' : 'Failed to apply for leave')); }
     };
     const applyAnother = () => { setResult(null); setStatus(null); setS(BLANK); setSickConfirmed(null); setLopAck(false); setPenaltyAck(false); setError(null); };
@@ -577,7 +616,40 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         </div>
     );
 
+    /**
+     * PERF — why the hover state lives HERE and not in the parent.
+     *
+     * `Calendar` is declared inside ApplyLeave's body, so every parent render produces a NEW
+     * component identity and React unmounts + remounts this whole subtree (42 day buttons, the
+     * legend, the holiday chips). While the hover state sat in the parent, moving the pointer
+     * across the grid re-rendered ApplyLeave and therefore REMOUNTED the calendar on every single
+     * cell — which is what made hovering feel heavy and made the tooltip stutter. Keeping
+     * `hoverDate` / `hoverTip` local confines a hover to one cheap re-render of this component and
+     * leaves the rest of the modal untouched. (A remount still happens when the parent's own state
+     * changes — picking a date, toggling a half — which is both rare and exactly when clearing the
+     * hover is the desired behaviour, so the parent no longer resets it by hand.)
+     */
     const Calendar = ({ small }: { small?: boolean }) => {
+        const [hoverDate, setHoverDate] = useState<string | null>(null);
+        const [hoverTip, setHoverTip] = useState<{ x: number; y: number; below: boolean; text: string; color: string | null } | null>(null);
+        const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+        useEffect(() => () => { if (tipTimer.current) clearTimeout(tipTimer.current); }, []);
+        /**
+         * Anchor the tooltip to the CELL, not the cursor: a cursor-following label jitters on every
+         * mousemove and always lags the pointer. It sits above the day, flipping below when the cell
+         * is too near the top of the viewport for the label to fit.
+         *
+         * `transient` is the touch path — there is no hover on a phone, so tapping an unavailable
+         * day reveals WHY it is unavailable and the label clears itself.
+         */
+        const showTip = (el: HTMLElement, text: string, color: string | null, transient = false) => {
+            const r = el.getBoundingClientRect();
+            const below = r.top < 76;
+            if (tipTimer.current) clearTimeout(tipTimer.current);
+            setHoverTip({ x: r.left + r.width / 2, y: below ? r.bottom + 10 : r.top - 10, below, text, color });
+            if (transient) tipTimer.current = setTimeout(() => setHoverTip(null), 2400);
+        };
+        const hideTip = () => { if (tipTimer.current) clearTimeout(tipTimer.current); setHoverTip(null); };
         const { y, m } = cal;
         // Monday-first week: shift the JS Sun=0 lead so Monday occupies column 0.
         const lead = (new Date(y, m, 1).getDay() + 6) % 7, dim = new Date(y, m + 1, 0).getDate();
@@ -593,14 +665,16 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             const iso      = `${y}-${pad(m + 1)}-${pad(d)}`;
             const beforeDoj = !!dateOfJoining && iso < dateOfJoining;
             const past     = iso < today || beforeDoj;
-            // Backdating is allowed but bounded to the CURRENT calendar month: a past date on/after
-            // the joining date AND on/after the 1st of this month is SELECTABLE so an employee can
-            // record a leave they forgot to apply for (the backend charges the late-apply penalty).
-            // Dates in a prior month, before joining, or already taken stay blocked.
-            const beforeMonth = iso < (today.slice(0, 7) + '-01');
-            const backdated = iso < today && !beforeDoj && !beforeMonth;
+            // Backdating is allowed across the whole CURRENT fiscal year: any past date on/after the
+            // joining date and on/after 1 April is SELECTABLE so an employee can record a leave they
+            // forgot to apply for (the backend charges the late-apply penalty). Dates before the
+            // fiscal year, before joining, or already taken stay blocked.
+            const beforeFy = iso < fyStart;
+            const backdated = iso < today && !beforeDoj && !beforeFy;
             const blocked  = blockedDates.has(iso);
-            const disabled = beforeDoj || blocked || beforeMonth;
+            // Today is already fully worked (check-in AND check-out) - there is no day left to take.
+            const workedToday = iso === today && todayDone;
+            const disabled = beforeDoj || blocked || beforeFy || workedToday;
             const isEp       = iso === s.from || iso === s.to;
             const isHoverEnd = !isEp && !!previewEnd && iso === previewEnd;
             const inRange    = !!(s.from && end && iso > s.from && iso < end);
@@ -619,7 +693,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 width: '100%', height: sz, border: 'none', background: '#fff', color: '#2b2e30',
                 fontSize: small ? 13 : 14, fontWeight: 500, borderRadius: rad, cursor: disabled ? 'default' : 'pointer',
             };
-            if (past)  { st.opacity = 0.4; st.color = '#a6a8ab'; }
+            if (past || workedToday)  { st.opacity = 0.4; st.color = '#a6a8ab'; }
             if (blocked && !past) { st.background = '#f3eaec'; st.color = RED; st.textDecoration = 'line-through'; }
             // Holiday — colour from customColors.attendanceOverview.holidayColor
             if (holiday && !charged && !blocked) {
@@ -675,7 +749,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 st.borderBottom = `2px solid ${sandwichCol}`;
             }
             // Today — solid ACCENT filled background with white numeral.
-            if (iso === today && !past && !blocked) {
+            if (iso === today && !past && !blocked && !workedToday) {
                 st.background   = ACCENT;
                 st.color        = '#fff';
                 st.fontWeight   = 700;
@@ -714,7 +788,11 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 st.borderTop    = 'none'; st.borderBottom = 'none';
             }
 
-            const tip = beforeDoj ? 'Before joining date' : blocked ? 'Already have a leave here' : beforeMonth ? 'Backdating is limited to the current month' : backdated ? 'Backdated — late-apply penalty may apply'
+            const tip = beforeDoj ? 'Before joining date' : blocked ? 'Already have a leave here'
+                : workedToday ? 'Already checked in and out today — nothing left to take as leave'
+                : beforeFy ? 'Backdating is limited to this financial year'
+                : iso === today && todayHalfPM ? 'Checked in today — only the PM half can be taken'
+                : backdated ? 'Backdated — late-apply penalty may apply'
                 : isEp     ? `Selected${seg ? ` · ${seg.leaveType}` : ''}`
                 : sandwichCharged ? 'Sandwich — excluded from salary (not a leave-balance day)'
                 : charged  ? `Leave day — ${seg!.leaveType}`
@@ -729,21 +807,25 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 : null;
             cells.push(
                 <button key={iso} type="button" style={st}
-                    title={tip}
                     aria-pressed={isEp || undefined}
                     aria-label={`${new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} — ${tip}`}
-                    onClick={() => {
+                    onClick={(e) => {
                         // In view mode, clicking a date flips the same modal straight into edit (if
                         // the request is still editable) — no separate button needed.
                         if (isView) { if (canEditExisting && !past) { onEdit ? onEdit() : setEditing(true); } return; }
-                        if (!disabled) pick(iso);
+                        // Touch has no hover: tapping an unavailable day explains itself rather than
+                        // doing nothing at all.
+                        if (disabled) { showTip(e.currentTarget, tip, tipColor, true); return; }
+                        pick(iso);
                     }}
                     onMouseEnter={(e) => {
                         if (!disabled && isPickingRange) setHoverDate(iso);
-                        if (!small) setHoverTip({ x: e.clientX, y: e.clientY, text: tip, color: tipColor });
+                        if (!small) showTip(e.currentTarget, tip, tipColor);
                     }}
-                    onMouseMove={(e) => { if (!small) setHoverTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : t)); }}
-                    onMouseLeave={() => { setHoverDate(null); setHoverTip(null); }}
+                    onMouseLeave={() => { setHoverDate(null); hideTip(); }}
+                    // Keyboard parity: tabbing through the grid surfaces the same label a mouse gets.
+                    onFocus={(e) => { if (!small) showTip(e.currentTarget, tip, tipColor); }}
+                    onBlur={hideTip}
                 >
                     {sandwichCharged && (
                         <span style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: `8px solid ${sandwichCol}`, borderLeft: '8px solid transparent' }} />
@@ -793,6 +875,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 
         return (
             <div style={{ border: '1px solid #e6e6e8', borderTop: small ? '1px solid #e6e6e8' : `3px solid ${ACCENT}`, borderRadius: 13, padding: small ? 12 : '15px 16px' }}>
+                {hoverTip && createPortal(
+                    <div role="tooltip" style={{ position: 'fixed', left: Math.max(8, Math.min(hoverTip.x, window.innerWidth - 8)), top: hoverTip.y, transform: `translate(-50%, ${hoverTip.below ? '0' : '-100%'})`, zIndex: 100000, pointerEvents: 'none', background: '#2b2e30', color: '#fff', padding: '7px 11px', borderRadius: 9, fontSize: 12, fontWeight: 600, lineHeight: 1.35, textAlign: 'left', boxShadow: '0 8px 24px rgba(0,0,0,0.24)', display: 'flex', alignItems: 'center', gap: 7, width: 'max-content', maxWidth: 250, fontFamily: PJK }}>
+                        {hoverTip.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: hoverTip.color, flexShrink: 0 }} />}
+                        <span>{hoverTip.text}</span>
+                    </div>,
+                    document.body,
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: small ? 10 : 12 }}>
                     <button onClick={() => nav(-1)} style={navBtnSt(small)}>‹</button>
                     <span style={{ fontSize: small ? 14 : 15, fontWeight: 700, color: '#2b2e30', fontFamily: PJK }}>{monthLabel}</span>
@@ -840,25 +929,38 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     // applying) — the half-day toggle is an applicant input, so it disappears. The persisted
     // half-day state is already reflected in the ViewBreakdown.
     // Session picker (AM/PM) shared by the single-day toggle and the boundary-half pickers.
-    const SessionButtons = ({ value, onPick }: { value: 'AM' | 'PM' | null; onPick: (v: 'AM' | 'PM') => void }) => (
+    const SessionButtons = ({ value, onPick, lockPM }: { value: 'AM' | 'PM' | null; onPick: (v: 'AM' | 'PM') => void; lockPM?: boolean }) => (
         <div style={{ display: 'flex', gap: isMobile ? 7 : 8, marginTop: isMobile ? 9 : 8 }}>
-            {(['AM', 'PM'] as const).map(ss => (
-                <button key={ss} onClick={() => onPick(ss)}
-                    style={{ flex: 1, padding: 9, borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: value === ss ? `1.5px solid ${ACCENT}` : '1px solid #e6e6e8', background: value === ss ? rgba(ACCENT, 0.08) : '#fff', color: value === ss ? ACCENT : '#5f6266' }}>
-                    {ss === 'AM' ? 'First half · AM' : 'Second half · PM'}
-                </button>
-            ))}
+            {(['AM', 'PM'] as const).map(ss => {
+                // The AM half is unavailable once the morning has actually been worked.
+                const off = !!lockPM && ss === 'AM';
+                return (
+                    <button key={ss} onClick={() => { if (!off) onPick(ss); }} disabled={off}
+                        style={{ flex: 1, padding: 9, borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.45 : 1, border: value === ss ? `1.5px solid ${ACCENT}` : '1px solid #e6e6e8', background: value === ss ? rgba(ACCENT, 0.08) : '#fff', color: value === ss ? ACCENT : '#5f6266' }}>
+                        {ss === 'AM' ? 'First half · AM' : 'Second half · PM'}
+                    </button>
+                );
+            })}
         </div>
     );
 
     // A half-day toggle for one boundary day of a multi-day range (first or last).
-    const BoundaryHalf = ({ label, value, onChange }: { label: string; value: 'AM' | 'PM' | null; onChange: (v: 'AM' | 'PM' | null) => void }) => (
+    const BoundaryHalf = ({ label, value, onChange, lockPM }: { label: string; value: 'AM' | 'PM' | null; onChange: (v: 'AM' | 'PM' | null) => void; lockPM?: boolean }) => (
         <div style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: '#2b2e30' }}>{label} half <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></span>
-                <Toggle on={!!value} color={ACCENT} onClick={() => onChange(value ? null : 'AM')} />
+                <Toggle on={!!value} color={ACCENT} disabled={lockPM} onClick={() => onChange(value ? null : 'AM')} />
             </div>
-            {value && <SessionButtons value={value} onPick={onChange} />}
+            {value && <SessionButtons value={value} lockPM={lockPM} onPick={onChange} />}
+        </div>
+    );
+
+    /** Why the half-day is fixed at PM — shown wherever the lock is applied, so it never reads
+     *  as a broken toggle. */
+    const TodayHalfNote = () => (
+        <div style={{ marginTop: 9, padding: '8px 10px', borderRadius: 9, background: rgba(ACCENT, 0.06), border: `1px solid ${rgba(ACCENT, 0.16)}`, fontSize: 11.5, lineHeight: 1.45, color: '#4b5563' }}>
+            You are already checked in today, so the morning is worked — this leave is fixed to the{' '}
+            <strong style={{ color: ACCENT }}>second half (PM)</strong>.
         </div>
     );
 
@@ -870,12 +972,14 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         <span style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
                             {isMobile ? 'Half day' : <>Apply as half day <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></>}
                         </span>
-                        <Toggle on={s.isHalfDay} color={ACCENT} onClick={() => reshape({ isHalfDay: !s.isHalfDay, halfDaySession: null })} />
+                        <Toggle on={s.isHalfDay} color={ACCENT} disabled={todayHalfPM}
+                            onClick={() => reshape({ isHalfDay: !s.isHalfDay, halfDaySession: null })} />
                     </div>
+                    {todayHalfPM && <TodayHalfNote />}
                     {s.isHalfDay && (
                         <>
                             {!isMobile && <div style={{ fontSize: 11.5, fontWeight: 600, color: '#8b8e91', margin: '11px 0 7px' }}>Which half? <span style={{ color: RED }}>*</span></div>}
-                            <SessionButtons value={s.halfDaySession} onPick={(ss) => setS(p => ({ ...p, halfDaySession: ss }))} />
+                            <SessionButtons value={s.halfDaySession} lockPM={todayHalfPM} onPick={(ss) => setS(p => ({ ...p, halfDaySession: ss }))} />
                         </>
                     )}
                 </>
@@ -885,7 +989,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         Half-day boundary <span style={{ color: '#8b8e91', fontWeight: 500 }}>· optional</span>
                     </div>
                     <div style={{ fontSize: 11.5, color: '#8b8e91', marginTop: 3 }}>Take a half-day on the first and/or last day of the range.</div>
-                    <BoundaryHalf label="First day" value={s.firstDayHalf ?? null} onChange={(v) => reshape({ firstDayHalf: v })} />
+                    {todayHalfPM && <TodayHalfNote />}
+                    <BoundaryHalf label="First day" value={s.firstDayHalf ?? null} lockPM={todayHalfPM} onChange={(v) => reshape({ firstDayHalf: v })} />
                     <BoundaryHalf label="Last day" value={s.lastDayHalf ?? null} onChange={(v) => reshape({ lastDayHalf: v })} />
                 </>
             )}
@@ -1124,6 +1229,14 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         return (
             <>
                 {overlapConflict && <div style={box}>This range overlaps a leave you already have.</div>}
+                {boundaryHalfNeedsAuto && (
+                    <div style={box}>
+                        A half-day on the first or last day of a range needs <strong>Auto · paid first</strong> allocation.
+                        {todayHalfPM
+                            ? ' Today is fixed to a PM half because you are already checked in, so switch “Apply using” to Auto.'
+                            : ' Switch “Apply using” to Auto, or turn the boundary half off.'}
+                    </div>
+                )}
                 {alloc?.blocked && <div style={box}>{alloc.blocked.reason}</div>}
             </>
         );
@@ -1205,7 +1318,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     <div style={{ display: isView ? 'none' : 'flex', gap: 8, marginBottom: 10 }}>
                         {[{ label: 'Today', iso: today }, { label: 'Tomorrow', iso: tomorrow }].map(({ label, iso }) => {
                             const active = s.from === iso && s.to === iso;
-                            const off = blockedDates.has(iso);
+                            const off = blockedDates.has(iso) || (iso === today && todayDone);
                             return (
                                 <button key={label} onClick={() => pickQuick(iso)} disabled={off}
                                     style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : '#e0e2e4'}`, background: active ? rgba(ACCENT, 0.10) : '#fff', color: active ? ACCENT : off ? '#c0c2c5' : '#5f6266', fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
@@ -1278,13 +1391,6 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         <div style={card}>
             <Header />
             <Lightbox />
-            {hoverTip && createPortal(
-                <div style={{ position: 'fixed', left: Math.min(hoverTip.x + 14, window.innerWidth - 270), top: hoverTip.y + 16, zIndex: 100000, pointerEvents: 'none', background: '#2b2e30', color: '#fff', padding: '7px 11px', borderRadius: 9, fontSize: 12, fontWeight: 600, lineHeight: 1.3, boxShadow: '0 8px 24px rgba(0,0,0,0.24)', display: 'flex', alignItems: 'center', gap: 7, maxWidth: 250, fontFamily: PJK }}>
-                    {hoverTip.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: hoverTip.color, flexShrink: 0 }} />}
-                    <span>{hoverTip.text}</span>
-                </div>,
-                document.body,
-            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 332px' }}>
                 {/* Left — form */}
                 <div style={{ padding: '22px 24px', maxHeight: '78vh', overflowY: 'auto' }}>
@@ -1300,7 +1406,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     <div style={{ display: isView ? 'none' : 'flex', gap: 8, marginTop: 16, marginBottom: 4 }}>
                         {[{ label: 'Today', iso: today }, { label: 'Tomorrow', iso: tomorrow }].map(({ label, iso }) => {
                             const active = s.from === iso && s.to === iso;
-                            const off = blockedDates.has(iso);
+                            const off = blockedDates.has(iso) || (iso === today && todayDone);
                             return (
                                 <button key={label} onClick={() => pickQuick(iso)} disabled={off}
                                     style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : '#e0e2e4'}`, background: active ? rgba(ACCENT, 0.10) : '#fff', color: active ? ACCENT : off ? '#c0c2c5' : '#5f6266', fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
@@ -1407,8 +1513,8 @@ const navBtnSt = (small?: boolean): React.CSSProperties => ({
 const errBox: React.CSSProperties = {
     background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, color: '#991b1b',
 };
-const Toggle = ({ on, color, onClick }: { on: boolean; color: string; onClick: () => void }) => (
-    <button onClick={onClick} style={{ width: 42, height: 24, borderRadius: 999, background: on ? color : '#d9d9d9', position: 'relative', border: 'none', cursor: 'pointer', flexShrink: 0, transition: 'background .15s' }}>
+const Toggle = ({ on, color, onClick, disabled }: { on: boolean; color: string; onClick: () => void; disabled?: boolean }) => (
+    <button onClick={() => { if (!disabled) onClick(); }} disabled={disabled} style={{ width: 42, height: 24, borderRadius: 999, background: on ? color : '#d9d9d9', position: 'relative', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, flexShrink: 0, transition: 'background .15s' }}>
         <span style={{ position: 'absolute', top: 3, left: on ? 21 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,.25)', transition: 'left .15s' }} />
     </button>
 );
