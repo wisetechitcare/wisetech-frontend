@@ -4,6 +4,7 @@ import { AuditChangeSet } from './audit.service';
 import { CategoryBadge, ChangeTypeChip, ValueDelta } from './parts';
 import { initials, displayActor, actorKind, humanizeSummary } from './tokens';
 import { fromNow, fullDateTime } from './time';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Props {
   cs: AuditChangeSet;
@@ -90,7 +91,7 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
           aria-hidden
         >
           {isSystem ? (
-            <i className="bi bi-gear-fill" style={{ fontSize: 15 }} />
+            <AppIcon name="bi-gear-fill" className="fs-5" />
           ) : (
             initials(cs.changedByFirstName, cs.changedByLastName)
           )}
@@ -169,7 +170,7 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
                 marginLeft: 4,
               }}
             >
-              <i className="bi bi-download" aria-hidden />
+              <AppIcon name="bi-download" aria-hidden />
               Download Offer
             </button>
           </div>
@@ -199,7 +200,7 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
                 gap: 5,
               }}
             >
-              <i className="bi bi-card-list" style={{ fontSize: 11 }} aria-hidden />
+              <AppIcon name="bi-card-list" className="fs-8" aria-hidden />
               {changes.length} field{changes.length === 1 ? '' : 's'} changed · click to view
             </div>
           )}
@@ -221,14 +222,7 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
           }}
           aria-hidden
         >
-          <i
-            className="bi bi-chevron-down"
-            style={{
-              fontSize: 12,
-              transition: 'transform .28s cubic-bezier(.4,0,.2,1)',
-              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-            }}
-          />
+          <AppIcon name="bi-chevron-down" className="fs-7" style={{ transition: 'transform .28s cubic-bezier(.4,0,.2,1)', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
         </span>
       </button>
 
@@ -288,11 +282,7 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
                         {ch.fieldLabel}
                       </span>
                       {ch.isSensitive && (
-                        <i
-                          className="bi bi-shield-lock-fill"
-                          style={{ fontSize: 10, color: C.purple }}
-                          title="Sensitive field — value redacted"
-                        />
+                        <AppIcon name="bi-shield-lock-fill" className="fs-9" color={C.purple} title="Sensitive field — value redacted" />
                       )}
                     </div>
                     <div style={{ marginTop: 5 }}>
@@ -327,7 +317,7 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
                   style={actionBtn({ color: C.danger, border: `1px solid ${C.danger}55` })}
                   title="Reset the record to this version (deletes newer versions)"
                 >
-                  <i className="bi bi-arrow-counterclockwise" style={{ fontSize: 12 }} aria-hidden />
+                  <AppIcon name="bi-arrow-counterclockwise" className="fs-7" aria-hidden />
                   Reset to here
                 </button>
               )}
@@ -336,7 +326,7 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
                 onClick={() => onCompare(cs.revisionNumber)}
                 style={actionBtn({ color: C.primary, border: `1px solid ${C.primary}` })}
               >
-                <i className="bi bi-file-earmark-diff" style={{ fontSize: 12 }} aria-hidden />
+                <AppIcon name="bi-file-earmark-diff" className="fs-7" aria-hidden />
                 View this change
               </button>
             </div>

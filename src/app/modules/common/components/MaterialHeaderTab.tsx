@@ -1,6 +1,8 @@
-import { styled, SvgIconProps, Tab, Tabs } from '@mui/material';
+import { Box, SvgIconProps, Tab, Tabs } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { T } from './ui/tokens';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export type TabItem = {
     title: string;
@@ -26,60 +28,47 @@ interface MaterialTabProps {
     headerAction?: React.ReactNode;
 }
 
-// The sticky gradient bar. When a `headerAction` is present the bar becomes a
-// flex row (tabs left, action right); the gradient + sticky positioning live
-// here so the action sits ON the bar. When there's no action the tabs render
-// exactly as before (the CustomizedTabs still owns its own gradient — see below).
-const HeaderBar = styled('div')({
-    position: 'sticky',
-    top: '0px',
-    zIndex: 50,
-    display: 'flex',
-    alignItems: 'center',
-    background: T.color.brandGradientLeftToRight,
-    minHeight: '44px',
-    "@media (min-width: 480px)": { top: '74px' },
-    "@media (max-width: 1024px)": { top: '0px' },
-});
+/** Sticky offsets the bar has always used: it tucks under the fixed masthead on
+ *  desktop and sits flush at the top once the masthead collapses. Shared so the
+ *  two render paths (bar-with-action vs bare strip) can never drift apart.
+ *
+ *  This is one query where the old CSS had two. It carried `min-width:480px →
+ *  74px` followed by `max-width:1024px → 0`, which overlap: between 480 and 1024
+ *  the second one won purely because it was written second, so the real behaviour
+ *  was always "0 below 1025px, 74px above it". Same result, but now it does not
+ *  depend on rule order surviving a refactor. */
+const STICKY = 'sticky top-0 min-[1025px]:top-[74px]';
 
-const HeaderAction = styled('div')({
-    display: 'flex',
-    alignItems: 'center',
-    flexShrink: 0,
-    paddingRight: '14px',
-    paddingLeft: '10px',
-    gap: '8px',
-});
-
-const CustomizedTabs = styled(Tabs)({
-    position: 'sticky',
-    top: '0px',
+/** MUI-internal state selectors (`.Mui-selected`, `.MuiTabs-indicator`) are not
+ *  reachable from a utility class, so the tab strip's own chrome lives in `sx`.
+ *  Everything that is plain layout is a Tailwind class on the element instead. */
+const tabsSx: SxProps<Theme> = {
     zIndex: 1000,
     // Brand gradient (left → right) from the design tokens — bright blue
     // on the left flowing to deep navy on the right.
     background: T.color.brandGradientLeftToRight,
-    // Slim bar with a little breathing room so the selected pill sits centred
-    // (MUI Tabs default to a tall 48px).
-    minHeight: '44px',
-    scrollbarWidth: "none",
-    msOverflowStyle: "none",
-    "&::-webkit-scrollbar": {
-        display: "none",
-    },
-    // When nested inside HeaderBar (headerAction present) the bar owns the
+    scrollbarWidth: 'none',
+    msOverflowStyle: 'none',
+    '&::-webkit-scrollbar': { display: 'none' },
+    // When nested inside the header bar (headerAction present) the bar owns the
     // gradient + sticky, so the tabs go transparent and flex to fill the row.
-    "&.mht-tabs--in-bar": {
+    '&.mht-tabs--in-bar': {
         background: 'transparent',
         position: 'static',
         flex: 1,
         minWidth: 0,
-        minHeight: '44px',
+    },
+    // The scroll arrows are icons on this bar too, and they inherit dark ink —
+    // which made them invisible against the gradient. Paint them white, and fade
+    // rather than hide the disabled one so the affordance stays where the eye
+    // last saw it.
+    '& .MuiTabs-scrollButtons': {
+        color: 'rgba(255, 255, 255, 0.85)',
+        width: 28,
+        '&.Mui-disabled': { opacity: 0.22 },
     },
     // Vertically centre the tabs so the selected pill has even top/bottom gaps.
-    '& .MuiTabs-flexContainer': {
-        alignItems: 'center',
-        minHeight: '44px',
-    },
+    '& .MuiTabs-flexContainer': { alignItems: 'center', minHeight: 44 },
     '& .MuiTabs-indicator': {
         // The selected tab is highlighted with a filled "pill" (below),
         // mirroring the aside menu's active item — so the bottom underline
@@ -88,46 +77,79 @@ const CustomizedTabs = styled(Tabs)({
         display: 'none',
     },
     '& .MuiTab-root': {
-        paddingTop: '3px',
-        paddingBottom: '3px',
-        paddingLeft: '16px',
-        paddingRight: '16px',
+        px: { xs: '11px', sm: '16px' },
+        py: '3px',
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: '32px',
-        margin: '0 3px',
+        minHeight: 32,
+        mx: '3px',
         borderRadius: '8px',
         transition: 'background-color .15s ease, color .15s ease',
-        '& svg': {
-            fontSize: '18px',
-            marginRight: '9px',
-        },
+        // MUI icon (the `icon` prop given a component) — sized to match the
+        // keenicon below so the two icon shapes never render at two sizes.
+        '& svg': { fontSize: '19px', marginRight: '10px' },
         // Reset MUI's default icon-wrapper margin (it assumes a stacked top
         // icon and pushes the icon off-centre in our horizontal row layout).
-        '& .MuiTab-iconWrapper': {
-            marginTop: 0,
-            marginBottom: 0,
+        '& .MuiTab-iconWrapper': { marginTop: 0, marginBottom: 0 },
+        // Keyboard users get a ring — ripples are disabled on these tabs, so
+        // without this there is no visible focus state at all.
+        '&.Mui-focusVisible': {
+            outline: '2px solid rgba(255, 255, 255, 0.8)',
+            outlineOffset: '1px',
         },
     },
     '& .MuiTab-textColorPrimary': {
         textTransform: 'none',
-        fontWeight: '600',
-        // Inactive: muted white on the dark-blue bar.
-        color: 'rgba(255, 255, 255, 0.7)',
+        fontWeight: 600,
+        // Inactive label: near-white on the dark-blue bar (~5.4:1). The glyph gets
+        // more than this (below) — matching them makes the icon read as the weaker
+        // half of the pair, because a glyph carries far less ink than a word.
+        color: 'rgba(255, 255, 255, 0.88)',
         fontSize: '13px',
-        // Every tab icon is a plain glyph, centred in a 26px space.
-        // No background boxes — just the glyph color (white when selected,
-        // muted white when unselected).
-        '& .bi': {
-            width: '26px',
-            height: '26px',
+        letterSpacing: '0.01em',
+        /* The icon is a KTIcon <i> inside `.mht-icon` — NOT an <svg> and NOT a `.bi`.
+         * The two rules originally written for those shapes never matched anything
+         * this component renders, which is why the icons had no size, no spacing and
+         * no emphasis of their own. `marginRight` is the gap the icon never had:
+         * MUI's icon margins are reset above for the row layout, and nothing put
+         * one back. */
+        '& .mht-icon': {
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             lineHeight: 1,
             flexShrink: 0,
+            marginRight: '10px',
+            // Detail paths at FULL white — 6.5:1 on the lightest end of the bar.
+            // These are the strokes that carry the icon's shape; every point of
+            // alpha spent here is legibility given away for nothing.
+            color: '#ffffff',
+            /* And this is what made these glyphs look broken. A duotone keenicon
+             * fades its backdrop layer with `opacity: .3` on `.path1:BEFORE` — the
+             * PSEUDO-element, not the span. An override aimed at the span
+             * (`[class*="path"]`, as an earlier attempt was) can only multiply with
+             * that, never replace it: .72 on the span still landed at ~.22 on
+             * screen, while quietly dimming the solid strokes to .72. So half of
+             * every glyph was under 3:1 and the other half had been dulled.
+             * Stock .3 is tuned for dark ink on a white page; on this bar it
+             * measures 1.9:1 — under WCAG 1.4.11's 3:1 floor for a graphical object.
+             * `.path1` is the only layer the duotone sheet fades (verified across
+             * all 357 icons), so nothing else needs touching.
+             *
+             * .72 measures 4.2:1 against the BRIGHTEST end of the gradient, where the
+             * bar fights the glyph hardest, and makes it read as ONE white object
+             * with an internal tonal step rather than a white mark floating on a blue
+             * one — the "white tone" the bar was asked for. It is also close to the
+             * ceiling:
+             * the detail strokes are the same white, so past ~.85 they stop
+             * separating from the backdrop and the glyph collapses into a
+             * silhouette. Two tones is what makes a duotone a shape. */
+            '& .path1:before': { opacity: 0.72 },
+            // Bootstrap fallback: AppIcon renders a plain `.bi` for any name missing
+            // from iconMap, and that one sizes by font-size, not by an `fs-*` class.
+            '& .bi': { fontSize: '19px', lineHeight: 1 },
         },
         // Underline lives on the text label ONLY (.mht-label wraps just the
         // title text — never the icon). Always underlined but transparent, so
@@ -141,36 +163,18 @@ const CustomizedTabs = styled(Tabs)({
             transition: 'text-decoration-color 0.25s ease',
         },
         // Selected: white text + white underline under the text only.
-        '&.Mui-selected': {
-            color: '#ffffff',
-            fontWeight: '700',
-        },
-        '&.Mui-selected .mht-label': {
-            textDecorationColor: '#ffffff',
-        },
-        '&.Mui-selected .bi': {
-            color: '#ffffff',
-        },
+        '&.Mui-selected': { color: '#ffffff', fontWeight: 700 },
+        '&.Mui-selected .mht-label': { textDecorationColor: '#ffffff' },
+        // Selected/hover: the backdrop layer comes up further still, so the active
+        // tab's icon reads as the most solid glyph in the row.
+        '&.Mui-selected .mht-icon .path1:before': { opacity: 0.85 },
+        '&:hover .mht-icon .path1:before': { opacity: 0.85 },
         // Subtle feedback when hovering a non-selected tab.
-        '&:hover': {
-            color: '#ffffff',
-            backgroundColor: 'rgba(255, 255, 255, 0.12)',
-        },
+        '&:hover': { color: '#ffffff', backgroundColor: 'rgba(255, 255, 255, 0.12)' },
         // Hovering the selected tab keeps it as-is (no light pill fill).
-        '&.Mui-selected:hover': {
-            color: '#ffffff',
-            backgroundColor: 'transparent',
-        },
+        '&.Mui-selected:hover': { color: '#ffffff', backgroundColor: 'transparent' },
     },
-    "@media (min-width: 480px)": {
-        position: "sticky",
-        top: "74px",
-    },
-    "@media (max-width: 1024px)": {
-        position: "sticky",
-        top: "0px",
-    },
-});
+};
 
 const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hideScrollButtons, headerAction }: MaterialTabProps) => {
     const [value, setValue] = useState(0);
@@ -189,15 +193,15 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
     };
 
     const tabsStrip = (
-        <CustomizedTabs
+        <Tabs
             value={value}
             onChange={handleChange}
             textColor="primary"
             indicatorColor="primary"
             variant="scrollable"
             scrollButtons={hideScrollButtons ? false : "auto"}
-            className={headerAction ? 'mht-tabs--in-bar' : undefined}
-            style={headerAction ? undefined : { zIndex: 50 }}
+            className={headerAction ? 'mht-tabs--in-bar min-h-11' : `${STICKY} z-50 min-h-11`}
+            sx={tabsSx}
         >
             {tabItems.map((tabItem, index) => {
                     const key = `${tabItem.title}-${index}`;
@@ -205,10 +209,17 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                         ? undefined
                         : (typeof tabItem.icon === 'string'
                             ? (tabItem.icon.startsWith('bi-') || tabItem.icon.startsWith('bi ')
-                                // Bootstrap icon (same system as the sidebar). The `.bi` class
-                                // also enables the boxed selected-tab styling defined above.
-                                ? <i className={`bi ${tabItem.icon}`} />
-                                : <img src={tabItem.icon} alt={tabItem.title} width={24} height={24} style={{ marginRight: '1px' }} />)
+                                /* Wrapped in a span ON PURPOSE. MUI's Tab clones the icon element
+                                 * and merges `MuiTab-iconWrapper` into its className — and AppIcon
+                                 * takes `className` as its SIZE prop, forwarding it to KTIcon. The
+                                 * wrapper both absorbs MUI's class (so `fs-*` survives) and gives
+                                 * the `sx` above a `.mht-icon` hook to size and colour.
+                                 * `fs-2` (19.5px) rather than the label's inherited 13px: a glyph
+                                 * carries far less ink than a word, so an icon matched to the text
+                                 * size reads as the weaker of the pair. Every tab icon name across
+                                 * all 23 call sites resolves through iconMap to a real keenicon. */
+                                ? <span className="mht-icon"><AppIcon name={tabItem.icon} className="fs-2" /></span>
+                                : <img src={tabItem.icon} alt={tabItem.title} width={24} height={24} className="mr-px" />)
                             : (() => {
                                 const Icon = tabItem.icon as React.ElementType<SvgIconProps>;
                                 return <Icon />;
@@ -219,59 +230,54 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                     // Title text always sits in .mht-label so the selected
                     // underline applies to the text only (never icon/badge).
                     const label = hasBadge ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        <span className="inline-flex items-center">
                             <span className="mht-label">{tabItem.title}</span>
-                            <span
-                                style={{
-                                    marginLeft: '6px',
-                                    minWidth: '18px',
-                                    height: '18px',
-                                    padding: '0 5px',
-                                    borderRadius: '9px',
-                                    // Badge tracks the tab's state so it reads as part of the
-                                    // tab rather than a floating chip: solid white on the active
-                                    // tab, soft translucent white on inactive tabs.
+                            <Box
+                                component="span"
+                                className="ml-1.5 inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.25 text-[11px] font-bold leading-none"
+                                // Badge tracks the tab's state so it reads as part of the
+                                // tab rather than a floating chip: solid white on the active
+                                // tab, soft translucent white on inactive tabs. Colours come
+                                // from `sx` because they are token-driven, not utilities.
+                                sx={{
                                     background: isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.25)',
-                                    color: isSelected ? '#1E3A8A' : '#ffffff',
-                                    fontSize: '11px',
-                                    fontWeight: 700,
-                                    lineHeight: 1,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
+                                    color: isSelected ? T.color.brand : '#ffffff',
                                 }}
                             >
                                 {tabItem.badge! > 99 ? '99+' : tabItem.badge}
-                            </span>
+                            </Box>
                         </span>
                     ) : <span className="mht-label">{tabItem.title}</span>;
 
                     return <Tab key={key} label={label} icon={icon} disableRipple disableFocusRipple />;
                 })}
-        </CustomizedTabs>
+        </Tabs>
     );
 
     return (
         <>
             {/* With a headerAction, wrap the strip + action in the sticky gradient
-                bar (flex row). Without one, render the strip exactly as before. */}
+                bar (flex row). Without one, render the strip on its own. */}
             {headerAction
                 ? (
-                    <HeaderBar>
+                    <Box
+                        className={`${STICKY} z-50 flex min-h-11 items-center`}
+                        sx={{ background: T.color.brandGradientLeftToRight }}
+                    >
                         {tabsStrip}
-                        <HeaderAction>{headerAction}</HeaderAction>
-                    </HeaderBar>
+                        <div className="flex shrink-0 items-center gap-2 pl-2.5 pr-3.5">{headerAction}</div>
+                    </Box>
                 )
                 : tabsStrip}
 
             {aboveContent
-                ? <div className="px-lg-9 px-5 pt-5 pb-5">{aboveContent}</div>
-                : <div className="row mt-7"></div>
+                ? <div className="px-5 py-5 lg:px-9">{aboveContent}</div>
+                : <div className="mt-7" />
             }
 
             {tabItems.map((tabItem, index) => {
                 return (
-                    <div key={`${tabItem.title}-panel-${index}`} className='px-lg-9 px-5 py-0'>
+                    <div key={`${tabItem.title}-panel-${index}`} className="px-5 py-0 lg:px-9">
                         {value === index && tabItem.component}
                     </div>
                 )

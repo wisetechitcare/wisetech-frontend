@@ -33,9 +33,9 @@ import {
     calculateTotalAvailableLeaves,
     calculateCumulativeSummary,
     buildCumulativeInputs,
+    getAccrualWindow,
     CumulativeInputs,
 } from "@utils/balanceProgressUtils";
-import { calculateProRatedMonths } from "@utils/fiscalYearHelper";
 
 const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOthers = false, startDateNew, endDateNew }: { fromAdmin?: boolean, resource: string, viewOwn?: boolean, viewOthers?: boolean, startDateNew: string, endDateNew: string }) => {
     const dispatch = useDispatch();
@@ -56,7 +56,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     // SINGLE SOURCE OF TRUTH: the backend now computes the Cumulative Leave Allowance and returns it on
     // the leave-balance API. We display that verbatim; the client-side derivation below is only a
     // fallback for an older backend that didn't send it.
-    const [backendCumulative, setBackendCumulative] = useState<{ totalPaidAllocated: number; used: number; allowedTillNow: number; remaining: number } | null>(null);
+    const [backendCumulative, setBackendCumulative] = useState<{ totalPaidAllocated: number; used: number; allowedTillNow: number; remaining: number; elapsedMonths?: number; eligibleMonths?: number } | null>(null);
     const [holidays, setHolidays] = useState<number>(0);
     const [weekendCount, setWeekendCount] = useState<number>(0);
     const [totalLeaves, setTotalLeaves] = useState<CustomLeaves[]>([]);
@@ -70,6 +70,9 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     const [reloadKey, setReloadKey] = useState(0);
 
     const dateOfJoining = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.dateOfJoining : state.employee.currentEmployee?.dateOfJoining);
+    // Exit date closes the accrual window for a leaver — only used by the client-side
+    // cumulative fallback; the live path takes the window from the balance API.
+    const dateOfExit = useSelector((state: RootState) => fromAdmin ? (state.employee.selectedEmployee as any)?.dateOfExit : (state.employee.currentEmployee as any)?.dateOfExit);
     const employeeBranchId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.branchId : state.employee.currentEmployee?.branchId);
 
     // New-Joiner Probation: paid leave is blocked during the probation window. Fetch the policy
@@ -92,6 +95,21 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
         })();
     }, []);
     const probationActive = probationCfg.enabled && isWithinProbation(dateOfJoining as any, probationCfg.durationDays);
+    /**
+     * Suppress the paid-leave NUMBERS while the employee is on probation.
+     *
+     * Display-only. Nothing stops accruing: the backend keeps pro-rating and storing the real
+     * entitlement (leaveAccrual.ts + recalculateBalance), so the day probation ends the true
+     * balance simply appears — no backfill, no recalculation, no lost days.
+     *
+     * The reason to hide it: during probation every apply path books Unpaid regardless of
+     * balance, so a card reading "0 / 5 used · 5 remaining" advertises capacity the employee
+     * cannot spend and reads as a system error when their leave comes back Unpaid.
+     *
+     * `!fromAdmin` deliberately keeps the real figures visible to HR/admins viewing the
+     * employee — they are the ones who need to see what is accruing behind the scenes.
+     */
+    const hidePaidBalances = probationActive && !fromAdmin;
     const probationEndLabel = useMemo(
         () => (dateOfJoining ? dayjs(dateOfJoining).add(probationCfg.durationDays, 'day').format('DD MMM, YYYY') : ''),
         [dateOfJoining, probationCfg.durationDays],
@@ -273,13 +291,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                 const { startDate: fiscalYearStartDate, endDate: fiscalYearEndDate } =
                     await generateFiscalYearFromGivenYear(dayjs(), fromAdmin);
 
-                const proRatedMonths = calculateProRatedMonths(
-                    dayjs(dateOfJoining),
-                    dayjs(fiscalYearStartDate),
-                    dayjs(fiscalYearEndDate),
-                    dayjs()
-                );
-
                 const fiscalYearFilteredLeaves = processedLeaves.filter((leave: any) => {
                     const leaveDate = leave.dateFrom || leave.date;
                     return leaveDate && leaveDate >= startDateNew && leaveDate <= endDateNew;
@@ -312,29 +323,22 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     branchLeaveBalances[summary.leaveType] = days;
                 });
 
-                const joiningDate = dayjs(dateOfJoining);
-                const fiscalStart = dayjs(fiscalYearStartDate);
-                const fiscalEnd = dayjs(fiscalYearEndDate);
-                const today = dayjs();
-
-                const calculationDate = fiscalEnd.isAfter(today) && fiscalStart.isBefore(today)
-                    ? today
-                    : fiscalEnd;
-
-                const startDate = joiningDate.isAfter(fiscalStart) ? joiningDate : fiscalStart;
-                const tenureMonths = calculationDate.diff(startDate, 'month') + 1;
-
                 // Pass 0 for addon: the backend leave-balance API already returns Annual
                 // numberOfDays INCLUDING the experience-based addon (recalculateBalance is the
                 // single source of truth). Passing addonLeaveAllowanceCount here too would
                 // double-count it (e.g. base 0 + addon 10 from backend, +10 again = 20).
+                //
+                // The month arguments are 0 because pro-rating is no longer a client concern:
+                // `numberOfDays` from the balance API is ALREADY the employee's pro-rated
+                // entitlement for their accrual window (backend leaveAccrual.ts). Re-deriving a
+                // month fraction here would pro-rate a second time.
                 const { balances, proRated } = calculateLeaveBalances(
                     branchLeaveBalances,
                     transferredLeaves,
                     0,
-                    proRatedMonths,
+                    0,
                     hasPendingOrApprovedTransfer,
-                    tenureMonths
+                    0
                 );
                 setLeaveBalances(balances);
                 setProRatedBalances(proRated);
@@ -389,9 +393,19 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     remaining: backendCumulative.remaining ?? 0,
                 };
             }
-            return calculateCumulativeSummary(cumulativeInputs.totalNonMaternalPaidAllocated, cumulativeInputs.takenIncludingPendingByType, fiscalStartMonth);
+            // Fallback for an older backend: pace across the employee's own accrual window,
+            // derived here from their date of joining so a mid-year joiner is not credited for
+            // the months before they were hired.
+            const fyStartYear = startDateNew ? dayjs(startDateNew).year() : dayjs().year();
+            const accrual = getAccrualWindow(fyStartYear, dateOfJoining, dateOfExit);
+            return calculateCumulativeSummary(
+                cumulativeInputs.totalNonMaternalPaidAllocated,
+                cumulativeInputs.takenIncludingPendingByType,
+                fiscalStartMonth,
+                accrual,
+            );
         },
-        [backendCumulative, cumulativeInputs, fiscalStartMonth]
+        [backendCumulative, cumulativeInputs, fiscalStartMonth, startDateNew, dateOfJoining, dateOfExit]
     );
 
     const res1 = viewOthers && hasPermission(resource, "readOthers", { employeeId: selectedEmployeeId });
@@ -459,7 +473,12 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                 </div>
             )}
 
-            {/* Cumulative Leave Allowance */}
+            {/* Cumulative Leave Allowance — hidden while the employee is on probation.
+                They cannot spend any of it yet (every apply path forces Unpaid), so showing a
+                live "0 / N used, N remaining" reads as available capacity and misleads them into
+                thinking paid leave is bookable. The balance itself keeps accruing server-side and
+                appears in full the moment probation ends. Admins keep seeing the real numbers. */}
+            {!hidePaidBalances && (
             <GlassCard preset="section" className="mt-6 sm:p-6">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center flex-wrap gap-4">
                     <div className="flex-auto min-w-0">
@@ -488,6 +507,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     })()}
                 </div>
             </GlassCard>
+            )}
 
             {/* New-Joiner Probation banner — paid leave is blocked until the probation window ends */}
             {probationActive && (
@@ -497,8 +517,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                         <p className="font-bold text-[15px] m-0" style={{ color: '#8a5a1e' }}>You're in your probation period</p>
                         <p className="text-[13.5px] mt-0.5 leading-normal m-0" style={{ color: '#9a6a2e' }}>
                             {probationCfg.allowUnpaid
-                                ? <>Paid leave is not available yet — during probation you can only apply for <strong>Unpaid leave</strong>. Your paid balances below are your yearly entitlement and unlock {probationEndLabel ? <>on <strong>{probationEndLabel}</strong></> : 'after probation ends'}.</>
-                                : <>Leave is not available during probation. Your paid balances below are your yearly entitlement and unlock {probationEndLabel ? <>on <strong>{probationEndLabel}</strong></> : 'after probation ends'}.</>}
+                                ? <>Paid leave is not available yet — during probation you can only apply for <strong>Unpaid leave</strong>. Your paid leave is being earned in the background and your balance appears here {probationEndLabel ? <>on <strong>{probationEndLabel}</strong></> : 'once probation ends'}.</>
+                                : <>Leave is not available during probation. Your paid leave is being earned in the background and your balance appears here {probationEndLabel ? <>on <strong>{probationEndLabel}</strong></> : 'once probation ends'}.</>}
                         </p>
                     </div>
                 </GlassCard>
@@ -512,9 +532,12 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     <div className="flex gap-4 items-start mb-5 flex-wrap">
                         <div className="flex-1 min-w-0">
                             <p className="font-bold text-[18px] tracking-[0.01em] text-slate-900 m-0">Paid Leaves Balance</p>
-                            <p className="text-[14px] text-slate-500 mt-1 leading-[1.55] m-0">Your yearly pending leave balance</p>
+                            <p className="text-[14px] text-slate-500 mt-1 leading-[1.55] m-0">
+                                {hidePaidBalances ? 'Unlocks after your probation period' : 'Your yearly pending leave balance'}
+                            </p>
                         </div>
-                        {!fromAdmin && isFiscalYearCurrentOrFuture && (
+                        {/* Converting leave you cannot yet use makes no sense — hide during probation. */}
+                        {!fromAdmin && !hidePaidBalances && isFiscalYearCurrentOrFuture && (
                             <WtButton inverted onClick={() => setShowConvertModal(true)}
                                 startIcon={<KTIcon iconName="arrow-two-diagonals" className="fs-5" />}
                                 className="h-11 whitespace-nowrap w-full sm:w-auto">
@@ -523,17 +546,36 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                         )}
                     </div>
 
-                    <div className="flex flex-col gap-3">
-                        {paidLeaves.map((leave: any, index: any) => (
-                            <LeaveBalanceItem key={index} label={leave.label} used={leave.used} total={leave.total} color={leave.color} />
-                        ))}
-                    </div>
+                    {hidePaidBalances ? (
+                        // Locked state. The per-type rows and the total are withheld rather than
+                        // zeroed — showing "0" would be a lie about what has accrued, while a lock
+                        // states the real situation: earned, not yet available.
+                        <div className="flex flex-col items-center text-center gap-3 py-8 px-4">
+                            <IconBox icon="lock" trio={TRIO.amber} size={44} fs="fs-2" />
+                            <p className="font-semibold text-[14.5px] text-slate-700 m-0">
+                                Your paid leave balance is hidden during probation
+                            </p>
+                            <p className="text-[13px] text-slate-500 leading-normal m-0 max-w-[340px]">
+                                You are still earning paid leave for every month you work. The full balance
+                                becomes visible and available to apply for
+                                {probationEndLabel ? <> on <strong>{probationEndLabel}</strong></> : ' once your probation ends'}.
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="flex flex-col gap-3">
+                                {paidLeaves.map((leave: any, index: any) => (
+                                    <LeaveBalanceItem key={index} label={leave.label} used={leave.used} total={leave.total} color={leave.color} />
+                                ))}
+                            </div>
 
-                    {/* Total Paid Leaves */}
-                    <div className="mt-4 pt-3 border-t-2 flex justify-between items-center" style={{ borderTopColor: BRAND.navy }}>
-                        <p className="font-bold text-[14px] text-slate-900 m-0">Total Paid Leaves</p>
-                        <p className="font-bold text-[14px] text-slate-900 m-0">{totalPaidUsed}/{totalPaidAssigned}</p>
-                    </div>
+                            {/* Total Paid Leaves */}
+                            <div className="mt-4 pt-3 border-t-2 flex justify-between items-center" style={{ borderTopColor: BRAND.navy }}>
+                                <p className="font-bold text-[14px] text-slate-900 m-0">Total Paid Leaves</p>
+                                <p className="font-bold text-[14px] text-slate-900 m-0">{totalPaidUsed}/{totalPaidAssigned}</p>
+                            </div>
+                        </>
+                    )}
                 </GlassCard>
 
                 {/* RIGHT CARD - Unpaid Leaves Balance */}

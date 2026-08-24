@@ -14,6 +14,7 @@ import Select from "react-select";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { UAParser } from "ua-parser-js";
+import { FLOATING_MENU_PROPS } from "@app/modules/common/inputs/selectMenuProps";
 
 interface Meetings {
   id: string;
@@ -317,7 +318,7 @@ const EditMeetingModal = ({ isEditModalOpen, setIsEditModalOpen, editingMeeting,
 
               <BootstrapForm.Group className="mb-2">
                 <BootstrapForm.Label>Internal Participants (Employees)</BootstrapForm.Label>
-                <Select
+                <Select{...FLOATING_MENU_PROPS}
                   isMulti
                   options={participants}
                   value={participants.filter((p) =>

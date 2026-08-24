@@ -19,6 +19,7 @@ import { usePermission } from "@hooks/usePermission";
 import EmployeeAccessTab from "./EmployeeAccessTab";
 import EmployeeProject from "./EmployeeProject";
 import MeetingsList from "@app/modules/common/components/MeetingsList";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const ShowEmployeeDetailsToggle = () => {
   const { employeeId } = useParams<{ employeeId: string }>();
@@ -57,7 +58,7 @@ const ShowEmployeeDetailsToggle = () => {
     return (
       <div className="card border-0 shadow-sm m-8">
         <div className="card-body text-center py-10">
-          <i className="bi bi-exclamation-triangle fs-1 text-warning mb-3 d-block"></i>
+          <AppIcon name="bi-exclamation-triangle" className="fs-1 text-warning mb-3 d-block" />
           <h5 className="fw-semibold">This Page Isn't Available</h5>
           <p className="text-muted mb-4">We couldn't open this employee record. It may have moved or you may not have access.</p>
           <button className="btn btn-primary" onClick={() => navigate("/dashboard")}>Go to Dashboard</button>
@@ -267,7 +268,7 @@ const ShowEmployeeDetailsToggle = () => {
           <div className="tab-pane fade show active">
             <div className="card border-0 shadow-sm">
               <div className="card-body text-center py-5">
-                <i className="bi bi-gear fs-1 text-muted mb-3"></i>
+                <AppIcon name="bi-gear" className="fs-1 text-muted mb-3" />
                 <h5 className="fw-semibold text-muted">Configure Settings</h5>
                 <p className="text-muted small mb-0">
                   Configuration options will be available here.

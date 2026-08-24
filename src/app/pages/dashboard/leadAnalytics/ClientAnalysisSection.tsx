@@ -8,6 +8,7 @@ import { formatCurrencyCompact } from "@utils/currency";
 import { getLeadsByExternalReferralAnalytics } from "@services/lead";
 import { convertToChartData } from "@utils/leadsProjectCompaniesStatistics";
 import { ChartDialogModal } from "@pages/employee/leads/overview/components/ChartDialogModal";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Props {
   /** Formatted range (YYYY-MM-DD) — must match the other analytics calls on the page. */
@@ -188,7 +189,7 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate, metric = "
               transition: "all 0.18s ease",
             }}
           >
-            <i className={`bi ${v.icon}`} style={{ fontSize: 14, color: isActive ? v.accent : "#94A3B8" }} />
+            <AppIcon name={v.icon} className="fs-6" color={isActive ? v.accent : "#94A3B8"} />
             {v.label}
           </button>
         );

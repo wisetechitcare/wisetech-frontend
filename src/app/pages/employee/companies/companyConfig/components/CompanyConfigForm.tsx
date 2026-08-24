@@ -7,6 +7,7 @@ import { createCompanyType, updateCompanyType, createContactRoleType, updateCont
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
+import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
 
 
 declare module 'react' {
@@ -322,7 +323,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                   >
                     Parent Type <span style={{ color: '#6c757d', fontWeight: 400 }}>(optional)</span>
                   </label>
-                  <Select
+                  <Select{...FLOATING_MENU_BEHAVIOUR}
                     isClearable
                     isDisabled={editingTypeHasChildren}
                     placeholder="None — top-level type"
@@ -355,7 +356,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                   >
                     Service <span style={{ color: '#6c757d', fontWeight: 400 }}>(optional)</span>
                   </label>
-                  <Select
+                  <Select{...FLOATING_MENU_BEHAVIOUR}
                     isClearable
                     placeholder="Unassigned — no service"
                     classNamePrefix="react-select"

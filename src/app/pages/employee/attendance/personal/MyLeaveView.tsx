@@ -12,10 +12,11 @@ import { KTIcon } from '@metronic/helpers';
 import { handleDatesChange } from '@utils/statistics';
 import DateSelector from '@components/DateSelector';
 import MyLeaveManagementRequests from './views/my-leaves/MyLeaveManagementRequests';
-import { generateUserInsights } from './views/my-leaves/utils/insightGenerator';
-import { generateMonthlySuggestions } from './views/my-leaves/utils/suggestionEngine';
-import { useSelector } from 'react-redux';
-import { RootState } from '@redux/store';
+// Leave suggestion engine — disabled, see the commented block below.
+// import { generateUserInsights } from './views/my-leaves/utils/insightGenerator';
+// import { generateMonthlySuggestions } from './views/my-leaves/utils/suggestionEngine';
+// import { useSelector } from 'react-redux';
+// import { RootState } from '@redux/store';
 // Shared UI kit — reusable brand button + section atoms (single source of truth).
 import { WtButton, IconBox, Eyebrow, TRIO } from '@app/modules/common/components/ui/tw';
 
@@ -36,27 +37,43 @@ const PersonalLeaveView = () => {
         })()
     }, [year])
 
-    // Fetch personal leaves from Redux to generate insights
-    const personalLeaves = useSelector((state: RootState) => state.leaves.personalLeaves) || [];
-    const publicHolidaysRaw = useSelector((state: RootState) => state.attendanceStats?.publicHolidays) || [];
-
-    // Generate insights
-    const [insights, setInsights] = useState<any[]>([]);
-
-    useEffect(() => {
-        if (!startDateNew || !endDateNew) return;
-
-        const holidays = new Set<string>(
-            publicHolidaysRaw.map((h: any) => dayjs(h?.date).format('YYYY-MM-DD')).filter(Boolean)
-        );
-
-        // Generate future suggestions based on current month
-        const maxLeaves = 5; // Default assumption for suggestion generation
-        const suggestions = generateMonthlySuggestions(new Date(), holidays, maxLeaves);
-
-        const generatedInsights = generateUserInsights(personalLeaves, suggestions, holidays);
-        setInsights(generatedInsights);
-    }, [personalLeaves, publicHolidaysRaw, startDateNew, endDateNew]);
+    /*
+     * ── LEAVE SUGGESTION ENGINE — TEMPORARILY DISABLED ───────────────────────────
+     *
+     * Not in use. `insights` was computed on every change to leaves, holidays or the
+     * date range and then stored in state that nothing rendered — so this ran the
+     * 90-day suggestion scan for output no one ever saw.
+     *
+     * Kept commented rather than deleted so it can be switched back on. To re-enable:
+     * uncomment this block, restore the two imports above, and render `insights`.
+     *
+     * Note for whoever revives it: `branchWorkingAndOffDays` must stay wired into
+     * generateMonthlySuggestions. Without it every Saturday is assumed to be a
+     * weekend, which is wrong for a branch that works Saturdays — it would suggest
+     * bridging around days people are expected to work. See workingDays.test.ts.
+     */
+    // const personalLeaves = useSelector((state: RootState) => state.leaves.personalLeaves) || [];
+    // const publicHolidaysRaw = useSelector((state: RootState) => state.attendanceStats?.publicHolidays) || [];
+    // const branchWorkingAndOffDays = useSelector(
+    //     (state: RootState) => state.employee.currentEmployee?.branches?.workingAndOffDays,
+    // );
+    //
+    // const [insights, setInsights] = useState<any[]>([]);
+    //
+    // useEffect(() => {
+    //     if (!startDateNew || !endDateNew) return;
+    //
+    //     const holidays = new Set<string>(
+    //         publicHolidaysRaw.map((h: any) => dayjs(h?.date).format('YYYY-MM-DD')).filter(Boolean)
+    //     );
+    //
+    //     // Generate future suggestions based on current month
+    //     const maxLeaves = 5; // Default assumption for suggestion generation
+    //     const suggestions = generateMonthlySuggestions(new Date(), holidays, maxLeaves, 3, branchWorkingAndOffDays);
+    //
+    //     const generatedInsights = generateUserInsights(personalLeaves, suggestions, holidays);
+    //     setInsights(generatedInsights);
+    // }, [personalLeaves, publicHolidaysRaw, startDateNew, endDateNew, branchWorkingAndOffDays]);
 
 
     const handleClickOpen = () => {

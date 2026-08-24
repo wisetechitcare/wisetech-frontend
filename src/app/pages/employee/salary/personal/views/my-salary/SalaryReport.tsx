@@ -18,7 +18,7 @@ import { payrollService } from '@modules/payroll/services/payrollService';
 import { uploadUserAsset } from '@services/uploader';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { toast } from 'react-toastify';
-import { salaryCalculations, donutaDataLabel, getWorkingDaysInMonth, multipleRadialBarData, totalCheckInCheckOutMinutes, getWorkingDaysInYear, getCountOfMonthsEmployeePresentOrOnLeaveInAYear, getTotalWeekendDaysInMonth, getTotalWeekendsInYear, formatNumber, formatStringINR, filterLeavesPublicHolidays, customLeaves, getTotalDaysInMonth, getTotalDaysInYear, getTotalWeekendsInYearFilteredByDOJOrCurrentYearDate, getTotalWeekendDaysInMonthFilteredByDOJOrCurrentMonthDate, SalaryCalculations, geAllDaysInAMonth, getAllDaysInAYear, salaryCalculationsForDays } from '@utils/statistics';
+import { salaryCalculations, donutaDataLabel, getWorkingDaysInMonth, multipleRadialBarData, totalCheckInCheckOutMinutes, getWorkingDaysInYear, getCountOfMonthsEmployeePresentOrOnLeaveInAYear, getTotalWeekendDaysInMonth, getTotalWeekendsInYear, formatNumber, formatStringINR, filterLeavesPublicHolidays, customLeaves, getTotalDaysInMonth, getTotalDaysInYear, getTotalWeekendsInYearFilteredByDOJOrCurrentYearDate, getTotalWeekendDaysInMonthFilteredByDOJOrCurrentMonthDate, SalaryCalculations, geAllDaysInAMonth, getAllDaysInAYear, salaryCalculationsForDays, countWeekendDaysInRange } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { Form, Formik, FormikValues } from 'formik';
 import { useEffect, useState, useMemo } from 'react';
@@ -1939,14 +1939,11 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                     // If exit date is after the period end, no adjustment needed
                     filteredWeekends = baseWeekends;
                 } else {
-                    // Count weekends between exit date and period end
-                    let currentDate = exitDate.add(1, 'day'); // Start counting from day after exit
-                    while (currentDate.isSameOrBefore(periodEnd)) {
-                        if (currentDate.day() === 0 || currentDate.day() === 6) { // Sunday = 0, Saturday = 6
-                            weekendsAfterExit++;
-                        }
-                        currentDate = currentDate.add(1, 'day');
-                    }
+                    // Count off-days between exit date and period end using the SAME
+                    // definition `baseWeekends` was built with — the branch weekly pattern
+                    // plus the isWeekend holiday rows. Deriving them as Sat+Sun here instead
+                    // subtracted every working Saturday, which was never part of the base.
+                    weekendsAfterExit = await countWeekendDaysInRange(exitDate.add(1, 'day'), periodEnd);
                     filteredWeekends = baseWeekends - weekendsAfterExit;
                 }
 

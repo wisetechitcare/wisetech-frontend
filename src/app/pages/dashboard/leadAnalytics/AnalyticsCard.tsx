@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface AnalyticsCardProps {
   title: string;
@@ -128,7 +129,7 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
               justifyContent: "center",
             }}
           >
-            <i className="bi bi-bar-chart" style={{ fontSize: 28, color: "#94A3B8" }} />
+            <AppIcon name="bi-bar-chart" className="fs-2qx" color="#94A3B8" />
           </div>
           <div>
             <div style={{ fontFamily: "Barlow", fontWeight: 600, fontSize: 15, color: "#0F172A" }}>
@@ -167,10 +168,7 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
                 lineHeight: 1.5,
               }}
             >
-              <i
-                className="bi bi-lightbulb-fill"
-                style={{ color: "#F59E0B", fontSize: 14, marginTop: 1, flexShrink: 0 }}
-              />
+              <AppIcon name="bi-lightbulb-fill" className="fs-6" color="#F59E0B" style={{ marginTop: 1, flexShrink: 0 }} />
               <span>{text}</span>
             </div>
           ))}

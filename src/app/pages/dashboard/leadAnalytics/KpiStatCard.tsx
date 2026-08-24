@@ -1,6 +1,7 @@
 import React, { useId, useMemo } from "react";
 import { motion } from "framer-motion";
 import CountUp from "react-countup";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export interface KpiStatCardProps {
   label: string;
@@ -123,10 +124,7 @@ const KpiStatCard: React.FC<KpiStatCardProps> = ({
       {/* Accent rail */}
       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 5, background: accent }} />
       {icon && (
-        <i
-          className={`bi ${icon}`}
-          style={{ position: "absolute", top: 16, right: 18, fontSize: 18, color: `${accent}99` }}
-        />
+        <AppIcon name={icon} className="fs-3" color={`${accent}99`} style={{ position: "absolute", top: 16, right: 18 }} />
       )}
       <div
         style={{
@@ -191,7 +189,7 @@ const KpiStatCard: React.FC<KpiStatCardProps> = ({
                   whiteSpace: "nowrap",
                 }}
               >
-                <i className={`bi ${up ? "bi-arrow-up-right" : "bi-arrow-down-right"}`} style={{ fontSize: 11 }} />
+                <AppIcon name={up ? "bi-arrow-up-right" : "bi-arrow-down-right"} className="fs-8" />
                 {Math.abs(delta as number)}
                 {deltaSuffix}
               </span>

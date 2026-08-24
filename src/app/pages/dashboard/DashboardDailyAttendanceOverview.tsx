@@ -44,7 +44,7 @@ function isAttendanceDurationShort(checkIn: string | undefined, checkOut: string
 // Overview - see the two components below, not a local copy.
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
-import { ToneChip } from '@app/modules/common/components/ui';
+import { ToneChip, AppIcon } from '@app/modules/common/components/ui';
 
 type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | null;
 
@@ -621,14 +621,14 @@ const DashboardDailyAttendanceOverview = () => {
                         </td>
                         <td>
                           <div className="d-flex align-items-center">
-                            <i className="bi bi-calendar3 me-2"></i>
+                            <AppIcon name="bi-calendar3" className="me-2" />
                             {isSameDay ? startDate : `${startDate} to ${endDate}`}
                           </div>
                         </td>
                         <td>
                           {reason && (
                             <div className="text-truncate" style={{ maxWidth: '200px' }} title={reason}>
-                              <i className="bi bi-chat-square-text me-1"></i>
+                              <AppIcon name="bi-chat-square-text" className="me-1" />
                               {reason}
                             </div>
                           )}
@@ -738,7 +738,7 @@ const DashboardDailyAttendanceOverview = () => {
                 <>
                   {additionalInfo[emp._id] && (
                     <div className="text-primary small mt-1">
-                      <i className="bi bi-info-circle me-1"></i>
+                      <AppIcon name="bi-info-circle" className="me-1" />
                       {additionalInfo[emp._id]}
                     </div>
                   )}
@@ -797,11 +797,11 @@ const DashboardDailyAttendanceOverview = () => {
                         return (
                           <>
                             <span className={(isLateCheckIn || isShortDuration) ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                              <i className="bi bi-clock me-1"></i>
+                              <AppIcon name="bi-clock" className="me-1" />
                               {dayjs(emp.attendance.checkIn).format('h:mm A')}
                             </span>
                             <span className={isEarlyCheckOut ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                              <i className="bi bi-clock-fill me-1"></i>
+                              <AppIcon name="bi-clock-fill" className="me-1" />
                               {dayjs(emp.attendance.checkOut).format('h:mm A')}
                             </span>
                           </>
@@ -847,7 +847,7 @@ const DashboardDailyAttendanceOverview = () => {
                         // Employee hasn't checked out yet — duration is unknown, so only flag late check-in
                         return (
                           <span className={isLateCheckIn ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                            <i className="bi bi-clock me-1"></i>
+                            <AppIcon name="bi-clock" className="me-1" />
                             {dayjs(emp.attendance.checkIn).format('h:mm A')}
                           </span>
                         );
@@ -1125,7 +1125,7 @@ const DashboardDailyAttendanceOverview = () => {
                   backgroundColor: '#ffffff', color: '#dc2626', cursor: 'pointer',
                 }}
               >
-                <i className="bi bi-x-lg" /> Reset
+                <AppIcon name="bi-x-lg" /> Reset
               </button>
             )}
             {hasPermission(resourceNameMapWithCamelCase.employee, (permissionConstToUseWithHasPermission.editOthers || permissionConstToUseWithHasPermission.readOthers)) &&

@@ -1,6 +1,7 @@
 import React from "react";
 import { Card } from "react-bootstrap";
 import { ResponsiveContainer } from "recharts";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface ChartCardProps {
   title: string;
@@ -66,7 +67,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
               className="btn btn-sm btn-icon btn-light btn-active-light-primary w-30px h-30px rounded-8 shadow-sm"
               title="Expand Chart"
             >
-              <i className="bi bi-arrows-fullscreen fs-9"></i>
+              <AppIcon name="bi-arrows-fullscreen" className="fs-9" />
             </button>
           )}
         </div>

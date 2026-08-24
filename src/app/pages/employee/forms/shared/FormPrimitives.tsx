@@ -1,6 +1,6 @@
 import React from "react"
 import { Box, Stack } from "@mui/material"
-import { WtSwitch } from "@app/modules/common/components/ui"
+import { WtSwitch, AppIcon } from "@app/modules/common/components/ui"
 
 /** Non-blocking notice strip (duplicate warning, missing-data hint, …). */
 export const Notice: React.FC<{
@@ -9,7 +9,7 @@ export const Notice: React.FC<{
   children: React.ReactNode
 }> = ({ tone, icon, children }) => (
   <div className={`wt-notice is-${tone}`}>
-    <i className={`bi ${icon}`} style={{ marginTop: 1 }} />
+    <AppIcon name={icon} style={{ marginTop: 1 }} />
     <span>{children}</span>
   </div>
 )

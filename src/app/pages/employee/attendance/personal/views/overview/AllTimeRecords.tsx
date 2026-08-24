@@ -7,6 +7,7 @@ import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { Card, Grid } from '@mui/material';
 import { useSelector } from 'react-redux';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const AllTimeRecords: React.FC = () => {
     const checkInCheckOut = useSelector((state: RootState) => state.attendance.openModal);
@@ -129,7 +130,7 @@ const AllTimeRecords: React.FC = () => {
                             gap: 10,
                         }}>
                             <div style={{ width: 44, height: 44, borderRadius: 12, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <i className={`bi ${icon}`} style={{ fontSize: 20, color: accent }} />
+                                <AppIcon name={icon} className="fs-2" color={accent} />
                             </div>
                             <div>
                                 <div style={{ fontSize: 20, fontWeight: 800, color: '#111827', lineHeight: 1.2, letterSpacing: '-0.02em' }}>{value}</div>

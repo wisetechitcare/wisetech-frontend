@@ -93,6 +93,8 @@ export const COMPANY = {
     CREATE_PUBLIC_HOLIDAYS: "api/company/public-holidays",
     DELETE_PUBLIC_HOLIDAY_BY_ID: "api/company/public-holiday",
     UPDATE_PUBLIC_HOLIDAY_BY_ID: "api/company/public-holiday",
+    WEEKEND_SCHEDULE_AUDIT: "api/company/weekend-schedule/audit",
+    WEEKEND_SCHEDULE_GENERATE: "api/company/weekend-schedule/generate",
     UPDATE_HOLIDAY_BY_ID: "api/company/holiday-options",
     DELETE_HOLIDAY_BY_ID: "api/company/holiday-options",
     GET_ALL_PUBLIC_HOLIDAYS: "api/company/public-holidays",
@@ -809,7 +811,4 @@ export const BIOMETRIC = {
     TEST_DEVICE:    'api/biometric/devices',
     SYNC_DEVICE:    'api/biometric/devices',
     DEVICE_LOGS:    'api/biometric/devices',
-    CONFLICTS:        'api/biometric/conflicts',
-    CONFLICTS_COUNT:  'api/biometric/conflicts/count',
-    CONFLICTS_RESOLVE:'api/biometric/conflicts',
 };

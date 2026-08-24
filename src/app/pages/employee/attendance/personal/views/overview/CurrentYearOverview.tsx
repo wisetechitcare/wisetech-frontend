@@ -15,6 +15,7 @@ import { calculateTotalDuration } from '@utils/calculateTotalDuration';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { ErrorState } from '@app/modules/common/components/ui/tw';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface CurrentYearOverviewProps {
     yearlyStats: Attendance[];
@@ -169,7 +170,7 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                         <Card elevation={0} className="border p-4">
                             <div className="d-flex align-items-center">
                                 <div className="d-flex align-items-center justify-content-center rounded-circle bg-light border me-3" style={{ width: '50px', height: '50px' }}>
-                                    <i className="bi bi-calendar-check fs-2"></i>
+                                    <AppIcon name="bi-calendar-check" className="fs-2" />
                                 </div>
                                 <div className="text-start">
                                     <div className="fs-4 fw-bold">{!Number.isNaN(presentDay! + extraDay!) ? presentDay! + extraDay! : 0}/{totalWorkingDay}</div>
@@ -182,7 +183,7 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                         <Card elevation={0} className="border p-4">
                             <div className="d-flex align-items-center">
                                 <div className="d-flex align-items-center justify-content-center rounded-circle bg-light border me-3" style={{ width: '50px', height: '50px' }}>
-                                    <i className="bi bi-clock fs-2"></i>
+                                    <AppIcon name="bi-clock" className="fs-2" />
                                 </div>
                                 <div className="text-start">
                                     <div className="fs-4 fw-bold">{totalWorkedTime}</div>
@@ -195,7 +196,7 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                         <Card elevation={0} className="border p-4">
                             <div className="d-flex align-items-center">
                                 <div className="d-flex align-items-center justify-content-center rounded-circle bg-light border me-3" style={{ width: '50px', height: '50px' }}>
-                                    <i className="bi bi-calendar2-event fs-2"></i>
+                                    <AppIcon name="bi-calendar2-event" className="fs-2" />
                                 </div>
                                 <div className="text-start">
                                     <div className="fs-4 fw-bold">{lateCheckIns} Days</div>
@@ -208,7 +209,7 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
                         <Card elevation={0} className="border p-4">
                             <div className="d-flex align-items-center">
                                 <div className="d-flex align-items-center justify-content-center rounded-circle bg-light border me-3" style={{ width: '50px', height: '50px' }}>
-                                    <i className="bi bi-calendar-event fs-2"></i>
+                                    <AppIcon name="bi-calendar-event" className="fs-2" />
                                 </div>
                                 <div className="text-start">
                                     <div className="fs-4 fw-bold">{leavesTaken}/{leaveBalances}</div>

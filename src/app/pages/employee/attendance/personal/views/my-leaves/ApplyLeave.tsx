@@ -24,15 +24,26 @@ import { getSocket } from '@utils/socketClient';
 import { parseWorkingDays } from '@utils/workingDays';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { rgba, tintOf, borderOf, resolveLeaveTypeColor } from '@utils/leaveTypeColors';
-import { getCumulativeAllowedLeaves } from '@utils/balanceProgressUtils';
-import { calculateFiscalMonth } from '@utils/fiscalYearHelper';
+import { accruedTillNow, getAccrualWindow } from '@utils/balanceProgressUtils';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const ACCENT   = '#1E3A8A';
+/** Probation / locked state. Matches the amber the My-Leaves probation banner already uses. */
+const AMBER    = '#8a5a1e';
 const RED      = '#A64652';
 const RED_DARK = '#9C3F48';
+
+/** Inline padlock. Kept local so this file adds no icon-kit import — the `ui/` barrel is a
+ *  known tsc-timeout trap and this is the only icon the probation state needs. */
+const LockGlyph = ({ size = 12, color = AMBER }: { size?: number; color?: string }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.4}
+        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+        <rect x="3" y="11" width="18" height="11" rx="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+);
 const GREEN    = '#3E8E6E';
 const PJK      = "'Plus Jakarta Sans', system-ui, sans-serif";
 
@@ -113,7 +124,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     /** Pre-select a day when opening in apply mode (e.g. from a calendar cell). YYYY-MM-DD. */
     initialDate?: string;
     /** Apply/edit on behalf of another employee (admin). When set, overrides the Redux currentEmployee. */
-    target?: { employeeId: string; branchId?: string; dateOfJoining?: string | Date | null; workingAndOffDays?: string | Record<string, string> | null };
+    target?: { employeeId: string; branchId?: string; dateOfJoining?: string | Date | null; dateOfExit?: string | Date | null; workingAndOffDays?: string | Record<string, string> | null };
     /**
      * Host-supplied action row rendered in the footer in VIEW mode only (above the primary
      * button). ApplyLeave stays domain-agnostic — the approval queue passes Approve/Reject here so
@@ -143,10 +154,12 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const ceId                 = useSelector((s: RootState) => s.employee.currentEmployee?.id) || '';
     const ceBranchId           = useSelector((s: RootState) => s.employee.currentEmployee?.branchId) || undefined;
     const ceDoj                = useSelector((s: RootState) => s.employee.currentEmployee?.dateOfJoining) || undefined;
+    const ceDoe                = useSelector((s: RootState) => (s.employee.currentEmployee as any)?.dateOfExit) || undefined;
     const ceWod                = useSelector((s: RootState) => s.employee.currentEmployee?.branches?.workingAndOffDays);
     const employeeId           = target?.employeeId || ceId;
     const branchId             = target?.branchId ?? ceBranchId;
     const dateOfJoiningRaw      = target?.dateOfJoining ?? ceDoj;
+    const dateOfExitRaw         = target?.dateOfExit ?? ceDoe;
     const workingAndOffDaysRaw = target?.workingAndOffDays ?? ceWod;
     const publicHolidays       = useSelector((s: RootState) => s.attendanceStats?.publicHolidays) || [];
     const personalLeaves       = useSelector((s: RootState) => s.leaves.personalLeaves) || [];
@@ -156,6 +169,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const overviewColors  = useSelector((s: RootState) => (s as any).customColors?.attendanceOverview);
 
     const dateOfJoining = dateOfJoiningRaw ? String(dateOfJoiningRaw).slice(0, 10) : null;
+    const dateOfExit = dateOfExitRaw ? String(dateOfExitRaw).slice(0, 10) : null;
     // Use the shared parseWorkingDays() helper (same as every other consumer of this value)
     // so a working-Saturday config survives whether the API delivers workingAndOffDays as a
     // JSON string or an already-parsed object. A raw JSON.parse threw on the object shape and
@@ -183,9 +197,23 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const teamOffCol   = calColors?.teamOffColor         || '#0F766E';
 
     const isMobile  = useIsMobile();
-    const { loading, submitting, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated, usedPaidLeaves } = useApplyLeave({
-        employeeId, branchId, dateOfJoining, workingAndOffDays, holidays,
+    const { loading, submitting, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated, usedPaidLeaves, probationActive } = useApplyLeave({
+        employeeId, branchId, dateOfJoining, dateOfExit, workingAndOffDays, holidays,
     });
+
+    /**
+     * Withhold the paid-leave FIGURES while the employee is on probation.
+     *
+     * Display-only, and deliberately narrow: it hides the "N remaining" chip and the Cumulative
+     * Leave Allowance panel, nothing else. The allocation preview, the approval chain and the
+     * submit path are untouched — they already force Unpaid during probation, which is exactly why
+     * the numbers must not appear: a chip reading "5 remaining" next to an option that will book
+     * Unpaid is the contradiction new joiners were reporting.
+     *
+     * The balance keeps accruing server-side throughout; these figures return by themselves the
+     * day probation ends.
+     */
+    const hidePaidFigures = probationActive;
 
     const blockedDates = useMemo(() => {
         const s = new Set<string>();
@@ -261,15 +289,19 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         [priority, unpaidLabel],
     );
     // Cumulative paid-leave pacing allowance ("allowed till now"), date-aware. The engine caps the
-    // PAID portion at floor(totalPaidAllocated / 12 × fiscalMonthIndex) where the month index comes
-    // from the request's dateTo — so applying for a later month unlocks a higher allowance. Mirrors
-    // leaveAllocation.getCumulativeAllowedLeaves (the same formula the backend books against). The FY
-    // starts in April here (matches the modal's "Apr–Mar" header hint).
+    // PAID portion at the share of the employee's entitlement that has accrued by the request's
+    // dateTo — so applying for a later month unlocks a higher allowance. Mirrors
+    // leaveAccrual.accruedTillNow (the same function the backend books against). The FY starts in
+    // April here (matches the modal's "Apr–Mar" header hint).
     const allowedThrough = useMemo(() => {
         const effIso = s.to || s.from; // ISO 'YYYY-MM-DD' of the leave's last day, if picked
         const d = effIso ? new Date(effIso + 'T00:00:00') : new Date();
-        const fiscalMonthIndex = calculateFiscalMonth(d.getMonth() + 1, 4);
-        const days = getCumulativeAllowedLeaves(totalPaidAllocated, fiscalMonthIndex); // allowedTillNow
+        // Pace across the employee's accrual window (from their JOINING month), as of the selected
+        // date — the same call the backend makes in resolveLeaveContext, so the preview cap matches
+        // what the server will book. Picking a later month still unlocks a higher allowance.
+        const fyStartYear = d.getMonth() + 1 >= 4 ? d.getFullYear() : d.getFullYear() - 1;
+        const accrual = getAccrualWindow(fyStartYear, dateOfJoining, dateOfExit, d);
+        const days = accruedTillNow(totalPaidAllocated, accrual.elapsedMonths, accrual.eligibleMonths);
         return {
             days,                                    // cumulative cap allowed through this month
             used: usedPaidLeaves,                    // paid days already used + pending
@@ -278,7 +310,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             monthLong: d.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
             dated: !!effIso,
         };
-    }, [s.from, s.to, totalPaidAllocated, usedPaidLeaves]);
+    }, [s.from, s.to, totalPaidAllocated, usedPaidLeaves, dateOfJoining, dateOfExit]);
     const today      = isoOf(new Date());
     const tomorrow   = isoOf(new Date(Date.now() + 864e5));
 
@@ -470,9 +502,18 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 <span style={{ width: 13, height: 13, borderRadius: '50%', background: 'linear-gradient(135deg,#2F5E8C,#C2606B,#3E8E6E)', flexShrink: 0 }} />
                 <span style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
                     <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: '#2b2e30' }}>Auto · paid first</span>
-                    <span style={{ display: 'block', fontSize: 12, color: '#8b8e91', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Fills {allocSubtitle}</span>
+                    <span style={{ display: 'block', fontSize: 12, color: '#8b8e91', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {hidePaidFigures ? 'Books as Unpaid during probation' : `Fills ${allocSubtitle}`}
+                    </span>
                 </span>
-                {(() => {
+                {hidePaidFigures ? (
+                    // A "remaining" count here would promise paid capacity this request cannot use.
+                    <span title="Paid leave unlocks after your probation period"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: rgba(AMBER, 0.10), border: `1px solid ${rgba(AMBER, 0.28)}`, flexShrink: 0 }}>
+                        <LockGlyph size={12} />
+                        <span style={{ fontSize: 10.5, fontWeight: 600, color: AMBER, whiteSpace: 'nowrap' }}>on probation</span>
+                    </span>
+                ) : (() => {
                     const ok = allowedThrough.remaining > 0;
                     const tone = ok ? GREEN : RED;
                     return (
@@ -485,7 +526,24 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 })()}
                 <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, transition: 'transform .2s ease', transform: priorityOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }}>▾</span>
             </button>
-            {priorityOpen && (() => {
+            {/* On probation the panel explains the rule instead of quoting numbers the employee
+                cannot spend. The underlying balance keeps accruing and appears once probation ends. */}
+            {priorityOpen && hidePaidFigures && (
+                <div style={{ padding: '2px 14px 14px' }}>
+                    <div style={{ padding: '13px 14px', borderRadius: 11, background: '#fff', border: '1px solid #eceef0', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <LockGlyph size={18} />
+                        <div style={{ minWidth: 0 }}>
+                            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>Paid leave unlocks after probation</p>
+                            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#7c8085', lineHeight: 1.5 }}>
+                                You are earning paid leave for every month you work — it is being tracked in the
+                                background. Until your probation ends, any leave you apply for is booked as
+                                <strong> Unpaid</strong>, so your paid balance is hidden to avoid confusion.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {priorityOpen && !hidePaidFigures && (() => {
                 const ok = allowedThrough.remaining > 0;
                 return (
                     <div style={{ padding: '2px 14px 14px' }}>

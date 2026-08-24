@@ -5,6 +5,7 @@ import { ChangeTypeChip, ValueDelta, CategoryBadge, parseFieldSummary, FieldSumm
 import { DIFF, resolveValue, humanizeSummary, categoryMeta } from './tokens';
 import { diffWords } from './wordDiff';
 import './DiffViewerResponsive.css';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export type DiffMode = 'unified' | 'sidebyside';
 
@@ -151,7 +152,7 @@ const DiffRow: React.FC<{ change: AuditFieldChange; mode: DiffMode }> = ({ chang
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: C.textPrimary }}>{change.fieldLabel}</span>
           {change.isSensitive && (
-            <i className="bi bi-shield-lock-fill" style={{ fontSize: 10, color: C.purple }} title="Sensitive field — value redacted" />
+            <AppIcon name="bi-shield-lock-fill" className="fs-9" color={C.purple} title="Sensitive field — value redacted" />
           )}
         </div>
         <div style={{ marginTop: 5 }}>
@@ -299,7 +300,7 @@ export const DiffViewer: React.FC<Props> = ({ result, mode, onModeChange, fromMe
             }}
             title="Copy this comparison as text"
           >
-            <i className={`bi ${copied ? 'bi-check-lg' : 'bi-clipboard'}`} aria-hidden />
+            <AppIcon name={copied ? 'bi-check-lg' : 'bi-clipboard'} aria-hidden />
             {copied ? 'Copied' : 'Copy'}
           </button>
           {actions}
@@ -310,7 +311,7 @@ export const DiffViewer: React.FC<Props> = ({ result, mode, onModeChange, fromMe
       {result.diffs.length > 2 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
           <div style={{ position: 'relative', flex: '0 0 auto' }}>
-            <i className="bi bi-search" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: C.textMuted }} aria-hidden />
+            <AppIcon name="bi-search" className="fs-8" color={C.textMuted} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} aria-hidden />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -359,7 +360,7 @@ export const DiffViewer: React.FC<Props> = ({ result, mode, onModeChange, fromMe
       {/* Body */}
       {result.diffs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '34px 0', color: C.textMuted, fontFamily: FONT.body, fontSize: 13 }}>
-          <i className="bi bi-check2-circle" style={{ fontSize: 26, display: 'block', marginBottom: 8, color: '#16a34a' }} aria-hidden />
+          <AppIcon name="bi-check2-circle" className="fs-2x" color="#16a34a" style={{ display: 'block', marginBottom: 8 }} aria-hidden />
           These revisions are identical — no differences.
         </div>
       ) : filtered.length === 0 ? (

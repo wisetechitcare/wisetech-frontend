@@ -52,6 +52,7 @@ import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { fetchAppSettings } from '@redux/slices/appSettings';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { validatePreviousDaysAttendance } from '@utils/attendanceValidation';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // Attendance records carry `formattedDate` as "DD/MM/YYYY" (IST). Convert to ISO "YYYY-MM-DD"
 // so it can be matched against the backend's authoritative late-check-in dates.
@@ -299,7 +300,7 @@ export const MultipleRadialBar = ({ multipleRadialBarLabels, multipleRadialBarSe
                     {/* Total Working Days hero tile */}
                     <div style={{ background: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', borderRadius: 12, padding: '11px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{ width: 38, height: 38, borderRadius: 10, background: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <i className="bi bi-calendar-check" style={{ fontSize: 17, color: '#fff' }} />
+                            <AppIcon name="bi-calendar-check" className="fs-3" color="#fff" />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 10, color: '#0369a1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Working Days</div>
@@ -322,7 +323,7 @@ export const MultipleRadialBar = ({ multipleRadialBarLabels, multipleRadialBarSe
                                 <div key={m.label}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                                         <span style={{ width: 26, height: 26, borderRadius: 7, background: `${m.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <i className={`bi ${m.icon}`} style={{ fontSize: 12, color: m.color }} />
+                                            <AppIcon name={m.icon} className="fs-7" color={m.color} />
                                         </span>
                                         <span style={{ fontSize: 12, color: '#374151', fontWeight: 500, flex: 1 }}>{m.label}</span>
                                         <span style={{
@@ -410,7 +411,7 @@ export const Polar = ({ polarLabels, polarSeries, totalDays }: { polarLabels: st
 
                 {rows.length === 0 ? (
                     <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
-                        <i className="bi bi-geo-alt" style={{ fontSize: 36, color: '#e5e7eb', display: 'block', marginBottom: 10 }} />
+                        <AppIcon name="bi-geo-alt" className="fs-2tx" color="#e5e7eb" style={{ display: 'block', marginBottom: 10 }} />
                         <span style={{ fontSize: 13, color: '#9ca3af' }}>No location data</span>
                     </div>
                 ) : (
@@ -432,7 +433,7 @@ export const Polar = ({ polarLabels, polarSeries, totalDays }: { polarLabels: st
                                 <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                         <div style={{ width: 28, height: 28, borderRadius: 8, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <i className={`bi ${icon}`} style={{ fontSize: 13, color }} />
+                                            <AppIcon name={icon} className="fs-7" style={{ color }} />
                                         </div>
                                         <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>{label}</span>
                                     </div>
@@ -445,7 +446,7 @@ export const Polar = ({ polarLabels, polarSeries, totalDays }: { polarLabels: st
 
                 {/* Footer */}
                 <div style={{ borderTop: '1px solid #f3f4f6', padding: '10px 20px', marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <i className="bi bi-geo-alt" style={{ color: '#9ca3af', fontSize: 11 }} />
+                    <AppIcon name="bi-geo-alt" className="fs-8" color="#9ca3af" />
                     <span style={{ fontSize: 11, color: '#9ca3af' }}>Location breakdown for the period</span>
                 </div>
             </Card>
@@ -617,7 +618,7 @@ export const StreakIndicator = ({ currentStreak, lastStreak, totalDays }: { curr
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         boxShadow: '0 4px 14px rgba(251,191,36,0.35)',
                     }}>
-                        <i className="bi bi-lightning-charge-fill" style={{ fontSize: 24, color: '#fff' }} />
+                        <AppIcon name="bi-lightning-charge-fill" className="fs-1" color="#fff" />
                     </div>
                     <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 28, fontWeight: 900, color: '#111827', lineHeight: 1, letterSpacing: '-0.03em' }}>
@@ -668,7 +669,7 @@ export const StreakIndicator = ({ currentStreak, lastStreak, totalDays }: { curr
                 ) : (
                     <div style={{ margin: '0 20px 18px', padding: '14px', background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius: 12, border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#22c55e,#16a34a)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 10px rgba(34,197,94,0.3)' }}>
-                            <i className="bi bi-trophy-fill" style={{ fontSize: 18, color: '#fff' }} />
+                            <AppIcon name="bi-trophy-fill" className="fs-3" color="#fff" />
                         </div>
                         <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>Top Performance!</div>
@@ -709,7 +710,7 @@ export const TotalWorkingTime = ({ totalWorkingTime, totalAllowedTime }: { total
                 {/* Hero row */}
                 <div style={{ padding: '0 20px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
                     <div style={{ width: 50, height: 50, borderRadius: 14, background: 'linear-gradient(135deg, #e0e7ff, #c7d2fe)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(99,102,241,0.18)' }}>
-                        <i className="bi bi-clock" style={{ fontSize: 22, color: '#6366f1' }} />
+                        <AppIcon name="bi-clock" className="fs-1" color="#6366f1" />
                     </div>
                     <div>
                         <div style={{ fontSize: 28, fontWeight: 900, color: '#111827', lineHeight: 1, letterSpacing: '-0.03em' }}>{totalWorkingTime}</div>
@@ -744,7 +745,7 @@ export const TotalWorkingTime = ({ totalWorkingTime, totalAllowedTime }: { total
 
                 {/* Footer */}
                 <div style={{ padding: '10px 20px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <i className="bi bi-info-circle" style={{ color: '#9ca3af', fontSize: 11 }} />
+                    <AppIcon name="bi-info-circle" className="fs-8" color="#9ca3af" />
                     <span style={{ fontSize: 11, color: '#9ca3af' }}>Based on today's attendance</span>
                 </div>
             </Card>
@@ -1203,7 +1204,7 @@ export const HeatMap = ({ heatMapSeries, height, totalDays }: { heatMapSeries: a
                             const st = statusMap[code];
                             return (
                                 <div key={i} title={st?.label} style={{ height: ROW_H * 2, borderRadius: 8, background: code === 5 ? '#f1f5f9' : (st?.color || '#e5e7eb'), opacity: code === 5 ? 0.3 : 1, cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <i className={`bi ${st?.icon || 'bi-dash'}`} style={{ fontSize: 16, color: 'rgba(255,255,255,0.85)' }} />
+                                    <AppIcon name={st?.icon || 'bi-dash'} className="fs-4" color="rgba(255,255,255,0.85)" />
                                 </div>
                             );
                         })}
@@ -2276,7 +2277,7 @@ export const StatisticsTable = ({
                                 style={{ border: "1px solid rgb(175, 16, 16)" }}
                                 onClick={() => handleRequestTypeSelection('checkin')}
                             >
-                                {/* <i className='bi bi-box-arrow-in-right me-2'></i> */}
+                                {/* <AppIcon name="bi-box-arrow-in-right" className="me-2" /> */}
                                 Check-In Request
                             </button>
                             <button
@@ -2286,14 +2287,14 @@ export const StatisticsTable = ({
                                 onClick={() => hasCheckInData && handleRequestTypeSelection('checkout')}
                                 disabled={!hasCheckInData}
                             >
-                                {/* <i className='bi bi-box-arrow-right me-2'></i> */}
+                                {/* <AppIcon name="bi-box-arrow-right" className="me-2" /> */}
                                 Check-Out Request
                             </button>
                         </div>
                         {!hasCheckInData && (
                             <div className='mt-3 text-center'>
                                 <small className='text-muted'>
-                                    <i className='bi bi-info-circle me-1'></i>
+                                    <AppIcon name="bi-info-circle" className="me-1" />
                                     Since check-in is not present, please create a check-in request first
                                 </small>
                             </div>
@@ -2393,7 +2394,7 @@ export const StatisticsTable = ({
                                                     setRequestType(null);
                                                 }}
                                             >
-                                                <i className='bi bi-arrow-left me-2 text-white'></i>
+                                                <AppIcon name="bi-arrow-left" className="me-2 text-white" />
                                                 Back
                                             </button>
                                             <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || !formikProps.isValid || disableRaiseRequest || !canSubmitRequest || isValidating}>

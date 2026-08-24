@@ -16,7 +16,7 @@ import { IconGear } from '@app/modules/common/components/icons/OrgIcons';
 import { Box, IconButton, Typography } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import eventBus from '@utils/EventBus';
-import { WtDateField } from '@app/modules/common/components/ui';
+import { WtDateField, AppIcon } from '@app/modules/common/components/ui';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@redux/store';
@@ -491,7 +491,7 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                     <div className="d-flex justify-content-end mb-2">
                                         <button type="button" onClick={() => setShowSchemaManager(true)}
                                             style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1.5px solid #1E3A8A', borderRadius: '8px', padding: '6px 16px', color: '#1E3A8A', fontWeight: 700, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                            <i className="bi bi-gear-fill" style={{ fontSize: '15px', lineHeight: 1 }} />
+                                            <AppIcon name="bi-gear-fill" className="fs-5" style={{ lineHeight: 1 }} />
                                             <span>Manage Form Fields</span>
                                         </button>
                                     </div>

@@ -4,6 +4,7 @@ import { AuditEntityType, EntityInsights } from './audit.service';
 import { useAuditInsights } from './hooks';
 import { categoryMeta, changeTypeMeta, initials, IMPACT_COLOR } from './tokens';
 import { fromNow, fullDateTime } from './time';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Props {
   type: AuditEntityType;
@@ -287,7 +288,7 @@ export const AuditInsights: React.FC<Props> = ({ type, id }) => {
   if (isLoading) {
     return (
       <div style={{ textAlign: 'center', padding: '44px 0', color: C.textMuted, fontFamily: FONT.body, fontSize: 13 }}>
-        <i className="bi bi-arrow-repeat ci-spin" style={{ fontSize: 22 }} aria-hidden /> Computing insights…
+        <AppIcon name="bi-arrow-repeat" className="ci-spin fs-1" aria-hidden /> Computing insights…
       </div>
     );
   }
@@ -302,7 +303,7 @@ export const AuditInsights: React.FC<Props> = ({ type, id }) => {
     return (
       <div style={{ textAlign: 'center', padding: '46px 16px', color: C.textMuted }}>
         <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: C.bgSection, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-          <i className="bi bi-bar-chart" style={{ fontSize: 24, color: C.textMuted }} aria-hidden />
+          <AppIcon name="bi-bar-chart" className="fs-1" color={C.textMuted} aria-hidden />
         </div>
         <div style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 700, color: C.textSecondary }}>No insights yet</div>
         <div style={{ fontFamily: FONT.body, fontSize: 13, color: C.textMuted, marginTop: 4 }}>
@@ -347,7 +348,7 @@ export const AuditInsights: React.FC<Props> = ({ type, id }) => {
           color: C.textSecondary,
         }}
       >
-        <i className="bi bi-clock-history" style={{ color: C.primary }} aria-hidden />
+        <AppIcon name="bi-clock-history" color={C.primary} aria-hidden />
         <span>
           Tracked since <strong style={{ color: C.textPrimary }} title={fullDateTime(data.firstChangedAt)}>{fromNow(data.firstChangedAt)}</strong>
         </span>
@@ -359,7 +360,7 @@ export const AuditInsights: React.FC<Props> = ({ type, id }) => {
           <>
             <Dot />
             <span style={{ color: C.purple, fontWeight: 600 }}>
-              <i className="bi bi-shield-lock-fill" aria-hidden /> {data.sensitiveChanges} sensitive
+              <AppIcon name="bi-shield-lock-fill" aria-hidden /> {data.sensitiveChanges} sensitive
             </span>
           </>
         )}
@@ -372,7 +373,7 @@ export const AuditInsights: React.FC<Props> = ({ type, id }) => {
           label="Revisions"
           value={data.totalRevisions}
           accent="primary"
-          sub={<><i className="bi bi-bar-chart-line" aria-hidden /> {derived.avg.toFixed(1)} changes each</>}
+          sub={<><AppIcon name="bi-bar-chart-line" aria-hidden /> {derived.avg.toFixed(1)} changes each</>}
         />
         <Kpi
           icon="bi bi-pencil-square"
@@ -386,7 +387,7 @@ export const AuditInsights: React.FC<Props> = ({ type, id }) => {
           label="Contributors"
           value={data.distinctEditors}
           accent="purple"
-          sub={derived.topEditor ? <><i className="bi bi-star-fill" style={{ color: C.amber }} aria-hidden /> {derived.topEditor.name}</> : undefined}
+          sub={derived.topEditor ? <><AppIcon name="bi-star-fill" color={C.amber} aria-hidden /> {derived.topEditor.name}</> : undefined}
         />
         <Kpi
           icon="bi bi-exclamation-triangle"
@@ -411,7 +412,7 @@ export const AuditInsights: React.FC<Props> = ({ type, id }) => {
           <VolumeChart data={data.volume} />
           {derived.busiest && derived.busiest.count > 0 && (
             <div style={{ fontFamily: FONT.body, fontSize: 11, color: C.textMuted, marginTop: 10 }}>
-              <i className="bi bi-fire" style={{ color: C.amber }} aria-hidden /> Busiest day: {derived.busiest.date} ({derived.busiest.count} changes)
+              <AppIcon name="bi-fire" color={C.amber} aria-hidden /> Busiest day: {derived.busiest.date} ({derived.busiest.count} changes)
             </div>
           )}
         </Panel>

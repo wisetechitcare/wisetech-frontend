@@ -1,3 +1,4 @@
+import { FLOATING_MENU_BEHAVIOUR, MENU_PORTAL_STYLE } from '@app/modules/common/inputs/selectMenuProps';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useState } from "react";
 import * as Yup from 'yup';
@@ -20,6 +21,7 @@ import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { components } from 'react-select';
 import { T } from '@app/modules/common/components/ui/tokens';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const usersBreadcrumbs: Array<PageLink> = [
     {
@@ -301,7 +303,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                                 fontSize: '13px'
                                             }}
                                         >
-                                            {formik.values.isFixed === opt.value && <i className="bi bi-check-circle-fill" style={{ fontSize: 12 }} />}
+                                            {formik.values.isFixed === opt.value && <AppIcon name="bi-check-circle-fill" className="fs-7" />}
                                             {opt.label}
                                         </button>
                                     ))}
@@ -334,7 +336,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                                 fontSize: '13px'
                                             }}
                                         >
-                                            {formik.values.isActive === opt.value && <i className="bi bi-check-circle-fill" style={{ fontSize: 12 }} />}
+                                            {formik.values.isActive === opt.value && <AppIcon name="bi-check-circle-fill" className="fs-7" />}
                                             {opt.label}
                                         </button>
                                     ))}
@@ -358,7 +360,10 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                             defaultInputValue={isEditMode ? holidayNameForEditMode : ''}
                             placeholder="Search & select a holiday..."
                             onChange={(option: any) => formik.setFieldValue('holidayId', option.value, true)}
+                            {...FLOATING_MENU_BEHAVIOUR}
                             styles={{
+                                // Portal z-index — merged in, not spread as a prop, which would replace this object.
+                                ...MENU_PORTAL_STYLE,
                                 control: (base) => ({
                                     ...base,
                                     borderRadius: '8px',
@@ -403,7 +408,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                 }}
                                 style={{ borderRadius: '8px', border: '1.5px solid #dde2ec', minHeight: '42px', fontSize: '14px' }}
                             />
-                            <i className='bi bi-calendar3 fs-4 position-absolute' style={{ right: '14px', top: '50%', transform: 'translateY(-50%)', color: T.color.brand, pointerEvents: 'none' }}></i>
+                            <AppIcon name="bi-calendar3" className="fs-4 position-absolute" color={T.color.brand} style={{ right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                         </div>
                         {formik.touched.date && formik.errors.date && (
                             <div className="text-danger fs-8 mt-1">{formik.errors.date}</div>
@@ -427,7 +432,10 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                         : { value: 'India', label: 'India' }}
                                     placeholder="Select country…"
                                     onChange={(option: any) => formik.setFieldValue('observedIn', option.label, true)}
+                                    {...FLOATING_MENU_BEHAVIOUR}
                                     styles={{
+                                        // Portal z-index — merged in, not spread as a prop, which would replace this object.
+                                        ...MENU_PORTAL_STYLE,
                                         control: (base) => ({
                                             ...base,
                                             borderRadius: '8px',
@@ -464,7 +472,10 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                         : { value: '', label: 'All Locations' }}
                                     placeholder="All Locations"
                                     onChange={(option: any) => formik.setFieldValue('branchId', option?.value || '', true)}
+                                    {...FLOATING_MENU_BEHAVIOUR}
                                     styles={{
+                                        // Portal z-index — merged in, not spread as a prop, which would replace this object.
+                                        ...MENU_PORTAL_STYLE,
                                         control: (base) => ({
                                             ...base,
                                             borderRadius: '8px',
@@ -507,7 +518,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                                 fontSize: '13px'
                                             }}
                                         >
-                                            {formik.values.isWeekend === opt.value && <i className="bi bi-check-circle-fill" style={{ fontSize: 12 }} />}
+                                            {formik.values.isWeekend === opt.value && <AppIcon name="bi-check-circle-fill" className="fs-7" />}
                                             {opt.label}
                                         </button>
                                     ))}
@@ -551,7 +562,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                 </>
                             ) : (
                                 <>
-                                    <i className="bi bi-check2" style={{ fontSize: 14 }} />
+                                    <AppIcon name="bi-check2" className="fs-6" />
                                     {isEditMode ? 'Update Holiday' : 'Save Holiday'}
                                 </>
                             )}

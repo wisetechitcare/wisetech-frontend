@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { Box } from "@mui/material";
-import { WtButton } from "@app/modules/common/components/ui";
+import { WtButton, AppIcon } from "@app/modules/common/components/ui";
 import DocumentVaultView from "./DocumentVaultView";
 
 /**
@@ -22,7 +22,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             <WtButton
               ghost
               size="small"
-              startIcon={<i className="bi bi-arrow-left" aria-hidden />}
+              startIcon={<AppIcon name="bi-arrow-left" aria-hidden />}
               onClick={() => navigate("/employee/documents")}
             >
               All Employees

@@ -11,6 +11,7 @@ import type { OnboardingSectionsProps } from "./OnboardingSections";
 // the flat EnterpriseFormWizard can't express: a two-level tree in the sidebar.
 import "@app/pages/employee/forms/shared/Workspace.css";
 import "./OnboardingModal.css";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /** A leaf = one editable section, the unit the canvas renders and Continue walks. */
 export interface OnboardingLeaf {
@@ -195,7 +196,7 @@ const ParentProgressBadge = ({ completed, total, active, complete, error, index 
         )}
       </svg>
       <span className="ob-tree-parent-badge-inner">
-        {complete ? <i className="bi bi-check-lg" /> : index}
+        {complete ? <AppIcon name="bi-check-lg" /> : index}
       </span>
     </div>
   );
@@ -467,7 +468,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               {headerAvatar ? (
                 <img src={headerAvatar} alt="Profile" className="ob-header-avatar-img" />
               ) : (
-                <i className="bi bi-person-badge" />
+                <AppIcon name="bi-person-badge" />
               )}
             </div>
             <div style={{ minWidth: 0 }}>
@@ -480,7 +481,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 <div className="wizard-subtitle">
                   {values.dateOfBirth && (
                     <span className="ob-header-chip">
-                      <i className="bi bi-calendar" /> {dayjs(values.dateOfBirth).isValid() ? dayjs(values.dateOfBirth).format("DD MMM YYYY") : values.dateOfBirth}
+                      <AppIcon name="bi-calendar" /> {dayjs(values.dateOfBirth).isValid() ? dayjs(values.dateOfBirth).format("DD MMM YYYY") : values.dateOfBirth}
                     </span>
                   )}
                   {values.gender && (
@@ -610,9 +611,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                           >
                             <span className="ob-tree-child-dot" aria-hidden>
                               {status === "completed" ? (
-                                <i className="bi bi-check-lg" />
+                                <AppIcon name="bi-check-lg" />
                               ) : status === "error" ? (
-                                <i className="bi bi-exclamation" />
+                                <AppIcon name="bi-exclamation" />
                               ) : null}
                             </span>
                             <span className="ob-tree-child-label">
@@ -674,7 +675,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   onClick={() => setSummaryCollapsed(true)}
                   title="Collapse summary"
                 >
-                  <i className="bi bi-chevron-right" />
+                  <AppIcon name="bi-chevron-right" />
                 </button>
               </div>
               <div className="wt-summary-divider" />
@@ -701,7 +702,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             onClick={() => setSummaryCollapsed(false)}
             title="Expand summary"
           >
-            <i className="bi bi-chevron-left" />
+            <AppIcon name="bi-chevron-left" />
           </button>
         )}
       </div>
@@ -755,7 +756,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             ) : isLast ? (
               <>
                 {submitText}
-                <i className="bi bi-check-lg" />
+                <AppIcon name="bi-check-lg" />
               </>
             ) : (
               <>

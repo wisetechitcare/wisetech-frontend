@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import AnalyticsHeader from "./AnalyticsHeader";
 import { toneColor } from "./leadAnalyticsUtils";
 import { YearlyInsight } from "./yearlyAnalyticsUtils";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface YearlyInsightsPanelProps {
   insights: YearlyInsight[];
@@ -64,7 +65,7 @@ const YearlyInsightsPanel: React.FC<YearlyInsightsPanelProps> = ({ insights }) =
                   justifyContent: "center",
                 }}
               >
-                <i className={`bi ${ins.icon}`} style={{ fontSize: 16 }} />
+                <AppIcon name={ins.icon} className="fs-4" />
               </span>
               <p
                 style={{
