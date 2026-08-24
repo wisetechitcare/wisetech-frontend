@@ -29,9 +29,10 @@ import { pressableProps } from '@app/modules/common/components/ui/a11y';
 // Shared tokens + primitives — ONE definition, also used by the extracted sub-components.
 import {
     ACCENT, AMBER, RED, RED_DARK, GREEN, PJK, DAY_NAMES,
-    pad, isoOf, expandRange, navBtnSt, errBox, LockGlyph, Toggle, DRow,
+    pad, isoOf, expandRange, navBtnSt, errBoxOf, LockGlyph, Toggle, DRow,
 } from './apply-leave/tokens';
 import LeaveCalendar from './apply-leave/LeaveCalendar';
+import { useLeavePalette, type LeavePalette } from './apply-leave/theme';
 
 const BLANK: ApplyLeaveState = {
     from: null, to: null, isHalfDay: false, halfDaySession: null, firstDayHalf: null, lastDayHalf: null,
@@ -40,6 +41,11 @@ const BLANK: ApplyLeaveState = {
 
 /** Stable empty lookup — see the holidayNames/holidayColors note below. */
 const EMPTY_MAP: Record<string, string> = {};
+
+/** Unpaid/LOP accent for the financial card. The edge holds in both themes; the fill is tinted
+ *  from RED in dark so it reads as an accent surface rather than a light box glaring on a dark one. */
+const UNPAID_EDGE = '#eccdd2';
+const UNPAID_TINT = (P: { dark: boolean }) => (P.dark ? 'rgba(166,70,82,.16)' : '#fbeef0');
 
 /** Clear every half-day marker — used whenever the selected range changes. */
 const HALF_RESET: Partial<ApplyLeaveState> = { isHalfDay: false, halfDaySession: null, firstDayHalf: null, lastDayHalf: null };
@@ -176,6 +182,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const teamOffCol   = calColors?.teamOffColor         || '#0F766E';
 
     const isMobile  = useIsMobile();
+    /**
+     * Theme-aware neutrals. `color: '#fff'` is deliberately left alone throughout this file: those
+     * are white-on-brand (the navy header, the ACCENT submit button, a checked tick), i.e. contrast
+     * against a brand fill rather than against the page, so they must NOT follow the palette.
+     * Only `background: P.surface` and the neutral inks/lines move.
+     */
+    const P = useLeavePalette();
     const { loading, submitting, refresh, todayPunch, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated, usedPaidLeaves, probationActive } = useApplyLeave({
         employeeId, branchId, dateOfJoining, dateOfExit, workingAndOffDays, holidays,
     });
@@ -512,7 +525,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 
     // Auto-only selector — no individual type pills (matches design)
     const TypeSelector = ({ compact }: { compact?: boolean }) => compact ? (
-        <button onClick={() => reshape({ leaveTypeId: undefined, leaveTypeName: undefined })} style={pillSt(true, ACCENT)}>
+        <button onClick={() => reshape({ leaveTypeId: undefined, leaveTypeName: undefined })} style={pillSt(true, ACCENT, P)}>
             <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'linear-gradient(135deg,#2F5E8C,#C2606B,#3E8E6E)' }} />Auto · paid first
         </button>
     ) : (
@@ -521,8 +534,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 14px', cursor: 'pointer', width: '100%', boxSizing: 'border-box', border: 'none', background: 'transparent' }}>
                 <span style={{ width: 13, height: 13, borderRadius: '50%', background: 'linear-gradient(135deg,#2F5E8C,#C2606B,#3E8E6E)', flexShrink: 0 }} />
                 <span style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: '#2b2e30' }}>Auto · paid first</span>
-                    <span style={{ display: 'block', fontSize: 12, color: '#8b8e91', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: P.ink }}>Auto · paid first</span>
+                    <span style={{ display: 'block', fontSize: 12, color: P.inkFaint, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {hidePaidFigures ? 'Books as Unpaid during probation' : `Fills ${allocSubtitle}`}
                     </span>
                 </span>
@@ -550,10 +563,10 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 cannot spend. The underlying balance keeps accruing and appears once probation ends. */}
             {priorityOpen && hidePaidFigures && (
                 <div style={{ padding: '2px 14px 14px' }}>
-                    <div style={{ padding: '13px 14px', borderRadius: 11, background: '#fff', border: '1px solid #eceef0', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <div style={{ padding: '13px 14px', borderRadius: 11, background: P.surface, border: `1px solid ${P.line}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                         <LockGlyph size={18} />
                         <div style={{ minWidth: 0 }}>
-                            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>Paid leave unlocks after probation</p>
+                            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: P.ink, fontFamily: PJK }}>Paid leave unlocks after probation</p>
                             <p style={{ margin: '4px 0 0', fontSize: 12, color: '#7c8085', lineHeight: 1.5 }}>
                                 You are earning paid leave for every month you work — it is being tracked in the
                                 background. Until your probation ends, any leave you apply for is booked as
@@ -567,11 +580,11 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 const ok = allowedThrough.remaining > 0;
                 return (
                     <div style={{ padding: '2px 14px 14px' }}>
-                        <div style={{ padding: '13px 14px', borderRadius: 11, background: '#fff', border: '1px solid #eceef0' }}>
+                        <div style={{ padding: '13px 14px', borderRadius: 11, background: P.surface, border: `1px solid ${P.line}` }}>
                             {/* Heading + explainer (mirrors the My Leaves "Cumulative Leave Allowance" card) */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: ACCENT, flexShrink: 0 }} />
-                                <span style={{ fontSize: 13.5, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>Cumulative Leave Allowance</span>
+                                <span style={{ fontSize: 13.5, fontWeight: 800, color: P.ink, fontFamily: PJK }}>Cumulative Leave Allowance</span>
                             </div>
                             <p style={{ margin: '0 0 12px', fontSize: 12, color: '#7c8085', lineHeight: 1.5 }}>
                                 Leaves are distributed across the fiscal year. Allowed usage grows each month — you can use what is allowed till the {allowedThrough.dated ? 'selected' : 'current'} period ({allowedThrough.monthLong}).
@@ -580,10 +593,10 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             {/* Stat pair: Used-till-date / allowed, and Remaining */}
                             <div style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}>
                                 <div style={{ flex: 1, textAlign: 'center', padding: '11px 8px', borderRadius: 10, background: rgba(ACCENT, 0.05), border: `1px solid ${rgba(ACCENT, 0.12)}` }}>
-                                    <p style={{ margin: 0, fontSize: 24, fontWeight: 800, fontFamily: PJK, color: '#2b2e30', lineHeight: 1 }}>
-                                        {allowedThrough.used}<span style={{ fontSize: 16, color: '#9aa0a6', fontWeight: 700 }}> / {allowedThrough.days}</span>
+                                    <p style={{ margin: 0, fontSize: 24, fontWeight: 800, fontFamily: PJK, color: P.ink, lineHeight: 1 }}>
+                                        {allowedThrough.used}<span style={{ fontSize: 16, color: P.inkSubtle, fontWeight: 700 }}> / {allowedThrough.days}</span>
                                     </p>
-                                    <p style={{ margin: '6px 0 0', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#8b8e91' }}>Used till {allowedThrough.monthLabel}</p>
+                                    <p style={{ margin: '6px 0 0', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: P.inkFaint }}>Used till {allowedThrough.monthLabel}</p>
                                 </div>
                                 <div style={{ flex: 1, textAlign: 'center', padding: '11px 8px', borderRadius: 10, background: rgba(ok ? GREEN : RED, 0.09), border: `1px solid ${rgba(ok ? GREEN : RED, 0.28)}` }}>
                                     <p style={{ margin: 0, fontSize: 24, fontWeight: 800, fontFamily: PJK, color: ok ? GREEN : RED, lineHeight: 1 }}>{allowedThrough.remaining}</p>
@@ -622,7 +635,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 const off = !!lockPM && ss === 'AM';
                 return (
                     <button key={ss} onClick={() => { if (!off) onPick(ss); }} disabled={off}
-                        style={{ flex: 1, padding: 9, borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.45 : 1, border: value === ss ? `1.5px solid ${ACCENT}` : '1px solid #e6e6e8', background: value === ss ? rgba(ACCENT, 0.08) : '#fff', color: value === ss ? ACCENT : '#5f6266' }}>
+                        style={{ flex: 1, padding: 9, borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.45 : 1, border: value === ss ? `1.5px solid ${ACCENT}` : `1px solid ${P.line}`, background: value === ss ? rgba(ACCENT, 0.08) : P.surface, color: value === ss ? ACCENT : P.inkBody }}>
                         {ss === 'AM' ? 'First half · AM' : 'Second half · PM'}
                     </button>
                 );
@@ -634,7 +647,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const BoundaryHalf = ({ label, value, onChange, lockPM }: { label: string; value: 'AM' | 'PM' | null; onChange: (v: 'AM' | 'PM' | null) => void; lockPM?: boolean }) => (
         <div style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: '#2b2e30' }}>{label} half <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></span>
+                <span style={{ fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: P.ink }}>{label} half <span style={{ color: P.inkFaint, fontWeight: 500 }}>· 0.5 day</span></span>
                 <Toggle on={!!value} color={ACCENT} disabled={lockPM} onClick={() => onChange(value ? null : 'AM')} />
             </div>
             {value && <SessionButtons value={value} lockPM={lockPM} onPick={onChange} />}
@@ -651,12 +664,12 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     );
 
     const HalfDay = () => (isView || !s.from) ? null : (
-        <div style={{ marginTop: isMobile ? 11 : 12, padding: isMobile ? '11px 13px' : '12px 14px', border: '1px solid #e6e6e8', borderRadius: isMobile ? 11 : 12 }}>
+        <div style={{ marginTop: isMobile ? 11 : 12, padding: isMobile ? '11px 13px' : '12px 14px', border: `1px solid ${P.line}`, borderRadius: isMobile ? 11 : 12 }}>
             {isSingleDay ? (
                 <>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
-                            {isMobile ? 'Half day' : <>Apply as half day <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></>}
+                        <span style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: P.ink }}>
+                            {isMobile ? 'Half day' : <>Apply as half day <span style={{ color: P.inkFaint, fontWeight: 500 }}>· 0.5 day</span></>}
                         </span>
                         <Toggle on={s.isHalfDay} color={ACCENT} disabled={todayHalfPM}
                             onClick={() => reshape({ isHalfDay: !s.isHalfDay, halfDaySession: null })} />
@@ -664,17 +677,17 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     {todayHalfPM && <TodayHalfNote />}
                     {s.isHalfDay && (
                         <>
-                            {!isMobile && <div style={{ fontSize: 11.5, fontWeight: 600, color: '#8b8e91', margin: '11px 0 7px' }}>Which half? <span style={{ color: RED }}>*</span></div>}
+                            {!isMobile && <div style={{ fontSize: 11.5, fontWeight: 600, color: P.inkFaint, margin: '11px 0 7px' }}>Which half? <span style={{ color: RED }}>*</span></div>}
                             <SessionButtons value={s.halfDaySession} lockPM={todayHalfPM} onPick={(ss) => setS(p => ({ ...p, halfDaySession: ss }))} />
                         </>
                     )}
                 </>
             ) : (
                 <>
-                    <div style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
-                        Half-day boundary <span style={{ color: '#8b8e91', fontWeight: 500 }}>· optional</span>
+                    <div style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: P.ink }}>
+                        Half-day boundary <span style={{ color: P.inkFaint, fontWeight: 500 }}>· optional</span>
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#8b8e91', marginTop: 3 }}>Take a half-day on the first and/or last day of the range.</div>
+                    <div style={{ fontSize: 11.5, color: P.inkFaint, marginTop: 3 }}>Take a half-day on the first and/or last day of the range.</div>
                     {todayHalfPM && <TodayHalfNote />}
                     <BoundaryHalf label="First day" value={s.firstDayHalf ?? null} lockPM={todayHalfPM} onChange={(v) => reshape({ firstDayHalf: v })} />
                     <BoundaryHalf label="Last day" value={s.lastDayHalf ?? null} onChange={(v) => reshape({ lastDayHalf: v })} />
@@ -684,17 +697,17 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     );
 
     const Allocation = ({ compact }: { compact?: boolean }) => (N <= 0 || !alloc) ? null : (
-        <div style={compact ? { border: '1px solid #e9e9eb', borderRadius: 11, padding: '9px 11px', background: '#fff' } : railCardSt()}>
+        <div style={compact ? { border: `1px solid ${P.line}`, borderRadius: 11, padding: '9px 11px', background: P.surface } : railCardSt()}>
             {!compact && <CardHead icon="🧮" title="How this applies" tint={ACCENT} />}
-            <div style={{ height: compact ? 8 : 11, borderRadius: 999, overflow: 'hidden', display: 'flex', background: '#eef0f2', marginBottom: compact ? 7 : 11 }}>
+            <div style={{ height: compact ? 8 : 11, borderRadius: 999, overflow: 'hidden', display: 'flex', background: P.track, marginBottom: compact ? 7 : 11 }}>
                 {mergedSegments.map((seg, i) => <span key={i} style={{ width: `${(seg.days / N) * 100}%`, background: colorOf(seg.leaveType) }} />)}
             </div>
             {compact ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 13px' }}>
                     {mergedSegments.map((seg, i) => (
-                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: '#5f6266' }}>
+                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: P.inkBody }}>
                             <span style={{ width: 10, height: 10, borderRadius: '50%', background: colorOf(seg.leaveType) }} />
-                            {seg.isPaid ? seg.leaveType.replace(/ Leaves?$/i, '') : 'Unpaid'} · <strong style={{ color: '#2b2e30' }}>{daysLabel(seg.days)}</strong>
+                            {seg.isPaid ? seg.leaveType.replace(/ Leaves?$/i, '') : 'Unpaid'} · <strong style={{ color: P.ink }}>{daysLabel(seg.days)}</strong>
                         </span>
                     ))}
                 </div>
@@ -702,8 +715,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 mergedSegments.map((seg, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: i > 0 ? 7 : 0 }}>
                         <span style={{ width: 10, height: 10, borderRadius: '50%', background: colorOf(seg.leaveType), flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: seg.isPaid ? '#5f6266' : RED_DARK }}>{seg.isPaid ? seg.leaveType : 'Unpaid (LOP)'}</span>
-                        <span style={{ fontSize: 12.5, fontWeight: 700, color: '#2b2e30' }}>{daysLabel(seg.days)}</span>
+                        <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: seg.isPaid ? P.inkBody : RED_DARK }}>{seg.isPaid ? seg.leaveType : 'Unpaid (LOP)'}</span>
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: P.ink }}>{daysLabel(seg.days)}</span>
                     </div>
                 ))
             )}
@@ -714,12 +727,12 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         <div style={{ background: '#f4f6f9', border: '1px solid #e3e7ed', borderRadius: isMobile ? 12 : 13, padding: isMobile ? '12px 13px' : '13px 14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: RED, flexShrink: 0 }} />
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#2b2e30' }}>Includes {daysLabel(sickDays)} of Sick{isMobile ? '' : ' Leave'}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: P.ink }}>Includes {daysLabel(sickDays)} of Sick{isMobile ? '' : ' Leave'}</span>
             </div>
             {!isMobile && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 1.45 }}>Sick leave is meant for illness. Use it for these days?</div>}
             <div style={{ display: 'flex', gap: 7, marginTop: isMobile ? 9 : 10 }}>
                 <button onClick={() => setSickConfirmed(true)} style={{ flex: 1, padding: 8, borderRadius: 9, border: 'none', background: ACCENT, color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Yes, sick</button>
-                <button onClick={() => setSickConfirmed(false)} style={{ flex: 1, padding: 8, borderRadius: 9, border: '1px solid #d8dce2', background: '#fff', color: '#5f6266', fontWeight: 700, cursor: 'pointer' }}>Use other</button>
+                <button onClick={() => setSickConfirmed(false)} style={{ flex: 1, padding: 8, borderRadius: 9, border: '1px solid #d8dce2', background: P.surface, color: P.inkBody, fontWeight: 700, cursor: 'pointer' }}>Use other</button>
             </div>
         </div>
     );
@@ -728,13 +741,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const CardHead = ({ icon, title, tint, right }: { icon: React.ReactNode; title: string; tint: string; right?: React.ReactNode }) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 12 }}>
             <span style={{ width: 27, height: 27, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: rgba(tint, 0.12), fontSize: 13, flexShrink: 0 }}>{icon}</span>
-            <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#2b2e30', fontFamily: PJK, textTransform: 'uppercase', letterSpacing: '.035em' }}>{title}</span>
+            <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: P.ink, fontFamily: PJK, textTransform: 'uppercase', letterSpacing: '.035em' }}>{title}</span>
             {right}
         </div>
     );
     const railCardSt = (accentBg?: boolean, accentBorder?: boolean): React.CSSProperties => ({
         background: accentBg ? '#fbeef0' : '#fff',
-        border: `1px solid ${accentBorder ? '#eccdd2' : '#e9e9eb'}`,
+        border: `1px solid ${accentBorder ? UNPAID_EDGE : P.line}`,
         borderRadius: 14,
         padding: '14px 15px',
         boxShadow: '0 1px 2px rgba(16,24,40,0.05)',
@@ -751,9 +764,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 <CardHead icon="🧮" title="Allocation breakdown" tint={ACCENT} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {segs.map((seg, i) => (
-                        <div key={seg.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 11px', border: '1px solid #eceef0', borderLeft: `3px solid ${colorOf(seg.leaveType)}`, borderRadius: 9 }}>
+                        <div key={seg.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 11px', border: `1px solid ${P.line}`, borderLeft: `3px solid ${colorOf(seg.leaveType)}`, borderRadius: 9 }}>
                             <span style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', background: colorOf(seg.leaveType), borderRadius: 8, padding: '3px 9px' }}>{seg.leaveType}</span>
-                            <span style={{ fontSize: 11, color: '#8b8e91' }}>{seg.dateFrom ? fmt(seg.dateFrom) : ''}{seg.dateTo && seg.dateTo !== seg.dateFrom ? ` – ${fmt(seg.dateTo)}` : ''}</span>
+                            <span style={{ fontSize: 11, color: P.inkFaint }}>{seg.dateFrom ? fmt(seg.dateFrom) : ''}{seg.dateTo && seg.dateTo !== seg.dateFrom ? ` – ${fmt(seg.dateTo)}` : ''}</span>
                             <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT, marginLeft: 'auto' }}>{seg.days} {seg.days === 1 ? 'day' : 'days'}</span>
                             <span style={{ fontSize: 10.5, fontWeight: 700, color: seg.isPaid ? GREEN : RED, background: rgba(seg.isPaid ? GREEN : RED, 0.10), borderRadius: 99, padding: '1px 8px' }}>{seg.isPaid ? 'Paid' : 'Unpaid'}</span>
                             {seg.status === 1 && <span style={{ fontSize: 10.5, fontWeight: 700, color: GREEN }}>✓ Approved</span>}
@@ -765,7 +778,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         </div>
                     ))}
                 </div>
-                {existing?.reason && <div style={{ marginTop: 10, fontSize: 12, color: '#5f6266' }}><span style={{ fontWeight: 700, color: '#8b8e91' }}>Remark: </span>{existing.reason}</div>}
+                {existing?.reason && <div style={{ marginTop: 10, fontSize: 12, color: P.inkBody }}><span style={{ fontWeight: 700, color: P.inkFaint }}>Remark: </span>{existing.reason}</div>}
             </div>
         );
     };
@@ -776,14 +789,14 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         const deductColor  = hasUnpaid ? RED_DARK : GREEN;
         const unpaidColor  = hasUnpaid ? RED_DARK : '#bfbec1';
         return (
-            <div style={compact ? { background: hasUnpaid ? '#fbeef0' : '#fff', border: `1px solid ${hasUnpaid ? '#eccdd2' : '#e9e9eb'}`, borderRadius: 11, padding: '11px 13px' } : railCardSt(hasUnpaid, hasUnpaid)}>
+            <div style={compact ? { background: hasUnpaid ? UNPAID_TINT(P) : P.surface, border: `1px solid ${hasUnpaid ? UNPAID_EDGE : P.line}`, borderRadius: 11, padding: '11px 13px' } : railCardSt(hasUnpaid, hasUnpaid)}>
                 {compact ? (
                     <>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: finColor }}>{hasUnpaid ? '⚠️' : '✓'} Financial impact</span>
                             <span style={{ fontSize: 14, fontWeight: 800, color: deductColor, fontFamily: PJK }}>{lopEstimate}</span>
                         </div>
-                        <div style={{ fontSize: 11.5, color: '#5f6266', marginTop: 3 }}>
+                        <div style={{ fontSize: 11.5, color: P.inkBody, marginTop: 3 }}>
                             {N <= 0 ? 'Select dates to see impact' : hasUnpaid ? `${daysLabel(unpaidDays)} not covered` : 'Fully covered by paid leave'}
                         </div>
                     </>
@@ -793,15 +806,15 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                             <div>
                                 <div style={{ fontSize: 19, fontWeight: 800, color: ACCENT, lineHeight: 1, fontFamily: PJK }}>{N > 0 ? paidDays : '0'}</div>
-                                <div style={{ fontSize: 10.5, fontWeight: 600, color: '#8b8e91', textTransform: 'uppercase', letterSpacing: '.03em', marginTop: 4 }}>Paid days</div>
+                                <div style={{ fontSize: 10.5, fontWeight: 600, color: P.inkFaint, textTransform: 'uppercase', letterSpacing: '.03em', marginTop: 4 }}>Paid days</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: 19, fontWeight: 800, color: unpaidColor, lineHeight: 1, fontFamily: PJK }}>{N > 0 ? unpaidDays : '0'}</div>
-                                <div style={{ fontSize: 10.5, fontWeight: 600, color: '#8b8e91', textTransform: 'uppercase', letterSpacing: '.03em', marginTop: 4 }}>Unpaid days</div>
+                                <div style={{ fontSize: 10.5, fontWeight: 600, color: P.inkFaint, textTransform: 'uppercase', letterSpacing: '.03em', marginTop: 4 }}>Unpaid days</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 11, borderTop: `1px solid ${hasUnpaid ? '#eccdd2' : '#ececed'}` }}>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: '#5f6266' }}>Est. salary deduction</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: P.inkBody }}>Est. salary deduction</span>
                             <span style={{ fontSize: 15, fontWeight: 800, color: deductColor, fontFamily: PJK }}>{lopEstimate}</span>
                         </div>
                     </>
@@ -827,7 +840,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             <input id={`leave-files-${idSuffix}`} type="file" multiple accept=".pdf,.png,.jpg,.jpeg" style={{ display: 'none' }}
                 onChange={e => setS(p => ({ ...p, files: [...p.files, ...Array.from(e.target.files ?? [])] }))} />
             {s.files.length > 0 && !isMobile && (
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: '#8b8e91', textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 7 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: P.inkFaint, textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 7 }}>
                     Attachments · {s.files.length}
                 </div>
             )}
@@ -835,13 +848,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 {s.files.map((f, i) => {
                     const isImage = f.type.startsWith('image/'), url = URL.createObjectURL(f);
                     return (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: isMobile ? '8px 10px' : '9px 11px', border: '1px solid #e6e6e8', borderRadius: 10 }}>
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: isMobile ? '8px 10px' : '9px 11px', border: `1px solid ${P.line}`, borderRadius: 10 }}>
                             <div onClick={() => setPv({ url, name: f.name, isImage })} {...pressableProps(() => setPv({ url, name: f.name, isImage }))} aria-label={`Preview ${f.name}`} style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                                 {isImage
-                                    ? <img src={url} alt={f.name} style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, objectFit: 'cover', border: '1px solid #e6e6e8' }} />
+                                    ? <img src={url} alt={f.name} style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, objectFit: 'cover', border: `1px solid ${P.line}` }} />
                                     : <span style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, background: '#eaf0f6', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>📄</span>}
-                                <span style={{ flex: 1, minWidth: 0, fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: '#2b2e30', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
-                                <span style={{ fontSize: 11.5, color: '#9aa0a6', flexShrink: 0 }}>{Math.round(f.size / 1024)} KB</span>
+                                <span style={{ flex: 1, minWidth: 0, fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: P.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+                                <span style={{ fontSize: 11.5, color: P.inkSubtle, flexShrink: 0 }}>{Math.round(f.size / 1024)} KB</span>
                                 {!isMobile && <span style={{ fontSize: 11, color: '#2F5E8C', fontWeight: 700, flexShrink: 0 }}>Preview</span>}
                             </div>
                             <button type="button" onClick={() => setS(p => ({ ...p, files: p.files.filter((_, j) => j !== i) }))}
@@ -850,7 +863,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         </div>
                     );
                 })}
-                <label htmlFor={`leave-files-${idSuffix}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: isMobile ? '9px 12px' : '9px 13px', borderRadius: 10, border: '1px dashed #cdd0d4', color: '#727577', fontSize: isMobile ? 12.5 : 13, fontWeight: 600, cursor: 'pointer', width: 'max-content', marginTop: isMobile ? 8 : 0 }}>
+                <label htmlFor={`leave-files-${idSuffix}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: isMobile ? '9px 12px' : '9px 13px', borderRadius: 10, border: '1px dashed #cdd0d4', color: P.inkMuted, fontSize: isMobile ? 12.5 : 13, fontWeight: 600, cursor: 'pointer', width: 'max-content', marginTop: isMobile ? 8 : 0 }}>
                     ＋ {s.files.length ? 'Add another document' : 'Attach document'}
                 </label>
             </div>
@@ -860,10 +873,10 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const ApprovalChain = ({ compact }: { compact?: boolean }) => {
         const displayChain = chain.length ? chain : [{ level: 1, approverName: 'Reporting manager', approverRole: '', approverId: '' } as any];
         return (
-            <div style={compact ? { background: '#fff', border: '1px solid #e9e9eb', borderRadius: 11, padding: '11px 12px' } : railCardSt()}>
+            <div style={compact ? { background: P.surface, border: `1px solid ${P.line}`, borderRadius: 11, padding: '11px 12px' } : railCardSt()}>
                 {compact ? (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <span style={{ fontSize: 11.5, fontWeight: 700, color: '#8b8e91', textTransform: 'uppercase', letterSpacing: '.03em' }}>Approval flow</span>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: P.inkFaint, textTransform: 'uppercase', letterSpacing: '.03em' }}>Approval flow</span>
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#2F5E8C' }}>{displayChain.length} level{displayChain.length !== 1 ? 's' : ''}</span>
                     </div>
                 ) : (
@@ -871,7 +884,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         right={<span style={{ fontSize: 11, fontWeight: 700, color: '#2F5E8C' }}>{displayChain.length} level{displayChain.length !== 1 ? 's' : ''}</span>} />
                 )}
                 {compact ? (
-                    <span style={{ fontSize: 12, color: '#5f6266', fontWeight: 600 }}>{displayChain.map(c => c.approverName).join('  →  ')}</span>
+                    <span style={{ fontSize: 12, color: P.inkBody, fontWeight: 600 }}>{displayChain.map(c => c.approverName).join('  →  ')}</span>
                 ) : (
                     displayChain.map((c, i) => {
                         const first = i === 0, last = i === displayChain.length - 1;
@@ -879,19 +892,19 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         return (
                             <div key={c.level ?? i} style={{ display: 'flex', gap: 11 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                                    <div style={{ width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, background: first ? ACCENT : '#eef1f5', color: first ? '#fff' : '#8b8e91', boxShadow: first ? `0 0 0 3px ${rgba(ACCENT, 0.14)}` : 'none' }}>
+                                    <div style={{ width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, background: first ? ACCENT : P.track, color: first ? '#fff' : P.inkFaint, boxShadow: first ? `0 0 0 3px ${rgba(ACCENT, 0.14)}` : 'none' }}>
                                         {initials || c.level}
                                     </div>
                                     {!last && <div style={{ width: 2, flexGrow: 1, minHeight: 14, background: '#e6e8ec', margin: '3px 0' }} />}
                                 </div>
                                 <div style={{ paddingBottom: last ? 0 : 13, minWidth: 0, flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                                        <span style={{ fontSize: 12.5, fontWeight: 700, color: '#2b2e30', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.approverName}</span>
-                                        <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999, flexShrink: 0, whiteSpace: 'nowrap', color: first ? ACCENT : '#9aa0a6', background: first ? rgba(ACCENT, 0.12) : '#f2f3f4' }}>
+                                        <span style={{ fontSize: 12.5, fontWeight: 700, color: P.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.approverName}</span>
+                                        <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999, flexShrink: 0, whiteSpace: 'nowrap', color: first ? ACCENT : P.inkSubtle, background: first ? rgba(ACCENT, 0.12) : P.track }}>
                                             {first ? 'Next to review' : `Level ${c.level ?? i + 1}`}
                                         </span>
                                     </div>
-                                    {c.approverRole && <div style={{ fontSize: 11, color: '#8b8e91', marginTop: 1 }}>{c.approverRole}</div>}
+                                    {c.approverRole && <div style={{ fontSize: 11, color: P.inkFaint, marginTop: 1 }}>{c.approverRole}</div>}
                                 </div>
                             </div>
                         );
@@ -911,7 +924,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     // Why the Submit button is disabled — one renderer for BOTH layouts so the copy can't drift.
     // `spaced` adds bottom margin for the mobile footer (desktop rail spaces via flex gap).
     const BlockingAlerts = ({ spaced }: { spaced?: boolean }) => {
-        const box = spaced ? { ...errBox, marginBottom: 10 } : errBox;
+        const box = spaced ? { ...errBoxOf(P.dark), marginBottom: 10 } : errBoxOf(P.dark);
         return (
             <>
                 {overlapConflict && <div style={box}>This range overlaps a leave you already have.</div>}
@@ -936,9 +949,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             </div>
             {pv.isImage
                 ? <img src={pv.url} alt={pv.name} style={{ maxWidth: '100%', maxHeight: '62vh', borderRadius: 12, boxShadow: '0 18px 50px rgba(0,0,0,.45)' }} />
-                : <div style={{ background: '#fff', borderRadius: 14, padding: '34px 40px', textAlign: 'center' }}>
+                : <div style={{ background: P.surface, borderRadius: 14, padding: '34px 40px', textAlign: 'center' }}>
                     <div style={{ fontSize: 44, marginBottom: 10 }}>📄</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#2b2e30', marginBottom: 14 }}>{pv.name}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: P.ink, marginBottom: 14 }}>{pv.name}</div>
                     <a href={pv.url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '10px 18px', borderRadius: 10, background: ACCENT, color: '#fff', fontSize: 13.5, fontWeight: 700, textDecoration: 'none' }}>Open in new tab</a>
                 </div>}
         </div>
@@ -959,9 +972,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         return (
             <div style={{ padding: sheet ? '30px 26px 40px' : '48px 32px 44px', textAlign: 'center' }}>
                 <div style={{ width: sheet ? 56 : 58, height: sheet ? 56 : 58, borderRadius: '50%', background: rgba(ACCENT, 0.1), color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: sheet ? 28 : 30, fontWeight: 700, margin: '0 auto 14px' }}>✓</div>
-                <div style={{ fontSize: sheet ? 18 : 21, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>Leave request submitted</div>
-                <div style={{ color: '#727577', marginTop: 7, fontSize: sheet ? 13 : 14 }}>Routed through {chain.length || 1} approval level(s){chain[0]?.approverName ? ` — starting with ${chain[0].approverName}` : ''}.</div>
-                <div style={{ marginTop: 12, fontWeight: 600, color: '#5f6266', fontSize: 13 }}>{segs}</div>
+                <div style={{ fontSize: sheet ? 18 : 21, fontWeight: 800, color: P.ink, fontFamily: PJK }}>Leave request submitted</div>
+                <div style={{ color: P.inkMuted, marginTop: 7, fontSize: sheet ? 13 : 14 }}>Routed through {chain.length || 1} approval level(s){chain[0]?.approverName ? ` — starting with ${chain[0].approverName}` : ''}.</div>
+                <div style={{ marginTop: 12, fontWeight: 600, color: P.inkBody, fontSize: 13 }}>{segs}</div>
                 {result.unpaidDays > 0 && (
                     <div style={{ color: RED_DARK, marginTop: 6, fontWeight: 600, fontSize: 13 }}>
                         Includes {result.unpaidDays} unpaid day(s){lopPerDay > 0 ? ` · est. ${formatCurrencyDecimal(result.unpaidDays * lopPerDay)}` : ''}.
@@ -970,15 +983,15 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 {status?.levels && !sheet && (
                     <div style={{ marginTop: 18, textAlign: 'left', maxWidth: 360, margin: '18px auto 0' }}>
                         {status.levels.map((l: any) => (
-                            <div key={l.level} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 0', borderBottom: '1px solid #f0f0f1' }}>
+                            <div key={l.level} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 0', borderBottom: `1px solid ${P.lineSoft}` }}>
                                 <span>{l.level}. {l.approverName ?? chain.find(c => c.level === l.level)?.approverName ?? l.approverId}</span>
-                                <span style={{ fontWeight: 700, color: l.status === 'approved' ? GREEN : l.status === 'rejected' ? RED : '#9aa0a6' }}>{l.status ?? 'pending'}</span>
+                                <span style={{ fontWeight: 700, color: l.status === 'approved' ? GREEN : l.status === 'rejected' ? RED : P.inkSubtle }}>{l.status ?? 'pending'}</span>
                             </div>
                         ))}
                     </div>
                 )}
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
-                    <button onClick={applyAnother} style={{ padding: '11px 22px', borderRadius: 11, border: '1px solid #e6e6e8', background: '#fff', color: '#5f6266', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Apply Another</button>
+                    <button onClick={applyAnother} style={{ padding: '11px 22px', borderRadius: 11, border: `1px solid ${P.line}`, background: P.surface, color: P.inkBody, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Apply Another</button>
                     <button onClick={onClose} style={{ padding: '11px 22px', borderRadius: 11, border: 'none', background: ACCENT, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Done</button>
                 </div>
             </div>
@@ -987,9 +1000,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 
     // ── Mobile layout ─────────────────────────────────────────────────────────
     if (isMobile) {
-        const sheet: React.CSSProperties = { background: '#fff', borderRadius: '24px 24px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '92vh', width: '100%', overflow: 'hidden', position: 'relative' };
-        const grab = <div style={{ padding: '11px 0 4px', flexShrink: 0 }}><div style={{ width: 38, height: 4, borderRadius: 99, background: '#dcdee1', margin: '0 auto' }} /></div>;
-        if (loading) return <div style={sheet}>{grab}<div style={{ padding: 40, textAlign: 'center', color: '#727577' }}>Loading…</div></div>;
+        const sheet: React.CSSProperties = { background: P.surface, borderRadius: '24px 24px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '92vh', width: '100%', overflow: 'hidden', position: 'relative' };
+        const grab = <div style={{ padding: '11px 0 4px', flexShrink: 0 }}><div style={{ width: 38, height: 4, borderRadius: 99, background: P.line, margin: '0 auto' }} /></div>;
+        if (loading) return <div style={sheet}>{grab}<div style={{ padding: 40, textAlign: 'center', color: P.inkMuted }}>Loading…</div></div>;
         if (result)  return <div style={sheet}>{grab}<Success sheet /></div>;
         return (
             <div style={sheet}>
@@ -997,8 +1010,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 <Lightbox />
                 <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 }}>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>{headerTitle}</div>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#727577' }}>{!s.from ? '' : N === 0 ? '0 days' : daysLabel(N)}</span>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: P.ink, fontFamily: PJK }}>{headerTitle}</div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: P.inkMuted }}>{!s.from ? '' : N === 0 ? '0 days' : daysLabel(N)}</span>
                     </div>
                     {!isView && <div style={{ marginBottom: 13 }}><TypeSelector /></div>}
                     <div style={{ display: isView ? 'none' : 'flex', gap: 8, marginBottom: 10 }}>
@@ -1007,16 +1020,16 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             const off = blockedDates.has(iso) || (iso === today && todayDone);
                             return (
                                 <button key={label} onClick={() => pickQuick(iso)} disabled={off}
-                                    style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : '#e0e2e4'}`, background: active ? rgba(ACCENT, 0.10) : '#fff', color: active ? ACCENT : off ? '#c0c2c5' : '#5f6266', fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
+                                    style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : P.line}`, background: active ? rgba(ACCENT, 0.10) : P.surface, color: active ? ACCENT : off ? P.inkDisabled : P.inkBody, fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
                                     {label}
                                 </button>
                             );
                         })}
                     </div>
                     <LeaveCalendar {...calendarProps} small />
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 11, padding: '10px 12px', border: '1px solid #e6e6e8', borderRadius: 11 }}>
-                        <span style={{ fontSize: 12.5, color: '#5f6266' }}><span style={{ color: '#8b8e91' }}>Dates: </span><strong>{!s.from ? 'None' : s.to && s.to !== s.from ? `${fmt(s.from)} → ${fmt(s.to)}` : fmt(s.from)}</strong></span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#2b2e30' }}>{!s.from ? '—' : N === 0 ? '0 days' : daysLabel(N)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 11, padding: '10px 12px', border: `1px solid ${P.line}`, borderRadius: 11 }}>
+                        <span style={{ fontSize: 12.5, color: P.inkBody }}><span style={{ color: P.inkFaint }}>Dates: </span><strong>{!s.from ? 'None' : s.to && s.to !== s.from ? `${fmt(s.from)} → ${fmt(s.to)}` : fmt(s.from)}</strong></span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: P.ink }}>{!s.from ? '—' : N === 0 ? '0 days' : daysLabel(N)}</span>
                     </div>
                     <HalfDay />
                     <div style={{ marginTop: 11 }}>{isView ? <ViewBreakdown /> : <Allocation compact />}</div>
@@ -1024,7 +1037,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     {isPenaltyActive && sameDayPenalty && (
                         <div style={{ marginTop: 11, padding: '11px 13px', borderRadius: 11, border: '1px solid #f5c518', background: '#fffbea' }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#7a5c00', marginBottom: 5 }}>Late Leave Apply Notice</div>
-                            <p style={{ fontSize: 12, color: '#5f6266', margin: '0 0 8px' }}>
+                            <p style={{ fontSize: 12, color: P.inkBody, margin: '0 0 8px' }}>
                                 This leave request is being submitted after the{' '}
                                 <strong>{fmtCutoff(sameDayPenalty.cutoffTime)}</strong> same-day deadline.
                                 As per company policy, a{' '}
@@ -1048,20 +1061,20 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     )}
                     {!isView && (
                         <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Reason (optional)…"
-                            style={{ width: '100%', minHeight: 48, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 12px', fontSize: 13, outline: 'none', marginTop: 11, lineHeight: 1.5 }} />
+                            style={{ width: '100%', minHeight: 48, resize: 'none', border: `1px solid ${P.line}`, borderRadius: 11, padding: '10px 12px', fontSize: 13, outline: 'none', marginTop: 11, lineHeight: 1.5 }} />
                     )}
                     <div style={{ marginTop: 8 }}><Attachments idSuffix="m" /></div>
                     <div style={{ marginTop: 12 }}><ApprovalFlowView compact /></div>
                 </div>
-                <div style={{ flexShrink: 0, padding: '11px 16px 16px', borderTop: '1px solid #eef0f1', background: '#fff' }}>
+                <div style={{ flexShrink: 0, padding: '11px 16px 16px', borderTop: `1px solid ${P.lineSoft}`, background: P.surface }}>
                     <div style={{ marginBottom: 10 }}><Financial compact /></div>
                     {/* Blocking reasons — mobile parity with the desktop rail. Without these, the
                         Submit button just disabled silently on an overlap with no explanation. */}
                     <BlockingAlerts spaced />
                     {isView && reviewActions && <div style={{ marginBottom: 10 }}>{reviewActions}</div>}
-                    {error && <div style={{ ...errBox, marginBottom: 10 }}>{error}</div>}
+                    {error && <div style={{ ...errBoxOf(P.dark), marginBottom: 10 }}>{error}</div>}
                     <button disabled={primaryDisabled} onClick={onPrimary}
-                        style={{ width: '100%', padding: 15, borderRadius: 14, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, background: primaryActive ? ACCENT : '#cdd0d4', cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
+                        style={{ width: '100%', padding: 15, borderRadius: 14, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, background: primaryActive ? ACCENT : P.disabledBg, cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
                         {primaryLabel}
                     </button>
                 </div>
@@ -1070,8 +1083,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     }
 
     // ── Desktop layout ────────────────────────────────────────────────────────
-    const card: React.CSSProperties = { width: 960, maxWidth: '100%', background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 18px 48px rgba(43,46,48,.16)', position: 'relative' };
-    if (loading) return <div style={card}><Header /><div style={{ padding: 48, textAlign: 'center', color: '#727577' }}>Loading…</div></div>;
+    const card: React.CSSProperties = { width: 960, maxWidth: '100%', background: P.surface, borderRadius: 16, overflow: 'hidden', boxShadow: P.shadow, position: 'relative' };
+    if (loading) return <div style={card}><Header /><div style={{ padding: 48, textAlign: 'center', color: P.inkMuted }}>Loading…</div></div>;
     if (result)  return <div style={card}><Header /><Success /></div>;
     return (
         <div style={card}>
@@ -1085,7 +1098,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         was actually booked — so it (and the applicant chrome below) is hidden. */}
                     {!isView && (
                         <>
-                            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#8b8e91', marginBottom: 10, fontFamily: PJK }}>Apply using</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: P.inkFaint, marginBottom: 10, fontFamily: PJK }}>Apply using</div>
                             <TypeSelector />
                         </>
                     )}
@@ -1095,7 +1108,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             const off = blockedDates.has(iso) || (iso === today && todayDone);
                             return (
                                 <button key={label} onClick={() => pickQuick(iso)} disabled={off}
-                                    style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : '#e0e2e4'}`, background: active ? rgba(ACCENT, 0.10) : '#fff', color: active ? ACCENT : off ? '#c0c2c5' : '#5f6266', fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
+                                    style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : P.line}`, background: active ? rgba(ACCENT, 0.10) : P.surface, color: active ? ACCENT : off ? P.inkDisabled : P.inkBody, fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
                                     {label}
                                 </button>
                             );
@@ -1109,7 +1122,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     {isPenaltyActive && sameDayPenalty && (
                         <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 11, border: '1px solid #f5c518', background: '#fffbea' }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#7a5c00', marginBottom: 5 }}>Late Leave Apply Notice</div>
-                            <p style={{ fontSize: 12.5, color: '#5f6266', margin: '0 0 9px' }}>
+                            <p style={{ fontSize: 12.5, color: P.inkBody, margin: '0 0 9px' }}>
                                 This leave request is being submitted after the{' '}
                                 <strong>{fmtCutoff(sameDayPenalty.cutoffTime)}</strong> same-day deadline.
                                 As per company policy, a{' '}
@@ -1135,9 +1148,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         the ViewBreakdown instead. */}
                     {!isView && (
                         <div style={{ marginTop: 14 }}>
-                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#5f6266', marginBottom: 6 }}>Remarks</label>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: P.inkBody, marginBottom: 6 }}>Remarks</label>
                             <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Add a note for your manager (optional)…"
-                                style={{ width: '100%', minHeight: 58, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 13px', fontSize: 13.5, color: '#2b2e30', outline: 'none', lineHeight: 1.5 }} />
+                                style={{ width: '100%', minHeight: 58, resize: 'none', border: `1px solid ${P.line}`, borderRadius: 11, padding: '10px 13px', fontSize: 13.5, color: P.ink, outline: 'none', lineHeight: 1.5 }} />
                         </div>
                     )}
                     <div style={{ marginTop: 12 }}><Attachments idSuffix="d" /></div>
@@ -1145,7 +1158,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 
                 {/* Right — summary rail */}
                 <div style={{ background: '#f6f7f9', borderLeft: '1px solid #ececed', padding: 20, display: 'flex', flexDirection: 'column', gap: 13, maxHeight: '78vh', overflowY: 'auto' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#8b8e91', fontFamily: PJK }}>Leave summary</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: P.inkFaint, fontFamily: PJK }}>Leave summary</div>
 
                     {/* Dates + sandwich note */}
                     <div style={railCardSt()}>
@@ -1153,7 +1166,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         <DRow label="Dates" value={!s.from ? 'None' : s.to && s.to !== s.from ? `${fmt(s.from)} → ${fmt(s.to)}` : fmt(s.from)} />
                         <DRow label="Chargeable days" value={!s.from ? '—' : N === 0 ? '0 days' : daysLabel(N)} mt />
                         {sandwichDays > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 9, paddingTop: 9, borderTop: '1px solid #f0f0f1' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 9, paddingTop: 9, borderTop: `1px solid ${P.lineSoft}` }}>
                                 <span style={{ width: 12, height: 12, borderRadius: 3, background: 'repeating-linear-gradient(45deg,#fbf0d9 0 3px,#f6e4be 3px 6px)', flexShrink: 0, marginTop: 1 }} />
                                 <span style={{ fontSize: 11.5, color: '#8a5a1e', fontWeight: 500, lineHeight: 1.4 }}>{daysLabel(sandwichDays)} of weekend/holiday between your dates — excluded from salary (sandwich rule). Not added to your leave balance.</span>
                             </div>
@@ -1168,13 +1181,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     <BlockingAlerts />
                     {/* Approval flow */}
                     <ApprovalFlowView />
-                    {error && <div style={errBox}>{error}</div>}
+                    {error && <div style={errBoxOf(P.dark)}>{error}</div>}
 
                     {/* Primary action — sticky so it's always visible without scrolling the rail. */}
                     <div style={{ position: 'sticky', bottom: 0, zIndex: 2, marginTop: 'auto', paddingTop: 12, paddingBottom: 2, background: '#f6f7f9', borderTop: '1px solid #ececed' }}>
                         {isView && reviewActions && <div style={{ marginBottom: 10 }}>{reviewActions}</div>}
                         <button disabled={primaryDisabled} onClick={onPrimary}
-                            style={{ width: '100%', padding: 13, borderRadius: 11, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, background: primaryActive ? ACCENT : '#cdd0d4', cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
+                            style={{ width: '100%', padding: 13, borderRadius: 11, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, background: primaryActive ? ACCENT : P.disabledBg, cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
                             {primaryLabel}
                         </button>
                     </div>
@@ -1185,11 +1198,12 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 }
 
 // ── Tiny shared atoms ─────────────────────────────────────────────────────────
-const pillSt = (sel: boolean, color: string): React.CSSProperties => ({
+/** `P` is passed rather than read from a hook: this is a module-scope style helper, not a component. */
+const pillSt = (sel: boolean, color: string, P: LeavePalette): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 13px', borderRadius: 999,
     cursor: 'pointer', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap',
-    border: sel ? `1.5px solid ${color}` : '1px solid #e6e6e8',
-    background: sel ? `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},0.08)` : '#fff',
-    color: sel ? color : '#5f6266',
+    border: sel ? `1.5px solid ${color}` : `1px solid ${P.line}`,
+    background: sel ? `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},0.08)` : P.surface,
+    color: sel ? color : P.inkBody,
 });
 

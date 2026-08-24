@@ -33,12 +33,20 @@ export interface LeavePalette {
     inkMuted: string;
     /** Tertiary text — eyebrow captions, unit suffixes. */
     inkFaint: string;
+    /** Body text on controls and secondary buttons — between ink and inkMuted. */
+    inkBody: string;
+    /** Neutral figures: unpaid counts, em-dash placeholders. */
+    inkSubtle: string;
     /** Unavailable days, disabled controls. */
     inkDisabled: string;
     /** Default hairline. */
     line: string;
     /** Softer divider inside a card. */
     lineSoft: string;
+    /** Disabled primary-button fill. */
+    disabledBg: string;
+    /** Unfilled portion of a progress/allocation bar. */
+    track: string;
     /** Overlay scrim behind the modal. */
     scrim: string;
     /** Tooltip background — deliberately inverted against the surface. */
@@ -57,9 +65,13 @@ const LIGHT: LeavePalette = {
     ink: '#2b2e30',
     inkMuted: '#727577',
     inkFaint: '#8b8e91',
+    inkBody: '#5f6266',
+    inkSubtle: '#9aa0a6',
     inkDisabled: '#a6a8ab',
     line: '#e6e6e8',
     lineSoft: '#f0f0f1',
+    disabledBg: '#cdd0d4',
+    track: '#eef0f2',
     scrim: 'rgba(15,23,42,.45)',
     tooltipBg: '#2b2e30',
     tooltipInk: '#fff',
@@ -79,9 +91,13 @@ const DARK: LeavePalette = {
     ink: '#e8eaed',
     inkMuted: '#a8afb8',
     inkFaint: '#868d96',
+    inkBody: '#9aa2ac',
+    inkSubtle: '#7d848d',
     inkDisabled: '#5b626b',
     line: '#2e353f',
     lineSoft: '#262c35',
+    disabledBg: '#3a424c',
+    track: '#2a313a',
     scrim: 'rgba(0,0,0,.62)',
     // Inverted against the dark surface for the same reason it is dark on light: a tooltip must
     // read as an overlay, not as another panel.
