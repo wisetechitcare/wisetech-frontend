@@ -71,7 +71,7 @@ export type { GlassNotificationProps, GlassToastOptions } from './GlassNotificat
 export { toast, alertDialog, confirmDialog } from './feedback';
 export type { FeedbackOptions } from './feedback';
 // App-wide single-select picker modal (glass kit, theme-aware) — use instead of bootstrap <Modal>.
-export { OptionPickerDialog, OptionRow } from './pickers';
+export { OptionPickerDialog, OptionRow, OptionCard } from './pickers';
 export type { OptionPickerDialogProps, PickerOption } from './pickers';
 // Canonical date / date-time fields. NEVER use <input type="date"|"datetime-local"> or
 // <TextField type="date">: those render the browser's own picker — unstyled, OS-locale-formatted,

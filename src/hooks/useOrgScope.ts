@@ -38,6 +38,8 @@ export interface OrgScopeNode {
     /** 0 = family root, 1 = its children, and so on. */
     depth: number;
     isRoot: boolean;
+    /** Organization logo URL, when one has been uploaded. */
+    logo?: string;
 }
 
 /** One cache key for the org list, shared by every screen that offers this filter. */
@@ -52,7 +54,9 @@ const ORG_STALE_TIME_MS = 10 * 60 * 1000;
  */
 const toTree = (payload: unknown): OrgScopeNode[] => {
     const raw = (payload as { data?: { companyOverview?: unknown } })?.data?.companyOverview;
-    const rows = Array.isArray(raw) ? (raw as { id?: string; name?: string; parentOrganizationId?: string | null }[]) : [];
+    const rows = Array.isArray(raw)
+        ? (raw as { id?: string; name?: string; parentOrganizationId?: string | null; logo?: string }[])
+        : [];
 
     const valid = rows.filter((row) => row?.id && row?.name);
     const childrenByParent = new Map<string | null, typeof valid>();
@@ -77,6 +81,7 @@ const toTree = (payload: unknown): OrgScopeNode[] => {
                 parentId,
                 depth,
                 isRoot: parentId === null,
+                logo: child.logo || undefined,
             });
             walk(child.id!, depth + 1);
         }
@@ -88,7 +93,7 @@ const toTree = (payload: unknown): OrgScopeNode[] => {
     // filter entirely, hiding their data behind an option nobody can select.
     for (const row of valid) {
         if (!seen.has(row.id!)) {
-            out.push({ id: row.id!, name: row.name!, parentId: null, depth: 0, isRoot: false });
+            out.push({ id: row.id!, name: row.name!, parentId: null, depth: 0, isRoot: false, logo: row.logo || undefined });
         }
     }
 
@@ -102,10 +107,19 @@ export interface UseOrgScopeOptions {
     allLabel?: string;
     /** Omit the "all" option when a screen must always target exactly one org. */
     includeAll?: boolean;
+    /**
+     * Drop the family root(s), leaving only sub-organizations. For records that
+     * are always owned by an operating company (leads, prefixes, …) — the holding
+     * root has no such records, so offering it is only a way to pick wrong.
+     */
+    subOrgsOnly?: boolean;
 }
 
 export function useOrgScope(options: UseOrgScopeOptions = {}) {
-    const { initialScopeId = ALL_ORGS, allLabel = 'All Sub Organizations', includeAll = true } = options;
+    const {
+        initialScopeId = ALL_ORGS, allLabel = 'All Sub Organizations',
+        includeAll = true, subOrgsOnly = false,
+    } = options;
     const [scopeId, setScopeId] = useState(initialScopeId);
 
     const query = useQuery({
@@ -115,7 +129,14 @@ export function useOrgScope(options: UseOrgScopeOptions = {}) {
         staleTime: ORG_STALE_TIME_MS,
     });
 
-    const organizations = useMemo(() => query.data ?? [], [query.data]);
+    const organizations = useMemo(() => {
+        const rows = query.data ?? [];
+        // Only filter when it leaves something to pick — a flat single-org family
+        // would otherwise end up with an empty list and nothing selectable.
+        if (!subOrgsOnly) return rows;
+        const subs = rows.filter((org) => !org.isRoot);
+        return subs.length ? subs : rows;
+    }, [query.data, subOrgsOnly]);
 
     const selectOptions = useMemo<{ value: string; label: string }[]>(() => {
         const rows = organizations.map((org) => ({ value: org.id, label: org.name }));
