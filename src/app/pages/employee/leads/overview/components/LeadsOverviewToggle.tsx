@@ -2,7 +2,7 @@ import { Container } from "@mui/material";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import dayjs, { Dayjs } from "dayjs";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -13,6 +13,7 @@ import PeriodFilter, { PeriodRange } from "@app/modules/common/components/Period
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import { ChartMetric } from "@pages/dashboard/leadAnalytics";
 import { DATE_FORMATS } from "@utils/dateFormats";
+import { isSectionBlocked } from "@utils/accessAreas";
 import Monthly from "./Monthly";
 import Yearly from "./Yearly";
 import Custom from "./Custom";
@@ -67,6 +68,25 @@ const LeadsOverviewToggle = ({
 
   useEffect(() => {
     dispatch(fetchRolesAndPermissions() as any);
+  }, []);
+
+  // If user loses access to amount view, revert to count
+  useEffect(() => {
+    if (metric === "amount" && isSectionBlocked('crm.leads')) {
+      setMetric("count");
+    }
+  }, [metric]);
+
+  // Compute metric options based on user permissions (must be at component level, not conditional)
+  const metricOptions = useMemo(() => {
+    const baseOptions = [
+      { label: "Number", value: "count" },
+    ];
+    // Only show "Amount" if user has access to financial data (not blocked from leads analytics)
+    if (!isSectionBlocked('crm.leads')) {
+      baseOptions.push({ label: "Amount", value: "amount" });
+    }
+    return baseOptions;
   }, []);
 
   useEffect(() => {
@@ -158,7 +178,7 @@ const LeadsOverviewToggle = ({
         </div>
       </div>
 
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center mb-6 gap-3 w-100">
+      <div className="d-flex flex-column flex-lg-row justify-content-between align-items-stretch align-items-lg-start mb-6 gap-3 w-100">
         <div className="d-flex align-items-center gap-4 flex-wrap" style={{ flex: "1 1 auto", minWidth: 0 }}>
           <PeriodFilter
             onChange={setPeriodRange}
@@ -191,46 +211,56 @@ const LeadsOverviewToggle = ({
           )}
         </div>
 
-        {/* Measure switch — flips every chart carrying money between lead COUNT
-            and lead VALUE. Sits with the period controls because it scopes the
-            whole page rather than a single card.
-            Only rendered for the modes backed by LeadOverviewDashboard. Daily /
-            Weekly / Custom render the legacy Custom.tsx pie layout, which has no
-            metric support, so showing the switch there would be a dead control. */}
-        {["monthly", "yearly", "allyear"].includes(periodRange.mode) && (
-        <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0, minWidth: 0 }}>
-          <span
-            style={{
-              fontFamily: "Inter, sans-serif",
-              fontSize: 11.5,
-              fontWeight: 600,
-              color: "#94A3B8",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Based on
-          </span>
-          <PeriodTabs
-            value={metric}
-            options={[
-              { label: "Number", value: "count" },
-              { label: "Amount", value: "amount" },
-            ]}
-            onChange={(val) => setMetric(val as ChartMetric)}
-            ariaLabel="measure selection"
+        {/* Right side controls: Metric selector & Tab slot grouped together */}
+        <div className="d-flex align-items-center gap-3 flex-wrap justify-content-start justify-content-lg-end mt-2 mt-lg-0" style={{ flexShrink: 0, minWidth: 0 }}>
+          {["monthly", "yearly", "allyear"].includes(periodRange.mode) && (
+            <div className="d-flex align-items-center gap-2" style={{ height: "40px" }}>
+              <span
+                style={{
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: "#94A3B8",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Based on
+              </span>
+              <PeriodTabs
+                value={metric}
+                options={metricOptions}
+                onChange={(val) => setMetric(val as ChartMetric)}
+                ariaLabel="measure selection"
+                sx={{
+                  height: 32,
+                  bgcolor: '#EEF2F7',
+                  border: 'none',
+                  p: '3px',
+                  borderRadius: '10px',
+                  '& .MuiToggleButtonGroup-grouped': {
+                    px: 2.2,
+                    borderRadius: '8px !important',
+                  },
+                  '& .Mui-selected': {
+                    bgcolor: '#FFFFFF !important',
+                    color: '#1E3A8A !important',
+                    boxShadow: '0 1px 3px rgba(15,23,42,0.10)',
+                    '&::after': {
+                      display: 'none',
+                    }
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {/* Sub-tabs (Summary / Services / Sources / Insights) portal into here */}
+          <div
+            id="leadOverviewTabSlot"
+            className="d-flex align-items-center"
+            style={{ minWidth: 0 }}
           />
         </div>
-        )}
-
-        {/* Sub-tabs (Summary / Services / Sources / Insights) portal into here,
-            so they share this row and sit on the right. On desktop the slot keeps
-            its natural width (flex-shrink:0) so the tabs never clip; on mobile it
-            stacks full-width and can scroll if the tabs overflow a tiny screen. */}
-        <div
-          id="leadOverviewTabSlot"
-          className="d-flex justify-content-center justify-content-md-end"
-          style={{ flexShrink: 0, minWidth: 0, overflowX: "auto" }}
-        />
       </div>
 
       {/* Daily & Weekly are range views — reuse the range-based Custom dashboard

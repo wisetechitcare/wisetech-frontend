@@ -12,7 +12,7 @@ import Flatpickr from "react-flatpickr";
 // Format a Date object to "YYYY-MM-DD" — used when storing fiscal year range in the DB.
 // We do NOT use Intl.DateTimeFormat here because en-IN locale produces "DD/MM/YYYY"
 // which cannot be parsed back by new Date() reliably.
-const toISODateString = (date: Date): string => {
+export const toISODateString = (date: Date): string => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
@@ -54,7 +54,7 @@ export interface PrefixSettingsFormValues {
 }
 
 // Generate default fiscal year (April to March of next year)
-const getDefaultFiscalYear = () => {
+export const getDefaultFiscalYear = () => {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1; // getMonth() returns 0-11, so add 1
   if (currentMonth >= 4) {
@@ -119,7 +119,7 @@ export const convertFiscalYearToYearFormat = (fiscalYear: string) => {
 };
 
 // Convert fiscal year date range to date objects for Flatpickr
-const convertFiscalYearToDates = (fiscalYear: string): Date[] => {
+export const convertFiscalYearToDates = (fiscalYear: string): Date[] => {
   if (fiscalYear.includes(' to ')) {
     const [startDate, endDate] = fiscalYear.split(' to ');
     return [parseDateString(startDate), parseDateString(endDate)];

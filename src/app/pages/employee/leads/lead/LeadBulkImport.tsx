@@ -7,9 +7,14 @@ import {
   ImportPreviewResult,
   ImportExecuteResult,
 } from "@services/LeadImportService";
+import { MAX_IMPORT_FILE_BYTES } from "@services/LegacyLeadMigrationService";
 import { errorConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import ImportModeSelector, {
+  type ImportMode,
+} from "./legacy-migration/ImportModeSelector";
+import LegacyMigrationWizard from "./legacy-migration/LegacyMigrationWizard";
 
 interface Props {
   show: boolean;
@@ -32,6 +37,10 @@ const IMPORTING_LABELS = [
   "Updating commercials…",
 ];
 
+// Grouped the way an operator fills a row in: who/what, then money, then the rest.
+// The money group is exactly four columns with no overlap — area, rateType, rate,
+// totalCost. There used to be a fifth, `fees`, which wrote to the same database column
+// as `rate`; and `cost` sat next to `rate` with nothing saying which was per-unit.
 const OPTIONAL_COLS = [
   "prefix",
   "companyName",
@@ -42,13 +51,11 @@ const OPTIONAL_COLS = [
   "assignedTo",
   "inquiryDate",
   "area",
+  "rateType",
   "rate",
-  "cost",
-  "contactName",
-  "contactPhone",
+  "totalCost",
   "poNumber",
   "poDate",
-  "poStatus",
   "country",
   "city",
   "state",
@@ -75,14 +82,14 @@ const RULES = [
     body: "Use DD-MM-YYYY or YYYY-MM-DD for all date columns (Inquiry Date, PO Date, etc.).",
   },
   {
-    icon: "👤",
-    title: "Contact matching",
-    body: "Contacts are matched first by phone number, then by name + company if no phone match is found.",
+    icon: "🧮",
+    title: "Rate type decides the total",
+    body: "rateType RATE (the default) means totalCost = area × rate, recalculated even if you also supply totalCost. rateType LUMPSUM means you enter totalCost yourself and rate is stored as 0.",
   },
   {
-    icon: "🧮",
-    title: "Auto-cost calculation",
-    body: "If Cost is empty but Area and Rate are provided, Cost is auto-calculated as Area × Rate.",
+    icon: "🧾",
+    title: "One column per figure",
+    body: "area, rateType, rate and totalCost are the only money columns. A 'Fees' header is read as rate.",
   },
   {
     icon: "⚠️",
@@ -97,6 +104,9 @@ function formatFileSize(bytes: number): string {
 }
 
 const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
+  // null = the mode has not been chosen yet for this opening of the modal.
+  const [mode, setMode] = useState<ImportMode | null>(null);
+  const [legacyOrganizationId, setLegacyOrganizationId] = useState("");
   const [currentScreen, setCurrentScreen] = useState<Screen>("upload");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreviewResult | null>(null);
@@ -110,38 +120,23 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Animate validation checklist and percentage
+  // Advance the validation checklist while the request is in flight.
+  //
+  // The percentage this used to compute was invented — it counted to 100% over a
+  // fixed 4.2s regardless of what the server was doing. There is no progress signal
+  // from /preview, so the checklist now just cycles as an activity indicator and the
+  // bar is rendered indeterminate rather than claiming a number it cannot know.
   useEffect(() => {
     if (currentScreen !== "loading") {
       setLoadingPercent(0);
       return;
     }
 
-    const delays = [600, 1500, 2600, 3600];
-    const timers = delays.map((ms, i) =>
-      setTimeout(() => setLoadingStep(i + 1), ms),
+    const id = setInterval(
+      () => setLoadingStep((prev) => Math.min(prev + 1, LOADING_STEPS.length - 1)),
+      700,
     );
-
-    // Smooth percentage counter to 100% over ~4.2s
-    const start = 0;
-    const duration = 4200;
-    const interval = 40;
-    const increment = 100 / (duration / interval);
-
-    const percentTimer = setInterval(() => {
-      setLoadingPercent((prev) => {
-        if (prev >= 100) {
-          clearInterval(percentTimer);
-          return 100;
-        }
-        return Math.min(100, prev + increment);
-      });
-    }, interval);
-
-    return () => {
-      timers.forEach(clearTimeout);
-      clearInterval(percentTimer);
-    };
+    return () => clearInterval(id);
   }, [currentScreen]);
 
   // Cycle importing label every 1.4 s
@@ -163,6 +158,10 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
     setImportingStep(0);
     setIsDragOver(false);
     setImportResult(null);
+    // Reopening the modal asks which mode again rather than silently reusing
+    // whatever was chosen last time.
+    setMode(null);
+    setLegacyOrganizationId("");
   }, []);
 
   const handleHide = () => {
@@ -179,9 +178,12 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
       errorConfirmation("Only CSV files are accepted.");
       return;
     }
-    if (f.size > 10 * 1024 * 1024) {
+    // Mirrors multer's server-side limit. These used to disagree (10 MB here,
+    // 5 MB on the server), so a 7 MB file passed this check and was then rejected
+    // by the upload with a much less helpful error.
+    if (f.size > MAX_IMPORT_FILE_BYTES) {
       errorConfirmation(
-        "File size exceeds 10 MB. Please upload a smaller file.",
+        `File size exceeds ${Math.round(MAX_IMPORT_FILE_BYTES / (1024 * 1024))} MB. Please upload a smaller file.`,
       );
       return;
     }
@@ -211,10 +213,10 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
     setLoadingStep(0);
     setCurrentScreen("loading");
     try {
-      const [result] = await Promise.all([
-        previewLeadImport(file),
-        new Promise<void>((resolve) => setTimeout(resolve, 4200)),
-      ]);
+      // Previously this raced the request against a hardcoded 4.2s timer purely so
+      // a decorative checklist could finish. Preview now takes exactly as long as
+      // the server does.
+      const result = await previewLeadImport(file);
       setPreview(result);
       setCurrentScreen("preview");
     } catch (err: unknown) {
@@ -245,16 +247,17 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
     }
   };
 
-  // Progress percentage for the "Leading Bar"
+  // Position of the thin bar across the top of the modal. It tracks which STEP the
+  // wizard is on — a real fact — rather than pretending to measure server work.
   const progressPercent =
     currentScreen === "upload"
       ? 0
       : currentScreen === "loading"
-        ? loadingPercent
+        ? 25
         : currentScreen === "preview"
-          ? 40
+          ? 50
           : currentScreen === "importing"
-            ? 40 + (importingStep / 4) * 50
+            ? 75
             : 100;
 
   // 0 = Upload, 1 = Validate & preview, 2 = Import
@@ -292,6 +295,36 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
             []),
         ]
     : [];
+
+  // ── Import mode gate ─────────────────────────────────────────────────────────
+  // Placed after every hook above so hook order is unconditional. The standard
+  // flow below is unchanged; legacy migration is a separate wizard entirely.
+  if (show && mode === null) {
+    return (
+      <ImportModeSelector
+        open
+        onClose={handleHide}
+        onSelect={(nextMode, orgId) => {
+          setLegacyOrganizationId(orgId);
+          setMode(nextMode);
+        }}
+      />
+    );
+  }
+
+  if (mode === "legacy") {
+    return (
+      <LegacyMigrationWizard
+        show={show}
+        organizationId={legacyOrganizationId}
+        onHide={() => {
+          setMode(null);
+          onHide();
+        }}
+        onCompleted={() => eventBus.emit(EVENT_KEYS.leadCreated, { id: "bulk" })}
+      />
+    );
+  }
 
   return (
     <Modal show={show} onHide={handleHide} size="xl" backdrop="static" centered>
@@ -711,12 +744,13 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                       Verifying rows and matching entities...
                     </p>
                   </div>
-                  <div className="text-primary fw-bold fs-2">
-                    {Math.round(loadingPercent)}%
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Analyzing</span>
                   </div>
                 </div>
 
-                {/* Sleek horizontal progress */}
+                {/* Indeterminate: /preview reports no progress, so no percentage
+                    can be shown honestly. */}
                 <div
                   className="progress mb-8"
                   style={{
@@ -728,11 +762,7 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                   <div
                     className="progress-bar progress-bar-striped progress-bar-animated"
                     role="progressbar"
-                    style={{
-                      width: `${loadingPercent}%`,
-                      borderRadius: 10,
-                      transition: "width 0.1s linear",
-                    }}
+                    style={{ width: "100%", borderRadius: 10 }}
                   />
                 </div>
 
