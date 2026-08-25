@@ -1821,12 +1821,25 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         // application, write the new employee id back onto it. Best-effort — the
         // employee already exists, so a failed link must never fail the onboarding.
         const convertedFromApplicationId = takeConversion();
+        let candidateLinkFailed = false;
         if (convertedFromApplicationId) {
           try { await linkConvertedEmployee(convertedFromApplicationId, savedEmployeeId); }
-          catch (linkError) { console.error("Failed to link application to new employee:", linkError); }
+          catch (linkError) {
+            // Reported below rather than swallowed: the employee exists either way, but a
+            // silent failure strands the candidate un-Converted with nobody aware of it.
+            console.error("Failed to link application to new employee:", linkError);
+            candidateLinkFailed = true;
+          }
         }
 
-        successConfirmation("Successfully onboarded an employee");
+        if (candidateLinkFailed) {
+          successConfirmation(
+            "The employee was created, but could not be linked back to the candidate they were hired from — that needs Recruitment update permission. The candidate will still show as awaiting conversion in the pipeline.",
+            "Onboarded, with one issue",
+          );
+        } else {
+          successConfirmation("Successfully onboarded an employee");
+        }
         // Order matters: latch BEFORE clearing, so the unmount flush that `handleClose()`
         // is about to trigger cannot write the finished values back into the slot.
         draftFinalizedRef.current = true;
