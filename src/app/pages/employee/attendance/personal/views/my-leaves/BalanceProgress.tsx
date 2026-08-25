@@ -27,6 +27,7 @@ import {
     getTotalWeekendsBetweenDates,
     calculateLeavesTakenByType,
     calculateTransferredLeaves,
+    calculateEncashedLeaves,
     hasPendingOrApprovedEncashTransfer,
     calculateLeaveBalances,
     buildLeaveData,
@@ -62,6 +63,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     const [totalLeaves, setTotalLeaves] = useState<CustomLeaves[]>([]);
     const [showConvertModal, setShowConvertModal] = useState(false);
     const [showEncashTransferModal, setShowEncashTransferModal] = useState(false);
+    /** Days cashed out this fiscal year, per leave type — netted out of each row's entitlement. */
+    const [encashedLeavesInCurrentFiscal, setEncashedLeavesInCurrentFiscal] = useState<Record<string, number>>({});
     const [shouldShowConvertButton, setShouldShowConvertButton] = useState(true);
     const [approvedRequestInfo, setApprovedRequestInfo] = useState<{ transfer?: any; encash?: any } | null>(null);
     const [addonLeaveAllowanceCount, setAddonLeaveAllowanceCount] = useState(0);
@@ -173,6 +176,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                 // destroy the days the employee asked to keep.
 
                 setTransferredLeavesInCurrentFiscal(currentFiscalTransferred);
+                // Encashed days have left the entitlement — see calculateEncashedLeaves.
+                setEncashedLeavesInCurrentFiscal(calculateEncashedLeaves(requests, startDateNew, endDateNew));
                 setShouldShowConvertButton(!hasPendingOrApprovedRequest);
             }).catch(error => {
                 console.error("Error refreshing leave management requests:", error);
@@ -268,6 +273,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                         });
                     });
                 setTransferredLeavesInCurrentFiscal(currentFiscalTransferred);
+                setEncashedLeavesInCurrentFiscal(calculateEncashedLeaves(transferRequests, startDateNew, endDateNew));
                 setShouldShowConvertButton(!hasPendingOrApprovedRequest);
 
                 const processedLeaves = await customLeaves(leaves);
@@ -365,8 +371,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
         totalUnpaidAssigned,
         grandTotalUsed,
         grandTotalAssigned
-    } = useMemo(() => buildLeaveData(leavesTakenCount, proRatedBalances, leaveBalances),
-        [leavesTakenCount, proRatedBalances, leaveBalances]);
+    } = useMemo(() => buildLeaveData(leavesTakenCount, proRatedBalances, leaveBalances, encashedLeavesInCurrentFiscal),
+        [leavesTakenCount, proRatedBalances, leaveBalances, encashedLeavesInCurrentFiscal]);
 
     // Fiscal year start month derived from the prop (e.g. "2026-04-01" → 4)
     const fiscalStartMonth = useMemo(

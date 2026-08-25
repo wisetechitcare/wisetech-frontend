@@ -271,6 +271,46 @@ export const calculateTransferredLeaves = async (
 };
 
 /**
+ * Days ENCASHED per leave type in the current fiscal year.
+ *
+ * Mirrors the server's `encashedDaysForType` exactly — CASH only, anything not rejected (a pending
+ * request already reserves the days), never a revoked one, and only requests raised inside the
+ * fiscal year on screen. Transfers are excluded on purpose: they move days forward rather than out.
+ *
+ * The card reads ALLOCATION, not availableBalance, so an encashed day was invisible on it: the row
+ * still showed the full entitlement while the server had already taken those days out of what could
+ * be booked. Subtracting here is not double-counting the server's deduction — that one applies to
+ * availableBalance, this one to the entitlement the row is drawn from.
+ */
+export const calculateEncashedLeaves = (
+    conversionRequests: any[],
+    startDateNew: string,
+    endDateNew: string
+): Record<string, number> => {
+    const encashed: Record<string, number> = {};
+
+    conversionRequests
+        .filter((req: any) => {
+            if (req.managementType !== 'CASH') return false;
+            if (req.status === 2) return false;          // rejected — never reserved anything
+            if (req.revokedAt) return false;             // revoked — the days came back
+            const createdDate = req.createdAt ? dayjs(req.createdAt).format('YYYY-MM-DD') : '';
+            return createdDate >= startDateNew && createdDate <= endDateNew;
+        })
+        .forEach((req: any) => {
+            if (Array.isArray(req.leaveTypeIds)) {
+                req.leaveTypeIds.forEach((line: any) => {
+                    const type = line?.leaveType;
+                    if (!type) return;
+                    encashed[type] = (encashed[type] || 0) + (Number(line?.count) || 0);
+                });
+            }
+        });
+
+    return encashed;
+};
+
+/**
  * Check if there's a pending or approved encash/transfer request
  */
 export const hasPendingOrApprovedEncashTransfer = async (
@@ -364,38 +404,46 @@ export const calculateLeaveBalances = (
 export const buildLeaveData = (
     leavesTakenCount: Record<string, number>,
     proRatedBalances: Record<string, number>,
-    leaveBalances: Record<string, number>
+    leaveBalances: Record<string, number>,
+    /** Days cashed out this fiscal year, per type — no longer part of the entitlement. */
+    encashedLeaves: Record<string, number> = {}
 ) => {
+    // An encashed day has left the balance: the employee was paid for it and can no longer take it.
+    // Netting it out of the row's total keeps the card's arithmetic identical to the server's
+    // availableBalance (allocated − used − encashed), which is what ApplyLeave books against.
+    const entitlement = (type: string, allocated: number) =>
+        Math.max(0, allocated - (encashedLeaves[type] || 0));
+
     const allPaidLeaves = [
         {
             label: ANNUAL_LEAVES,
             used: leavesTakenCount[ANNUAL_LEAVES] || 0,
-            total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
+            total: entitlement(ANNUAL_LEAVES, proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             label: SICK_LEAVES,
             used: leavesTakenCount[SICK_LEAVES] || 0,
-            total: leaveBalances[SICK_LEAVES] || 0,
+            total: entitlement(SICK_LEAVES, leaveBalances[SICK_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             // label: 'Paid Leaves',  // Renamed from Floater Leaves
             label: 'Floater Leaves',  // Renamed from Floater Leaves
             used: leavesTakenCount[FLOATER_LEAVES] || 0,
-            total: leaveBalances[FLOATER_LEAVES] || 0,
+            total: entitlement(FLOATER_LEAVES, leaveBalances[FLOATER_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             label: CASUAL_LEAVES,
             used: leavesTakenCount[CASUAL_LEAVES] || 0,
-            total: proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0,
+            total: entitlement(CASUAL_LEAVES, proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             label: MATERNAL_LEAVES,
             used: leavesTakenCount[MATERNAL_LEAVES] || 0,
-            total: proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0,
+            total: entitlement(MATERNAL_LEAVES, proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0),
             color: '#1E3A8A',
         },
     ];
