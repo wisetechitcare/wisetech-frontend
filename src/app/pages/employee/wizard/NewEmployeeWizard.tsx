@@ -2021,8 +2021,8 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
    * there is no navigation state to read: an edit belongs to one employee, so their
    * profile is the honest destination, and only a create with no origin lands on the list.
    *
-   * Not `navigate(-1)`: the wizard replaces its own history entry on some paths, and a
-   * back-step after a successful save would return to the form we just left.
+   * This is the fallback destination only — see `handleClose`, which prefers stepping
+   * back over pushing, so the wizard does not linger in history.
    */
   const returnPath = (() => {
     const fromState = (location.state as any)?.returnTo;
@@ -2031,7 +2031,23 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     return "/employees";
   })();
 
-  const handleClose = () => { setShow(false); navigate(returnPath); };
+  /**
+   * Closing must POP the wizard out of history, never push the return page on top of it.
+   *
+   * Pushing left the wizard's own entry behind: from the page we returned to, Back
+   * re-opened the form, and Cancel pushed the page again — a loop with no exit. Nothing
+   * inside the wizard navigates, so it owns exactly one history entry, and the entry
+   * behind it is the page that opened it — the same place `returnTo` points at.
+   *
+   * `idx` is the history position react-router maintains; 0 means the wizard IS the first
+   * entry (deep link, refresh in a fresh tab) so there is nothing to step back to, and the
+   * return path replaces the wizard entry rather than stacking on top of it.
+   */
+  const handleClose = () => {
+    setShow(false);
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+    else navigate(returnPath, { replace: true });
+  };
 
   return (
     <Modal
