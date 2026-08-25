@@ -25,6 +25,7 @@ import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import LeadBulkImport from "../../lead/LeadBulkImport";
 import LeadWizardModal from "../../lead/LeadWizardModal";
+import SelectLeadOrganizationDialog from "../../lead/SelectLeadOrganizationDialog";
 
 export type ToggleItemsCallBackFunctions = {
   monthly: (date: Dayjs, endDate: Dayjs) => void;
@@ -56,6 +57,7 @@ const LeadsOverviewToggle = ({
   const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(undefined);
   const [formValues, setFormValues] = useState<any | null>(null);
+  const [showOrgPicker, setShowOrgPicker] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [showChartSettingsModal, setShowChartSettingsModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -150,7 +152,7 @@ const LeadsOverviewToggle = ({
           </button>
           <button 
             className="btn btn-sm btn-primary fw-bold"
-            onClick={() => setFormValues({ leadTemplateId: "blank" })}
+            onClick={() => setShowOrgPicker(true)}
             style={{ backgroundColor: "#1E3A8A", border: "none" }}
           >
             + New Lead
@@ -285,6 +287,18 @@ const LeadsOverviewToggle = ({
       ) : null}
 
       
+
+      {/* Same pre-step as the Leads tab. The organization fixes the lead's prefix and
+          number series, so it has to be chosen before the wizard opens — skipping it
+          here sent the wizard in with no organizationId and the create failed server-side. */}
+      <SelectLeadOrganizationDialog
+        open={showOrgPicker}
+        onClose={() => setShowOrgPicker(false)}
+        onContinue={(organizationId) => {
+          setShowOrgPicker(false);
+          setFormValues({ leadTemplateId: "blank", organizationId });
+        }}
+      />
 
       <LeadWizardModal
         key={formValues ? `new-${formValues.leadTemplateId}` : "new-lead-modal"}

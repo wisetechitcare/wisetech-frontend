@@ -180,7 +180,7 @@ const MasterSection = ({
                     ))}
                 </Box>
 
-                <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ flexShrink: 0 }}>
                     <RowAction title="Edit" icon="pencil" onClick={() => openEdit(row)} />
                     <RowAction title="Remove" icon="trash" color="#C0392B" onClick={() => remove(row)} />
                 </Stack>
@@ -193,7 +193,7 @@ const MasterSection = ({
             <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 1.5 }}>
                 <IconBox icon={icon} trio={trio} size={36} fs="fs-3" />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Stack direction="row" alignItems="center" spacing={0.75}>
+                    <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap>
                         <Typography sx={{ fontWeight: 700, fontSize: { xs: 14.5, sm: 15.5 }, lineHeight: 1.3 }}>{title}</Typography>
                         {!isLoading && rows.length > 0 && (
                             <Box sx={{

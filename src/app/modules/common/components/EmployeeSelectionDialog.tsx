@@ -100,6 +100,9 @@ export const EmployeeSelectionDialog: React.FC<EmployeeSelectionDialogProps> = (
             open={open}
             onClose={onClose}
             maxWidth="md"
+            // Lays out its own flex column below (shrink-0 search header + grow overflow-y-auto
+            // list), so the dialog must not wrap it in a second scroller.
+            scrollBody={false}
             header={
                 <GlassHeader
                     title={title}

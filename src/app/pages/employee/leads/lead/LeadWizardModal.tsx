@@ -499,10 +499,11 @@ const LeadWizardModal = ({
   // before overwriting it instead of silently discarding their value.
   const [prefixManuallyEdited, setPrefixManuallyEdited] = useState(false);
   // Organizations the user may file this lead under. includeAll is off — a lead
-  // belongs to exactly one.
+  // belongs to exactly one sub-organization, matching the picker that opens the wizard.
   const { selectOptions: organizationOptions } = useOrgScope({
     includeAll: false,
     initialScopeId: "",
+    subOrgsOnly: true,
   });
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
   const [currLeadData, setCurrLeadData] = useState<any>();

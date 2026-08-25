@@ -3125,3 +3125,39 @@ export const saveEmployeeAccessSettings = async (
     return employeeRes;
 };
 
+
+/**
+ * Ex-employees who still hold paid leave nobody converted.
+ *
+ * Conversion is employee-initiated and fiscalYearRollover only iterates ACTIVE employees, so a
+ * leaver's balance is never rolled forward, encashed or expired — it sits stranded until someone
+ * asks. This is the list that surfaces them for an Admin/HR settlement. Admin/HR only, and scoped
+ * server-side to the caller's tenant family.
+ */
+export interface UnsettledLeaver {
+    employeeId: string;
+    employeeName: string;
+    employeeCode: string | null;
+    branchId: string | null;
+    dateOfExit: string;
+    daysSinceExit: number;
+    balanceByType: Record<string, number>;
+    totalDays: number;
+    /** Past the configured settlement window. Still listed — flagged, never hidden. */
+    windowClosed: boolean;
+    hasOpenConversion: boolean;
+}
+
+export const fetchUnsettledLeavers = async (params?: { branchId?: string; lookbackDays?: number }) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_UNSETTLED_LEAVERS}`, { params });
+    return data as {
+        data: {
+            leavers: UnsettledLeaver[];
+            total: number;
+            totalDays: number;
+            /** False until leaveConversion.onBehalf.enabled is turned on in the leave policy. */
+            onBehalfEnabled: boolean;
+            settlementWindowDays: number;
+        };
+    };
+};

@@ -11,10 +11,12 @@ import { queryKeys } from "@/lib/queryKeys";
 import { getRequisitions, type JobRequisition } from "@services/recruitment";
 import {
     getApplications, createApplication, moveApplicationStage, getApplicationStatuses, getRejectionReasons, getApplicationOffer,
+    stashConversion,
     type Application, type ApplicationStatus, type ApplicationCreatePayload,
 } from "@services/recruitment";
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
+import CandidateDrawer from "./CandidateDrawer";
 
 interface PendingMove {
     application: Application;
@@ -40,6 +42,9 @@ const PipelineView = () => {
     const [rejectReasonId, setRejectReasonId] = useState("");
     const [rejectNote, setRejectNote] = useState("");
     const [dragId, setDragId] = useState<string | null>(null);
+    // The candidate record the recruiter is looking at. The board card had no click
+    // target at all before this, so the pipeline had no unit of work.
+    const [openCandidate, setOpenCandidate] = useState<Application | null>(null);
     const [interviewsFor, setInterviewsFor] = useState<Application | null>(null);
     const [offerFor, setOfferFor] = useState<Application | null>(null);
 
@@ -138,6 +143,9 @@ const PipelineView = () => {
         } catch {
             /* storage quota — proceed with a blank wizard */
         }
+        // Remember WHICH application this is, so the wizard can write convertedEmployeeId
+        // back on a successful create — otherwise the hire is never linked to its candidate.
+        stashConversion(a.id);
         toast({ icon: "info", title: "Opening onboarding with the candidate's details prefilled" });
         navigate("/employees/create-new");
     };
@@ -180,7 +188,7 @@ const PipelineView = () => {
                                 key={s.id}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={() => { const app = applications.find((a) => a.id === dragId); if (app) attemptMove(app, s); setDragId(null); }}
-                                sx={{ minWidth: 250, maxWidth: 280, flex: "0 0 auto", bgcolor: "action.hover", borderRadius: 2, p: 1 }}
+                                sx={{ minWidth: { xs: 210, sm: 250 }, maxWidth: { xs: 240, sm: 280 }, flex: "0 0 auto", bgcolor: "action.hover", borderRadius: 2, p: 1 }}
                             >
                                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1, px: 0.5 }}>
                                     <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: s.color ?? "#888" }} />
@@ -188,13 +196,20 @@ const PipelineView = () => {
                                     <Chip size="small" label={cards.length} />
                                 </Stack>
                                 <Stack spacing={1}>
+                                    {/* Drag moves a candidate between stages; a plain click opens
+                                        them. onClick is guarded on dragId so releasing a drag is
+                                        never treated as a click. */}
                                     {cards.map((a) => (
                                         <Box
                                             key={a.id}
                                             draggable
                                             onDragStart={() => setDragId(a.id)}
                                             onDragEnd={() => setDragId(null)}
-                                            sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "background.paper", boxShadow: 1, cursor: "grab", opacity: dragId === a.id ? 0.5 : 1 }}
+                                            onClick={() => { if (!dragId) setOpenCandidate(a); }}
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenCandidate(a); } }}
+                                            sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "background.paper", boxShadow: 1, cursor: "grab", opacity: dragId === a.id ? 0.5 : 1, "&:hover": { boxShadow: 3 } }}
                                         >
                                             <Typography sx={{ fontWeight: 600, fontSize: 13.5 }}>
                                                 {a.applicant?.firstName} {a.applicant?.lastName ?? ""}
@@ -231,7 +246,10 @@ const PipelineView = () => {
                                 </TableCell>
                                 <TableCell align="center">{scoreLabel(a) ?? "—"}</TableCell>
                                 <TableCell align="right">
-                                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                    <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
+                                        <WtButton size="small" ghost startIcon={<KTIcon iconName="profile-circle" className="fs-6" />} onClick={() => setOpenCandidate(a)}>
+                                            Open
+                                        </WtButton>
                                         <WtButton size="small" ghost startIcon={<KTIcon iconName="message-text-2" className="fs-6" />} onClick={() => setInterviewsFor(a)}>
                                             Interviews
                                         </WtButton>
@@ -239,9 +257,13 @@ const PipelineView = () => {
                                             Offer
                                         </WtButton>
                                         {a.status?.isHiredOutcome && (
-                                            <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
-                                                Convert
-                                            </WtButton>
+                                            a.convertedEmployeeId ? (
+                                                <ToneChip tone="success" label="Converted" dense />
+                                            ) : (
+                                                <WtButton size="small" tone="success" startIcon={<KTIcon iconName="user-tick" className="fs-6" />} onClick={() => convertToEmployee(a)}>
+                                                    Convert
+                                                </WtButton>
+                                            )
                                         )}
                                     </Stack>
                                 </TableCell>
@@ -264,7 +286,7 @@ const PipelineView = () => {
             >
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
-                        <Stack direction="row" spacing={2}>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField label="First name" required size="small" sx={{ flex: 1 }} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
                             <TextField label="Last name" size="small" sx={{ flex: 1 }} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
                         </Stack>
@@ -340,6 +362,16 @@ const PipelineView = () => {
                     )}
                 </DialogContent>
             </GlassDialog>
+
+            {/* Full candidate record. Mounted only while open so its queries do not run for
+                every row in the pipeline. */}
+            {openCandidate && (
+                <CandidateDrawer
+                    application={openCandidate}
+                    statuses={statuses}
+                    onClose={() => setOpenCandidate(null)}
+                />
+            )}
         </Box>
     );
 };

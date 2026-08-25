@@ -126,6 +126,31 @@ export const summarise = (step: ApprovalStep, variant: 'mine' | 'awaiting' | 'do
     const type = (step.instance.workflowType || '').toLowerCase();
 
     if (type === 'leave') {
+        /**
+         * Leave CONVERSION (encash / transfer) rides the leave workflow so it reuses the employee's
+         * leave chain, but it is a LeaveManagement row: it has no dates, and the generic leave card
+         * rendered it as a bare "N days" with the payout — the one number the approver is actually
+         * deciding on — nowhere on the card.
+         */
+        if (d.subType === 'Leave Encashment' || d.subType === 'Leave Transfer') {
+            const facts = [
+                d.totalDays ? `${d.totalDays} day${d.totalDays === 1 ? '' : 's'}` : null,
+                // Transfers move days, not money, so they legitimately carry no amount.
+                d.amount != null ? money(d.amount) : null,
+            ].filter(Boolean) as string[];
+            const chips: ItemSummary['chips'] = [];
+            if (d.onBehalf) chips.push({ label: 'Raised on their behalf', tone: 'indigo' });
+            return {
+                title: d.subType,
+                facts,
+                // Which leave is being cashed out, not just the total: "Sick Leaves 3 · Casual Leaves 4".
+                note: (d.segments ?? [])
+                    .map((s: any) => `${s.leaveType} ${s.days}`)
+                    .join(' · ') || undefined,
+                chips,
+            };
+        }
+
         const facts = [range(d.dateFrom, d.dateTo), d.totalDays ? `${d.totalDays} day${d.totalDays === 1 ? '' : 's'}` : null]
             .filter(Boolean) as string[];
         const chips: ItemSummary['chips'] = [];
