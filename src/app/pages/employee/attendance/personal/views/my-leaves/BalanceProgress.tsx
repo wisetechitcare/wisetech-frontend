@@ -27,7 +27,7 @@ import {
     getTotalWeekendsBetweenDates,
     calculateLeavesTakenByType,
     calculateTransferredLeaves,
-    calculateEncashedLeaves,
+    encashedByType,
     hasPendingOrApprovedEncashTransfer,
     calculateLeaveBalances,
     buildLeaveData,
@@ -176,8 +176,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                 // destroy the days the employee asked to keep.
 
                 setTransferredLeavesInCurrentFiscal(currentFiscalTransferred);
-                // Encashed days have left the entitlement — see calculateEncashedLeaves.
-                setEncashedLeavesInCurrentFiscal(calculateEncashedLeaves(requests, startDateNew, endDateNew));
                 setShouldShowConvertButton(!hasPendingOrApprovedRequest);
             }).catch(error => {
                 console.error("Error refreshing leave management requests:", error);
@@ -273,7 +271,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                         });
                     });
                 setTransferredLeavesInCurrentFiscal(currentFiscalTransferred);
-                setEncashedLeavesInCurrentFiscal(calculateEncashedLeaves(transferRequests, startDateNew, endDateNew));
                 setShouldShowConvertButton(!hasPendingOrApprovedRequest);
 
                 const processedLeaves = await customLeaves(leaves);
@@ -342,6 +339,9 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     hasPendingOrApprovedTransfer,
                     0
                 );
+                // Encashed days come from the SAME summary the balances do, so the card and the
+                // server's availableBalance can never disagree about what was cashed out.
+                setEncashedLeavesInCurrentFiscal(encashedByType(leavesSummary));
                 setLeaveBalances(balances);
                 setProRatedBalances(proRated);
                 setLeavesTakenCount(leavesTaken);

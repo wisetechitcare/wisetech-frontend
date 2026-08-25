@@ -271,42 +271,21 @@ export const calculateTransferredLeaves = async (
 };
 
 /**
- * Days ENCASHED per leave type in the current fiscal year.
+ * Days ENCASHED per leave type, straight from the balance summary the server sends.
  *
- * Mirrors the server's `encashedDaysForType` exactly — CASH only, anything not rejected (a pending
- * request already reserves the days), never a revoked one, and only requests raised inside the
- * fiscal year on screen. Transfers are excluded on purpose: they move days forward rather than out.
+ * The card and the pacing pool are both drawn from the ENTITLEMENT, not from availableBalance, so an
+ * encashed day stayed visible on them long after the server had taken it out of what can be booked.
  *
- * The card reads ALLOCATION, not availableBalance, so an encashed day was invisible on it: the row
- * still showed the full entitlement while the server had already taken those days out of what could
- * be booked. Subtracting here is not double-counting the server's deduction — that one applies to
- * availableBalance, this one to the entitlement the row is drawn from.
+ * Read, never re-derived: the rule for what counts (CASH, not rejected, not revoked, this fiscal
+ * year) lives in the backend's encashedDaysForType, and a second copy of it here is exactly how the
+ * screens and the enforcement drift apart.
  */
-export const calculateEncashedLeaves = (
-    conversionRequests: any[],
-    startDateNew: string,
-    endDateNew: string
-): Record<string, number> => {
+export const encashedByType = (leavesSummary: any[] = []): Record<string, number> => {
     const encashed: Record<string, number> = {};
-
-    conversionRequests
-        .filter((req: any) => {
-            if (req.managementType !== 'CASH') return false;
-            if (req.status === 2) return false;          // rejected — never reserved anything
-            if (req.revokedAt) return false;             // revoked — the days came back
-            const createdDate = req.createdAt ? dayjs(req.createdAt).format('YYYY-MM-DD') : '';
-            return createdDate >= startDateNew && createdDate <= endDateNew;
-        })
-        .forEach((req: any) => {
-            if (Array.isArray(req.leaveTypeIds)) {
-                req.leaveTypeIds.forEach((line: any) => {
-                    const type = line?.leaveType;
-                    if (!type) return;
-                    encashed[type] = (encashed[type] || 0) + (Number(line?.count) || 0);
-                });
-            }
-        });
-
+    (leavesSummary || []).forEach((summary: any) => {
+        const days = Number(summary?.encashedDays) || 0;
+        if (summary?.leaveType && days > 0) encashed[summary.leaveType] = days;
+    });
     return encashed;
 };
 
@@ -531,7 +510,13 @@ export const buildCumulativeInputs = (leavesSummary: any[] = []): CumulativeInpu
         const isPaidType = summary?.isPaid !== false && !t.includes('unpaid');
         if (!isPaidType || t.includes('matern')) return;
 
-        totalNonMaternalPaidAllocated += Number(summary.numberOfDays) || 0;
+        // Encashed days have been paid out — they are not spendable, so they leave the paced pool.
+        // Server-reported (leavesSummary.encashedDays) rather than re-derived here, so this can never
+        // disagree with the balance the allocation engine enforces against.
+        totalNonMaternalPaidAllocated += Math.max(
+            0,
+            (Number(summary.numberOfDays) || 0) - (Number(summary.encashedDays) || 0),
+        );
         takenIncludingPendingByType[leaveType] =
             (Number(summary.leaveTaken) || 0) + (Number(summary.pendingDays) || 0);
     });
