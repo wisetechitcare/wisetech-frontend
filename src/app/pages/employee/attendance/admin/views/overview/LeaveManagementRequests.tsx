@@ -113,12 +113,17 @@ function LeaveManagementRequests() {
         status: 1,
         approvedRejectById: currentEmployeeId
       }
-      await updateLeaveManagement(request.id, payLoad);
-      await successConfirmation("Leave management request approved successfully");
+      // The server routes this through the employee's leave approval chain, so the outcome is not
+      // always "approved" — a multi-level chain advances to the next approver. Show what it says.
+      const res = await updateLeaveManagement(request.id, payLoad);
+      await successConfirmation(res?.message || "Leave management request approved successfully");
       eventBus.emit(EVENT_KEYS.leaveManagementRequestUpdated, { requestId: request.id });
       fetchRequests();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error approving request:", error);
+      // Carries the chain's own refusal ("Only the current approver … can act on this request",
+      // "Self-approval is not permitted") — silence here left the button looking simply broken.
+      await errorConfirmation(error?.response?.data?.detail || error?.response?.data?.message || "Couldn’t approve the request. Please try again.");
     } finally {
       setProcessingRowId(null);
       setProcessingAction(null);
@@ -137,13 +142,13 @@ function LeaveManagementRequests() {
         status: 2,
         approvedRejectById: currentEmployeeId
       }
-      await updateLeaveManagement(requestId, payLoad);
-      await successConfirmation("Leave management request rejected successfully");
+      const res = await updateLeaveManagement(requestId, payLoad);
+      await successConfirmation(res?.message || "Leave management request rejected successfully");
       eventBus.emit(EVENT_KEYS.leaveManagementRequestUpdated, { requestId });
       fetchRequests();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error rejecting request:", error);
-      await errorConfirmation("Couldn’t reject the request. Please try again.");
+      await errorConfirmation(error?.response?.data?.detail || error?.response?.data?.message || "Couldn’t reject the request. Please try again.");
     } finally {
       setProcessingRowId(null);
       setProcessingAction(null);
