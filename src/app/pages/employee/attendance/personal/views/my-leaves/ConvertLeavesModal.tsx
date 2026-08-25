@@ -27,6 +27,20 @@ interface EncashTransferLeavesModalProps {
         maternalLeaves: number;
     };
     onSuccess?: () => void;
+    /**
+     * Convert on behalf of another employee (Admin/HR). Overrides the Redux currentEmployee, exactly
+     * as ApplyLeave's `target` does — same shape, same semantics, so the two admin-on-behalf paths
+     * in the leave module behave identically rather than each inventing their own.
+     *
+     * The case that needs it: an employee exits without converting, and their balance is stranded —
+     * fiscalYearRollover only iterates ACTIVE employees, so it is never rolled forward, encashed or
+     * expired. See GET /leave-management/unsettled-leavers for the list that surfaces them.
+     *
+     * The server is the authority, not this prop: createLeaveManagement requires isAdminOrHR plus
+     * requireAccessToEmployee for any non-self target, and refuses outright unless the leave policy
+     * has leaveConversion.onBehalf.enabled turned on.
+     */
+    target?: { employeeId: string; branchId?: string | null; employeeName?: string };
 }
 
 const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
@@ -42,6 +56,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
         maternalLeaves: 0,
     },
     onSuccess,
+    target,
 }) => {
     const [selectedOption, setSelectedOption] = useState<'encash' | 'transfer'>('encash');
     const [loading, setLoading] = useState(false);
@@ -51,8 +66,14 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
     const [transferCounts, setTransferCounts] = useState<Record<string, number>>({});
     const [encashCounts, setEncashCounts] = useState<Record<string, number>>({});
 
-    const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
-    const employeeBranchId = useSelector((state: RootState) => state.employee.currentEmployee?.branchId);
+    const selfId = useSelector((state: RootState) => state.employee.currentEmployee.id);
+    const selfBranchId = useSelector((state: RootState) => state.employee.currentEmployee?.branchId);
+    // `target` overrides the logged-in employee for an Admin/HR settlement. Everything downstream —
+    // the balance fetch, the daily-rate lookup, the submitted payload — keys off these, so there is
+    // no path where the modal shows one employee's figures and books against another's.
+    const employeeId = target?.employeeId ?? selfId;
+    const employeeBranchId = target?.branchId ?? selfBranchId;
+    const onBehalf = !!target && target.employeeId !== selfId;
 
     // Fetch daily salary when component mounts
     useEffect(() => {
@@ -242,8 +263,12 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                 managementType: selectedOption === 'encash' ? LEAVE_MANAGEMENT_TYPE.CASH : LEAVE_MANAGEMENT_TYPE.TRANSFER,
                 leaveCount: selectedOption === 'transfer' ? getTotalTransferLeaves() : getTotalEncashLeaves(),
                 status: 0, // Pending status
-                createdById: employeeId,
-                updatedById: employeeId,
+                // The ACTOR, not the target. On an on-behalf settlement these differ, and that
+                // difference is the whole audit trail. (The server overwrites both from the session
+                // regardless — a client-supplied actor would be forgeable — but sending the right
+                // value keeps the payload honest.)
+                createdById: selfId,
+                updatedById: selfId,
             };
 
             // For both TRANSFER and ENCASH, send leave type breakdown
@@ -316,8 +341,22 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                         fontFamily: 'Barlow, sans-serif',
                         letterSpacing: '0.24px',
                     }}>
-                        Choose What You Want to Do with Your Unused Leaves
+                        {onBehalf
+                            ? `Settle Unused Leaves${target?.employeeName ? ` — ${target.employeeName}` : ''}`
+                            : 'Choose What You Want to Do with Your Unused Leaves'}
                     </h3>
+                    {onBehalf && (
+                        // Acting for someone else is a different act from converting your own leave;
+                        // it should never be possible to do it without noticing.
+                        <p style={{
+                            margin: '8px 0 0', fontSize: '13px', lineHeight: 1.5, color: '#7a5c00',
+                            background: '#fffbea', border: '1px solid #f5c518',
+                            borderRadius: 10, padding: '9px 12px',
+                        }}>
+                            You are converting leave <strong>on behalf of this employee</strong>. The request is
+                            recorded against them and attributed to you.
+                        </p>
+                    )}
                 </div>
 
                 {/* Options Section */}

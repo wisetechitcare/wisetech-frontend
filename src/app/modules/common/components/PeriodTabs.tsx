@@ -73,7 +73,14 @@ const PeriodTabs = ({
             display: 'flex',
             alignItems: 'stretch',
             gap: 0,
-            height: 32,
+            // On a phone the group wraps to as many rows as it needs, so its height can no
+            // longer be fixed. Five modes cannot share 344px without each tab dropping below
+            // a readable width, and the previous behaviour was worse than cramped: the group
+            // clips, so the last tab was cut off entirely and the control silently offered
+            // four options instead of five.
+            flexWrap: isMobile ? 'wrap' : 'nowrap',
+            height: isMobile ? 'auto' : 32,
+            minHeight: 32,
             p: 0,
             borderRadius: '8px',
             overflow: 'hidden',
@@ -86,11 +93,15 @@ const PeriodTabs = ({
                 border: 0,
                 borderRadius: '0 !important',
                 minWidth: 0,
-                height: '100%',
-                // On mobile each tab flexes to an equal share so the group fills
-                // the full width evenly; on desktop they hug their label.
-                flex: isMobile ? 1 : 'none',
-                px: 1.75,
+                // Fixed height only makes sense on the single-row desktop layout; a wrapped
+                // group sizes to its rows.
+                height: isMobile ? 'auto' : '100%',
+                minHeight: 32,
+                // `1 0 auto` on mobile: grow to fill the row, never shrink below the label,
+                // wrap when the line is full. `1` alone forced equal shares on one line, which
+                // is what squeezed the labels. On desktop tabs still hug their label.
+                flex: isMobile ? '1 0 auto' : 'none',
+                px: isMobile ? 1.25 : 1.75,
                 py: 0,
                 color: 'text.secondary',
                 fontSize: 12,

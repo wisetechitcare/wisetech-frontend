@@ -151,6 +151,7 @@ export interface Application {
     ruleScore?: number | string | null; aiScore?: number | string | null; aiRecommendation?: string | null;
     rejectionReasonId?: string | null; rejectionReason?: RejectionReason | null; rejectionNote?: string | null;
     coverLetter?: string | null; appliedDate?: string | null; lastStageChangeAt?: string | null; hiredDate?: string | null;
+    convertedEmployeeId?: string | null;
     isActive: boolean; revisionCount: number; createdAt: string;
 }
 
@@ -194,6 +195,88 @@ export const moveApplicationStage = async (id: string, payload: StageMovePayload
 
 export const archiveApplication = async (id: string) => {
     const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.ARCHIVE_APPLICATION.replace(":id", id)}`);
+    return data;
+};
+
+// ─── Candidate detail + notes ────────────────────────────────────────────────
+export interface ApplicationNote {
+    id: string;
+    applicationId: string;
+    authorId?: string | null;
+    body: string;
+    createdAt: string;
+}
+
+/** Stage transition as recorded by the server, newest first. */
+export interface StageHistoryEntry {
+    id: string;
+    fromStatusId?: string | null;
+    toStatusId?: string | null;
+    changedById?: string | null;
+    isAutomated: boolean;
+    note?: string | null;
+    changedAt: string;
+}
+
+export type ApplicationDetail = Application & { stageHistory?: StageHistoryEntry[] };
+
+/** The full record behind one pipeline row — the endpoint existed with no caller until now. */
+export const getApplicationById = async (id: string): Promise<ApplicationDetail | null> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_BY_ID.replace(":id", id)}`);
+    return data?.application ?? null;
+};
+
+export const getApplicationNotes = async (applicationId: string): Promise<ApplicationNote[]> => {
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_NOTES.replace(":id", applicationId)}`);
+    return data?.notes ?? [];
+};
+
+export const createApplicationNote = async (applicationId: string, body: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${RECRUITMENT.GET_APPLICATION_NOTES.replace(":id", applicationId)}`, { body });
+    return data;
+};
+
+export const deleteApplicationNote = async (id: string) => {
+    const { data } = await axios.delete(`${API_BASE_URL}/${RECRUITMENT.DELETE_APPLICATION_NOTE.replace(":id", id)}`);
+    return data;
+};
+
+// ─── Convert-to-employee hand-off ────────────────────────────────────────────
+// PipelineView stashes the application id, then opens the New Employee wizard;
+// on a successful create the wizard consumes the stash and links the two records
+// so `convertedEmployeeId` is actually written. Timestamped, because an abandoned
+// conversion must never attach a later, unrelated employee to the application.
+const CONVERT_KEY = "recruitment-convert-application-id";
+const CONVERT_TTL_MS = 30 * 60_000;
+
+export const stashConversion = (applicationId: string) => {
+    try {
+        sessionStorage.setItem(CONVERT_KEY, JSON.stringify({ applicationId, ts: Date.now() }));
+    } catch { /* quota — the back-link is best-effort, never block the conversion */ }
+};
+
+/** Reads AND clears the stash, so one conversion can only ever link once. */
+export const takeConversion = (): string | null => {
+    try {
+        const raw = sessionStorage.getItem(CONVERT_KEY);
+        sessionStorage.removeItem(CONVERT_KEY);
+        if (!raw) return null;
+        const { applicationId, ts } = JSON.parse(raw) ?? {};
+        if (!applicationId || typeof ts !== "number" || Date.now() - ts > CONVERT_TTL_MS) return null;
+        return String(applicationId);
+    } catch { return null; }
+};
+
+export const clearConversion = () => {
+    try { sessionStorage.removeItem(CONVERT_KEY); } catch { /* ignore */ }
+};
+
+/** Back-link a newly created employee to the application it came from. */
+export const linkConvertedEmployee = async (applicationId: string, employeeId: string) => {
+    const { data } = await axios.patch(
+        `${API_BASE_URL}/${RECRUITMENT.UPDATE_APPLICATION_SECTION.replace(":id", applicationId)}`,
+        { convertedEmployeeId: employeeId },
+    );
     return data;
 };
 
@@ -385,11 +468,15 @@ export interface JobPosting {
     id: string; requisitionId: string; publicSlug: string; title: string;
     descriptionHtml?: string | null; location?: string | null; isRemote: boolean;
     employmentType?: string | null; isPublished: boolean; publishedAt?: string | null; expiresAt?: string | null;
+    /** Publish this role's CTC band publicly. Off by default; the server redacts the
+     *  numbers entirely when it is false, so they never reach the careers site. */
+    showSalary?: boolean;
     requisition?: { id: string; title: string; prefix?: string | null } | null;
 }
 export interface PostingPayload {
     requisitionId?: string; title?: string; descriptionHtml?: string | null; location?: string | null;
     isRemote?: boolean; employmentType?: string | null; expiresAt?: string | null; isPublished?: boolean; isActive?: boolean;
+    showSalary?: boolean;
 }
 
 export const getPostings = async (): Promise<JobPosting[]> => {
@@ -422,12 +509,26 @@ export interface RecruitmentOverview {
         avgTimeToHireDays: number | null;
     };
     funnel: Array<{ id: string; name: string; color?: string | null; count: number; sortOrder: number; isHiredOutcome: boolean; isRejectedOutcome: boolean }>;
+    /** Cumulative conversion against the top stage — not stage-to-stage, which flatters. */
+    funnelConversion: Array<{ id: string; name: string; count: number; pctOfTop: number | null }>;
+    /** Dwell time and current backlog per stage. openCount/oldestOpenDays are the bottleneck. */
+    stageDurations: Array<{
+        statusId: string; name: string; color?: string | null; sortOrder: number;
+        avgDays: number | null; samples: number; openCount: number; oldestOpenDays: number | null;
+    }>;
+    timeToHire: { count: number; avgDays: number | null; medianDays: number | null; p90Days: number | null };
     requisitionsByStatus: { pending: number; approved: number; rejected: number };
-    candidatesBySource: Array<{ id: string; name: string; color?: string | null; count: number }>;
+    candidatesBySource: Array<{ id: string; name: string; color?: string | null; count: number; hires: number; hireRatePct: number | null }>;
     offersByAcceptance: Array<{ status: string; count: number }>;
+    /** The window the server actually applied, echoed so the UI cannot mislabel it. */
+    range: { from: string | null; to: string | null };
 }
 
-export const getRecruitmentOverview = async (): Promise<RecruitmentOverview | null> => {
-    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_OVERVIEW}`);
+export const getRecruitmentOverview = async (range: { from?: string; to?: string } = {}): Promise<RecruitmentOverview | null> => {
+    const qs = new URLSearchParams();
+    if (range.from) qs.set("from", range.from);
+    if (range.to) qs.set("to", range.to);
+    const suffix = qs.toString() ? `?${qs}` : "";
+    const { data } = await axios.get(`${API_BASE_URL}/${RECRUITMENT.GET_OVERVIEW}${suffix}`);
     return data?.overview ?? null;
 };

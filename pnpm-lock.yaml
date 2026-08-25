@@ -331,9 +331,6 @@ importers:
       yup:
         specifier: ^1.0.0
         version: 1.7.1
-      zod:
-        specifier: ^3.22.4
-        version: 3.25.76
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.3

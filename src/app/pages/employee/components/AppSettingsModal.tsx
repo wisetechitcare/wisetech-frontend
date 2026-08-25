@@ -562,7 +562,9 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     // general
                     isAdmin: w?.isAdmin ? "1" : "0",
                     allowOverTime: w?.allowOverTime ?? "0",
-                    exemptFromSiteHybridApproval: w?.exemptFromSiteHybridApproval ?? "0",
+                    // The column is a Boolean; the radio group speaks "1"/"0".
+                    exemptFromSiteHybridApproval:
+                        w?.exemptFromSiteHybridApproval === true || w?.exemptFromSiteHybridApproval === "1" ? "1" : "0",
                     // leave
                     leaveAllocations: [],
                     branchId: w?.branchId ?? "",

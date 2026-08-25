@@ -17,7 +17,7 @@ import {
 // The candidate-facing careers page lives on the marketing site; recruiters share this URL.
 const CAREERS_PUBLIC_BASE = "https://www.wisetech-mep.com/careers";
 
-const emptyForm = (): PostingPayload => ({ requisitionId: "", title: "", location: "", isRemote: false, employmentType: "Full-time", descriptionHtml: "", isPublished: false });
+const emptyForm = (): PostingPayload => ({ requisitionId: "", title: "", location: "", isRemote: false, employmentType: "Full-time", descriptionHtml: "", isPublished: false, showSalary: false });
 
 /** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */
 const MetaPill = ({ text }: { text: string }) => (
@@ -91,7 +91,7 @@ const PostingsView = () => {
                 <AutoGrid min={320}>
                     {postings.map((p) => (
                         <GlassCard key={p.id} preset="row" interactive sx={{ display: "flex", flexDirection: "column", gap: 1, height: "100%", p: 1.75 }}>
-                            <Stack direction="row" alignItems="flex-start" spacing={1}>
+                            <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ minWidth: 0 }}>
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
                                     <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3, wordBreak: "break-word" }}>{p.title}</Typography>
                                     {p.requisition?.prefix && (
@@ -104,13 +104,16 @@ const PostingsView = () => {
                             <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.25 }}>
                                 {p.location && <MetaPill text={p.location} />}
                                 {p.isRemote && <MetaPill text="Remote" />}
+                                {/* Visible on the card so nobody has to open a posting to find out
+                                    whether it is advertising a pay band. */}
+                                {p.showSalary && <MetaPill text="Salary shown" />}
                                 {p.employmentType && <MetaPill text={p.employmentType} />}
                             </Stack>
 
                             {/* Spacer keeps the action row pinned to the bottom so tiles align in the grid. */}
                             <Box sx={{ flex: 1 }} />
 
-                            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+                            <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
                                 <FormControlLabel
                                     sx={{ mr: 0, ml: 0, gap: 0.75 }}
                                     control={<WtSwitch size="sm" checked={p.isPublished} onChange={(e) => publishMut.mutate({ id: p.id, isPublished: e.target.checked })} />}
@@ -148,6 +151,15 @@ const PostingsView = () => {
                         </Stack>
                         <TextField label="Public description" size="small" fullWidth multiline minRows={4} value={form.descriptionHtml ?? ""} onChange={(e) => setForm({ ...form, descriptionHtml: e.target.value })} />
                         <WtSwitchField title="Remote" checked={!!form.isRemote} onChange={(e) => setForm({ ...form, isRemote: e.target.checked })} />
+                        {/* Deliberately worded as a warning rather than a feature: turning this on
+                            publishes an internal pay band to the open internet, where it is read by
+                            candidates negotiating against it and by staff looking up their own. */}
+                        <WtSwitchField
+                            title="Show Salary Range Publicly"
+                            description="Puts this role's CTC band on the careers page and in its Google listing. Off by default — it is internal pay data, and once published it cannot be unseen."
+                            checked={!!form.showSalary}
+                            onChange={(e) => setForm({ ...form, showSalary: e.target.checked })}
+                        />
                         <WtSwitchField title="Publish immediately" description="Make it live on the careers page now." checked={!!form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} />
                     </Stack>
                 </DialogContent>

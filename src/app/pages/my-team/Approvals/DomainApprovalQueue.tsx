@@ -16,7 +16,7 @@ import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/share
 import dayjs from 'dayjs';
 import Swal from 'sweetalert2';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
-import { getApprovalDomain } from './domains/registry';
+import { getApprovalDomain, getApprovalDetail } from './domains/registry';
 // Direct module import (not the ui/ barrel) — the barrel drags Swal/glass/notifications into this
 // file's type+bundle graph for one chip.
 import { ToneChip } from '@app/modules/common/components/ui/chips';
@@ -1096,7 +1096,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
               // Each workflow opens its OWN canonical detail (registry) — leave → ApplyLeave,
               // reimbursement → BatchDetailModal. A domain with no registered Detail (attendance,
               // task, …) carries its detail in the expandable panel, so click toggles that.
-              if (getApprovalDomain(ds.instance.workflowType)?.Detail) {
+              if (getApprovalDetail(ds.instance.workflowType, (ds.instance as any).requestModel)) {
                 setDetailStep(ds);
                 return;
               }
@@ -1116,7 +1116,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
 
       {/* Domain-resolved detail: each workflow renders its own canonical component. */}
       {detailStep && (() => {
-        const Detail = getApprovalDomain(detailStep.instance.workflowType)?.Detail;
+        const Detail = getApprovalDetail(detailStep.instance.workflowType, (detailStep.instance as any).requestModel);
         if (!Detail) return null;
         return (
           <Detail
