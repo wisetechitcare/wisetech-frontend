@@ -62,6 +62,24 @@ const stickySx: SxProps<Theme> = {
     position: 'sticky',
     top: 0,
     '@media (min-width: 992px)': { top: '74px' },
+    /**
+     * Above the page, below the chrome.
+     *
+     * This was 1000, which put the bar over every piece of fixed furniture the layout
+     * owns — and the masthead's own dropdowns open DOWNWARDS into the bar's band, so
+     * the profile menu rendered behind it and lost its lower half. The bar tucks under
+     * the masthead now (see `top` above), so it never needs to outrank it.
+     *
+     * The ceiling is what opens over the bar: `.menu-sub-dropdown` 107, `.wt-aside-toggle`
+     * 106, `.bottom-nav`/`.scrolltop` 105, `.aside` 101, `.header` 100. The floor is page
+     * content, which sets no z-index at all. 99 clears everything below and stays under
+     * everything above, with the whole gap to spare.
+     *
+     * Lives here rather than as a `z-50` utility so both render paths read one number —
+     * and for the reason the `top` note gives at length: Bootstrap owns utility class
+     * names too, and this value must not be something a stylesheet can outrank.
+     */
+    zIndex: 99,
 };
 
 /** MUI-internal state selectors (`.Mui-selected`, `.MuiTabs-indicator`) are not
@@ -69,7 +87,6 @@ const stickySx: SxProps<Theme> = {
  *  Everything that is plain layout is a Tailwind class on the element instead. */
 const tabsSx: SxProps<Theme> = {
     ...stickySx,
-    zIndex: 1000,
     // Brand gradient (left → right) from the design tokens — bright blue
     // on the left flowing to deep navy on the right.
     background: T.color.brandGradientLeftToRight,
@@ -226,7 +243,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
             indicatorColor="primary"
             variant="scrollable"
             scrollButtons={hideScrollButtons ? false : "auto"}
-            className={headerAction ? 'mht-tabs--in-bar min-h-11' : 'z-50 min-h-11'}
+            className={headerAction ? 'mht-tabs--in-bar min-h-11' : 'min-h-11'}
             sx={tabsSx}
         >
             {tabItems.map((tabItem, index) => {
@@ -287,7 +304,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
             {headerAction
                 ? (
                     <Box
-                        className="z-50 flex min-h-11 items-center"
+                        className="flex min-h-11 items-center"
                         sx={{ ...stickySx, background: T.color.brandGradientLeftToRight }}
                     >
                         {tabsStrip}

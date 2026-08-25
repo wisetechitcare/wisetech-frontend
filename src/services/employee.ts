@@ -902,6 +902,47 @@ export const fetchEmployeeIdCard = async (employeeId: string): Promise<EmployeeI
     }
 };
 
+/* ── Birthday card ────────────────────────────────────────────────────────────
+   One payload for both audiences. `kind` is 'employee' or 'contact'; the id is the
+   USER's for an employee (the calendar's birthday events are built from the users
+   list, where the date of birth lives) and the contact's own for a contact.
+
+   Photo and logo arrive as base64 `data:` URIs for the same reason the ID card's do —
+   the card is rasterised to PNG through a <canvas>, and a cross-origin S3 image would
+   taint it and make `toBlob()` throw. */
+export type BirthdayCardKind = 'employee' | 'contact';
+
+export interface BirthdayCardPerson {
+    id: string;
+    name: string;
+    /** Base64 `data:` URI, or null — the card falls back to an initials monogram. */
+    photo: string | null;
+    /**
+     * ISO `YYYY-MM-DD`, or null when none is on file. Only contacts can be null: the
+     * column is optional for them and NOT NULL for employees. A null drops the age
+     * line and the card greets them by name alone.
+     */
+    dateOfBirth: string | null;
+    /** Designation for an employee, "Role · Company" for a contact. */
+    subtitle: string | null;
+}
+
+export interface BirthdayCardPayload {
+    person: BirthdayCardPerson;
+    /** Same shape the ID card uses — the sub-organization's mark, or the group's. */
+    organization: EmployeeIdCardOrganization;
+}
+
+export const fetchBirthdayCard = async (kind: BirthdayCardKind, id: string): Promise<BirthdayCardPayload> => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_BIRTHDAY_CARD}/${kind}/${encodeURIComponent(id)}`;
+        const { data } = await axios.get(endpoint);
+        return data.data as BirthdayCardPayload;
+    } catch (err) {
+        throw err;
+    }
+};
+
 /**
  * Every document for one employee as a single zip.
  *

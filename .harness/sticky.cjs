@@ -16,7 +16,17 @@ const css = fs.readFileSync(path.join('dist/assets', cssFile), 'utf8');
 
 // What emotion emits at runtime for the new `stickySx`, injected unlayered into <head>
 // exactly as MUI does.
-const EMOTION = '.harness-fix{position:sticky;top:0}@media (min-width:992px){.harness-fix{top:74px}}';
+const EMOTION = '.harness-fix{position:sticky;top:0;z-index:99}@media (min-width:992px){.harness-fix{top:74px}}';
+
+// What the bar must stay UNDER. These are the layout's own fixed furniture, and the
+// masthead's dropdowns in particular open downwards into the bar's band -- at z-index
+// 1000 the bar painted over the profile menu and cut it in half.
+const MUST_OUTRANK_BAR = ['.menu-sub-dropdown', '.wt-aside-toggle', '.bottom-nav', '.aside', '.header'];
+
+// Leaflet's panes outrank the bar numerically (400-800 vs 99) and always did, so the
+// bar is protected from them by containment rather than by a bigger number: the
+// container is a stacking context, which keeps those numbers inside the map.
+const CONTAINED = { '.leaflet-container': 'isolate' };
 
 // The rule the removed utilities compiled to, injected so this check keeps demonstrating
 // the mechanism now that the component no longer carries those classes (Tailwind only emits
@@ -105,6 +115,79 @@ const HTML = `
         console.log(`   OLD  top=${r.before.top.padEnd(6)} pinned y=${String(r.before.y).padEnd(4)} ${over(r.before) ? `OVERLAPS by ${over(r.before)}px` : 'clear'}`);
         console.log(`   NEW  top=${r.after.top.padEnd(6)} pinned y=${String(r.after.y).padEnd(4)} ${over(r.after) ? `OVERLAPS by ${over(r.after)}px` : 'clear'}`);
         results.push({ width, r, overBefore: over(r.before), overAfter: over(r.after) });
+    }
+
+    // ── Stacking: the bar sits above the page and below the chrome ────────────────
+    await page.setViewport({ width: 1440, height: 900 });
+    await page.setContent('<!doctype html><body><div id="bar" class="harness-fix"></div></body>');
+    await page.addStyleTag({ content: css });
+    await page.addStyleTag({ content: EMOTION });
+    const stacking = await page.evaluate((selectors) => {
+        const bar = Number(getComputedStyle(document.getElementById('bar')).zIndex);
+        const others = {};
+        // Walk nested rules too: `.header` and `.aside` declare their z-index inside a
+        // `media-breakpoint-up(lg)` block, so a top-level-only scan silently misses the
+        // two selectors that matter most.
+        const walk = (rules, visit) => {
+            for (const r of rules) {
+                if (r.selectorText) visit(r);
+                if (r.cssRules) walk(r.cssRules, visit);
+            }
+        };
+        // Read the STYLESHEET rather than an element: these selectors match nothing in
+        // this bare DOM, and it is the declared value that decides the contest anyway.
+        for (const sheet of document.styleSheets) {
+            let rules;
+            try { rules = sheet.cssRules; } catch { continue; }
+            walk(rules, (r) => {
+                const z = r.style?.getPropertyValue('z-index');
+                if (!z) return;
+                for (const sel of selectors) {
+                    if (r.selectorText.split(',').some((t) => t.trim() === sel)) others[sel] = Number(z);
+                }
+            });
+        }
+        return { bar, others };
+    }, MUST_OUTRANK_BAR);
+
+    console.log(`
+── stacking — bar z-index ${stacking.bar}`);
+    for (const [sel, z] of Object.entries(stacking.others)) {
+        console.log(`   ${sel.padEnd(22)} ${String(z).padStart(4)}  ${z > stacking.bar ? 'above the bar' : 'BELOW THE BAR'}`);
+    }
+    assert.ok(Number.isFinite(stacking.bar) && stacking.bar > 0, 'the bar must carry a z-index of its own');
+    for (const [sel, z] of Object.entries(stacking.others)) {
+        assert.ok(z > stacking.bar,
+            `${sel} (z ${z}) must stay ABOVE the bar (z ${stacking.bar}) — it opens over it`);
+    }
+    assert.strictEqual(Object.keys(stacking.others).length, MUST_OUTRANK_BAR.length,
+        'a selector this check relies on has disappeared from the stylesheet');
+
+    // Containment, not rank: without a stacking context on the map, a pane at z 400
+    // paints over a bar at 99 wherever the two overlap.
+    const isolated = await page.evaluate((expected) => {
+        const out = {};
+        const walk = (rules, visit) => {
+            for (const r of rules) { if (r.selectorText) visit(r); if (r.cssRules) walk(r.cssRules, visit); }
+        };
+        for (const sheet of document.styleSheets) {
+            let rules;
+            try { rules = sheet.cssRules; } catch { continue; }
+            walk(rules, (r) => {
+                for (const sel of Object.keys(expected)) {
+                    if (r.selectorText.split(',').some((t) => t.trim() === sel)) {
+                        const v = r.style?.getPropertyValue('isolation');
+                        if (v) out[sel] = v.trim();
+                    }
+                }
+            });
+        }
+        return out;
+    }, CONTAINED);
+    for (const [sel, want] of Object.entries(CONTAINED)) {
+        console.log(`   ${sel.padEnd(22)} isolation: ${isolated[sel] || '(none)'}`);
+        assert.strictEqual(isolated[sel], want,
+            `${sel} must be its own stacking context, or its panes paint over the bar`);
     }
 
     await browser.close();
