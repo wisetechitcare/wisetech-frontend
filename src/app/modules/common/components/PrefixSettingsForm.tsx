@@ -181,8 +181,9 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
 
   // Which organization's setting is on screen. Reuses the shared org-scope hook
   // rather than fetching organizations again; includeAll is off because a prefix
-  // always belongs to exactly one organization.
-  const orgScope = useOrgScope({ includeAll: false, initialScopeId: '' });
+  // always belongs to exactly one organization, and the holding root is dropped
+  // because records are numbered under the operating sub-organizations.
+  const orgScope = useOrgScope({ includeAll: false, initialScopeId: '', subOrgsOnly: true });
   const selectedOrgId = perOrganization ? orgScope.scopeId : '';
   const selectedOrgName = orgScope.selected?.name ?? '';
 
