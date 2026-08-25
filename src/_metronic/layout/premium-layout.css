@@ -1199,6 +1199,22 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
 }
 
 /* =============================================================================
+   LEAFLET CONTAINMENT
+   Leaflet numbers its panes 400-800 (tiles 200, overlays 400, markers 600, popups
+   700, controls 800) and its container creates NO stacking context of its own -- it
+   sets `position: relative` with no z-index, which is not enough. Those numbers
+   therefore compete page-wide, so a map scrolled under any sticky or fixed chrome
+   paints straight over it: the module tab bar, and the masthead before it.
+
+   `isolation: isolate` makes the container a stacking context without touching its
+   position or z-index, so the panes only ever compete with each other -- which is all
+   leaflet ever meant them to do. Nothing inside the map changes: it already clips to
+   the container with `overflow: hidden`, so no pane was escaping the box visually,
+   only in paint order.
+   ========================================================================== */
+.leaflet-container { isolation: isolate; }
+
+/* =============================================================================
    RESPONSIVE HEADER  (tablet + mobile, < 992px)
    Keeps the top bar tidy: hamburger on the left, a single row of matching
    circular action chips (search · bell · profile) on the right that never

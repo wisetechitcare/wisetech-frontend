@@ -16,6 +16,10 @@ export interface YearlyBreakdownRow {
     ptaxDeduction: string;
     tdsDeduction: string;
     tds2Deduction: string;
+    /** Company-side retention (fresher bond) held back this month, if any. */
+    retention?: string;
+    /** Whether the retention held back has been settled back to the employee. */
+    retentionStatus?: PayState;
     status: PayState;
     /** Whether PF + PTax + TDS deducted this month actually reached the government. */
     govtStatus?: PayState;
@@ -95,11 +99,9 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
     const parseAmount = (value: string) =>
         Number(value.replace(/[₹,]/g, '').trim()) || 0;
 
+    // Whole rupees only — the table shows no paise, so the totals must not either.
     const formatCurrency = (value: number) =>
-        `₹${value.toLocaleString('en-IN', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        })}`;
+        `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
     const realRows = rows.filter((r) => !r.isPlaceholder);
 
@@ -112,6 +114,9 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
     const colPtax = showPtax && !allZero((r) => r.ptaxDeduction);
     const colTds = showTds && !allZero((r) => r.tdsDeduction);
     const colTds2 = showTds2 && !allZero((r) => r.tds2Deduction);
+    // Retention only applies to some employees — show the column only when there is any
+    // (unlike the other columns, an empty year shouldn't advertise it either).
+    const colRetention = hasRealRows && !allZero((r) => r.retention ?? '');
     const colPaid = !allZero((r) => r.paid);
     const colPending = !allZero((r) => r.pending);
     // Only worth a column when there is statutory money to remit at all.
@@ -130,6 +135,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
             acc.ptaxDeduction += parseAmount(row.ptaxDeduction);
             acc.tdsDeduction += parseAmount(row.tdsDeduction);
             acc.tds2Deduction += parseAmount(row.tds2Deduction);
+            acc.retention += parseAmount(row.retention ?? '');
 
             return acc;
         },
@@ -143,6 +149,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
             ptaxDeduction: 0,
             tdsDeduction: 0,
             tds2Deduction: 0,
+            retention: 0,
         }
     );
 
@@ -157,6 +164,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
         ptax: parseAmount(r.ptaxDeduction),
         tds: parseAmount(r.tdsDeduction),
         tds2: parseAmount(r.tds2Deduction),
+        retention: parseAmount(r.retention ?? ''),
         netPayable: parseAmount(r.netPayable),
         paid: parseAmount(r.paid),
         pending: parseAmount(r.pending),
@@ -172,6 +180,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
         ...(colPtax ? [{ key: 'ptax', header: 'PTax', type: 'currency' as const, showTotal: true }] : []),
         ...(colTds  ? [{ key: 'tds',  header: tdsLabel, type: 'currency' as const, showTotal: true }] : []),
         ...(colTds2 ? [{ key: 'tds2', header: 'TDS 2', type: 'currency' as const, showTotal: true }] : []),
+        ...(colRetention ? [{ key: 'retention', header: 'Retention', type: 'currency' as const, showTotal: true, color: '#b45309' }] : []),
         { key: 'netPayable',  header: 'Net Payable',  type: 'currency', showTotal: true },
         ...(colPaid    ? [{ key: 'paid',    header: 'Paid',    type: 'currency' as const, showTotal: true, color: '#1d4ed8' }] : []),
         ...(colPending ? [{ key: 'pending', header: 'Pending', type: 'currency' as const, showTotal: true, color: '#dc2626' }] : []),
@@ -225,6 +234,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                                 ...(colPtax ? ['PTax'] : []),
                                 ...(colTds  ? [tdsLabel] : []),
                                 ...(colTds2 ? ['TDS 2'] : []),
+                                ...(colRetention ? ['Retention'] : []),
                                 'Net Payable',
                                 ...(colPaid ? ['Paid'] : []),
                                 ...(colPending ? ['Pending'] : []),
@@ -304,6 +314,12 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                                     {colTds2 && (
                                         <TableCell sx={{ fontSize: 13, fontWeight: 700, color: colourOf(row.tdsStatus), whiteSpace: 'nowrap', py: 1.15 }}>
                                             <span className={sensitiveCls}>{row.tds2Deduction}</span>
+                                        </TableCell>
+                                    )}
+
+                                    {colRetention && (
+                                        <TableCell sx={{ fontSize: 13, fontWeight: 700, color: colourOf(row.retentionStatus), whiteSpace: 'nowrap', py: 1.15 }}>
+                                            <span className={sensitiveCls}>{row.retention || '-'}</span>
                                         </TableCell>
                                     )}
 
@@ -395,6 +411,12 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                                 {colTds2 && (
                                     <TableCell>
                                         <span className={sensitiveCls}>{formatCurrency(totals.tds2Deduction)}</span>
+                                    </TableCell>
+                                )}
+
+                                {colRetention && (
+                                    <TableCell sx={{ color: '#b45309' }}>
+                                        <span className={sensitiveCls}>{formatCurrency(totals.retention)}</span>
                                     </TableCell>
                                 )}
 

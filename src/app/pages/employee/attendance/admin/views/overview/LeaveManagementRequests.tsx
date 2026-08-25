@@ -9,6 +9,8 @@ import {
   revokeLeaveManagement,
 } from "@services/employee";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import UnsettledLeaversPanel from "./UnsettledLeaversPanel";
+import ConvertForEmployeeButton from "./ConvertForEmployeeButton";
 import dayjs from "dayjs";
 import { KTIcon } from "@metronic/helpers";
 import { successConfirmation, rejectConfirmation, errorConfirmation } from "@utils/modal";
@@ -112,12 +114,17 @@ function LeaveManagementRequests() {
         status: 1,
         approvedRejectById: currentEmployeeId
       }
-      await updateLeaveManagement(request.id, payLoad);
-      await successConfirmation("Leave management request approved successfully");
+      // The server routes this through the employee's leave approval chain, so the outcome is not
+      // always "approved" — a multi-level chain advances to the next approver. Show what it says.
+      const res = await updateLeaveManagement(request.id, payLoad);
+      await successConfirmation(res?.message || "Leave management request approved successfully");
       eventBus.emit(EVENT_KEYS.leaveManagementRequestUpdated, { requestId: request.id });
       fetchRequests();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error approving request:", error);
+      // Carries the chain's own refusal ("Only the current approver … can act on this request",
+      // "Self-approval is not permitted") — silence here left the button looking simply broken.
+      await errorConfirmation(error?.response?.data?.detail || error?.response?.data?.message || "Couldn’t approve the request. Please try again.");
     } finally {
       setProcessingRowId(null);
       setProcessingAction(null);
@@ -136,13 +143,13 @@ function LeaveManagementRequests() {
         status: 2,
         approvedRejectById: currentEmployeeId
       }
-      await updateLeaveManagement(requestId, payLoad);
-      await successConfirmation("Leave management request rejected successfully");
+      const res = await updateLeaveManagement(requestId, payLoad);
+      await successConfirmation(res?.message || "Leave management request rejected successfully");
       eventBus.emit(EVENT_KEYS.leaveManagementRequestUpdated, { requestId });
       fetchRequests();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error rejecting request:", error);
-      await errorConfirmation("Couldn’t reject the request. Please try again.");
+      await errorConfirmation(error?.response?.data?.detail || error?.response?.data?.message || "Couldn’t reject the request. Please try again.");
     } finally {
       setProcessingRowId(null);
       setProcessingAction(null);
@@ -319,12 +326,30 @@ function LeaveManagementRequests() {
   },
 }];
 
-  if (!loading && requests.length === 0) {
-    return null;
-  }
+  /**
+   * An empty request list hides the TABLE, never the section.
+   *
+   * `return null` used to sit here, above everything — so with no conversion requests on file the
+   * whole block vanished, taking the Unsettled Leavers panel and the on-behalf action with it. Those
+   * two exist precisely for work that has NO request yet, so gating them behind having requests made
+   * them unreachable exactly when they were needed. (Both hide themselves for a non-Admin/HR viewer.)
+   */
+  const hasRequests = loading || requests.length > 0;
 
   return (
     <>
+      {/* Convert on an employee's behalf. Above the leavers panel because it covers everyone —
+          the panel below is the narrower, more urgent case of people who have already exited. */}
+      <div className="mt-8 flex justify-end">
+        <ConvertForEmployeeButton />
+      </div>
+
+      {/* Leavers whose balance nobody converted. Sits ABOVE the pending queue: it is the work that
+          has no request yet, so it would never surface in a list of requests. Renders nothing when
+          the list is empty or the viewer is not Admin/HR. */}
+      <UnsettledLeaversPanel />
+
+      {hasRequests && (
       <div className="mt-8">
         <div className="mb-2.5 flex items-center gap-3">
           <IconBox icon="dollar" trio={TRIO.purple} size={44} fs="fs-1" />
@@ -340,6 +365,7 @@ function LeaveManagementRequests() {
           resource={resourceNameMapWithCamelCase.leaveCashTransfer}
         />
       </div>
+      )}
 
       {/* Revoke Reason Modal */}
       <GlassDialog open={showRevokeModal} onClose={() => setShowRevokeModal(false)} maxWidth="sm" fullWidth>

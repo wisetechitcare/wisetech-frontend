@@ -10,7 +10,7 @@
  *    availableBalance / carriedForward) and resolves `leaveTypeId` by name from leave-options.
  *  - approval chain uses the self-readable endpoint (no employeeId arg).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@redux/store';
 import {
@@ -26,6 +26,7 @@ import {
     updateEmployeeRequestById,
     fetchEmployeeLeaveBalance,
     fetchEmployeeLeaves,
+    fetchEmpAttendanceStatistics,
     fetchAllEmployees,
     uploadLeaveDocuments,
     fetchLeaveApprovalChain,
@@ -39,6 +40,9 @@ import { setMonthlyApiData } from '@redux/slices/salaryData';
 import { LEAVE_POLICY_KEY } from '@constants/configurations-key';
 import { buildCumulativeInputs, getAccrualWindow } from '@utils/balanceProgressUtils';
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import { useEventBus } from '@hooks/useEventBus';
+import { useAttendanceRealtime } from '@hooks/useAttendanceRealtime';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 const DEFAULT_PRIORITY = ['Casual Leaves', 'Sick Leaves', 'Floater Leaves', 'Annual Leaves'];
 
@@ -179,8 +183,66 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
     // and never depends on another screen having populated the shared attendanceStats slice.
     const [holidayInfo, setHolidayInfo] = useState<{ dates: string[]; names: Record<string, string>; colors: Record<string, string> }>({ dates: [], names: {}, colors: {} });
     const [chain, setChain] = useState<ApprovalChainLevel[]>([]);
+    /**
+     * Today's punch state for THIS employee — 'none' (not checked in), 'in' (checked in, still
+     * open) or 'done' (checked in AND out). Drives the same-day leave gate in ApplyLeave: a day
+     * already worked to completion cannot be taken as leave, and a day with an open check-in can
+     * only honestly be a PM half-day.
+     */
+    const [todayPunch, setTodayPunch] = useState<'none' | 'in' | 'done'>('none');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    /**
+     * Bumped by refresh() to re-run the mount fetch. Needed because a SECOND leave applied without
+     * closing the modal ("Apply Another") would otherwise be composed against the balances,
+     * cumulative pool and blocked-date set captured before the first submit — i.e. stale figures
+     * and a calendar that still shows the just-booked days as free.
+     */
+    const [nonce, setNonce] = useState(0);
+    const lastRefreshAt = useRef(0);
+    /**
+     * Re-pull everything this modal composes a request from.
+     *
+     * Coalesced on an 800ms window because the same logical change arrives twice: once explicitly
+     * (the submit path calls this the moment the server acknowledges) and once over the socket
+     * (`leaveRequests:updated`, which the backend broadcasts for that very request). Both paths are
+     * wanted — the explicit call is deterministic even with a dead socket, the socket call also
+     * catches changes made by an approver or another tab — but the fan-out behind them is nine
+     * requests, so firing it twice for one event is exactly the N+1 the standing perf bar forbids.
+     */
+    const refresh = useCallback(() => {
+        const now = Date.now();
+        if (now - lastRefreshAt.current < 800) return;
+        lastRefreshAt.current = now;
+        setNonce((n) => n + 1);
+    }, []);
+
+    /** Derive today's punch state from the day's attendance rows. The LAST punch decides, so a
+     *  lunch-break in/out pair followed by a fresh check-in still reads as 'in'. */
+    const readPunch = useCallback(async () => {
+        if (!employeeId) return;
+        const n = new Date();
+        const iso = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+        const res = await fetchEmpAttendanceStatistics(employeeId, iso, iso).catch(() => null);
+        const rows: any[] = res?.data?.empAttendanceStatistics ?? [];
+        const last = rows[rows.length - 1];
+        setTodayPunch(!last?.checkIn ? 'none' : last?.checkOut ? 'done' : 'in');
+    }, [employeeId]);
+
+    /**
+     * Realtime. The modal was the only surface in the leave ecosystem not listening to the bus that
+     * every board beside it already uses (Balances, BalanceProgress, Leaves, the admin queue), so it
+     * alone kept composing against whatever snapshot it captured when it opened.
+     *
+     * Two subscriptions, deliberately asymmetric in cost:
+     *  • a leave change anywhere for this employee invalidates balances, the cumulative pool and the
+     *    blocked-date set → full refresh (coalesced).
+     *  • a punch (self check-out, biometric push, admin edit) only invalidates today's punch state →
+     *    one tiny request, NOT the nine-call batch. Debounced 1.5s by useAttendanceRealtime, which
+     *    already coalesces bursts.
+     */
+    useEventBus(EVENT_KEYS.leaveRequestUpdated, () => refresh());
+    useAttendanceRealtime(() => { readPunch(); });
 
     const holidaySet = useMemo(() => new Set([...(holidays ?? []), ...holidayInfo.dates]), [holidays, holidayInfo]);
     const balances: TypeBalance[] = useMemo(
@@ -192,7 +254,9 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
     useEffect(() => {
         let alive = true;
         (async () => {
-            setLoading(true);
+            // A refresh repaints in place — flipping `loading` would swap the success screen (or a
+            // filled-in form) for a "Loading…" panel, which is the flicker this refetch exists to avoid.
+            if (!nonce) setLoading(true);
             try {
                 // Salary fetch: current month, only if not already in Redux (salary page not yet visited).
                 const now = new Date();
@@ -200,7 +264,9 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                 const startDate = `${y}-${mo}-01`;
                 const endDate   = `${y}-${mo}-${String(new Date(y, now.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
 
-                const [balRes, optRes, policyRes, chainRows, empRes, salRes, leavesRes, coRes] = await Promise.all([
+                const todayIso = `${y}-${mo}-${String(now.getDate()).padStart(2, '0')}`;
+
+                const [balRes, optRes, policyRes, chainRows, empRes, salRes, leavesRes, coRes, attRes] = await Promise.all([
                     fetchEmployeeLeaveBalance(employeeId),
                     fetchLeaveOptions(branchId).catch(() => null),
                     fetchConfiguration(LEAVE_POLICY_KEY).catch(() => null),
@@ -211,8 +277,13 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                         : fetchSalaryDataForDateRangeMonthly({ employeeId, startDate, endDate }).catch(() => null),
                     fetchEmployeeLeaves(employeeId).catch(() => null),
                     fetchCompanyOverview().catch(() => null),
+                    fetchEmpAttendanceStatistics(employeeId, todayIso, todayIso).catch(() => null),
                 ]);
                 if (!alive) return;
+
+                const punchRows: any[] = attRes?.data?.empAttendanceStatistics ?? [];
+                const lastPunch = punchRows[punchRows.length - 1];
+                setTodayPunch(!lastPunch?.checkIn ? 'none' : lastPunch?.checkOut ? 'done' : 'in');
 
                 // Keep fresh leaves local for blockedDates — do NOT dispatch to the shared
                 // leaves slice (that holds transformed table data; raw rows would break it).
@@ -316,7 +387,7 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
         return () => {
             alive = false;
         };
-    }, [employeeId, branchId]);
+    }, [employeeId, branchId, nonce]);
 
     const preview = useCallback(
         // `sandwichDates` are the interior off-days the BACKEND rule engine docks as Unpaid — the
@@ -497,5 +568,5 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
         [],
     );
 
-    return { loading, submitting, types, balances, priority, overflow, probation, probationActive, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated: cumulativePool.totalPaidAllocated, usedPaidLeaves: cumulativePool.usedPlusPendingPaid };
+    return { loading, submitting, refresh, todayPunch, types, balances, priority, overflow, probation, probationActive, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated: cumulativePool.totalPaidAllocated, usedPaidLeaves: cumulativePool.usedPlusPendingPaid };
 }

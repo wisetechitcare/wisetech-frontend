@@ -28,22 +28,65 @@ interface MaterialTabProps {
     headerAction?: React.ReactNode;
 }
 
-/** Sticky offsets the bar has always used: it tucks under the fixed masthead on
- *  desktop and sits flush at the top once the masthead collapses. Shared so the
- *  two render paths (bar-with-action vs bare strip) can never drift apart.
+/** Sticky offsets: the bar tucks under the masthead where the masthead is fixed, and
+ *  sits flush at the top where it is not. Shared so the two render paths
+ *  (bar-with-action vs bare strip) can never drift apart.
  *
- *  This is one query where the old CSS had two. It carried `min-width:480px →
- *  74px` followed by `max-width:1024px → 0`, which overlap: between 480 and 1024
- *  the second one won purely because it was written second, so the real behaviour
- *  was always "0 below 1025px, 74px above it". Same result, but now it does not
- *  depend on rule order surviving a refactor. */
-const STICKY = 'sticky top-0 min-[1025px]:top-[74px]';
+ *  From 992px up — `media-breakpoint-up(lg)` in sass/layout/_header.scss — `.header`
+ *  is `position: fixed` and 74px tall (`$header-config` in that folder's
+ *  _variables.scss), so the bar has to clear 74px.
+ *
+ *  Below 992px the masthead scrolls away with the page, so 0 is correct. It is worth
+ *  saying why, because the config claims otherwise: `fixed.tabletAndMobile` is true
+ *  and Metronic duly fixes `.header-brand` there — but HeaderWrapper renders that very
+ *  element with Bootstrap's `position-relative` utility, whose `!important` outranks
+ *  the layout. The compact masthead is `relative` and scrolls; offsetting by its 54px
+ *  (premium-layout.css) would leave a dead band at the top of every module.
+ *
+ *  IN `sx`, NOT TAILWIND — that is the whole point of this const. It used to be a
+ *  `sticky top-0` pair plus a `min-[1025px]:` variant carrying the 74px (spelled apart
+ *  here on purpose: Tailwind v4 scans comments, so writing that class name whole in
+ *  prose keeps shipping the very rule this stopped using). Bootstrap ships its own
+ *  `.top-0` utility carrying `!important`, loaded long after Tailwind's layer. Any
+ *  element wearing that class is `top: 0 !important` and NO variant can outrank it: the
+ *  74px rule was compiled into the bundle and could never apply. So the bar pinned to
+ *  the viewport top, and at z-index 1000 against the masthead's 100 it painted OVER
+ *  the header instead of tucking under it. `.top-0` does not select an emotion class,
+ *  which is why the styled() version this replaced never had the bug — and why any
+ *  `top`/`bottom`/`start`/`end` for this bar belongs here rather than in a utility.
+ *
+ *  Both numbers are measured rather than trusted: .harness/sticky.cjs loads the real
+ *  compiled stylesheet, finds whichever strip is fixed at each width, and fails if the
+ *  offset here stops matching it. */
+const stickySx: SxProps<Theme> = {
+    position: 'sticky',
+    top: 0,
+    '@media (min-width: 992px)': { top: '74px' },
+    /**
+     * Above the page, below the chrome.
+     *
+     * This was 1000, which put the bar over every piece of fixed furniture the layout
+     * owns — and the masthead's own dropdowns open DOWNWARDS into the bar's band, so
+     * the profile menu rendered behind it and lost its lower half. The bar tucks under
+     * the masthead now (see `top` above), so it never needs to outrank it.
+     *
+     * The ceiling is what opens over the bar: `.menu-sub-dropdown` 107, `.wt-aside-toggle`
+     * 106, `.bottom-nav`/`.scrolltop` 105, `.aside` 101, `.header` 100. The floor is page
+     * content, which sets no z-index at all. 99 clears everything below and stays under
+     * everything above, with the whole gap to spare.
+     *
+     * Lives here rather than as a `z-50` utility so both render paths read one number —
+     * and for the reason the `top` note gives at length: Bootstrap owns utility class
+     * names too, and this value must not be something a stylesheet can outrank.
+     */
+    zIndex: 99,
+};
 
 /** MUI-internal state selectors (`.Mui-selected`, `.MuiTabs-indicator`) are not
  *  reachable from a utility class, so the tab strip's own chrome lives in `sx`.
  *  Everything that is plain layout is a Tailwind class on the element instead. */
 const tabsSx: SxProps<Theme> = {
-    zIndex: 1000,
+    ...stickySx,
     // Brand gradient (left → right) from the design tokens — bright blue
     // on the left flowing to deep navy on the right.
     background: T.color.brandGradientLeftToRight,
@@ -200,7 +243,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
             indicatorColor="primary"
             variant="scrollable"
             scrollButtons={hideScrollButtons ? false : "auto"}
-            className={headerAction ? 'mht-tabs--in-bar min-h-11' : `${STICKY} z-50 min-h-11`}
+            className={headerAction ? 'mht-tabs--in-bar min-h-11' : 'min-h-11'}
             sx={tabsSx}
         >
             {tabItems.map((tabItem, index) => {
@@ -261,8 +304,8 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
             {headerAction
                 ? (
                     <Box
-                        className={`${STICKY} z-50 flex min-h-11 items-center`}
-                        sx={{ background: T.color.brandGradientLeftToRight }}
+                        className="flex min-h-11 items-center"
+                        sx={{ ...stickySx, background: T.color.brandGradientLeftToRight }}
                     >
                         {tabsStrip}
                         <div className="flex shrink-0 items-center gap-2 pl-2.5 pr-3.5">{headerAction}</div>

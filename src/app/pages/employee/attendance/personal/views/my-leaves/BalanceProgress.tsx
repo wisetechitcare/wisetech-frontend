@@ -27,6 +27,7 @@ import {
     getTotalWeekendsBetweenDates,
     calculateLeavesTakenByType,
     calculateTransferredLeaves,
+    encashedByType,
     hasPendingOrApprovedEncashTransfer,
     calculateLeaveBalances,
     buildLeaveData,
@@ -62,6 +63,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     const [totalLeaves, setTotalLeaves] = useState<CustomLeaves[]>([]);
     const [showConvertModal, setShowConvertModal] = useState(false);
     const [showEncashTransferModal, setShowEncashTransferModal] = useState(false);
+    /** Days cashed out this fiscal year, per leave type — netted out of each row's entitlement. */
+    const [encashedLeavesInCurrentFiscal, setEncashedLeavesInCurrentFiscal] = useState<Record<string, number>>({});
     const [shouldShowConvertButton, setShouldShowConvertButton] = useState(true);
     const [approvedRequestInfo, setApprovedRequestInfo] = useState<{ transfer?: any; encash?: any } | null>(null);
     const [addonLeaveAllowanceCount, setAddonLeaveAllowanceCount] = useState(0);
@@ -149,13 +152,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     return createdDate >= startDateNew && createdDate <= endDateNew;
                 });
 
-                const currentFiscalEncashRequests = requests.filter((req: any) => {
-                    if (req.managementType !== 'CASH') return false;
-                    if (req.status !== 0 && req.status !== 1) return false;
-                    const createdDate = req.createdAt ? dayjs(req.createdAt).format('YYYY-MM-DD') : '';
-                    return createdDate >= startDateNew && createdDate <= endDateNew;
-                });
-
                 currentFiscalTransferRequests.forEach((transferRequest: any) => {
                     if (transferRequest?.leaveTypeIds && Array.isArray(transferRequest.leaveTypeIds)) {
                         transferRequest.leaveTypeIds.forEach((leaveTypeItem: any) => {
@@ -166,15 +162,18 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     }
                 });
 
-                currentFiscalEncashRequests.forEach((encashRequest: any) => {
-                    if (encashRequest?.leaveTypeIds && Array.isArray(encashRequest.leaveTypeIds)) {
-                        encashRequest.leaveTypeIds.forEach((leaveTypeItem: any) => {
-                            const leaveType = leaveTypeItem.leaveType;
-                            const count = leaveTypeItem.count || 0;
-                            currentFiscalTransferred[leaveType] = (currentFiscalTransferred[leaveType] || 0) + count;
-                        });
-                    }
-                });
+                // ENCASHMENT IS NO LONGER SUBTRACTED HERE.
+                //
+                // recalculateBalance now nets encashed days out of availableBalance server-side, so
+                // subtracting them again on this screen would double-count them: encash 4 days and
+                // the card would drop by 8. This subtraction existed because the server did not do
+                // it — which is also why ApplyLeave, which reads availableBalance directly, used to
+                // show days that had already been cashed out.
+                //
+                // Transfers are still subtracted below, and deliberately are NOT deducted
+                // server-side: fiscalYearRollover carries availableBalance forward automatically,
+                // so reducing it for a transfer would make rollover carry the smaller figure and
+                // destroy the days the employee asked to keep.
 
                 setTransferredLeavesInCurrentFiscal(currentFiscalTransferred);
                 setShouldShowConvertButton(!hasPendingOrApprovedRequest);
@@ -340,6 +339,9 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     hasPendingOrApprovedTransfer,
                     0
                 );
+                // Encashed days come from the SAME summary the balances do, so the card and the
+                // server's availableBalance can never disagree about what was cashed out.
+                setEncashedLeavesInCurrentFiscal(encashedByType(leavesSummary));
                 setLeaveBalances(balances);
                 setProRatedBalances(proRated);
                 setLeavesTakenCount(leavesTaken);
@@ -369,8 +371,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
         totalUnpaidAssigned,
         grandTotalUsed,
         grandTotalAssigned
-    } = useMemo(() => buildLeaveData(leavesTakenCount, proRatedBalances, leaveBalances),
-        [leavesTakenCount, proRatedBalances, leaveBalances]);
+    } = useMemo(() => buildLeaveData(leavesTakenCount, proRatedBalances, leaveBalances, encashedLeavesInCurrentFiscal),
+        [leavesTakenCount, proRatedBalances, leaveBalances, encashedLeavesInCurrentFiscal]);
 
     // Fiscal year start month derived from the prop (e.g. "2026-04-01" → 4)
     const fiscalStartMonth = useMemo(
@@ -417,6 +419,21 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
         calculateTotalAvailableLeaves(proRatedBalances, leaveBalances, leavesTakenCount, transferredLeavesInCurrentFiscal),
         [proRatedBalances, leaveBalances, leavesTakenCount, transferredLeavesInCurrentFiscal]
     );
+
+    /**
+     * Why the Convert Leaves button is unavailable, or null when it is available.
+     *
+     * Order matters: a zero balance is the more fundamental reason, so it wins when both apply —
+     * telling someone "a request is already pending" when they also have nothing to convert would
+     * send them to check the wrong thing.
+     */
+    const convertBlockedReason = useMemo<string | null>(() => {
+        const paidAvailable = Number(availableLeaves?.totalLeaves ?? 0);
+        if (paidAvailable <= 0) return 'You have no paid leave balance left to convert.';
+        if (!shouldShowConvertButton) return 'You already have a conversion request pending or approved.';
+        return null;
+    }, [availableLeaves, shouldShowConvertButton]);
+    const canConvert = convertBlockedReason === null;
 
     if (!res2 && !res1) {
         return null;
@@ -538,7 +555,25 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                         </div>
                         {/* Converting leave you cannot yet use makes no sense — hide during probation. */}
                         {!fromAdmin && !hidePaidBalances && isFiscalYearCurrentOrFuture && (
-                            <WtButton inverted onClick={() => setShowConvertModal(true)}
+                            /*
+                             * DISABLED, not hidden, when there is nothing to convert.
+                             *
+                             * Hiding the control leaves the employee wondering where it went — and the
+                             * two reasons it can be unavailable are things they should be able to see:
+                             * a zero paid balance, or a conversion request already in flight. The
+                             * server rejects both cases anyway (validateConversion refuses a request
+                             * for more days than are held, and refuses an empty one), so this is the
+                             * same rule stated where the employee can act on it.
+                             *
+                             * `shouldShowConvertButton` was already being computed for the
+                             * one-request-at-a-time rule and then never read by anything — the button
+                             * rendered regardless. It is wired up here.
+                             */
+                            <WtButton
+                                inverted
+                                disabled={!canConvert}
+                                title={convertBlockedReason ?? undefined}
+                                onClick={() => setShowConvertModal(true)}
                                 startIcon={<KTIcon iconName="arrow-two-diagonals" className="fs-5" />}
                                 className="h-11 whitespace-nowrap w-full sm:w-auto">
                                 Convert Leaves
