@@ -199,6 +199,7 @@ export const EMPLOYEE = {
     GET_DOCUMENTS_DIRECTORY: "api/employee/documents/directory",
     GET_DOCUMENT_VAULT: "api/employee/documents/vault",
     GET_EMPLOYEE_ID_CARD: "api/employee/id-card",
+    GET_BIRTHDAY_CARD: "api/employee/birthday-card",
     GET_DOCUMENT_ARCHIVE: "api/employee/documents/vault",
     GET_DOCUMENT_FILE: "api/employee/documents/vault",
     GET_ATTENDANCE_BY_EMP_ID: "api/employee/attendance",
