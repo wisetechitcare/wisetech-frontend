@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { fetchCompanyLogo } from "@services/company";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const DEFAULT_LOGO =
   "https://wise-tech-asset-store.s3.ap-south-1.amazonaws.com/4100960a0f2c5e89381847e6637d3e67aa43d39330";
@@ -95,10 +96,7 @@ export default function InactiveEmployee() {
               animation: "spin 12s linear infinite",
             }}
           ></div>
-          <i
-            className="bi bi-person-fill-slash"
-            style={{ fontSize: 44, color: "#f1416c", zIndex: 1 }}
-          />
+          <AppIcon name="bi-person-fill-slash" className="fs-3x" color="#f1416c" style={{ zIndex: 1 }} />
         </div>
 
         <h1
@@ -140,7 +138,7 @@ export default function InactiveEmployee() {
               flexShrink: 0,
             }}
           >
-            <i className="bi bi-envelope-paper-heart-fill text-primary fs-3" />
+            <AppIcon name="bi-envelope-paper-heart-fill" className="text-primary fs-3" />
           </div>
           <div>
             <div
@@ -187,7 +185,7 @@ export default function InactiveEmployee() {
             e.currentTarget.style.boxShadow = "0 4px 6px rgba(30, 41, 59, 0.2)";
           }}
         >
-          <i className="bi bi-arrow-left" style={{ fontSize: 18 }} />
+          <AppIcon name="bi-arrow-left" className="fs-3" />
           Back to Login
         </button>
 

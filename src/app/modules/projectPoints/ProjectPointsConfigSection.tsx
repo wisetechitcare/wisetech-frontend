@@ -10,6 +10,7 @@ import {
     type ProjectPointMaster,
 } from "@services/projectPoints";
 import ProjectPointsConfigModal from "./ProjectPointsConfigModal";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * Configuration → Project Points. Self-contained card: list + add/edit/delete +
@@ -84,7 +85,7 @@ const ProjectPointsConfigSection: React.FC = () => {
         >
             {points.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "28px 16px", color: "#94a3b8", fontSize: 13 }}>
-                    <i className="bi bi-inbox" style={{ fontSize: 28, display: "block", marginBottom: 8, opacity: 0.4 }} />
+                    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: "block", marginBottom: 8, opacity: 0.4 }} />
                     No project points configured yet
                 </div>
             ) : (
@@ -110,15 +111,15 @@ const ProjectPointsConfigSection: React.FC = () => {
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                                 <button type="button" title="Move up" disabled={idx === 0} onClick={() => move(idx, -1)}
-                                    style={iconBtn("#64748b", idx === 0)}><i className="bi bi-arrow-up" /></button>
+                                    style={iconBtn("#64748b", idx === 0)}><AppIcon name="bi-arrow-up" /></button>
                                 <button type="button" title="Move down" disabled={idx === points.length - 1} onClick={() => move(idx, 1)}
-                                    style={iconBtn("#64748b", idx === points.length - 1)}><i className="bi bi-arrow-down" /></button>
+                                    style={iconBtn("#64748b", idx === points.length - 1)}><AppIcon name="bi-arrow-down" /></button>
                                 <button type="button" title={p.isActive ? "Disable" : "Enable"} onClick={() => toggleActive(p)}
                                     style={iconBtn(p.isActive ? "#059669" : "#94a3b8")}>
                                     <i className={p.isActive ? "bi bi-toggle-on" : "bi bi-toggle-off"} />
                                 </button>
-                                <button type="button" title="Edit" onClick={() => openEdit(p)} style={iconBtn("#4f82c4")}><i className="bi bi-pencil" /></button>
-                                <button type="button" title="Delete" onClick={() => handleDelete(p)} style={iconBtn("#ef4444")}><i className="bi bi-trash" /></button>
+                                <button type="button" title="Edit" onClick={() => openEdit(p)} style={iconBtn("#4f82c4")}><AppIcon name="bi-pencil" /></button>
+                                <button type="button" title="Delete" onClick={() => handleDelete(p)} style={iconBtn("#ef4444")}><AppIcon name="bi-trash" /></button>
                             </div>
                         </div>
                     ))}

@@ -21,7 +21,7 @@ import {
 } from '@modules/payroll/services/payrollService';
 import { successConfirmation } from '@utils/modal';
 import Swal from 'sweetalert2';
-import { WtSwitch } from "@app/modules/common/components/ui";
+import { WtSwitch, AppIcon } from "@app/modules/common/components/ui";
 import { useDispatch, useSelector } from 'react-redux';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch, RootState } from '@redux/store';
@@ -429,7 +429,7 @@ function ComponentFormModal({
               {isEdit ? 'Edit Component' : 'Add Component'}
             </h5>
             <button className="btn btn-icon btn-sm btn-light ms-auto" onClick={onClose}>
-              <i className="bi bi-x fs-4" />
+              <AppIcon name="bi-x" className="fs-4" />
             </button>
           </div>
 
@@ -441,7 +441,7 @@ function ComponentFormModal({
               {isEdit && (
                 <div className="alert py-2 mb-4 d-flex align-items-center gap-2"
                   style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8 }}>
-                  <i className="bi bi-info-circle text-primary" />
+                  <AppIcon name="bi-info-circle" className="text-primary" />
                   <span className="fs-8 text-gray-700">
                     Current effective: <strong>
                       {isBaseDate(existingEffectiveFrom) ? 'All time (base record)' : formatDate(existingEffectiveFrom)}
@@ -604,7 +604,7 @@ function ComponentFormModal({
                     {form.dependsOnKey && form.defaultPercentage && (
                       <div className="mt-2 px-2 py-1 rounded-2 fs-8 fw-semibold"
                         style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0369a1', fontFamily: 'monospace' }}>
-                        <i className="bi bi-calculator me-1" />
+                        <AppIcon name="bi-calculator" className="me-1" />
                         {form.displayName || '(component)'} = {form.defaultPercentage}% of {allItems.find(c => c.key === form.dependsOnKey)?.displayName || form.dependsOnKey}
                       </div>
                     )}
@@ -615,7 +615,7 @@ function ComponentFormModal({
                 <div className="col-12">
                   <div className="p-3 rounded-3" style={{ background: '#f8faff', border: '1px solid #e0e7ff' }}>
                     <div className="fw-semibold text-gray-800 fs-7 mb-2">
-                      <i className="bi bi-people me-1" />
+                      <AppIcon name="bi-people" className="me-1" />
                       Who does this apply to?
                     </div>
                     <div className="d-flex gap-4 mb-2 flex-wrap">
@@ -704,7 +704,7 @@ function ComponentFormModal({
                   <div className="col-12">
                     <div className="p-3 rounded-3" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
                       <div className="fw-semibold text-gray-800 fs-7 mb-2">
-                        <i className="bi bi-calendar-range me-1" />
+                        <AppIcon name="bi-calendar-range" className="me-1" />
                         {isEdit ? 'When should this change take effect?' : 'When should this apply?'}
                       </div>
 
@@ -863,7 +863,7 @@ function CloneModal({
               Clone Component
             </h5>
             <button className="btn btn-icon btn-sm btn-light ms-auto" onClick={onClose}>
-              <i className="bi bi-x fs-4" />
+              <AppIcon name="bi-x" className="fs-4" />
             </button>
           </div>
           <form onSubmit={handleSubmit}>
@@ -949,7 +949,7 @@ function HistoryDrawer({
           </Box>
           <IconButton size="small" onClick={onClose}
             sx={{ bgcolor: '#f1f5f9', '&:hover': { bgcolor: '#e2e8f0' } }}>
-            <i className="bi bi-x" style={{ fontSize: 16 }} />
+            <AppIcon name="bi-x" className="fs-4" />
           </IconButton>
         </Box>
 
@@ -979,7 +979,7 @@ function HistoryDrawer({
           ) : tab === 'audit' ? (
             audits.length === 0 ? (
               <Box sx={{ py: 6, textAlign: 'center' }}>
-                <i className="bi bi-clock-history" style={{ fontSize: 32, color: '#d1d5db' }} />
+                <AppIcon name="bi-clock-history" className="fs-2hx" color="#d1d5db" />
                 <Typography sx={{ color: '#9ca3af', fontSize: 13, mt: 1 }}>No audit events yet</Typography>
               </Box>
             ) : (
@@ -993,7 +993,7 @@ function HistoryDrawer({
                           width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
                           bgcolor: ec.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                          <i className={ec.icon} style={{ fontSize: 14, color: ec.color }} />
+                          <AppIcon name={ec.icon} className="fs-6" color={ec.color} />
                         </Box>
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
@@ -1032,7 +1032,7 @@ function HistoryDrawer({
           ) : (
             versions.length === 0 ? (
               <Box sx={{ py: 6, textAlign: 'center' }}>
-                <i className="bi bi-layers" style={{ fontSize: 32, color: '#d1d5db' }} />
+                <AppIcon name="bi-layers" className="fs-2hx" color="#d1d5db" />
                 <Typography sx={{ color: '#9ca3af', fontSize: 13, mt: 1 }}>No versions recorded yet</Typography>
               </Box>
             ) : (
@@ -1158,7 +1158,7 @@ function ComponentCard({
             )}
             {item.employeeId && (
               <Chip
-                icon={<i className="bi bi-person-fill" style={{ fontSize: 9, color: '#0f766e', marginLeft: 4 }} />}
+                icon={<AppIcon name="bi-person-fill" className="fs-9" color="#0f766e" style={{ marginLeft: 4 }} />}
                 label={employeeName || 'Specific employee'} size="small"
                 sx={{ fontSize: 10, height: 17, bgcolor: '#ecfdf5', color: '#0f766e', border: '1px solid #99f6e4', fontWeight: 700 }} />
             )}
@@ -1184,7 +1184,7 @@ function ComponentCard({
             )}
             {formulaLabel && (
               <Chip
-                icon={<i className="bi bi-calculator" style={{ fontSize: 9, color: '#0369a1', marginLeft: 4 }} />}
+                icon={<AppIcon name="bi-calculator" className="fs-9" color="#0369a1" style={{ marginLeft: 4 }} />}
                 label={formulaLabel} size="small"
                 sx={{ fontSize: 10, height: 17, bgcolor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', fontWeight: 600 }} />
             )}
@@ -1458,7 +1458,7 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
             style={{ background: addBtnColor, fontSize: 13, whiteSpace: 'nowrap' }}
             onClick={() => { setEditItem(null); setModalOpen(true); }}
           >
-            <i className="bi bi-plus-circle" /> Add Component
+            <AppIcon name="bi-plus-circle" /> Add Component
           </button>
         </Stack>
       </Stack>
@@ -1470,7 +1470,7 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
         </Stack>
       ) : filtered.length === 0 ? (
         <Box sx={{ py: 6, textAlign: 'center' }}>
-          <i className="bi bi-grid-3x3-gap" style={{ fontSize: 36, color: '#d1d5db' }} />
+          <AppIcon name="bi-grid-3x3-gap" className="fs-2tx" color="#d1d5db" />
           <Typography sx={{ color: '#9ca3af', fontSize: 14, mt: 1 }}>No components found</Typography>
           <Typography sx={{ color: '#d1d5db', fontSize: 12, mt: 0.5 }}>
             {items.length === 0
@@ -1635,7 +1635,7 @@ export default function DeductionMaster() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 3px 10px rgba(30, 58, 138,0.25)', flexShrink: 0,
           }}>
-            <i className="bi bi-grid-3x3-gap-fill" style={{ fontSize: '14px', color: '#fff' }} />
+            <AppIcon name="bi-grid-3x3-gap-fill" className="fs-6" color="#fff" />
           </Box>
           <Box>
             <Typography sx={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: 16, color: '#181C32', letterSpacing: '-0.2px', lineHeight: 1.2, m: 0 }}>

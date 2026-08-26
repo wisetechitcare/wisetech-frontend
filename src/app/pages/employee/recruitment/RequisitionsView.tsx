@@ -185,7 +185,7 @@ const RequisitionsView = () => {
                         const ctc = ctcLabel(r.minCtcInLpa, r.maxCtcInLpa);
                         return (
                             <GlassCard key={r.id} preset="row" interactive sx={{ display: "flex", flexDirection: "column", gap: 1, height: "100%", p: 1.75 }}>
-                                <Stack direction="row" alignItems="flex-start" spacing={1}>
+                                <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ minWidth: 0 }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3, wordBreak: "break-word" }}>{r.title}</Typography>
                                         {r.prefix && (
@@ -214,7 +214,7 @@ const RequisitionsView = () => {
                                 {/* Spacer keeps the action row pinned to the bottom so tiles align in the grid. */}
                                 <Box sx={{ flex: 1 }} />
 
-                                <Stack direction="row" alignItems="center" spacing={0.5} sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+                                <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
                                     {r.status === 0 && (
                                         <WtButton
                                             ghost size="small"

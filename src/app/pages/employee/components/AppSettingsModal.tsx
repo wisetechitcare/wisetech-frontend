@@ -10,7 +10,7 @@ import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import MonthYearInput from "@app/modules/common/inputs/MonthYearInput";
 import Loader from "@app/modules/common/utils/Loader";
-import ApprovalSettings from "@app/components/ApprovalSettings";
+import ApprovalSettings, { emptyApprovalChains, persistApprovalChains } from "@app/components/ApprovalSettings";
 import { useSalaryMaster } from "@/modules/payroll/hooks/useSalaryComponentNames";
 // Leave Settings section removed — no longer needed
 // import LeaveAllocationStep from "@app/pages/employee/wizard/forms/LeaveAllocationStep";
@@ -94,6 +94,17 @@ function GeneralSettings() {
                     isRequired={false}
                 />
             </div>
+            {/* Escape hatch for the company-wide "Require Approval for Site & Hybrid Attendance"
+                setting (Attendance Settings). Yes = this employee's On-site/Hybrid punches are
+                marked immediately and never enter the approval queue. */}
+            <div className="col-sm-6">
+                <RadioInput
+                    formikField="exemptFromSiteHybridApproval"
+                    inputLabel="Exempt from Site & Hybrid Attendance Approval"
+                    radioBtns={[{ label: "Yes", value: "1" }, { label: "No", value: "0" }]}
+                    isRequired={false}
+                />
+            </div>
         </div>
     );
 }
@@ -105,8 +116,20 @@ function GeneralSettings() {
 //     );
 // }
 
+/**
+ * Controlled, so the chains ride in this modal's Formik state and are written by its single
+ * "Save Changes" — the same model the onboarding wizard uses. Mounting it uncontrolled left
+ * the section with no way to persist anything once the per-row Save buttons were removed.
+ */
 function ApprovalSection({ employeeId }: { employeeId: string }) {
-    return <ApprovalSettings employeeId={employeeId} />;
+    const { values, setFieldValue } = useFormikContext<any>();
+    return (
+        <ApprovalSettings
+            employeeId={employeeId}
+            value={values.approvalChains ?? emptyApprovalChains()}
+            onChange={(next) => setFieldValue('approvalChains', next)}
+        />
+    );
 }
 
 function ReportingSection({ managerOptions }: { managerOptions: any[] }) {
@@ -485,6 +508,9 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         // general
         isAdmin: "0",
         allowOverTime: "0",
+        exemptFromSiteHybridApproval: "0",
+        // Seeded by ApprovalSettings once it loads this employee's saved chains.
+        approvalChains: emptyApprovalChains(),
         // leave
         leaveAllocations: [],
         branchId: "",
@@ -536,6 +562,9 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     // general
                     isAdmin: w?.isAdmin ? "1" : "0",
                     allowOverTime: w?.allowOverTime ?? "0",
+                    // The column is a Boolean; the radio group speaks "1"/"0".
+                    exemptFromSiteHybridApproval:
+                        w?.exemptFromSiteHybridApproval === true || w?.exemptFromSiteHybridApproval === "1" ? "1" : "0",
                     // leave
                     leaveAllocations: [],
                     branchId: w?.branchId ?? "",
@@ -606,6 +635,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 id: employeeId,
                 isAdmin: values.isAdmin === "1",
                 allowOverTime: values.allowOverTime,
+                exemptFromSiteHybridApproval: values.exemptFromSiteHybridApproval,
                 reportsToId: values.reportsToId || null,
                 ctcInLpa: values.ctcInLpa || null,
                 isActive: values.isEmployeeActive === "1",
@@ -638,6 +668,10 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 oldRoleId,
                 oldIsAdmin
             );
+            // Approval chains live on their own endpoint, keyed by employee — written after
+            // the employee payload lands, same order the onboarding wizard uses. Shared
+            // helper so both screens agree on what a valid chain is.
+            await persistApprovalChains(values.approvalChains, employeeId);
             successConfirmation("Settings saved successfully");
             if (onSuccess) onSuccess();
             onClose();

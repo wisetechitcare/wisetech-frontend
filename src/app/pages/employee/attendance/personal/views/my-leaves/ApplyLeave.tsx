@@ -14,8 +14,7 @@
  *  - Full 8-state calendar legend
  *  - Per-type solid tint bands + unpaid hatch + inset border rings
  */
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { useApplyLeave, type ApplyLeaveState } from './useApplyLeave';
@@ -24,29 +23,34 @@ import { getSocket } from '@utils/socketClient';
 import { parseWorkingDays } from '@utils/workingDays';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { rgba, tintOf, borderOf, resolveLeaveTypeColor } from '@utils/leaveTypeColors';
-import { getCumulativeAllowedLeaves } from '@utils/balanceProgressUtils';
-import { calculateFiscalMonth } from '@utils/fiscalYearHelper';
+import { accruedTillNow, getAccrualWindow } from '@utils/balanceProgressUtils';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
-
-// ── Brand tokens ──────────────────────────────────────────────────────────────
-const ACCENT   = '#1E3A8A';
-const RED      = '#A64652';
-const RED_DARK = '#9C3F48';
-const GREEN    = '#3E8E6E';
-const PJK      = "'Plus Jakarta Sans', system-ui, sans-serif";
+// Shared tokens + primitives — ONE definition, also used by the extracted sub-components.
+import {
+    ACCENT, AMBER, RED, RED_DARK, GREEN, PJK, DAY_NAMES,
+    pad, isoOf, expandRange, navBtnSt, errBoxOf, LockGlyph, Toggle, DRow,
+} from './apply-leave/tokens';
+import LeaveCalendar from './apply-leave/LeaveCalendar';
+import { useLeavePalette, type LeavePalette } from './apply-leave/theme';
 
 const BLANK: ApplyLeaveState = {
     from: null, to: null, isHalfDay: false, halfDaySession: null, firstDayHalf: null, lastDayHalf: null,
     leaveTypeId: undefined, leaveTypeName: undefined, excludeSick: false, reason: '', files: [],
 };
 
+/** Stable empty lookup — see the holidayNames/holidayColors note below. */
+const EMPTY_MAP: Record<string, string> = {};
+
+/** Unpaid/LOP accent for the financial card. The edge holds in both themes; the fill is tinted
+ *  from RED in dark so it reads as an accent surface rather than a light box glaring on a dark one. */
+const UNPAID_EDGE = '#eccdd2';
+const UNPAID_TINT = (P: { dark: boolean }) => (P.dark ? 'rgba(166,70,82,.16)' : '#fbeef0');
+
 /** Clear every half-day marker — used whenever the selected range changes. */
 const HALF_RESET: Partial<ApplyLeaveState> = { isHalfDay: false, halfDaySession: null, firstDayHalf: null, lastDayHalf: null };
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
-const pad       = (n: number) => String(n).padStart(2, '0');
-const isoOf     = (d: Date)   => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const fmt       = (iso?: string | null) => iso ? new Date(String(iso).slice(0, 10) + 'T00:00:00').toLocaleString('en-US', { month: 'short', day: 'numeric' }) : '—';
 const daysLabel = (n: number) => n === 1 ? '1 day' : `${n} days`;
 const initialsOf = (name: string) =>
@@ -55,14 +59,6 @@ const initialsOf = (name: string) =>
 // Calendar colour system — the SINGLE source of truth lives in utils/leaveTypeColors.
 // rgba / tintOf / borderOf are imported; colorOf (below) delegates to resolveLeaveTypeColor.
 
-const DAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-
-function expandRange(fromISO: string, toISO: string): string[] {
-    const out: string[] = [];
-    for (let d = new Date(fromISO + 'T00:00:00'); d <= new Date(toISO + 'T00:00:00'); d.setDate(d.getDate() + 1))
-        out.push(isoOf(d));
-    return out;
-}
 function useIsMobile(bp = 768) {
     const [m, setM] = useState(() => typeof window !== 'undefined' ? window.innerWidth < bp : false);
     useEffect(() => { const f = () => setM(window.innerWidth < bp); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f); }, [bp]);
@@ -113,7 +109,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     /** Pre-select a day when opening in apply mode (e.g. from a calendar cell). YYYY-MM-DD. */
     initialDate?: string;
     /** Apply/edit on behalf of another employee (admin). When set, overrides the Redux currentEmployee. */
-    target?: { employeeId: string; branchId?: string; dateOfJoining?: string | Date | null; workingAndOffDays?: string | Record<string, string> | null };
+    target?: { employeeId: string; branchId?: string; dateOfJoining?: string | Date | null; dateOfExit?: string | Date | null; workingAndOffDays?: string | Record<string, string> | null };
     /**
      * Host-supplied action row rendered in the footer in VIEW mode only (above the primary
      * button). ApplyLeave stays domain-agnostic — the approval queue passes Approve/Reject here so
@@ -143,10 +139,12 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const ceId                 = useSelector((s: RootState) => s.employee.currentEmployee?.id) || '';
     const ceBranchId           = useSelector((s: RootState) => s.employee.currentEmployee?.branchId) || undefined;
     const ceDoj                = useSelector((s: RootState) => s.employee.currentEmployee?.dateOfJoining) || undefined;
+    const ceDoe                = useSelector((s: RootState) => (s.employee.currentEmployee as any)?.dateOfExit) || undefined;
     const ceWod                = useSelector((s: RootState) => s.employee.currentEmployee?.branches?.workingAndOffDays);
     const employeeId           = target?.employeeId || ceId;
     const branchId             = target?.branchId ?? ceBranchId;
     const dateOfJoiningRaw      = target?.dateOfJoining ?? ceDoj;
+    const dateOfExitRaw         = target?.dateOfExit ?? ceDoe;
     const workingAndOffDaysRaw = target?.workingAndOffDays ?? ceWod;
     const publicHolidays       = useSelector((s: RootState) => s.attendanceStats?.publicHolidays) || [];
     const personalLeaves       = useSelector((s: RootState) => s.leaves.personalLeaves) || [];
@@ -156,6 +154,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const overviewColors  = useSelector((s: RootState) => (s as any).customColors?.attendanceOverview);
 
     const dateOfJoining = dateOfJoiningRaw ? String(dateOfJoiningRaw).slice(0, 10) : null;
+    const dateOfExit = dateOfExitRaw ? String(dateOfExitRaw).slice(0, 10) : null;
     // Use the shared parseWorkingDays() helper (same as every other consumer of this value)
     // so a working-Saturday config survives whether the API delivers workingAndOffDays as a
     // JSON string or an already-parsed object. A raw JSON.parse threw on the object shape and
@@ -183,9 +182,30 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const teamOffCol   = calColors?.teamOffColor         || '#0F766E';
 
     const isMobile  = useIsMobile();
-    const { loading, submitting, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated, usedPaidLeaves } = useApplyLeave({
-        employeeId, branchId, dateOfJoining, workingAndOffDays, holidays,
+    /**
+     * Theme-aware neutrals. `color: '#fff'` is deliberately left alone throughout this file: those
+     * are white-on-brand (the navy header, the ACCENT submit button, a checked tick), i.e. contrast
+     * against a brand fill rather than against the page, so they must NOT follow the palette.
+     * Only `background: P.surface` and the neutral inks/lines move.
+     */
+    const P = useLeavePalette();
+    const { loading, submitting, refresh, todayPunch, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated, usedPaidLeaves, probationActive } = useApplyLeave({
+        employeeId, branchId, dateOfJoining, dateOfExit, workingAndOffDays, holidays,
     });
+
+    /**
+     * Withhold the paid-leave FIGURES while the employee is on probation.
+     *
+     * Display-only, and deliberately narrow: it hides the "N remaining" chip and the Cumulative
+     * Leave Allowance panel, nothing else. The allocation preview, the approval chain and the
+     * submit path are untouched — they already force Unpaid during probation, which is exactly why
+     * the numbers must not appear: a chip reading "5 remaining" next to an option that will book
+     * Unpaid is the contradiction new joiners were reporting.
+     *
+     * The balance keeps accruing server-side throughout; these figures return by themselves the
+     * day probation ends.
+     */
+    const hidePaidFigures = probationActive;
 
     const blockedDates = useMemo(() => {
         const s = new Set<string>();
@@ -212,8 +232,6 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const [sickConfirmed, setSickConfirmed] = useState<null | boolean>(null);
     const [lopAck,        setLopAck]        = useState(false);
     const [penaltyAck,    setPenaltyAck]    = useState(false);
-    const [hoverDate,     setHoverDate]     = useState<string | null>(null);
-    const [hoverTip,      setHoverTip]      = useState<{ x: number; y: number; text: string; color: string | null } | null>(null);
     const [priorityOpen,  setPriorityOpen]  = useState(false);
     const [editing,       setEditing]       = useState(mode === 'edit');
     // View = readonly detail; edit = interactive (either opened directly or toggled from view).
@@ -253,23 +271,29 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     // Union of Redux-sourced holiday dates and the modal's own fresh fetch, so holidays always
     // mark even if no other screen pre-loaded them. Names come from the fresh fetch.
     const holidaySet  = useMemo(() => new Set([...(holidays || []), ...(holidayInfo?.dates || [])]), [holidays, holidayInfo]);
-    const holidayNames = holidayInfo?.names ?? {};
-    const holidayColors = holidayInfo?.colors ?? {};
+    // EMPTY_MAP, not a fresh `{}`: these are memo-compared props on LeaveCalendar, and a new object
+    // literal every render would defeat the memo the grid depends on to avoid rebuilding 42 buttons.
+    const holidayNames = holidayInfo?.names ?? EMPTY_MAP;
+    const holidayColors = holidayInfo?.colors ?? EMPTY_MAP;
     const unpaidLabel = useMemo(() => balances.find(b => !b.isPaid)?.leaveType ?? 'Unpaid', [balances]);
     const allocSubtitle = useMemo(
         () => (priority.length ? [...priority, unpaidLabel] : ['Unpaid']).join(' → '),
         [priority, unpaidLabel],
     );
     // Cumulative paid-leave pacing allowance ("allowed till now"), date-aware. The engine caps the
-    // PAID portion at floor(totalPaidAllocated / 12 × fiscalMonthIndex) where the month index comes
-    // from the request's dateTo — so applying for a later month unlocks a higher allowance. Mirrors
-    // leaveAllocation.getCumulativeAllowedLeaves (the same formula the backend books against). The FY
-    // starts in April here (matches the modal's "Apr–Mar" header hint).
+    // PAID portion at the share of the employee's entitlement that has accrued by the request's
+    // dateTo — so applying for a later month unlocks a higher allowance. Mirrors
+    // leaveAccrual.accruedTillNow (the same function the backend books against). The FY starts in
+    // April here (matches the modal's "Apr–Mar" header hint).
     const allowedThrough = useMemo(() => {
         const effIso = s.to || s.from; // ISO 'YYYY-MM-DD' of the leave's last day, if picked
         const d = effIso ? new Date(effIso + 'T00:00:00') : new Date();
-        const fiscalMonthIndex = calculateFiscalMonth(d.getMonth() + 1, 4);
-        const days = getCumulativeAllowedLeaves(totalPaidAllocated, fiscalMonthIndex); // allowedTillNow
+        // Pace across the employee's accrual window (from their JOINING month), as of the selected
+        // date — the same call the backend makes in resolveLeaveContext, so the preview cap matches
+        // what the server will book. Picking a later month still unlocks a higher allowance.
+        const fyStartYear = d.getMonth() + 1 >= 4 ? d.getFullYear() : d.getFullYear() - 1;
+        const accrual = getAccrualWindow(fyStartYear, dateOfJoining, dateOfExit, d);
+        const days = accruedTillNow(totalPaidAllocated, accrual.elapsedMonths, accrual.eligibleMonths);
         return {
             days,                                    // cumulative cap allowed through this month
             used: usedPaidLeaves,                    // paid days already used + pending
@@ -278,9 +302,38 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             monthLong: d.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
             dated: !!effIso,
         };
-    }, [s.from, s.to, totalPaidAllocated, usedPaidLeaves]);
+    }, [s.from, s.to, totalPaidAllocated, usedPaidLeaves, dateOfJoining, dateOfExit]);
     const today      = isoOf(new Date());
     const tomorrow   = isoOf(new Date(Date.now() + 864e5));
+    /**
+     * How far back a "missed to apply" leave may be dated: the 1st of the CURRENT fiscal year
+     * (Apr-Mar). Not the current month - employees do forget to apply, and the late-apply penalty
+     * (not a hard block) is what the policy charges for it. The fiscal year is the real bound,
+     * because balances, the accrual window and the cumulative pool are all FY-scoped: a leave dated
+     * into last FY would be booked against this FY's balance. Mirrors the backend gate in
+     * handlers/employees.ts (createLeaveRequest).
+     */
+    const fyStart = useMemo(() => {
+        const n = new Date();
+        return `${n.getMonth() >= 3 ? n.getFullYear() : n.getFullYear() - 1}-04-01`;
+    }, []);
+    /**
+     * Same-day leave vs. attendance already recorded today:
+     *   'none' -> nothing punched, a full day off is coherent.
+     *   'in'   -> the morning has been worked; only the PM half can honestly be taken (forced below).
+     *   'done' -> checked in AND out, the day is complete - there is no leave left to apply for.
+     * Apply mode only: view/edit render an already-booked request, which this must never re-gate.
+     */
+    const todayDone   = mode === 'apply' && todayPunch === 'done';
+    const todayHalfPM = mode === 'apply' && todayPunch === 'in' && s.from === today;
+    // Force (and lock) the PM half whenever the selection starts today with an open check-in -
+    // single-day leaves via isHalfDay, ranges via the first-day boundary half.
+    useEffect(() => {
+        if (!todayHalfPM) return;
+        setS(p => p.to && p.to !== p.from
+            ? (p.firstDayHalf === 'PM' ? p : { ...p, firstDayHalf: 'PM' })
+            : (p.isHalfDay && p.halfDaySession === 'PM' ? p : { ...p, isHalfDay: true, halfDaySession: 'PM' }));
+    }, [todayHalfPM, s.from, s.to]);
 
     const isPenaltyActive = useMemo(() => {
         if (!sameDayPenalty?.enabled || s.isHalfDay || !s.from) return false;
@@ -389,9 +442,18 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         if (!s.from) return false;
         return expandRange(s.from, s.to || s.from).some(d => blockedDates.has(d));
     }, [s.from, s.to, blockedDates]);
+    /**
+     * A half-day BOUNDARY on a multi-day range is segmented into full + half rows by the
+     * auto-allocation path only; the backend rejects it outright against a single hand-picked leave
+     * type ("A half-day boundary on a multi-day leave requires automatic allocation"). That
+     * combination was previously reachable by hand and failed at submit with a server error; it is
+     * now also reachable automatically, because a range starting on a day you have already checked
+     * into forces a PM first-day half. Surface it as a blocking reason with the fix in it.
+     */
+    const boundaryHalfNeedsAuto = !isSingleDay && !!(s.firstDayHalf || s.lastDayHalf) && !!s.leaveTypeId;
     const canSubmit = !!s.from && N > 0 && !alloc?.blocked && !overlapConflict &&
         !(s.isHalfDay && !s.halfDaySession) && !sickPromptShow && !(unpaidDays > 0 && !lopAck) &&
-        (!isPenaltyActive || penaltyAck);
+        !boundaryHalfNeedsAuto && (!isPenaltyActive || penaltyAck);
 
     // Sandwich days: interior off-days the backend rule engine excludes from SALARY (Model B —
     // salary-only, never booked as a leave-balance row; rule-driven, both bracketing leaves unpaid).
@@ -406,7 +468,6 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 
     const pick = useCallback((iso: string) => {
         setSickConfirmed(null); setLopAck(false); setPenaltyAck(false);
-        setHoverDate(null);
         setS(p => {
             // Idle — first selection → single day (immediately submittable)
             if (!p.from) return { ...p, from: iso, to: iso, ...HALF_RESET };
@@ -421,13 +482,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     }, []);
     // Quick-pick: set a single day and navigate to its month
     const pickQuick = useCallback((iso: string) => {
-        if (blockedDates.has(iso)) return;
-        setSickConfirmed(null); setLopAck(false); setPenaltyAck(false); setHoverDate(null);
+        if (blockedDates.has(iso) || (iso === today && todayDone)) return;
+        setSickConfirmed(null); setLopAck(false); setPenaltyAck(false);
         setS(p => ({ ...p, from: iso, to: iso, ...HALF_RESET }));
         const d = new Date(iso + 'T00:00:00');
         setCal({ y: d.getFullYear(), m: d.getMonth() });
-    }, [blockedDates]);
-    const nav = (d: number) => setCal(c => { let m = c.m + d, y = c.y; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } return { y, m }; });
+    }, [blockedDates, today, todayDone]);
+    const nav = useCallback((d: number) => setCal(c => { let m = c.m + d, y = c.y; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } return { y, m }; }), []);
 
     const onSubmit = async () => {
         if (!canSubmit) return; setError(null);
@@ -439,6 +500,10 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             setResult(r);
             const reqId = r?.requestGroupId ?? r?.id ?? existing?.requestGroupId;
             if (reqId) fetchStatus(reqId).then(setStatus).catch(() => {});
+            // Re-pull balances, the cumulative pool and this employee's leaves NOW, while the success
+            // screen is up. Without it "Apply Another" reuses the pre-submit snapshot: the just-booked
+            // days still look free in the calendar and the remaining-balance figures are one leave stale.
+            refresh();
         } catch (e: any) { setError(e?.message ?? (isEdit ? 'Failed to update leave' : 'Failed to apply for leave')); }
     };
     const applyAnother = () => { setResult(null); setStatus(null); setS(BLANK); setSickConfirmed(null); setLopAck(false); setPenaltyAck(false); setError(null); };
@@ -460,7 +525,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 
     // Auto-only selector — no individual type pills (matches design)
     const TypeSelector = ({ compact }: { compact?: boolean }) => compact ? (
-        <button onClick={() => reshape({ leaveTypeId: undefined, leaveTypeName: undefined })} style={pillSt(true, ACCENT)}>
+        <button onClick={() => reshape({ leaveTypeId: undefined, leaveTypeName: undefined })} style={pillSt(true, ACCENT, P)}>
             <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'linear-gradient(135deg,#2F5E8C,#C2606B,#3E8E6E)' }} />Auto · paid first
         </button>
     ) : (
@@ -469,10 +534,19 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 14px', cursor: 'pointer', width: '100%', boxSizing: 'border-box', border: 'none', background: 'transparent' }}>
                 <span style={{ width: 13, height: 13, borderRadius: '50%', background: 'linear-gradient(135deg,#2F5E8C,#C2606B,#3E8E6E)', flexShrink: 0 }} />
                 <span style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: '#2b2e30' }}>Auto · paid first</span>
-                    <span style={{ display: 'block', fontSize: 12, color: '#8b8e91', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Fills {allocSubtitle}</span>
+                    <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: P.ink }}>Auto · paid first</span>
+                    <span style={{ display: 'block', fontSize: 12, color: P.inkFaint, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {hidePaidFigures ? 'Books as Unpaid during probation' : `Fills ${allocSubtitle}`}
+                    </span>
                 </span>
-                {(() => {
+                {hidePaidFigures ? (
+                    // A "remaining" count here would promise paid capacity this request cannot use.
+                    <span title="Paid leave unlocks after your probation period"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: rgba(AMBER, 0.10), border: `1px solid ${rgba(AMBER, 0.28)}`, flexShrink: 0 }}>
+                        <LockGlyph size={12} />
+                        <span style={{ fontSize: 10.5, fontWeight: 600, color: AMBER, whiteSpace: 'nowrap' }}>on probation</span>
+                    </span>
+                ) : (() => {
                     const ok = allowedThrough.remaining > 0;
                     const tone = ok ? GREEN : RED;
                     return (
@@ -485,15 +559,32 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 })()}
                 <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, transition: 'transform .2s ease', transform: priorityOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }}>▾</span>
             </button>
-            {priorityOpen && (() => {
+            {/* On probation the panel explains the rule instead of quoting numbers the employee
+                cannot spend. The underlying balance keeps accruing and appears once probation ends. */}
+            {priorityOpen && hidePaidFigures && (
+                <div style={{ padding: '2px 14px 14px' }}>
+                    <div style={{ padding: '13px 14px', borderRadius: 11, background: P.surface, border: `1px solid ${P.line}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <LockGlyph size={18} />
+                        <div style={{ minWidth: 0 }}>
+                            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: P.ink, fontFamily: PJK }}>Paid leave unlocks after probation</p>
+                            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#7c8085', lineHeight: 1.5 }}>
+                                You are earning paid leave for every month you work — it is being tracked in the
+                                background. Until your probation ends, any leave you apply for is booked as
+                                <strong> Unpaid</strong>, so your paid balance is hidden to avoid confusion.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {priorityOpen && !hidePaidFigures && (() => {
                 const ok = allowedThrough.remaining > 0;
                 return (
                     <div style={{ padding: '2px 14px 14px' }}>
-                        <div style={{ padding: '13px 14px', borderRadius: 11, background: '#fff', border: '1px solid #eceef0' }}>
+                        <div style={{ padding: '13px 14px', borderRadius: 11, background: P.surface, border: `1px solid ${P.line}` }}>
                             {/* Heading + explainer (mirrors the My Leaves "Cumulative Leave Allowance" card) */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: ACCENT, flexShrink: 0 }} />
-                                <span style={{ fontSize: 13.5, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>Cumulative Leave Allowance</span>
+                                <span style={{ fontSize: 13.5, fontWeight: 800, color: P.ink, fontFamily: PJK }}>Cumulative Leave Allowance</span>
                             </div>
                             <p style={{ margin: '0 0 12px', fontSize: 12, color: '#7c8085', lineHeight: 1.5 }}>
                                 Leaves are distributed across the fiscal year. Allowed usage grows each month — you can use what is allowed till the {allowedThrough.dated ? 'selected' : 'current'} period ({allowedThrough.monthLong}).
@@ -502,10 +593,10 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             {/* Stat pair: Used-till-date / allowed, and Remaining */}
                             <div style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}>
                                 <div style={{ flex: 1, textAlign: 'center', padding: '11px 8px', borderRadius: 10, background: rgba(ACCENT, 0.05), border: `1px solid ${rgba(ACCENT, 0.12)}` }}>
-                                    <p style={{ margin: 0, fontSize: 24, fontWeight: 800, fontFamily: PJK, color: '#2b2e30', lineHeight: 1 }}>
-                                        {allowedThrough.used}<span style={{ fontSize: 16, color: '#9aa0a6', fontWeight: 700 }}> / {allowedThrough.days}</span>
+                                    <p style={{ margin: 0, fontSize: 24, fontWeight: 800, fontFamily: PJK, color: P.ink, lineHeight: 1 }}>
+                                        {allowedThrough.used}<span style={{ fontSize: 16, color: P.inkSubtle, fontWeight: 700 }}> / {allowedThrough.days}</span>
                                     </p>
-                                    <p style={{ margin: '6px 0 0', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#8b8e91' }}>Used till {allowedThrough.monthLabel}</p>
+                                    <p style={{ margin: '6px 0 0', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: P.inkFaint }}>Used till {allowedThrough.monthLabel}</p>
                                 </div>
                                 <div style={{ flex: 1, textAlign: 'center', padding: '11px 8px', borderRadius: 10, background: rgba(ok ? GREEN : RED, 0.09), border: `1px solid ${rgba(ok ? GREEN : RED, 0.28)}` }}>
                                     <p style={{ margin: 0, fontSize: 24, fontWeight: 800, fontFamily: PJK, color: ok ? GREEN : RED, lineHeight: 1 }}>{allowedThrough.remaining}</p>
@@ -519,315 +610,86 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         </div>
     );
 
-    const Calendar = ({ small }: { small?: boolean }) => {
-        const { y, m } = cal;
-        // Monday-first week: shift the JS Sun=0 lead so Monday occupies column 0.
-        const lead = (new Date(y, m, 1).getDay() + 6) % 7, dim = new Date(y, m + 1, 0).getDate();
-        // Hover preview: only active while a single day is selected (awaiting range extension)
-        const isPickingRange = !!(s.from && s.to === s.from);
-        const previewEnd = isPickingRange && hoverDate && hoverDate > s.from! ? hoverDate : null;
-        const end = previewEnd ?? s.to ?? s.from;
-        const sz = small ? 40 : 44, rad = small ? 9 : 10;
-        const hasWod = Object.keys(workingAndOffDays).length > 0;
-        const cells: React.ReactNode[] = [];
-        for (let i = 0; i < lead; i++) cells.push(<div key={'l' + i} />);
-        for (let d = 1; d <= dim; d++) {
-            const iso      = `${y}-${pad(m + 1)}-${pad(d)}`;
-            const beforeDoj = !!dateOfJoining && iso < dateOfJoining;
-            const past     = iso < today || beforeDoj;
-            // Backdating is allowed but bounded to the CURRENT calendar month: a past date on/after
-            // the joining date AND on/after the 1st of this month is SELECTABLE so an employee can
-            // record a leave they forgot to apply for (the backend charges the late-apply penalty).
-            // Dates in a prior month, before joining, or already taken stay blocked.
-            const beforeMonth = iso < (today.slice(0, 7) + '-01');
-            const backdated = iso < today && !beforeDoj && !beforeMonth;
-            const blocked  = blockedDates.has(iso);
-            const disabled = beforeDoj || blocked || beforeMonth;
-            const isEp       = iso === s.from || iso === s.to;
-            const isHoverEnd = !isEp && !!previewEnd && iso === previewEnd;
-            const inRange    = !!(s.from && end && iso > s.from && iso < end);
-            const wd         = new Date(iso + 'T00:00:00').getDay();
-            const weekend  = wd === 0 || wd === 6;
-            const offDay   = hasWod ? workingAndOffDays[DAY_NAMES[wd]] === '0' : weekend;
-            const teamOff  = offDay && !weekend;
-            const holiday  = holidaySet.has(iso);
-            const seg      = segByDate.get(iso), charged = !!seg;
-            // sandwichCharged: interior off-day excluded from salary (Model B — not booked as leave)
-            const sandwichCharged = sandwichDateSet.has(iso);
-            const dtColor  = charged ? colorOf(seg!.leaveType) : ACCENT;
-
-            const st: React.CSSProperties = {
-                position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '100%', height: sz, border: 'none', background: '#fff', color: '#2b2e30',
-                fontSize: small ? 13 : 14, fontWeight: 500, borderRadius: rad, cursor: disabled ? 'default' : 'pointer',
-            };
-            if (past)  { st.opacity = 0.4; st.color = '#a6a8ab'; }
-            if (blocked && !past) { st.background = '#f3eaec'; st.color = RED; st.textDecoration = 'line-through'; }
-            // Holiday — colour from customColors.attendanceOverview.holidayColor
-            if (holiday && !charged && !blocked) {
-                st.background = rgba(holidayCol, 0.12); st.color = holidayCol; st.boxShadow = `inset 0 0 0 1px ${rgba(holidayCol, 0.30)}`;
-            }
-            // Off-days — three distinct identities so they never read as the same swatch:
-            //  • Team Off (branch-configured weekday off) → teal tint + dashed ring (its own colour,
-            //    plus a non-colour cue for accessibility)
-            //  • Sunday → RED (matches the column header)
-            //  • Saturday / other weekend → weekendCol from config
-            if (offDay && !charged && !blocked && !holiday) {
-                if (teamOff) {
-                    st.background     = rgba(teamOffCol, 0.12);
-                    st.color          = teamOffCol;
-                    // Dashed ring (via outline → no layout shift) is the non-colour cue that sets
-                    // Team Off apart from the SOLID rings on weekend/holiday cells.
-                    st.outline        = `1.5px dashed ${rgba(teamOffCol, 0.55)}`;
-                    st.outlineOffset  = '-3px';
-                    st.borderRadius   = rad;
-                } else {
-                    const isSun   = wd === 0;
-                    const offCol  = isSun ? RED : weekendCol;
-                    const offAlpha = isSun ? 0.07 : 0.10;
-                    st.background = rgba(offCol, offAlpha);
-                    st.color      = offCol;
-                    st.boxShadow  = `inset 0 0 0 1px ${rgba(offCol, isSun ? 0.20 : 0.25)}`;
-                }
-            }
-            // In-range uncharged — light accent band so the selection reads cohesively.
-            if (inRange && !charged && !blocked && !holiday) {
-                st.background = rgba(ACCENT, 0.07); st.color = ACCENT; st.borderRadius = 0;
-                st.boxShadow  = `inset 0 0 0 1px ${rgba(ACCENT, 0.16)}`;
-            }
-            // Charged by leave type — solid config colour for all types including Unpaid.
-            // Selected days are shown purely by this allocation colouring (no separate endpoint mark).
-            if (charged) {
-                st.background   = tintOf(seg!.leaveType, colorOf);
-                st.color        = dtColor;
-                st.borderRadius = 0;
-                st.borderTop    = `1px solid ${borderOf(seg!.leaveType, colorOf)}`;
-                st.borderBottom = `1px solid ${borderOf(seg!.leaveType, colorOf)}`;
-            }
-            // Sandwich — premium: soft Unpaid tint, readable dark numeral, 2px accent underline
-            // (a small corner ribbon marks it in the cell body). Overrides the off-day tint.
-            if (sandwichCharged) {
-                const uBorder = borderOf('unpaid', colorOf);
-                st.background   = tintOf('unpaid', colorOf);
-                st.color        = sandwichCol;
-                st.fontWeight   = 700;
-                st.borderRadius = 0;
-                st.boxShadow    = 'none';
-                st.borderTop    = `1px solid ${uBorder}`;
-                st.borderBottom = `2px solid ${sandwichCol}`;
-            }
-            // Today — solid ACCENT filled background with white numeral.
-            if (iso === today && !past && !blocked) {
-                st.background   = ACCENT;
-                st.color        = '#fff';
-                st.fontWeight   = 700;
-                st.borderRadius = rad;
-                st.boxShadow    = 'none';
-                st.borderTop    = 'none';
-                st.borderBottom = 'none';
-            }
-            // Selection endpoints (Start/End) — CONNECTED caps so the range reads as ONE continuous
-            // band from start to end. Keep the band/charged fill (never a detached white pill),
-            // round only the OUTER edge (left for start, right for end), and mark it with a 2px ring
-            // in the day's leave-type colour (navy when uncharged). A single-day selection is fully
-            // rounded.
-            if (isEp) {
-                const isStartPt = iso === s.from;
-                const isEndPt   = iso === s.to;
-                const singleDay = !!(s.from && s.to && s.from === s.to);
-                if (!charged && !sandwichCharged) {
-                    st.background = rgba(ACCENT, 0.10);
-                    st.color      = dtColor;
-                }
-                st.fontWeight   = 800;
-                st.boxShadow    = `inset 0 0 0 2px ${dtColor}`;
-                st.borderRadius = singleDay ? rad
-                    : isStartPt ? `${rad}px 0 0 ${rad}px`
-                    : isEndPt   ? `0 ${rad}px ${rad}px 0`
-                    : rad;
-                st.borderTop    = 'none';
-                st.borderBottom = 'none';
-            }
-            // Hover preview end — ghost highlight, indicates where range would end
-            if (isHoverEnd) {
-                st.background   = rgba(ACCENT, 0.18); st.color = ACCENT; st.fontWeight = 700;
-                st.boxShadow    = `inset 0 0 0 2px ${rgba(ACCENT, 0.45)}`;
-                st.borderRadius = `0 ${rad}px ${rad}px 0`;
-                st.borderTop    = 'none'; st.borderBottom = 'none';
-            }
-
-            const tip = beforeDoj ? 'Before joining date' : blocked ? 'Already have a leave here' : beforeMonth ? 'Backdating is limited to the current month' : backdated ? 'Backdated — late-apply penalty may apply'
-                : isEp     ? `Selected${seg ? ` · ${seg.leaveType}` : ''}`
-                : sandwichCharged ? 'Sandwich — excluded from salary (not a leave-balance day)'
-                : charged  ? `Leave day — ${seg!.leaveType}`
-                : holiday  ? (holidayNames[iso] ? `${holidayNames[iso]} · ${new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}` : 'Public holiday') : teamOff ? 'Team off — not charged'
-                : weekend  ? (wd === 0 ? 'Sunday' : 'Saturday') + ' — not charged' : 'Available';
-
-            const tipColor = isEp ? dtColor
-                : charged ? colorOf(seg!.leaveType)
-                : sandwichCharged ? sandwichCol
-                : holiday ? (holidayColors[iso] || holidayCol)
-                : teamOff ? teamOffCol
-                : null;
-            cells.push(
-                <button key={iso} type="button" style={st}
-                    title={tip}
-                    aria-pressed={isEp || undefined}
-                    aria-label={`${new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} — ${tip}`}
-                    onClick={() => {
-                        // In view mode, clicking a date flips the same modal straight into edit (if
-                        // the request is still editable) — no separate button needed.
-                        if (isView) { if (canEditExisting && !past) { onEdit ? onEdit() : setEditing(true); } return; }
-                        if (!disabled) pick(iso);
-                    }}
-                    onMouseEnter={(e) => {
-                        if (!disabled && isPickingRange) setHoverDate(iso);
-                        if (!small) setHoverTip({ x: e.clientX, y: e.clientY, text: tip, color: tipColor });
-                    }}
-                    onMouseMove={(e) => { if (!small) setHoverTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : t)); }}
-                    onMouseLeave={() => { setHoverDate(null); setHoverTip(null); }}
-                >
-                    {sandwichCharged && (
-                        <span style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: `8px solid ${sandwichCol}`, borderLeft: '8px solid transparent' }} />
-                    )}
-                    {d}
-                </button>
-            );
-        }
-
-        const monthLabel = new Date(y, m, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
-        const labels     = small ? ['M','T','W','T','F','S','S'] : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-
-        // A day is non-working if it's a holiday or a configured off-day (weekend/team-off).
-        const isNonWorkingISO = (i: string): boolean => {
-            if (holidaySet.has(i)) return true;
-            const w = new Date(i + 'T00:00:00').getDay();
-            return hasWod ? workingAndOffDays[DAY_NAMES[w]] === '0' : (w === 0 || w === 6);
-        };
-        // The consecutive non-working run a holiday sits in — its span + length (≥3 ⇒ long weekend).
-        const longWeekendRun = (i: string): { len: number; startISO: string; endISO: string } => {
-            let len = 1, startISO = i, endISO = i;
-            let cur = new Date(i + 'T00:00:00');
-            for (;;) { const p = new Date(cur); p.setDate(p.getDate() - 1); const pi = `${p.getFullYear()}-${pad(p.getMonth() + 1)}-${pad(p.getDate())}`; if (isNonWorkingISO(pi)) { len++; cur = p; startISO = pi; } else break; }
-            cur = new Date(i + 'T00:00:00');
-            for (;;) { const n = new Date(cur); n.setDate(n.getDate() + 1); const ni = `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}`; if (isNonWorkingISO(ni)) { len++; cur = n; endISO = ni; } else break; }
-            return { len, startISO, endISO };
-        };
-        const fmtChipDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-        // Holidays falling in the displayed month — rendered as rich chips below the calendar so the
-        // configured name + duration are visible without hovering (important on touch devices).
-        const monthHolidays = [...holidaySet]
-            .filter((iso) => { const dt = new Date(iso + 'T00:00:00'); return dt.getFullYear() === y && dt.getMonth() === m; })
-            .sort()
-            .map((iso) => {
-                const run  = longWeekendRun(iso);
-                const long = run.len >= 3;
-                return {
-                    iso,
-                    name: holidayNames[iso] || 'Public holiday',
-                    color: holidayColors[iso] || holidayCol,
-                    long,
-                    subtitle: long
-                        ? `${fmtChipDate(run.startISO)} – ${fmtChipDate(run.endISO)} · ${run.len} Days`
-                        : `${fmtChipDate(iso)} · 1 Day`,
-                };
-            });
-
-        return (
-            <div style={{ border: '1px solid #e6e6e8', borderTop: small ? '1px solid #e6e6e8' : `3px solid ${ACCENT}`, borderRadius: 13, padding: small ? 12 : '15px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: small ? 10 : 12 }}>
-                    <button onClick={() => nav(-1)} style={navBtnSt(small)}>‹</button>
-                    <span style={{ fontSize: small ? 14 : 15, fontWeight: 700, color: '#2b2e30', fontFamily: PJK }}>{monthLabel}</span>
-                    <button onClick={() => nav(1)} style={navBtnSt(small)}>›</button>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: small ? 2 : 4, marginBottom: small ? 2 : 4 }}>
-                    {labels.map((w, i) => <div key={i} style={{ textAlign: 'center', fontSize: small ? 10 : 11, fontWeight: 600, color: i === 6 ? RED : '#727577', textTransform: 'uppercase' }}>{w}</div>)}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', columnGap: 0, rowGap: small ? 2 : 4 }}>{cells}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px', marginTop: 13, paddingTop: 11, borderTop: '1px solid #f0f0f1' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 13, height: 13, borderRadius: 4, border: `1.5px solid ${ACCENT}`, flexShrink: 0 }} />Today</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: tintOf('casual', colorOf), border: `1px solid ${borderOf('casual', colorOf)}`, flexShrink: 0 }} />Charged</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(teamOffCol, 0.12), outline: `1.5px dashed ${rgba(teamOffCol, 0.55)}`, outlineOffset: '-2px', flexShrink: 0 }} />Team Off</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(holidayCol, 0.12), border: `1px solid ${rgba(holidayCol, 0.30)}`, flexShrink: 0 }} />Holiday</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(weekendCol, 0.10), border: `1px solid ${rgba(weekendCol, 0.25)}`, flexShrink: 0 }} />Saturday</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ width: 20, height: 12, borderRadius: 3, background: rgba(RED, 0.07), border: `1px solid ${rgba(RED, 0.20)}`, flexShrink: 0 }} />Sunday</span>
-                    {sandwichDays > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#727577', fontWeight: 500 }}><span style={{ position: 'relative', width: 20, height: 12, borderRadius: 3, background: tintOf('unpaid', colorOf), border: `1px solid ${borderOf('unpaid', colorOf)}`, borderBottom: `2px solid ${sandwichCol}`, flexShrink: 0, overflow: 'hidden' }}><span style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: `6px solid ${sandwichCol}`, borderLeft: '6px solid transparent' }} /></span>Sandwich · Unpaid</span>}
-                </div>
-                {small && monthHolidays.length > 0 && (
-                    <div style={{ marginTop: 11, paddingTop: 11, borderTop: '1px solid #f0f0f1' }}>
-                        <div style={{ fontSize: 10.5, fontWeight: 700, color: '#8b8e91', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>
-                            Holidays in {new Date(y, m, 1).toLocaleString('en-US', { month: 'long' })}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {monthHolidays.map((h) => (
-                                <div key={h.iso} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '8px 12px', borderRadius: 999, border: '1px solid #eceef0', background: '#fff', boxShadow: '0 1px 2px rgba(16,24,40,0.05)' }}>
-                                    <span style={{ width: 36, height: 36, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: rgba(h.color, 0.15), boxShadow: `inset 0 0 0 1px ${rgba(h.color, 0.25)}`, fontSize: 17, flexShrink: 0 }}>🎉</span>
-                                    <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                                            <span style={{ fontSize: 13, fontWeight: 700, color: '#2b2e30', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.name}</span>
-                                            {h.long && <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 700, color: '#1d7a4d', background: 'rgba(29,122,77,0.10)', border: '1px solid rgba(29,122,77,0.22)', borderRadius: 99, padding: '1px 7px', textTransform: 'uppercase', letterSpacing: '.02em' }}>Long weekend</span>}
-                                        </span>
-                                        <span style={{ fontSize: 11.5, fontWeight: 600, color: h.color }}>{h.subtitle}</span>
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
+    // The month grid lives in ./apply-leave/LeaveCalendar (module scope + React.memo). Declared
+    // inline here it was remounted — all 42 day buttons — on every parent render, including every
+    // keystroke in the reason field. `calendarProps` bundles its inputs; everything non-primitive
+    // in it is already memoised above, which is what lets memo actually skip work.
+    const onEditRequest = useCallback(() => { if (onEdit) onEdit(); else setEditing(true); }, [onEdit]);
+    const calendarProps = {
+        cal, nav, sel: s, pick,
+        today, fyStart, todayDone, todayHalfPM, dateOfJoining,
+        blockedDates, segByDate, sandwichDateSet, sandwichDays,
+        holidaySet, holidayNames, holidayColors, workingAndOffDays,
+        colorOf, holidayCol, weekendCol, teamOffCol, sandwichCol,
+        isView, canEditExisting, onEditRequest,
     };
 
     // View mode is a read-only review (the approver/employee is inspecting a booked leave, not
     // applying) — the half-day toggle is an applicant input, so it disappears. The persisted
     // half-day state is already reflected in the ViewBreakdown.
     // Session picker (AM/PM) shared by the single-day toggle and the boundary-half pickers.
-    const SessionButtons = ({ value, onPick }: { value: 'AM' | 'PM' | null; onPick: (v: 'AM' | 'PM') => void }) => (
+    const SessionButtons = ({ value, onPick, lockPM }: { value: 'AM' | 'PM' | null; onPick: (v: 'AM' | 'PM') => void; lockPM?: boolean }) => (
         <div style={{ display: 'flex', gap: isMobile ? 7 : 8, marginTop: isMobile ? 9 : 8 }}>
-            {(['AM', 'PM'] as const).map(ss => (
-                <button key={ss} onClick={() => onPick(ss)}
-                    style={{ flex: 1, padding: 9, borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: value === ss ? `1.5px solid ${ACCENT}` : '1px solid #e6e6e8', background: value === ss ? rgba(ACCENT, 0.08) : '#fff', color: value === ss ? ACCENT : '#5f6266' }}>
-                    {ss === 'AM' ? 'First half · AM' : 'Second half · PM'}
-                </button>
-            ))}
+            {(['AM', 'PM'] as const).map(ss => {
+                // The AM half is unavailable once the morning has actually been worked.
+                const off = !!lockPM && ss === 'AM';
+                return (
+                    <button key={ss} onClick={() => { if (!off) onPick(ss); }} disabled={off}
+                        style={{ flex: 1, padding: 9, borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.45 : 1, border: value === ss ? `1.5px solid ${ACCENT}` : `1px solid ${P.line}`, background: value === ss ? rgba(ACCENT, 0.08) : P.surface, color: value === ss ? ACCENT : P.inkBody }}>
+                        {ss === 'AM' ? 'First half · AM' : 'Second half · PM'}
+                    </button>
+                );
+            })}
         </div>
     );
 
     // A half-day toggle for one boundary day of a multi-day range (first or last).
-    const BoundaryHalf = ({ label, value, onChange }: { label: string; value: 'AM' | 'PM' | null; onChange: (v: 'AM' | 'PM' | null) => void }) => (
+    const BoundaryHalf = ({ label, value, onChange, lockPM }: { label: string; value: 'AM' | 'PM' | null; onChange: (v: 'AM' | 'PM' | null) => void; lockPM?: boolean }) => (
         <div style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: '#2b2e30' }}>{label} half <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></span>
-                <Toggle on={!!value} color={ACCENT} onClick={() => onChange(value ? null : 'AM')} />
+                <span style={{ fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: P.ink }}>{label} half <span style={{ color: P.inkFaint, fontWeight: 500 }}>· 0.5 day</span></span>
+                <Toggle on={!!value} color={ACCENT} disabled={lockPM} onClick={() => onChange(value ? null : 'AM')} />
             </div>
-            {value && <SessionButtons value={value} onPick={onChange} />}
+            {value && <SessionButtons value={value} lockPM={lockPM} onPick={onChange} />}
+        </div>
+    );
+
+    /** Why the half-day is fixed at PM — shown wherever the lock is applied, so it never reads
+     *  as a broken toggle. */
+    const TodayHalfNote = () => (
+        <div style={{ marginTop: 9, padding: '8px 10px', borderRadius: 9, background: rgba(ACCENT, 0.06), border: `1px solid ${rgba(ACCENT, 0.16)}`, fontSize: 11.5, lineHeight: 1.45, color: '#4b5563' }}>
+            You are already checked in today, so the morning is worked — this leave is fixed to the{' '}
+            <strong style={{ color: ACCENT }}>second half (PM)</strong>.
         </div>
     );
 
     const HalfDay = () => (isView || !s.from) ? null : (
-        <div style={{ marginTop: isMobile ? 11 : 12, padding: isMobile ? '11px 13px' : '12px 14px', border: '1px solid #e6e6e8', borderRadius: isMobile ? 11 : 12 }}>
+        <div style={{ marginTop: isMobile ? 11 : 12, padding: isMobile ? '11px 13px' : '12px 14px', border: `1px solid ${P.line}`, borderRadius: isMobile ? 11 : 12 }}>
             {isSingleDay ? (
                 <>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
-                            {isMobile ? 'Half day' : <>Apply as half day <span style={{ color: '#8b8e91', fontWeight: 500 }}>· 0.5 day</span></>}
+                        <span style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: P.ink }}>
+                            {isMobile ? 'Half day' : <>Apply as half day <span style={{ color: P.inkFaint, fontWeight: 500 }}>· 0.5 day</span></>}
                         </span>
-                        <Toggle on={s.isHalfDay} color={ACCENT} onClick={() => reshape({ isHalfDay: !s.isHalfDay, halfDaySession: null })} />
+                        <Toggle on={s.isHalfDay} color={ACCENT} disabled={todayHalfPM}
+                            onClick={() => reshape({ isHalfDay: !s.isHalfDay, halfDaySession: null })} />
                     </div>
+                    {todayHalfPM && <TodayHalfNote />}
                     {s.isHalfDay && (
                         <>
-                            {!isMobile && <div style={{ fontSize: 11.5, fontWeight: 600, color: '#8b8e91', margin: '11px 0 7px' }}>Which half? <span style={{ color: RED }}>*</span></div>}
-                            <SessionButtons value={s.halfDaySession} onPick={(ss) => setS(p => ({ ...p, halfDaySession: ss }))} />
+                            {!isMobile && <div style={{ fontSize: 11.5, fontWeight: 600, color: P.inkFaint, margin: '11px 0 7px' }}>Which half? <span style={{ color: RED }}>*</span></div>}
+                            <SessionButtons value={s.halfDaySession} lockPM={todayHalfPM} onPick={(ss) => setS(p => ({ ...p, halfDaySession: ss }))} />
                         </>
                     )}
                 </>
             ) : (
                 <>
-                    <div style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: '#2b2e30' }}>
-                        Half-day boundary <span style={{ color: '#8b8e91', fontWeight: 500 }}>· optional</span>
+                    <div style={{ fontSize: isMobile ? 13 : 13.5, fontWeight: 600, color: P.ink }}>
+                        Half-day boundary <span style={{ color: P.inkFaint, fontWeight: 500 }}>· optional</span>
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#8b8e91', marginTop: 3 }}>Take a half-day on the first and/or last day of the range.</div>
-                    <BoundaryHalf label="First day" value={s.firstDayHalf ?? null} onChange={(v) => reshape({ firstDayHalf: v })} />
+                    <div style={{ fontSize: 11.5, color: P.inkFaint, marginTop: 3 }}>Take a half-day on the first and/or last day of the range.</div>
+                    {todayHalfPM && <TodayHalfNote />}
+                    <BoundaryHalf label="First day" value={s.firstDayHalf ?? null} lockPM={todayHalfPM} onChange={(v) => reshape({ firstDayHalf: v })} />
                     <BoundaryHalf label="Last day" value={s.lastDayHalf ?? null} onChange={(v) => reshape({ lastDayHalf: v })} />
                 </>
             )}
@@ -835,17 +697,17 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     );
 
     const Allocation = ({ compact }: { compact?: boolean }) => (N <= 0 || !alloc) ? null : (
-        <div style={compact ? { border: '1px solid #e9e9eb', borderRadius: 11, padding: '9px 11px', background: '#fff' } : railCardSt()}>
+        <div style={compact ? { border: `1px solid ${P.line}`, borderRadius: 11, padding: '9px 11px', background: P.surface } : railCardSt()}>
             {!compact && <CardHead icon="🧮" title="How this applies" tint={ACCENT} />}
-            <div style={{ height: compact ? 8 : 11, borderRadius: 999, overflow: 'hidden', display: 'flex', background: '#eef0f2', marginBottom: compact ? 7 : 11 }}>
+            <div style={{ height: compact ? 8 : 11, borderRadius: 999, overflow: 'hidden', display: 'flex', background: P.track, marginBottom: compact ? 7 : 11 }}>
                 {mergedSegments.map((seg, i) => <span key={i} style={{ width: `${(seg.days / N) * 100}%`, background: colorOf(seg.leaveType) }} />)}
             </div>
             {compact ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 13px' }}>
                     {mergedSegments.map((seg, i) => (
-                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: '#5f6266' }}>
+                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: P.inkBody }}>
                             <span style={{ width: 10, height: 10, borderRadius: '50%', background: colorOf(seg.leaveType) }} />
-                            {seg.isPaid ? seg.leaveType.replace(/ Leaves?$/i, '') : 'Unpaid'} · <strong style={{ color: '#2b2e30' }}>{daysLabel(seg.days)}</strong>
+                            {seg.isPaid ? seg.leaveType.replace(/ Leaves?$/i, '') : 'Unpaid'} · <strong style={{ color: P.ink }}>{daysLabel(seg.days)}</strong>
                         </span>
                     ))}
                 </div>
@@ -853,8 +715,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 mergedSegments.map((seg, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: i > 0 ? 7 : 0 }}>
                         <span style={{ width: 10, height: 10, borderRadius: '50%', background: colorOf(seg.leaveType), flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: seg.isPaid ? '#5f6266' : RED_DARK }}>{seg.isPaid ? seg.leaveType : 'Unpaid (LOP)'}</span>
-                        <span style={{ fontSize: 12.5, fontWeight: 700, color: '#2b2e30' }}>{daysLabel(seg.days)}</span>
+                        <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: seg.isPaid ? P.inkBody : RED_DARK }}>{seg.isPaid ? seg.leaveType : 'Unpaid (LOP)'}</span>
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: P.ink }}>{daysLabel(seg.days)}</span>
                     </div>
                 ))
             )}
@@ -865,12 +727,12 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         <div style={{ background: '#f4f6f9', border: '1px solid #e3e7ed', borderRadius: isMobile ? 12 : 13, padding: isMobile ? '12px 13px' : '13px 14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: RED, flexShrink: 0 }} />
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#2b2e30' }}>Includes {daysLabel(sickDays)} of Sick{isMobile ? '' : ' Leave'}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: P.ink }}>Includes {daysLabel(sickDays)} of Sick{isMobile ? '' : ' Leave'}</span>
             </div>
             {!isMobile && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 1.45 }}>Sick leave is meant for illness. Use it for these days?</div>}
             <div style={{ display: 'flex', gap: 7, marginTop: isMobile ? 9 : 10 }}>
                 <button onClick={() => setSickConfirmed(true)} style={{ flex: 1, padding: 8, borderRadius: 9, border: 'none', background: ACCENT, color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Yes, sick</button>
-                <button onClick={() => setSickConfirmed(false)} style={{ flex: 1, padding: 8, borderRadius: 9, border: '1px solid #d8dce2', background: '#fff', color: '#5f6266', fontWeight: 700, cursor: 'pointer' }}>Use other</button>
+                <button onClick={() => setSickConfirmed(false)} style={{ flex: 1, padding: 8, borderRadius: 9, border: '1px solid #d8dce2', background: P.surface, color: P.inkBody, fontWeight: 700, cursor: 'pointer' }}>Use other</button>
             </div>
         </div>
     );
@@ -879,13 +741,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const CardHead = ({ icon, title, tint, right }: { icon: React.ReactNode; title: string; tint: string; right?: React.ReactNode }) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 12 }}>
             <span style={{ width: 27, height: 27, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: rgba(tint, 0.12), fontSize: 13, flexShrink: 0 }}>{icon}</span>
-            <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#2b2e30', fontFamily: PJK, textTransform: 'uppercase', letterSpacing: '.035em' }}>{title}</span>
+            <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: P.ink, fontFamily: PJK, textTransform: 'uppercase', letterSpacing: '.035em' }}>{title}</span>
             {right}
         </div>
     );
     const railCardSt = (accentBg?: boolean, accentBorder?: boolean): React.CSSProperties => ({
         background: accentBg ? '#fbeef0' : '#fff',
-        border: `1px solid ${accentBorder ? '#eccdd2' : '#e9e9eb'}`,
+        border: `1px solid ${accentBorder ? UNPAID_EDGE : P.line}`,
         borderRadius: 14,
         padding: '14px 15px',
         boxShadow: '0 1px 2px rgba(16,24,40,0.05)',
@@ -902,9 +764,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 <CardHead icon="🧮" title="Allocation breakdown" tint={ACCENT} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {segs.map((seg, i) => (
-                        <div key={seg.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 11px', border: '1px solid #eceef0', borderLeft: `3px solid ${colorOf(seg.leaveType)}`, borderRadius: 9 }}>
+                        <div key={seg.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 11px', border: `1px solid ${P.line}`, borderLeft: `3px solid ${colorOf(seg.leaveType)}`, borderRadius: 9 }}>
                             <span style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', background: colorOf(seg.leaveType), borderRadius: 8, padding: '3px 9px' }}>{seg.leaveType}</span>
-                            <span style={{ fontSize: 11, color: '#8b8e91' }}>{seg.dateFrom ? fmt(seg.dateFrom) : ''}{seg.dateTo && seg.dateTo !== seg.dateFrom ? ` – ${fmt(seg.dateTo)}` : ''}</span>
+                            <span style={{ fontSize: 11, color: P.inkFaint }}>{seg.dateFrom ? fmt(seg.dateFrom) : ''}{seg.dateTo && seg.dateTo !== seg.dateFrom ? ` – ${fmt(seg.dateTo)}` : ''}</span>
                             <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT, marginLeft: 'auto' }}>{seg.days} {seg.days === 1 ? 'day' : 'days'}</span>
                             <span style={{ fontSize: 10.5, fontWeight: 700, color: seg.isPaid ? GREEN : RED, background: rgba(seg.isPaid ? GREEN : RED, 0.10), borderRadius: 99, padding: '1px 8px' }}>{seg.isPaid ? 'Paid' : 'Unpaid'}</span>
                             {seg.status === 1 && <span style={{ fontSize: 10.5, fontWeight: 700, color: GREEN }}>✓ Approved</span>}
@@ -916,7 +778,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         </div>
                     ))}
                 </div>
-                {existing?.reason && <div style={{ marginTop: 10, fontSize: 12, color: '#5f6266' }}><span style={{ fontWeight: 700, color: '#8b8e91' }}>Remark: </span>{existing.reason}</div>}
+                {existing?.reason && <div style={{ marginTop: 10, fontSize: 12, color: P.inkBody }}><span style={{ fontWeight: 700, color: P.inkFaint }}>Remark: </span>{existing.reason}</div>}
             </div>
         );
     };
@@ -927,14 +789,14 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         const deductColor  = hasUnpaid ? RED_DARK : GREEN;
         const unpaidColor  = hasUnpaid ? RED_DARK : '#bfbec1';
         return (
-            <div style={compact ? { background: hasUnpaid ? '#fbeef0' : '#fff', border: `1px solid ${hasUnpaid ? '#eccdd2' : '#e9e9eb'}`, borderRadius: 11, padding: '11px 13px' } : railCardSt(hasUnpaid, hasUnpaid)}>
+            <div style={compact ? { background: hasUnpaid ? UNPAID_TINT(P) : P.surface, border: `1px solid ${hasUnpaid ? UNPAID_EDGE : P.line}`, borderRadius: 11, padding: '11px 13px' } : railCardSt(hasUnpaid, hasUnpaid)}>
                 {compact ? (
                     <>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: finColor }}>{hasUnpaid ? '⚠️' : '✓'} Financial impact</span>
                             <span style={{ fontSize: 14, fontWeight: 800, color: deductColor, fontFamily: PJK }}>{lopEstimate}</span>
                         </div>
-                        <div style={{ fontSize: 11.5, color: '#5f6266', marginTop: 3 }}>
+                        <div style={{ fontSize: 11.5, color: P.inkBody, marginTop: 3 }}>
                             {N <= 0 ? 'Select dates to see impact' : hasUnpaid ? `${daysLabel(unpaidDays)} not covered` : 'Fully covered by paid leave'}
                         </div>
                     </>
@@ -944,15 +806,15 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                             <div>
                                 <div style={{ fontSize: 19, fontWeight: 800, color: ACCENT, lineHeight: 1, fontFamily: PJK }}>{N > 0 ? paidDays : '0'}</div>
-                                <div style={{ fontSize: 10.5, fontWeight: 600, color: '#8b8e91', textTransform: 'uppercase', letterSpacing: '.03em', marginTop: 4 }}>Paid days</div>
+                                <div style={{ fontSize: 10.5, fontWeight: 600, color: P.inkFaint, textTransform: 'uppercase', letterSpacing: '.03em', marginTop: 4 }}>Paid days</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: 19, fontWeight: 800, color: unpaidColor, lineHeight: 1, fontFamily: PJK }}>{N > 0 ? unpaidDays : '0'}</div>
-                                <div style={{ fontSize: 10.5, fontWeight: 600, color: '#8b8e91', textTransform: 'uppercase', letterSpacing: '.03em', marginTop: 4 }}>Unpaid days</div>
+                                <div style={{ fontSize: 10.5, fontWeight: 600, color: P.inkFaint, textTransform: 'uppercase', letterSpacing: '.03em', marginTop: 4 }}>Unpaid days</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 11, borderTop: `1px solid ${hasUnpaid ? '#eccdd2' : '#ececed'}` }}>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: '#5f6266' }}>Est. salary deduction</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: P.inkBody }}>Est. salary deduction</span>
                             <span style={{ fontSize: 15, fontWeight: 800, color: deductColor, fontFamily: PJK }}>{lopEstimate}</span>
                         </div>
                     </>
@@ -978,7 +840,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             <input id={`leave-files-${idSuffix}`} type="file" multiple accept=".pdf,.png,.jpg,.jpeg" style={{ display: 'none' }}
                 onChange={e => setS(p => ({ ...p, files: [...p.files, ...Array.from(e.target.files ?? [])] }))} />
             {s.files.length > 0 && !isMobile && (
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: '#8b8e91', textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 7 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: P.inkFaint, textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 7 }}>
                     Attachments · {s.files.length}
                 </div>
             )}
@@ -986,13 +848,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 {s.files.map((f, i) => {
                     const isImage = f.type.startsWith('image/'), url = URL.createObjectURL(f);
                     return (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: isMobile ? '8px 10px' : '9px 11px', border: '1px solid #e6e6e8', borderRadius: 10 }}>
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: isMobile ? '8px 10px' : '9px 11px', border: `1px solid ${P.line}`, borderRadius: 10 }}>
                             <div onClick={() => setPv({ url, name: f.name, isImage })} {...pressableProps(() => setPv({ url, name: f.name, isImage }))} aria-label={`Preview ${f.name}`} style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                                 {isImage
-                                    ? <img src={url} alt={f.name} style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, objectFit: 'cover', border: '1px solid #e6e6e8' }} />
+                                    ? <img src={url} alt={f.name} style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, objectFit: 'cover', border: `1px solid ${P.line}` }} />
                                     : <span style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, background: '#eaf0f6', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>📄</span>}
-                                <span style={{ flex: 1, minWidth: 0, fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: '#2b2e30', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
-                                <span style={{ fontSize: 11.5, color: '#9aa0a6', flexShrink: 0 }}>{Math.round(f.size / 1024)} KB</span>
+                                <span style={{ flex: 1, minWidth: 0, fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: P.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+                                <span style={{ fontSize: 11.5, color: P.inkSubtle, flexShrink: 0 }}>{Math.round(f.size / 1024)} KB</span>
                                 {!isMobile && <span style={{ fontSize: 11, color: '#2F5E8C', fontWeight: 700, flexShrink: 0 }}>Preview</span>}
                             </div>
                             <button type="button" onClick={() => setS(p => ({ ...p, files: p.files.filter((_, j) => j !== i) }))}
@@ -1001,7 +863,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         </div>
                     );
                 })}
-                <label htmlFor={`leave-files-${idSuffix}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: isMobile ? '9px 12px' : '9px 13px', borderRadius: 10, border: '1px dashed #cdd0d4', color: '#727577', fontSize: isMobile ? 12.5 : 13, fontWeight: 600, cursor: 'pointer', width: 'max-content', marginTop: isMobile ? 8 : 0 }}>
+                <label htmlFor={`leave-files-${idSuffix}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: isMobile ? '9px 12px' : '9px 13px', borderRadius: 10, border: '1px dashed #cdd0d4', color: P.inkMuted, fontSize: isMobile ? 12.5 : 13, fontWeight: 600, cursor: 'pointer', width: 'max-content', marginTop: isMobile ? 8 : 0 }}>
                     ＋ {s.files.length ? 'Add another document' : 'Attach document'}
                 </label>
             </div>
@@ -1011,10 +873,10 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const ApprovalChain = ({ compact }: { compact?: boolean }) => {
         const displayChain = chain.length ? chain : [{ level: 1, approverName: 'Reporting manager', approverRole: '', approverId: '' } as any];
         return (
-            <div style={compact ? { background: '#fff', border: '1px solid #e9e9eb', borderRadius: 11, padding: '11px 12px' } : railCardSt()}>
+            <div style={compact ? { background: P.surface, border: `1px solid ${P.line}`, borderRadius: 11, padding: '11px 12px' } : railCardSt()}>
                 {compact ? (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <span style={{ fontSize: 11.5, fontWeight: 700, color: '#8b8e91', textTransform: 'uppercase', letterSpacing: '.03em' }}>Approval flow</span>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: P.inkFaint, textTransform: 'uppercase', letterSpacing: '.03em' }}>Approval flow</span>
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#2F5E8C' }}>{displayChain.length} level{displayChain.length !== 1 ? 's' : ''}</span>
                     </div>
                 ) : (
@@ -1022,7 +884,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         right={<span style={{ fontSize: 11, fontWeight: 700, color: '#2F5E8C' }}>{displayChain.length} level{displayChain.length !== 1 ? 's' : ''}</span>} />
                 )}
                 {compact ? (
-                    <span style={{ fontSize: 12, color: '#5f6266', fontWeight: 600 }}>{displayChain.map(c => c.approverName).join('  →  ')}</span>
+                    <span style={{ fontSize: 12, color: P.inkBody, fontWeight: 600 }}>{displayChain.map(c => c.approverName).join('  →  ')}</span>
                 ) : (
                     displayChain.map((c, i) => {
                         const first = i === 0, last = i === displayChain.length - 1;
@@ -1030,19 +892,19 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         return (
                             <div key={c.level ?? i} style={{ display: 'flex', gap: 11 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                                    <div style={{ width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, background: first ? ACCENT : '#eef1f5', color: first ? '#fff' : '#8b8e91', boxShadow: first ? `0 0 0 3px ${rgba(ACCENT, 0.14)}` : 'none' }}>
+                                    <div style={{ width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, background: first ? ACCENT : P.track, color: first ? '#fff' : P.inkFaint, boxShadow: first ? `0 0 0 3px ${rgba(ACCENT, 0.14)}` : 'none' }}>
                                         {initials || c.level}
                                     </div>
                                     {!last && <div style={{ width: 2, flexGrow: 1, minHeight: 14, background: '#e6e8ec', margin: '3px 0' }} />}
                                 </div>
                                 <div style={{ paddingBottom: last ? 0 : 13, minWidth: 0, flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                                        <span style={{ fontSize: 12.5, fontWeight: 700, color: '#2b2e30', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.approverName}</span>
-                                        <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999, flexShrink: 0, whiteSpace: 'nowrap', color: first ? ACCENT : '#9aa0a6', background: first ? rgba(ACCENT, 0.12) : '#f2f3f4' }}>
+                                        <span style={{ fontSize: 12.5, fontWeight: 700, color: P.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.approverName}</span>
+                                        <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999, flexShrink: 0, whiteSpace: 'nowrap', color: first ? ACCENT : P.inkSubtle, background: first ? rgba(ACCENT, 0.12) : P.track }}>
                                             {first ? 'Next to review' : `Level ${c.level ?? i + 1}`}
                                         </span>
                                     </div>
-                                    {c.approverRole && <div style={{ fontSize: 11, color: '#8b8e91', marginTop: 1 }}>{c.approverRole}</div>}
+                                    {c.approverRole && <div style={{ fontSize: 11, color: P.inkFaint, marginTop: 1 }}>{c.approverRole}</div>}
                                 </div>
                             </div>
                         );
@@ -1062,10 +924,18 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     // Why the Submit button is disabled — one renderer for BOTH layouts so the copy can't drift.
     // `spaced` adds bottom margin for the mobile footer (desktop rail spaces via flex gap).
     const BlockingAlerts = ({ spaced }: { spaced?: boolean }) => {
-        const box = spaced ? { ...errBox, marginBottom: 10 } : errBox;
+        const box = spaced ? { ...errBoxOf(P.dark), marginBottom: 10 } : errBoxOf(P.dark);
         return (
             <>
                 {overlapConflict && <div style={box}>This range overlaps a leave you already have.</div>}
+                {boundaryHalfNeedsAuto && (
+                    <div style={box}>
+                        A half-day on the first or last day of a range needs <strong>Auto · paid first</strong> allocation.
+                        {todayHalfPM
+                            ? ' Today is fixed to a PM half because you are already checked in, so switch “Apply using” to Auto.'
+                            : ' Switch “Apply using” to Auto, or turn the boundary half off.'}
+                    </div>
+                )}
                 {alloc?.blocked && <div style={box}>{alloc.blocked.reason}</div>}
             </>
         );
@@ -1079,9 +949,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             </div>
             {pv.isImage
                 ? <img src={pv.url} alt={pv.name} style={{ maxWidth: '100%', maxHeight: '62vh', borderRadius: 12, boxShadow: '0 18px 50px rgba(0,0,0,.45)' }} />
-                : <div style={{ background: '#fff', borderRadius: 14, padding: '34px 40px', textAlign: 'center' }}>
+                : <div style={{ background: P.surface, borderRadius: 14, padding: '34px 40px', textAlign: 'center' }}>
                     <div style={{ fontSize: 44, marginBottom: 10 }}>📄</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#2b2e30', marginBottom: 14 }}>{pv.name}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: P.ink, marginBottom: 14 }}>{pv.name}</div>
                     <a href={pv.url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '10px 18px', borderRadius: 10, background: ACCENT, color: '#fff', fontSize: 13.5, fontWeight: 700, textDecoration: 'none' }}>Open in new tab</a>
                 </div>}
         </div>
@@ -1102,9 +972,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         return (
             <div style={{ padding: sheet ? '30px 26px 40px' : '48px 32px 44px', textAlign: 'center' }}>
                 <div style={{ width: sheet ? 56 : 58, height: sheet ? 56 : 58, borderRadius: '50%', background: rgba(ACCENT, 0.1), color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: sheet ? 28 : 30, fontWeight: 700, margin: '0 auto 14px' }}>✓</div>
-                <div style={{ fontSize: sheet ? 18 : 21, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>Leave request submitted</div>
-                <div style={{ color: '#727577', marginTop: 7, fontSize: sheet ? 13 : 14 }}>Routed through {chain.length || 1} approval level(s){chain[0]?.approverName ? ` — starting with ${chain[0].approverName}` : ''}.</div>
-                <div style={{ marginTop: 12, fontWeight: 600, color: '#5f6266', fontSize: 13 }}>{segs}</div>
+                <div style={{ fontSize: sheet ? 18 : 21, fontWeight: 800, color: P.ink, fontFamily: PJK }}>Leave request submitted</div>
+                <div style={{ color: P.inkMuted, marginTop: 7, fontSize: sheet ? 13 : 14 }}>Routed through {chain.length || 1} approval level(s){chain[0]?.approverName ? ` — starting with ${chain[0].approverName}` : ''}.</div>
+                <div style={{ marginTop: 12, fontWeight: 600, color: P.inkBody, fontSize: 13 }}>{segs}</div>
                 {result.unpaidDays > 0 && (
                     <div style={{ color: RED_DARK, marginTop: 6, fontWeight: 600, fontSize: 13 }}>
                         Includes {result.unpaidDays} unpaid day(s){lopPerDay > 0 ? ` · est. ${formatCurrencyDecimal(result.unpaidDays * lopPerDay)}` : ''}.
@@ -1113,15 +983,15 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 {status?.levels && !sheet && (
                     <div style={{ marginTop: 18, textAlign: 'left', maxWidth: 360, margin: '18px auto 0' }}>
                         {status.levels.map((l: any) => (
-                            <div key={l.level} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 0', borderBottom: '1px solid #f0f0f1' }}>
+                            <div key={l.level} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 0', borderBottom: `1px solid ${P.lineSoft}` }}>
                                 <span>{l.level}. {l.approverName ?? chain.find(c => c.level === l.level)?.approverName ?? l.approverId}</span>
-                                <span style={{ fontWeight: 700, color: l.status === 'approved' ? GREEN : l.status === 'rejected' ? RED : '#9aa0a6' }}>{l.status ?? 'pending'}</span>
+                                <span style={{ fontWeight: 700, color: l.status === 'approved' ? GREEN : l.status === 'rejected' ? RED : P.inkSubtle }}>{l.status ?? 'pending'}</span>
                             </div>
                         ))}
                     </div>
                 )}
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
-                    <button onClick={applyAnother} style={{ padding: '11px 22px', borderRadius: 11, border: '1px solid #e6e6e8', background: '#fff', color: '#5f6266', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Apply Another</button>
+                    <button onClick={applyAnother} style={{ padding: '11px 22px', borderRadius: 11, border: `1px solid ${P.line}`, background: P.surface, color: P.inkBody, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Apply Another</button>
                     <button onClick={onClose} style={{ padding: '11px 22px', borderRadius: 11, border: 'none', background: ACCENT, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Done</button>
                 </div>
             </div>
@@ -1130,9 +1000,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 
     // ── Mobile layout ─────────────────────────────────────────────────────────
     if (isMobile) {
-        const sheet: React.CSSProperties = { background: '#fff', borderRadius: '24px 24px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '92vh', width: '100%', overflow: 'hidden', position: 'relative' };
-        const grab = <div style={{ padding: '11px 0 4px', flexShrink: 0 }}><div style={{ width: 38, height: 4, borderRadius: 99, background: '#dcdee1', margin: '0 auto' }} /></div>;
-        if (loading) return <div style={sheet}>{grab}<div style={{ padding: 40, textAlign: 'center', color: '#727577' }}>Loading…</div></div>;
+        const sheet: React.CSSProperties = { background: P.surface, borderRadius: '24px 24px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '92vh', width: '100%', overflow: 'hidden', position: 'relative' };
+        const grab = <div style={{ padding: '11px 0 4px', flexShrink: 0 }}><div style={{ width: 38, height: 4, borderRadius: 99, background: P.line, margin: '0 auto' }} /></div>;
+        if (loading) return <div style={sheet}>{grab}<div style={{ padding: 40, textAlign: 'center', color: P.inkMuted }}>Loading…</div></div>;
         if (result)  return <div style={sheet}>{grab}<Success sheet /></div>;
         return (
             <div style={sheet}>
@@ -1140,26 +1010,26 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 <Lightbox />
                 <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 }}>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#2b2e30', fontFamily: PJK }}>{headerTitle}</div>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#727577' }}>{!s.from ? '' : N === 0 ? '0 days' : daysLabel(N)}</span>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: P.ink, fontFamily: PJK }}>{headerTitle}</div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: P.inkMuted }}>{!s.from ? '' : N === 0 ? '0 days' : daysLabel(N)}</span>
                     </div>
                     {!isView && <div style={{ marginBottom: 13 }}><TypeSelector /></div>}
                     <div style={{ display: isView ? 'none' : 'flex', gap: 8, marginBottom: 10 }}>
                         {[{ label: 'Today', iso: today }, { label: 'Tomorrow', iso: tomorrow }].map(({ label, iso }) => {
                             const active = s.from === iso && s.to === iso;
-                            const off = blockedDates.has(iso);
+                            const off = blockedDates.has(iso) || (iso === today && todayDone);
                             return (
                                 <button key={label} onClick={() => pickQuick(iso)} disabled={off}
-                                    style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : '#e0e2e4'}`, background: active ? rgba(ACCENT, 0.10) : '#fff', color: active ? ACCENT : off ? '#c0c2c5' : '#5f6266', fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
+                                    style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : P.line}`, background: active ? rgba(ACCENT, 0.10) : P.surface, color: active ? ACCENT : off ? P.inkDisabled : P.inkBody, fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
                                     {label}
                                 </button>
                             );
                         })}
                     </div>
-                    <Calendar small />
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 11, padding: '10px 12px', border: '1px solid #e6e6e8', borderRadius: 11 }}>
-                        <span style={{ fontSize: 12.5, color: '#5f6266' }}><span style={{ color: '#8b8e91' }}>Dates: </span><strong>{!s.from ? 'None' : s.to && s.to !== s.from ? `${fmt(s.from)} → ${fmt(s.to)}` : fmt(s.from)}</strong></span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#2b2e30' }}>{!s.from ? '—' : N === 0 ? '0 days' : daysLabel(N)}</span>
+                    <LeaveCalendar {...calendarProps} small />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 11, padding: '10px 12px', border: `1px solid ${P.line}`, borderRadius: 11 }}>
+                        <span style={{ fontSize: 12.5, color: P.inkBody }}><span style={{ color: P.inkFaint }}>Dates: </span><strong>{!s.from ? 'None' : s.to && s.to !== s.from ? `${fmt(s.from)} → ${fmt(s.to)}` : fmt(s.from)}</strong></span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: P.ink }}>{!s.from ? '—' : N === 0 ? '0 days' : daysLabel(N)}</span>
                     </div>
                     <HalfDay />
                     <div style={{ marginTop: 11 }}>{isView ? <ViewBreakdown /> : <Allocation compact />}</div>
@@ -1167,7 +1037,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     {isPenaltyActive && sameDayPenalty && (
                         <div style={{ marginTop: 11, padding: '11px 13px', borderRadius: 11, border: '1px solid #f5c518', background: '#fffbea' }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#7a5c00', marginBottom: 5 }}>Late Leave Apply Notice</div>
-                            <p style={{ fontSize: 12, color: '#5f6266', margin: '0 0 8px' }}>
+                            <p style={{ fontSize: 12, color: P.inkBody, margin: '0 0 8px' }}>
                                 This leave request is being submitted after the{' '}
                                 <strong>{fmtCutoff(sameDayPenalty.cutoffTime)}</strong> same-day deadline.
                                 As per company policy, a{' '}
@@ -1191,20 +1061,20 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     )}
                     {!isView && (
                         <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Reason (optional)…"
-                            style={{ width: '100%', minHeight: 48, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 12px', fontSize: 13, outline: 'none', marginTop: 11, lineHeight: 1.5 }} />
+                            style={{ width: '100%', minHeight: 48, resize: 'none', border: `1px solid ${P.line}`, borderRadius: 11, padding: '10px 12px', fontSize: 13, outline: 'none', marginTop: 11, lineHeight: 1.5 }} />
                     )}
                     <div style={{ marginTop: 8 }}><Attachments idSuffix="m" /></div>
                     <div style={{ marginTop: 12 }}><ApprovalFlowView compact /></div>
                 </div>
-                <div style={{ flexShrink: 0, padding: '11px 16px 16px', borderTop: '1px solid #eef0f1', background: '#fff' }}>
+                <div style={{ flexShrink: 0, padding: '11px 16px 16px', borderTop: `1px solid ${P.lineSoft}`, background: P.surface }}>
                     <div style={{ marginBottom: 10 }}><Financial compact /></div>
                     {/* Blocking reasons — mobile parity with the desktop rail. Without these, the
                         Submit button just disabled silently on an overlap with no explanation. */}
                     <BlockingAlerts spaced />
                     {isView && reviewActions && <div style={{ marginBottom: 10 }}>{reviewActions}</div>}
-                    {error && <div style={{ ...errBox, marginBottom: 10 }}>{error}</div>}
+                    {error && <div style={{ ...errBoxOf(P.dark), marginBottom: 10 }}>{error}</div>}
                     <button disabled={primaryDisabled} onClick={onPrimary}
-                        style={{ width: '100%', padding: 15, borderRadius: 14, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, background: primaryActive ? ACCENT : '#cdd0d4', cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
+                        style={{ width: '100%', padding: 15, borderRadius: 14, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, background: primaryActive ? ACCENT : P.disabledBg, cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
                         {primaryLabel}
                     </button>
                 </div>
@@ -1213,20 +1083,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     }
 
     // ── Desktop layout ────────────────────────────────────────────────────────
-    const card: React.CSSProperties = { width: 960, maxWidth: '100%', background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 18px 48px rgba(43,46,48,.16)', position: 'relative' };
-    if (loading) return <div style={card}><Header /><div style={{ padding: 48, textAlign: 'center', color: '#727577' }}>Loading…</div></div>;
+    const card: React.CSSProperties = { width: 960, maxWidth: '100%', background: P.surface, borderRadius: 16, overflow: 'hidden', boxShadow: P.shadow, position: 'relative' };
+    if (loading) return <div style={card}><Header /><div style={{ padding: 48, textAlign: 'center', color: P.inkMuted }}>Loading…</div></div>;
     if (result)  return <div style={card}><Header /><Success /></div>;
     return (
         <div style={card}>
             <Header />
             <Lightbox />
-            {hoverTip && createPortal(
-                <div style={{ position: 'fixed', left: Math.min(hoverTip.x + 14, window.innerWidth - 270), top: hoverTip.y + 16, zIndex: 100000, pointerEvents: 'none', background: '#2b2e30', color: '#fff', padding: '7px 11px', borderRadius: 9, fontSize: 12, fontWeight: 600, lineHeight: 1.3, boxShadow: '0 8px 24px rgba(0,0,0,0.24)', display: 'flex', alignItems: 'center', gap: 7, maxWidth: 250, fontFamily: PJK }}>
-                    {hoverTip.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: hoverTip.color, flexShrink: 0 }} />}
-                    <span>{hoverTip.text}</span>
-                </div>,
-                document.body,
-            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 332px' }}>
                 {/* Left — form */}
                 <div style={{ padding: '22px 24px', maxHeight: '78vh', overflowY: 'auto' }}>
@@ -1235,23 +1098,23 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         was actually booked — so it (and the applicant chrome below) is hidden. */}
                     {!isView && (
                         <>
-                            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#8b8e91', marginBottom: 10, fontFamily: PJK }}>Apply using</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: P.inkFaint, marginBottom: 10, fontFamily: PJK }}>Apply using</div>
                             <TypeSelector />
                         </>
                     )}
                     <div style={{ display: isView ? 'none' : 'flex', gap: 8, marginTop: 16, marginBottom: 4 }}>
                         {[{ label: 'Today', iso: today }, { label: 'Tomorrow', iso: tomorrow }].map(({ label, iso }) => {
                             const active = s.from === iso && s.to === iso;
-                            const off = blockedDates.has(iso);
+                            const off = blockedDates.has(iso) || (iso === today && todayDone);
                             return (
                                 <button key={label} onClick={() => pickQuick(iso)} disabled={off}
-                                    style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : '#e0e2e4'}`, background: active ? rgba(ACCENT, 0.10) : '#fff', color: active ? ACCENT : off ? '#c0c2c5' : '#5f6266', fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
+                                    style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : P.line}`, background: active ? rgba(ACCENT, 0.10) : P.surface, color: active ? ACCENT : off ? P.inkDisabled : P.inkBody, fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
                                     {label}
                                 </button>
                             );
                         })}
                     </div>
-                    <div style={{ marginTop: 8 }}><Calendar /></div>
+                    <div style={{ marginTop: 8 }}><LeaveCalendar {...calendarProps} /></div>
                     <HalfDay />
                     {/* Sick confirm — appears in left column below calendar (matches design) */}
                     {sickPromptShow && <div style={{ marginTop: 12 }}><SickConfirm /></div>}
@@ -1259,7 +1122,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     {isPenaltyActive && sameDayPenalty && (
                         <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 11, border: '1px solid #f5c518', background: '#fffbea' }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#7a5c00', marginBottom: 5 }}>Late Leave Apply Notice</div>
-                            <p style={{ fontSize: 12.5, color: '#5f6266', margin: '0 0 9px' }}>
+                            <p style={{ fontSize: 12.5, color: P.inkBody, margin: '0 0 9px' }}>
                                 This leave request is being submitted after the{' '}
                                 <strong>{fmtCutoff(sameDayPenalty.cutoffTime)}</strong> same-day deadline.
                                 As per company policy, a{' '}
@@ -1285,9 +1148,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         the ViewBreakdown instead. */}
                     {!isView && (
                         <div style={{ marginTop: 14 }}>
-                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#5f6266', marginBottom: 6 }}>Remarks</label>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: P.inkBody, marginBottom: 6 }}>Remarks</label>
                             <textarea value={s.reason} onChange={e => setS(p => ({ ...p, reason: e.target.value }))} placeholder="Add a note for your manager (optional)…"
-                                style={{ width: '100%', minHeight: 58, resize: 'none', border: '1px solid #e6e6e8', borderRadius: 11, padding: '10px 13px', fontSize: 13.5, color: '#2b2e30', outline: 'none', lineHeight: 1.5 }} />
+                                style={{ width: '100%', minHeight: 58, resize: 'none', border: `1px solid ${P.line}`, borderRadius: 11, padding: '10px 13px', fontSize: 13.5, color: P.ink, outline: 'none', lineHeight: 1.5 }} />
                         </div>
                     )}
                     <div style={{ marginTop: 12 }}><Attachments idSuffix="d" /></div>
@@ -1295,7 +1158,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 
                 {/* Right — summary rail */}
                 <div style={{ background: '#f6f7f9', borderLeft: '1px solid #ececed', padding: 20, display: 'flex', flexDirection: 'column', gap: 13, maxHeight: '78vh', overflowY: 'auto' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#8b8e91', fontFamily: PJK }}>Leave summary</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: P.inkFaint, fontFamily: PJK }}>Leave summary</div>
 
                     {/* Dates + sandwich note */}
                     <div style={railCardSt()}>
@@ -1303,7 +1166,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                         <DRow label="Dates" value={!s.from ? 'None' : s.to && s.to !== s.from ? `${fmt(s.from)} → ${fmt(s.to)}` : fmt(s.from)} />
                         <DRow label="Chargeable days" value={!s.from ? '—' : N === 0 ? '0 days' : daysLabel(N)} mt />
                         {sandwichDays > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 9, paddingTop: 9, borderTop: '1px solid #f0f0f1' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 9, paddingTop: 9, borderTop: `1px solid ${P.lineSoft}` }}>
                                 <span style={{ width: 12, height: 12, borderRadius: 3, background: 'repeating-linear-gradient(45deg,#fbf0d9 0 3px,#f6e4be 3px 6px)', flexShrink: 0, marginTop: 1 }} />
                                 <span style={{ fontSize: 11.5, color: '#8a5a1e', fontWeight: 500, lineHeight: 1.4 }}>{daysLabel(sandwichDays)} of weekend/holiday between your dates — excluded from salary (sandwich rule). Not added to your leave balance.</span>
                             </div>
@@ -1318,13 +1181,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     <BlockingAlerts />
                     {/* Approval flow */}
                     <ApprovalFlowView />
-                    {error && <div style={errBox}>{error}</div>}
+                    {error && <div style={errBoxOf(P.dark)}>{error}</div>}
 
                     {/* Primary action — sticky so it's always visible without scrolling the rail. */}
                     <div style={{ position: 'sticky', bottom: 0, zIndex: 2, marginTop: 'auto', paddingTop: 12, paddingBottom: 2, background: '#f6f7f9', borderTop: '1px solid #ececed' }}>
                         {isView && reviewActions && <div style={{ marginBottom: 10 }}>{reviewActions}</div>}
                         <button disabled={primaryDisabled} onClick={onPrimary}
-                            style={{ width: '100%', padding: 13, borderRadius: 11, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, background: primaryActive ? ACCENT : '#cdd0d4', cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
+                            style={{ width: '100%', padding: 13, borderRadius: 11, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, background: primaryActive ? ACCENT : P.disabledBg, cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
                             {primaryLabel}
                         </button>
                     </div>
@@ -1335,29 +1198,12 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 }
 
 // ── Tiny shared atoms ─────────────────────────────────────────────────────────
-const pillSt = (sel: boolean, color: string): React.CSSProperties => ({
+/** `P` is passed rather than read from a hook: this is a module-scope style helper, not a component. */
+const pillSt = (sel: boolean, color: string, P: LeavePalette): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 13px', borderRadius: 999,
     cursor: 'pointer', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap',
-    border: sel ? `1.5px solid ${color}` : '1px solid #e6e6e8',
-    background: sel ? `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},0.08)` : '#fff',
-    color: sel ? color : '#5f6266',
+    border: sel ? `1.5px solid ${color}` : `1px solid ${P.line}`,
+    background: sel ? `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},0.08)` : P.surface,
+    color: sel ? color : P.inkBody,
 });
-const navBtnSt = (small?: boolean): React.CSSProperties => ({
-    width: small ? 34 : 38, height: small ? 34 : 38,
-    border: '1px solid #e6e6e8', borderRadius: 10, background: '#fff', cursor: 'pointer', fontSize: 16,
-});
-const errBox: React.CSSProperties = {
-    background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, color: '#991b1b',
-};
-const Toggle = ({ on, color, onClick }: { on: boolean; color: string; onClick: () => void }) => (
-    <button onClick={onClick} style={{ width: 42, height: 24, borderRadius: 999, background: on ? color : '#d9d9d9', position: 'relative', border: 'none', cursor: 'pointer', flexShrink: 0, transition: 'background .15s' }}>
-        <span style={{ position: 'absolute', top: 3, left: on ? 21 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,.25)', transition: 'left .15s' }} />
-    </button>
-);
-const DRow = ({ label, value, mt }: { label: string; value: string; mt?: boolean }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: mt ? 7 : 0 }}>
-        <span style={{ fontSize: 12, color: '#8b8e91', fontWeight: 600 }}>{label}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#2b2e30' }}>{value}</span>
-    </div>
-);
 

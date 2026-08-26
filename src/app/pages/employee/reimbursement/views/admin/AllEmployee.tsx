@@ -27,6 +27,7 @@ import ReimbursementCharts from '../../components/ReimbursementCharts';
 import ByProject from './ByProject';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -409,7 +410,7 @@ function AllEmployee() {
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
         >
-          <i className="bi bi-arrow-counterclockwise" style={{ fontSize: '13px' }} />
+          <AppIcon name="bi-arrow-counterclockwise" className="fs-7" />
           Reset
         </button>
       )}

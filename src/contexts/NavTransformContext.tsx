@@ -114,6 +114,18 @@ export function NavTransformToggle(props: IconButtonProps) {
   const { pathname } = useLocation();
   const isMobile = useIsMobile();
 
+  /*
+   * Flip the navigation. Do NOT move the user.
+   *
+   * This used to navigate to '/workspace' or '/dashboard' on every toggle, which threw
+   * away the page you were reading: switching modes on Attendance dropped you on the
+   * dashboard. It does not have to. Both modes serve the SAME routes — WorkspaceShell is
+   * a pathless layout route wrapping everything, so it changes what is drawn AROUND the
+   * page, not which page — and '/workspace/*' is the only path that exists in one mode
+   * and not the other. WorkspaceShell already redirects that one out to '/dashboard' when
+   * the sidebar is chosen, so the case this navigate existed for is handled a layer down,
+   * where it belongs, and handled for stale bookmarks too rather than only for this click.
+   */
   const handleClick = useCallback(() => {
     // STAY ON THE PAGE. Both shells render the same routes — WorkspaceShell is a pathless
     // layout route wrapping every destination — so switching navigation is a change of

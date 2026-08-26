@@ -1,3 +1,4 @@
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import {
@@ -102,7 +103,7 @@ const ProjectPointsConfigModal: React.FC<ProjectPointsConfigModalProps> = ({
                         {isEditing ? "Edit Project Point" : "New Project Point"}
                     </div>
                     <button type="button" onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 18, color: "#94a3b8" }}>
-                        <i className="bi bi-x-lg" />
+                        <AppIcon name="bi-x-lg" />
                     </button>
                 </div>
 

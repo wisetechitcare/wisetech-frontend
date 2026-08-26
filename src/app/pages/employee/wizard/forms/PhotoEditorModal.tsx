@@ -107,6 +107,13 @@ const mirrorImage = (imageSrc: string): Promise<string> =>
   });
 
 /**
+ * The most pixels any surface asks of this photo: the birthday card's portrait circle
+ * is 400 user units and that card exports at 2× (`BirthdayCardDialog`), so 800 square.
+ * Crops below it are upscaled at render time and go soft.
+ */
+const CARD_PHOTO_PIXELS = 800;
+
+/**
  * Render the cropped region with every edit baked in.
  *
  * Rotation makes this more than a `drawImage` of a rectangle: the crop box is in
@@ -348,6 +355,22 @@ const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ src, onCancel, onAp
   const onCropComplete = useCallback((_area: any, pixels: any) => {
     setCroppedAreaPixels(pixels);
   }, []);
+
+  /**
+   * The crop is written at its own NATURAL pixel size — `renderEditedImage` sets the
+   * output canvas to `crop.width × crop.height` and nothing downstream resamples it up.
+   * So whatever comes out of here is the entire pixel budget every surface that shows
+   * this face will ever have, and the largest of them is the birthday card: a 400-unit
+   * circle exported at 2×, i.e. 800 × 800. Crop tighter than that and the card has to
+   * invent the difference, which is the soft, smeared portrait people report.
+   *
+   * A warning, not a block. Someone whose only photo is a 300px avatar still needs one
+   * on file, and a modal that refuses to save is worse than a face that is slightly
+   * soft — this just makes the trade visible while there is still a bigger file to
+   * re-crop from.
+   */
+  const cropPixels = croppedAreaPixels ? Math.min(croppedAreaPixels.width, croppedAreaPixels.height) : null;
+  const lowRes = cropPixels !== null && cropPixels < CARD_PHOTO_PIXELS;
 
   const handleApply = async () => {
     if (!croppedAreaPixels) return;
@@ -661,6 +684,16 @@ const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ src, onCancel, onAp
       {error && (
         <Box sx={{ px: 2, py: 1.25, bgcolor: 'error.light', borderTop: '1px solid', borderColor: 'error.main' }} role="alert">
           <Typography sx={{ fontSize: 13, fontWeight: 500, color: 'error.dark' }}>{error}</Typography>
+        </Box>
+      )}
+
+      {!error && lowRes && (
+        <Box sx={{ px: 2, py: 1.25, bgcolor: 'warning.light', borderTop: '1px solid', borderColor: 'warning.main' }} role="status">
+          <Typography sx={{ fontSize: 13, fontWeight: 500, color: 'warning.dark' }}>
+            This crop is {cropPixels}&nbsp;px — under the {CARD_PHOTO_PIXELS}&nbsp;px a printed
+            card needs, so the photo will look soft there. Zoom out, or start from a larger
+            picture, if you have one.
+          </Typography>
         </Box>
       )}
 

@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback } from "react";
 import { Tooltip } from "@mui/material";
 import { PresetTreeNode, buildPresetTree } from "@utils/presetTaskHierarchy";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * PresetTaskTree
@@ -110,7 +111,7 @@ const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (
         transition: "all .15s ease",
       }}
     >
-      <i className={`bi ${icon}`} style={{ fontSize: 13, lineHeight: 1 }} />
+      <AppIcon name={icon} className="fs-7" style={{ lineHeight: 1 }} />
     </button>
     </Tooltip>
   );
@@ -186,7 +187,7 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
-          <i className="bi bi-search" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "#aab2bd" }} />
+          <AppIcon name="bi-search" className="fs-7" color="#aab2bd" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)" }} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -196,16 +197,16 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
           {query && (
             <Tooltip title="Clear" arrow>
               <button type="button" onClick={() => setQuery("")} aria-label="Clear search" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aab2bd" }}>
-                <i className="bi bi-x-lg" style={{ fontSize: 11 }} />
+                <AppIcon name="bi-x-lg" className="fs-8" />
               </button>
             </Tooltip>
           )}
         </div>
         <button type="button" onClick={expandAll} disabled={allExpanded || !!q} style={{ ...toolBtn(false), opacity: allExpanded || !!q ? 0.55 : 1, cursor: allExpanded || !!q ? "not-allowed" : "pointer" }}>
-          <i className="bi bi-arrows-expand" /> Expand all
+          <AppIcon name="bi-arrows-expand" /> Expand all
         </button>
         <button type="button" onClick={collapseAll} disabled={allCollapsed || !!q} style={{ ...toolBtn(false), opacity: allCollapsed || !!q ? 0.55 : 1, cursor: allCollapsed || !!q ? "not-allowed" : "pointer" }}>
-          <i className="bi bi-arrows-collapse" /> Collapse all
+          <AppIcon name="bi-arrows-collapse" /> Collapse all
         </button>
       </div>
 
@@ -258,7 +259,7 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
                     onClick={() => hasChildren && toggle(node.key)}
                     style={{ width: 16, textAlign: "center", flexShrink: 0, color: "#8893a0", cursor: hasChildren ? "pointer" : "default", transition: "transform .18s ease", transform: open ? "rotate(90deg)" : "rotate(0deg)", visibility: hasChildren ? "visible" : "hidden" }}
                   >
-                    <i className="bi bi-chevron-right" style={{ fontSize: 10 }} />
+                    <AppIcon name="bi-chevron-right" className="fs-9" />
                   </span>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, boxShadow: isTop ? `0 0 0 2px ${color}28` : "none" }} />
                   <span style={{ fontWeight: isTop ? 600 : 400, fontSize: isTop ? 13.5 : 12.5, color: "#1f2733", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

@@ -9,6 +9,7 @@ import { IMonthlyApiResponse, IBreakdownData } from '@redux/slices/salaryData';
 import { Close, InfoOutlined } from '@mui/icons-material';
 import { formatINRDecimal } from '../../../../../../../modules/payroll/utils/payrollFormatters';
 import { deductionMasterService } from '@modules/payroll/services/payrollService';
+import { MASTER_KEY_TO_HARDCODED } from '@modules/payroll/hooks/useSalaryComponentNames';
 import dayjs from 'dayjs';
 
 interface DeductionDistributionModalProps {
@@ -197,11 +198,16 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             
             // 1. Extract auto-calculated values from monthlyApiData for preview (fixed + variable)
             const autoDeductions: Record<string, number> = {};
+            // Which section each engine key belongs to, taken from the bucket payroll put it
+            // in — the same split the breakdown panel renders (fixed = "Government & Payroll",
+            // variable = "Attendance Adjustments"). Used to place rows the master doesn't know.
+            const sectionOf: Record<string, 'government' | 'attendance'> = {};
             const breakdown = monthlyApiData?.salaryData?.[0]?.deductionBreakdown;
             if (breakdown?.fixed) {
                 const fixed = breakdown.fixed;
                 Object.entries(fixed).forEach(([key, data]: [string, any]) => {
                     autoDeductions[key] = autoBasis(data);
+                    sectionOf[key] = 'government';
                 });
                 setProfFeesEnabled(!!fixed['Professional Fees']?.isActive);
                 setProfTaxEnabled(!!fixed['Professional Tax']?.isActive);
@@ -210,6 +216,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                 // Also capture attendance-section auto amounts so previews show correctly
                 Object.entries(breakdown.variable).forEach(([key, data]: [string, any]) => {
                     if (!(key in autoDeductions)) autoDeductions[key] = autoBasis(data);
+                    sectionOf[key] ??= 'attendance';
                 });
             }
             setAutoCalculatedDeductions(autoDeductions);
@@ -240,13 +247,44 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                 activeDebit
                     .sort((a, b) => a.sortOrder - b.sortOrder)
                     .forEach(c => {
-                        defaultFields[c.displayName] = { name: c.displayName, type: 'number', value: 0, isActive: true, _masterCategory: c.category };
+                        // KEY by the engine's own breakdown key, LABEL by the admin's displayName.
+                        // Keying by displayName is what produced the duplicate TDS lines: rename
+                        // "Tax Deducted at Source" → "TDS on Professional Fees" and the previously
+                        // saved override no longer matched any row, so the modal re-added the
+                        // component at 0 and payroll charged the orphan as a SECOND deduction on
+                        // top of the auto amount. System components (`isSystem`) never reach the
+                        // engine under their displayName at all — only under this hardcoded key.
+                        const engineKey = MASTER_KEY_TO_HARDCODED[c.key] ?? c.displayName;
+                        defaultFields[engineKey] = { name: c.displayName, type: 'number', value: 0, isActive: true, _masterCategory: c.category };
                     });
             } catch {
                 // fallback: keep original three hardcoded fields so modal still works
                 defaultFields['Provident Fund']    = { name: 'Provident Fund',               type: 'number', value: 0, isActive: true };
                 defaultFields['Professional Tax']  = { name: 'Professional Tax',              type: 'number', value: 0, isActive: true };
                 defaultFields['Professional Fees'] = { name: 'Tax Deducted at Source (TDS)', type: 'number', value: 0, isActive: true };
+            }
+
+            // 3b. Backfill anything payroll is ACTUALLY charging that the master lookup above
+            //     missed — a component deactivated in Salary Master, one scoped to another
+            //     employee or effective window, or a legacy config entry never in master at all.
+            //     The breakdown panel still renders those (it keeps inactive entries that earned
+            //     something), so without this they were charged but had no row here to adjust.
+            //     Keying off the engine's own breakdown key is what makes this safe: the backend
+            //     merges a known key as `extraAmount`, and only an ORPHAN key becomes a second
+            //     deduction line (salaryCalculations.ts ~1751).
+            for (const [key, section] of Object.entries(sectionOf)) {
+                if (key === '_fieldOrder' || defaultFields[key]) continue;
+                const src: any = (breakdown as any)?.[section === 'government' ? 'fixed' : 'variable']?.[key];
+                defaultFields[key] = {
+                    // Match the label the breakdown panel shows, so the row is recognisable as
+                    // the same line the user is looking at (DeductionPanel relabels this one).
+                    name: key === 'Professional Fees' ? 'Tax Deducted at Source (TDS)' : (src?.name || key),
+                    type: 'number',
+                    value: 0,
+                    isActive: true,
+                    _section: section,
+                    _fromBreakdown: true,
+                };
             }
 
             // Always start with all default fields, then overlay any saved values
@@ -309,6 +347,11 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                     // engine already handles the Professional Tax / Professional Fees mutual
                     // exclusivity. The extra amount here is independent (additive).
                     const finalValue = Number(values[key]);
+
+                    // A backfilled row left at 0 is not an adjustment — don't persist it. Saving
+                    // it would write a key the fixed-deduction pass may not recognise, and that
+                    // path materialises unknown keys as their own ₹0 line in the breakdown.
+                    if (fieldData._fromBreakdown && finalValue === 0) return;
 
                     transformedData[key] = {
                         ...fieldData,
@@ -387,8 +430,6 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                 .filter(([key]) => !deletedFields.includes(key) && key !== '_fieldOrder')
                                 .map(([key, value]: [string, any]) => ({ id: key, ...value, isNew: false }));
 
-                            const allFields = [...existingFields, ...dynamicFields];
-
                             const SYS_ATTENDANCE = ['late checkins', 'late attendance', 'early checkout', 'unpaid leave', 'half day', 'missed punch'];
 
                             const getGroup = (field: any): 'government' | 'attendance' | 'other' => {
@@ -417,14 +458,31 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                             const allFieldsWithGrouping = [...existingFields, ...dynamicFields];
                             const govFields = allFieldsWithGrouping.filter(f => getGroup(f) === 'government');
                             const allAttFields = allFieldsWithGrouping.filter(f => getGroup(f) === 'attendance');
-                            // Late Checkins is auto-calculated — read-only; the rest are editable adjustments
-                            const lateCheckinFields = allAttFields.filter(f => (f.name || f.id) === 'Late Checkins');
-                            const editableAttFields = allAttFields.filter(f => (f.name || f.id) !== 'Late Checkins');
+                            // Late Checkins is auto-calculated — read-only; the rest are editable
+                            // adjustments. Matched on the engine key, not the label: renaming the
+                            // component in Salary Master used to turn it into an editable row.
+                            const isLateCheckins = (f: any) => f.id === 'Late Checkins' || f.name === 'Late Checkins';
+                            const lateCheckinFields = allAttFields.filter(isLateCheckins);
+                            const editableAttFields = allAttFields.filter(f => !isLateCheckins(f));
+                            // Everything else. Without this section, custom fields and anything
+                            // getGroup() could not classify were built into the form and SAVED on
+                            // submit while never being rendered — invisible but live deductions.
+                            const otherFields = allFieldsWithGrouping.filter(f => getGroup(f) === 'other');
 
                             // Read-only row for attendance (same green style as Work Earnings in Gross modal)
+                            // `autoCalculatedDeductions` is keyed by the ENGINE's breakdown key, which
+                            // is `field.id`. Reading it by display name returned undefined for every
+                            // renamed component, so the modal showed "Auto ₹0" next to a live ₹6,133
+                            // charge and there was no visible figure to adjust against. Fall back to
+                            // the name only for rows saved before this was keyed correctly.
+                            const autoFor = (field: any): number =>
+                                autoCalculatedDeductions[field.id]
+                                ?? autoCalculatedDeductions[field.name]
+                                ?? 0;
+
                             const renderReadOnlyRow = (field: any) => {
                                 const fieldName = field.name || field.id;
-                                const amount = autoCalculatedDeductions[fieldName] || 0;
+                                const amount = autoFor(field);
                                 return (
                                     <div
                                         key={field.id}
@@ -454,8 +512,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                             const renderRow = (field: any) => {
                                 const fieldKey = field.id;
                                 const currentExtra = Number(formikProps.values[fieldKey] || 0);
-                                const fieldName = field.name || field.id;
-                                const auto = autoCalculatedDeductions[fieldName] || 0;
+                                const auto = autoFor(field);
                                 const total = Math.max(0, auto + currentExtra);
 
                                 const isProfTax = field.id === 'Professional Tax';
@@ -590,16 +647,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                     {renderSection('Government & Statutory', '#3e97ff', govFields, true, false, 'government')}
                                     {lateCheckinFields.length > 0 && renderSection('Late Checkins', '#50cd89', lateCheckinFields, false, true)}
                                     {renderSection('Attendance Deductions', '#ffa621', editableAttFields, true, false, 'attendance')}
-
-                                    {allFields.length === 0 && (
-                                        <div className="text-center py-14 bg-light rounded-4 border border-dashed border-gray-300 mb-4">
-                                            <KTIcon iconName="document" className="fs-3x text-gray-400 mb-4" />
-                                            <p className="text-gray-600 fw-bold mb-4 fs-7">No deduction adjustments configured.</p>
-                                            <button type="button" className="btn btn-primary btn-sm px-6" onClick={() => addNewField('custom')}>
-                                                Add First Adjustment
-                                            </button>
-                                        </div>
-                                    )}
+                                    {renderSection('Other Deductions', '#7239ea', otherFields, true, false, 'custom')}
 
                                     <div className="d-flex justify-content-between align-items-center py-4 border-top mt-2">
                                         <span className="text-muted fs-9 d-flex align-items-center gap-1">

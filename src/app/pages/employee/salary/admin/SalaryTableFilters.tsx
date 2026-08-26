@@ -14,6 +14,7 @@ export type PayTypeFilter = 'All' | 'Salary' | 'Contract';
 export { ToolbarFilterSelect, FILTER_TONES } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 export type { FilterSelectTheme } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // Contract-based employees have professional fees (TDS) enabled; salary-based don't.
 // Falls back to the deducted amount for API responses that predate the flag.
@@ -228,7 +229,7 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
         >
-          <i className="bi bi-arrow-counterclockwise" style={{ fontSize: '13px' }} />
+          <AppIcon name="bi-arrow-counterclockwise" className="fs-7" />
           Reset
         </button>
       )}

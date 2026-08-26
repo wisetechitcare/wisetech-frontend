@@ -6,6 +6,7 @@ import { EnterpriseWizardStep, WizardActionConfig, WizardSummaryConfig } from ".
 import { SummarySidebar } from "../SummarySidebar/SummarySidebar";
 import { WizardSidebar } from "../WizardSidebar/WizardSidebar";
 import "@app/pages/employee/forms/shared/Workspace.css";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
   module: string;
@@ -113,7 +114,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
           {/* Title with module avatar */}
           <div className="wizard-title-row">
             <div className="wizard-header-avatar" aria-hidden>
-              <i className={`bi ${moduleIcon || (module === "project" ? "bi-buildings-fill" : "bi-building")}`} />
+              <AppIcon name={moduleIcon || (module === "project" ? "bi-buildings-fill" : "bi-building")} />
             </div>
             <div style={{ minWidth: 0 }}>
               <h1 className="wizard-title">{headerTitle}</h1>

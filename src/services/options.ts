@@ -50,6 +50,25 @@ export const updatePrefixSetting = async (id: string, payload: any) => {
     }
 };
 
+/**
+ * Next inquiry number an organization would use. Read-only preview — the number
+ * actually stored is issued by the server when the lead is created, so this can
+ * be overtaken if someone else saves first.
+ *
+ * Rejects with the API error when the organization has no lead prefix configured
+ * (meta code LEAD_PREFIX_NOT_CONFIGURED); callers should surface that rather
+ * than fall back to another organization's prefix.
+ */
+export const fetchLeadNumberPreview = async (organizationId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.GET_LEAD_NUMBER_PREVIEW}?organizationId=${encodeURIComponent(organizationId)}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
 export const deletePrefixSetting = async (id: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${OPTIONS.DELETE_PREFIX_SETTING.replace(':id', id)}`;

@@ -1,46 +1,22 @@
-import { Field, useField } from "formik";
+import { useField } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
-import  Select, { components as RSComponents }  from "react-select";
+import { components as RSComponents } from "react-select";
 import React, { useState, useMemo } from "react";
 import { Box } from "@mui/material";
-import { FixedSizeList as List } from "react-window";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
 import { ColourOption, SingleValue, AvatarOption, AvatarSingleValue } from "./ColorInDropdwon";
 import DropdownChevron from "./DropdownChevron";
+// The kit's select engine — one place owns menu behaviour, theming and a11y.
+import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
 
 // Plain react-select renders EVERY option to the DOM, so menus with thousands of
 // options (e.g. the full contacts list) are slow to open and scroll. For large lists
 // we swap in a windowed MenuList that only renders the visible rows. Small lists keep
 // the default rendering so nothing changes for the rest of the app.
 const VIRTUALIZE_THRESHOLD = 80;
-const OPTION_ROW_HEIGHT = 40; // fits the avatar/colour option rows (25px icon + padding)
-
-function VirtualizedMenuList(props: any) {
-    const { options, children, maxHeight, getValue } = props;
-    // react-select passes a single element (e.g. "No options") when there's nothing to list.
-    if (!Array.isArray(children)) return children;
-
-    const selected = (getValue && getValue()) || [];
-    const selectedIndex = selected.length
-        ? options.findIndex((o: any) => o.value === selected[0]?.value)
-        : -1;
-    const isFiltered = children.length !== options.length;
-    const initialOffset = !isFiltered && selectedIndex > 0 ? selectedIndex * OPTION_ROW_HEIGHT : 0;
-    const height = Math.min(maxHeight, children.length * OPTION_ROW_HEIGHT);
-
-    return (
-        <List
-            height={height}
-            itemCount={children.length}
-            itemSize={OPTION_ROW_HEIGHT}
-            initialScrollOffset={initialOffset}
-            width="100%"
-        >
-            {({ index, style }: any) => <div style={style}>{children[index]}</div>}
-        </List>
-    );
-}
+// Windowing now lives in the kit engine (WtSelect). This threshold is still ours to
+// choose per call site, so it is passed through rather than hardcoded there.
 
 /**
  * The option row is clamped to one line, so a long label is ellipsised. Carry the full
@@ -185,100 +161,33 @@ function DropDownInput({
       )
     : options.find((option: any) => option.value === field.value) || null;
 
-    // Custom styles for react-select with color support
-    const getCustomStyles = (selectedColor?: string) => ({
-        control: (provided: any, state: any) => ({
-            ...provided,
-            borderColor: selectedColor ? `${selectedColor} !important` : provided.borderColor,
-            borderWidth: selectedColor ? '1px !important' : provided.borderWidth,
-            backgroundColor: selectedColor ? `color-mix(in srgb, ${selectedColor} 15%, white) !important` : provided.backgroundColor,
-            boxShadow: state.isFocused
-            ? `0 0 0 1px ${selectedColor || '#1E3A8A'}`
-            : provided.boxShadow,
-        }),
-
-        indicatorSeparator: (provided: any) => ({
-            ...provided,
-            backgroundColor: selectedColor ? `color-mix(in srgb, ${selectedColor} 30%, transparent)` : provided.backgroundColor,
-        }),
-        singleValue: (provided: any) => ({
-            ...provided,
-            color: selectedColor ? selectedColor : provided.color,
-            fontWeight: provided.fontWeight,
-        }),
-        placeholder: (provided: any) => ({
-            ...provided,
-        }),
-        clearIndicator: (provided: any) => ({
-            ...provided,
-            color: selectedColor ? '#000000' : provided.color,
-            '&:hover': {
-                color: selectedColor ? '#000000' : provided.color,
-            }
-        }),
-        dropdownIndicator: (provided: any) => ({
-            ...provided,
-            color: selectedColor ? selectedColor : provided.color,
-            '&:hover': {
-                color: selectedColor ? selectedColor : provided.color,
-            }
-        }),
-        // Visually distinguish inactive (disabled) options
-        option: (provided: any, state: any) => ({
-            ...provided,
-            opacity: state.isDisabled ? 0.45 : 1,
-            // fontStyle: state.isDisabled ? 'italic' : provided.fontStyle,
-            cursor: state.isDisabled ? 'not-allowed' : 'pointer',
-            color: state.isDisabled ? '#999' : provided.color,
-            // ONE line per option, always.
-            //
-            // Above VIRTUALIZE_THRESHOLD the menu is windowed, and react-window gives every
-            // row the same absolutely-positioned OPTION_ROW_HEIGHT box. A label long enough
-            // to wrap does not make its row taller — it overflows and paints on top of the
-            // row beneath it. Long project and company names did exactly that.
-            //
-            // Clamping here rather than in the virtualiser keeps the two renderings
-            // identical: a small menu and a windowed one lay an option out the same way.
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            height: OPTION_ROW_HEIGHT,
-            display: 'flex',
-            alignItems: 'center',
-        }),
-        menuPortal: (provided: any) => ({
-            ...provided,
-            zIndex: 9999,
-        }),
-        menu: (provided: any) => ({
-            ...provided,
-            zIndex: 9999,
-            // The menu is portaled to <body> with position:fixed, so it is NOT clipped by the
-            // dialog it was opened from and may be wider than its own control. Size it to the
-            // longest option instead of forcing every long project name through a 250px box.
-            //
-            // The cap is what keeps this honest on a phone: 92vw can never overflow the
-            // viewport, and 760px stops a single pathological label stretching the menu across
-            // a desktop screen.
-            width: 'max-content',
-            minWidth: '100%',
-            maxWidth: 'min(92vw, 760px)',
-        }),
-    });
 
     const DropdownIndicator = (indicatorProps: any) => (
         <DropdownChevron {...indicatorProps} color={showColor ? selectedValue?.color : undefined} />
     );
 
     return (
-        <div className="d-flex flex-column fv-row">
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
             {/* The label row's height must NOT depend on whether the add button is
                 present. As a `btn btn-sm` it stood ~10px taller than a bare label, so a
                 dropdown offering "+ Add" pushed its own field below the one beside it
                 and the two columns no longer lined up. Sized to the label's own line
                 box instead, it costs the row no extra height. */}
-            <div className="d-flex flex-row justify-content-between align-items-center gap-2 mb-2">
-                <label className={`d-flex align-items-center fs-6 form-label mb-0 ${isRequired ? 'required' : ''}`}>{inputLabel}</label>
+            <Box sx={{
+                display: 'flex', flexDirection: 'row',
+                justifyContent: 'space-between', alignItems: 'center',
+                gap: 1, mb: 1,
+            }}>
+                {/* The asterisk used to be painted by Metronic's `.required::after`.
+                    Rendered explicitly now the Bootstrap class is gone, and aria-hidden —
+                    requiredness reaches assistive tech through validation, not a glyph. */}
+                <Box component="label" sx={{
+                    display: 'flex', alignItems: 'center', gap: 0.5, mb: 0,
+                    fontSize: 13.5, fontWeight: 500, color: 'text.primary',
+                }}>
+                    {inputLabel}
+                    {isRequired && <Box component="span" aria-hidden sx={{ color: 'error.main' }}>*</Box>}
+                </Box>
                 {showAddBtn && (
                     <Box
                         component="button"
@@ -300,46 +209,36 @@ function DropDownInput({
                         + Add
                     </Box>
                 )}
-            </div>
-        <Select
-            name={formikField}
-            options={sortedOptions}
-            onChange={handleChange}
-            onInputChange={(newInputValue) => {
-                if (enableSmartSort) {
-                    setInputValue(newInputValue);
-                }
-            }}
-            placeholder={placeholder}
-            isClearable
-            isSearchable={true} // Added: Ensure searchable is enabled
-            classNamePrefix="react-select"
-            className={`react-select-styled ${hasError ? "is-invalid" : ""}`}
-            value={selectedValue}
-            isDisabled={disabled}
-            components={{
-                ...(sortedOptions.length > VIRTUALIZE_THRESHOLD ? { MenuList: VirtualizedMenuList } : {}),
-                DropdownIndicator,
-                ...(!showColor && !showAvatar ? { Option: TitledOption } : {}),
-                ...(showColor ? {
-                    Option: ColourOption,
-                    SingleValue,
-                } : {}),
-                ...(showAvatar ? {
-                    Option: AvatarOption,
-                    SingleValue: AvatarSingleValue,
-                } : {}),
-            }}
-            styles={getCustomStyles(showColor ? selectedValue?.color : undefined)}
-            menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-            menuPosition="fixed"
-            defaultInputValue={defaultValue}
-            filterOption={enableSmartSort ? null : filterOption} // Disable built-in filtering when using smart sort
-        />
+            </Box>
+            {/* Delegates to the kit engine: portal, auto-flip, bounded + windowed menu,
+                theme tokens and ARIA live there. This wrapper keeps only what is genuinely
+                its own — the Formik binding, the label row, "+ Add", and the option
+                renderers this app already uses (colour dot / avatar / titled row). */}
+            <WtSelect
+                name={formikField}
+                options={sortedOptions}
+                value={selectedValue ?? null}
+                onChange={handleChange}
+                onInputChange={(v: string) => { if (enableSmartSort) setInputValue(v); }}
+                defaultInputValue={defaultValue}
+                placeholder={placeholder}
+                isClearable
+                isDisabled={disabled}
+                error={hasError}
+                accentColor={showColor ? selectedValue?.color : undefined}
+                virtualizeThreshold={VIRTUALIZE_THRESHOLD}
+                filterOption={enableSmartSort ? null : filterOption}
+                components={{
+                    DropdownIndicator,
+                    ...(!showColor && !showAvatar ? { Option: TitledOption } : {}),
+                    ...(showColor ? { Option: ColourOption, SingleValue } : {}),
+                    ...(showAvatar ? { Option: AvatarOption, SingleValue: AvatarSingleValue } : {}),
+                }}
+            />
 
             {!isFilterOnly && <HighlightErrors isRequired={isRequired} formikField={formikField} />}
             <CommonModal functionToCallOnModalSubmit={functionToCallOnModalSubmit} show={show} setShow={setShow} fieldName={fieldName} functionToSetFieldOptions={functionToSetFieldOptions}/>
-        </div>
+        </Box>
     )
 }
 

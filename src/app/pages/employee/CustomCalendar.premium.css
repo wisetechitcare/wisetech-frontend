@@ -159,6 +159,17 @@
 .mrd-tl__ic{ width:36px; height:36px; border-radius:10px; display:grid; place-items:center; flex:none; }
 .mrd-tl__title{ font-size:13px; font-weight:600; letter-spacing:-.01em; }
 .mrd-tl__sub{ font-size:11.5px; color:var(--mrd-ink-3); margin-top:2px; }
+/* Birthday-card button on a celebration row. Sits quiet until the row is hovered or
+   the button itself is focused, so a panel of five birthdays is not five bright
+   buttons — the row is the subject, the action is a response to reaching for it.
+   It stays visible on touch, where there is no hover to reveal it. */
+.mrd-tl__act{ flex:none; width:28px; height:28px; border-radius:8px; display:grid; place-items:center;
+  border:1px solid var(--mrd-border); background:var(--mrd-surface); color:var(--mrd-ink-3);
+  cursor:pointer; opacity:.55; transition:opacity .16s, color .16s, border-color .16s, background .16s; }
+.mrd-tl__card:hover .mrd-tl__act{ opacity:1; }
+.mrd-tl__act:hover{ color:var(--mrd-rose); border-color:var(--mrd-rose); background:var(--mrd-rose-tint); }
+.mrd-tl__act:focus-visible{ opacity:1; outline:2px solid var(--mrd-rose); outline-offset:2px; }
+@media (hover:none){ .mrd-tl__act{ opacity:1; } }
 
 /* empty state */
 .mrd-empty{ text-align:center; padding:34px 14px; color:var(--mrd-ink-3); }
@@ -435,10 +446,36 @@
 .mrd-daybar__count{ font-size:12px; font-weight:600; color:var(--mrd-primary); flex:none; }
 .mrd-daybar .mrd-ico{ color:var(--mrd-ink-4); flex:none; }
 
-/* ---------- mobile bottom-sheet variant of the day-detail panel ---------- */
+/* ---------- mobile bottom-sheet variant of the day-detail panel ----------
+
+   ── THE TWO NUMBERS BELOW ARE BOUNDED ON BOTH SIDES. ──────────────────────
+   The sheet is a MODAL, so it has to cover the app's fixed bottom navigation
+   (`.bottom-nav`, z-index 105) rather than be covered by it. At 70/80 it was
+   covered: the nav sat lit on top of a dimmed page with the sheet's own rounded
+   edge behind it, which is not a bottom sheet, it is a bottom sheet with a hole
+   punched in it.
+
+   The app's stack has a clean gap between the LAYOUT band and the MODAL band:
+
+     100 header · 101 aside · 104-105 sidebars, .bottom-nav, .scrolltop
+     106 aside toggle · 107 menu dropdown · 110 Metronic drawers · 120 onboarding
+     ← nothing between 120 and 1000 →
+     1050 Bootstrap modal backdrop · 1055-1060 modal · 1080 the nav's own More
+     sheet · 1090 notifications · 1300 MUI dialog · 2000 Swal
+
+   130/131 sits in that gap, and BOTH bounds are load-bearing. Above 120 so the
+   sheet clears every piece of layout chrome including the nav. Below 1050 so
+   that the forms this sheet opens — Apply Leave, Meetings, the event chooser,
+   all react-bootstrap modals — still open ON TOP of it rather than behind it.
+   Raising this into the 1080s to "be safely on top" is the obvious wrong move:
+   it wins against the nav and loses against every dialog the sheet launches.
+
+   The backdrop sits one below the sheet so it dims the nav too, which is what
+   makes the nav read as being behind the sheet rather than switched off. It
+   also means a tap on the dimmed nav closes the sheet, as a scrim should. */
 .mrd-panel-backdrop{
   display:none;
-  position:fixed; inset:0; background:rgba(15,22,35,.42); z-index:70; opacity:0; pointer-events:none;
+  position:fixed; inset:0; background:rgba(15,22,35,.42); z-index:130; opacity:0; pointer-events:none;
   transition:opacity .2s var(--mrd-ease);
 }
 .mrd-panel-backdrop.is-open{ opacity:1; pointer-events:auto; }
@@ -516,7 +553,8 @@
     position:fixed; left:0; right:0;
     bottom:0;
     padding-bottom:calc(var(--bn-content-offset, 82px) + env(safe-area-inset-bottom, 0px));
-    z-index:80;
+    /* See the note above the backdrop for why this is 131 and not 1081. */
+    z-index:131;
     max-height:calc(min(75dvh, 600px) + var(--bn-content-offset, 82px)); border-radius:20px 20px 0 0;
     box-shadow:0 -8px 30px -8px rgba(20,28,41,.35);
     transform:translateY(100%);

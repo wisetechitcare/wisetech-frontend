@@ -74,6 +74,13 @@ export const formatDateTime = (value: DateLike, fallback = "—"): string => {
   return d.isValid() ? d.format(DATE_FORMATS.DISPLAY_DATETIME) : fallback;
 };
 
+/** Format the time only, 24h (`14:30`). See DISPLAY_TIME. */
+export const formatTime = (value: DateLike, fallback = "—"): string => {
+  if (value === null || value === undefined || value === "") return fallback;
+  const d = dayjs(value);
+  return d.isValid() ? d.format(DATE_FORMATS.DISPLAY_TIME) : fallback;
+};
+
 /** Serialize for the API/DB (ISO `YYYY-MM-DD`). Returns `''` when absent/invalid. */
 export const toWireDate = (value: DateLike): string => {
   if (value === null || value === undefined || value === "") return "";

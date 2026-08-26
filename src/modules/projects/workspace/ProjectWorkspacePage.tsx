@@ -32,6 +32,7 @@ import {
   DetailSummaryBar,
   DetailProfileBlock,
 } from '@app/modules/detail-page/DetailPageComponents';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * Project Workspace — the execution-persona home for a project (Phase 3 of
@@ -160,7 +161,7 @@ const ExecutionOverview: React.FC<{ lead: any; onOpenLead: () => void }> = ({ le
             accentColor="blue"
             actions={
               <button className="btn btn-sm btn-light" onClick={onOpenLead} style={{ fontWeight: 600 }}>
-                Edit in Lead <i className="bi bi-arrow-right ms-1" />
+                Edit in Lead <AppIcon name="bi-arrow-right" className="ms-1" />
               </button>
             }
           >
@@ -274,7 +275,7 @@ const ProjectWorkspacePage: React.FC = () => {
             <div className="flex-grow-1">
               <div className="text-muted small font-inter d-flex align-items-center flex-wrap gap-2">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: ACCENT_SOFT, color: ACCENT, borderRadius: 999, padding: '3px 12px', fontSize: 11, fontWeight: 700, fontFamily: 'Inter, sans-serif', border: `1px solid ${ACCENT}33` }}>
-                  <i className="bi bi-kanban-fill" style={{ fontSize: 10 }} />
+                  <AppIcon name="bi-kanban-fill" className="fs-9" />
                   PROJECT WORKSPACE
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: phaseTheme.bg, color: phaseTheme.fg, borderRadius: 999, padding: '3px 12px', fontSize: 11, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
@@ -292,7 +293,7 @@ const ProjectWorkspacePage: React.FC = () => {
 
           <div className="d-flex align-items-center gap-2 flex-wrap">
             <button className="btn btn-light" onClick={openLead} style={{ fontWeight: 600 }}>
-              <i className="bi bi-arrow-up-right-square me-1" /> Originating Lead
+              <AppIcon name="bi-arrow-up-right-square" className="me-1" /> Originating Lead
             </button>
           </div>
         </div>

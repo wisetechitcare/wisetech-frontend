@@ -1,8 +1,8 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
-import ExportButton from "@app/modules/common/components/ExportButton";
+import ExportButton, { ExportVisibilityContext } from "@app/modules/common/components/ExportButton";
 import {
   MaterialReactTable,
-  MRT_ShowHideColumnsButton,
+  MRT_ShowHideColumnsMenu,
   MRT_ToggleFiltersButton,
   MRT_ToggleFullScreenButton,
   MRT_ToggleGlobalFilterButton,
@@ -41,6 +41,42 @@ import {
   calculateMatchScore,
 } from "@app/utils/search";
 import React from "react";
+import { DRILLDOWN_Z_INDEX } from "@app/modules/common/components/DrillDownDialog";
+
+/**
+ * Column show/hide toggle — a straight copy of MRT_ShowHideColumnsButton, kept only
+ * so the menu can be given props MRT never forwards.
+ *
+ * Two things break without them. The menu is a portal at the theme's modal layer
+ * (1300), so inside a chart drill-down — whose Dialog is pinned at DRILLDOWN_Z_INDEX
+ * to clear a fullscreen chart — it paints BEHIND the dialog. And MUI's default paper
+ * height is `calc(100% - 96px)`, so a table with 25+ columns renders a panel that runs
+ * floor to ceiling instead of scrolling inside itself.
+ */
+const ShowHideColumnsButton = ({ table }: { table: any }) => {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const { ViewColumnIcon } = table.options.icons;
+  const label = table.options.localization.showHideColumns;
+
+  return (
+    <>
+      <Tooltip title={label}>
+        <IconButton aria-label={label} onClick={(e) => setAnchorEl(e.currentTarget)}>
+          <ViewColumnIcon />
+        </IconButton>
+      </Tooltip>
+      {anchorEl && (
+        <MRT_ShowHideColumnsMenu
+          anchorEl={anchorEl}
+          setAnchorEl={setAnchorEl}
+          table={table}
+          sx={{ zIndex: DRILLDOWN_Z_INDEX + 100 }}
+          slotProps={{ paper: { sx: { maxHeight: 420 } } }}
+        />
+      )}
+    </>
+  );
+};
 
 interface SearchableColumn {
   value: string;
@@ -1484,7 +1520,7 @@ function MaterialTable({
             <Box sx={{ display: "flex", alignItems: "center" }}>
               {!enableColumnSpecificSearch && <MRT_ToggleGlobalFilterButton table={table} />}
               {(enableFilters ?? true) && <MRT_ToggleFiltersButton table={table} />}
-              {(enableHiding ?? true) && <MRT_ShowHideColumnsButton table={table} />}
+              {(enableHiding ?? true) && <ShowHideColumnsButton table={table} />}
               <Tooltip title="Reset columns to default layout">
                 <IconButton
                   aria-label="Reset columns to default layout"
@@ -2117,6 +2153,10 @@ function MaterialTable({
                       ? renderSelectionActions(selectedRows)
                       : null}
 
+                    {/* Pages that supply their own ExportButton via renderExportActions pass a
+                        static column list, which would otherwise export columns the user has
+                        toggled off. The provider lets ExportButton drop them wherever it sits. */}
+                    <ExportVisibilityContext.Provider value={preferences.columnVisibility || {}}>
                     {renderExportActions ? (
                       renderExportActions()
                     ) : !hideExportCenter ? (
@@ -2132,6 +2172,7 @@ function MaterialTable({
                         disabled={tableData.length === 0}
                       />
                     ) : null}
+                    </ExportVisibilityContext.Provider>
 
                     {/* Rows per page — hidden when pagination is disabled (all rows shown) */}
                     {!paginationDisabled && (

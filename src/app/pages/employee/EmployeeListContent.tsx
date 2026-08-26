@@ -22,7 +22,7 @@ import Loader from "@app/modules/common/utils/Loader";
 import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employeeStatus";
 import StatusToggle from "@app/modules/common/components/StatusToggle";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
-import { ActionIconButton, WhatsAppIcon } from "@app/modules/common/components/ui";
+import { ActionIconButton, WhatsAppIcon, AppIcon } from "@app/modules/common/components/ui";
 import { Box, Stack } from "@mui/material";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import EmployeeIdCardDialog from "./components/idcard/EmployeeIdCardDialog";
@@ -590,7 +590,7 @@ const EmployeeListContent = () => {
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
         >
-          <i className="bi bi-arrow-counterclockwise" style={{ fontSize: '13px' }} />
+          <AppIcon name="bi-arrow-counterclockwise" className="fs-7" />
           Reset
         </button>
       )}

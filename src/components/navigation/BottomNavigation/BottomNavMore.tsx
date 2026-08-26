@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { BottomNavBadge } from './BottomNavBadge'
 import type { BottomNavItemConfig } from './types'
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Props {
   open: boolean
@@ -77,7 +78,7 @@ function BottomNavMoreBase({ open, onClose, items, activeId, badges }: Props) {
                 onClick={onClose}
                 aria-label="Close"
               >
-                <i className="bi bi-x-lg" aria-hidden="true" />
+                <AppIcon name="bi-x-lg" aria-hidden="true" />
               </button>
             </div>
 

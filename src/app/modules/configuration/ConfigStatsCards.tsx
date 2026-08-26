@@ -1,6 +1,7 @@
 import React from 'react';
 import { Grid } from '@mui/material';
 import { C, FONT, SP, RADIUS, ICON_COLORS } from './ConfigDesignSystem';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -115,7 +116,7 @@ const StatCard: React.FC<ConfigStatCard> = ({
             }}
           />
         ) : (
-          <i className={`bi ${icon}`} style={{ fontSize: '20px', color: iconScheme.color }} />
+          <AppIcon name={icon} className="fs-2" color={iconScheme.color} />
         )}
       </div>
 
@@ -185,7 +186,7 @@ const StatCard: React.FC<ConfigStatCard> = ({
             fontWeight: 600,
           }}
         >
-          <i className={`bi ${trendIcon}`} style={{ fontSize: '14px' }} />
+          <AppIcon name={trendIcon} className="fs-6" />
           {trend}
         </div>
       )}

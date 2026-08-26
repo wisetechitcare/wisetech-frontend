@@ -16,7 +16,7 @@ import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/share
 import dayjs from 'dayjs';
 import Swal from 'sweetalert2';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
-import { getApprovalDomain } from './domains/registry';
+import { getApprovalDomain, getApprovalDetail } from './domains/registry';
 // Direct module import (not the ui/ barrel) — the barrel drags Swal/glass/notifications into this
 // file's type+bundle graph for one chip.
 import { ToneChip } from '@app/modules/common/components/ui/chips';
@@ -383,7 +383,7 @@ function ExpandedDetail({
                         <button className='btn btn-sm btn-light-danger py-1 px-3 fs-8' onClick={() => onDecide(s.id!, 'rejected')}>Reject</button>
                       </span>
                     )}
-                    {pending && !canDecide && <span className='badge badge-light-warning text-warning fs-8'>Pending</span>}
+                    {pending && !canDecide && <span className='badge badge-light-warning text-warning fs-8'>Waiting</span>}
                   </span>
                 </div>
               );
@@ -598,11 +598,11 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           // opening from this cell, and "5" told them nothing about whether four of those five
           // were already dealt with.
           const pills: Array<{ label: string; tone: SemanticTone }> = [];
-          if (d?.pendingCount) pills.push({ label: `${d.pendingCount} pending`, tone: 'warning' });
-          if (d?.queriedCount) pills.push({ label: `${d.queriedCount} query`, tone: 'cyan' });
+          if (d?.pendingCount) pills.push({ label: `${d.pendingCount} waiting`, tone: 'warning' });
+          if (d?.queriedCount) pills.push({ label: `${d.queriedCount} question${d.queriedCount === 1 ? '' : 's'}`, tone: 'cyan' });
           if (d?.approvedCount) pills.push({ label: `${d.approvedCount} approved`, tone: 'success' });
           if (d?.rejectedCount) pills.push({ label: `${d.rejectedCount} rejected`, tone: 'danger' });
-          if (d?.resubmittedCount) pills.push({ label: `${d.resubmittedCount} resubmitted`, tone: 'indigo' });
+          if (d?.resubmittedCount) pills.push({ label: `${d.resubmittedCount} sent again`, tone: 'indigo' });
           return (
             <div
               role='button'
@@ -842,7 +842,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           // says PARTIALLY_PROCESSED outright.
           const processing = (step.requestDetails as any)?.processingStatus as string | undefined;
           if (processing === 'PARTIALLY_PROCESSED') {
-            return <ToneChip dense tone='indigo' label='Partially processed' />;
+            return <ToneChip dense tone='indigo' label='Partially Processed' />;
           }
           const isApproved = processing ? processing === 'APPROVED' : step.instance.status === 'approved';
           return (
@@ -866,8 +866,8 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         const approveTitle = awaiting == null
           ? 'Approve'
           : awaiting === 0
-            ? 'Nothing on this submission is awaiting your decision — open it to review'
-            : `Approve the ${awaiting} request${awaiting === 1 ? '' : 's'} awaiting you`;
+            ? 'Nothing here needs your decision — open it to have a look'
+            : `Approve the ${awaiting} request${awaiting === 1 ? '' : 's'} waiting for you`;
 
         return (
           <div className='d-flex align-items-center gap-1 flex-wrap'>
@@ -906,8 +906,8 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             <WtIconButton
               color={tonePair('danger').fg}
               title={awaiting == null ? 'Reject'
-                : awaiting === 0 ? 'Nothing on this submission is awaiting your decision'
-                  : `Reject the ${awaiting} request${awaiting === 1 ? '' : 's'} awaiting you`}
+                : awaiting === 0 ? 'Nothing here needs your decision'
+                  : `Reject the ${awaiting} request${awaiting === 1 ? '' : 's'} waiting for you`}
               disabled={isProcessing || awaiting === 0}
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); setRejectTarget(step); }}
             >
@@ -933,7 +933,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
               <ToneChip
                 dense
                 tone='warning'
-                label='Info requested'
+                label='Info Requested'
                 title='You asked the employee a question. It stays here until they reply.'
                 sx={{ width: '100%', mt: 0.5 }}
               />
@@ -1006,16 +1006,16 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       <div className='card'>
         <div className='card-body d-flex flex-column align-items-center justify-content-center py-20'>
           <KTIcon iconName='lock' className='fs-3x text-muted mb-4' />
-          <span className='text-muted fs-6'>You do not have permission to view pending approvals.</span>
+          <span className='text-muted fs-6'>You do not have access to approvals.</span>
         </div>
       </div>
     );
   }
 
   const TABS: { key: TabKey; label: string }[] = [
-    { key: 'pending', label: 'Pending My Action' },
-    { key: 'awaiting', label: 'Awaiting Others' },
-    { key: 'completed', label: 'Completed' },
+    { key: 'pending', label: 'Waiting for You' },
+    { key: 'awaiting', label: 'With Someone Else' },
+    { key: 'completed', label: 'Finished' },
   ];
 
   return (
@@ -1096,7 +1096,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
               // Each workflow opens its OWN canonical detail (registry) — leave → ApplyLeave,
               // reimbursement → BatchDetailModal. A domain with no registered Detail (attendance,
               // task, …) carries its detail in the expandable panel, so click toggles that.
-              if (getApprovalDomain(ds.instance.workflowType)?.Detail) {
+              if (getApprovalDetail(ds.instance.workflowType, (ds.instance as any).requestModel)) {
                 setDetailStep(ds);
                 return;
               }
@@ -1116,7 +1116,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
 
       {/* Domain-resolved detail: each workflow renders its own canonical component. */}
       {detailStep && (() => {
-        const Detail = getApprovalDomain(detailStep.instance.workflowType)?.Detail;
+        const Detail = getApprovalDetail(detailStep.instance.workflowType, (detailStep.instance as any).requestModel);
         if (!Detail) return null;
         return (
           <Detail

@@ -303,7 +303,10 @@ const ProjectTablePage = () => {
           // dates live on the lead itself. lead.project is a transitional fallback.
           const project = lead?.project || null;
           const exec = lead?.execution || null;
-          const startVal = lead?.startDate || project?.startDate || null;
+          // No explicit start date yet → the lead's received date IS the start
+          // date by definition, so fresh projects sort to the top instead of
+          // sinking to the bottom as "N/A".
+          const startVal = lead?.startDate || lead?.receivedDate || project?.startDate || null;
           // actualEndDate is the REAL completion date set via the Project Status
           // control when a project is marked Completed; endDate is only the
           // planned/expected closure. Prefer the real date once it exists so
@@ -458,6 +461,31 @@ const ProjectTablePage = () => {
   const columns = useMemo(() => {
     const base: any[] = [
       {
+        accessorKey: "projectStartDate",
+        header: "Start Date",
+        // Explicit defaultVisible:true — with the Inquiry Date column removed the
+        // preference reconciliation re-applies meta rules, forcing this column on
+        // even for users whose saved prefs still have it hidden.
+        meta: { defaultVisible: true },
+        size: 140,
+        enableSorting: true,
+        // "N/A" sorts as oldest so dated rows lead the default (desc) view.
+        sortingFn: (rowA: any, rowB: any) => {
+          const toTime = (v: any) => (v && v !== "N/A" ? new Date(v).getTime() : 0);
+          return toTime(rowA.original.projectStartDate) - toTime(rowB.original.projectStartDate);
+        },
+        Cell: ({ cell }: { cell: any }) => {
+          try {
+            const v = cell.getValue();
+            if (!v || v === "N/A") return "N/A";
+            const date = dayjs(v);
+            return date.isValid() ? date.format("DD-MM-YYYY") : "N/A";
+          } catch (err) {
+            return "N/A";
+          }
+        },
+      },
+      {
         accessorKey: "projectPrefix",
         header: "Project Number",
         size: 220,
@@ -551,31 +579,6 @@ const ProjectTablePage = () => {
               {poStatus}
             </div>
           );
-        },
-      },
-      {
-        accessorKey: "projectStartDate",
-        header: "Start Date",
-        // Explicit defaultVisible:true — with the Inquiry Date column removed the
-        // preference reconciliation re-applies meta rules, forcing this column on
-        // even for users whose saved prefs still have it hidden.
-        meta: { defaultVisible: true },
-        size: 140,
-        enableSorting: true,
-        // "N/A" sorts as oldest so dated rows lead the default (desc) view.
-        sortingFn: (rowA: any, rowB: any) => {
-          const toTime = (v: any) => (v && v !== "N/A" ? new Date(v).getTime() : 0);
-          return toTime(rowA.original.projectStartDate) - toTime(rowB.original.projectStartDate);
-        },
-        Cell: ({ cell }: { cell: any }) => {
-          try {
-            const v = cell.getValue();
-            if (!v || v === "N/A") return "N/A";
-            const date = dayjs(v);
-            return date.isValid() ? date.format("DD-MM-YYYY") : "N/A";
-          } catch (err) {
-            return "N/A";
-          }
         },
       },
       {
@@ -1149,7 +1152,10 @@ const ProjectTablePage = () => {
       <MaterialTable
         columns={columns}
         data={quickFilteredData}
-        tableName="ProjectTableV2"
+        // V4: fresh prefs bucket — saved sorts from V3 overrode the Start Date
+        // desc default, leaving the list in effectively random order. Bumping
+        // discards them so latest-start-date-first applies for everyone.
+        tableName="ProjectTableV4"
         defaultSorting={[{ id: "projectStartDate", desc: true }]}
         renderExportActions={() => (
           <ExportButton

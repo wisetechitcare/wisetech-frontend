@@ -12,7 +12,8 @@ import {
   DISABLE_LAUNCH_DEDUCTION_TIME_KEY,
   RESTRICT_ATTENDANCE_TO_7_DAYS_KEY,
   DATE_SETTINGS_KEY,
-  LEAVE_MANAGEMENT
+  LEAVE_MANAGEMENT,
+  REQUIRE_SITE_HYBRID_APPROVAL_KEY
 } from '@constants/configurations-key';
 import { onSiteAndHolidayWeekendSettingsOnOffName } from '@constants/statistics';
 import {
@@ -31,6 +32,7 @@ import Loader from '@app/modules/common/utils/Loader';
 interface OtherSettingsValues {
   enableLunchDeduction: string;
   onSiteHolidayWeekendSettings: string;
+  requireSiteHybridApproval: string;
   allowedDistance: string;
   restrictAttendanceRequestDays: string;
   showDataUpToToday: string;
@@ -163,6 +165,7 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
   const [initialValues, setInitialValues] = useState<OtherSettingsValues>({
     enableLunchDeduction: 'off',
     onSiteHolidayWeekendSettings: 'off',
+    requireSiteHybridApproval: 'off',
     allowedDistance: '100',
     restrictAttendanceRequestDays: '7',
     showDataUpToToday: 'off',
@@ -203,6 +206,8 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
       const leaveManagementConfig = safeJsonParse(leaveManagementConfigRes?.data?.configuration?.configuration || '{}');
       const onSiteValue = leaveManagementConfig?.[onSiteAndHolidayWeekendSettingsOnOffName];
       const onSiteEnabled = onSiteValue === '1' || onSiteValue === 1;
+      const siteHybridApprovalValue = leaveManagementConfig?.[REQUIRE_SITE_HYBRID_APPROVAL_KEY];
+      const siteHybridApprovalEnabled = siteHybridApprovalValue === '1' || siteHybridApprovalValue === 1;
       const monthlyAnnualLeaveLimit = leaveManagementConfig?.['Number of Annual Leaves allowed per month'] || '2';
       setLeaveManagementConfigId(leaveManagementConfigRes?.data?.configuration?.id || null);
 
@@ -235,6 +240,7 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
       const newInitialValues = {
         enableLunchDeduction: lunchEnabled ? 'on' : 'off',
         onSiteHolidayWeekendSettings: onSiteEnabled ? 'on' : 'off',
+        requireSiteHybridApproval: siteHybridApprovalEnabled ? 'on' : 'off',
         allowedDistance: allowedDistance.toString(),
         restrictAttendanceRequestDays: restrictDays.toString(),
         showDataUpToToday: dateSettingsEnabled ? 'on' : 'off',
@@ -294,6 +300,7 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
       const leaveManagementRes = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, scope);
       const mergedLeaveManagement = safeJsonParse(leaveManagementRes?.data?.configuration?.configuration || '{}');
       mergedLeaveManagement[onSiteAndHolidayWeekendSettingsOnOffName] = values.onSiteHolidayWeekendSettings === 'on' ? '1' : '0';
+      mergedLeaveManagement[REQUIRE_SITE_HYBRID_APPROVAL_KEY] = values.requireSiteHybridApproval === 'on' ? '1' : '0';
       mergedLeaveManagement['Number of Annual Leaves allowed per month'] = values.monthlyAnnualLeaveLimit;
 
       setLeaveManagementConfigId(
@@ -370,6 +377,12 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
                 icon="shield-tick" trio={TRIO.purple}
                 title="On-site, Holiday & Weekend Settings for late attendance"
                 control={<WtSwitch tone={TRIO.purple.c} checked={values.onSiteHolidayWeekendSettings === 'on'} onChange={(e) => setFieldValue('onSiteHolidayWeekendSettings', e.target.checked ? 'on' : 'off')} />}
+              />
+              <SettingRow
+                icon="check-square" trio={TRIO.cyan}
+                title="Require Approval for Site & Hybrid Attendance"
+                desc="When ON, an On-site or Hybrid check-in/check-out is submitted for approval instead of being marked immediately — it appears in the approver's queue and counts only once approved. Office attendance is unaffected."
+                control={<WtSwitch tone={TRIO.cyan.c} checked={values.requireSiteHybridApproval === 'on'} onChange={(e) => setFieldValue('requireSiteHybridApproval', e.target.checked ? 'on' : 'off')} />}
               />
             </Stack>
 

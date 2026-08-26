@@ -79,6 +79,13 @@ export interface ApprovalStep {
     status: string;
     delegatedFrom?: string | null;
     requestDetails?: ApprovalRequestDetails | null;
+    /**
+     * When THIS approver acted on the step — null while it is still pending. The Resolved lane
+     * reads it to date the decision, which is the only clock that means anything once a request
+     * is closed. Already returned by `getAllInstancesForApprover` (the step query selects no
+     * subset, so every scalar comes back); it was simply never typed.
+     */
+    actedAt?: string | null;
     instance: ApprovalInstance;
     /**
      * Whose move it is now — the employee while a question is out, otherwise the approver at the

@@ -3711,6 +3711,50 @@ export const formatStringINR = (str: string | number) => {
     return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
+/**
+ * Off-days between two dates, counted the SAME way the month/year totals count them.
+ *
+ * An off-day comes from two independent sources and both must be included:
+ *   · the branch's weekly pattern (`getAllWeekends()`) — for a branch that works
+ *     Saturdays this is Sunday only;
+ *   · `PublicHolidays` rows with `isWeekend = true` — the alternate Saturdays, which
+ *     are hand-entered per date and are NOT derivable from the weekday.
+ *
+ * Deriving off-days as `day() === 0 || day() === 6` instead is what made the exit-date
+ * adjustment subtract ~4 Saturdays a month that were never in the total to begin with.
+ *
+ * Unlike the month/year helpers this uses OR rather than adding the two counts, so a
+ * Sunday that is also an isWeekend row is counted once instead of twice.
+ */
+export async function countWeekendDaysInRange(from: dayjs.Dayjs, to: dayjs.Dayjs): Promise<number> {
+    if (!from?.isValid() || !to?.isValid() || from.isAfter(to, 'day')) return 0;
+
+    const weekendDays = await getAllWeekends();
+
+    // A fiscal range spans two calendar years, so fetch both rather than the start year
+    // alone.
+    const years: string[] = [];
+    for (let y = from.year(); y <= to.year(); y++) years.push(String(y));
+    const lists = await Promise.all(
+        years.map((y) =>
+            fetchPublicHolidays(y, 'India')
+                .then((r: any) => r?.data?.publicHolidays ?? [])
+                .catch(() => []),
+        ),
+    );
+    const offDates = new Set<string>(
+        lists.flat()
+            .filter((h: IPublicHoliday) => h?.isWeekend)
+            .map((h: IPublicHoliday) => dayjs(h?.date).format('YYYY-MM-DD')),
+    );
+
+    let count = 0;
+    for (let cur = from; cur.isSameOrBefore(to, 'day'); cur = cur.add(1, 'day')) {
+        if (weekendDays.includes(cur.day()) || offDates.has(cur.format('YYYY-MM-DD'))) count++;
+    }
+    return count;
+}
+
 // get total weekends in a month
 export async function getTotalWeekendDaysInMonth(year: string | number, month: string | number): Promise<number> {
     const weekendDays = await getAllWeekends();

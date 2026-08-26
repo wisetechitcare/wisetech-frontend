@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { C, FONT, SP, RADIUS, ICON_COLORS } from './ConfigDesignSystem';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+// From the module, not the ui barrel — see ConfigSectionCard.
+import { toTitleCase } from '@app/modules/common/components/ui/text';
 
 export interface ConfigSettingsRowProps {
   label: string;
@@ -113,7 +116,7 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
             transition: 'transform 0.18s ease',
             transform: hov ? 'scale(1.06)' : 'scale(1)',
           }}>
-            <i className={`bi ${icon}`} style={{ fontSize: '17px', color: scheme.color }} />
+            <AppIcon name={icon} className="fs-3" color={scheme.color} />
           </div>
         )}
 
@@ -133,7 +136,9 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 letterSpacing: '0.01em',
               }}>
-                {label}
+                {/* Same Title Case rule as the section title above it, so a row label and
+                    its card heading cannot disagree. */}
+                {toTitleCase(label)}
               </div>
               {description && (
                 <div className="cfg-row-desc" style={{
@@ -201,7 +206,7 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {actionIcon && <i className={`bi ${actionIcon}`} style={{ fontSize: '12px' }} />}
+                {actionIcon && <AppIcon name={actionIcon} className="fs-7" />}
                 {actionLabel}
               </button>
             )}

@@ -12,9 +12,10 @@ import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { useEventBus } from "@hooks/useEventBus";
-import { deletePublicHolidayById, fetchAllBranches, fetchPublicHolidays, fetchHolidays, generateHolidaysForYear, fetchCompanyOverview } from "@services/company";
+import { deletePublicHolidayById, fetchAllBranches, fetchPublicHolidays, fetchHolidays, generateHolidaysForYear, fetchCompanyOverview, fetchWeekendAudit, generateWeekendSchedule, type WeekendAudit } from "@services/company";
 import { resolveActiveOrgId } from "@utils/activeOrg";
 import { T } from "@app/modules/common/components/ui/tokens";
+import { confirmDialog } from "@app/modules/common/components/ui";
 
 interface PublicHoliday {
     id: string;
@@ -62,6 +63,11 @@ function PublicHolidaysListTwo({
     // toggle button in the toolbar (a full-height filter column pushed above the fold
     // on every visit would bury the actual holiday list on mobile).
     const [showMobileFilters, setShowMobileFilters] = useState(false);
+    // Off-Saturday quota. Separate from `holidays` on purpose: this answers "does every
+    // month have its 2 off-days?", which the list itself cannot show — a month short by
+    // one just looks like a shorter month.
+    const [weekendAudit, setWeekendAudit] = useState<WeekendAudit | null>(null);
+    const [generatingSaturdays, setGeneratingSaturdays] = useState(false);
 
     // Sidebar Filters State
     const [filterUpcoming, setFilterUpcoming] = useState(true);
@@ -116,6 +122,66 @@ function PublicHolidaysListTwo({
         () => needsDateHolidays.filter(m => m.recurrenceMonth != null && m.recurrenceDay != null).length,
         [needsDateHolidays],
     );
+
+    // Reload the quota whenever the year, branch or the holiday rows change — deleting an
+    // off-Saturday must move the count immediately, or the strip would reassure an admin
+    // about a month they just broke.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const audit = await fetchWeekendAudit(selectedYear);
+                if (!cancelled) setWeekendAudit(audit ?? null);
+            } catch (error) {
+                console.error('Error fetching weekend quota audit:', error);
+                if (!cancelled) setWeekendAudit(null);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [selectedYear, refetch]);
+
+    /**
+     * Fill months below the off-Saturday quota. Two-step on purpose: preview first, then
+     * confirm — generation writes real rows, and the preview is also where a collision
+     * with an existing holiday shows up.
+     */
+    const handleGenerateSaturdays = async () => {
+        setGeneratingSaturdays(true);
+        try {
+            const preview = await generateWeekendSchedule(selectedYear, false);
+            if (!preview?.created?.length) {
+                successConfirmation(
+                    `Nothing to add — every month in ${selectedYear} already has its ${weekendAudit?.quota ?? 2} off-Saturdays.`,
+                );
+                return;
+            }
+
+            const clash = preview.collisions?.length
+                ? `\n\nAlready a holiday: ${preview.collisions.map(c => `${c.date} (${c.holiday})`).join(', ')}. ` +
+                  `Those months would gain one extra day off instead of two — you can move the date afterwards.`
+                : '';
+            const short = preview.stillShort?.length
+                ? `\n\nStill short after this: ${preview.stillShort.map(m => m.label).join(', ')} — ` +
+                  `the 2nd/4th Saturdays are already taken, so pick a date by hand.`
+                : '';
+
+            const confirmed = await deleteConfirmation(
+                `Add ${preview.created.length} off-Saturday(s) to ${selectedYear}?` +
+                `\n\n${preview.created.join(', ')}` + clash + short +
+                `\n\nExisting dates are never changed or removed.`,
+            );
+            if (!confirmed) return;
+
+            const result = await generateWeekendSchedule(selectedYear, true);
+            setRefetch(prev => !prev);
+            successConfirmation(`Added ${result.created.length} off-Saturday(s) to ${selectedYear}.`);
+        } catch (error) {
+            console.error('Error generating off-Saturdays:', error);
+            errorConfirmation(`Failed to generate off-Saturdays for ${selectedYear}.`);
+        } finally {
+            setGeneratingSaturdays(false);
+        }
+    };
 
     const handleGenerateYear = async () => {
         if (!companyId) {
@@ -753,6 +819,33 @@ function PublicHolidaysListTwo({
                         </button>
                     )}
 
+                    {/* Off-Saturdays. Only offered when a month is actually below quota,
+                        so it never invites a click that would do nothing. Previews before
+                        writing, and is additive — an adjusted date is never moved. */}
+                    {isAdmin && weekendAudit && weekendAudit.violations.length > 0 && (
+                        <button
+                            type="button"
+                            className="btn btn-sm fw-semibold wt-touch-target w-100 w-md-auto text-nowrap"
+                            style={{
+                                height: '38px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #1E3A8A',
+                                background: '#ffffff',
+                                color: '#1E3A8A',
+                            }}
+                            disabled={generatingSaturdays}
+                            onClick={handleGenerateSaturdays}
+                            title={`Fill the ${weekendAudit.violations.length} month(s) below ${weekendAudit.quota} off-Saturdays in ${selectedYear}`}
+                        >
+                            {generatingSaturdays ? (
+                                <span className="d-flex align-items-center gap-2 justify-content-center">
+                                    <span className="spinner-border spinner-border-sm" />
+                                    Generating…
+                                </span>
+                            ) : `Generate Saturdays (${weekendAudit.violations.length})`}
+                        </button>
+                    )}
+
                     {/* Add Holiday Button */}
                     {isAdmin && (
                         <PremiumButton
@@ -801,6 +894,65 @@ function PublicHolidaysListTwo({
                         date genuinely cannot be derived, so this is a to-do list rather
                         than an error. Shown before the schedule so an incomplete year is
                         obvious instead of just looking short. */}
+                    {/* Off-Saturday quota. The list alone cannot show this — a month
+                        holding 1 off-day instead of 2 just looks like a shorter month,
+                        and that missing row is what turns a paid day off into an
+                        absence. Shown for admins before the schedule so it is checkable
+                        before payroll closes the month. */}
+                    {!loading && isAdmin && weekendAudit && (
+                        <div
+                            className="mb-6 p-4 p-md-5"
+                            style={{
+                                background: weekendAudit.violations.length ? '#fef2f2' : '#f0fdf4',
+                                border: `1px solid ${weekendAudit.violations.length ? '#fecaca' : '#bbf7d0'}`,
+                                borderRadius: '12px',
+                            }}
+                        >
+                            <div className="d-flex align-items-start gap-3">
+                                <KTIcon
+                                    iconName={weekendAudit.violations.length ? 'shield-cross' : 'shield-tick'}
+                                    className={`fs-2 mt-1 ${weekendAudit.violations.length ? 'text-danger' : 'text-success'}`}
+                                />
+                                <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                                    <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                        <span className="fw-bold text-gray-800">
+                                            Off-Saturdays {weekendAudit.total}/{weekendAudit.expected}
+                                        </span>
+                                        <span className="fs-8 text-gray-600">
+                                            ({weekendAudit.quota} per month)
+                                        </span>
+                                    </div>
+                                    <div className="fs-8 text-gray-600 mb-3">
+                                        {weekendAudit.violations.length
+                                            ? `${weekendAudit.violations.length} month(s) are off quota. A month short by one marks a paid day off as an absence.`
+                                            : `Every month has its ${weekendAudit.quota}. Which Saturdays they are is up to you — adjusted dates count the same.`}
+                                    </div>
+                                    <div className="d-flex flex-wrap gap-2">
+                                        {weekendAudit.months.map(m => {
+                                            const bad = m.status !== 'ok';
+                                            return (
+                                                <span
+                                                    key={m.month}
+                                                    className="badge fw-semibold"
+                                                    title={m.dates.length ? m.dates.join(', ') : 'No off-Saturdays set'}
+                                                    style={{
+                                                        background: '#ffffff',
+                                                        border: `1px solid ${bad ? '#fecaca' : '#bbf7d0'}`,
+                                                        color: bad ? '#991b1b' : '#166534',
+                                                        borderRadius: '999px',
+                                                        padding: '6px 12px',
+                                                    }}
+                                                >
+                                                    {m.label.split(' ')[0]} {m.count}/{m.quota}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {!loading && isAdmin && needsDateHolidays.length > 0 && (
                         <div
                             className="mb-6 p-4 p-md-5"

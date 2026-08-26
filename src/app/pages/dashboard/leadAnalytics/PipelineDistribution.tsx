@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { formatCurrencyCompact } from "@utils/currency";
 import { ChartMetric, StatusDistributionRow, groupMeta } from "./leadAnalyticsUtils";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface PipelineDistributionProps {
   rows: StatusDistributionRow[];
@@ -109,7 +110,7 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
                   color: row.color,
                 }}
               >
-                <i className={`bi ${row.icon}`} style={{ fontSize: 13 }} />
+                <AppIcon name={row.icon} className="fs-7" />
               </span>
               <span
                 style={{

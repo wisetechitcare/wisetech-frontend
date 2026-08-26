@@ -2,6 +2,7 @@ import { memo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface QuickAction {
   id: string
@@ -92,7 +93,7 @@ function BottomNavQuickActionsBase({ open, onClose }: Props) {
                 onClick={onClose}
                 aria-label="Close"
               >
-                <i className="bi bi-x-lg" aria-hidden="true" />
+                <AppIcon name="bi-x-lg" aria-hidden="true" />
               </button>
             </div>
 
@@ -106,7 +107,7 @@ function BottomNavQuickActionsBase({ open, onClose }: Props) {
                   data-analytics-id={`bottomnav_quickaction_${action.id}`}
                 >
                   <span className="bottom-nav-more__icon-wrap">
-                    <i className={`bi ${action.icon}`} style={{ fontSize: 22 }} aria-hidden="true" />
+                    <AppIcon name={action.icon} className="fs-1" aria-hidden="true" />
                   </span>
                   <span className="bottom-nav-more__label">{action.label}</span>
                 </button>

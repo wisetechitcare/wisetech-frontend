@@ -6,6 +6,7 @@ import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import { successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
 
 interface ServiceOption {
   id: string;
@@ -72,7 +73,7 @@ const SubServiceModal: React.FC<Props> = ({ show, onClose, services, defaultPare
         {error && <div className="alert alert-danger py-2">{error}</div>}
         <div className="mb-3">
           <label className="form-label">Parent Service<span className="text-danger"> *</span></label>
-          <Select
+          <Select{...FLOATING_MENU_BEHAVIOUR}
             placeholder="Select parent service"
             classNamePrefix="react-select"
             options={sortOptionsAlphabetically(services.map((s) => ({ value: s.id, label: s.name })))}

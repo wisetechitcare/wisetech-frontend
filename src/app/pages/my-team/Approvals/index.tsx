@@ -54,30 +54,30 @@ import InboxItemCard, { ageOf } from './InboxItem';
 type Segment = 'mine' | 'awaiting' | 'done';
 
 /**
- * Named for what is in them, not for how they read as a set.
+ * Named for what is in them, in the words someone would use out loud.
  *
- * "Needs you / With others / Done" was shorter and meant nothing on first sight — a label has to
- * survive being read by someone who has never seen this screen. `hint` says the rest out loud
- * under the active tab rather than leaving it to be inferred.
+ * A label has to survive being read by a person who has never seen this screen and does not know
+ * what an "instance", a "step" or a "query" is. So: who is holding it right now. `hint` says the
+ * rest under the active tab rather than leaving it to be inferred.
  */
 const SEGMENTS: Array<{ key: Segment; label: string; hint: string; blank: string }> = [
     {
         key: 'mine',
-        label: 'Needs my action',
-        hint: 'Waiting on you — approvals to decide, and questions on your own expenses.',
-        blank: 'Nothing is waiting on you.',
+        label: 'Waiting for You',
+        hint: 'Yours to deal with — requests to approve or reject, and questions asked about your own expenses.',
+        blank: 'Nothing is waiting for you.',
     },
     {
         key: 'awaiting',
-        label: 'Waiting on others',
-        hint: 'Sitting with someone else — requests you submitted, and approvals you have passed on.',
-        blank: 'Nothing is sitting with anyone else.',
+        label: 'With Someone Else',
+        hint: 'Nothing for you to do yet — requests you sent in, and ones you have already passed on.',
+        blank: 'Nothing is with anyone else right now.',
     },
     {
         key: 'done',
-        label: 'Resolved',
-        hint: 'Already dealt with — decided approvals, and questions you have answered.',
-        blank: 'Nothing has been resolved yet.',
+        label: 'Finished',
+        hint: 'All done — requests that were approved or rejected, and questions you have answered.',
+        blank: 'Nothing has finished yet.',
     },
 ];
 
@@ -99,11 +99,12 @@ const MY_TASK_TYPES = new Set([
 const AWAITING_TASK_TYPES = new Set<string>([]);
 
 const TASK_STYLE: Record<string, { tone: SemanticTone; icon: string; cta: string; label: string; doneLabel: string }> = {
-    QUERY_RECEIVED: { tone: 'warning', icon: 'message-text-2', cta: 'Respond', label: 'Query received', doneLabel: 'Query answered' },
-    REJECTION_RECEIVED: { tone: 'danger', icon: 'cross-circle', cta: 'Mark as seen', label: 'Expense rejected', doneLabel: 'Seen' },
-    ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open', label: 'Action required', doneLabel: 'Action completed' },
-    QUERY_RESPONSE_RECEIVED: { tone: 'cyan', icon: 'message-text-2', cta: 'Review', label: 'Response received', doneLabel: 'Response reviewed' },
-    TASK_ASSIGNED: { tone: 'brand', icon: 'abstract-26', cta: 'Open task', label: 'Task assigned', doneLabel: 'Task closed' },
+    QUERY_RECEIVED: { tone: 'warning', icon: 'message-text-2', cta: 'Answer', label: 'Question for You', doneLabel: 'You Answered' },
+    REJECTION_RECEIVED: { tone: 'danger', icon: 'cross-circle', cta: 'Mark as Seen', label: 'Expense Rejected', doneLabel: 'You Have Seen This' },
+    ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open', label: 'Needs Your Attention', doneLabel: 'Sorted' },
+    QUERY_RESPONSE_RECEIVED: { tone: 'cyan', icon: 'message-text-2', cta: 'Review', label: 'They Answered You', doneLabel: 'You Reviewed It' },
+    // Added on this branch; worded to match main's rewrite of the copy above.
+    TASK_ASSIGNED: { tone: 'brand', icon: 'abstract-26', cta: 'Open Task', label: 'Task Assigned to You', doneLabel: 'Task Closed' },
 };
 
 export default function Approvals() {
@@ -132,24 +133,25 @@ export default function Approvals() {
     const [rejectTarget, setRejectTarget] = useState<ApprovalStep | null>(null);
     const [rejecting, setRejecting] = useState(false);
 
-    const load = useCallback(async (seg: Segment = segment) => {
-        setLoading(true);
-        try {
-            const [approvals, myTasks] = await Promise.all([
-                seg === 'mine' ? fetchPendingApprovals() : fetchAllApprovalInstances(seg === 'done' ? 'completed' : 'awaiting'),
-                // Your own items appear in two of the three tabs: open ones under "Pending my
-                // action", and closed ones under "Completed" — a question you answered IS
-                // something you completed, and Completed listing only approval instances meant
-                // your own half of the workflow vanished the moment you dealt with it.
-                // Awaiting tasks (e.g., query responses) appear in the "Awaiting others" segment.
-                seg === 'mine' ? fetchInboxTasks(false).catch(() => [] as InboxTask[])
-                    : seg === 'awaiting' ? fetchInboxTasks(false).catch(() => [] as InboxTask[])
-                    : seg === 'done' ? fetchInboxTasks(true).catch(() => [] as InboxTask[])
-                    : Promise.resolve([] as InboxTask[]),
-            ]);
-            const raw = (approvals as any)?.data ?? approvals ?? [];
-            setSteps(Array.isArray(raw) ? raw : []);
-            setTasks((myTasks as InboxTask[]).filter((t) => {
+    /** One segment's contents. Both the visible list and the tab badges go through this, so a
+        tab's number is produced by exactly the rule that builds its list. */
+    const fetchSegment = useCallback(async (seg: Segment) => {
+        const [approvals, myTasks] = await Promise.all([
+            seg === 'mine' ? fetchPendingApprovals() : fetchAllApprovalInstances(seg === 'done' ? 'completed' : 'awaiting'),
+            // Your own items appear in two of the three tabs: open ones under "Waiting for
+            // you", and closed ones under "Finished" — a question you answered IS
+            // something you completed, and Completed listing only approval instances meant
+            // your own half of the workflow vanished the moment you dealt with it.
+            // Awaiting tasks (e.g., query responses) appear in the "Awaiting others" segment.
+            seg === 'mine' ? fetchInboxTasks(false).catch(() => [] as InboxTask[])
+                : seg === 'awaiting' ? fetchInboxTasks(false).catch(() => [] as InboxTask[])
+                : seg === 'done' ? fetchInboxTasks(true).catch(() => [] as InboxTask[])
+                : Promise.resolve([] as InboxTask[]),
+        ]);
+        const raw = (approvals as any)?.data ?? approvals ?? [];
+        return {
+            steps: (Array.isArray(raw) ? raw : []) as ApprovalStep[],
+            tasks: (myTasks as InboxTask[]).filter((t) => {
                 const isMyType = MY_TASK_TYPES.has(t.type);
                 const isAwaitingType = AWAITING_TASK_TYPES.has(t.type);
                 if (seg === 'mine' && !isMyType) return false;
@@ -157,14 +159,45 @@ export default function Approvals() {
                 if (seg === 'done' && !(isMyType || isAwaitingType)) return false;
                 const open = t.status === 'OPEN' || t.status === 'IN_PROGRESS';
                 return seg === 'done' ? !open : open;
-            }));
+            }),
+        };
+    }, []);
+
+    /** Per-tab totals, kept for ALL segments rather than only the open one. A badge that
+        appears only on the tab you are already looking at tells you nothing — the point of
+        the number is to say what is waiting on the tabs you are NOT looking at. */
+    const [counts, setCounts] = useState<Record<Segment, number>>({ mine: 0, awaiting: 0, done: 0 });
+
+    const load = useCallback(async (seg: Segment = segment) => {
+        setLoading(true);
+        try {
+            // All three segments on every refresh: one code path keeps the open list and the
+            // badges from drifting apart, at the cost of two extra fetches.
+            const results = await Promise.all(
+                SEGMENTS.map((s) => fetchSegment(s.key).catch(() => ({ steps: [] as ApprovalStep[], tasks: [] as InboxTask[] }))),
+            );
+            setCounts(
+                SEGMENTS.reduce((acc, s, i) => {
+                    // Steps AND tasks, in every segment. The list below renders `sortedTasks`
+                    // unconditionally, so counting tasks only under "mine" made the Resolved
+                    // badge read lower than the rows it was sitting above — an answered query
+                    // is listed there but was not being counted. `fetchSegment` has already
+                    // dropped the tasks that do not belong to this segment, so there is nothing
+                    // left to exclude here.
+                    acc[s.key] = results[i].steps.length + results[i].tasks.length;
+                    return acc;
+                }, {} as Record<Segment, number>),
+            );
+            const active = results[SEGMENTS.findIndex((s) => s.key === seg)];
+            setSteps(active.steps);
+            setTasks(active.tasks);
         } catch {
             setSteps([]);
             setTasks([]);
         } finally {
             setLoading(false);
         }
-    }, [segment]);
+    }, [segment, fetchSegment]);
 
     useEffect(() => { load(segment); }, [segment]);
     useEventBus(EVENT_KEYS.reimbursementChanged, () => { load(); });
@@ -188,7 +221,7 @@ export default function Approvals() {
         deciding; the "waiting N days" line below still surfaces that, without ordering the
         whole list around it.)
 
-        In "Pending my action", resubmitted items still float above the rest: the employee has
+        In "Waiting for you", resubmitted items still float above the rest: the employee has
         already answered a query and is blocked on a re-review, which is more urgent than a
         first look. Within each of those two groups the order is newest first. */
     const sorted = useMemo(() => {
@@ -220,13 +253,15 @@ export default function Approvals() {
 
     /** Only domains that actually have something. A tab for an empty domain is furniture. */
     const domainCounts = useMemo(() => {
-        const counts = new Map<string, number>();
+        // Local name kept distinct from the `counts` tab-badge state above; they are different
+        // numbers over different populations and shadowing one with the other invites a mix-up.
+        const perDomain = new Map<string, number>();
         for (const s of sorted) {
             const type = (s.instance.workflowType || '').toLowerCase();
             const key = APPROVAL_DOMAIN_KEYS.includes(type) ? type : 'other';
-            counts.set(key, (counts.get(key) ?? 0) + 1);
+            perDomain.set(key, (perDomain.get(key) ?? 0) + 1);
         }
-        return counts;
+        return perDomain;
     }, [sorted]);
 
     const visible = useMemo(
@@ -241,10 +276,10 @@ export default function Approvals() {
         if (domainFilter && !domainCounts.has(domainFilter)) setDomainFilter(null);
     }, [domainCounts, domainFilter]);
 
-    // Tasks are rendered in EVERY segment, so they have to count in every segment: counting them
-    // only under "Needs my action" meant a Resolved tab holding nothing but finished tasks
-    // rendered the "nothing here" panel over the top of the cards it was already drawing.
-    const total = visible.length + tasks.length;
+    // Exactly what the list below renders: the domain-filtered steps plus the tasks, which are
+    // rendered in every segment. This drives the "nothing here" state, so counting tasks only
+    // under "mine" showed the empty message above a list that had rows in it.
+    const total = visible.length + sortedTasks.length;
     // The list is newest-first, so the item that has waited longest is the LAST one, not the
     // first. Reading sorted[0] here after the flip would have reported the newest item's age
     // as the backlog.
@@ -505,7 +540,7 @@ export default function Approvals() {
         title: s.label,
         icon: s.key === 'mine' ? 'bi-inbox' : s.key === 'awaiting' ? 'bi-hourglass-split' : 'bi-check2-circle',
         component: renderTabContent(),
-        badge: s.key === segment ? total : undefined,
+        badge: counts[s.key],
     }));
 
     return (

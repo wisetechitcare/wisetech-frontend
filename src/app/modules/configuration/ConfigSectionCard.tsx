@@ -1,5 +1,37 @@
 import React, { useState } from 'react';
+import { KTIcon } from '@metronic/helpers';
 import { C, FONT, T, SP, RADIUS, BTN, ICON_COLORS } from './ConfigDesignSystem';
+import { keeniconFor } from '@app/modules/common/components/ui/iconMap';
+// Imported from the module, NOT the ui barrel — pulling the barrel into a widely-imported
+// primitive is what makes tsc crawl.
+import { toTitleCase } from '@app/modules/common/components/ui/text';
+
+/**
+ * One icon renderer for the whole config surface.
+ *
+ * Call sites pass Bootstrap Icon names (`bi-pencil`), which is what this card has always
+ * taken. The app standard is KTIcon/keenicons, so the name is translated here instead of
+ * at ~70 call sites — the Configure button on a config screen now matches the same action
+ * everywhere else. An unmapped name keeps rendering its Bootstrap glyph, so a missing
+ * entry in `iconMap` looks off-family rather than turning into a blank square.
+ *
+ * `size` is a px value for the Bootstrap fallback; KTIcon sizes via its own `fs-*` class,
+ * which is the icon font's sizing API and the one Bootstrap-ish class the lint rules keep.
+ */
+function ConfigIcon({ name, size, className, color }: {
+  name: string; size: number; className: string; color?: string;
+}) {
+  const keenicon = keeniconFor(name);
+  // KTIcon takes no style prop — the keenicon font paints with currentColor, so the tint
+  // is applied by the wrapper and inherited.
+  return keenicon
+    ? (
+      <span style={{ color, display: 'inline-flex', alignItems: 'center' }}>
+        <KTIcon iconName={keenicon} className={className} />
+      </span>
+    )
+    : <i className={`bi ${name}`} style={{ fontSize: `${size}px`, ...(color ? { color } : null) }} />;
+}
 
 export interface ConfigSectionCardAction {
   label: string;
@@ -85,7 +117,7 @@ const ActionBtn: React.FC<{ action: ConfigSectionCardAction }> = ({ action }) =>
       onMouseLeave={() => setHov(false)}
       style={{ ...base, ...(hov && !action.disabled ? hovStyle : {}), opacity: action.disabled ? 0.5 : 1, cursor: action.disabled ? 'not-allowed' : 'pointer' }}
     >
-      {action.icon && <i className={`bi ${action.icon}`} style={{ fontSize: '13px' }} />}
+      {action.icon && <ConfigIcon name={action.icon} size={13} className="fs-5" />}
       {action.label}
     </button>
   );
@@ -150,7 +182,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
               flexShrink: 0,
               boxShadow: `0 2px 8px ${scheme.color}22`,
             }}>
-              <i className={`bi ${icon}`} style={{ fontSize: '18px', color: scheme.color }} />
+              <ConfigIcon name={icon} size={18} className="fs-2" color={scheme.color} />
             </div>
           )}
 
@@ -158,7 +190,12 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexWrap: 'wrap' }}>
               {loading
                 ? <SkeletonLine width="140px" height="16px" />
-                : <span style={{ ...T.cardTitle, fontSize: '15px', fontWeight: 600 }}>{title}</span>
+                // Title Case applied here rather than at ~30 call sites, matching what
+                // GlassHeader/SectionHead/SettingsSection already do in the ui kit — so a
+                // heading reads the same whichever design-system module renders it.
+                // toTitleCase never touches a word that already has a capital, so acronyms
+                // and proper nouns ("WISETECH", "MEP") survive untouched.
+                : <span style={{ ...T.cardTitle, fontSize: '15px', fontWeight: 600 }}>{toTitleCase(title)}</span>
               }
               {!loading && badge && (
                 <span style={{

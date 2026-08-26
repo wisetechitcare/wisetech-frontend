@@ -32,6 +32,10 @@ if git rev-parse --verify -q origin/main >/dev/null; then
   files=$(git diff --name-only --diff-filter=ACMR origin/main...HEAD -- '*.ts' '*.tsx' | grep -v '^src/_metronic/' || true)
   if [ -n "$files" ]; then
     echo "pre-push: eslint on branch-changed files..."
-    echo "$files" | xargs pnpm exec eslint --quiet
+    # In BATCHES. `pnpm exec` runs through cmd.exe on Windows, which caps a command
+    # line at 8191 characters — a branch touching ~130 files is already past that on
+    # the paths alone, and cmd refuses the whole invocation with "The command line is
+    # too long" (xargs then reports 123). -n 40 keeps each call well under the cap.
+    echo "$files" | xargs -n 40 pnpm exec eslint --quiet
   fi
 fi

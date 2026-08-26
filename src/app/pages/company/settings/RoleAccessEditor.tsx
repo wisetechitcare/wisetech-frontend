@@ -4,6 +4,7 @@ import { ACCESS_AREAS, AccessArea } from "@utils/accessAreas";
 import Loader from "@app/modules/common/utils/Loader";
 import AccessControlTree, { EffLevel } from "@app/pages/employee/components/AccessControlTree";
 import { getRoleAccess, setRoleSectionAccess } from "@services/roles";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Props {
   roleId: string;
@@ -87,7 +88,7 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
   if (isSuperAdmin) {
     return (
       <div className="text-center py-10">
-        <i className="bi bi-shield-lock-fill fs-3x text-primary mb-3 d-block" />
+        <AppIcon name="bi-shield-lock-fill" className="fs-3x text-primary mb-3 d-block" />
         <div className="fw-bold fs-5">Super Admin has full access</div>
         <div className="text-muted fs-7 mt-2">This role always has every permission and can't be changed.</div>
       </div>
@@ -115,7 +116,7 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
       />
 
       <button className="btn btn-primary mt-8" type="button" disabled={!dirty || saving} onClick={saveAll}>
-        <i className="bi bi-save me-2" />
+        <AppIcon name="bi-save" className="me-2" />
         {saving ? "Saving…" : "Save Access"}
       </button>
     </div>

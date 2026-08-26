@@ -40,6 +40,8 @@ export const RECRUITMENT = {
     GET_APPLICATION_INTERVIEWS: "api/recruitment/applications/:id/interviews",
     SUBMIT_SCORECARD: "api/recruitment/interviews/:id/scorecard",
     GET_APPLICATION_EVALUATION: "api/recruitment/applications/:id/evaluation",
+    GET_APPLICATION_NOTES: "api/recruitment/applications/:id/notes",
+    DELETE_APPLICATION_NOTE: "api/recruitment/notes/:id",
     // Offers (Phase 5)
     CREATE_OFFER: "api/recruitment/offers",
     GET_OFFER_BY_ID: "api/recruitment/offers/:id",
@@ -93,6 +95,8 @@ export const COMPANY = {
     CREATE_PUBLIC_HOLIDAYS: "api/company/public-holidays",
     DELETE_PUBLIC_HOLIDAY_BY_ID: "api/company/public-holiday",
     UPDATE_PUBLIC_HOLIDAY_BY_ID: "api/company/public-holiday",
+    WEEKEND_SCHEDULE_AUDIT: "api/company/weekend-schedule/audit",
+    WEEKEND_SCHEDULE_GENERATE: "api/company/weekend-schedule/generate",
     UPDATE_HOLIDAY_BY_ID: "api/company/holiday-options",
     DELETE_HOLIDAY_BY_ID: "api/company/holiday-options",
     GET_ALL_PUBLIC_HOLIDAYS: "api/company/public-holidays",
@@ -195,6 +199,7 @@ export const EMPLOYEE = {
     GET_DOCUMENTS_DIRECTORY: "api/employee/documents/directory",
     GET_DOCUMENT_VAULT: "api/employee/documents/vault",
     GET_EMPLOYEE_ID_CARD: "api/employee/id-card",
+    GET_BIRTHDAY_CARD: "api/employee/birthday-card",
     GET_DOCUMENT_ARCHIVE: "api/employee/documents/vault",
     GET_DOCUMENT_FILE: "api/employee/documents/vault",
     GET_ATTENDANCE_BY_EMP_ID: "api/employee/attendance",
@@ -350,6 +355,7 @@ export const EMPLOYEE = {
     GET_ALL_LEAVE_MANAGEMENTS: "api/employee/leave-management/all",
     UPDATE_LEAVE_MANAGEMENT: "api/employee/leave-management",
     REVOKE_LEAVE_MANAGEMENT: "api/employee/leave-management/revoke",
+    GET_UNSETTLED_LEAVERS: "api/employee/leave-management/unsettled-leavers",
     DELETE_LEAVE_MANAGEMENT: "api/employee/leave-management/:id"
 }
 
@@ -370,6 +376,7 @@ export const OPTIONS = {
     CREATE_PREFIX_SETTING: 'api/options/prefix-settings',
     UPDATE_PREFIX_SETTING: 'api/options/prefix-settings/:id',
     DELETE_PREFIX_SETTING: 'api/options/prefix-settings/:id',
+    GET_LEAD_NUMBER_PREVIEW: 'api/options/lead-number-preview',
     COUNTRIES: 'api/options/countries',
     STATES: 'api/options/states',
     CITIES: 'api/options/cities',
@@ -972,7 +979,4 @@ export const BIOMETRIC = {
     TEST_DEVICE:    'api/biometric/devices',
     SYNC_DEVICE:    'api/biometric/devices',
     DEVICE_LOGS:    'api/biometric/devices',
-    CONFLICTS:        'api/biometric/conflicts',
-    CONFLICTS_COUNT:  'api/biometric/conflicts/count',
-    CONFLICTS_RESOLVE:'api/biometric/conflicts',
 };
