@@ -291,6 +291,16 @@ export const LEGACY_UIKIT = {
     brandRing: 'rgba(30, 58, 138, 0.16)',
     // Navy brand gradient (90deg, left→right) — referenced by MaterialHeaderTab.
     brandGradientLeftToRight: 'linear-gradient(90deg, #2C56C4 0%, #1E3A8A 55%, #15265C 100%)',
+    /**
+     * Ink for anything sitting ON the brand navy — the gradient above, page banners.
+     *
+     * A literal white, and deliberately not theme-aware: this surface is dark in BOTH
+     * themes, so ink that followed the theme would turn navy-on-navy in light mode.
+     * That is the opposite of the usual rule against hardcoded #fff, and the reason the
+     * value belongs here as a named token rather than inline at a call site — the name
+     * says which surface it is for, so it cannot be reached for on a white card.
+     */
+    onBrand: '#FFFFFF',
     accent: '#C0392B',
     accentSoft: '#FBEBE9',
 

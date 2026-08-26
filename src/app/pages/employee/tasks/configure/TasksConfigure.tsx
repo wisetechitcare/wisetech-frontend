@@ -448,6 +448,9 @@ const TasksConfigure = () => {
           <ActionIconButton
             iconName="arrow-left"
             title="Back to tasks"
+            // The banner is brand navy, so the default (built to read on a white card)
+            // all but disappeared on it.
+            tone="onBrand"
             onClick={() => navigate('/tasks')}
           />
         }

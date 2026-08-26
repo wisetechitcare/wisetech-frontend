@@ -3,7 +3,7 @@ import { IconButton, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { T } from './tokens';
 
-export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success';
+export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success' | 'onBrand';
 
 const TONE_COLOR: Record<ActionTone, string> = {
   brand: T.color.brand,
@@ -13,6 +13,20 @@ const TONE_COLOR: Record<ActionTone, string> = {
   // — the affirmative counterpart to `danger`, so those buttons stop being a raw
   // FontAwesome glyph in a Bootstrap `btn-icon`.
   success: T.color.success,
+  /**
+   * For a button placed ON the brand navy — a page banner or the gradient header —
+   * rather than on a card.
+   *
+   * Every other tone here is a saturated colour chosen to read on WHITE, and the
+   * tinted-square recipe below then paints it at 10% fill / 24% border. Put one of
+   * those on navy and you get a dark glyph on a dark ground behind an almost invisible
+   * tint: that is how the Tasks Configuration back arrow came to be barely findable.
+   *
+   * The recipe itself is fine — it just needs ink that belongs on that surface. At
+   * white the same formula yields a solid white glyph over a 10% white wash, which is
+   * the standard treatment for a control on a coloured header.
+   */
+  onBrand: T.color.onBrand,
 };
 
 export interface ActionIconButtonProps {
