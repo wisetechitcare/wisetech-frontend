@@ -17,9 +17,9 @@ import {
   useMigrationRun,
   useSaveDecision,
 } from '@hooks/useLegacyMigration';
-import UploadStep from './UploadStep';
+import CsvUploadStep from '../CsvUploadStep';
 import AnalysisSummary from './AnalysisSummary';
-import MatchReviewTable from './MatchReviewTable';
+import MatchReviewTable, { filterLabel } from './MatchReviewTable';
 import ReconciliationPanel from './ReconciliationPanel';
 import BulkDecisionBar from './BulkDecisionBar';
 import MigrationSummaryStep from './MigrationSummary';
@@ -36,10 +36,10 @@ import type { MigrationRecord, RecordDecision } from '@/types/legacyMigration';
 
 const STEPS = [
   { label: 'Upload' },
-  { label: 'Analyze & match' },
-  { label: 'Review differences' },
+  { label: 'Compare' },
+  { label: 'Review changes' },
   { label: 'Confirm' },
-  { label: 'Result' },
+  { label: 'Done' },
 ];
 
 /** Named rather than numeric: 'analyzing' and 'summary' share one rail position. */
@@ -152,7 +152,7 @@ export function LegacyMigrationWizard({
     setStep('result');
     try {
       await execute(25);
-      toast({ icon: 'success', title: 'Migration completed' });
+      toast({ icon: 'success', title: 'Import completed' });
     } catch {
       // Surfaced on the result screen, including what was already committed.
     }
@@ -164,11 +164,11 @@ export function LegacyMigrationWizard({
 
   const header = (
     <GlassHeader
-      title="Legacy data migration"
+      title="Compare & import"
       subtitle={
         migrationCode
           ? `${migrationCode} · ${runData?.run.fileName ?? ''}`
-          : 'Reconcile data from the previous system'
+          : 'Check this file against your existing leads'
       }
       icon={<KTIcon iconName="data" className="fs-1" />}
       onClose={handleClose}
@@ -198,11 +198,18 @@ export function LegacyMigrationWizard({
         ) : (
           <>
             {step === 'upload' && (
-              <UploadStep
+              <CsvUploadStep
                 columns={columns}
-                analyzing={analyze.isPending}
+                submitting={analyze.isPending}
+                busyLabel="Comparing…"
                 error={analyze.error instanceof Error ? analyze.error.message : null}
-                onAnalyze={handleAnalyze}
+                onSubmit={handleAnalyze}
+                intro="Upload a CSV whose headers match the column names below. Nothing is written until you review the changes and confirm."
+                primaryLabel="Columns used to find the matching lead"
+                secondaryLabel="Other supported columns"
+                submitLabel="Compare →"
+                readyVerb="compare"
+                templateFileName="lead-compare-template.csv"
               />
             )}
 
@@ -211,7 +218,7 @@ export function LegacyMigrationWizard({
                 <CircularProgress />
                 {/* Honest state: this really is the server working, with no fake timeline. */}
                 <Box sx={{ color: 'text.secondary' }}>
-                  Reading the file, matching against existing leads and comparing fields…
+                  Reading the file, finding the matching leads and comparing every field…
                 </Box>
               </Stack>
             )}
@@ -224,7 +231,7 @@ export function LegacyMigrationWizard({
                   columnLabels={columnLabels}
                 />
                 <Stack direction="row" justifyContent="flex-end">
-                  <WtButton onClick={() => setStep('review')}>Review differences</WtButton>
+                  <WtButton onClick={() => setStep('review')}>Review changes</WtButton>
                 </Stack>
               </Stack>
             )}
@@ -234,7 +241,7 @@ export function LegacyMigrationWizard({
                 <BulkDecisionBar
                   filter={filter}
                   applying={bulkDecision.isPending}
-                  affectedLabel={filter === 'all' ? 'every record' : `records in the "${filter}" filter`}
+                  affectedLabel={filter === 'all' ? 'every row' : `every row under "${filterLabel(filter)}"`}
                   onApply={async (input) => {
                     try {
                       const result = await bulkDecision.mutateAsync(input);

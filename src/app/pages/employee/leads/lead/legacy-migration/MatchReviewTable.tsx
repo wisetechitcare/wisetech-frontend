@@ -53,6 +53,10 @@ const FILTERS = [
   { value: 'failed', label: 'Failed' },
 ];
 
+/** The tab's own words, for anything that needs to name the current tab in a sentence. */
+export const filterLabel = (value: string): string =>
+  FILTERS.find((option) => option.value === value)?.label ?? value;
+
 const DASH = '—';
 
 /** A stored date arrives as a full ISO instant; nobody wants to read the Z. */
@@ -76,6 +80,17 @@ const changing = (differences: FieldDifference[]): FieldDifference[] =>
   );
 
 /**
+ * A number the file wants to write that already belongs to a different lead.
+ *
+ * Lead and project numbers have to stay unique, and the server refuses to write one
+ * that is taken — so the one-click Apply must not stage it. The row still shows the
+ * change, in red, with the note saying which lead holds the number; taking it anyway
+ * is a deliberate act through Change field by field.
+ */
+const contested = (d: FieldDifference): boolean =>
+  d.status === 'CONFLICT' && (d.field === 'prefix' || d.field === 'projectNumber');
+
+/**
  * Accepting every change on a row.
  *
  * The executor only writes fields named explicitly in `fieldDecisions` — sending
@@ -85,7 +100,10 @@ const acceptAll = (record: MigrationRecord): RecordDecision => ({
   action: record.matchedLeadId ? 'UPDATE' : 'CREATE',
   targetLeadId: record.matchedLeadId,
   fieldDecisions: Object.fromEntries(
-    changing(record.differences ?? []).map((d) => [d.field, { choice: 'USE_OLD' as const }]),
+    changing(record.differences ?? []).map((d) => [
+      d.field,
+      { choice: contested(d) ? ('KEEP_CURRENT' as const) : ('USE_OLD' as const) },
+    ]),
   ),
 });
 
@@ -125,23 +143,37 @@ function ChangeHeader() {
 function ChangeRow({ difference }: { difference: FieldDifference }) {
   const warn = tonePair(difference.status === 'CONFLICT' ? 'danger' : 'warning').fg;
   return (
-    <Stack
-      direction={{ xs: 'column', sm: 'row' }}
-      spacing={{ xs: 0.25, sm: 1.5 }}
-      alignItems={{ sm: 'baseline' }}
-      sx={{ py: 0.6, borderBottom: '1px solid', borderColor: 'divider', '&:last-of-type': { borderBottom: 'none' } }}
-    >
-      <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'text.secondary', width: COL_LABEL, flex: 'none' }}>
-        {difference.label}
-      </Typography>
-      <Typography sx={{ fontSize: 13, color: 'text.disabled', textDecoration: 'line-through', minWidth: 0, flex: 1 }}>
-        {show(difference.currentValue)}
-      </Typography>
-      <Box sx={{ color: 'text.disabled', fontSize: 12, flex: 'none', width: 12, textAlign: 'center' }}>→</Box>
-      <Typography sx={{ fontSize: 13, fontWeight: 700, color: warn, minWidth: 0, flex: 1, wordBreak: 'break-word' }}>
-        {show(difference.oldValue)}
-      </Typography>
-    </Stack>
+    <Box sx={{ py: 0.6, borderBottom: '1px solid', borderColor: 'divider', '&:last-of-type': { borderBottom: 'none' } }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={{ xs: 0.25, sm: 1.5 }}
+        alignItems={{ sm: 'baseline' }}
+      >
+        <Typography sx={{ fontSize: 12, fontWeight: 700, color: 'text.secondary', width: COL_LABEL, flex: 'none' }}>
+          {difference.label}
+        </Typography>
+        <Typography sx={{ fontSize: 13, color: 'text.disabled', textDecoration: 'line-through', minWidth: 0, flex: 1 }}>
+          {show(difference.currentValue)}
+        </Typography>
+        <Box sx={{ color: 'text.disabled', fontSize: 12, flex: 'none', width: 12, textAlign: 'center' }}>→</Box>
+        <Typography sx={{ fontSize: 13, fontWeight: 700, color: warn, minWidth: 0, flex: 1, wordBreak: 'break-word' }}>
+          {show(difference.oldValue)}
+        </Typography>
+      </Stack>
+
+      {/* The reason a value is refused or contested. It has been on FieldDifference
+          since the start and was never shown, so a row went red with no explanation. */}
+      {difference.note && (
+        <Typography
+          sx={{
+            fontSize: 12, lineHeight: 1.5, color: warn, fontWeight: 600,
+            pl: { sm: `${COL_LABEL.sm + 12}px` }, pt: 0.25,
+          }}
+        >
+          {difference.note}
+        </Typography>
+      )}
+    </Box>
   );
 }
 
@@ -193,6 +225,8 @@ function RecordCard({
   const source = record.sourceData ?? {};
   const differences = record.differences ?? [];
   const changes = changing(differences);
+  // Shown, but held back from the one-click Apply — see `contested`.
+  const applies = changes.filter((d) => !contested(d));
   const agreeing = differences.filter((d) => d.status === 'SAME' && !NOT_WORTH_REPORTING.has(d.field));
   const matched = (record.candidates ?? []).find((c) => c.leadId === record.matchedLeadId);
   const confidence = CONFIDENCE[record.confidence ?? 'NO_MATCH'] ?? CONFIDENCE.NO_MATCH;
@@ -211,6 +245,20 @@ function RecordCard({
   const ambiguous = record.confidence === 'AMBIGUOUS';
   const candidates = record.candidates ?? [];
   const trulyNew = !record.matchedLeadId && !ambiguous;
+
+  /**
+   * Every line shows the same KIND of number.
+   *
+   * Each line used to pick `projectNumber ?? prefix` for itself, so a file that
+   * identifies its rows by offer number listed its candidates by project number —
+   * WT/OFFER/24-25/63 sitting above three WT/PROJECT/… lines, on a screen whose only
+   * job is comparing the two. Whichever number your file supplied decides the column
+   * for the whole card; the other one only stands in when that lead has none.
+   */
+  const fileNumber = source.projectNumber?.original || source.prefix?.original || '';
+  const byProjectNumber = Boolean(source.projectNumber?.original);
+  const leadNumberOf = (lead?: { prefix: string | null; projectNumber: string | null }): string =>
+    (byProjectNumber ? lead?.projectNumber ?? lead?.prefix : lead?.prefix ?? lead?.projectNumber) ?? '';
 
   return (
     <Box
@@ -239,7 +287,7 @@ function RecordCard({
             tag="From your file"
             tone="warning"
             title={source.title?.original || 'Untitled row'}
-            number={source.projectNumber?.original || source.prefix?.original || 'no number'}
+            number={fileNumber || 'no number'}
             strong
           />
           {record.matchedLeadId && (
@@ -247,7 +295,7 @@ function RecordCard({
               tag="In the system"
               tone="neutral"
               title={matched?.lead.title ?? 'the matched lead'}
-              number={matched?.lead.projectNumber ?? matched?.lead.prefix ?? ''}
+              number={leadNumberOf(matched?.lead)}
             />
           )}
 
@@ -259,7 +307,7 @@ function RecordCard({
               tag="Could be"
               tone="cyan"
               title={candidate.lead.title ?? 'Untitled lead'}
-              number={candidate.lead.projectNumber ?? candidate.lead.prefix ?? ''}
+              number={leadNumberOf(candidate.lead)}
             />
           ))}
 
@@ -325,7 +373,7 @@ function RecordCard({
                   onClick={() => onDecide(record, acceptAll(record))}
                 >
                   {record.matchedLeadId
-                    ? (changes.length ? `Apply ${changes.length}` : 'Mark done')
+                    ? (applies.length ? `Apply ${applies.length}` : 'Mark done')
                     : 'Add as new lead'}
                 </WtButton>
               )}

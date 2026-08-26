@@ -147,7 +147,10 @@ export interface MigrationSummary {
   failed?: number;
   stale?: number;
   skipped?: number;
+  /** Every difference in the run — the review-stage number. */
   fieldChangeCounts: Record<string, number>;
+  /** Only what the approved decisions would write — the confirmation-stage number. */
+  approvedFieldChangeCounts?: Record<string, number>;
   detectedHeaders?: string[];
   unmappedHeaders?: string[];
 }

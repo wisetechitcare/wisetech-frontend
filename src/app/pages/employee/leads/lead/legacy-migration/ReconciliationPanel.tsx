@@ -191,6 +191,19 @@ export function ReconciliationPanel({
         </GlassSurface>
       )}
 
+      {/* A row that matched several leads was compared to none of them — the matcher
+          holds back rather than preselect one — so there is no field list to show yet.
+          Say what approving does instead of showing an empty section. */}
+      {differences.length === 0 && targetLeadId && !isExecuted && (
+        <GlassSurface variant="thin" sx={{ p: 1.5, borderRadius: '14px', borderColor: 'divider' }}>
+          <Typography sx={{ fontSize: 13, lineHeight: 1.6, color: 'text.secondary' }}>
+            This row was never compared to a single lead, because more than one fitted. Approving it compares
+            it to the lead you picked and takes your file's values for every field that differs. You can
+            reopen the row afterwards to change any of them before the migration runs.
+          </Typography>
+        </GlassSurface>
+      )}
+
       {differences.length > 0 && (
         <Box>
           <Stack

@@ -7,19 +7,16 @@ import { tonePair } from '@app/theme/tokens';
 import { formatFileSize } from '@utils/fileValidation';
 import { downloadBlob } from '@utils/svgExport';
 import { MAX_IMPORT_FILE_BYTES } from '@services/LegacyLeadMigrationService';
-import type { ImportColumn } from '@/types/legacyMigration';
 
 /**
- * File selection for a legacy migration.
+ * The file-selection step shared by BOTH lead CSV importers — standard bulk import and
+ * legacy migration. They sit behind the same button on the Leads page and used to be two
+ * unrelated designs: this one on the MUI kit, the other on Bootstrap markup with
+ * light-mode-only hex.
  *
- * Laid out to match the Bulk Lead Import upload screen — the tall drop zone with a
- * circular glyph, full-size column pills, and a footer that states what will happen
- * next beside the action. The two screens sit behind the same button on the Leads
- * page, and the legacy one used to read as a cramped, unrelated dialog.
- *
- * Rebuilt on the MUI kit rather than copied: LeadBulkImport is Bootstrap classes,
- * inline styles and hardcoded hex, all three of which the UI lint rules reject in
- * edited files — and its greys are light-mode only. Same design, theme tokens.
+ * Everything that differs between the two is copy, passed in. The layout — info banner,
+ * tall drop zone, two pill sections, template download, footer that states what happens
+ * next beside the action — is defined once here.
  *
  * The size limit comes from the service constant, which mirrors multer's server-side
  * limit — the two used to disagree (10MB client, 5MB server), so a 7MB file passed
@@ -27,6 +24,23 @@ import type { ImportColumn } from '@/types/legacyMigration';
  */
 
 const SIZE_LIMIT_LABEL = formatFileSize(MAX_IMPORT_FILE_BYTES);
+
+/** The shape this screen needs. `ImportColumn` from the legacy API satisfies it. */
+export interface UploadColumn {
+  key: string;
+  label: string;
+  required?: boolean;
+  matchSignal?: boolean;
+  writable?: boolean;
+}
+
+/**
+ * Byte-order mark for the template. Without it Excel opens the file as the local ANSI
+ * codepage and saves it back the same way, so anything non-ASCII the user types comes
+ * back as mojibake. Built from the code point rather than written literally — an
+ * invisible U+FEFF sitting in source is a trap for the next editor.
+ */
+const BOM = String.fromCharCode(0xfeff);
 
 /** RFC 4180: quote a cell only when it contains a delimiter, quote or newline. */
 const csvCell = (value: string) =>
@@ -46,16 +60,45 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-export function UploadStep({
+/** Full-size pills — the dense chips read as metadata rather than as column names. */
+const pillSx = {
+  height: 30,
+  fontSize: '0.8125rem',
+  borderRadius: '8px',
+  '& .MuiChip-label': { px: 1.5 },
+} as const;
+
+export function CsvUploadStep({
   columns,
-  onAnalyze,
-  analyzing,
+  onSubmit,
+  submitting,
   error,
+  intro,
+  primaryLabel,
+  secondaryLabel,
+  submitLabel,
+  busyLabel = 'Working…',
+  readyVerb,
+  templateFileName,
+  children,
 }: {
-  columns: ImportColumn[];
-  onAnalyze: (file: File) => void;
-  analyzing?: boolean;
+  columns: UploadColumn[];
+  onSubmit: (file: File) => void;
+  submitting?: boolean;
   error?: string | null;
+  /** One sentence in the tinted banner: what this file is and what happens to it. */
+  intro: string;
+  /** Caption over the solid pills (the columns flagged `matchSignal`). */
+  primaryLabel: string;
+  /** Caption over the neutral pills. */
+  secondaryLabel: string;
+  submitLabel: string;
+  busyLabel?: string;
+  /** Verb for the footer line: `Ready to ${readyVerb} "file.csv"`. */
+  readyVerb: string;
+  templateFileName: string;
+  /** Extra content below the template row (the standard import's rule cards). */
+  children?: ReactNode;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -88,28 +131,15 @@ export function UploadStep({
   /**
    * A blank CSV whose header row is every column shown below, in the same order.
    *
-   * Built from the same `columns` the pills render, which come from the backend's column
-   * table — so the template cannot advertise a column the importer does not read, and a
-   * column added there appears here without anyone remembering to update a fixture.
+   * Built from the same `columns` the pills render, so the template cannot advertise a
+   * column the importer does not read, and a column added there appears here without
+   * anyone remembering to update a fixture.
    */
   const downloadTemplate = () => {
     const headers = [...identifiers, ...others].map((column) => column.label);
-    // Leading BOM: without it Excel opens the file as the local ANSI codepage and saves it
-    // back the same way, so anything non-ASCII the user types returns as mojibake.
-    const csv = `\uFEFF${headers.map(csvCell).join(',')}\r\n`;
-    downloadBlob(
-      new Blob([csv], { type: 'text/csv;charset=utf-8' }),
-      'legacy-lead-migration-template.csv',
-    );
+    const csv = `${BOM}${headers.map(csvCell).join(',')}\r\n`;
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), templateFileName);
   };
-
-  /** Full-size pills, as on the bulk-import screen — the dense chips read as metadata. */
-  const pillSx = {
-    height: 30,
-    fontSize: '0.8125rem',
-    borderRadius: '8px',
-    '& .MuiChip-label': { px: 1.5 },
-  } as const;
 
   return (
     <Stack spacing={2.5}>
@@ -125,8 +155,7 @@ export function UploadStep({
           <KTIcon iconName="information" className="fs-4" />
         </Box>
         <Typography sx={{ fontSize: 13, lineHeight: 1.55, color: 'text.secondary' }}>
-          Upload a CSV exported from the old system, with headers renamed to this application&apos;s
-          column names. Nothing is written until you review the matches and confirm.
+          {intro}
         </Typography>
       </Stack>
 
@@ -164,7 +193,7 @@ export function UploadStep({
               {formatFileSize(file.size)}
             </Typography>
             <Typography sx={{ fontSize: 13, fontWeight: 500, color: success }}>
-              ✔ Ready to analyse
+              ✔ Ready to {readyVerb}
             </Typography>
             <Stack direction="row" spacing={1.5} sx={{ pt: 1.5 }}>
               {/* Both stop the click reaching the drop zone, which would open the file
@@ -210,14 +239,20 @@ export function UploadStep({
       )}
 
       <Box>
-        <SectionLabel>Columns used to identify records</SectionLabel>
+        <SectionLabel>{primaryLabel}</SectionLabel>
         <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 2.5 }}>
           {identifiers.map((column) => (
-            <ToneChip key={column.key} tone="cyan" label={column.label} solid sx={pillSx} />
+            <ToneChip
+              key={column.key}
+              tone="cyan"
+              label={column.required ? `${column.label} ✱` : column.label}
+              solid
+              sx={pillSx}
+            />
           ))}
         </Stack>
 
-        <SectionLabel>Other supported columns</SectionLabel>
+        <SectionLabel>{secondaryLabel}</SectionLabel>
         <Stack direction="row" flexWrap="wrap" gap={1}>
           {others.map((column) => (
             <ToneChip key={column.key} tone="neutral" label={column.label} sx={pillSx} />
@@ -238,6 +273,8 @@ export function UploadStep({
             An empty file with every column above as its header row.
           </Typography>
         </Stack>
+
+        {children}
       </Box>
 
       <Stack
@@ -248,18 +285,18 @@ export function UploadStep({
         sx={{ pt: 2, borderTop: '1px solid', borderColor: 'divider' }}
       >
         <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-          {file ? `Ready to analyse "${file.name}"` : 'Select a CSV file to continue'}
+          {file ? `Ready to ${readyVerb} "${file.name}"` : 'Select a CSV file to continue'}
         </Typography>
         <WtButton
-          disabled={!file || analyzing}
-          onClick={() => file && onAnalyze(file)}
+          disabled={!file || submitting}
+          onClick={() => file && onSubmit(file)}
           sx={{ minWidth: 170 }}
         >
-          {analyzing ? 'Analyzing…' : 'Analyze & match →'}
+          {submitting ? busyLabel : submitLabel}
         </WtButton>
       </Stack>
     </Stack>
   );
 }
 
-export default UploadStep;
+export default CsvUploadStep;
