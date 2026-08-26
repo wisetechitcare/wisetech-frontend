@@ -53,13 +53,17 @@ export function MigrationResult({
   const troubled = (progress?.failed ?? 0) + (progress?.stale ?? 0);
   const done = Boolean(!running && progress?.done);
 
-  const outcomes: { value: number; label: string; tone: SemanticTone }[] = [
+  // The annotation has to sit on the literal, not on the filtered result: each `tone`
+  // widens to `string` while the array is being built, and `.filter()` hands back an
+  // array of that already-widened type.
+  const allOutcomes: { value: number; label: string; tone: SemanticTone }[] = [
     { value: progress?.updated ?? 0, label: 'updated', tone: 'brand' },
     { value: progress?.created ?? 0, label: 'created', tone: 'success' },
     { value: progress?.skipped ?? 0, label: 'skipped', tone: 'neutral' },
     { value: progress?.failed ?? 0, label: 'failed', tone: 'danger' },
     { value: progress?.stale ?? 0, label: 'went stale', tone: 'warning' },
-  ].filter((outcome) => outcome.value > 0);
+  ];
+  const outcomes = allOutcomes.filter((outcome) => outcome.value > 0);
 
   const tone: SemanticTone = troubled > 0 ? 'warning' : 'success';
   const fg = tonePair(tone).fg;

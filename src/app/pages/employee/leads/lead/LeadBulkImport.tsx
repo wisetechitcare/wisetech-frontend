@@ -2,7 +2,6 @@ import React, { useCallback, useState } from "react";
 import {
   Box,
   CircularProgress,
-  Divider,
   Stack,
   Table,
   TableBody,
@@ -37,14 +36,14 @@ import ImportModeSelector, {
   type ImportMode,
 } from "./legacy-migration/ImportModeSelector";
 import LegacyMigrationWizard from "./legacy-migration/LegacyMigrationWizard";
-import { Figure, MICRO, NUM } from "./legacy-migration/summaryChrome";
+import { Count, MICRO, NUM } from "./legacy-migration/summaryChrome";
 
 /**
  * Standard bulk lead import — upload, preview, write.
  *
  * Built on the same pieces as the legacy migration wizard next door: GlassDialog +
  * GlassHeader for the shell, the shared CsvUploadStep for file selection, and the same
- * Figure/GlassSurface vocabulary for every count. The two open from one button a click
+ * Count-in-a-sentence vocabulary for every number. The two open from one button a click
  * apart and used to be two different designs — react-bootstrap Modal, Bootstrap button
  * classes and light-mode-only hex on this side, the MUI kit on the other.
  *
@@ -230,6 +229,42 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
     preview?.validRows.filter((r) => r.importAction?.includes("Update"))
       .length ?? 0;
 
+  /** "3 new leads and 2 existing leads" — only the halves that actually happen. */
+  const previewClauses: JSX.Element[] = [];
+  if (newLeads > 0) {
+    previewClauses.push(
+      <Box component="span" key="create">
+        <Count value={newLeads} tone="success" /> new {newLeads === 1 ? "lead" : "leads"}
+      </Box>,
+    );
+  }
+  if (updates > 0) {
+    previewClauses.push(
+      <Box component="span" key="update">
+        <Count value={updates} tone="brand" /> existing {updates === 1 ? "lead" : "leads"}
+      </Box>,
+    );
+  }
+
+  /** The same sentence again on the receipt, from what the server actually wrote. */
+  const doneClauses: JSX.Element[] = [];
+  if ((importResult?.created ?? 0) > 0) {
+    doneClauses.push(
+      <Box component="span" key="created">
+        <Count value={importResult!.created} tone="success" /> new{" "}
+        {importResult!.created === 1 ? "lead" : "leads"}
+      </Box>,
+    );
+  }
+  if ((importResult?.updated ?? 0) > 0) {
+    doneClauses.push(
+      <Box component="span" key="updated">
+        <Count value={importResult!.updated} tone="brand" /> existing{" "}
+        {importResult!.updated === 1 ? "lead" : "leads"}
+      </Box>,
+    );
+  }
+
   // Build new-entity summary
   const entitySummary: string[] = preview
     ? preview.newEntitySummary?.length
@@ -387,23 +422,23 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
               variant="thin"
               sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: "16px", borderColor: "divider" }}
             >
-              <Stack
-                direction="row"
-                spacing={{ xs: 2.5, sm: 4 }}
-                flexWrap="wrap"
-                useFlexGap
-                divider={<Divider orientation="vertical" flexItem />}
-              >
-                <Figure value={preview.validRows.length} label="valid rows" tone="success" />
-                <Figure value={newLeads} label="new leads" tone="brand" muted={newLeads === 0} />
-                <Figure value={updates} label="updates" tone="warning" muted={updates === 0} />
-                <Figure
-                  value={preview.errors.length}
-                  label="rows with errors"
-                  tone="danger"
-                  muted={preview.errors.length === 0}
-                />
-              </Stack>
+              <Typography sx={{ fontSize: 17, color: "text.primary", lineHeight: 1.5 }}>
+                {previewClauses.length === 0 ? (
+                  "This file has no rows that can be imported."
+                ) : (
+                  <>
+                    Importing{" "}
+                    {previewClauses.length === 2 ? (
+                      <>
+                        {previewClauses[0]} and {previewClauses[1]}
+                      </>
+                    ) : (
+                      previewClauses[0]
+                    )}
+                    .
+                  </>
+                )}
+              </Typography>
             </GlassSurface>
 
             <Box
@@ -601,47 +636,35 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                 bgcolor: toneAlpha(success, 0.04),
               }}
             >
-              <Typography
-                sx={{ fontSize: 18, fontWeight: 700, color: "text.primary", lineHeight: 1.4, mb: 2.5 }}
-              >
-                {importResult.count === 0
-                  ? "Finished without writing anything."
-                  : `${importResult.count} ${importResult.count === 1 ? "lead is" : "leads are"} now up to date.`}
+              {/* One sentence, each number set into it. Outcomes that did not happen
+                  are told by their absence, not by a box containing 0. */}
+              <Typography sx={{ fontSize: 17, color: "text.primary", lineHeight: 1.5 }}>
+                {doneClauses.length === 0 ? (
+                  "Finished without writing anything."
+                ) : (
+                  <>
+                    Imported{" "}
+                    {doneClauses.length === 2 ? (
+                      <>
+                        {doneClauses[0]} and {doneClauses[1]}
+                      </>
+                    ) : (
+                      doneClauses[0]
+                    )}
+                    .
+                  </>
+                )}
               </Typography>
 
-              {/* Counts of zero are not printed: nothing skipped is told by their absence. */}
-              <Stack
-                direction="row"
-                spacing={{ xs: 2.5, sm: 4 }}
-                flexWrap="wrap"
-                useFlexGap
-                divider={<Divider orientation="vertical" flexItem />}
-              >
-                {importResult.created > 0 && (
-                  <Figure
-                    value={importResult.created}
-                    label={importResult.created === 1 ? "lead created" : "leads created"}
-                    tone="success"
-                    size={38}
-                  />
-                )}
-                {importResult.updated > 0 && (
-                  <Figure
-                    value={importResult.updated}
-                    label={importResult.updated === 1 ? "lead updated" : "leads updated"}
-                    tone="brand"
-                    size={38}
-                  />
-                )}
-                {(preview?.errors.length ?? 0) > 0 && (
-                  <Figure
-                    value={preview!.errors.length}
-                    label="rows skipped"
-                    tone="danger"
-                    size={38}
-                  />
-                )}
-              </Stack>
+              {(preview?.errors.length ?? 0) > 0 && (
+                <Typography
+                  sx={{ fontSize: 13.5, color: "text.secondary", lineHeight: 1.6, mt: 1 }}
+                >
+                  <Count value={preview!.errors.length} tone="danger" />{" "}
+                  {preview!.errors.length === 1 ? "row was" : "rows were"} skipped because they
+                  could not be read.
+                </Typography>
+              )}
             </GlassSurface>
 
             <Stack direction="row" justifyContent="flex-end">
