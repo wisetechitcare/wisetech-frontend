@@ -148,18 +148,17 @@ body:has(.MuiDialog-root:not([aria-hidden='true'])) .wt-noti-root {
   animation: wt-noti-pulse 2s infinite;
 }
 
+/* Icons are Lucide <svg> now, not keenicon <i>. The `.ki-*` selectors are kept alongside
+   `svg` rather than swapped for it: they cost nothing, and they keep this rule correct for
+   any icon that has not been migrated yet. The companion `[class^="path"]:before` block that
+   used to force the duotone backdrop layer opaque is gone — a stroke icon is one layer. */
+.wt-snack__logo svg,
 .wt-snack__logo .ki-duotone,
 .wt-snack__logo .ki-outline,
 .wt-snack__logo .ki-solid {
   font-size: 0.9rem;
   line-height: 1;
   color: #ffffff !important;
-}
-
-.wt-snack__logo .ki-duotone [class^="path"]:before,
-.wt-snack__logo .ki-duotone [class^="path"]::before {
-  color: #ffffff !important;
-  opacity: 1 !important;
 }
 
 .wt-snack__count {
@@ -189,6 +188,7 @@ body:has(.MuiDialog-root:not([aria-hidden='true'])) .wt-noti-root {
   transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
+.wt-snack__chevron svg,
 .wt-snack__chevron .ki-duotone,
 .wt-snack__chevron .ki-outline,
 .wt-snack__chevron .ki-solid {

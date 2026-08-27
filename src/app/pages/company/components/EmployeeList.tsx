@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Employee, AdminFolder } from '@models/media';
 import { formatJoiningDate } from '@utils/media.utils';
 import MediaBreadcrumb from './MediaBreadcrumb';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface EmployeeListProps {
     adminId: string;
@@ -66,10 +67,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ adminId, adminName, adminEm
                                                     onClick={() => navigate(`/company/media/${adminId}/${employee.id}`)}
                                                 >
                                                     <span className="icon-wrapper">
-                                                        <i className="ki-duotone ki-folder fs-2x text-primary me-2 me-sm-3 me-md-4">
-                                                            <span className="path1" />
-                                                            <span className="path2" />
-                                                        </i>
+                                                        <AppIcon name="folder" className="fs-2x text-primary me-2 me-sm-3 me-md-4" />
                                                     </span>
                                                     <div className="text-gray-800 text-hover-primary fs-7 fs-sm-6 text-break">
                                                         {employee.users?.firstName && `${employee.users.firstName}`} {employee.users?.lastName && `${employee.users.lastName}`}

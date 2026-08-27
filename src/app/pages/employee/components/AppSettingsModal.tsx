@@ -12,6 +12,7 @@ import MonthYearInput from "@app/modules/common/inputs/MonthYearInput";
 import Loader from "@app/modules/common/utils/Loader";
 import ApprovalSettings, { emptyApprovalChains, persistApprovalChains } from "@app/components/ApprovalSettings";
 import { useSalaryMaster } from "@/modules/payroll/hooks/useSalaryComponentNames";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 // Leave Settings section removed — no longer needed
 // import LeaveAllocationStep from "@app/pages/employee/wizard/forms/LeaveAllocationStep";
 
@@ -443,9 +444,7 @@ function ModalContent({
                             className={`app-settings-nav-item${activeSection === s.id ? " active" : ""}`}
                             onClick={() => setActiveSection(s.id)}
                         >
-                            <i className={`ki-duotone ki-${s.icon} fs-5 me-2`}>
-                                <span className="path1" /><span className="path2" />
-                            </i>
+                            <AppIcon name={s.icon} className="fs-5 me-2" />
                             {s.label}
                         </button>
                     ))}
@@ -454,9 +453,7 @@ function ModalContent({
                 {/* ── Right content ── */}
                 <div className="app-settings-content">
                     <div className="app-settings-content-header">
-                        <i className={`ki-duotone ki-${SECTIONS.find(s => s.id === activeSection)?.icon} fs-4 me-2`}>
-                            <span className="path1" /><span className="path2" />
-                        </i>
+                        <AppIcon name={SECTIONS.find(s => s.id === activeSection)?.icon ?? ''} className="fs-4 me-2" />
                         <span>{activeLabel}</span>
                     </div>
 
