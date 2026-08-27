@@ -108,34 +108,43 @@ describe('accrualWindowAsOf', () => {
     });
 });
 
-describe('unlockedTillNow — the window narrows, never loosens', () => {
-    test('is unchanged for a full-year employee', () => {
+describe('unlockedTillNow — paced across the SAME window the entitlement was cut to', () => {
+    test('is the retired formula for a full-year employee', () => {
         for (let m = 1; m <= 12; m++) {
             const window = accrualWindowAsOf(serverWindow(ALL_MONTHS), FY, lastDayOfFiscalMonth(m));
             expect(unlockedTillNow(20, window)).toBe(legacyAllowed(20, m));
         }
     });
 
-    test('NEVER exceeds what the fiscal year alone would have allowed', () => {
-        const shapes = [
-            ALL_MONTHS,
-            [7, 8, 9, 10, 11, 12], // joined October
-            [1, 2, 3, 4, 5, 6], // leaving in September
-            [1], // employed only in April
-            [1, 2, 3, 7, 8, 9, 10, 11, 12], // out Jul–Sep
+    test('does NOT pro-rate a second time — the entitlement already carries the window', () => {
+        // July joiner: the server sends 15 (of an annual 20) and a 9-month window.
+        const joiner = serverWindow([4, 5, 6, 7, 8, 9, 10, 11, 12]);
+        expect(unlockedTillNow(15, accrualWindowAsOf(joiner, FY, '2026-10-31'))).toBe(6); // 15 x 4/9
+        expect(unlockedTillNow(15, accrualWindowAsOf(joiner, FY, '2027-03-31'))).toBe(15);
+    });
+
+    test('never exceeds the exact share of the annual figure the year has handed out', () => {
+        const shapes: Array<[number[], number]> = [
+            [ALL_MONTHS, 20],
+            [[4, 5, 6, 7, 8, 9, 10, 11, 12], 15], // joined July
+            [[7, 8, 9, 10, 11, 12], 10], // joined October
+            [[1, 2, 3, 4, 5, 6], 10], // leaving in September
+            [[1], 1.5], // employed only in April
+            [[1, 2, 3, 7, 8, 9, 10, 11, 12], 15], // out Jul-Sep
         ];
-        for (const months of shapes) {
+        for (const [months, entitlement] of shapes) {
             for (let m = 1; m <= 12; m++) {
                 const window = accrualWindowAsOf(serverWindow(months), FY, lastDayOfFiscalMonth(m));
-                expect(unlockedTillNow(20, window)).toBeLessThanOrEqual(legacyAllowed(20, m));
+                expect(unlockedTillNow(entitlement, window)).toBeLessThanOrEqual((20 * m) / 12 + 1e-9);
             }
         }
     });
 
-    test('is stricter for a mid-year joiner, and whole by March', () => {
-        const joiner = serverWindow([7, 8, 9, 10, 11, 12]);
-        expect(unlockedTillNow(20, accrualWindowAsOf(joiner, FY, '2026-10-31'))).toBe(3);
-        expect(unlockedTillNow(20, accrualWindowAsOf(joiner, FY, '2027-03-31'))).toBe(20);
+    test('skips gap months rather than crediting them', () => {
+        const gapped = serverWindow([1, 2, 3, 7, 8, 9, 10, 11, 12]);
+        expect(unlockedTillNow(15, accrualWindowAsOf(gapped, FY, '2026-09-30'))).toBe(
+            unlockedTillNow(15, accrualWindowAsOf(gapped, FY, '2026-06-30')),
+        );
     });
 });
 

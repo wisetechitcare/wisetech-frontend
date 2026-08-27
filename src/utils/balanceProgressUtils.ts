@@ -115,17 +115,18 @@ export interface PacingMonths {
  * Paid days unlocked so far — mirror of wisetech-backend/src/utils/leaveAccrual.unlockedTillNow,
  * and the ONE figure both the chip and the preview engine compare against.
  *
- * The lesser of two paces: what the fiscal YEAR has handed out (total/12 per month since April) and
- * what the employee's OWN months on the books have. Taking the minimum is what makes the employment
- * window a narrowing of the original rule and never a loosening — a part-year employee whose window
- * has fully elapsed must not suddenly unlock the whole year's entitlement. Identical arithmetic for
- * a full-year employee, whose numbers therefore do not move at all.
+ * `entitlement × elapsed / eligible`, paced across the employee's own months on the books.
+ *
+ * DIVIDE BY eligibleMonths, NEVER BY 12. The entitlement the balance API returns has already been
+ * cut to the employee's window by the server; pacing it over a flat twelve months as well would
+ * pro-rate the same window twice and strand days the employee had genuinely earned.
+ *
+ * Never looser than a flat fiscal-year pace: substituting the pro-rated entitlement gives
+ * `annual × elapsed / 12` — the original rule with the absent months struck out. A full-year
+ * employee's elapsed IS the fiscal month index and eligible is 12, so nothing moves for them.
  */
 export function unlockedTillNow(entitlement: number, pacing: PacingMonths): number {
-    return Math.min(
-        accruedTillNow(entitlement, pacing.elapsedMonths, pacing.eligibleMonths),
-        accruedTillNow(entitlement, pacing.fiscalMonthIndex, FISCAL_MONTHS_IN_YEAR),
-    );
+    return accruedTillNow(entitlement, pacing.elapsedMonths, pacing.eligibleMonths);
 }
 
 /** Fiscal year (April start) a 'YYYY-MM-DD' day belongs to — Jan–Mar belong to the FY that began last April. */
@@ -421,11 +422,11 @@ export const calculateLeaveBalances = (
     // the allocation engine would happily grant 12. The card and the engine disagreed by
     // construction.
     //
-    // The backend now pro-rates for real — `leave_balance.totalAllocated` IS the employee's
-    // earned entitlement (wisetech-backend/src/utils/leaveAccrual.ts), and `numberOfDays` on
-    // the balance API carries it. So the values arriving here are ALREADY pro-rated, and
-    // applying the old month-fraction on top would pro-rate a second time: a July joiner's
-    // real 9 days would render as floor(9 x 9/12) = 6.
+    // `leave_balance.totalAllocated` IS the employee's earned entitlement: recalculateBalance cuts
+    // the branch annual (plus the Annual addon tier) to the fiscal months they are actually on the
+    // books, rejoin history included — wisetech-backend/src/utils/leaveAccrual.prorateAllocation.
+    // `numberOfDays` on the balance API carries that figure verbatim, so applying a month fraction
+    // on top would pro-rate a second time: a July joiner's real 15 days would render as 11.
     //
     // `proRated` is still populated (identical to `balances`) because callers index it first
     // and fall back to `balances`; keeping both keys filled leaves every call site working

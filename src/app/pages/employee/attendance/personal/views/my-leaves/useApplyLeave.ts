@@ -337,18 +337,35 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                 );
                 setTypes(toUiTypes(balRes?.data?.leavesSummary, nameToId));
 
-                // Cumulative pool from the same authoritative leavesSummary the dashboard uses.
-                // buildCumulativeInputs counts only the four paced paid types (Annual/Casual/Sick/
-                // Floater), excludes Maternal + Unpaid, and uses numberOfDays (no carry) + taken+pending.
                 setAccrualWindow((balRes?.data?.accrualWindow as ServerAccrualWindow) ?? null);
-                const cum = buildCumulativeInputs(balRes?.data?.leavesSummary ?? []);
-                setCumulativePool({
-                    totalPaidAllocated: cum.totalNonMaternalPaidAllocated,
-                    usedPlusPendingPaid: Object.values(cum.takenIncludingPendingByType).reduce(
-                        (s: number, v) => s + (Number(v) || 0),
-                        0,
-                    ),
-                });
+                /**
+                 * Cumulative pool — the SERVER's figures when it sends them.
+                 *
+                 * `cumulativeSummary` is produced by the same resolver the booking gate enforces
+                 * with, so taking it verbatim is what guarantees the preview cannot promise days
+                 * the server will refuse. It also knows two things `leavesSummary` cannot express:
+                 * days already encashed (gone from the spendable pool) and paid leave taken under
+                 * a PREVIOUS branch's leave type (spent, but scoped out of this employee's rows).
+                 *
+                 * The client derivation stays as the fallback for an older backend — it is close
+                 * enough for the common single-branch case and strictly better than showing zero.
+                 */
+                const serverCum = balRes?.data?.cumulativeSummary;
+                if (serverCum && Number.isFinite(Number(serverCum.totalPaidAllocated))) {
+                    setCumulativePool({
+                        totalPaidAllocated: Number(serverCum.totalPaidAllocated) || 0,
+                        usedPlusPendingPaid: Number(serverCum.used) || 0,
+                    });
+                } else {
+                    const cum = buildCumulativeInputs(balRes?.data?.leavesSummary ?? []);
+                    setCumulativePool({
+                        totalPaidAllocated: cum.totalNonMaternalPaidAllocated,
+                        usedPlusPendingPaid: Object.values(cum.takenIncludingPendingByType).reduce(
+                            (s: number, v) => s + (Number(v) || 0),
+                            0,
+                        ),
+                    });
+                }
 
                 const cfgRaw = policyRes?.data?.configuration?.configuration ?? policyRes?.data?.configuration;
                 const cfg = typeof cfgRaw === 'string' ? JSON.parse(cfgRaw) : cfgRaw ?? {};
