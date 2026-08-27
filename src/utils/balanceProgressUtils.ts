@@ -271,6 +271,25 @@ export const calculateTransferredLeaves = async (
 };
 
 /**
+ * Days ENCASHED per leave type, straight from the balance summary the server sends.
+ *
+ * The card and the pacing pool are both drawn from the ENTITLEMENT, not from availableBalance, so an
+ * encashed day stayed visible on them long after the server had taken it out of what can be booked.
+ *
+ * Read, never re-derived: the rule for what counts (CASH, not rejected, not revoked, this fiscal
+ * year) lives in the backend's encashedDaysForType, and a second copy of it here is exactly how the
+ * screens and the enforcement drift apart.
+ */
+export const encashedByType = (leavesSummary: any[] = []): Record<string, number> => {
+    const encashed: Record<string, number> = {};
+    (leavesSummary || []).forEach((summary: any) => {
+        const days = Number(summary?.encashedDays) || 0;
+        if (summary?.leaveType && days > 0) encashed[summary.leaveType] = days;
+    });
+    return encashed;
+};
+
+/**
  * Check if there's a pending or approved encash/transfer request
  */
 export const hasPendingOrApprovedEncashTransfer = async (
@@ -364,38 +383,46 @@ export const calculateLeaveBalances = (
 export const buildLeaveData = (
     leavesTakenCount: Record<string, number>,
     proRatedBalances: Record<string, number>,
-    leaveBalances: Record<string, number>
+    leaveBalances: Record<string, number>,
+    /** Days cashed out this fiscal year, per type — no longer part of the entitlement. */
+    encashedLeaves: Record<string, number> = {}
 ) => {
+    // An encashed day has left the balance: the employee was paid for it and can no longer take it.
+    // Netting it out of the row's total keeps the card's arithmetic identical to the server's
+    // availableBalance (allocated − used − encashed), which is what ApplyLeave books against.
+    const entitlement = (type: string, allocated: number) =>
+        Math.max(0, allocated - (encashedLeaves[type] || 0));
+
     const allPaidLeaves = [
         {
             label: ANNUAL_LEAVES,
             used: leavesTakenCount[ANNUAL_LEAVES] || 0,
-            total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
+            total: entitlement(ANNUAL_LEAVES, proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             label: SICK_LEAVES,
             used: leavesTakenCount[SICK_LEAVES] || 0,
-            total: leaveBalances[SICK_LEAVES] || 0,
+            total: entitlement(SICK_LEAVES, leaveBalances[SICK_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             // label: 'Paid Leaves',  // Renamed from Floater Leaves
             label: 'Floater Leaves',  // Renamed from Floater Leaves
             used: leavesTakenCount[FLOATER_LEAVES] || 0,
-            total: leaveBalances[FLOATER_LEAVES] || 0,
+            total: entitlement(FLOATER_LEAVES, leaveBalances[FLOATER_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             label: CASUAL_LEAVES,
             used: leavesTakenCount[CASUAL_LEAVES] || 0,
-            total: proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0,
+            total: entitlement(CASUAL_LEAVES, proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             label: MATERNAL_LEAVES,
             used: leavesTakenCount[MATERNAL_LEAVES] || 0,
-            total: proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0,
+            total: entitlement(MATERNAL_LEAVES, proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0),
             color: '#1E3A8A',
         },
     ];
@@ -483,7 +510,13 @@ export const buildCumulativeInputs = (leavesSummary: any[] = []): CumulativeInpu
         const isPaidType = summary?.isPaid !== false && !t.includes('unpaid');
         if (!isPaidType || t.includes('matern')) return;
 
-        totalNonMaternalPaidAllocated += Number(summary.numberOfDays) || 0;
+        // Encashed days have been paid out — they are not spendable, so they leave the paced pool.
+        // Server-reported (leavesSummary.encashedDays) rather than re-derived here, so this can never
+        // disagree with the balance the allocation engine enforces against.
+        totalNonMaternalPaidAllocated += Math.max(
+            0,
+            (Number(summary.numberOfDays) || 0) - (Number(summary.encashedDays) || 0),
+        );
         takenIncludingPendingByType[leaveType] =
             (Number(summary.leaveTaken) || 0) + (Number(summary.pendingDays) || 0);
     });

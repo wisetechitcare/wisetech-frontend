@@ -3,6 +3,7 @@ import { KTIcon } from '@metronic/helpers';
 import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { fmtDate, fmtAmount, STATUS, type StatusNum } from '../utils/reimbursementFormat';
+import { canResolveQuery } from '@services/reimbursementQueries';
 
 /**
  * The batch, described as a workflow rather than as a table of rows.
@@ -356,14 +357,21 @@ export function RequestWorkflowRow({
                         {/* The two moves a question actually has, on the question itself. Reaching
                             them used to mean leaving for the queue and finding the expense again.
                             Resolve is the approver's alone — it is what closes the thread. */}
-                        {liveQuery.status !== 'RESOLVED' && (viewerRole === 'APPROVER' || myTurn) && (
+                        {/* Render the row only when it will hold something. Gating Resolve on the
+                            thread state left an approver looking at an unanswered question with an
+                            empty action bar under the question. */}
+                        {liveQuery.status !== 'RESOLVED'
+                            && (myTurn || (viewerRole === 'APPROVER' && !!onResolveQuery && canResolveQuery(liveQuery.status))) && (
                             <Stack direction="row" gap={0.75} flexWrap="wrap" justifyContent="flex-end" sx={{ mt: 1 }}>
                                 {myTurn && (
                                     <WtButton size="small" disabled={busy} onClick={() => onOpenConversation(liveQuery.id)}>
                                         Respond
                                     </WtButton>
                                 )}
-                                {viewerRole === 'APPROVER' && onResolveQuery && (
+                                {/* Only once the employee has actually answered. The server
+                                    refuses anything else, so offering it here just produced a
+                                    400 under a chip already saying "Awaiting employee response". */}
+                                {viewerRole === 'APPROVER' && onResolveQuery && canResolveQuery(liveQuery.status) && (
                                     <WtButton size="small" ghost disabled={busy} onClick={() => onResolveQuery(liveQuery.id)}>
                                         Resolve
                                     </WtButton>

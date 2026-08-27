@@ -27,6 +27,7 @@ import {
     getTotalWeekendsBetweenDates,
     calculateLeavesTakenByType,
     calculateTransferredLeaves,
+    encashedByType,
     hasPendingOrApprovedEncashTransfer,
     calculateLeaveBalances,
     buildLeaveData,
@@ -62,6 +63,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     const [totalLeaves, setTotalLeaves] = useState<CustomLeaves[]>([]);
     const [showConvertModal, setShowConvertModal] = useState(false);
     const [showEncashTransferModal, setShowEncashTransferModal] = useState(false);
+    /** Days cashed out this fiscal year, per leave type — netted out of each row's entitlement. */
+    const [encashedLeavesInCurrentFiscal, setEncashedLeavesInCurrentFiscal] = useState<Record<string, number>>({});
     const [shouldShowConvertButton, setShouldShowConvertButton] = useState(true);
     const [approvedRequestInfo, setApprovedRequestInfo] = useState<{ transfer?: any; encash?: any } | null>(null);
     const [addonLeaveAllowanceCount, setAddonLeaveAllowanceCount] = useState(0);
@@ -336,6 +339,9 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     hasPendingOrApprovedTransfer,
                     0
                 );
+                // Encashed days come from the SAME summary the balances do, so the card and the
+                // server's availableBalance can never disagree about what was cashed out.
+                setEncashedLeavesInCurrentFiscal(encashedByType(leavesSummary));
                 setLeaveBalances(balances);
                 setProRatedBalances(proRated);
                 setLeavesTakenCount(leavesTaken);
@@ -365,8 +371,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
         totalUnpaidAssigned,
         grandTotalUsed,
         grandTotalAssigned
-    } = useMemo(() => buildLeaveData(leavesTakenCount, proRatedBalances, leaveBalances),
-        [leavesTakenCount, proRatedBalances, leaveBalances]);
+    } = useMemo(() => buildLeaveData(leavesTakenCount, proRatedBalances, leaveBalances, encashedLeavesInCurrentFiscal),
+        [leavesTakenCount, proRatedBalances, leaveBalances, encashedLeavesInCurrentFiscal]);
 
     // Fiscal year start month derived from the prop (e.g. "2026-04-01" → 4)
     const fiscalStartMonth = useMemo(

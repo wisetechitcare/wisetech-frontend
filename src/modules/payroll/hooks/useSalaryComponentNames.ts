@@ -3,7 +3,12 @@ import { deductionMasterService, PayrollComponent } from '@modules/payroll/servi
 
 // Maps SalaryComponentMaster.key → the hardcoded string used inside grossPayBreakdown/deductionBreakdown.
 // Must stay in sync with backend's MASTER_KEY_TO_HARDCODED in payrollMasterNames.ts.
-const MASTER_KEY_TO_HARDCODED: Record<string, string> = {
+//
+// This is the ONLY stable identity a component has. `displayName` is admin-editable, so
+// anything that keys stored data by it (saved deduction overrides, most of all) orphans that
+// data the first time someone renames the component — and then shows the orphan as a second,
+// full-value line beside the real one. Key by this; show displayName.
+export const MASTER_KEY_TO_HARDCODED: Record<string, string> = {
     totalWorkingTime:     'Total Working Time',
     overTime:             'Over Time',
     holidays:             'Holidays',

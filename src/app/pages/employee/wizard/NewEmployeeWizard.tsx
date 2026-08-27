@@ -1821,12 +1821,25 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         // application, write the new employee id back onto it. Best-effort — the
         // employee already exists, so a failed link must never fail the onboarding.
         const convertedFromApplicationId = takeConversion();
+        let candidateLinkFailed = false;
         if (convertedFromApplicationId) {
           try { await linkConvertedEmployee(convertedFromApplicationId, savedEmployeeId); }
-          catch (linkError) { console.error("Failed to link application to new employee:", linkError); }
+          catch (linkError) {
+            // Reported below rather than swallowed: the employee exists either way, but a
+            // silent failure strands the candidate un-Converted with nobody aware of it.
+            console.error("Failed to link application to new employee:", linkError);
+            candidateLinkFailed = true;
+          }
         }
 
-        successConfirmation("Successfully onboarded an employee");
+        if (candidateLinkFailed) {
+          successConfirmation(
+            "The employee was created, but could not be linked back to the candidate they were hired from — that needs Recruitment update permission. The candidate will still show as awaiting conversion in the pipeline.",
+            "Onboarded, with one issue",
+          );
+        } else {
+          successConfirmation("Successfully onboarded an employee");
+        }
         // Order matters: latch BEFORE clearing, so the unmount flush that `handleClose()`
         // is about to trigger cannot write the finished values back into the slot.
         draftFinalizedRef.current = true;
@@ -2021,8 +2034,8 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
    * there is no navigation state to read: an edit belongs to one employee, so their
    * profile is the honest destination, and only a create with no origin lands on the list.
    *
-   * Not `navigate(-1)`: the wizard replaces its own history entry on some paths, and a
-   * back-step after a successful save would return to the form we just left.
+   * This is the fallback destination only — see `handleClose`, which prefers stepping
+   * back over pushing, so the wizard does not linger in history.
    */
   const returnPath = (() => {
     const fromState = (location.state as any)?.returnTo;
@@ -2031,7 +2044,23 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     return "/employees";
   })();
 
-  const handleClose = () => { setShow(false); navigate(returnPath); };
+  /**
+   * Closing must POP the wizard out of history, never push the return page on top of it.
+   *
+   * Pushing left the wizard's own entry behind: from the page we returned to, Back
+   * re-opened the form, and Cancel pushed the page again — a loop with no exit. Nothing
+   * inside the wizard navigates, so it owns exactly one history entry, and the entry
+   * behind it is the page that opened it — the same place `returnTo` points at.
+   *
+   * `idx` is the history position react-router maintains; 0 means the wizard IS the first
+   * entry (deep link, refresh in a fresh tab) so there is nothing to step back to, and the
+   * return path replaces the wizard entry rather than stacking on top of it.
+   */
+  const handleClose = () => {
+    setShow(false);
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+    else navigate(returnPath, { replace: true });
+  };
 
   return (
     <Modal

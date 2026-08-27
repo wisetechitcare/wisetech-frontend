@@ -9,6 +9,7 @@ import { IMonthlyApiResponse, IBreakdownData } from '@redux/slices/salaryData';
 import { Close, InfoOutlined } from '@mui/icons-material';
 import { formatINRDecimal } from '../../../../../../../modules/payroll/utils/payrollFormatters';
 import { deductionMasterService } from '@modules/payroll/services/payrollService';
+import { MASTER_KEY_TO_HARDCODED } from '@modules/payroll/hooks/useSalaryComponentNames';
 import dayjs from 'dayjs';
 
 interface DeductionDistributionModalProps {
@@ -240,7 +241,15 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                 activeDebit
                     .sort((a, b) => a.sortOrder - b.sortOrder)
                     .forEach(c => {
-                        defaultFields[c.displayName] = { name: c.displayName, type: 'number', value: 0, isActive: true, _masterCategory: c.category };
+                        // KEY by the engine's own breakdown key, LABEL by the admin's displayName.
+                        // Keying by displayName is what produced the duplicate TDS lines: rename
+                        // "Tax Deducted at Source" → "TDS on Professional Fees" and the previously
+                        // saved override no longer matched any row, so the modal re-added the
+                        // component at 0 and payroll charged the orphan as a SECOND deduction on
+                        // top of the auto amount. System components (`isSystem`) never reach the
+                        // engine under their displayName at all — only under this hardcoded key.
+                        const engineKey = MASTER_KEY_TO_HARDCODED[c.key] ?? c.displayName;
+                        defaultFields[engineKey] = { name: c.displayName, type: 'number', value: 0, isActive: true, _masterCategory: c.category };
                     });
             } catch {
                 // fallback: keep original three hardcoded fields so modal still works
@@ -417,14 +426,27 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                             const allFieldsWithGrouping = [...existingFields, ...dynamicFields];
                             const govFields = allFieldsWithGrouping.filter(f => getGroup(f) === 'government');
                             const allAttFields = allFieldsWithGrouping.filter(f => getGroup(f) === 'attendance');
-                            // Late Checkins is auto-calculated — read-only; the rest are editable adjustments
-                            const lateCheckinFields = allAttFields.filter(f => (f.name || f.id) === 'Late Checkins');
-                            const editableAttFields = allAttFields.filter(f => (f.name || f.id) !== 'Late Checkins');
+                            // Late Checkins is auto-calculated — read-only; the rest are editable
+                            // adjustments. Matched on the engine key, not the label: renaming the
+                            // component in Salary Master used to turn it into an editable row.
+                            const isLateCheckins = (f: any) => f.id === 'Late Checkins' || f.name === 'Late Checkins';
+                            const lateCheckinFields = allAttFields.filter(isLateCheckins);
+                            const editableAttFields = allAttFields.filter(f => !isLateCheckins(f));
 
                             // Read-only row for attendance (same green style as Work Earnings in Gross modal)
+                            // `autoCalculatedDeductions` is keyed by the ENGINE's breakdown key, which
+                            // is `field.id`. Reading it by display name returned undefined for every
+                            // renamed component, so the modal showed "Auto ₹0" next to a live ₹6,133
+                            // charge and there was no visible figure to adjust against. Fall back to
+                            // the name only for rows saved before this was keyed correctly.
+                            const autoFor = (field: any): number =>
+                                autoCalculatedDeductions[field.id]
+                                ?? autoCalculatedDeductions[field.name]
+                                ?? 0;
+
                             const renderReadOnlyRow = (field: any) => {
                                 const fieldName = field.name || field.id;
-                                const amount = autoCalculatedDeductions[fieldName] || 0;
+                                const amount = autoFor(field);
                                 return (
                                     <div
                                         key={field.id}
@@ -454,8 +476,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                             const renderRow = (field: any) => {
                                 const fieldKey = field.id;
                                 const currentExtra = Number(formikProps.values[fieldKey] || 0);
-                                const fieldName = field.name || field.id;
-                                const auto = autoCalculatedDeductions[fieldName] || 0;
+                                const auto = autoFor(field);
                                 const total = Math.max(0, auto + currentExtra);
 
                                 const isProfTax = field.id === 'Professional Tax';
