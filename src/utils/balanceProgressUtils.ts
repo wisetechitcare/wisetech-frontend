@@ -5,22 +5,25 @@ import { calculateFiscalMonth } from "@utils/fiscalYearHelper";
 import { useState } from "react";
 
 /**
- * How much of an ALREADY PRO-RATED entitlement has unlocked as of now.
+ * How much of a fiscal year's paid entitlement has unlocked as of now.
  *
- * Frontend mirror of wisetech-backend/src/utils/leaveAccrual.accruedTillNow — keep the two
- * in lockstep, they are what make the Apply-Leave preview agree with server enforcement.
+ * Frontend mirror of wisetech-backend/src/utils/leaveAccrual.accruedTillNow — keep the two in
+ * lockstep, they are what make the Apply-Leave preview agree with server enforcement. The window
+ * they are measured over comes FROM the server (see {@link accrualWindowAsOf}); this function is
+ * only the arithmetic.
  *
- * Paces the entitlement across the employee's OWN accrual window (elapsed / eligible), NOT
- * across 12 calendar months from April. A mid-year joiner earns months(DOJ..FY end)/12 of the
- * annual figure, and that pro-rated total then unlocks over exactly those months. Pacing it
- * over 12 would pro-rate twice and strand days the employee had genuinely earned.
+ * Paces the entitlement across the employee's OWN months on the books (elapsed / eligible), not a
+ * flat Apr–Mar. The entitlement itself is NOT pro-rated by the backend — a part-year employee is
+ * granted the same figure and simply unlocks it across the months they are actually employed, so
+ * the year still ends with every granted day spendable.
  *
- * Floor keeps it conservative and strictly monotone; the fully-elapsed short-circuit makes
- * sure the last month releases the entitlement exactly rather than leaving a floored remainder.
+ * Floor keeps it conservative and strictly monotone; the fully-elapsed short-circuit makes sure the
+ * last month releases the entitlement exactly rather than leaving a floored remainder (a fractional
+ * total like 19.5, left by a half-day encashment, would otherwise lose its half).
  *
- * @param entitlement    - Pro-rated allocation for the fiscal year (from the balance API)
- * @param elapsedMonths  - Accrual months begun, counted from the joining month
- * @param eligibleMonths - Accrual months earned this fiscal year (12 = full-year employee)
+ * @param entitlement    - Paid allocation for the fiscal year (from the balance API)
+ * @param elapsedMonths  - Eligible accrual months begun as of the day in question
+ * @param eligibleMonths - Accrual months on the books this fiscal year (12 = full-year employee)
  */
 export function accruedTillNow(entitlement: number, elapsedMonths: number, eligibleMonths: number): number {
     const total = Number(entitlement) || 0;
@@ -29,45 +32,107 @@ export function accruedTillNow(entitlement: number, elapsedMonths: number, eligi
     return Math.floor((total * elapsedMonths) / eligibleMonths);
 }
 
-/**
- * Accrual window for an employee inside a fiscal year, in whole fiscal months.
- *
- * Mirror of leaveAccrual.getAccrualWindow, used ONLY by the client-side fallback for a
- * backend too old to send `cumulativeSummary`. The live path uses the server's numbers.
- * Policy: the joining month and the exit month each count IN FULL.
- */
-export function getAccrualWindow(
-    fiscalStartYear: number,
-    dateOfJoining?: string | Date | null,
-    dateOfExit?: string | Date | null,
-    asOf: Date = new Date(),
-): { eligibleMonths: number; elapsedMonths: number } {
-    const fyStart = `${fiscalStartYear}-04-01`;
-    const fyEnd = `${fiscalStartYear + 1}-03-31`;
-    const day = (v: unknown): string | null =>
-        v == null || v === '' ? null : dayjs(v as any).isValid() ? dayjs(v as any).format('YYYY-MM-DD') : null;
-    const fiscalMonthOf = (d: string): number => {
-        const m = Number(d.slice(5, 7));
-        return m >= 4 ? m - 3 : m + 9;
-    };
+export const FISCAL_MONTHS_IN_YEAR = 12;
 
-    const joinDay = day(dateOfJoining);
-    const exitDay = day(dateOfExit);
-    if ((joinDay && joinDay > fyEnd) || (exitDay && exitDay < fyStart)) {
-        return { eligibleMonths: 0, elapsedMonths: 0 };
+/**
+ * The accrual window as the SERVER resolved it, delivered in the leave-balance response
+ * (`data.accrualWindow`). Mirror of wisetech-backend/src/utils/leaveAccrual.AccrualWindowDTO.
+ */
+export interface ServerAccrualWindow {
+    fiscalYear?: string;
+    fiscalStartYear: number;
+    /** Fiscal months (1=Apr … 12=Mar) the employee is on the books for. */
+    months: number[];
+    eligibleMonths: number;
+    /** Elapsed as of the server's "today" — recomputed here for a picked date. */
+    elapsedMonths: number;
+    asOf?: string;
+}
+
+/** Fiscal month index (1=Apr … 12=Mar) of a 'YYYY-MM-DD' day. */
+export const fiscalMonthOfDay = (day: string): number => {
+    const m = Number(day.slice(5, 7));
+    return m >= 4 ? m - 3 : m + 9;
+};
+
+const toDay = (v: unknown): string | null =>
+    v == null || v === '' ? null : dayjs(v as any).isValid() ? dayjs(v as any).format('YYYY-MM-DD') : null;
+
+/**
+ * Re-measure the server's accrual window as of a chosen day.
+ *
+ * WHICH months count is decided ONCE, on the server (utils/leaveAccrual): it owns the employment
+ * timeline — joining and exit dates, and crucially the REJOIN history, which the browser has never
+ * been given. This function only asks how many of those months have begun by the date the employee
+ * is picking, which is pure indexing and so cannot drift from policy. Deriving the window here from
+ * dateOfJoining/dateOfExit is exactly what used to break: a re-hired employee's primary exit date
+ * is the end of an OLD stint, which read as "left years ago" → zero eligible months → the modal
+ * quoted a 0 allowance and booked every paid day as unpaid LOP while the server was granting it.
+ *
+ * FALLBACK — a full fiscal year, never zero. When the server sent no window (older backend), or
+ * sent one for a different fiscal year than the date being asked about, the employee is paced across
+ * Apr–Mar, which is the behaviour that predates windows entirely. Guessing a NARROWER window from
+ * incomplete data is what costs someone their paid leave; guessing a wider one costs nothing, because
+ * the per-type balance and the annual cap still bound every request.
+ */
+export function accrualWindowAsOf(
+    window: ServerAccrualWindow | null | undefined,
+    fiscalStartYear: number,
+    asOf: Date | string = new Date(),
+): PacingMonths {
+    const asOfDay = toDay(asOf) ?? `${fiscalStartYear + 1}-03-31`;
+    const fyFirst = `${fiscalStartYear}-04-01`;
+    const fyLast = `${fiscalStartYear + 1}-03-31`;
+    const fiscalMonthIndex = asOfDay < fyFirst ? 0 : asOfDay > fyLast ? FISCAL_MONTHS_IN_YEAR : fiscalMonthOfDay(asOfDay);
+
+    const usable =
+        window &&
+        Array.isArray(window.months) &&
+        window.months.length > 0 &&
+        Number(window.fiscalStartYear) === fiscalStartYear;
+    if (!usable) {
+        return { eligibleMonths: FISCAL_MONTHS_IN_YEAR, elapsedMonths: fiscalMonthIndex, fiscalMonthIndex };
     }
 
-    const startMonth = joinDay && joinDay > fyStart ? fiscalMonthOf(joinDay) : 1;
-    const endMonth = exitDay && exitDay < fyEnd ? fiscalMonthOf(exitDay) : 12;
-    const eligibleMonths = Math.max(0, endMonth - startMonth + 1);
-
-    const asOfDay = day(asOf) ?? fyEnd;
-    const asOfMonth = asOfDay > fyEnd ? 12 : asOfDay < fyStart ? 0 : fiscalMonthOf(asOfDay);
-    const elapsedMonths =
-        asOfMonth === 0 ? 0 : Math.max(0, Math.min(asOfMonth - startMonth + 1, eligibleMonths));
-
-    return { eligibleMonths, elapsedMonths };
+    const months = window!.months;
+    return {
+        eligibleMonths: months.length,
+        elapsedMonths:
+            asOfDay < fyFirst ? 0 : asOfDay > fyLast ? months.length : months.filter((m) => m <= fiscalMonthIndex).length,
+        fiscalMonthIndex,
+    };
 }
+
+/** The two month-counts a pacing decision needs. Mirror of leaveAccrual.PacingMonths. */
+export interface PacingMonths {
+    elapsedMonths: number;
+    eligibleMonths: number;
+    /** Fiscal month (1=Apr … 12=Mar) of the day in question — position in the CALENDAR year. */
+    fiscalMonthIndex: number;
+}
+
+/**
+ * Paid days unlocked so far — mirror of wisetech-backend/src/utils/leaveAccrual.unlockedTillNow,
+ * and the ONE figure both the chip and the preview engine compare against.
+ *
+ * The lesser of two paces: what the fiscal YEAR has handed out (total/12 per month since April) and
+ * what the employee's OWN months on the books have. Taking the minimum is what makes the employment
+ * window a narrowing of the original rule and never a loosening — a part-year employee whose window
+ * has fully elapsed must not suddenly unlock the whole year's entitlement. Identical arithmetic for
+ * a full-year employee, whose numbers therefore do not move at all.
+ */
+export function unlockedTillNow(entitlement: number, pacing: PacingMonths): number {
+    return Math.min(
+        accruedTillNow(entitlement, pacing.elapsedMonths, pacing.eligibleMonths),
+        accruedTillNow(entitlement, pacing.fiscalMonthIndex, FISCAL_MONTHS_IN_YEAR),
+    );
+}
+
+/** Fiscal year (April start) a 'YYYY-MM-DD' day belongs to — Jan–Mar belong to the FY that began last April. */
+export const fiscalStartYearOfDay = (day: string): number => {
+    const [y, m] = day.split('-').map(Number);
+    return m >= 4 ? y : y - 1;
+};
 
 /**
  * Returns the fiscal month index for today's date.
@@ -538,17 +603,18 @@ export const calculateCumulativeSummary = (
     totalPaidAllocated: number,
     leavesTakenIncludingPending: Record<string, number>,
     fiscalStartMonth: number = 4,
-    accrual?: { elapsedMonths: number; eligibleMonths: number }
+    accrual?: PacingMonths
 ) => {
-    // Pace across the employee's accrual window when we know it. Without it (no DOJ in hand)
-    // fall back to the calendar fiscal month over a full 12 — correct for anyone who joined
-    // before the fiscal year, and the pre-existing behaviour for everyone else. This whole
-    // branch is a fallback: the backend sends `cumulativeSummary` and BalanceProgress prefers it.
-    const window = accrual ?? {
+    // Pace across the SERVER-resolved accrual window when we have it. Without one, fall back to the
+    // calendar fiscal month over a full 12 — the behaviour that predates windows entirely, and never
+    // a narrower guess. This whole branch is itself a fallback: the backend sends `cumulativeSummary`
+    // and BalanceProgress prefers it.
+    const window: PacingMonths = accrual ?? {
         elapsedMonths: getCurrentFiscalMonthIndex(fiscalStartMonth),
-        eligibleMonths: 12,
+        eligibleMonths: FISCAL_MONTHS_IN_YEAR,
+        fiscalMonthIndex: getCurrentFiscalMonthIndex(fiscalStartMonth),
     };
-    const allowedTillNow = accruedTillNow(totalPaidAllocated, window.elapsedMonths, window.eligibleMonths);
+    const allowedTillNow = unlockedTillNow(totalPaidAllocated, window);
 
     // Sum EVERY paid non-Maternal type that buildCumulativeInputs already collected (name-agnostic) —
     // NOT a hardcoded {Casual, Annual, Sick, Floater} whitelist. The whitelist silently dropped the
