@@ -38,7 +38,7 @@ import {
 import { fetchConfiguration, fetchLeaveOptions, fetchSalaryDataForDateRangeMonthly, fetchAllPublicHolidays, fetchCompanyOverview } from '@services/company';
 import { setMonthlyApiData } from '@redux/slices/salaryData';
 import { LEAVE_POLICY_KEY } from '@constants/configurations-key';
-import { buildCumulativeInputs, getAccrualWindow } from '@utils/balanceProgressUtils';
+import { ServerAccrualWindow, accrualWindowAsOf, buildCumulativeInputs, fiscalStartYearOfDay } from '@utils/balanceProgressUtils';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEventBus } from '@hooks/useEventBus';
 import { useAttendanceRealtime } from '@hooks/useAttendanceRealtime';
@@ -78,10 +78,12 @@ export interface UiLeaveType {
 export interface UseApplyLeaveArgs {
     employeeId: string;
     branchId?: string;
+    /**
+     * Drives the probation gate ONLY. The accrual window is no longer derived from employment dates
+     * here — it arrives resolved from the server (`accrualWindow`), because these two fields cannot
+     * see a rejoin and reading them as the whole timeline zeroed a re-hired employee's allowance.
+     */
     dateOfJoining?: string | Date | null;
-    /** Closes the accrual window for a leaver. Optional — omitting it means "still employed",
-     *  which yields a window open to the fiscal year end and so never under-grants. */
-    dateOfExit?: string | Date | null;
     workingAndOffDays?: Record<string, string>;
     holidays?: string[];
 }
@@ -140,7 +142,7 @@ function toUiTypes(leavesSummary: any, idByName: Map<string, string>): UiLeaveTy
 }
 
 export function useApplyLeave(args: UseApplyLeaveArgs) {
-    const { employeeId, branchId, dateOfJoining, dateOfExit, workingAndOffDays, holidays } = args;
+    const { employeeId, branchId, dateOfJoining, workingAndOffDays, holidays } = args;
 
     const dispatch = useDispatch();
 
@@ -161,6 +163,14 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
     const [cumulativePool, setCumulativePool] = useState<{ totalPaidAllocated: number; usedPlusPendingPaid: number }>(
         { totalPaidAllocated: 0, usedPlusPendingPaid: 0 },
     );
+    /**
+     * The employee's accrual window as the SERVER resolved it (rejoin history included), shipped in
+     * the leave-balance response. Held rather than re-derived: the browser has never been given the
+     * rejoin timeline, so a client-side window silently mis-read every re-hired employee as long
+     * gone and spilled their paid leave to unpaid LOP. null → accrualWindowAsOf paces a full
+     * Apr–Mar, which is the pre-window behaviour and never a narrower guess.
+     */
+    const [accrualWindow, setAccrualWindow] = useState<ServerAccrualWindow | null>(null);
     const [sameDayPenalty, setSameDayPenalty] = useState<SameDayPenaltyConfig | null>(null);
     /**
      * Is this employee still inside their probation window?
@@ -327,17 +337,35 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                 );
                 setTypes(toUiTypes(balRes?.data?.leavesSummary, nameToId));
 
-                // Cumulative pool from the same authoritative leavesSummary the dashboard uses.
-                // buildCumulativeInputs counts only the four paced paid types (Annual/Casual/Sick/
-                // Floater), excludes Maternal + Unpaid, and uses numberOfDays (no carry) + taken+pending.
-                const cum = buildCumulativeInputs(balRes?.data?.leavesSummary ?? []);
-                setCumulativePool({
-                    totalPaidAllocated: cum.totalNonMaternalPaidAllocated,
-                    usedPlusPendingPaid: Object.values(cum.takenIncludingPendingByType).reduce(
-                        (s: number, v) => s + (Number(v) || 0),
-                        0,
-                    ),
-                });
+                setAccrualWindow((balRes?.data?.accrualWindow as ServerAccrualWindow) ?? null);
+                /**
+                 * Cumulative pool — the SERVER's figures when it sends them.
+                 *
+                 * `cumulativeSummary` is produced by the same resolver the booking gate enforces
+                 * with, so taking it verbatim is what guarantees the preview cannot promise days
+                 * the server will refuse. It also knows two things `leavesSummary` cannot express:
+                 * days already encashed (gone from the spendable pool) and paid leave taken under
+                 * a PREVIOUS branch's leave type (spent, but scoped out of this employee's rows).
+                 *
+                 * The client derivation stays as the fallback for an older backend — it is close
+                 * enough for the common single-branch case and strictly better than showing zero.
+                 */
+                const serverCum = balRes?.data?.cumulativeSummary;
+                if (serverCum && Number.isFinite(Number(serverCum.totalPaidAllocated))) {
+                    setCumulativePool({
+                        totalPaidAllocated: Number(serverCum.totalPaidAllocated) || 0,
+                        usedPlusPendingPaid: Number(serverCum.used) || 0,
+                    });
+                } else {
+                    const cum = buildCumulativeInputs(balRes?.data?.leavesSummary ?? []);
+                    setCumulativePool({
+                        totalPaidAllocated: cum.totalNonMaternalPaidAllocated,
+                        usedPlusPendingPaid: Object.values(cum.takenIncludingPendingByType).reduce(
+                            (s: number, v) => s + (Number(v) || 0),
+                            0,
+                        ),
+                    });
+                }
 
                 const cfgRaw = policyRes?.data?.configuration?.configuration ?? policyRes?.data?.configuration;
                 const cfg = typeof cfgRaw === 'string' ? JSON.parse(cfgRaw) : cfgRaw ?? {};
@@ -444,15 +472,10 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
             // can't itself sandwich, so disable the sandwich preview when any half is present.
             const effectiveSandwich = anyHalf ? [] : sandwichDates;
             // Accrual window as of dateTo — mirrors the BE (leaveAllocationService.resolveLeaveContext
-            // calls getAccrualWindow with asOf = dateTo) so the preview applies the SAME cumulative cap
-            // the server books against. Counted from the employee's JOINING month, so a mid-year joiner
-            // is not shown capacity for months before they were hired.
-            const fyStartYear = (() => {
-                const to = new Date(s.to + 'T00:00:00');
-                // April starts the fiscal year: Jan–Mar still belong to the FY that began last year.
-                return to.getMonth() + 1 >= 4 ? to.getFullYear() : to.getFullYear() - 1;
-            })();
-            const accrual = getAccrualWindow(fyStartYear, dateOfJoining, dateOfExit, new Date(s.to + 'T00:00:00'));
+            // resolves the same window with asOf = dateTo) so the preview applies the SAME cumulative
+            // cap the server books against. WHICH months count was decided server-side and arrived in
+            // `accrualWindow`; only "how many have begun by dateTo" is re-measured here.
+            const accrual = accrualWindowAsOf(accrualWindow, fiscalStartYearOfDay(s.to), s.to);
             return allocateLeave({
                 chargeableDates,
                 sandwichDates: effectiveSandwich,
@@ -470,11 +493,12 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                     usedPlusPendingPaid: Math.max(0, cumulativePool.usedPlusPendingPaid - creditPaidDays),
                     elapsedMonths: accrual.elapsedMonths,
                     eligibleMonths: accrual.eligibleMonths,
+                    fiscalMonthIndex: accrual.fiscalMonthIndex,
                     overflow,
                 },
             });
         },
-        [balances, priority, probation, probationActive, dateOfJoining, dateOfExit, workingAndOffDays, holidaySet, cumulativePool, overflow],
+        [balances, priority, probation, probationActive, accrualWindow, workingAndOffDays, holidaySet, cumulativePool, overflow],
     );
 
     const submit = useCallback(
@@ -568,5 +592,5 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
         [],
     );
 
-    return { loading, submitting, refresh, todayPunch, types, balances, priority, overflow, probation, probationActive, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated: cumulativePool.totalPaidAllocated, usedPaidLeaves: cumulativePool.usedPlusPendingPaid };
+    return { loading, submitting, refresh, todayPunch, types, balances, priority, overflow, probation, probationActive, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, accrualWindow, totalPaidAllocated: cumulativePool.totalPaidAllocated, usedPaidLeaves: cumulativePool.usedPlusPendingPaid };
 }

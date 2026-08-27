@@ -23,7 +23,7 @@ import { getSocket } from '@utils/socketClient';
 import { parseWorkingDays } from '@utils/workingDays';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { rgba, tintOf, borderOf, resolveLeaveTypeColor } from '@utils/leaveTypeColors';
-import { accruedTillNow, getAccrualWindow } from '@utils/balanceProgressUtils';
+import { accrualWindowAsOf, fiscalStartYearOfDay, unlockedTillNow } from '@utils/balanceProgressUtils';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
 // Shared tokens + primitives — ONE definition, also used by the extracted sub-components.
@@ -109,7 +109,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     /** Pre-select a day when opening in apply mode (e.g. from a calendar cell). YYYY-MM-DD. */
     initialDate?: string;
     /** Apply/edit on behalf of another employee (admin). When set, overrides the Redux currentEmployee. */
-    target?: { employeeId: string; branchId?: string; dateOfJoining?: string | Date | null; dateOfExit?: string | Date | null; workingAndOffDays?: string | Record<string, string> | null };
+    target?: { employeeId: string; branchId?: string; dateOfJoining?: string | Date | null; workingAndOffDays?: string | Record<string, string> | null };
     /**
      * Host-supplied action row rendered in the footer in VIEW mode only (above the primary
      * button). ApplyLeave stays domain-agnostic — the approval queue passes Approve/Reject here so
@@ -139,12 +139,18 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const ceId                 = useSelector((s: RootState) => s.employee.currentEmployee?.id) || '';
     const ceBranchId           = useSelector((s: RootState) => s.employee.currentEmployee?.branchId) || undefined;
     const ceDoj                = useSelector((s: RootState) => s.employee.currentEmployee?.dateOfJoining) || undefined;
-    const ceDoe                = useSelector((s: RootState) => (s.employee.currentEmployee as any)?.dateOfExit) || undefined;
     const ceWod                = useSelector((s: RootState) => s.employee.currentEmployee?.branches?.workingAndOffDays);
     const employeeId           = target?.employeeId || ceId;
     const branchId             = target?.branchId ?? ceBranchId;
-    const dateOfJoiningRaw      = target?.dateOfJoining ?? ceDoj;
-    const dateOfExitRaw         = target?.dateOfExit ?? ceDoe;
+    /**
+     * Applying ON BEHALF of someone else must never inherit the ADMIN's own employment dates.
+     * `dateOfJoining` drives the probation gate, which FORCES leave to Unpaid — so falling back to
+     * the signed-in user's date decided a target employee's probation status from the wrong person's
+     * record (most admin entry points pass no dateOfJoining at all). An absent one means "unknown",
+     * which leaves the gate off, never on: this can only stop a wrong block, never create one.
+     */
+    const isSelfTarget         = !target?.employeeId || target.employeeId === ceId;
+    const dateOfJoiningRaw     = isSelfTarget ? (target?.dateOfJoining ?? ceDoj) : target?.dateOfJoining;
     const workingAndOffDaysRaw = target?.workingAndOffDays ?? ceWod;
     const publicHolidays       = useSelector((s: RootState) => s.attendanceStats?.publicHolidays) || [];
     const personalLeaves       = useSelector((s: RootState) => s.leaves.personalLeaves) || [];
@@ -154,7 +160,6 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const overviewColors  = useSelector((s: RootState) => (s as any).customColors?.attendanceOverview);
 
     const dateOfJoining = dateOfJoiningRaw ? String(dateOfJoiningRaw).slice(0, 10) : null;
-    const dateOfExit = dateOfExitRaw ? String(dateOfExitRaw).slice(0, 10) : null;
     // Use the shared parseWorkingDays() helper (same as every other consumer of this value)
     // so a working-Saturday config survives whether the API delivers workingAndOffDays as a
     // JSON string or an already-parsed object. A raw JSON.parse threw on the object shape and
@@ -189,8 +194,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
      * Only `background: P.surface` and the neutral inks/lines move.
      */
     const P = useLeavePalette();
-    const { loading, submitting, refresh, todayPunch, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, totalPaidAllocated, usedPaidLeaves, probationActive } = useApplyLeave({
-        employeeId, branchId, dateOfJoining, dateOfExit, workingAndOffDays, holidays,
+    const { loading, submitting, refresh, todayPunch, types, balances, priority, chain, myLeaves, holidayInfo, preview, submit, update, fetchStatus, lopPerDay, sameDayPenalty, accrualWindow, totalPaidAllocated, usedPaidLeaves, probationActive } = useApplyLeave({
+        employeeId, branchId, dateOfJoining, workingAndOffDays, holidays,
     });
 
     /**
@@ -288,12 +293,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const allowedThrough = useMemo(() => {
         const effIso = s.to || s.from; // ISO 'YYYY-MM-DD' of the leave's last day, if picked
         const d = effIso ? new Date(effIso + 'T00:00:00') : new Date();
-        // Pace across the employee's accrual window (from their JOINING month), as of the selected
-        // date — the same call the backend makes in resolveLeaveContext, so the preview cap matches
-        // what the server will book. Picking a later month still unlocks a higher allowance.
-        const fyStartYear = d.getMonth() + 1 >= 4 ? d.getFullYear() : d.getFullYear() - 1;
-        const accrual = getAccrualWindow(fyStartYear, dateOfJoining, dateOfExit, d);
-        const days = accruedTillNow(totalPaidAllocated, accrual.elapsedMonths, accrual.eligibleMonths);
+        const dayIso = effIso || isoOf(d);
+        // Re-measure the SERVER's accrual window as of the selected date — the same window
+        // resolveLeaveContext books against, so the quoted cap matches what will actually be saved.
+        // The month SET comes from the server (it owns the rejoin timeline); only "how many have
+        // begun by this date" is counted here, so picking a later month still unlocks more.
+        const accrual = accrualWindowAsOf(accrualWindow, fiscalStartYearOfDay(dayIso), dayIso);
+        const days = unlockedTillNow(totalPaidAllocated, accrual);
         return {
             days,                                    // cumulative cap allowed through this month
             used: usedPaidLeaves,                    // paid days already used + pending
@@ -302,7 +308,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             monthLong: d.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
             dated: !!effIso,
         };
-    }, [s.from, s.to, totalPaidAllocated, usedPaidLeaves, dateOfJoining, dateOfExit]);
+    }, [s.from, s.to, totalPaidAllocated, usedPaidLeaves, accrualWindow]);
     const today      = isoOf(new Date());
     const tomorrow   = isoOf(new Date(Date.now() + 864e5));
     /**

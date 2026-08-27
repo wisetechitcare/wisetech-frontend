@@ -15,10 +15,10 @@ import "./main.css"
 // Apps
 import { MetronicI18nProvider } from './_metronic/i18n/Metronici18n'
 import './_metronic/assets/sass/style.react.scss'
-// KTIcon renders duotone glyphs only (runtime default). The outline/solid
-// keenicons fonts and the fonticon set were imported but never rendered any
-// icon in the app, so their folders + imports were removed to trim ~3.4MB.
-import './_metronic/assets/keenicons/duotone/style.css'
+// The keenicons duotone font used to be loaded here. Every icon now renders as a Lucide
+// <svg> through AppIcon, so nothing references the `ki-*` classes and the 183KB font no
+// longer ships. The font files are still on disk under _metronic/assets/keenicons; they are
+// simply unreferenced, so Vite does not bundle them.
 // import PauseCircleIcon from "@mui/icons-material/PauseCircle";
 /**
  * TIP: Replace this style import with rtl styles to enable rtl mode
