@@ -53,12 +53,11 @@
 .mrd .tnum{ font-variant-numeric:tabular-nums; }
 
 /* ---------- toolbar ----------
-   Title always on its own row; the view tabs + Today + date nav + New always
-   share ONE controls row beneath it — same structure at every viewport, no
-   per-breakpoint reshuffling of what goes where. Sizing (icon-only Today on
-   mobile, short month format, tightened gaps — see the 760px block below)
-   is tuned so it fits on one line on real phones without needing to shrink
-   or scroll. On anything narrower still, whatever doesn't fit wraps onto its
+   Title always on its own row; the view tabs + date nav + New always share ONE
+   controls row beneath it — same structure at every viewport, no per-breakpoint
+   reshuffling of what goes where. Sizing (short month format, tightened gaps —
+   see the 760px block below) is tuned so it fits on one line on real phones
+   without needing to shrink or scroll. On anything narrower still, whatever doesn't fit wraps onto its
    own full-width row rather than clipping or requiring a hidden scroll. */
 .mrd-toolbar{
   display:flex; flex-direction:column; align-items:stretch;
@@ -68,9 +67,11 @@
 .mrd-toolbar__controls{
   display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0;
 }
-/* .mrd-spacer still grows to push Today/Nav right when there's slack on one
+/* .mrd-spacer still grows to push the nav right when there's slack on one
    line; once wrapping kicks in each item just takes its natural width. */
 .mrd-toolbar__controls > *:not(.mrd-spacer){ flex:none; }
+/* Date navigator + (mobile) filter button as one unit. */
+.mrd-toolbar__nav{ display:flex; align-items:center; gap:6px; min-width:0; }
 .mrd-eyebrow{ font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--mrd-primary); }
 
 /* ---------- bento shell ---------- */
@@ -94,6 +95,7 @@
 .mrd-cal{ overflow:visible; }               /* let +more popover escape */
 .mrd-col-4{ grid-column:span 4; }
 .mrd-col-5{ grid-column:span 5; }
+.mrd-col-6{ grid-column:span 6; }
 .mrd-col-7{ grid-column:span 7; }
 .mrd-col-8{ grid-column:span 8; }
 .mrd-col-12{ grid-column:span 12; }
@@ -121,6 +123,12 @@
   color:#fff; border-color:transparent;
   box-shadow:0 1px 2px rgba(27,66,105,.35), 0 8px 20px -8px rgba(41,93,142,.6), inset 0 1px 0 rgba(255,255,255,.16);
 }
+/* Mobile filter button — icon-only square, with a dot when anything is hidden
+   so an active filter isn't invisible from the toolbar. */
+.mrd-btn--filter{ width:36px; padding:0; justify-content:center; gap:0; position:relative; }
+.mrd-btn--filter.is-active{ border-color:var(--mrd-primary); color:var(--mrd-primary); }
+.mrd-btn__dot{ position:absolute; top:6px; right:6px; width:7px; height:7px; border-radius:50%;
+  background:var(--mrd-primary); box-shadow:0 0 0 2px var(--mrd-surface); }
 .mrd-navbtn{
   width:34px; height:34px; border-radius:10px; border:1px solid var(--mrd-border);
   background:var(--mrd-surface-2); color:var(--mrd-ink-2); display:grid; place-items:center; cursor:pointer;
@@ -135,13 +143,27 @@
 
 /* ---------- day panel ---------- */
 .mrd-panel{ align-self:stretch; }
+/* Two-column layout only: the panel ends where the calendar ends and scrolls inside
+   that, instead of running past the bottom of it.
+   `height:0` takes the panel out of the grid row's auto-sizing — otherwise a long
+   filter list stretches the row and the panel drags on below the calendar — and
+   `min-height:100%` grows it back to whatever height the calendar established.
+   Left alone below 1160px, where the panel is stacked full-width (and on phones is
+   a fixed-position sheet), so it should take its natural height there. */
+@media (min-width:1161px){
+  .mrd-main > .mrd-panel{ height:0; min-height:100%; }
+}
 .mrd-panel__head{ padding:16px 18px 14px; border-bottom:1px solid var(--mrd-border);
   background:linear-gradient(180deg, var(--mrd-primary-tint), transparent); }
 .mrd-panel__top{ display:flex; align-items:center; gap:8px; }
 .mrd-panel__date{ display:flex; align-items:baseline; gap:9px; margin-top:9px; }
 .mrd-panel__date h2{ margin:0; font-size:23px; font-weight:730; letter-spacing:-.03em; line-height:1; }
 .mrd-panel__date .wd{ font-size:13px; color:var(--mrd-ink-3); font-weight:560; }
-.mrd-panel__body{ padding:12px 16px 16px; overflow:auto; flex:1; max-height:560px; }
+/* Fills the card rather than stopping at a fixed height. The old `max-height:560px`
+   was shorter than the panel itself (it stretches to the calendar beside it), so a
+   long section was clipped with empty card left underneath. `min-height:0` is what
+   lets a flex child actually shrink and scroll instead of overflowing its parent. */
+.mrd-panel__body{ padding:12px 16px 16px; overflow:auto; flex:1; min-height:0; }
 .mrd-panel__body::-webkit-scrollbar{ width:8px; }
 .mrd-panel__body::-webkit-scrollbar-thumb{ background:var(--mrd-border-strong); border-radius:8px; border:2px solid var(--mrd-surface); }
 
@@ -253,6 +275,16 @@
 .mrd-leg__row.is-off .mrd-leg__t{ color:var(--mrd-ink-3); }
 .mrd-leg__row.is-off .mrd-leg__sw{ background:var(--mrd-border-strong); }
 .mrd-leg__row.is-off .mrd-leg__sw::after{ left:2px; }
+/* audience rows nested under a category (internal active / inactive / external).
+   Indented to the parent's label, and quieter, so the group still reads as one thing. */
+.mrd-leg__grp{ display:flex; flex-direction:column; gap:2px; }
+.mrd-leg__grp + .mrd-leg__grp{ margin-top:5px; }
+.mrd-leg__row--sub{ padding-left:27px; padding-top:5px; padding-bottom:5px; }
+/* Indent + type weight carry the nesting. The switch does NOT shrink: a control
+   that means the same thing must be the same size, or the column of switches
+   reads as two different controls and the smaller one as a lesser toggle. */
+.mrd-leg__row--sub .mrd-leg__t{ font-size:12px; font-weight:500; color:var(--mrd-ink-2); }
+.mrd-leg__row--sub.is-off .mrd-leg__t{ color:var(--mrd-ink-4); }
 
 /* quick actions grid */
 .mrd-qa{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -298,12 +330,17 @@
 .mrd-tag--soon{ color:var(--mrd-amber); background:var(--mrd-amber-tint); }
 
 /* stat tiles */
-.mrd-stats{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+/* height:100% so the 2x2 tiles stretch to the card the Overview sits beside,
+   instead of leaving a block of dead space under a short grid. */
+.mrd-stats{ display:grid; grid-template-columns:1fr 1fr; gap:12px; height:100%; }
 .mrd-stat{ border:1px solid var(--mrd-border); border-radius:14px; padding:14px; background:var(--mrd-surface-2);
-  display:flex; flex-direction:column; gap:8px; }
-.mrd-stat__ic{ width:32px; height:32px; border-radius:9px; display:grid; place-items:center; }
+  display:flex; flex-direction:column; gap:8px; min-width:0; }
+.mrd-stat__ic{ width:32px; height:32px; border-radius:9px; display:grid; place-items:center; flex:none; }
 .mrd-stat__val{ font-size:24px; font-weight:730; letter-spacing:-.03em; line-height:1; }
-.mrd-stat__lbl{ font-size:11.5px; color:var(--mrd-ink-3); font-weight:560; }
+/* margin-top:auto pins the caption to the bottom of a stretched tile, so the
+   icon + number stay grouped at the top rather than drifting apart. */
+.mrd-stat__lbl{ font-size:11.5px; color:var(--mrd-ink-3); font-weight:560; margin-top:auto;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 
 /* =============================================================
    FullCalendar premium restyle (scoped)
@@ -432,20 +469,6 @@
 .mrd-fab:active{ transform:scale(.94); }
 .mrd-fab .mrd-ico{ width:22px; height:22px; }
 
-/* ---------- compact mobile day-summary bar (sheet trigger) ---------- */
-.mrd-daybar{
-  display:none; /* shown ≤760px */
-  width:100%; align-items:center; gap:10px; text-align:left; font-family:inherit; cursor:pointer;
-  margin-top:12px; padding:12px 14px; border-radius:var(--mrd-r-lg);
-  background:var(--mrd-surface); border:1px solid var(--mrd-border); box-shadow:var(--mrd-sh-sm);
-  color:var(--mrd-ink);
-}
-.mrd-daybar__date{ display:flex; flex-direction:column; line-height:1.3; }
-.mrd-daybar__date strong{ font-size:14px; font-weight:700; letter-spacing:-.02em; }
-.mrd-daybar__date span{ font-size:11.5px; color:var(--mrd-ink-3); font-weight:560; }
-.mrd-daybar__count{ font-size:12px; font-weight:600; color:var(--mrd-primary); flex:none; }
-.mrd-daybar .mrd-ico{ color:var(--mrd-ink-4); flex:none; }
-
 /* ---------- mobile bottom-sheet variant of the day-detail panel ----------
 
    ── THE TWO NUMBERS BELOW ARE BOUNDED ON BOTH SIDES. ──────────────────────
@@ -496,7 +519,7 @@
   .mrd-col-8{ grid-column:span 12; }
 }
 @media (max-width:760px){
-  .mrd-col-4,.mrd-col-5,.mrd-col-7,.mrd-col-8{ grid-column:span 12; }
+  .mrd-col-4,.mrd-col-5,.mrd-col-6,.mrd-col-7,.mrd-col-8{ grid-column:span 12; }
   .mrd .fc-daygrid-day-frame{ min-height:76px; padding:4px 4px 32px; }
   .mrd .fullcalendar__event__wrapper .mrd-ev__time{ display:none; }
   /* Phone Month/Week pills mimic native mobile calendars (e.g. Samsung/Google):
@@ -516,17 +539,16 @@
   .mrd .mrd-ev__t{
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .mrd-toolbar{ gap:8px; }
-  /* Tighter gaps buy back the few px the view tabs + Today + date nav need to
-     all share one row instead of the navigator wrapping to its own line. */
+  /* Tighter gaps buy back the few px the view tabs + date nav need to all share
+     one row instead of the navigator wrapping to its own line. */
   .mrd-toolbar__controls{ gap:6px; }
   .mrd-toolbar__controls .mrd-btn{ padding:0 10px; }
-  /* Today collapses to icon-only — its label is the one genuinely optional
-     piece of content in the row (the tabs and the navigator's icon buttons +
-     date text are not); dropping it is what actually gets everything to fit
-     without scrolling on real phones, rather than shrinking everything a
-     little and still coming up short. */
-  .mrd-btn--today{ width:36px; padding:0; justify-content:center; gap:0; }
-  .mrd-btn__lbl{ display:none; }
+  /* The navigator is width:100% here, so the pair takes the whole row and the
+     navigator shrinks by the width of the filter button next to it. */
+  .mrd-toolbar__controls > .mrd-toolbar__nav{ flex:1 1 100%; }
+  .mrd-toolbar__nav > :first-child{ flex:1 1 auto; min-width:0; }
+  /* Beats the .mrd-toolbar__controls .mrd-btn padding above — this one is a square. */
+  .mrd-toolbar__controls .mrd-btn--filter{ padding:0; flex:none; }
 
   /* Day-name header (MON/TUE/...) was a fixed 11px + generous padding at every
      viewport — it never actually shrank, just got proportionally larger next
@@ -535,12 +557,11 @@
   .mrd .fc-col-header-cell-cushion{ font-size:10px; letter-spacing:.02em; }
 
   /* The "New" button moves out of the controls row entirely below 760px —
-     the FAB below takes over so the row only has to fit tabs + Today + nav.
+     the FAB below takes over so the row only has to fit tabs + nav.
      !important so it still wins now that the button is a <PremiumButton>
      (whose .wt-premium-btn display:inline-flex has equal specificity). */
   .mrd-btn--new{ display:none !important; }
   .mrd-fab{ display:flex; }
-  .mrd-daybar{ display:flex; }
 
   /* Touch targets grow slightly on touch-sized viewports (WCAG ~44px). */
   .mrd-navbtn{ width:40px; height:40px; }
