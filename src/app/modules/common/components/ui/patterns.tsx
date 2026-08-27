@@ -146,6 +146,170 @@ export function SectionHead({ tone, icon, title, desc }: { tone: Trio; icon: str
   );
 }
 
+export interface StatusCycleOption<T extends string> {
+  value: T;
+  label: string;
+  /** Text/dot colour. Fill and border are derived from it. */
+  color: string;
+  /** Optional tally, rendered dimmer after the label, e.g. `Active (37)`. */
+  count?: number;
+}
+
+/**
+ * One button, N states: it names the view that is CURRENTLY on screen and cycles
+ * to the next on click.
+ *
+ * The **standard status filter** for a list toolbar (documents directory, employee
+ * roster). Prefer it over a segmented control or a select whenever the options are
+ * a short rotation and only one matters at a time — it costs one control's width
+ * instead of three, which is what makes a phone toolbar fit, and the colour states
+ * what you are looking at without reading it.
+ *
+ * Tint is derived from one `color` per option (10% fill, 35% border) so a caller
+ * picks a hue rather than three matching values.
+ */
+export function StatusCyclePill<T extends string>({
+  options, value, onChange, sx,
+}: {
+  options: ReadonlyArray<StatusCycleOption<T>>;
+  value: T;
+  onChange: (value: T) => void;
+  sx?: SxProps<Theme>;
+}) {
+  const index = Math.max(0, options.findIndex((option) => option.value === value));
+  const current = options[index];
+  const next = options[(index + 1) % options.length];
+  if (!current) return null;
+
+  return (
+    <Box
+      component="button"
+      type="button"
+      onClick={() => onChange(next.value)}
+      title={`Showing ${current.label.toLowerCase()} — click to show ${next.label.toLowerCase()}`}
+      sx={[{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.875,
+        px: 1.5,
+        height: 38,
+        flexShrink: 0,
+        border: '1px solid',
+        // Metronic's unlayered Bootstrap button rules outrank a utility class.
+        borderRadius: '10px',
+        cursor: 'pointer',
+        font: 'inherit',
+        fontSize: 12.5,
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+        transition: 'background-color .15s, color .15s, border-color .15s',
+        borderColor: alpha(current.color, 0.35),
+        bgcolor: alpha(current.color, 0.1),
+        color: current.color,
+        '&:hover': { bgcolor: alpha(current.color, 0.18) },
+      }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
+    >
+      <Box
+        component="span"
+        aria-hidden
+        sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'currentColor', flexShrink: 0 }}
+      />
+      {current.label}
+      {typeof current.count === 'number' && (
+        // Hidden on a phone, in CSS rather than by not passing it: the tally is the
+        // widest part of this pill and the toolbar row it shares needs those ~34px
+        // for the search and New buttons. The count is still one breakpoint away.
+        <Box
+          component="span"
+          sx={{ display: { xs: 'none', sm: 'inline' }, opacity: 0.7, fontVariantNumeric: 'tabular-nums' }}
+        >
+          ({current.count})
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+export interface ViewModeOption<T extends string> {
+  value: T;
+  /** Bootstrap Icon class, e.g. `bi-grid-3x3-gap-fill`. */
+  icon: string;
+  /** Tooltip + accessible name, e.g. "Grid view". */
+  label: string;
+}
+
+/**
+ * Icon-only layout switch — the file-explorer grid/list control.
+ *
+ * The **standard** way to offer "same data, different layout" (documents vault,
+ * employee roster). Use `SegmentedControl` instead when the choice has a *name*
+ * worth reading — a status filter, a time period. A layout is recognised by its
+ * glyph, and two words of chrome next to a real filter reads as a second filter.
+ *
+ * `icon` is a Bootstrap Icon CLASS, not an `AppIcon` name: the mapped keenicons
+ * (`element-plus`, `text-align-left`) do not read as "grid" and "list", which is
+ * the one thing an icon-only control has to get right.
+ */
+export function ViewModeSwitch<T extends string>({
+  options, value, onChange, ariaLabel, sx,
+}: {
+  options: ReadonlyArray<ViewModeOption<T>>;
+  value: T;
+  onChange: (value: T) => void;
+  ariaLabel: string;
+  sx?: SxProps<Theme>;
+}) {
+  return (
+    <Box
+      role="group"
+      aria-label={ariaLabel}
+      sx={[{
+        display: 'inline-flex',
+        p: 0.375,
+        gap: 0.375,
+        borderRadius: '10px',
+        border: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'action.hover',
+        flexShrink: 0,
+      }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
+    >
+      {options.map(({ value: optionValue, icon, label }) => {
+        const active = optionValue === value;
+        return (
+          <Box
+            key={optionValue}
+            component="button"
+            type="button"
+            aria-label={label}
+            aria-pressed={active}
+            title={label}
+            onClick={() => onChange(optionValue)}
+            sx={{
+              display: 'grid',
+              placeItems: 'center',
+              width: 30,
+              height: 26,
+              border: 0,
+              // Metronic's unlayered Bootstrap button rules outrank a utility class
+              // here, so the radius has to be stated in `sx` to hold.
+              borderRadius: '7px',
+              cursor: 'pointer',
+              transition: 'background-color .12s ease, color .12s ease',
+              bgcolor: active ? 'background.paper' : 'transparent',
+              color: active ? 'text.primary' : 'text.secondary',
+              boxShadow: active ? '0 1px 2px rgba(16, 24, 40, 0.10)' : 'none',
+              '&:hover': { color: 'text.primary' },
+            }}
+          >
+            <Box component="i" className={icon} aria-hidden sx={{ fontSize: 13 }} />
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
 /**
  * Responsive auto-fit card grid — the **standard list/collection layout**. Fills wide screens with
  * as many columns as fit (so there's no dead whitespace / big right-hand gutter) and collapses
