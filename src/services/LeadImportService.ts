@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { MAX_IMPORT_FILE_BYTES } from './LegacyLeadMigrationService';
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
@@ -69,8 +70,9 @@ export interface ImportExecuteResult {
 }
 
 export const previewLeadImport = async (file: File): Promise<ImportPreviewResult> => {
-  if (file.size > 10 * 1024 * 1024) {
-    throw new Error('File size exceeds 10MB limit.');
+  // Must agree with multer's limit in the backend's routes/leadImport.ts.
+  if (file.size > MAX_IMPORT_FILE_BYTES) {
+    throw new Error(`File size exceeds ${Math.round(MAX_IMPORT_FILE_BYTES / (1024 * 1024))}MB limit.`);
   }
 
   const formData = new FormData();
