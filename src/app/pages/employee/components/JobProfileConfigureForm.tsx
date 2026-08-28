@@ -4,7 +4,11 @@ import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { createDesignation, updateDesignationById } from "@services/options";
 import { successConfirmation } from "@utils/modal";
+// `detail` carries the server's reason; `.message` is only the HTTP status name.
+import { apiErrorMessage } from "@utils/apiError";
 import { C, FONT, SP, RADIUS } from "@app/modules/configuration";
+import HierarchicalTaskSelect, { buildTaskOptions } from "@app/pages/employee/tasks/components/HierarchicalTaskSelect";
+import { PATH_SEPARATOR, getPresetPath, getPresetSubtreeIds } from "@utils/presetTaskHierarchy";
 
 export interface JobProfileItem {
   id: string;
@@ -13,6 +17,8 @@ export interface JobProfileItem {
   /** Carried through so an edit can round-trip them — see handleSubmit. */
   companyId?: string;
   isActive?: boolean;
+  /** Null / absent for a top-level profile. Mapped from the designation row. */
+  parentId?: string | null;
 }
 
 interface JobProfileFormProps {
@@ -23,6 +29,16 @@ interface JobProfileFormProps {
   isEditing?: boolean;
   /** Company to file a NEW job profile under; resolved by the parent from the list. */
   companyId?: string;
+  /** Create the new profile UNDER this one. Absent creates a top-level profile. */
+  parentId?: string | null;
+  /** The parent's name, so the dialog can say where the new profile will land. */
+  parentName?: string | null;
+  /**
+   * Every profile, flat. Feeds the Parent picker — without it the 24 existing
+   * profiles could only ever sit at the top level, since [Add child] on the tree
+   * CREATES a node and cannot move one that already exists.
+   */
+  allProfiles?: JobProfileItem[];
 }
 
 const validationSchema = Yup.object().shape({
@@ -48,11 +64,29 @@ const JobProfileConfigureForm: React.FC<JobProfileFormProps> = ({
   initialData,
   isEditing = false,
   companyId,
+  parentId,
+  parentName,
+  allProfiles = [],
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const initialValues = { name: initialData?.name || "" };
+  // Any profile may be the parent, at any depth — EXCEPT the one being edited and
+  // everything beneath it, which would detach that subtree from every root. The server
+  // rejects those moves too; excluding them here keeps the invalid choice off-screen.
+  const parentOptions = React.useMemo(
+    () => buildTaskOptions(allProfiles, getPresetSubtreeIds(allProfiles, initialData?.id)),
+    [allProfiles, initialData?.id],
+  );
+
+  const pathFor = (id?: string) => (id ? getPresetPath(allProfiles, id) : []);
+
+  const initialValues = {
+    name: initialData?.name || "",
+    // Preset from the tree's [Add child] action, or the row's current parent when
+    // editing — so opening a nested profile shows where it already sits.
+    parentId: parentId ?? initialData?.parentId ?? "",
+  };
 
   const handleSubmit = async (values: typeof initialValues) => {
     setError(null);
@@ -65,10 +99,14 @@ const JobProfileConfigureForm: React.FC<JobProfileFormProps> = ({
         // purpose: the older Designations screen hardcodes `isActive: false` here and
         // the handler passes the body straight to Prisma, so editing there silently
         // retires the designation. Preserving the current value avoids that.
+        // `parentId` IS sent, and `null` is meaningful — it moves the profile back to
+        // the top level. The picker is the only way to re-parent one of the profiles
+        // that already exist, so an edit has to be able to say "no parent".
         await updateDesignationById(initialData.id, {
           role,
           companyId: initialData.companyId,
           isActive: initialData.isActive ?? true,
+          parentId: values.parentId || null,
         });
         successConfirmation("Job profile updated successfully");
       } else {
@@ -77,16 +115,13 @@ const JobProfileConfigureForm: React.FC<JobProfileFormProps> = ({
           return;
         }
         // The create endpoint takes a LIST — it was built for bulk seeding.
-        await createDesignation([{ role, companyId, isActive: true }]);
+        await createDesignation([{ role, companyId, isActive: true, parentId: values.parentId || null }]);
         successConfirmation("Job profile created successfully");
       }
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      setError(
-        err?.response?.data?.message ||
-          `Failed to ${isEditing ? "update" : "create"} job profile`
-      );
+      setError(apiErrorMessage(err, `Failed to ${isEditing ? "update" : "create"} job profile`));
     } finally {
       setIsSubmitting(false);
     }
@@ -104,6 +139,11 @@ const JobProfileConfigureForm: React.FC<JobProfileFormProps> = ({
           style={{ fontWeight: 600, fontSize: "18px", color: C.textPrimary, fontFamily: FONT.body }}
         >
           {isEditing ? "Edit" : "New"} Job Profile
+          {!isEditing && parentName && (
+            <span style={{ display: "block", fontWeight: 500, fontSize: "13px", color: C.textMuted, marginTop: "2px" }}>
+              Under “{parentName}”
+            </span>
+          )}
         </Modal.Title>
       </Modal.Header>
       <Formik
@@ -112,6 +152,7 @@ const JobProfileConfigureForm: React.FC<JobProfileFormProps> = ({
         onSubmit={handleSubmit}
         enableReinitialize
       >
+        {({ values }) => (
         <FormikForm>
           <Modal.Body style={{ padding: SP.lg }}>
             {error && (
@@ -176,6 +217,44 @@ const JobProfileConfigureForm: React.FC<JobProfileFormProps> = ({
               )}
             </ErrorMessage>
 
+            {/* Parent — one searchable picker over the whole tree. Choosing a parent is
+                what places this profile in the hierarchy; leaving it empty makes it a
+                top-level one. A profile can be moved to any branch except its own. */}
+            <div style={{ marginTop: SP.lg }}>
+              <HierarchicalTaskSelect
+                formikField="parentId"
+                inputLabel={
+                  <>
+                    Parent Job Profile{" "}
+                    <span style={{ color: "#6c757d", fontWeight: 400, marginLeft: 4 }}>(optional)</span>
+                  </>
+                }
+                options={parentOptions}
+                placeholder="None — top-level job profile"
+                helpText={
+                  <div className="text-muted mt-1" style={{ fontSize: "12px" }}>
+                    {values.parentId ? (
+                      <>
+                        <span style={{ fontWeight: 500 }}>Parent:</span>{" "}
+                        {pathFor(values.parentId).join(PATH_SEPARATOR)}
+                        {values.name ? (
+                          <>
+                            <br />
+                            <span style={{ fontWeight: 500 }}>
+                              {isEditing ? "Full hierarchy:" : "Will be created as:"}
+                            </span>{" "}
+                            {[...pathFor(values.parentId), values.name].join(PATH_SEPARATOR)}
+                          </>
+                        ) : null}
+                      </>
+                    ) : (
+                      "Leave empty for a top-level profile. Pick any profile to file this one under it."
+                    )}
+                  </div>
+                }
+              />
+            </div>
+
             <p
               style={{
                 marginTop: SP.md,
@@ -228,6 +307,7 @@ const JobProfileConfigureForm: React.FC<JobProfileFormProps> = ({
             </button>
           </Modal.Footer>
         </FormikForm>
+        )}
       </Formik>
     </Modal>
   );

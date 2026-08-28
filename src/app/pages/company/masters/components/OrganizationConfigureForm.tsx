@@ -7,6 +7,8 @@ import {
   updateOrganizationConfigurationById,
 } from "@services/configurations";
 import { successConfirmation } from "@utils/modal";
+// `detail` carries the server's reason; `.message` is only the HTTP status name.
+import { apiErrorMessage } from "@utils/apiError";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 
@@ -76,10 +78,7 @@ const OrganizationConfigureForm: React.FC<ConfigFormProps> = ({
       onClose();
     } catch (err: any) {
       const action = isEditing ? "update" : "create";
-      setError(
-        err.response?.data?.message ||
-          `Failed to ${action} ${title.toLowerCase()}`
-      );
+      setError(apiErrorMessage(err, `Failed to ${action} ${title.toLowerCase()}`));
     } finally {
       setIsSubmitting(false);
     }

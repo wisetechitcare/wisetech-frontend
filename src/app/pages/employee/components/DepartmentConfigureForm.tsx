@@ -4,6 +4,8 @@ import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { createNewDepartment, updateDepartmentById } from "@services/company";
 import { successConfirmation } from "@utils/modal";
+// `detail` carries the server's reason; `.message` is only the HTTP status name.
+import { apiErrorMessage } from "@utils/apiError";
 import { C, FONT, SP, RADIUS } from "@app/modules/configuration";
 
 export interface DepartmentItem {
@@ -109,10 +111,7 @@ const DepartmentConfigureForm: React.FC<DepartmentFormProps> = ({
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      setError(
-        err?.response?.data?.message ||
-          `Failed to ${isEditing ? "update" : "create"} department`
-      );
+      setError(apiErrorMessage(err, `Failed to ${isEditing ? "update" : "create"} department`));
     } finally {
       setIsSubmitting(false);
     }
