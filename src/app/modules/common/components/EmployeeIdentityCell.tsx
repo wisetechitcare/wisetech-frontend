@@ -56,7 +56,9 @@ function tintFor(seed: string): { bg: string; fg: string } {
   return AVATAR_TINTS[Math.abs(hash) % AVATAR_TINTS.length];
 }
 
-function initialsOf(name: string): string {
+/** "Aabid Patel" -> "AP". Exported so card/tile layouts render the same fallback
+ *  avatar as the table cell instead of re-deriving it. */
+export function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();

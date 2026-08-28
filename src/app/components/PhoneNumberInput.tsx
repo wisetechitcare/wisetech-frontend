@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { ErrorMessage, FormikContext, getIn } from 'formik';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
+import { DIAL_CODE_TO_ISO, ISO_TO_DIAL_CODE } from '@utils/dialCodes';
 import './PhoneNumberInput.css';
 
 type PhoneNumberInputProps = {
@@ -28,31 +29,18 @@ const normalizePath = (value?: string) => value?.replace(/\[(\d+)\]/g, '.$1');
  * and MUST always agree — an Indian flag reading "+1" is worse than no code at all.
  *
  * On a fresh mount the library can no longer infer the country from the value (there's
- * no `+91` in it any more), so a stored dial code is mapped back to its flag here.
- * Consistency is guaranteed by making the resolved country the single source of BOTH:
- * the flag comes from this map, and the code printed beside it is that country's dial
- * code (via the inverse map) — never the raw stored value. A code outside the map
- * therefore opens on the default flag AND shows the default code rather than pairing
- * a wrong flag with a right number. After mount the library owns the selection, and
- * onChange re-syncs the printed code from the country it reports, so any country the
- * user picks stays matched whether it is in this map or not.
+ * no `+91` in it any more), so a stored dial code is mapped back to its flag via
+ * `@utils/dialCodes`. Consistency is guaranteed by making the resolved country the
+ * single source of BOTH: the flag comes from that map, and the code printed beside it
+ * is that country's dial code (via the inverse map) — never the raw stored value. After
+ * mount the library owns the selection, and onChange re-syncs the printed code from the
+ * country it reports, so whatever the user picks stays matched.
+ *
+ * The map covers every country the dropdown offers. That matters: a code it could NOT
+ * resolve used to open on the default flag and print the default code while the record
+ * kept the original — a form that showed "+91" over a stored "504" and, because nothing
+ * wrote the shown code back, saved the "504" straight through again.
  */
-const DIAL_CODE_TO_ISO: Record<string, string> = {
-  '91': 'in', '1': 'us', '44': 'gb', '971': 'ae', '966': 'sa', '974': 'qa',
-  '968': 'om', '965': 'kw', '973': 'bh', '65': 'sg', '60': 'my', '61': 'au',
-  '64': 'nz', '49': 'de', '33': 'fr', '39': 'it', '34': 'es', '31': 'nl',
-  '41': 'ch', '46': 'se', '47': 'no', '45': 'dk', '353': 'ie', '351': 'pt',
-  '27': 'za', '234': 'ng', '254': 'ke', '20': 'eg', '81': 'jp', '82': 'kr',
-  '86': 'cn', '852': 'hk', '66': 'th', '84': 'vn', '62': 'id', '63': 'ph',
-  '880': 'bd', '94': 'lk', '977': 'np', '92': 'pk', '7': 'ru', '90': 'tr',
-  '55': 'br', '52': 'mx', '54': 'ar', '56': 'cl',
-};
-
-/** Inverse of the above. Safe to derive: every entry above is a 1:1 dial↔iso pair. */
-const ISO_TO_DIAL_CODE: Record<string, string> = Object.fromEntries(
-  Object.entries(DIAL_CODE_TO_ISO).map(([dial, iso]) => [iso, dial])
-);
-
 const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
   value = '',
   onChange,
@@ -83,7 +71,12 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
 
   const storedDialCode = extensionField ? extensionValue : defaultCountry;
 
-  const [resolvedCountry] = useState(() => DIAL_CODE_TO_ISO[storedDialCode] || country);
+  const [resolvedCountry] = useState(() => DIAL_CODE_TO_ISO[String(storedDialCode).trim()] || country);
+
+  // The code the button will actually print on mount — the resolved country's own, so it
+  // cannot contradict the flag. Also what gets written back when the stored code is not
+  // one the button can show.
+  const shownDialCode = ISO_TO_DIAL_CODE[resolvedCountry] || defaultCountry;
 
   /**
    * The country is handed over one render LATE, and that timing is the whole trick.
@@ -110,25 +103,30 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
   }, [resolvedCountry]);
 
   /**
-   * Persist the dial code the field is ALREADY SHOWING.
+   * Replace a stored dial code the button CANNOT show with the one it IS showing.
    *
-   * `extensionValue` falls back to `defaultCountry` for display, but nothing wrote
-   * that fallback anywhere — the extension was only ever set inside `onChange`. So a
-   * number that arrived by any other route (an older record, an edit screen, a
-   * "same as personal" copy from an empty source) rendered a confident "+91" while
-   * the column stayed empty. The form looked right and the data was not: 54
-   * employees had a company number, 23 had its code.
+   * Keeping an unshowable code meant the field displayed something it was not holding,
+   * and an edit that never touched the phone submitted the stored value back untouched
+   * — so the mismatch survived every save, invisibly. That is how one employee kept a
+   * "504" through repeated edits on a form that only ever said "+91".
    *
-   * Guarded on there BEING a number, so a blank field never writes anything — that
-   * would mark a pristine form dirty and make an untouched draft look meaningful.
+   * Anything the map resolves is left ALONE, which now means every real dial code: a
+   * genuine Honduras number opens on the Honduras flag and is not quietly re-stamped.
+   * What is left to repair is junk — "testing" is in the data — and the empty case,
+   * which `extensionValue`'s display fallback hides from this check on purpose. An
+   * empty code is not a contradiction between form and record, and writing to it on
+   * mount would dirty a form nobody has touched; those rows are the backend's
+   * `phones:backfill-dial-codes` job, not this component's.
+   *
+   * Guarded on there BEING a number, so a blank field never writes anything.
    */
   useEffect(() => {
     if (!formikField || !extensionField) return;
     if (!normalizedFieldValue) return;
-    if (extensionValue && String(extensionValue).trim()) return;
-    resolvedFormikProps?.setFieldValue?.(extensionField, defaultCountry, false);
+    if (DIAL_CODE_TO_ISO[String(extensionValue ?? '').trim()]) return;
+    resolvedFormikProps?.setFieldValue?.(extensionField, shownDialCode, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [normalizedFieldValue, extensionValue, extensionField, formikField, defaultCountry]);
+  }, [normalizedFieldValue, extensionValue, extensionField, formikField, shownDialCode]);
 
   /**
    * The number is handed over one render later still — it CANNOT arrive with the country.
@@ -153,9 +151,7 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
   // The code printed in the button, seeded from the SAME country the flag opens on so
   // the two can't contradict each other, then re-synced from whatever country the
   // library reports on change — which is authoritative once the user has interacted.
-  const [currentDialCode, setCurrentDialCode] = useState(
-    () => ISO_TO_DIAL_CODE[resolvedCountry] || defaultCountry
-  );
+  const [currentDialCode, setCurrentDialCode] = useState(() => shownDialCode);
 
   // NOTE: the dial code is no longer part of the input's text — `disableCountryCode`
   // keeps the field to the national number and the code is rendered in the flag button
