@@ -40,13 +40,11 @@ import { Count, MICRO, NUM } from "./legacy-migration/summaryChrome";
 
 /**
  * Standard bulk lead import — upload, preview, write.
- *
  * Built on the same pieces as the legacy migration wizard next door: GlassDialog +
  * GlassHeader for the shell, the shared CsvUploadStep for file selection, and the same
  * Count-in-a-sentence vocabulary for every number. The two open from one button a click
  * apart and used to be two different designs — react-bootstrap Modal, Bootstrap button
  * classes and light-mode-only hex on this side, the MUI kit on the other.
- *
  * Two invented progress animations are gone with it: a checklist that counted to 100%
  * over a fixed 4.2s regardless of the server, and a cycling "Creating companies…" label.
  * Neither endpoint reports progress, so both screens now show an honest spinner.
