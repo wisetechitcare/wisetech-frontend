@@ -7,8 +7,9 @@ const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 const CACHE_KEY = "paymentPlans";
 
-// Get all active payment plans (with ordered stages). Short-lived cache dedupes the
-// duplicate fetches on a single page load; every mutation invalidates it.
+// Get all active payment plans (with ordered stages, and the project type each one bills).
+// Short-lived cache dedupes the duplicate fetches on a single page load; every mutation
+// invalidates it. The lead form filters this list against the lead's own categories.
 export const getAllPaymentPlans = async () => {
     return cachedRequest(CACHE_KEY, async () => {
         const endpoint = `${API_BASE_URL}/${PAYMENT_PLAN.GET_ALL_PAYMENT_PLANS}`;

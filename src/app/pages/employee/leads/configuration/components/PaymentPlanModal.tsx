@@ -7,6 +7,15 @@ import { showSuccess, showError } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import type { PaymentPlan, PaymentPlanStage } from "@models/leads";
+import { HierarchicalTaskPicker, buildTaskOptions } from "@app/pages/employee/tasks/components/HierarchicalTaskSelect";
+import {
+  CategoryLike,
+  SubCategoryLike,
+  buildCategoryNodes,
+  nodeIdFromScope,
+  scopeFromNodeId,
+} from "@utils/categoryScope";
+import { getPresetPath, PATH_SEPARATOR } from "@utils/presetTaskHierarchy";
 
 interface PaymentPlanModalProps {
   show: boolean;
@@ -14,6 +23,10 @@ interface PaymentPlanModalProps {
   onSuccess?: () => void;
   initialData?: PaymentPlan | null;
   isEditing?: boolean;
+  // The project-category tree, supplied by the page that already loaded it so the picker
+  // opens populated instead of racing its own fetch.
+  categories?: CategoryLike[];
+  subCategories?: SubCategoryLike[];
 }
 
 // Shape expected by PercentageConfigurationTable (it reads `config_key` for the label
@@ -59,10 +72,14 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
   onSuccess,
   initialData,
   isEditing = false,
+  categories = [],
+  subCategories = [],
 }) => {
-  const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isDefault, setIsDefault] = useState(false);
+  // The picked category OR subcategory node. One field, because the picker returns one id;
+  // it is split back into the (categoryId, subCategoryId) pair on save.
+  const [scopeNodeId, setScopeNodeId] = useState("");
   const [rows, setRows] = useState<StageRow[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,9 +89,9 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
     if (!show) return;
     setError(null);
     if (isEditing && initialData) {
-      setName(initialData.name || "");
       setDescription(initialData.description || "");
       setIsDefault(!!initialData.isDefault);
+      setScopeNodeId(nodeIdFromScope(initialData));
       setRows(
         (initialData.stages || [])
           .slice()
@@ -82,12 +99,20 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
           .map((s) => toRow(s.name, s.percentage, s.id)),
       );
     } else {
-      setName("");
       setDescription("");
       setIsDefault(false);
+      setScopeNodeId("");
       setRows(DEFAULT_STAGES.map((s) => toRow(s.name, s.percentage)));
     }
   }, [show, isEditing, initialData]);
+
+  const categoryNodes = React.useMemo(
+    () => buildCategoryNodes(categories, subCategories),
+    [categories, subCategories],
+  );
+  const categoryOptions = React.useMemo(() => buildTaskOptions(categoryNodes), [categoryNodes]);
+  /** "Bungalow & Duplex → Bungalow (SINGLE)" — so the type being billed is unambiguous. */
+  const scopePath = scopeNodeId ? getPresetPath(categoryNodes, scopeNodeId).join(PATH_SEPARATOR) : "";
 
   const total = rows.reduce((sum, r) => sum + (parseFloat(String(r.value)) || 0), 0);
   // Round to 3dp to match the backend Decimal(6,3) and avoid float-noise mismatches.
@@ -96,13 +121,13 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
   const hasEmptyName = rows.some((r) => !String(r.config_key || "").trim());
   const isTotalValid = roundedTotal === 100;
   const canSave =
-    !!name.trim() && rows.length > 0 && isTotalValid && !hasNegative && !hasEmptyName;
+    !!scopeNodeId && rows.length > 0 && isTotalValid && !hasNegative && !hasEmptyName;
 
   const handleSave = async () => {
     setError(null);
 
-    if (!name.trim()) {
-      setError("Plan name is required.");
+    if (!scopeNodeId) {
+      setError("Pick the project category this plan bills.");
       return;
     }
     if (rows.length === 0) {
@@ -129,12 +154,19 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       sortOrder: idx,
     }));
 
+    // One picked node → the pair the API stores. The server re-checks that the subcategory
+    // belongs to the category, so a stale tree here cannot file a plan under two branches.
+    const scope = scopeFromNodeId(scopeNodeId, subCategories);
+
     const payload: PaymentPlan = {
-      name: name.trim(),
+      // No `name`: a plan IS the fee split for a project type, so the server names it from
+      // the category. Sending one here would be a second source for the same label.
       description: description.trim() || null,
       isDefault,
       isActive: true,
       stages,
+      categoryId: scope?.categoryId,
+      subCategoryId: scope?.subCategoryId ?? null,
     };
 
     setIsSubmitting(true);
@@ -177,19 +209,28 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
         {error && <div className="alert alert-danger mb-4">{error}</div>}
 
         <div className="row g-4 mb-2">
+          {/* The project type this plan bills. A lead already declares its category, so before
+              this the two were unrelated and plans were named after types by hand ("Bungalow",
+              "Interior Project") with nothing stopping the wrong one being chosen.
+              The whole category and any single subcategory are both selectable — a grouped
+              select cannot select its own group heading. */}
           <div className="col-md-7">
             <Form.Label className="fw-semibold text-gray-800 fs-7 mb-2">
-              Plan Name <span className="text-danger">*</span>
+              Project Category <span className="text-danger">*</span>
             </Form.Label>
-            <Form.Control
-              type="text"
-              className="form-control-solid"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Standard Interior Fee Plan"
+            <HierarchicalTaskPicker
+              value={scopeNodeId}
+              onChange={(option) => setScopeNodeId(option?.value || "")}
+              options={categoryOptions}
+              placeholder="Search categories & subcategories…"
             />
+            <div className="text-muted mt-1" style={{ fontSize: 12 }}>
+              {scopePath
+                ? `This is the fee split for ${scopePath}.`
+                : "Pick a category for the whole type, or a subcategory for just that one."}
+            </div>
           </div>
-          <div className="col-md-5 d-flex align-items-end">
+          <div className="col-md-5 d-flex align-items-end pb-4">
             <Form.Check
               type="checkbox"
               id="paymentPlanIsDefault"

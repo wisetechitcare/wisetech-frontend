@@ -203,7 +203,10 @@ export const TaskFormDialog = ({
     // the one place a task's stage is chosen.
     const statusesQuery = useTaskStatuses(scopeFields.project ? (values.projectId || undefined) : undefined);
     const prioritiesQuery = useTaskPriorities();
-    const presetsQuery = usePresetTasks();
+    // The preset catalogue follows the kind of task being created: a project task picks from
+    // the Project Tasks tree, a general one from General Tasks. Configured separately under
+    // Tasks Configuration, and never mixed — internal overhead is not a job's work.
+    const presetsQuery = usePresetTasks(values.taskScope);
     // Not fetched when nothing can be reassigned: the selector answers "whom may I assign to",
     // which is a question a progress-only editor is never allowed to act on — and one the server
     // refuses for them, producing an error under a disabled field.
@@ -435,7 +438,13 @@ export const TaskFormDialog = ({
                 component="button"
                 type="button"
                 disabled={locked}
-                onClick={() => set({ taskScope: scope, projectId: scope === 'GENERAL' ? '' : values.projectId, assignedToId: '' })}
+                onClick={() => set({
+                    taskScope: scope,
+                    projectId: scope === 'GENERAL' ? '' : values.projectId,
+                    assignedToId: '',
+                    presetTaskId: '',
+                    taskName: values.taskTypeMode === 'PRESETS' ? '' : values.taskName,
+                })}
                 sx={{
                     flex: 1, textAlign: 'left', p: 1.5, borderRadius: 2, cursor: locked ? 'not-allowed' : 'pointer',
                     border: '2px solid',

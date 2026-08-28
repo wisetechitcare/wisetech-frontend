@@ -897,6 +897,13 @@ export const TASKS = {
     CREATE_TASK_PRIORITY: "api/task-and-time/task-priorities",
     GET_ALL_TASK_PRIORITIES: "api/task-and-time/task-priorities",
     UPDATE_TASK_PRIORITY: "api/task-and-time/task-priorities",
+    DELETE_TASK_PRIORITY: "api/task-and-time/task-priorities",
+
+    // Configuration stages — a named bundle of preset tasks. Not a board column.
+    GET_ALL_TASK_STAGES: "api/task-and-time/task-stages",
+    CREATE_TASK_STAGE: "api/task-and-time/task-stages",
+    UPDATE_TASK_STAGE: "api/task-and-time/task-stages",
+    DELETE_TASK_STAGE: "api/task-and-time/task-stages",
 
     CREATE_PRESET_TASKS_STATUS: "api/task-and-time/task-persest",
     GET_ALL_PRESET_TASKS_STATUSES: "api/task-and-time/task-persest",

@@ -84,10 +84,84 @@ export const updatePriority = async (id: string, payload: any) => {
     }
 }
 
-export const getAllPersetTasks = async () =>{
+/**
+ * Delete a priority. The API refuses one that any live task still carries, and returns how
+ * many are in the way — surface `detail` from the error, not a generic message.
+ */
+export const deletePriority = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${TASKS.DELETE_TASK_PRIORITY}/${id}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+/**
+ * Configuration stages — a named, ordered bundle of project tasks ("Design", "Execution"),
+ * belonging to ONE project category or subcategory. NOT the board's stage/lane: that is a task
+ * status. Each stage comes back with its `tasks` and the category it is scoped to.
+ */
+export const getAllTaskStages = async (scope?: { categoryId?: string; subCategoryId?: string | null }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${TASKS.GET_ALL_TASK_STAGES}`;
+        // Scoped to one project category (and optionally one subcategory within it). Omitting
+        // the scope returns every stage — the API stays browsable even though the screen asks
+        // for a category first.
+        const { data } = await axios.get(endpoint, {
+            params: scope?.categoryId
+                ? { categoryId: scope.categoryId, ...(scope.subCategoryId ? { subCategoryId: scope.subCategoryId } : {}) }
+                : undefined,
+        });
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const createTaskStage = async (payload: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${TASKS.CREATE_TASK_STAGE}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+/** `presetTaskIds` REPLACES the stage's task list; omit it to edit name/colour only. */
+export const updateTaskStage = async (id: string, payload: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${TASKS.UPDATE_TASK_STAGE}/${id}`;
+        const { data } = await axios.put(endpoint, payload);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const deleteTaskStage = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${TASKS.DELETE_TASK_STAGE}/${id}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+/**
+ * One preset-task catalogue. `PROJECT` is the work of a job someone manages; `GENERAL` is
+ * internal overhead with no project — the same split a task itself carries. Omitting the
+ * scope returns PROJECT, which is what every preset task was before general ones existed.
+ */
+export type PresetTaskScope = 'PROJECT' | 'GENERAL';
+
+export const getAllPersetTasks = async (scope: PresetTaskScope = 'PROJECT') =>{
     try{
         const endpoint = `${API_BASE_URL}/${TASKS.GET_ALL_PRESET_TASKS_STATUSES}`;
-        const { data } = await axios.get(endpoint);
+        const { data } = await axios.get(endpoint, { params: { scope } });
         return data;
     }catch(error){
         throw error;

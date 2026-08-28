@@ -46,7 +46,7 @@ export const queryKeys = {
     timesheets: (id: string) => [...queryKeys.tasks.all, 'timesheets', id] as const,
     statuses: (projectId?: string) => [...queryKeys.tasks.all, 'statuses', projectId ?? 'company'] as const,
     priorities: () => [...queryKeys.tasks.all, 'priorities'] as const,
-    presets: () => [...queryKeys.tasks.all, 'presets'] as const,
+    presets: (scope?: string) => [...queryKeys.tasks.all, 'presets', scope ?? 'PROJECT'] as const,
     /** Authorized selectors — the server decides membership, so these are cached per actor session. */
     availableProjects: () => [...queryKeys.tasks.all, 'available-projects'] as const,
     /** The BROWSE list — derived from visible tasks, unlike availableProjects (create authority). */

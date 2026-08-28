@@ -21,6 +21,7 @@ import {
     getAllTasksStatus,
     getAllPriority,
     getAllPersetTasks,
+    type PresetTaskScope,
     getAvailableProjects,
     getBoardProjects,
     getProjectAssignees,
@@ -122,10 +123,14 @@ export const useTaskPriorities = () =>
         staleTime: CONFIG_STALE,
     });
 
-export const usePresetTasks = () =>
+/**
+ * One preset-task catalogue. Keyed per scope, so switching a task between Project and General
+ * swaps the tree instead of showing the other catalogue's cached nodes.
+ */
+export const usePresetTasks = (scope: PresetTaskScope = 'PROJECT') =>
     useQuery({
-        queryKey: queryKeys.tasks.presets(),
-        queryFn: getAllPersetTasks,
+        queryKey: queryKeys.tasks.presets(scope),
+        queryFn: () => getAllPersetTasks(scope),
         staleTime: CONFIG_STALE,
     });
 
