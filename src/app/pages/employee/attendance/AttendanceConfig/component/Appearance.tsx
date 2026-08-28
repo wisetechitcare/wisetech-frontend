@@ -11,6 +11,7 @@ import { KTIcon } from '@metronic/helpers';
 import { Box, CircularProgress } from '@mui/material';
 // Same MUI glass kit as the Sandwich Leave benchmark — for the primary action button.
 import { WtButton } from '@app/modules/common/components/ui';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 let initialValues = {
   id: "",
@@ -182,10 +183,7 @@ const ColorRow: React.FC<ColorRowProps> = ({ label, fieldName, value, onClick })
           transition: 'background-color .15s, border-color .15s',
         }}
       >
-        <i className="ki-duotone ki-pencil fs-5" style={{ color: '#475569' }}>
-          <span className="path1"></span>
-          <span className="path2"></span>
-        </i>
+        <AppIcon name="pencil" className="fs-5" color="#475569" />
       </button>
     </div>
   );

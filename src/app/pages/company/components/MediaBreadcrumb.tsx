@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MediaBreadcrumbItem } from '@models/media';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface MediaBreadcrumbProps {
     items: MediaBreadcrumbItem[];
@@ -21,7 +22,7 @@ const MediaBreadcrumb: React.FC<MediaBreadcrumbProps> = ({ items, showBackButton
                             {item.path ? (
                                 <Link to={item.path} className="text-primary text-hover-primary d-flex align-items-center">
                                     {index === 0 && showBackButton && (
-                                        <i className="ki-duotone ki-left fs-4 fs-sm-3 me-1 me-sm-2"></i>
+                                        <AppIcon name="left" className="fs-4 fs-sm-3 me-1 me-sm-2" />
                                     )}
                                     <span className="text-break">{item.label}</span>
                                 </Link>

@@ -34,7 +34,8 @@ import {
     calculateTotalAvailableLeaves,
     calculateCumulativeSummary,
     buildCumulativeInputs,
-    getAccrualWindow,
+    accrualWindowAsOf,
+    ServerAccrualWindow,
     CumulativeInputs,
 } from "@utils/balanceProgressUtils";
 
@@ -58,6 +59,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     // the leave-balance API. We display that verbatim; the client-side derivation below is only a
     // fallback for an older backend that didn't send it.
     const [backendCumulative, setBackendCumulative] = useState<{ totalPaidAllocated: number; used: number; allowedTillNow: number; remaining: number; elapsedMonths?: number; eligibleMonths?: number } | null>(null);
+    /** The server-resolved accrual window (rejoin-aware). Only the client-side fallback below reads it. */
+    const [accrualWindow, setAccrualWindow] = useState<ServerAccrualWindow | null>(null);
     const [holidays, setHolidays] = useState<number>(0);
     const [weekendCount, setWeekendCount] = useState<number>(0);
     const [totalLeaves, setTotalLeaves] = useState<CustomLeaves[]>([]);
@@ -75,7 +78,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     const dateOfJoining = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.dateOfJoining : state.employee.currentEmployee?.dateOfJoining);
     // Exit date closes the accrual window for a leaver — only used by the client-side
     // cumulative fallback; the live path takes the window from the balance API.
-    const dateOfExit = useSelector((state: RootState) => fromAdmin ? (state.employee.selectedEmployee as any)?.dateOfExit : (state.employee.currentEmployee as any)?.dateOfExit);
     const employeeBranchId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.branchId : state.employee.currentEmployee?.branchId);
 
     // New-Joiner Probation: paid leave is blocked during the probation window. Fetch the policy
@@ -221,8 +223,9 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
                 const { data: { leaves } } = leavesResponse;
                 const { data: { publicHolidays } } = holidaysResponse;
-                const { data: { leavesSummary, cumulativeSummary: backendCumulativeSummary } } = balanceResponse;
+                const { data: { leavesSummary, cumulativeSummary: backendCumulativeSummary, accrualWindow: backendAccrualWindow } } = balanceResponse;
                 setBackendCumulative(backendCumulativeSummary ?? null);
+                setAccrualWindow((backendAccrualWindow as ServerAccrualWindow) ?? null);
                 const { data: { leaveOptions } } = leaveOptionsResponse;
 
                 // Compute addon leave allowance (experience-based extra annual leaves)
@@ -395,11 +398,12 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     remaining: backendCumulative.remaining ?? 0,
                 };
             }
-            // Fallback for an older backend: pace across the employee's own accrual window,
-            // derived here from their date of joining so a mid-year joiner is not credited for
-            // the months before they were hired.
+            // Fallback for an older backend: pace across the SERVER-resolved accrual window when one
+            // arrived, else across a full Apr–Mar. Never derived from dateOfJoining/dateOfExit here —
+            // those two fields alone cannot see a rejoin, and reading them as the whole timeline is
+            // what once collapsed a re-hired employee's allowance to zero.
             const fyStartYear = startDateNew ? dayjs(startDateNew).year() : dayjs().year();
-            const accrual = getAccrualWindow(fyStartYear, dateOfJoining, dateOfExit);
+            const accrual = accrualWindowAsOf(accrualWindow, fyStartYear);
             return calculateCumulativeSummary(
                 cumulativeInputs.totalNonMaternalPaidAllocated,
                 cumulativeInputs.takenIncludingPendingByType,
@@ -407,7 +411,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                 accrual,
             );
         },
-        [backendCumulative, cumulativeInputs, fiscalStartMonth, startDateNew, dateOfJoining, dateOfExit]
+        [backendCumulative, cumulativeInputs, fiscalStartMonth, startDateNew, accrualWindow]
     );
 
     const res1 = viewOthers && hasPermission(resource, "readOthers", { employeeId: selectedEmployeeId });

@@ -130,9 +130,16 @@ const tabsSx: SxProps<Theme> = {
         mx: '3px',
         borderRadius: '8px',
         transition: 'background-color .15s ease, color .15s ease',
-        // MUI icon (the `icon` prop given a component) — sized to match the
-        // keenicon below so the two icon shapes never render at two sizes.
-        '& svg': { fontSize: '19px', marginRight: '10px' },
+        /* MUI icon (the `icon` prop given a component) — sized to match the Lucide icon
+         * below so the two icon shapes never render at two sizes.
+         *
+         * Scoped to `:not(.mht-icon svg)` DELIBERATELY. While the tab icons were keenicons
+         * this was a bare `& svg` and matched only MUI icons, because a keenicon is an `<i>`.
+         * A Lucide icon IS an `<svg>`, so the moment the icons moved it silently began
+         * matching them too and adding its own 10px on top of `.mht-icon`'s — which is the
+         * whole reason the gap between icon and title blew out. Any rule in this file that
+         * says `svg` now needs to say which svg it means. */
+        '& svg:not(.mht-icon svg)': { fontSize: '19px', marginRight: '10px' },
         // Reset MUI's default icon-wrapper margin (it assumes a stacked top
         // icon and pushes the icon off-centre in our horizontal row layout).
         '& .MuiTab-iconWrapper': { marginTop: 0, marginBottom: 0 },
@@ -152,47 +159,25 @@ const tabsSx: SxProps<Theme> = {
         color: 'rgba(255, 255, 255, 0.88)',
         fontSize: '13px',
         letterSpacing: '0.01em',
-        /* The icon is a KTIcon <i> inside `.mht-icon` — NOT an <svg> and NOT a `.bi`.
-         * The two rules originally written for those shapes never matched anything
-         * this component renders, which is why the icons had no size, no spacing and
-         * no emphasis of their own. `marginRight` is the gap the icon never had:
-         * MUI's icon margins are reset above for the row layout, and nothing put
-         * one back. */
+        /* The icon is a Lucide <svg> inside `.mht-icon`. `marginRight` is 8px rather than
+         * the 10px the keenicon needed, because a font glyph sat flush against the edge of
+         * its advance width while a Lucide glyph is drawn inside a 24-unit viewBox already
+         * carrying ~2 units of its own margin — at 10px the two stacked and pushed every
+         * label visibly away from its icon. 8px lands at ~10px of measured gap, which keeps
+         * the pair reading as one object without crowding the label. 6px was tried and sits
+         * too close; if this needs adjusting again, move it in 1px steps rather than
+         * halving. */
         '& .mht-icon': {
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             lineHeight: 1,
             flexShrink: 0,
-            marginRight: '10px',
-            // Detail paths at FULL white — 6.5:1 on the lightest end of the bar.
-            // These are the strokes that carry the icon's shape; every point of
-            // alpha spent here is legibility given away for nothing.
+            marginRight: '8px',
+            // Full white — 6.5:1 on the lightest end of the bar. A single-tone stroke icon
+            // has no backdrop layer to dim, so every point of alpha spent here would be
+            // legibility given away for nothing.
             color: '#ffffff',
-            /* And this is what made these glyphs look broken. A duotone keenicon
-             * fades its backdrop layer with `opacity: .3` on `.path1:BEFORE` — the
-             * PSEUDO-element, not the span. An override aimed at the span
-             * (`[class*="path"]`, as an earlier attempt was) can only multiply with
-             * that, never replace it: .72 on the span still landed at ~.22 on
-             * screen, while quietly dimming the solid strokes to .72. So half of
-             * every glyph was under 3:1 and the other half had been dulled.
-             * Stock .3 is tuned for dark ink on a white page; on this bar it
-             * measures 1.9:1 — under WCAG 1.4.11's 3:1 floor for a graphical object.
-             * `.path1` is the only layer the duotone sheet fades (verified across
-             * all 357 icons), so nothing else needs touching.
-             *
-             * .72 measures 4.2:1 against the BRIGHTEST end of the gradient, where the
-             * bar fights the glyph hardest, and makes it read as ONE white object
-             * with an internal tonal step rather than a white mark floating on a blue
-             * one — the "white tone" the bar was asked for. It is also close to the
-             * ceiling:
-             * the detail strokes are the same white, so past ~.85 they stop
-             * separating from the backdrop and the glyph collapses into a
-             * silhouette. Two tones is what makes a duotone a shape. */
-            '& .path1:before': { opacity: 0.72 },
-            // Bootstrap fallback: AppIcon renders a plain `.bi` for any name missing
-            // from iconMap, and that one sizes by font-size, not by an `fs-*` class.
-            '& .bi': { fontSize: '19px', lineHeight: 1 },
         },
         // Underline lives on the text label ONLY (.mht-label wraps just the
         // title text — never the icon). Always underlined but transparent, so
@@ -208,10 +193,9 @@ const tabsSx: SxProps<Theme> = {
         // Selected: white text + white underline under the text only.
         '&.Mui-selected': { color: '#ffffff', fontWeight: 700 },
         '&.Mui-selected .mht-label': { textDecorationColor: '#ffffff' },
-        // Selected/hover: the backdrop layer comes up further still, so the active
-        // tab's icon reads as the most solid glyph in the row.
-        '&.Mui-selected .mht-icon .path1:before': { opacity: 0.85 },
-        '&:hover .mht-icon .path1:before': { opacity: 0.85 },
+        // The selected/hover rules that used to lift a duotone backdrop layer
+        // (`.path1:before`) are gone with the font — a Lucide glyph is one tone, and the
+        // `&.Mui-selected` colour rule below already carries the emphasis.
         // Subtle feedback when hovering a non-selected tab.
         '&:hover': { color: '#ffffff', backgroundColor: 'rgba(255, 255, 255, 0.12)' },
         // Hovering the selected tab keeps it as-is (no light pill fill).

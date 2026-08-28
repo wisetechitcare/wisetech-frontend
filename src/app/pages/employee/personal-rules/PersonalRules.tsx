@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Row, Col } from 'react-bootstrap';
 import AttendanceSection from './components/AttendanceSection';
 import LeavesSection from './components/LeavesSection';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const PersonalRules: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>('attendance');
@@ -123,7 +124,7 @@ const PersonalRules: React.FC = () => {
           className="btn btn-sm btn-primary"
           onClick={() => setShowSidebar(!showSidebar)}
         >
-          <i className="ki-duotone ki-burger-menu fs-2"></i> Menu
+          <AppIcon name="burger-menu" className="fs-2" /> Menu
         </button>
       </div>
 
@@ -174,7 +175,7 @@ const PersonalRules: React.FC = () => {
                   className="btn btn-sm btn-icon btn-light"
                   onClick={() => setShowSidebar(false)}
                 >
-                  <i className="ki-duotone ki-cross fs-2"></i>
+                  <AppIcon name="cross" className="fs-2" />
                 </button>
               </div>
               <div style={{
