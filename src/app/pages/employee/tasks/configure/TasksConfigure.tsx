@@ -70,6 +70,13 @@ import {
 
 
 
+// Bootstrap Icon CLASSES, not AppIcon names: the mapped keenicons do not read as "grid" and
+// "list", which is the one thing an icon-only control has to get right.
+const STAGE_VIEW_OPTIONS = [
+  { value: 'grid' as const, icon: 'bi-grid-3x3-gap-fill', label: 'Grid view' },
+  { value: 'list' as const, icon: 'bi-list-ul', label: 'List view' },
+];
+
 const TasksConfigure = () => {
   const navigate = useNavigate();
   // Deletes here must reach the React Query cache the board and the New Task dialog read from,
@@ -838,7 +845,12 @@ const TasksConfigure = () => {
                       onClick={() => handleScopeChange('')}
                     />
                   )}
-                  <ViewModeSwitch ariaLabel="Stage layout" mode={stageView} onChange={setStageView} />
+                  <ViewModeSwitch<StageView>
+                    options={STAGE_VIEW_OPTIONS}
+                    value={stageView}
+                    onChange={setStageView}
+                    ariaLabel="Stage layout"
+                  />
                 </div>
               }
               primaryAction={{

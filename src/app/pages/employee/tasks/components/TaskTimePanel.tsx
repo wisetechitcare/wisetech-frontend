@@ -29,7 +29,14 @@ import { formatDateTime } from '@utils/dateFormats';
 import NewTimeLogForm from '@app/pages/employee/timesheet/employeetimesheet/component/NewTimeLogForm';
 import { TaskStateBlock, AssigneeAvatar } from './primitives';
 import { useInvalidateTasks } from '../useTaskQueries';
-import { ViewModeSwitch, WtButton, type ViewMode } from '@app/modules/common/components/ui';
+import { ViewModeSwitch, WtButton } from '@app/modules/common/components/ui';
+
+type EntryView = 'grid' | 'list';
+
+const ENTRY_VIEW_OPTIONS = [
+    { value: 'grid' as const, icon: 'bi-grid-3x3-gap-fill', label: 'Card view' },
+    { value: 'list' as const, icon: 'bi-list-ul', label: 'Table view' },
+];
 import TimeLogDetailDialog from '@app/pages/employee/timesheet/components/TimeLogDetailDialog';
 import type { TimeLogAttachment } from '@app/pages/employee/timesheet/components/TimeLogAttachments';
 
@@ -128,7 +135,7 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
     const currentEmployeeId = useSelector((s: RootState) => s.employee?.currentEmployee?.id);
     // Cards by default: an entry's description and its attachments are the parts people came to
     // read, and neither fits a table row.
-    const [entryView, setEntryView] = useState<ViewMode>('grid');
+    const [entryView, setEntryView] = useState<EntryView>('grid');
     /** The entry being read in full — same dialog My Timesheet opens. */
     const [openLogId, setOpenLogId] = useState<string | null>(null);
     /** Closed by default — see the Collapse below. */
@@ -544,10 +551,11 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                             </Tooltip>
                         </Box>
                     )}
-                    <ViewModeSwitch
-                        ariaLabel="Time entry layout"
-                        mode={entryView}
+                    <ViewModeSwitch<EntryView>
+                        options={ENTRY_VIEW_OPTIONS}
+                        value={entryView}
                         onChange={setEntryView}
+                        ariaLabel="Time entry layout"
                     />
                 </Stack>
             )}

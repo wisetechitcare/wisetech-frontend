@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import { accruedTillNow } from '@utils/balanceProgressUtils';
+import { unlockedTillNow } from '@utils/balanceProgressUtils';
 
 dayjs.extend(isSameOrBefore);
 
@@ -114,10 +114,12 @@ export interface CumulativeContext {
     /** Paid pool, already pro-rated to the employee's accrual window by the backend. */
     totalPaidAllocated: number;
     usedPlusPendingPaid: number;
-    /** Accrual months begun, counted from the employee's JOINING month — not from April. */
+    /** Eligible accrual months begun as of the request's dateTo, per the SERVER-resolved window. */
     elapsedMonths: number;
-    /** Accrual months the employee earns this fiscal year (12 for a full-year employee). */
+    /** Accrual months the employee is on the books for this fiscal year (12 for a full-year employee). */
     eligibleMonths: number;
+    /** Fiscal month (1=Apr … 12=Mar) of the request's dateTo — the second pacing constraint. */
+    fiscalMonthIndex: number;
     overflow: 'spillToUnpaid' | 'block';
 }
 
@@ -306,9 +308,9 @@ export function allocateLeave(input: AllocationInput): AllocationResult {
     }
 
     if (input.cumulative && paidDays > 0) {
-        const { totalPaidAllocated, usedPlusPendingPaid, elapsedMonths, eligibleMonths, overflow } = input.cumulative;
+        const { totalPaidAllocated, usedPlusPendingPaid, overflow } = input.cumulative;
         if (totalPaidAllocated > 0) {
-            const allowedTillNow = accruedTillNow(totalPaidAllocated, elapsedMonths, eligibleMonths);
+            const allowedTillNow = unlockedTillNow(totalPaidAllocated, input.cumulative);
             const allowedRemaining = Math.max(0, allowedTillNow - usedPlusPendingPaid);
             if (paidDays > allowedRemaining + EPS) {
                 const excessDays = paidDays - allowedRemaining;

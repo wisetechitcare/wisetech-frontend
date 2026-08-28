@@ -37,9 +37,9 @@ export type {
 // grid/toolbar breakpoints so every collection view fills wide screens and stacks cleanly on mobile.
 export {
   TRIO, EASE_200, SHADOW_REST, SHADOW_HOVER, IconBox, StatusBadge, StatTile, Eyebrow, SectionHead,
-  AutoGrid, ListHeader,
+  AutoGrid, ListHeader, ViewModeSwitch, StatusCyclePill,
 } from './patterns';
-export type { Trio } from './patterns';
+export type { Trio, ViewModeOption, StatusCycleOption } from './patterns';
 // Choose-one-from-a-visual-set controls, for any feature that lets an admin
 // brand a record (section icon/colour, status colour, category icon).
 export { IconPicker, TONE_NAMES } from './SwatchPicker';
@@ -57,17 +57,18 @@ export { SettingsSection } from './SettingsSection';
 export type { SettingsSectionProps } from './SettingsSection';
 // The app-wide toolbar filter (SUB ORGANIZATION / BRANCH / STATUS). Previously
 // defined inside a payroll page that three other features imported across.
-// Exclusive 2–5 way choice (status filter, view switch). Same visual language as
-// TimePeriodSelector, with the choices left open.
-export { ViewModeSwitch } from './ViewModeSwitch';
-export type { ViewModeSwitchProps, ViewMode } from './ViewModeSwitch';
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
 export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
 export type { ToolbarFilterSelectProps, FilterSelectTheme } from './ToolbarFilterSelect';
 export { OrgFilterToolbar, useOrgFilters } from './OrgFilterToolbar';
 export type { OrgFilterState, OrgFilterableRow, EmployeeStatusFilter } from './OrgFilterToolbar';
-export { hoverLiftSx, pressableSx, MOTION_KEYFRAMES } from './motion';
+export { hoverLiftSx, pressableSx, riseInSx, MOTION_KEYFRAMES } from './motion';
+// Numbered pager for views that page server-side WITHOUT MaterialTable (card grids,
+// tiles). The table draws its own footer; everything else uses this.
+export { Pager } from './Pager';
+export type { PagerProps } from './Pager';
+export { pageWindow, ELLIPSIS } from './pageWindow';
 export { GlassNotification, GlassToastProvider, useGlassToast } from './GlassNotification';
 export type { GlassNotificationProps, GlassToastOptions } from './GlassNotification';
 export { toast, alertDialog, confirmDialog } from './feedback';

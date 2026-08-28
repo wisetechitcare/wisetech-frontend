@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActionIconButton, AppIcon, ViewMode } from '@app/modules/common/components/ui';
+import { ActionIconButton, AppIcon } from '@app/modules/common/components/ui';
 import { C, FONT, SP, RADIUS, BTN } from '@app/modules/configuration';
 import { getPresetPath, PATH_SEPARATOR, PresetTaskLike } from '@utils/presetTaskHierarchy';
 import { groupStagesByScope } from '@utils/categoryScope';
@@ -39,8 +39,8 @@ export interface StageRow {
   subCategory?: { id: string; name: string } | null;
 }
 
-/** The kit's own view-mode union — re-exported so callers need one import, not two. */
-export type StageView = ViewMode;
+/** The two layouts, and the union the kit's generic ViewModeSwitch is parameterised on. */
+export type StageView = 'grid' | 'list';
 
 interface Props {
   stages: StageRow[];

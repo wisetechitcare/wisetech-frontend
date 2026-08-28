@@ -1,6 +1,27 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Modal } from "react-bootstrap";
+import React, { useCallback, useState } from "react";
+import {
+  Box,
+  CircularProgress,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+} from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
+import {
+  GlassDialog,
+  GlassHeader,
+  GlassSurface,
+  ToneChip,
+  WtButton,
+  WtStepper,
+  toneAlpha,
+} from "@app/modules/common/components/ui";
+import { tonePair } from "@app/theme/tokens";
+import { formatDate } from "@utils/dateFormats";
 import {
   previewLeadImport,
   executeLeadImport,
@@ -10,6 +31,26 @@ import {
 import { errorConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import CsvUploadStep, { type UploadColumn } from "./CsvUploadStep";
+import ImportModeSelector, {
+  type ImportMode,
+} from "./legacy-migration/ImportModeSelector";
+import LegacyMigrationWizard from "./legacy-migration/LegacyMigrationWizard";
+import { Count, MICRO, NUM } from "./legacy-migration/summaryChrome";
+
+/**
+ * Standard bulk lead import — upload, preview, write.
+ *
+ * Built on the same pieces as the legacy migration wizard next door: GlassDialog +
+ * GlassHeader for the shell, the shared CsvUploadStep for file selection, and the same
+ * Count-in-a-sentence vocabulary for every number. The two open from one button a click
+ * apart and used to be two different designs — react-bootstrap Modal, Bootstrap button
+ * classes and light-mode-only hex on this side, the MUI kit on the other.
+ *
+ * Two invented progress animations are gone with it: a checklist that counted to 100%
+ * over a fixed 4.2s regardless of the server, and a cycling "Creating companies…" label.
+ * Neither endpoint reports progress, so both screens now show an honest spinner.
+ */
 
 interface Props {
   show: boolean;
@@ -18,20 +59,10 @@ interface Props {
 
 type Screen = "upload" | "loading" | "preview" | "importing" | "done";
 
-const LOADING_STEPS = [
-  "Reading CSV structure",
-  "Validating rows against schema",
-  "Matching companies & contacts",
-  "Checking for duplicates",
-];
-
-const IMPORTING_LABELS = [
-  "Creating new companies…",
-  "Validating contacts…",
-  "Writing leads to database…",
-  "Updating commercials…",
-];
-
+// Grouped the way an operator fills a row in: who/what, then money, then the rest.
+// The money group is exactly four columns with no overlap — area, rateType, rate,
+// totalCost. There used to be a fifth, `fees`, which wrote to the same database column
+// as `rate`; and `cost` sat next to `rate` with nothing saying which was per-unit.
 const OPTIONAL_COLS = [
   "prefix",
   "companyName",
@@ -42,13 +73,11 @@ const OPTIONAL_COLS = [
   "assignedTo",
   "inquiryDate",
   "area",
+  "rateType",
   "rate",
-  "cost",
-  "contactName",
-  "contactPhone",
+  "totalCost",
   "poNumber",
   "poDate",
-  "poStatus",
   "country",
   "city",
   "state",
@@ -58,111 +87,88 @@ const OPTIONAL_COLS = [
   "editedBy",
 ];
 
+/** Labels are the literal CSV headers the parser accepts, so the template matches them. */
+const COLUMNS: UploadColumn[] = [
+  { key: "title", label: "title", required: true, matchSignal: true },
+  ...OPTIONAL_COLS.map((key) => ({ key, label: key })),
+];
+
 const RULES = [
   {
-    icon: "🔁",
+    icon: "arrows-circle",
     title: "Update vs Create",
     body: "Rows with a matching Prefix/ID or Title update the existing lead. Rows with no match create a new one.",
   },
   {
-    icon: "✨",
+    icon: "abstract-26",
     title: "Auto-create entities",
     body: "Unknown Company, Status, Category, or Service values are created automatically during import.",
   },
   {
-    icon: "📅",
+    icon: "calendar-8",
     title: "Date formats",
     body: "Use DD-MM-YYYY or YYYY-MM-DD for all date columns (Inquiry Date, PO Date, etc.).",
   },
   {
-    icon: "👤",
-    title: "Contact matching",
-    body: "Contacts are matched first by phone number, then by name + company if no phone match is found.",
+    icon: "chart-simple",
+    title: "Rate type decides the total",
+    body: "rateType RATE (the default) means totalCost = area × rate, recalculated even if you also supply totalCost. rateType LUMPSUM means you enter totalCost yourself and rate is stored as 0.",
   },
   {
-    icon: "🧮",
-    title: "Auto-cost calculation",
-    body: "If Cost is empty but Area and Rate are provided, Cost is auto-calculated as Area × Rate.",
+    icon: "receipt-square",
+    title: "One column per figure",
+    body: "area, rateType, rate and totalCost are the only money columns. A 'Fees' header is read as rate.",
   },
   {
-    icon: "⚠️",
+    icon: "information-5",
     title: "Error handling",
     body: "Rows with validation errors are skipped. All valid rows still import successfully.",
   },
 ];
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+/** Column headers for the preview table, in render order. */
+const PREVIEW_HEADS = [
+  "Action",
+  "Title",
+  "Inquiry date",
+  "Category / sub",
+  "Company",
+  "Status",
+  "Assigned to",
+  "Area / cost",
+];
+
+/** "NEW" marker next to an entity the import will create on the fly. */
+function NewMark({ show }: { show?: boolean }) {
+  return show ? (
+    <ToneChip tone="success" label="NEW" dense sx={{ mt: 0.5, alignSelf: "flex-start" }} />
+  ) : null;
 }
 
 const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
+  // null = the mode has not been chosen yet for this opening of the modal.
+  const [mode, setMode] = useState<ImportMode | null>(null);
+  const [legacyOrganizationId, setLegacyOrganizationId] = useState("");
   const [currentScreen, setCurrentScreen] = useState<Screen>("upload");
-  const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreviewResult | null>(null);
-  const [loadingStep, setLoadingStep] = useState(0);
-  const [loadingPercent, setLoadingPercent] = useState(0);
-  const [importingStep, setImportingStep] = useState(0);
-  const [isDragOver, setIsDragOver] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [importResult, setImportResult] = useState<ImportExecuteResult | null>(
     null,
   );
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Animate validation checklist and percentage
-  useEffect(() => {
-    if (currentScreen !== "loading") {
-      setLoadingPercent(0);
-      return;
-    }
-
-    const delays = [600, 1500, 2600, 3600];
-    const timers = delays.map((ms, i) =>
-      setTimeout(() => setLoadingStep(i + 1), ms),
-    );
-
-    // Smooth percentage counter to 100% over ~4.2s
-    const start = 0;
-    const duration = 4200;
-    const interval = 40;
-    const increment = 100 / (duration / interval);
-
-    const percentTimer = setInterval(() => {
-      setLoadingPercent((prev) => {
-        if (prev >= 100) {
-          clearInterval(percentTimer);
-          return 100;
-        }
-        return Math.min(100, prev + increment);
-      });
-    }, interval);
-
-    return () => {
-      timers.forEach(clearTimeout);
-      clearInterval(percentTimer);
-    };
-  }, [currentScreen]);
-
-  // Cycle importing label every 1.4 s
-  useEffect(() => {
-    if (currentScreen !== "importing") return;
-    setImportingStep(0);
-    const id = setInterval(
-      () => setImportingStep((p) => (p + 1) % IMPORTING_LABELS.length),
-      1400,
-    );
-    return () => clearInterval(id);
-  }, [currentScreen]);
+  const brand = tonePair("brand").fg;
+  const success = tonePair("success").fg;
+  const danger = tonePair("danger").fg;
 
   const resetState = useCallback(() => {
     setCurrentScreen("upload");
-    setFile(null);
     setPreview(null);
-    setLoadingStep(0);
-    setImportingStep(0);
-    setIsDragOver(false);
+    setShowRules(false);
     setImportResult(null);
+    // Reopening the modal asks which mode again rather than silently reusing
+    // whatever was chosen last time.
+    setMode(null);
+    setLegacyOrganizationId("");
   }, []);
 
   const handleHide = () => {
@@ -174,47 +180,10 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
     onHide();
   };
 
-  const applyFile = (f: File) => {
-    if (!f.name.toLowerCase().endsWith(".csv")) {
-      errorConfirmation("Only CSV files are accepted.");
-      return;
-    }
-    if (f.size > 10 * 1024 * 1024) {
-      errorConfirmation(
-        "File size exceeds 10 MB. Please upload a smaller file.",
-      );
-      return;
-    }
-    setFile(f);
-    setPreview(null);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-  const handleDragLeave = () => setIsDragOver(false);
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const dropped = e.dataTransfer.files[0];
-    if (dropped) applyFile(dropped);
-  };
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) applyFile(f);
-    e.target.value = "";
-  };
-
-  const handlePreview = async () => {
-    if (!file) return;
-    setLoadingStep(0);
+  const handlePreview = async (file: File) => {
     setCurrentScreen("loading");
     try {
-      const [result] = await Promise.all([
-        previewLeadImport(file),
-        new Promise<void>((resolve) => setTimeout(resolve, 4200)),
-      ]);
+      const result = await previewLeadImport(file);
       setPreview(result);
       setCurrentScreen("preview");
     } catch (err: unknown) {
@@ -228,34 +197,21 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
   const handleImport = async () => {
     if (!preview || preview.validRows.length === 0) return;
     setCurrentScreen("importing");
-    setImportingStep(0);
     try {
       const result: any = await executeLeadImport(preview.validRows);
       // Backend returns { message, result: { count, created, updated } }
-      // We want to store the inner result object
       setImportResult(result.result || result);
       setCurrentScreen("done");
-      // REMOVED: eventBus.emit from here to prevent parent refresh while modal is open
+      // The parent is notified on close, not here — refreshing the list under an
+      // open modal reshuffles what the summary is describing.
     } catch (err: unknown) {
-      // If error, go back to preview so they can see the table again
+      // Back to preview so the table is still there to look at.
       setCurrentScreen("preview");
       errorConfirmation(
         err instanceof Error ? err.message : "Failed to execute import",
       );
     }
   };
-
-  // Progress percentage for the "Leading Bar"
-  const progressPercent =
-    currentScreen === "upload"
-      ? 0
-      : currentScreen === "loading"
-        ? loadingPercent
-        : currentScreen === "preview"
-          ? 40
-          : currentScreen === "importing"
-            ? 40 + (importingStep / 4) * 50
-            : 100;
 
   // 0 = Upload, 1 = Validate & preview, 2 = Import
   const stepIndex =
@@ -272,6 +228,42 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
   const updates =
     preview?.validRows.filter((r) => r.importAction?.includes("Update"))
       .length ?? 0;
+
+  /** "3 new leads and 2 existing leads" — only the halves that actually happen. */
+  const previewClauses: JSX.Element[] = [];
+  if (newLeads > 0) {
+    previewClauses.push(
+      <Box component="span" key="create">
+        <Count value={newLeads} tone="success" /> new {newLeads === 1 ? "lead" : "leads"}
+      </Box>,
+    );
+  }
+  if (updates > 0) {
+    previewClauses.push(
+      <Box component="span" key="update">
+        <Count value={updates} tone="brand" /> existing {updates === 1 ? "lead" : "leads"}
+      </Box>,
+    );
+  }
+
+  /** The same sentence again on the receipt, from what the server actually wrote. */
+  const doneClauses: JSX.Element[] = [];
+  if ((importResult?.created ?? 0) > 0) {
+    doneClauses.push(
+      <Box component="span" key="created">
+        <Count value={importResult!.created} tone="success" /> new{" "}
+        {importResult!.created === 1 ? "lead" : "leads"}
+      </Box>,
+    );
+  }
+  if ((importResult?.updated ?? 0) > 0) {
+    doneClauses.push(
+      <Box component="span" key="updated">
+        <Count value={importResult!.updated} tone="brand" /> existing{" "}
+        {importResult!.updated === 1 ? "lead" : "leads"}
+      </Box>,
+    );
+  }
 
   // Build new-entity summary
   const entitySummary: string[] = preview
@@ -293,886 +285,395 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
         ]
     : [];
 
-  return (
-    <Modal show={show} onHide={handleHide} size="xl" backdrop="static" centered>
-      {/* ── Leading Progress Bar ── */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 4,
-          zIndex: 1060,
-          backgroundColor: "rgba(0,0,0,0.05)",
-          overflow: "hidden",
-          borderTopLeftRadius: 8,
-          borderTopRightRadius: 8,
+  // ── Import mode gate ─────────────────────────────────────────────────────────
+  // Placed after every hook above so hook order is unconditional. The standard
+  // flow below is unchanged; legacy migration is a separate wizard entirely.
+  if (show && mode === null) {
+    return (
+      <ImportModeSelector
+        open
+        onClose={handleHide}
+        onSelect={(nextMode, orgId) => {
+          setLegacyOrganizationId(orgId);
+          setMode(nextMode);
         }}
-      >
-        <div
-          style={{
-            height: "100%",
-            backgroundColor: "#1B84FF",
-            width: `${progressPercent}%`,
-            transition: "width 0.3s linear",
-            boxShadow: "0 0 10px rgba(27, 132, 255, 0.5)",
-          }}
-        />
-      </div>
+      />
+    );
+  }
 
-      <Modal.Header closeButton className="border-0 pb-0 pt-6">
-        <Modal.Title className="fw-bold fs-4">Bulk Lead Import</Modal.Title>
-      </Modal.Header>
+  if (mode === "legacy") {
+    return (
+      <LegacyMigrationWizard
+        show={show}
+        organizationId={legacyOrganizationId}
+        onHide={() => {
+          setMode(null);
+          onHide();
+        }}
+        onCompleted={() => eventBus.emit(EVENT_KEYS.leadCreated, { id: "bulk" })}
+      />
+    );
+  }
 
-      <Modal.Body className="p-0">
-        {/* ── Step progress indicator ── */}
-        <div className="px-7 pt-5 pb-4">
-          <div className="d-flex align-items-center justify-content-center">
-            {(["Upload file", "Validate & preview", "Import"] as const).map(
-              (label, i) => {
-                const done = stepIndex > i;
-                const active = stepIndex === i;
-                return (
-                  <React.Fragment key={label}>
-                    <div
-                      className="d-flex flex-column align-items-center"
-                      style={{ minWidth: 120 }}
-                    >
-                      <div
-                        className="rounded-circle d-flex align-items-center justify-content-center fw-bold"
-                        style={{
-                          width: 32,
-                          height: 32,
-                          fontSize: 14,
-                          backgroundColor: done
-                            ? "#17C964"
-                            : active
-                              ? "#1B84FF"
-                              : "#e9ecef",
-                          color: done || active ? "#fff" : "#6c757d",
-                          transition: "all 0.3s",
-                        }}
-                      >
-                        {done ? (
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 16 16"
-                            fill="none"
-                          >
-                            <path
-                              d="M3 8l3.5 3.5L13 5"
-                              stroke="#fff"
-                              strokeWidth="2.2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        ) : (
-                          i + 1
-                        )}
-                      </div>
-                      <span
-                        className="mt-1 text-center"
-                        style={{
-                          fontSize: 12,
-                          fontWeight: active ? 600 : 400,
-                          color: done
-                            ? "#17C964"
-                            : active
-                              ? "#1B84FF"
-                              : "#6c757d",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {label}
-                      </span>
-                    </div>
-                    {i < 2 && (
-                      <div
-                        style={{
-                          flex: 1,
-                          height: 2,
-                          maxWidth: 80,
-                          backgroundColor: done ? "#17C964" : "#e9ecef",
-                          marginBottom: 20,
-                          transition: "background-color 0.4s",
-                        }}
-                      />
-                    )}
-                  </React.Fragment>
-                );
-              },
-            )}
-          </div>
-        </div>
+  const header = (
+    <GlassHeader
+      title="Bulk lead import"
+      subtitle="Add or update leads from a CSV"
+      icon={<KTIcon iconName="file-up" className="fs-1" />}
+      onClose={handleHide}
+    />
+  );
 
-        <div style={{ minHeight: 400 }}>
-          {/* ══════════════════════════════════════════════
-              SCREEN 1 — Upload
-          ══════════════════════════════════════════════ */}
-          {currentScreen === "upload" && (
-            <div className="px-7 pb-7">
-              {/* Drag-and-drop zone (BIGGER) */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                style={{
-                  border: `2px dashed ${isDragOver ? "#1B84FF" : "#dee2e6"}`,
-                  borderRadius: 16,
-                  padding: showRules ? "50px 24px" : "100px 24px",
-                  textAlign: "center",
-                  cursor: "pointer",
-                  backgroundColor: isDragOver ? "#f0f7ff" : "#fafafa",
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  boxShadow: showRules
-                    ? "none"
-                    : "inset 0 0 15px rgba(0,0,0,0.02)",
-                }}
+  return (
+    // xl to match the migration wizard: the preview is an eight-column table and
+    // anything narrower makes every cell a two-line wrap.
+    <GlassDialog open={show} onClose={handleHide} header={header} maxWidth="xl" fullWidth>
+      <Box sx={{ p: { xs: 1.5, sm: 2.5 } }}>
+        <Box sx={{ mb: 2 }}>
+          <WtStepper
+            steps={[
+              { label: "Upload" },
+              { label: "Validate & preview" },
+              { label: "Import" },
+            ]}
+            activeStep={stepIndex}
+          />
+        </Box>
+
+        {currentScreen === "upload" && (
+          <CsvUploadStep
+            columns={COLUMNS}
+            onSubmit={handlePreview}
+            intro="Upload a CSV whose headers match the column names below. Nothing is written until you review the preview and confirm."
+            primaryLabel="Required column"
+            secondaryLabel="Other supported columns"
+            submitLabel="Preview data →"
+            readyVerb="preview"
+            templateFileName="lead-import-template.csv"
+          >
+            <Box sx={{ mt: 2 }}>
+              <WtButton
+                size="small"
+                ghost
+                onClick={() => setShowRules((prev) => !prev)}
+                startIcon={
+                  <KTIcon iconName={showRules ? "minus-square" : "plus-square"} className="fs-4" />
+                }
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv"
-                  style={{ display: "none" }}
-                  onChange={handleFileInput}
-                />
+                {showRules ? "Hide import rules" : "Show import rules"}
+              </WtButton>
 
-                {file ? (
-                  <div className="py-10 d-flex flex-column align-items-center text-center">
-                    {/* File Icon Box */}
-                    <div
-                      className="d-flex align-items-center justify-content-center mb-4"
-                      style={{
-                        width: 90,
-                        height: 90,
-                        backgroundColor: "#F1F5F9",
-                        borderRadius: 16,
-                      }}
+              {showRules && (
+                <Box
+                  sx={{
+                    mt: 1.5,
+                    display: "grid",
+                    gap: 1.5,
+                    gridTemplateColumns: {
+                      xs: "1fr",
+                      md: "repeat(2, minmax(0, 1fr))",
+                    },
+                  }}
+                >
+                  {RULES.map((rule) => (
+                    <GlassSurface
+                      key={rule.title}
+                      variant="thin"
+                      sx={{ p: 1.5, borderRadius: "12px", borderColor: "divider" }}
                     >
-                      <span
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 700,
-                          color: "#1B84FF",
-                          letterSpacing: 1,
-                        }}
-                      >
-                        CSV
-                      </span>
-                    </div>
+                      <Stack direction="row" spacing={1.25} alignItems="flex-start">
+                        <Box sx={{ color: brand, flexShrink: 0, mt: "1px" }}>
+                          <KTIcon iconName={rule.icon} className="fs-3" />
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography
+                            sx={{ fontSize: 13, fontWeight: 700, color: "text.primary" }}
+                          >
+                            {rule.title}
+                          </Typography>
+                          <Typography
+                            sx={{ fontSize: 12.5, color: "text.secondary", lineHeight: 1.6 }}
+                          >
+                            {rule.body}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </GlassSurface>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </CsvUploadStep>
+        )}
 
-                    {/* File Name */}
-                    <div className="fs-3 fw-semibold text-dark mb-1">
-                      {file.name}
-                    </div>
+        {currentScreen === "loading" && (
+          <Stack alignItems="center" spacing={1.5} sx={{ py: 6 }}>
+            <CircularProgress />
+            {/* Honest state: this really is the server working, with no fake timeline. */}
+            <Typography sx={{ color: "text.secondary" }}>
+              Reading the file, validating rows and matching companies…
+            </Typography>
+          </Stack>
+        )}
 
-                    {/* File Size */}
-                    <div className="text-muted fs-6 mb-3">
-                      {formatFileSize(file.size)}
-                    </div>
-
-                    {/* Status */}
-                    <div
-                      className="mb-4"
-                      style={{
-                        fontSize: 13,
-                        color: "#16a34a",
-                        fontWeight: 500,
-                      }}
-                    >
-                      ✔ Ready to process
-                    </div>
-
-                    {/* Actions */}
-                    <div className="d-flex gap-3">
-                      <button
-                        className="btn btn-light-danger px-4"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFile(null);
-                        }}
-                      >
-                        Remove
-                      </button>
-
-                      <button
-                        className="btn btn-light-primary px-4"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          fileInputRef.current?.click();
-                        }}
-                      >
-                        Replace
-                      </button>
-                    </div>
-                  </div>
+        {currentScreen === "preview" && preview && (
+          <Stack spacing={2}>
+            <GlassSurface
+              variant="thin"
+              sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: "16px", borderColor: "divider" }}
+            >
+              <Typography sx={{ fontSize: 17, color: "text.primary", lineHeight: 1.5 }}>
+                {previewClauses.length === 0 ? (
+                  "This file has no rows that can be imported."
                 ) : (
                   <>
-                    <div
-                      className="rounded-circle mx-auto mb-4 d-flex align-items-center justify-content-center"
-                      style={{
-                        width: 80,
-                        height: 80,
-                        backgroundColor: "#f1faff",
-                        transition: "transform 0.3s",
-                      }}
-                    >
-                      <svg
-                        width="40"
-                        height="40"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <path
-                          d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-                          stroke="#1B84FF"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <polyline
-                          points="17 8 12 3 7 8"
-                          stroke="#1B84FF"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <line
-                          x1="12"
-                          y1="3"
-                          x2="12"
-                          y2="15"
-                          stroke="#1B84FF"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </div>
-                    <div className="fw-bold text-dark mb-2 fs-4">
-                      Drag &amp; drop your CSV here
-                    </div>
-                    <div className="text-muted fs-6">
-                      or{" "}
-                      <span className="text-primary fw-bold">
-                        click to browse
-                      </span>{" "}
-                      &nbsp;·&nbsp; CSV only &nbsp;·&nbsp; max 10 MB
-                    </div>
+                    Importing{" "}
+                    {previewClauses.length === 2 ? (
+                      <>
+                        {previewClauses[0]} and {previewClauses[1]}
+                      </>
+                    ) : (
+                      previewClauses[0]
+                    )}
+                    .
                   </>
                 )}
-              </div>
+              </Typography>
+            </GlassSurface>
 
-              {/* Column pills - Unified List */}
-              <div className="mt-6">
-                <div
-                  className="text-muted fw-bold mb-3"
-                  style={{
-                    fontSize: 11,
-                    textTransform: "uppercase",
-                    letterSpacing: "1px",
-                  }}
-                >
-                  SUPPORTED COLUMNS
-                </div>
-                <div className="d-flex flex-wrap gap-2">
-                  {/* Required Column first */}
-                  <span
-                    className="badge"
-                    style={{
-                      backgroundColor: "#1B84FF",
-                      color: "#fff",
-                      fontSize: 13,
-                      padding: "8px 16px",
-                      borderRadius: 8,
-                    }}
-                  >
-                    title ✱
-                  </span>
-
-                  {/* Optional Columns */}
-                  {OPTIONAL_COLS.map((col) => (
-                    <span
-                      key={col}
-                      className="badge"
-                      style={{
-                        backgroundColor: "#f1f3f5",
-                        color: "#495057",
-                        fontSize: 13,
-                        padding: "8px 16px",
-                        borderRadius: 8,
-                        fontWeight: 500,
-                      }}
-                    >
-                      {col}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Rule Toggle */}
-              <div className="mt-6">
-                <button
-                  className="btn btn-sm btn-light-primary fw-bold d-flex align-items-center gap-2"
-                  onClick={() => setShowRules(!showRules)}
-                >
-                  <KTIcon
-                    iconName={showRules ? "minus" : "plus"}
-                    className="fs-3"
-                  />
-                  {showRules ? "Hide Import Rules" : "Show Import Rules"}
-                </button>
-              </div>
-
-              {/* Rule cards (Dynamic) */}
-              {showRules && (
-                <div className="mt-4 animate__animated animate__fadeIn">
-                  <div className="row g-3">
-                    {RULES.map((rule) => (
-                      <div key={rule.title} className="col-6">
-                        <div
-                          className="p-3 rounded-3 h-100"
-                          style={{
-                            backgroundColor: "#f8f9fa",
-                            border: "1px solid #e9ecef",
-                          }}
-                        >
-                          <div className="d-flex align-items-start gap-2">
-                            <span
-                              style={{
-                                fontSize: 20,
-                                lineHeight: "1.3",
-                                flexShrink: 0,
-                              }}
-                            >
-                              {rule.icon}
-                            </span>
-                            <div>
-                              <div
-                                className="fw-semibold text-dark mb-1"
-                                style={{ fontSize: 13 }}
-                              >
-                                {rule.title}
-                              </div>
-                              <div
-                                className="text-muted"
-                                style={{ fontSize: 12, lineHeight: 1.6 }}
-                              >
-                                {rule.body}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Footer */}
-              <div
-                className="d-flex align-items-center justify-content-between mt-6 pt-4"
-                style={{ borderTop: "1px solid #e9ecef" }}
-              >
-                <span className="text-muted" style={{ fontSize: 13 }}>
-                  {file
-                    ? `Ready to preview "${file.name}"`
-                    : "Select a CSV file to continue"}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-lg"
-                  disabled={!file}
-                  onClick={handlePreview}
-                  style={{ minWidth: 160, borderRadius: 10 }}
-                >
-                  Preview Data →
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ══════════════════════════════════════════════
-              SCREEN 2 — Loading / Validation
-          ══════════════════════════════════════════════ */}
-          {currentScreen === "loading" && (
-            <div
-              className="d-flex flex-column align-items-center justify-content-center py-10 px-7"
-              style={{ minHeight: 440 }}
+            <Box
+              sx={{
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: "14px",
+                maxHeight: 460,
+                overflow: "auto",
+              }}
             >
-              <div className="w-100" style={{ maxWidth: 460 }}>
-                <div className="d-flex align-items-end justify-content-between mb-3">
-                  <div>
-                    <h3 className="fw-bold text-dark mb-1">Analyzing Data</h3>
-                    <p className="text-muted fs-7 mb-0">
-                      Verifying rows and matching entities...
-                    </p>
-                  </div>
-                  <div className="text-primary fw-bold fs-2">
-                    {Math.round(loadingPercent)}%
-                  </div>
-                </div>
-
-                {/* Sleek horizontal progress */}
-                <div
-                  className="progress mb-8"
-                  style={{
-                    height: 8,
-                    borderRadius: 10,
-                    backgroundColor: "#f1f1f1",
-                  }}
-                >
-                  <div
-                    className="progress-bar progress-bar-striped progress-bar-animated"
-                    role="progressbar"
-                    style={{
-                      width: `${loadingPercent}%`,
-                      borderRadius: 10,
-                      transition: "width 0.1s linear",
-                    }}
-                  />
-                </div>
-
-                <div className="d-flex flex-column gap-4">
-                  {LOADING_STEPS.map((step, i) => {
-                    const done = loadingStep > i;
-                    const active = loadingStep === i;
-                    return (
-                      <div
-                        key={step}
-                        className="d-flex align-items-center gap-3 p-3 rounded-3"
-                        style={{
-                          backgroundColor: active ? "#f8f9fa" : "transparent",
-                          transition: "all 0.3s",
-                        }}
+              <Table size="small" stickyHeader sx={{ minWidth: 1100 }}>
+                <TableHead>
+                  <TableRow>
+                    {PREVIEW_HEADS.map((head, i) => (
+                      <TableCell
+                        key={head}
+                        align={i === PREVIEW_HEADS.length - 1 ? "right" : "left"}
+                        sx={{ ...MICRO, bgcolor: "background.paper" }}
                       >
-                        <div
-                          className={`rounded-circle d-flex align-items-center justify-content-center ${done ? "bg-success" : active ? "bg-primary" : "bg-light"}`}
-                          style={{ width: 24, height: 24 }}
-                        >
-                          {done ? (
-                            <i className="fa fa-check text-white fs-9" />
-                          ) : (
-                            <div
-                              className={
-                                active
-                                  ? "spinner-border spinner-border-sm text-white"
-                                  : ""
-                              }
-                              style={{ width: 12, height: 12 }}
-                            />
-                          )}
-                        </div>
-                        <span
-                          className={`fs-6 ${done ? "text-success" : active ? "text-primary fw-bold" : "text-muted"}`}
-                        >
-                          {step}
-                        </span>
-                      </div>
+                        {head}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {preview.validRows.map((row, i) => {
+                    const isUpdate =
+                      row.importAction?.includes("Update") ||
+                      !row.importAction?.includes("Create new lead");
+                    return (
+                      <TableRow key={i} hover>
+                        <TableCell>
+                          <ToneChip
+                            tone={isUpdate ? "warning" : "brand"}
+                            label={isUpdate ? "Update (replace)" : "Create new"}
+                            dense
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography sx={{ fontSize: 13, fontWeight: 700, color: "text.primary" }}>
+                            {row.title}
+                          </Typography>
+                          <Typography sx={{ fontSize: 11.5, color: "text.secondary", ...NUM }}>
+                            {row.prefix || "Auto-generated ID"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography sx={{ fontSize: 13, color: "text.secondary", ...NUM }}>
+                            {formatDate(row.inquiryDate)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Stack sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: "text.primary" }}>
+                              {row.category || "General"}
+                            </Typography>
+                            <NewMark show={row.isNewCategory} />
+                            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                              {row.subcategory || "—"}
+                            </Typography>
+                            <NewMark show={row.isNewSubCategory} />
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Stack sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: "text.primary" }}>
+                              {row.companyName || "—"}
+                            </Typography>
+                            <NewMark show={row.isNewCompany} />
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Stack sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 13, color: "text.primary" }}>
+                              {row.statusName || "—"}
+                            </Typography>
+                            <NewMark show={row.isNewStatus} />
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Typography sx={{ fontSize: 13, color: "text.secondary" }}>
+                            {row.assignedTo || "Unassigned"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography sx={{ fontSize: 13, fontWeight: 700, color: "text.primary", ...NUM }}>
+                            {row.area ? `${row.area} sqft` : "—"}
+                          </Typography>
+                          <Typography sx={{ fontSize: 11.5, color: "text.secondary", ...NUM }}>
+                            {row.cost ? `AED ${Number(row.cost).toLocaleString()}` : "—"}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </div>
-              </div>
-            </div>
-          )}
+                </TableBody>
+              </Table>
+            </Box>
 
-          {/* ══════════════════════════════════════════════
-              SCREEN 3 — Preview Table
-          ══════════════════════════════════════════════ */}
-          {currentScreen === "preview" && preview && (
-            <div className="px-7 pb-7">
-              {/* Summary stats */}
-              <div className="row g-4 mb-6">
-                {[
-                  {
-                    label: "Valid rows",
-                    value: preview.validRows.length,
-                    color: "#16a34a",
-                    bg: "#f0fdf4",
-                    border: "#bbf7d0",
-                  },
-                  {
-                    label: "New leads",
-                    value: newLeads,
-                    color: "#2563eb",
-                    bg: "#eff6ff",
-                    border: "#bfdbfe",
-                  },
-                  {
-                    label: "Updates",
-                    value: updates,
-                    color: "#d97706",
-                    bg: "#fffbeb",
-                    border: "#fef3c7",
-                  },
-                  {
-                    label: "Errors",
-                    value: preview.errors.length,
-                    color: "#dc2626",
-                    bg: "#fef2f2",
-                    border: "#fecaca",
-                  },
-                ].map((stat) => (
-                  <div key={stat.label} className="col-3">
-                    <div
-                      className="p-4 rounded-4 text-center h-100 d-flex flex-column justify-content-center"
-                      style={{
-                        backgroundColor: stat.bg,
-                        border: `1px solid ${stat.border}`,
-                        boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)",
-                      }}
-                    >
-                      <div
-                        className="fw-bolder mb-1"
-                        style={{
-                          fontSize: 32,
-                          color: stat.color,
-                          lineHeight: 1,
-                        }}
-                      >
-                        {stat.value}
-                      </div>
-                      <div
-                        className="fw-bold"
-                        style={{
-                          fontSize: 13,
-                          color: stat.color,
-                          opacity: 0.8,
-                        }}
-                      >
-                        {stat.label}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Data Table */}
-              <div
-                className="table-responsive border rounded-4 overflow-hidden mb-6"
-                style={{ maxHeight: 500 }}
+            {preview.errors.length > 0 && (
+              <GlassSurface
+                variant="thin"
+                sx={{
+                  p: 2,
+                  borderRadius: "14px",
+                  borderColor: toneAlpha(danger, 0.4),
+                  bgcolor: toneAlpha(danger, 0.05),
+                }}
               >
-                <table className="table table-hover align-middle mb-0">
-                  <thead className="bg-light">
-                    <tr className="text-muted fw-bold fs-7 text-uppercase gs-0">
-                      <th className="ps-4" style={{ width: 140 }}>
-                        Action
-                      </th>
-                      <th>Title</th>
-                      <th>Inquiry Date</th>
-                      <th>Category / Sub</th>
-                      <th>Company</th>
-                      <th>Status</th>
-                      <th>Assigned To</th>
-                      <th className="pe-4 text-end">Area / Cost</th>
-                    </tr>
-                  </thead>
-                  <tbody className="fs-6">
-                    {preview.validRows.map((row, i) => {
-                      const isUpdate =
-                        row.importAction?.includes("Update") ||
-                        !row.importAction?.includes("Create new lead");
-                      return (
-                        <tr key={i} className="border-bottom border-gray-200">
-                          <td className="ps-4">
-                            <span
-                              className={`badge badge-light-${isUpdate ? "warning" : "primary"} fs-8 fw-bold px-3 py-2`}
-                              style={{ borderRadius: 6 }}
-                            >
-                              {isUpdate ? "Update (Replace)" : "Create New"}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="d-flex flex-column">
-                              <span className="text-dark fw-bold mb-1">
-                                {row.title}
-                              </span>
-                              <span className="text-muted fs-8">
-                                {row.prefix || "Auto-gen ID"}
-                              </span>
-                            </div>
-                          </td>
-                          <td>
-                            <span className="text-gray-700">
-                                {row.inquiryDate ? new Date(row.inquiryDate).toLocaleDateString() : "-"}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="d-flex flex-column">
-                              <span className="text-gray-800 fw-bold">
-                                {row.category || "General"}
-                              </span>
-                              {row.isNewCategory && (
-                                <span
-                                  className="badge badge-light-success fs-9 mt-1"
-                                  style={{ width: "fit-content" }}
-                                >
-                                  NEW
-                                </span>
-                              )}
-                              <span className="text-muted fs-9">
-                                {row.subcategory || "-"}
-                              </span>
-                              {row.isNewSubCategory && (
-                                <span
-                                  className="badge badge-light-success fs-9 mt-1"
-                                  style={{ width: "fit-content" }}
-                                >
-                                  NEW
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <div className="d-flex flex-column">
-                              <span className="text-gray-800 fw-bold">
-                                {row.companyName || "N/A"}
-                              </span>
-                              {row.isNewCompany && (
-                                <span
-                                  className="badge badge-light-success fs-9 mt-1"
-                                  style={{ width: "fit-content" }}
-                                >
-                                  NEW
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <div className="d-flex flex-column">
-                              <span className="text-gray-800">
-                                {row.statusName || "N/A"}
-                              </span>
-                              {row.isNewStatus && (
-                                <span
-                                  className="badge badge-light-success fs-9 mt-1"
-                                  style={{ width: "fit-content" }}
-                                >
-                                  NEW
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <span className="text-gray-700">
-                              {row.assignedTo || "Unassigned"}
-                            </span>
-                          </td>
-                          <td className="pe-4 text-end">
-                            <div className="d-flex flex-column align-items-end">
-                              <span className="text-dark fw-bold">
-                                {row.area ? `${row.area} sqft` : "-"}
-                              </span>
-                              <span className="text-muted fs-8">
-                                {row.cost
-                                  ? `AED ${Number(row.cost).toLocaleString()}`
-                                  : "-"}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Error list if any */}
-              {preview.errors.length > 0 && (
-                <div className="alert alert-dismissible bg-light-danger d-flex flex-column p-5 mb-6 rounded-4 mx-7">
-                  <div className="d-flex align-items-center mb-3">
-                    <KTIcon
-                      iconName="information-5"
-                      className="fs-2tx text-danger me-4"
-                    />
-                    <div className="d-flex flex-column">
-                      <h4 className="fw-bold text-dark">
-                        Detected Errors ({preview.errors.length})
-                      </h4>
-                      <span>These rows will be skipped during import.</span>
-                    </div>
-                  </div>
-                  <div style={{ maxHeight: 150, overflowY: "auto" }}>
-                    {preview.errors.map((err, i) => (
-                      <div key={i} className="mb-2 fs-7">
-                        <span className="text-danger fw-bold">
-                          Row {err.row}:
-                        </span>{" "}
+                <Typography sx={{ ...MICRO, color: "text.primary", mb: 1.5 }}>
+                  {preview.errors.length}{" "}
+                  {preview.errors.length === 1 ? "row will be skipped" : "rows will be skipped"}
+                </Typography>
+                <Stack spacing={1} sx={{ maxHeight: 160, overflowY: "auto" }}>
+                  {preview.errors.map((err, i) => (
+                    <Stack key={i} direction="row" spacing={1.25} alignItems="baseline">
+                      <Typography
+                        sx={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          color: "text.disabled",
+                          flex: "none",
+                          width: 46,
+                          ...NUM,
+                        }}
+                      >
+                        ROW {err.row}
+                      </Typography>
+                      <Typography sx={{ fontSize: 13, color: "text.primary", lineHeight: 1.45 }}>
                         {err.errors.join(", ")}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      </Typography>
+                    </Stack>
+                  ))}
+                </Stack>
+              </GlassSurface>
+            )}
 
-              {/* New Entity summary banner */}
-              {entitySummary.length > 0 && (
-                <div
-                  className="p-4 rounded-4 mb-6 d-flex align-items-center gap-3 mx-7"
-                  style={{
-                    backgroundColor: "#f0f9ff",
-                    border: "1px solid #bae6fd",
-                  }}
-                >
-                  <KTIcon
-                    iconName="plus-square"
-                    className="fs-2 text-primary"
-                  />
-                  <div className="fs-7 text-primary fw-bold">
-                    System will auto-create: {entitySummary.join(", ")}
-                  </div>
-                </div>
-              )}
-
-              {/* Footer */}
-              <div
-                className="d-flex align-items-center justify-content-between pt-4 px-7"
-                style={{ borderTop: "1px solid #f1f1f1" }}
+            {entitySummary.length > 0 && (
+              <Stack
+                direction="row"
+                spacing={1.25}
+                alignItems="flex-start"
+                sx={{
+                  p: 1.5,
+                  borderRadius: "12px",
+                  bgcolor: toneAlpha(brand, 0.06),
+                  border: `1px solid ${toneAlpha(brand, 0.2)}`,
+                }}
               >
-                <button
-                  type="button"
-                  className="btn btn-light btn-lg"
-                  onClick={() => setCurrentScreen("upload")}
-                  style={{ borderRadius: 12, minWidth: 120 }}
-                >
-                  ← Back
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-success btn-lg px-10"
-                  onClick={handleImport}
-                  style={{ borderRadius: 12, fontWeight: 700 }}
-                >
-                  Import {preview.validRows.length} leads
-                </button>
-              </div>
-            </div>
-          )}
+                <Box sx={{ color: brand, mt: "1px", flexShrink: 0 }}>
+                  <KTIcon iconName="plus-square" className="fs-4" />
+                </Box>
+                <Typography sx={{ fontSize: 13, lineHeight: 1.55, color: "text.secondary" }}>
+                  These will be created during the import: {entitySummary.join(", ")}.
+                </Typography>
+              </Stack>
+            )}
 
-          {/* ══════════════════════════════════════════════
-              SCREEN 4 — Importing Progress
-          ══════════════════════════════════════════════ */}
-          {currentScreen === "importing" && (
-            <div
-              className="d-flex flex-column align-items-center justify-content-center py-10"
-              style={{ minHeight: 440 }}
+            <Stack direction="row" justifyContent="space-between">
+              <WtButton ghost onClick={() => setCurrentScreen("upload")}>
+                Back to upload
+              </WtButton>
+              <WtButton
+                disabled={preview.validRows.length === 0}
+                onClick={handleImport}
+                sx={{ minWidth: 170 }}
+              >
+                {`Import ${preview.validRows.length} ${preview.validRows.length === 1 ? "lead" : "leads"}`}
+              </WtButton>
+            </Stack>
+          </Stack>
+        )}
+
+        {currentScreen === "importing" && (
+          <Stack alignItems="center" spacing={1.5} sx={{ py: 6 }}>
+            <CircularProgress />
+            <Typography sx={{ color: "text.secondary" }}>
+              Writing your rows…
+            </Typography>
+            <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>
+              Rows already written are committed. Closing this now will not undo them.
+            </Typography>
+          </Stack>
+        )}
+
+        {currentScreen === "done" && importResult && (
+          <Stack spacing={2}>
+            <GlassSurface
+              variant="thin"
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                borderRadius: "16px",
+                borderColor: toneAlpha(success, 0.35),
+                bgcolor: toneAlpha(success, 0.04),
+              }}
             >
-              <div
-                className="spinner-border text-primary mb-6"
-                style={{ width: "4rem", height: "4rem", borderWidth: "5px" }}
-              />
-              <h3 className="fw-bold text-dark mb-2">
-                {IMPORTING_LABELS[importingStep]}
-              </h3>
-              <p className="text-muted fs-6">
-                Creating records and linking data points...
-              </p>
-            </div>
-          )}
+              {/* One sentence, each number set into it. Outcomes that did not happen
+                  are told by their absence, not by a box containing 0. */}
+              <Typography sx={{ fontSize: 17, color: "text.primary", lineHeight: 1.5 }}>
+                {doneClauses.length === 0 ? (
+                  "Finished without writing anything."
+                ) : (
+                  <>
+                    Imported{" "}
+                    {doneClauses.length === 2 ? (
+                      <>
+                        {doneClauses[0]} and {doneClauses[1]}
+                      </>
+                    ) : (
+                      doneClauses[0]
+                    )}
+                    .
+                  </>
+                )}
+              </Typography>
 
-          {/* ══════════════════════════════════════════════
-              SCREEN 5 — Done
-          ══════════════════════════════════════════════ */}
-          {currentScreen === "done" && importResult && (
-            <div
-              className="d-flex flex-column align-items-center justify-content-center py-10 px-7 text-center"
-              style={{ minHeight: 440 }}
-            >
-              <div
-                className="rounded-circle d-flex align-items-center justify-content-center mb-6"
-                style={{ width: 100, height: 100, backgroundColor: "#f0fdf4" }}
-              >
-                <svg width="60" height="60" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M20 6L9 17L4 12"
-                    stroke="#16a34a"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
+              {(preview?.errors.length ?? 0) > 0 && (
+                <Typography
+                  sx={{ fontSize: 13.5, color: "text.secondary", lineHeight: 1.6, mt: 1 }}
+                >
+                  <Count value={preview!.errors.length} tone="danger" />{" "}
+                  {preview!.errors.length === 1 ? "row was" : "rows were"} skipped because they
+                  could not be read.
+                </Typography>
+              )}
+            </GlassSurface>
 
-              <h2 className="fw-bolder text-dark mb-1">Import Successful!</h2>
-              <p className="text-muted fs-5 mb-8">
-                <strong>{String(importResult?.count ?? 0)}</strong> leads have
-                been processed and updated.
-              </p>
-
-              <div className="row g-4 w-100 mb-8" style={{ maxWidth: 500 }}>
-                {[
-                  {
-                    label: "Created",
-                    value: importResult?.created ?? 0,
-                    color: "#16a34a",
-                    bg: "#f0fdf4",
-                    border: "#bbf7d0",
-                  },
-                  {
-                    label: "Updated",
-                    value: importResult?.updated ?? 0,
-                    color: "#d97706",
-                    bg: "#fffbeb",
-                    border: "#fde68a",
-                  },
-                  {
-                    label: "Skipped",
-                    value: preview?.errors.length ?? 0,
-                    color: "#dc2626",
-                    bg: "#fef2f2",
-                    border: "#fecaca",
-                  },
-                ].map((card) => (
-                  <div key={card.label} className="col-4">
-                    <div
-                      className="rounded-4 p-5 text-center h-100"
-                      style={{
-                        backgroundColor: card.bg,
-                        border: `1px solid ${card.border}`,
-                        boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)",
-                      }}
-                    >
-                      <div
-                        className="fw-bolder mb-1"
-                        style={{
-                          fontSize: 36,
-                          color: card.color,
-                          lineHeight: 1,
-                        }}
-                      >
-                        {String(card.value)}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 14,
-                          color: card.color,
-                          fontWeight: 700,
-                          opacity: 0.8,
-                        }}
-                      >
-                        {card.label}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-light btn-lg px-10 fw-bold"
-                onClick={handleHide}
-                style={{ borderRadius: 12 }}
-              >
-                Close Summary
-              </button>
-            </div>
-          )}
-        </div>
-      </Modal.Body>
-    </Modal>
+            <Stack direction="row" justifyContent="flex-end">
+              <WtButton onClick={handleHide}>Close</WtButton>
+            </Stack>
+          </Stack>
+        )}
+      </Box>
+    </GlassDialog>
   );
 };
 

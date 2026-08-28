@@ -6,8 +6,8 @@ import {
   GlassSurface,
   ToneChip,
   toast,
-  WtButton,
   ViewModeSwitch,
+  WtButton,
 } from "@app/modules/common/components/ui";
 import { formatDate } from "@utils/dateFormats";
 import { downloadDocumentArchive, fetchDocumentVault } from "@services/employee";
@@ -18,9 +18,14 @@ import DocumentCard from "./components/DocumentCard";
 import DocumentListRow from "./components/DocumentListRow";
 import DocumentPreviewDialog from "./components/DocumentPreviewDialog";
 
-import type { ViewMode } from "@app/modules/common/components/ui";
+type ViewMode = "grid" | "list";
 
 const VIEW_MODE_KEY = "wt-documents-view-mode";
+
+const VIEW_MODE_OPTIONS = [
+  { value: "grid" as const, icon: "bi-grid-3x3-gap-fill", label: "Grid view" },
+  { value: "list" as const, icon: "bi-list-ul", label: "List view" },
+];
 
 /**
  * Which layout the user last chose, remembered across visits.
@@ -333,7 +338,12 @@ const DocumentVaultView: React.FC<DocumentVaultViewProps> = ({
             {archiving ? "Preparing…" : `Download All (${documents.length})`}
           </WtButton>
 
-          <ViewModeSwitch mode={viewMode} onChange={changeViewMode} />
+          <ViewModeSwitch<ViewMode>
+            options={VIEW_MODE_OPTIONS}
+            value={viewMode}
+            onChange={changeViewMode}
+            ariaLabel="Document layout"
+          />
         </Box>
       )}
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { IconButton, Tooltip } from '@mui/material';
+import { Button, IconButton, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { T } from './tokens';
 
@@ -40,6 +40,17 @@ export interface ActionIconButtonProps {
   icon?: ReactNode;
   /** Tooltip text — also the accessible label. */
   title: string;
+  /**
+   * Render as a WIDE button with this text beside the glyph instead of a square.
+   *
+   * For card footers, where three 40px squares huddled in a corner leave the rest
+   * of the row empty and make the actions read as an afterthought. Same tone tints
+   * and the same press physics — only the shape changes, so a card's actions and a
+   * table row's still belong to one system. No tooltip: the label already names it.
+   */
+  label?: string;
+  /** Let a labelled button share the row equally with its siblings. */
+  fullWidth?: boolean;
   onClick: () => void;
   tone?: ActionTone;
   disabled?: boolean;
@@ -73,9 +84,47 @@ export default function ActionIconButton({
   tone = 'indigo',
   disabled = false,
   size = 'md',
+  label,
+  fullWidth = false,
 }: ActionIconButtonProps) {
   const color = TONE_COLOR[tone];
   const px = SIZE_PX[size];
+  const glyph = icon ?? <KTIcon iconName={iconName ?? ''} className={SIZE_ICON_CLASS[size]} />;
+
+  const toneSx = {
+    color,
+    bgcolor: `${color}1A`,
+    border: `1px solid ${color}3D`,
+    transition: 'background-color .15s, border-color .15s',
+    '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66` },
+  } as const;
+
+  if (label) {
+    return (
+      <Button
+        onClick={onClick}
+        disabled={disabled}
+        startIcon={glyph}
+        fullWidth={fullWidth}
+        sx={{
+          ...toneSx,
+          height: px,
+          minWidth: 0,
+          px: 1.25,
+          borderRadius: '10px',
+          textTransform: 'none',
+          fontSize: 12.5,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          // The kit's icon font sets its own margins; without this the glyph and
+          // the word drift apart at small sizes.
+          '& .MuiButton-startIcon': { mr: 0.625, ml: 0 },
+        }}
+      >
+        {label}
+      </Button>
+    );
+  }
 
   return (
     <Tooltip title={title}>
@@ -86,18 +135,9 @@ export default function ActionIconButton({
           onClick={onClick}
           disabled={disabled}
           aria-label={title}
-          sx={{
-            width: px,
-            height: px,
-            borderRadius: size === 'sm' ? '8px' : '10px',
-            color,
-            bgcolor: `${color}1A`,
-            border: `1px solid ${color}3D`,
-            transition: 'background-color .15s, border-color .15s',
-            '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66` },
-          }}
+          sx={{ ...toneSx, width: px, height: px, borderRadius: size === 'sm' ? '8px' : '10px' }}
         >
-          {icon ?? <KTIcon iconName={iconName ?? ''} className={SIZE_ICON_CLASS[size]} />}
+          {glyph}
         </IconButton>
       </span>
     </Tooltip>

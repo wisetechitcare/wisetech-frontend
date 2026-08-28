@@ -69,6 +69,34 @@ const capitalize = (s: string) =>
 export const emptyApprovalChains = (): ApprovalChains => emptyRecord();
 
 /**
+ * Saved `ApprovalWorkflowConfig` rows → the flat five-slot chains this form edits.
+ *
+ * Exported because the chains have to be loadable WITHOUT rendering this component. The
+ * edit wizard only mounts the step you are looking at, so the chains used to arrive in
+ * Formik purely as a side effect of opening Payroll & Access — and its save gate, which
+ * reads those form values, refused every employee whose approvers were configured but
+ * whose Approval Settings step had not been visited this session.
+ *
+ * Ignores workflow types this form does not edit (`conveyance` is in the data).
+ */
+export const approvalChainsFromConfigs = (configs: any[] | null | undefined): ApprovalChains => {
+  const chains = emptyRecord();
+
+  // Callers hand this whatever the endpoint returned, which is `{ data: [...] }` on some
+  // paths and the array itself on others — anything that is not a list means no chains.
+  (Array.isArray(configs) ? configs : []).forEach((cfg: any) => {
+    const type = cfg?.workflowType as WorkflowType;
+    if (!type || !chains[type]) return;
+    const idx = Number(cfg.level) - 1;
+    if (idx >= 0 && idx < 5 && cfg?.isActive) {
+      chains[type][idx] = String(cfg.approverId || '');
+    }
+  });
+
+  return chains;
+};
+
+/**
  * Shared rule set for one chain. Exported so the onboarding wizard, which persists
  * these AFTER creating the employee, rejects exactly what the inline Save rejects
  * rather than posting a chain the edit screen would refuse.
@@ -182,17 +210,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
           .sort((a: ApproverOption, b: ApproverOption) => a.label.localeCompare(b.label)),
       );
 
-      const configs: any[] = workflowsRes?.data || workflowsRes || [];
-      const nextChains = emptyRecord();
-
-      configs.forEach((cfg: any) => {
-        const type = cfg?.workflowType as WorkflowType;
-        if (!type || !nextChains[type]) return;
-        const idx = Number(cfg.level) - 1;
-        if (idx >= 0 && idx < 5 && cfg?.isActive) {
-          nextChains[type][idx] = String(cfg.approverId || '');
-        }
-      });
+      const nextChains = approvalChainsFromConfigs(workflowsRes?.data || workflowsRes || []);
 
       // Uncontrolled: hold the loaded chains ourselves so the pickers actually show them.
       if (!controlled) setInternalChains(nextChains);
