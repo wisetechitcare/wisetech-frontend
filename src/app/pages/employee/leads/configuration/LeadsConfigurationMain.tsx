@@ -1,9 +1,9 @@
 import { getAllLeadStatus, deleteLeadStatus, getAllLeadReferralType, deleteLeadReferralType, getAllLeadDirectSource, deleteLeadDirectSource, getAllLeadCancellationReasons, deleteLeadCancellationReason } from "@services/lead";
-import { getAllPaymentPlans, deletePaymentPlan } from "@services/paymentPlan";
 import { getAllMeetingSchedules, deleteMeetingSchedule } from "@services/meetingSchedule";
-import PaymentPlanModal from "./components/PaymentPlanModal";
 import MeetingScheduleModal from "./components/MeetingScheduleModal";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
+import PerOrgPrefixSettings from "@app/modules/common/components/PerOrgPrefixSettings";
+import ProjectConfiguration from "../../projects/configure/ProjectConfigure";
 import { fetchAllPrefixSettings, createPrefixSetting, updatePrefixSetting } from "@services/options";
 
 import { getAllProjectServices, deleteProjectService } from "@services/projects";
@@ -15,7 +15,7 @@ import Swal from "sweetalert2";
 import { Link } from "react-router-dom";
 import LeadsConfigForm from "./components/LeadsConfigForm";
 import CategoryTreeExplorer from "./components/CategoryTreeExplorer";
-import { LeadDirectSource, LeadReferralType, LeadStatus, LeadCancellationReason, PaymentPlan, MeetingScheduleType } from "@models/leads";
+import { LeadDirectSource, LeadReferralType, LeadStatus, LeadCancellationReason, MeetingScheduleType } from "@models/leads";
 import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "../../../../../hooks/useDeleteConfirmation";
 import { DropdownOption } from "../../../../../types/deleteConfirmation";
@@ -37,6 +37,7 @@ import {
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
 import { ProjectPointsConfigSection } from '@app/modules/projectPoints';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ─── ColorChip ────────────────────────────────────────────────────────────────
 
@@ -139,7 +140,7 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, badge, onEdit, onDel
             transition: 'background 0.15s ease',
           }}
         >
-          <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+          <AppIcon name="bi-pencil" className="fs-8" />
         </button>
         <button
           onClick={onDelete}
@@ -155,7 +156,7 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, badge, onEdit, onDel
             transition: 'background 0.15s ease',
           }}
         >
-          <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+          <AppIcon name="bi-trash" className="fs-8" />
         </button>
       </div>
     </div>
@@ -185,93 +186,10 @@ const EmptyState: React.FC<{ label: string }> = ({ label }) => (
     fontFamily: FONT.body,
     fontSize: '13px',
   }}>
-    <i className="bi bi-inbox" style={{ fontSize: '28px', display: 'block', marginBottom: '8px', opacity: 0.4 }} />
+    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: 'block', marginBottom: '8px', opacity: 0.4 }} />
     No {label} configured yet
   </div>
 );
-
-// ─── PaymentPlanChip ────────────────────────────────────────────────────────────
-
-const PaymentPlanChip: React.FC<{
-  plan: PaymentPlan;
-  onEdit: () => void;
-  onDelete: () => void;
-}> = ({ plan, onEdit, onDelete }) => {
-  const [hov, setHov] = useState(false);
-  const stageCount = plan.stages?.length || 0;
-  const total = (plan.stages || []).reduce(
-    (sum, s) => sum + (parseFloat(String(s.percentage)) || 0),
-    0,
-  );
-  const roundedTotal = Math.round(total * 1000) / 1000;
-  const balanced = roundedTotal === 100;
-
-  return (
-    <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        backgroundColor: hov ? '#ffffff' : '#f7f8fa',
-        border: `1px solid ${hov ? '#d1d5e0' : '#eaecf0'}`,
-        borderRadius: RADIUS.lg,
-        padding: '12px 14px',
-        transition: 'all 0.15s ease',
-        boxShadow: hov ? '0 4px 14px rgba(24,28,50,0.09)' : '0 1px 3px rgba(24,28,50,0.04)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{
-              fontFamily: FONT.body, fontWeight: 600, fontSize: '13px', color: C.textPrimary,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {plan.name}
-            </span>
-            {plan.isDefault && (
-              <span style={{
-                fontFamily: FONT.body, fontSize: '9px', fontWeight: 700, color: '#0A5C2A',
-                background: '#EDFDF3', border: '1px solid #17C96433', borderRadius: '999px',
-                padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0,
-                textTransform: 'uppercase', letterSpacing: '0.4px',
-              }}>
-                Default
-              </span>
-            )}
-          </div>
-          <div style={{ marginTop: 4, fontFamily: FONT.body, fontSize: '11.5px', color: C.textMuted }}>
-            {stageCount} stage{stageCount === 1 ? '' : 's'}
-            {' · '}
-            <span style={{ color: balanced ? '#0A5C2A' : C.danger, fontWeight: 600 }}>
-              {roundedTotal}%
-            </span>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 4, flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
-          <button
-            onClick={onEdit}
-            style={{
-              background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
-              padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center',
-            }}
-          >
-            <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
-          </button>
-          <button
-            onClick={onDelete}
-            style={{
-              background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
-              padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center',
-            }}
-          >
-            <i className="bi bi-trash" style={{ fontSize: '11px' }} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ─── MeetingScheduleChip ────────────────────────────────────────────────────────
 
@@ -329,7 +247,7 @@ const MeetingScheduleChip: React.FC<{
               padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center',
             }}
           >
-            <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+            <AppIcon name="bi-pencil" className="fs-8" />
           </button>
           <button
             onClick={onDelete}
@@ -338,7 +256,7 @@ const MeetingScheduleChip: React.FC<{
               padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center',
             }}
           >
-            <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+            <AppIcon name="bi-trash" className="fs-8" />
           </button>
         </div>
       </div>
@@ -385,10 +303,6 @@ const LeadsConfigurationMain = () => {
   const [showCancellationReasonModal, setShowCancellationReasonModal] = useState(false);
   const [editingCancellationReason, setEditingCancellationReason] = useState<LeadCancellationReason | null>(null);
 
-  const [paymentPlans, setPaymentPlans] = useState<PaymentPlan[]>([]);
-  const [showPaymentPlanModal, setShowPaymentPlanModal] = useState(false);
-  const [editingPaymentPlan, setEditingPaymentPlan] = useState<PaymentPlan | null>(null);
-
   const [meetingSchedules, setMeetingSchedules] = useState<MeetingScheduleType[]>([]);
   const [showMeetingScheduleModal, setShowMeetingScheduleModal] = useState(false);
   const [editingMeetingSchedule, setEditingMeetingSchedule] = useState<MeetingScheduleType | null>(null);
@@ -423,10 +337,6 @@ const LeadsConfigurationMain = () => {
   const handleCancellationReasonModalOpen = () => setShowCancellationReasonModal(true);
   const handleCancellationReasonModalClose = () => { setShowCancellationReasonModal(false); setEditingCancellationReason(null); };
   const handleCancellationReasonEdit = (r: LeadCancellationReason) => { setEditingCancellationReason(r); setShowCancellationReasonModal(true); };
-
-  const handlePaymentPlanModalOpen = () => { setEditingPaymentPlan(null); setShowPaymentPlanModal(true); };
-  const handlePaymentPlanModalClose = () => { setShowPaymentPlanModal(false); setEditingPaymentPlan(null); };
-  const handlePaymentPlanEdit = (p: PaymentPlan) => { setEditingPaymentPlan(p); setShowPaymentPlanModal(true); };
 
   const handleMeetingScheduleModalOpen = () => { setEditingMeetingSchedule(null); setShowMeetingScheduleModal(true); };
   const handleMeetingScheduleModalClose = () => { setShowMeetingScheduleModal(false); setEditingMeetingSchedule(null); };
@@ -497,18 +407,6 @@ const LeadsConfigurationMain = () => {
       }
     } catch (error) {
       console.error('Error fetching lead cancellation reasons:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPaymentPlans = async () => {
-    try {
-      setLoading(true);
-      const response = await getAllPaymentPlans();
-      if (response?.paymentPlans) setPaymentPlans(response.paymentPlans);
-    } catch (error) {
-      console.error('Error fetching payment plans:', error);
     } finally {
       setLoading(false);
     }
@@ -590,17 +488,6 @@ const LeadsConfigurationMain = () => {
       fetchLeadCancellationReasons();
     } catch (error) {
       console.error('Error deleting cancellation reason:', error);
-    }
-  };
-
-  const handlePaymentPlanDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation('Payment plan deleted successfully');
-      if (!confirmed) return;
-      await deletePaymentPlan(id);
-      fetchPaymentPlans();
-    } catch (error) {
-      console.error('Error deleting payment plan:', error);
     }
   };
 
@@ -717,7 +604,6 @@ const LeadsConfigurationMain = () => {
   useEffect(() => { fetchLeadReferralTypes(); }, []);
   useEffect(() => { fetchLeadDirectSources(); }, []);
   useEffect(() => { fetchLeadCancellationReasons(); }, []);
-  useEffect(() => { fetchPaymentPlans(); }, []);
   useEffect(() => { fetchMeetingSchedules(); }, []);
   useEffect(() => { fetchProjectServices(); }, []);
   useEffect(() => { fetchProjectCategories(); fetchProjectSubcategories(); }, []);
@@ -727,9 +613,6 @@ const LeadsConfigurationMain = () => {
   useEventBus(EVENT_KEYS.leadDirectSourceCreated, fetchLeadDirectSources);
   useEventBus(EVENT_KEYS.leadCancellationReasonCreated, fetchLeadCancellationReasons);
   useEventBus(EVENT_KEYS.leadCancellationReasonUpdated, fetchLeadCancellationReasons);
-  useEventBus(EVENT_KEYS.paymentPlanCreated, fetchPaymentPlans);
-  useEventBus(EVENT_KEYS.paymentPlanUpdated, fetchPaymentPlans);
-  useEventBus(EVENT_KEYS.paymentPlanDeleted, fetchPaymentPlans);
   useEventBus(EVENT_KEYS.meetingScheduleCreated, fetchMeetingSchedules);
   useEventBus(EVENT_KEYS.meetingScheduleUpdated, fetchMeetingSchedules);
   useEventBus(EVENT_KEYS.meetingScheduleDeleted, fetchMeetingSchedules);
@@ -747,7 +630,7 @@ const LeadsConfigurationMain = () => {
       <style>{KEYFRAMES}</style>
       <ConfigPageLayout
         title="Lead Configuration"
-        subtitle="Manage lead statuses, sources, referrals, and project settings"
+        subtitle="Everything the lead form offers, plus the project configuration leads convert into"
         tabs={TABS}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -756,7 +639,18 @@ const LeadsConfigurationMain = () => {
         {activeTab === 'lead' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 
-            {/* Lead Status */}
+            {/* 1. Lead Prefix Settings — Auto-Numbering (TOP PRIORITY) */}
+            <ConfigSectionCard
+              title="Lead Prefix Settings"
+              description="Set each organization's lead prefix. New leads are numbered using the prefix of the organization they are created in."
+              icon="bi-hash"
+              iconColor="amber"
+              loading={loading}
+            >
+              <PerOrgPrefixSettings typeLabel="Lead" typeValue="LEAD" />
+            </ConfigSectionCard>
+
+            {/* 2. Lead Status — Core */}
             <ConfigSectionCard
               title="Lead Status"
               description="Define the stages a lead moves through during the sales process."
@@ -788,39 +682,7 @@ const LeadsConfigurationMain = () => {
               }
             </ConfigSectionCard>
 
-            {/* Lead Cancellation Reasons */}
-            <ConfigSectionCard
-              title="Lead Cancellation Reasons"
-              description="Specify why a lead may be cancelled to improve reporting and insights."
-              icon="bi-x-circle"
-              iconColor="danger"
-              primaryAction={{
-                label: 'New Reason',
-                icon: 'bi-plus-lg',
-                onClick: handleCancellationReasonModalOpen,
-                variant: 'primary',
-              }}
-              loading={loading}
-            >
-              {leadCancellationReasons.length === 0
-                ? <EmptyState label="cancellation reasons" />
-                : (
-                  <ChipGrid>
-                    {sortCancellationReasonsAlphabetically(leadCancellationReasons).map((r: LeadCancellationReason) => (
-                      <ColorChip
-                        key={r.id}
-                        name={r.reason}
-                        color={r.color}
-                        onEdit={() => handleCancellationReasonEdit(r)}
-                        onDelete={() => handleCancellationReasonDelete(r.id!)}
-                      />
-                    ))}
-                  </ChipGrid>
-                )
-              }
-            </ConfigSectionCard>
-
-            {/* Lead Direct Source */}
+            {/* 2. Lead Direct Source — Lead Origin */}
             <ConfigSectionCard
               title="Lead Direct Source"
               description="Track where leads are originating from to measure channel effectiveness."
@@ -852,7 +714,7 @@ const LeadsConfigurationMain = () => {
               }
             </ConfigSectionCard>
 
-            {/* Lead Referral Type */}
+            {/* 3. Lead Referral Type — Lead Categorization */}
             <ConfigSectionCard
               title="Lead Referral Type"
               description="Categorize the type of referral that brought in a lead."
@@ -884,30 +746,31 @@ const LeadsConfigurationMain = () => {
               }
             </ConfigSectionCard>
 
-            {/* Payment Plans (stage-wise fee break-up) */}
+            {/* 4. Lead Cancellation Reasons — Edge Case */}
             <ConfigSectionCard
-              title="Payment Plans"
-              description="Define stage-wise fee break-up plans. On a lead, selecting a plan auto-splits the total commercial cost across its stages by percentage."
-              icon="bi-cash-stack"
-              iconColor="green"
+              title="Lead Cancellation Reasons"
+              description="Specify why a lead may be cancelled to improve reporting and insights."
+              icon="bi-x-circle"
+              iconColor="danger"
               primaryAction={{
-                label: 'New Plan',
+                label: 'New Reason',
                 icon: 'bi-plus-lg',
-                onClick: handlePaymentPlanModalOpen,
+                onClick: handleCancellationReasonModalOpen,
                 variant: 'primary',
               }}
               loading={loading}
             >
-              {paymentPlans.length === 0
-                ? <EmptyState label="payment plans" />
+              {leadCancellationReasons.length === 0
+                ? <EmptyState label="cancellation reasons" />
                 : (
                   <ChipGrid>
-                    {paymentPlans.map((plan) => (
-                      <PaymentPlanChip
-                        key={plan.id}
-                        plan={plan}
-                        onEdit={() => handlePaymentPlanEdit(plan)}
-                        onDelete={() => handlePaymentPlanDelete(plan.id!)}
+                    {sortCancellationReasonsAlphabetically(leadCancellationReasons).map((r: LeadCancellationReason) => (
+                      <ColorChip
+                        key={r.id}
+                        name={r.reason}
+                        color={r.color}
+                        onEdit={() => handleCancellationReasonEdit(r)}
+                        onDelete={() => handleCancellationReasonDelete(r.id!)}
                       />
                     ))}
                   </ChipGrid>
@@ -915,61 +778,10 @@ const LeadsConfigurationMain = () => {
               }
             </ConfigSectionCard>
 
-            {/* Meeting Schedules (project type → area brackets → meetings) */}
+            {/* 6. Services — Lead Form Fields */}
             <ConfigSectionCard
-              title="Meeting Schedules"
-              description="Define meeting schedules per project type with area brackets. On a lead, the total commercial area picks the bracket, and the completion year is derived from the inquiry date."
-              icon="bi-calendar2-week"
-              iconColor="teal"
-              primaryAction={{
-                label: 'New Schedule',
-                icon: 'bi-plus-lg',
-                onClick: handleMeetingScheduleModalOpen,
-                variant: 'primary',
-              }}
-              loading={loading}
-            >
-              {meetingSchedules.length === 0
-                ? <EmptyState label="meeting schedules" />
-                : (
-                  <ChipGrid>
-                    {meetingSchedules.map((m) => (
-                      <MeetingScheduleChip
-                        key={m.id}
-                        schedule={m}
-                        onEdit={() => handleMeetingScheduleEdit(m)}
-                        onDelete={() => handleMeetingScheduleDelete(m.id!)}
-                      />
-                    ))}
-                  </ChipGrid>
-                )
-              }
-            </ConfigSectionCard>
-
-            {/* Lead Prefix Settings */}
-            <ConfigSectionCard
-              title="Lead Prefix Settings"
-              description="Configure the auto-generated prefix format for new lead IDs."
-              icon="bi-hash"
-              iconColor="amber"
-              loading={loading}
-            >
-              <PrefixSettingsForm
-                typeLabel="Lead"
-                typeValue="LEAD"
-              />
-            </ConfigSectionCard>
-          </div>
-        )}
-
-        {/* ── Project Settings Tab ────────────────────────────────────────────── */}
-        {activeTab === 'project' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
-
-            {/* Project Services */}
-            <ConfigSectionCard
-              title="Project Services"
-              description="Define the service types that can be assigned to projects and leads."
+              title="Services"
+              description="Service options offered in the lead form's Services field."
               icon="bi-gear"
               iconColor="blue"
               primaryAction={{
@@ -998,13 +810,10 @@ const LeadsConfigurationMain = () => {
               }
             </ConfigSectionCard>
 
-            {/* Project Points — dynamic master templates */}
-            <ProjectPointsConfigSection />
-
-            {/* Project Categories & Subcategories — tree view */}
+            {/* 7. Categories & Subcategories — Lead Form Fields */}
             <ConfigSectionCard
-              title="Project Categories & Subcategories"
-              description="Each category expands to show its subcategories inline."
+              title="Categories & Subcategories"
+              description="Options offered in the lead form's Categories and Sub Categories fields. Each category expands to show its subcategories inline."
               icon="bi-diagram-3"
               iconColor="purple"
               secondaryActions={[{
@@ -1036,6 +845,50 @@ const LeadsConfigurationMain = () => {
                 )
               }
             </ConfigSectionCard>
+
+            {/* 8. Project Points — Dynamic Master Templates */}
+            <ProjectPointsConfigSection />
+
+            {/* 9. Meeting Schedules — Project-Level Configuration */}
+            <ConfigSectionCard
+              title="Meeting Schedules"
+              description="Define meeting schedules per project type with area brackets. On a lead, the total commercial area picks the bracket, and the completion year is derived from the inquiry date."
+              icon="bi-calendar2-week"
+              iconColor="teal"
+              primaryAction={{
+                label: 'New Schedule',
+                icon: 'bi-plus-lg',
+                onClick: handleMeetingScheduleModalOpen,
+                variant: 'primary',
+              }}
+              loading={loading}
+            >
+              {meetingSchedules.length === 0
+                ? <EmptyState label="meeting schedules" />
+                : (
+                  <ChipGrid>
+                    {meetingSchedules.map((m) => (
+                      <MeetingScheduleChip
+                        key={m.id}
+                        schedule={m}
+                        onEdit={() => handleMeetingScheduleEdit(m)}
+                        onDelete={() => handleMeetingScheduleDelete(m.id!)}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
+                    </div>
+        )}
+
+        {/* ── Project Settings Tab ────────────────────────────────────────────── */}
+        {activeTab === 'project' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
+            {/* The real project configuration, rendered from the Project
+                Configuration page itself rather than copied, so editing it here
+                and editing it there are the same thing. */}
+            <ProjectConfiguration embedded />
           </div>
         )}
 
@@ -1067,7 +920,7 @@ const LeadsConfigurationMain = () => {
                   justifyContent: 'center',
                   flexShrink: 0,
                 }}>
-                  <i className="bi bi-file-earmark-word" style={{ fontSize: '22px', color: '#7c3aed' }} />
+                  <AppIcon name="bi-file-earmark-word" className="fs-1" color="#7c3aed" />
                 </div>
                 <div style={{ flex: 1, minWidth: '200px' }}>
                   <div style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '14px', color: C.textPrimary, marginBottom: '4px' }}>
@@ -1079,7 +932,7 @@ const LeadsConfigurationMain = () => {
                 </div>
                 <div style={{ display: 'flex', gap: SP.sm, flexShrink: 0 }}>
                   <Link
-                    to="/qc/leads/documentation-builder"
+                    to="/leads/documentation-builder"
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -1099,11 +952,11 @@ const LeadsConfigurationMain = () => {
                     onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d1d5e0'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(24,28,50,0.06)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = 'none'; }}
                   >
-                    <i className="bi bi-book" style={{ fontSize: '13px' }} />
+                    <AppIcon name="bi-book" className="fs-7" />
                     Docs & Validation
                   </Link>
                   <Link
-                    to="/qc/leads/configuration"
+                    to="/leads/configuration"
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -1124,7 +977,7 @@ const LeadsConfigurationMain = () => {
                     onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`; }}
                     onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`; }}
                   >
-                    <i className="bi bi-box-arrow-up-right" style={{ fontSize: '13px' }} />
+                    <AppIcon name="bi-box-arrow-up-right" className="fs-7" />
                     Open Builder
                   </Link>
                 </div>
@@ -1202,14 +1055,6 @@ const LeadsConfigurationMain = () => {
         title="Subcategory"
         isEditing={!!editingSubcategory}
         initialData={editingSubcategory}
-      />
-
-      <PaymentPlanModal
-        show={showPaymentPlanModal}
-        onClose={handlePaymentPlanModalClose}
-        onSuccess={fetchPaymentPlans}
-        initialData={editingPaymentPlan}
-        isEditing={!!editingPaymentPlan}
       />
 
       <MeetingScheduleModal

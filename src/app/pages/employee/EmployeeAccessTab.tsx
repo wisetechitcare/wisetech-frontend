@@ -14,6 +14,7 @@ import { ACCESS_AREAS, AccessArea } from "@utils/accessAreas";
 import Loader from "@app/modules/common/utils/Loader";
 import { getAvatar } from "@utils/avatar";
 import AccessControlTree, { EffLevel } from "./components/AccessControlTree";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Props {
   employeeId: string;
@@ -241,7 +242,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
               className={`btn btn-sm rounded-pill px-4 ${active ? "btn-primary" : "btn-light border"}`}
               style={{ fontWeight: 600 }}
             >
-              {active && <i className="bi bi-check-lg me-1" />}
+              {active && <AppIcon name="bi-check-lg" className="me-1" />}
               {role.name}
             </button>
           );
@@ -294,7 +295,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
                               style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover", border: "1px solid #eee" }}
                             />
                           ) : (
-                            <i className="bi bi-gear-fill me-1" />
+                            <AppIcon name="bi-gear-fill" className="me-1" />
                           )}
                           by {log.actorName || "System"}
                         </span>
@@ -318,7 +319,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
           <div className="fs-5"><span className="fw-bolder">{activeModuleCount}</span> <span className="text-muted">Modules Active</span></div>
         </div>
         <button className="btn btn-primary px-6" disabled={!dirty || saving} onClick={onSaveClick}>
-          <i className="bi bi-save me-2" />
+          <AppIcon name="bi-save" className="me-2" />
           {saving ? "Saving…" : "Save Changes"}
         </button>
       </div>
@@ -358,7 +359,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
         </Modal.Body>
         <Modal.Footer>
           <button className="btn btn-light" onClick={() => setShowConfirm(false)}>Cancel</button>
-          <button className="btn btn-primary" onClick={saveAll}>Yes, save</button>
+          <button className="btn btn-primary" onClick={saveAll}>Yes, Save</button>
         </Modal.Footer>
       </Modal>
     </div>

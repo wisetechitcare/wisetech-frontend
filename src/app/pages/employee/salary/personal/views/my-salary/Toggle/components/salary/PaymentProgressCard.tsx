@@ -8,9 +8,15 @@ interface PaymentProgressCardProps {
     remainingAmount: string;
 }
 
+// One source for the bar and its legend. The legend used to declare #3b82f6 / #f59e0b while
+// the bar rendered #1E3A8A on #ffe4e6 — so the key told you the wrong colours for the chart
+// directly beside it. Derive both from the same constants and they cannot drift again.
+const PAID_COLOR = '#1E3A8A';
+const REMAINING_COLOR = '#ffe4e6';
+
 const legend = [
-    { label: 'Paid', color: '#3b82f6' }, // Modern Blue as in screenshot
-    { label: 'Remaining', color: '#f59e0b' }, // Modern Amber/Orange as in screenshot
+    { label: 'Paid', color: PAID_COLOR },
+    { label: 'Remaining', color: REMAINING_COLOR },
 ];
 
 const PaymentProgressCard = ({ title, subtitle, percentPaid, paidAmount, remainingAmount }: PaymentProgressCardProps) => {
@@ -62,10 +68,10 @@ const PaymentProgressCard = ({ title, subtitle, percentPaid, paidAmount, remaini
                 sx={{
                     height: 12,
                     borderRadius: 6,
-                    backgroundColor: '#ffe4e6', // Soft pink/red for remaining (matching screenshot track)
+                    backgroundColor: REMAINING_COLOR,
                     '& .MuiLinearProgress-bar': {
                         borderRadius: 6,
-                        backgroundColor: '#1E3A8A', // Dark red for paid (matching screenshot bar)
+                        backgroundColor: PAID_COLOR,
                     },
                 }}
             />

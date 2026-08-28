@@ -45,7 +45,25 @@ const AppRoutes: FC = () => {
           {currentUser && redirect && !isTokenExpired ? (
             <>
               <Route path='/*' element={<PrivateRoutes />} />
-              <Route index element={<Navigate to='/dashboard' />} />
+              {/* Landing is the DASHBOARD, in both navigation modes.
+                  
+                  This used to read the nav-transform flag and send shell-mode users to
+                  the workspace launcher instead. That conflated two separate things: the
+                  flag is a choice about CHROME — rail versus sidebar — and it was being
+                  used to decide DESTINATION. The consequence was that changing your
+                  navigation style silently changed where '/' lands, and since the flag
+                  persists in localStorage, every later reload of '/' landed on the
+                  launcher. One stray Ctrl+I (the toggle's global shortcut) was enough to
+                  move a user's home page permanently, with nothing on screen explaining
+                  why. That is what "reloading throws me on a weird page" was.
+
+                  The dashboard is the app's home in BOTH modes — WorkspaceShell is a
+                  pathless layout route, so '/dashboard' renders with the rail around it
+                  in shell mode and with the sidebar in classic mode. The launcher is a
+                  navigation surface, not a landing page, and it stays one click away on
+                  the rail's permanent "All applications" row (DockHomeLink) as well as at
+                  '/workspace' and '/home'. */}
+              <Route index element={<Navigate to='/dashboard' replace />} />
             </>
           ) : (
             <>

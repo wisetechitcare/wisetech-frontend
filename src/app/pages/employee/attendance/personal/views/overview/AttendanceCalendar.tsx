@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import Calendar from "react-calendar";
 import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, isDateBeforeOrSameAsCurrDate, MUMBAI_TZ as mumbaiTz } from "@utils/date";
-import { parseWorkingDays } from "@utils/workingDays";
+import { parseWorkingDays, isNonWorkingWeekday } from "@utils/workingDays";
 import { ATTENDANCE_STATUS } from "@constants/attendance";
 import { useDispatch, useSelector } from "react-redux";
 import { trackMonthChange } from "@redux/slices/attendance";
@@ -36,6 +36,7 @@ import { setFeatureConfiguration } from "@redux/slices/featureConfiguration";
 import { filter, has } from "lodash";
 import RaiseRequestForEmployee from "./RaiseRequestForEmployee";
 import { validatePreviousDaysAttendance } from "@utils/attendanceValidation";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface Cell {
     date: string;
@@ -199,9 +200,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
             const filteredPublicHolidays = publicHolidaysResponse?.data?.publicHolidays?.length ? publicHolidaysResponse?.data?.publicHolidays.filter((holiday: any) => holiday?.isActive) : [];
             setPublicHolidays(filteredPublicHolidays || []);
             setLeaves(leavesResponse?.data?.leaves || []);
-            // debugger;
             setRestrictionDataLoaded(true);
-            // debugger;
         } catch (error) {
             console.error('Error fetching restriction data:', error);
             // Set empty arrays as fallback
@@ -228,7 +227,6 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                 } else if (typeof restrictValue !== 'number' || restrictValue < 0) {
                     restrictValue = 1; // Default to 1 day
                 }
-                // debugger;
                 setRestrictionDays(restrictValue);
                 // Update Redux store with the fetched configuration
                 dispatch(setFeatureConfiguration({
@@ -272,15 +270,10 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
     });
     const reportsToId = useSelector((state: RootState) => state.employee.currentEmployee.reportsToId);
 
-    const isWeekendFromConfig = (date: Date): boolean => {
-        if (!branchWorkingDays) {
-            // Default weekend check (Saturday and Sunday) if no config
-            return dayjs(date).day() === 0 || dayjs(date).day() === 6;
-        }
-
-        const dayName = dayjs(date).format('dddd').toLowerCase();
-        return branchWorkingDays[dayName] === '0';
-    }
+    // Shared with the leave suggestion engine so the calendar and the suggestions can
+    // never disagree about which days are off.
+    const isWeekendFromConfig = (date: Date): boolean =>
+        isNonWorkingWeekday(date, branchWorkingDays);
 
 
     const handleMonthChange = async (el: any) => {
@@ -367,7 +360,6 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
             const selectedDate = dayjs(date);
             const currentDate = dayjs();
             const daysDifference = currentDate.diff(selectedDate, 'day');
-            // debugger;
             // Allow requests for dates within the configured number of calendar days
             return daysDifference <= (restrictionDays - 1); // -1 for inclusive counting
         } catch (error) {
@@ -805,13 +797,13 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                         }
                     </Typography>
                     <IconButton onClick={handleClose} size="small" aria-label="close">
-                        <i className="bi bi-x-lg" />
+                        <AppIcon name="bi-x-lg" />
                     </IconButton>
                 </DialogTitle>
                 <DialogContent>
                     {showRequestTypeSelection ? (
                         <div className='d-flex flex-column align-items-center'>
-                            <h5 className='mb-4'>What type of request would you like to raise?</h5>
+                            <h5 className='mb-4'>What Type of Request Would You Like to Raise?</h5>
                             <div className='d-flex gap-3'>
                                 <button
                                     type='button'
@@ -819,7 +811,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                     style={{ border: "1px solid rgb(175, 16, 16)" }}
                                     onClick={() => handleRequestTypeSelection('checkin')}
                                 >
-                                    {/* <i className='bi bi-box-arrow-in-right me-2'></i> */}
+                                    {/* <AppIcon name="bi-box-arrow-in-right" className="me-2" /> */}
                                     Check-In Request
                                 </button>
                                 <button
@@ -829,14 +821,14 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                     onClick={() => hasCheckInData && handleRequestTypeSelection('checkout')}
                                     disabled={!hasCheckInData}
                                 >
-                                    {/* <i className='bi bi-box-arrow-right me-2'></i> */}
+                                    {/* <AppIcon name="bi-box-arrow-right" className="me-2" /> */}
                                     Check-Out Request
                                 </button>
                             </div>
                             {!hasCheckInData && (
                                 <div className='mt-3 text-center'>
                                     <small className='text-muted'>
-                                        <i className='bi bi-info-circle me-1'></i>
+                                        <AppIcon name="bi-info-circle" className="me-1" />
                                         Since check-in is not present, please create a check-in request first
                                     </small>
                                 </div>
@@ -853,7 +845,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                     </button>
                                     <div className='mt-2'>
                                         <small className='text-muted'>
-                                            <i className='bi bi-info-circle me-1'></i>
+                                            <AppIcon name="bi-info-circle" className="me-1" />
                                             Use this option to raise attendance request on behalf of another employee
                                         </small>
                                     </div>
@@ -955,7 +947,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                                 setRequestType(null);
                                             }}
                                         >
-                                            <i className='bi bi-arrow-left me-2 text-white'></i>
+                                            <AppIcon name="bi-arrow-left" className="me-2 text-white" />
                                             Back
                                         </button>
                                         <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }} disabled={loading || limitMessage || !canSubmitRequest || isValidating}>

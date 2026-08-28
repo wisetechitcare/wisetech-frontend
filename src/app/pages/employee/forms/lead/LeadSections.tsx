@@ -6,7 +6,6 @@ import { ProjectPointsSection } from "@app/modules/projectPoints";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
-import { SmartLocationPicker } from "./SmartLocationPicker";
 import { FieldArray, useFormikContext } from "formik";
 import { Button } from "react-bootstrap";
 import { Close, Add, Delete, Help, CheckCircleOutline, InfoOutlined } from "@mui/icons-material";
@@ -15,15 +14,25 @@ import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextAreaInput from "@app/modules/common/inputs/TextAreaInput";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import MultiSelectWithInlineCreate from "@app/modules/common/components/MultiSelectWithInlineCreate";
-import FormikDropdownInput from "@app/modules/common/inputs/FormikDropdownInput";
 import PrefixInlineEdit from "@app/modules/common/components/PrefixInlineEdit";
 import { CommercialsGrid } from "../shared/CommercialsGrid";
 import { PaymentStageSelector } from "./PaymentStageSelector";
 import { MeetingScheduleSelector } from "./MeetingScheduleSelector";
 import { SectionWrapper } from "./SectionWrapper";
-import { WtSwitch, TRIO } from "@app/modules/common/components/ui";
+import { WtSwitch, TRIO, AppIcon } from "@app/modules/common/components/ui";
+import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 
 interface LeadSectionsProps {
+  // ── Organization (drives the lead's prefix and inquiry-number series) ──────
+  /** Organizations the user may file this lead under, as `{ value, label }`. */
+  organizationOptions?: { value: string; label: string }[];
+  /** Switch organizations; re-numbers the lead (confirming first if hand-edited). */
+  onOrganizationChange?: (organizationId: string, setFieldValue: Function) => void;
+  /** Why no inquiry number could be generated, if that happened. */
+  prefixError?: string | null;
+  /** Fired when the inquiry number is edited by hand. */
+  onPrefixManualEdit?: () => void;
+
   // dropdown arrays
   categories: any[];
   subcategories: any[];
@@ -795,14 +804,59 @@ export const RemarksAndDocumentsSection: React.FC<LeadSectionsProps> = (props) =
 // 8. Address Details Section
 export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
-  const [mapRefreshKeys, setMapRefreshKeys] = React.useState<{[key: number]: number}>({});
 
-  const handleRefreshMap = (index: number) => {
-    setMapRefreshKeys(prev => ({
-      ...prev,
-      [index]: (prev[index] || 0) + 1
-    }));
+  // A map pick gives us NAMES ("Maharashtra"), but the three dropdowns hold master
+  // IDs and each level's options only load once the level above is chosen. So we
+  // park the picked names here and resolve them to IDs in the effects below as each
+  // cascade level's options arrive.
+  const pendingGeo = useRef<Record<number, { state?: string; city?: string }>>({});
+
+  const norm = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const byName = (list: any[], name?: string) =>
+    name ? list.find((o: any) => norm(o.name) === norm(name)) : undefined;
+
+  const applyGeoPick = (index: number, geo: GeoPick) => {
+    setFieldValue(`addresses.${index}.latitude`, String(geo.lat));
+    setFieldValue(`addresses.${index}.longitude`, String(geo.lng));
+    setFieldValue(`addresses.${index}.googleMapLink`, geo.googleMapLink);
+    if (geo.formatted) setFieldValue(`addresses.${index}.projectAddress`, geo.formatted);
+    if (geo.locality) setFieldValue(`addresses.${index}.locality`, geo.locality);
+    if (geo.postcode) setFieldValue(`addresses.${index}.zipCode`, geo.postcode);
+
+    const country = byName(props.countries || [], geo.country);
+    if (country) {
+      pendingGeo.current[index] = { state: geo.state, city: geo.city };
+      // Loads this country's states, which the state effect below then matches.
+      props.handleAddressCountryChange(index, country.id, setFieldValue);
+    }
   };
+
+  // Resolve the pending STATE name once its options land.
+  useEffect(() => {
+    Object.keys(pendingGeo.current).forEach((key) => {
+      const index = Number(key);
+      const pending = pendingGeo.current[index];
+      if (!pending?.state) return;
+      const match = byName(values.addressStatesOptions?.[index] || [], pending.state);
+      if (!match) return;
+      delete pending.state;
+      props.handleAddressStateChange(index, match.id, values.addresses?.[index]?.country, setFieldValue);
+    });
+  }, [values.addressStatesOptions]);
+
+  // Then the CITY, once the chosen state's cities land.
+  useEffect(() => {
+    Object.keys(pendingGeo.current).forEach((key) => {
+      const index = Number(key);
+      const pending = pendingGeo.current[index];
+      if (!pending?.city) return;
+      const match = byName(values.addressCitiesOptions?.[index] || [], pending.city);
+      if (!match) return;
+      delete pending.city;
+      setFieldValue(`addresses.${index}.city`, match.id);
+      setFieldValue(`addressCitySelections.${index}`, match);
+    });
+  }, [values.addressCitiesOptions]);
 
   useEffect(() => {
     if (values.addresses && Array.isArray(values.addresses)) {
@@ -830,7 +884,7 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
               const cities = values.addressCitiesOptions?.[index] || [];
 
               return (
-                  <div className="position-relative">
+                  <div className="position-relative" key={index}>
                     {values.addresses.length > 1 && (
                       <IconButton
                         onClick={() => remove(index)}
@@ -840,25 +894,113 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
                         <Close fontSize="small" />
                       </IconButton>
                     )}
-                    <SmartLocationPicker 
-                      index={index} 
-                      countryOptions={countryOptions} 
-                      handleAddressCountryChange={props.handleAddressCountryChange}
-                      handleAddressStateChange={props.handleAddressStateChange}
-                    />
+                    <SmartLocationPicker
+                      lat={addr.latitude}
+                      lng={addr.longitude}
+                      onPick={(geo) => applyGeoPick(index, geo)}
+                    >
+                    <Typography sx={{ fontSize: 13, fontWeight: 700, mt: 2, mb: 1.5 }}>
+                      Advanced Location Details (Manual Override)
+                    </Typography>
+                    <Grid container spacing={2}>
+                      {/* Country → State → City cascade. Each handler writes its own
+                          field and clears/refetches the levels below it, so onChange
+                          only forwards the picked id. */}
+                      <Grid item xs={12} md={3}>
+                        <DropDownInput
+                          formikField={`addresses.${index}.country`}
+                          inputLabel="Country"
+                          options={countryOptions}
+                          onChange={(val: any) => props.handleAddressCountryChange(index, val?.value, setFieldValue)}
+                          isRequired={false}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={3}>
+                        <DropDownInput
+                          formikField={`addresses.${index}.state`}
+                          inputLabel="State"
+                          options={states.map((s: any) => ({ value: s.id, label: s.name }))}
+                          onChange={(val: any) => props.handleAddressStateChange(index, val?.value, addr.country, setFieldValue)}
+                          isRequired={false}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={3}>
+                        <DropDownInput
+                          formikField={`addresses.${index}.city`}
+                          inputLabel="City"
+                          options={cities.map((c: any) => ({ value: c.id, label: c.name }))}
+                          onChange={(val: any) => {
+                            setFieldValue(`addresses.${index}.city`, val?.value || "");
+                            setFieldValue(`addressCitySelections.${index}`, cities.find((c: any) => c.id === val?.value) || null);
+                          }}
+                          isRequired={false}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={3} />
+
+                      <Grid item xs={12} md={6}>
+                        <TextInput
+                          formikField={`addresses.${index}.locality`}
+                          label="Locality"
+                          placeholder="Area / neighbourhood — auto-filled from the map"
+                          isRequired={false}
+                        />
+                      </Grid>
+                      {/* Field stays `zipCode` — that is what the save payload and the
+                          Yup schema read; only the label follows Indian usage. */}
+                      <Grid item xs={12} md={6}>
+                        <TextInput
+                          formikField={`addresses.${index}.zipCode`}
+                          label="Pincode"
+                          isRequired={false}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <TextInput
+                          formikField={`addresses.${index}.projectAddress`}
+                          label="Formatted Address"
+                          placeholder="Building, street, landmark"
+                          isRequired={false}
+                        />
+                      </Grid>
+                      {/* Filled from the map pin (or parsed out of a pasted map link by
+                          the effect above); editable for links carrying no coordinates. */}
+                      <Grid item xs={12} md={3}>
+                        <TextInput formikField={`addresses.${index}.latitude`} label="Latitude" isRequired={false} />
+                      </Grid>
+                      <Grid item xs={12} md={3}>
+                        <TextInput formikField={`addresses.${index}.longitude`} label="Longitude" isRequired={false} />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <TextInput
+                          formikField={`addresses.${index}.googleMapLink`}
+                          label="Google Map Link"
+                          placeholder="https://www.google.com/maps/@19.1234,72.8765,17z"
+                          isRequired={false}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextInput
+                          formikField={`addresses.${index}.googleMyBusinessLink`}
+                          label="Google My Business Link"
+                          isRequired={false}
+                        />
+                      </Grid>
+                    </Grid>
+                    </SmartLocationPicker>
                   </div>
               );
             })}
-            {values.addresses.length === 0 && (
-              <Button
-                variant="outline-primary"
-                size="sm"
-                onClick={() => push({ country: "", state: "", city: "", locality: "", projectAddress: "", pincode: "", googleMapLink: "", gmbLink: "", latitude: "", longitude: "" })}
-                className="align-self-start fw-bold mt-2"
-              >
-                + Add Address details
-              </Button>
-            )}
+            <Button
+              variant="outline-primary"
+              size="sm"
+              onClick={() => push({ projectAddress: "", country: "", state: "", city: "", locality: "", zipCode: "", mapLocation: "", googleMapLink: "", googleMyBusinessLink: "", latitude: "", longitude: "", isDefault: false })}
+              className="align-self-start fw-bold mt-2"
+            >
+              + Add Address details
+            </Button>
           </div>
         )}
       </FieldArray>
@@ -1032,7 +1174,7 @@ const PoFileUpload: React.FC = () => {
           </>
         ) : url ? (
           <>
-            <i className={`bi ${icon}`} style={{ fontSize: 22, color, flexShrink: 0 }} />
+            <AppIcon name={icon} className="fs-1" style={{ color, flexShrink: 0 }} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#181c32", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {fileName}
@@ -1040,20 +1182,20 @@ const PoFileUpload: React.FC = () => {
               <div style={{ fontSize: 11, color: "#a1a5b7" }}>Uploaded</div>
             </div>
             <IconButton size="small" title="Preview" onClick={() => window.open(url, "_blank", "noopener,noreferrer")}>
-              <i className="bi bi-eye" style={{ fontSize: 15, color: "#5e6278" }} />
+              <AppIcon name="bi-eye" className="fs-5" color="#5e6278" />
             </IconButton>
             <IconButton size="small" title="Replace" disabled={!!busy} onClick={openPicker}>
-              <i className="bi bi-arrow-repeat" style={{ fontSize: 15, color: "#5e6278" }} />
+              <AppIcon name="bi-arrow-repeat" className="fs-5" color="#5e6278" />
             </IconButton>
             <IconButton size="small" title="Remove" disabled={!!busy} onClick={remove}>
               {busy === "remove"
                 ? <CircularProgress size={14} />
-                : <i className="bi bi-trash" style={{ fontSize: 15, color: "#d13438" }} />}
+                : <AppIcon name="bi-trash" className="fs-5" color="#d13438" />}
             </IconButton>
           </>
         ) : (
           <>
-            <i className="bi bi-cloud-arrow-up" style={{ fontSize: 20, color: "#7e8299", flexShrink: 0 }} />
+            <AppIcon name="bi-cloud-arrow-up" className="fs-2" color="#7e8299" style={{ flexShrink: 0 }} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#3f4254" }}>
                 Choose a file <span style={{ fontWeight: 400, color: "#a1a5b7" }}>or drop it here</span>
@@ -1432,6 +1574,22 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
         Lead Information
       </div>
       <Grid container spacing={3}>
+        {/* Organization — sits directly above the inquiry number because it is
+            what decides the number's prefix and series. */}
+        {!!props.organizationOptions?.length && (
+          <Grid item xs={12} md={4}>
+            <DropDownInput
+              formikField="organizationId"
+              inputLabel="Organization"
+              options={props.organizationOptions}
+              isRequired={true}
+              onChange={(option: any) =>
+                props.onOrganizationChange?.(option?.value || "", setFieldValue)
+              }
+            />
+          </Grid>
+        )}
+
         {/* Inquiry No + Revision No (read-only) + Date */}
         <Grid item xs={12} md={4}>
           <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
@@ -1452,10 +1610,18 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
             <PrefixInlineEdit
               value={props.prefix}
               label=""
-              onChange={props.setPrefix}
+              onChange={(next: string) => {
+                props.setPrefix(next);
+                props.onPrefixManualEdit?.();
+              }}
               disabled={false}
             />
           </Box>
+          {props.prefixError && (
+            <Typography sx={{ mt: 0.6, fontSize: "12px", color: "#B42318" }}>
+              {props.prefixError}
+            </Typography>
+          )}
         </Grid>
         <Grid item xs={12} md={4}>
           <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
@@ -1745,7 +1911,7 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
             <span className="wt-review-label">Total Value</span>
             <span
               className="wt-review-value"
-              style={{ color: "#8B1A2F", fontWeight: 700 }}
+              style={{ color: "var(--wt-primary)", fontWeight: 700 }}
             >
               ₹{" "}
               {commercialsTotal.toLocaleString("en-IN", {

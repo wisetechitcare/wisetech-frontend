@@ -8,7 +8,7 @@ process.stdin.on('data', (c) => (d += c)).on('end', () => {
     for (const m of f.messages) {
       if (m.ruleId !== 'no-restricted-syntax') continue;
       // Only the high-debt classes get baselined; the primitives stay hard errors everywhere.
-      if (!/Bootstrap component classes|No <style> blocks|toLocaleDateString/.test(m.message)) continue;
+      if (!/Bootstrap component classes|No <style> blocks|toLocaleDateString|Raw .title.|IconButton passes|Hardcoded background colour/.test(m.message)) continue;
       const p = f.filePath.split('\\').join('/');
       const i = p.lastIndexOf('/src/');
       legacy.add(i >= 0 ? p.slice(i + 1) : p);
@@ -16,7 +16,7 @@ process.stdin.on('data', (c) => (d += c)).on('end', () => {
   }
   const list = [...legacy].sort();
   const out =
-    '/* AUTO-GENERATED UI baseline — do not hand-edit; regenerate with `npm run lint:ui:baseline`.\n' +
+    '/* AUTO-GENERATED UI baseline — do not hand-edit; regenerate with `pnpm run lint:ui:baseline`.\n' +
     ' *\n' +
     ' * THE RATCHET: these files already contained banned Bootstrap component classes, <style>\n' +
     ' * blocks, or toLocaleDateString when the design-system rules landed. They are downgraded to\n' +

@@ -75,7 +75,25 @@ function SignatureInput({ setFile, imageUrl }: any) {
                     </div>
                 </div>
             </div>
-            {signatureUrl && <img src={signatureUrl} className='w-200 h-50' />}
+            {signatureUrl && (
+                <div className='signature-container'>
+                    <img
+                        src={signatureUrl}
+                        alt='Digital signature'
+                        className='img-fluid border rounded bg-white p-2 mb-3'
+                        style={{ maxHeight: 140 }}
+                    />
+                    <div className='card-toolbar text-end'>
+                        <button
+                            type="button"
+                            onClick={() => { setSignatureUrl(''); setIsPlaceholderVisible(true); }}
+                            className='btn btn-sm btn-light-primary'
+                        >
+                            Change Signature
+                        </button>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

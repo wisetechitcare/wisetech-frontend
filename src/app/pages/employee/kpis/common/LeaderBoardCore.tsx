@@ -820,6 +820,11 @@ function LeaderBoardCore({
   const [selectedFactor, setSelectedFactor] = useState<any>(null);
   const [selectedFactorRankings, setSelectedFactorRankings] = useState<any[]>([]);
   const [showAllOverAllEmployeeByScore, setShowAllOverAllEmployeeByScore] = useState(false);
+  // Separate modal for the No-Late board. The Top Performers modal above renders
+  // `RankingRow` in `overallMode` (score-only, "KPI SCORE" label) — reusing it here would
+  // print 0.00 for every row, because No-Late entries carry attendance counters, not a
+  // score. Kept as its own modal so the existing one stays exactly as configured.
+  const [showNoLateModal, setShowNoLateModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
 
   // Granular loading states â€” each section renders independently
@@ -829,6 +834,11 @@ function LeaderBoardCore({
 
   const [topFive, setTopFive] = useState<any[]>([]);
   const [allEmployeesByScore, setAllEmployeesByScore] = useState<any[]>([]);
+  // Which Top-Performers board is on screen. 'overall' is the existing KPI-score ranking.
+  // 'no-late' is a QUALIFICATION board (zero late marks, 1 leave day forgiven) — different
+  // people, same layout. Only this section switches; "Top Performers By Modules" below
+  // always stays on the KPI basis.
+  const [boardMode, setBoardMode] = useState<'overall' | 'no-late'>('overall');
   const [moduleChampions, setModuleChampions] = useState<any[]>([]);
   const [allKPIFactors, setAllKPIFactors] = useState<any[]>([]);
   const [factorRankingsMap, setFactorRankingsMap] = useState<Record<string, any[]>>({});
@@ -931,7 +941,9 @@ function LeaderBoardCore({
     if (!startDateStr || !endDateStr) return;
     const controller = new AbortController();
     // toggleChange in key ensures admin edits bust the cache for this period
-    const key = makeCacheKey(startDateStr, endDateStr, toggleChange);
+    // boardMode is part of the key: the two boards are different employee sets for the
+    // same period, so they must never share a cache entry.
+    const key = makeCacheKey(startDateStr, endDateStr, `${toggleChange}_${boardMode}`);
     const load = async () => {
       const cached = reduxLbCache[key]; // read Redux at effect-invocation time
       if (cached) {
@@ -943,7 +955,7 @@ function LeaderBoardCore({
       }
       try {
         setTopFiveLoading(true);
-        const lbData = await fetchLeaderboard(startDateStr, endDateStr, controller.signal);
+        const lbData = await fetchLeaderboard(startDateStr, endDateStr, controller.signal, boardMode);
         const result = { topFive: lbData?.topFive || [], fullList: lbData?.fullList || [] };
         dispatch(cacheLeaderboard({ key, ...result })); // persist to Redux
         setTopFive(result.topFive);
@@ -957,7 +969,7 @@ function LeaderBoardCore({
     };
     load();
     return () => controller.abort();
-  }, [startDateStr, endDateStr, toggleChange]); // reduxLbCache read at closure time, not as dep
+  }, [startDateStr, endDateStr, toggleChange, boardMode]); // reduxLbCache read at closure time, not as dep
 
   // â”€â”€ 3. Module champions â”€â”€
   useEffect(() => {
@@ -1090,6 +1102,32 @@ function LeaderBoardCore({
     [showAllOverAllEmployeeByScore, allEmployeesByScore, normalizeLeaderboardEmployee]
   );
 
+  // Rows for the No-Late modal — the SAME entries the main page shows, so "View All" is
+  // simply the unabridged version of that list rather than a differently-derived one.
+  const noLateModalRows = useMemo(
+    () => {
+      if (!showNoLateModal) return [];
+      return (allEmployeesByScore || []).map((emp: any, i: number) => {
+        const n = normalizeLeaderboardEmployee(emp);
+        return {
+          rank: emp?.rank ?? i + 1,
+          name: n.name,
+          designation: n.designation,
+          avatar: n.avatar,
+          workingDays: emp?.workingDays ?? 0,
+          expectedWorkingDays: emp?.expectedWorkingDays ?? 0,
+          leaveDays: emp?.leaveDays ?? 0,
+          isConcession: !!emp?.isConcession,
+          // The board lists EVERY active employee: qualifiers green, the rest red with
+          // the reason they missed out.
+          qualified: emp?.qualified !== false,
+          disqualifyReason: (emp?.disqualifyReason ?? null) as string | null,
+        };
+      });
+    },
+    [showNoLateModal, allEmployeesByScore, normalizeLeaderboardEmployee]
+  );
+
   const factorRankingRows: RankingRowData[] = useMemo(() => {
     const valueLabel = getMetricLabel(selectedFactor);
     return (selectedFactorRankings || []).map((item, i) => {
@@ -1114,15 +1152,39 @@ function LeaderBoardCore({
   // WHY: without this, normalizeLeaderboardEmployee() runs for every employee
   // on every render even when topFive hasn't changed (e.g. a modal opens).
   // useMemo ensures normalization only reruns when the topFive array changes.
+  // No-Late entries carry attendance counters instead of a KPI score. Map them onto the
+  // fields the podium already renders so the layout is untouched: the headline number
+  // becomes days present out of days expected. Showing a KPI score on a board that does
+  // not use KPI would be actively misleading.
+  const adaptEntry = useCallback(
+    (emp: any) => {
+      if (boardMode !== "no-late") return normalizeLeaderboardEmployee(emp);
+      const base = normalizeLeaderboardEmployee({
+        ...emp,
+        score: emp?.workingDays ?? 0,
+        maxScore: emp?.expectedWorkingDays ?? null,
+      });
+      return {
+        ...base,
+        isConcession: !!emp?.isConcession,
+        leaveDays: emp?.leaveDays ?? 0,
+        qualified: emp?.qualified !== false,
+        disqualifyReason: (emp?.disqualifyReason ?? null) as string | null,
+        metricSuffix: "DAYS",
+      };
+    },
+    [boardMode, normalizeLeaderboardEmployee]
+  );
+
   const normalizedTopFive = useMemo(
-    () => topFive.map((emp) => normalizeLeaderboardEmployee(emp)),
-    [topFive, normalizeLeaderboardEmployee]
+    () => topFive.map((emp) => adaptEntry(emp)),
+    [topFive, adaptEntry]
   );
 
   // Full standings (rank 1 → last) — powers the side list in the podium hero.
   const normalizedAllEmployees = useMemo(
-    () => (allEmployeesByScore || []).map((emp) => normalizeLeaderboardEmployee(emp)),
-    [allEmployeesByScore, normalizeLeaderboardEmployee]
+    () => (allEmployeesByScore || []).map((emp) => adaptEntry(emp)),
+    [allEmployeesByScore, adaptEntry]
   );
 
 
@@ -1188,10 +1250,66 @@ function LeaderBoardCore({
       <Row className="gy-5">
         <CommonCard styles={{ padding: "18px 22px", marginBottom: "0.75rem" }}>
           <div className="d-flex justify-content-between align-items-center mb-2">
-            <h3 style={{ fontSize: "18px", fontWeight: "bold" }}>Top Performers</h3>
+            {/* Title + subtitle stack in ONE column so the row keeps its original two-item
+                shape: title left, View All right — identical in both modes. Putting the
+                subtitle beside the title made it a third flex item, which wrapped and
+                dropped View All onto its own line on narrow screens. */}
+            <div style={{ minWidth: 0 }}>
+              {/* The heading IS the switch — click to flip between the two boards. A
+                  dropdown just repeated the heading text and cost ~190px of width. */}
+              <button
+                type="button"
+                onClick={() =>
+                  setBoardMode((m) => (m === "overall" ? "no-late" : "overall"))
+                }
+                title={
+                  boardMode === "no-late"
+                    ? "Showing No Late — click to switch back to Top Performers"
+                    : "Showing Top Performers — click to switch to No Late"
+                }
+                aria-label={`Switch board. Currently showing ${boardMode === "no-late" ? "No Late" : "Top Performers"}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  minWidth: 0,
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: "bold",
+                    margin: 0,
+                    color: "#181C32",
+                    borderBottom: "2px dashed #C7CBD8",
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {boardMode === "no-late" ? "No Late" : "Top Performers"}
+                </h3>
+                <i
+                  className="fa-solid fa-arrow-right-arrow-left fs-8"
+                  style={{ color: "#1E3A8A", flexShrink: 0 }}
+                />
+              </button>
+              {boardMode === "no-late" && !topFiveLoading && (
+                <div className="text-muted" style={{ fontSize: "12px", marginTop: "2px" }}>
+                  No late marks &middot; up to 1 leave allowed &mdash;{" "}
+                  {allEmployeesByScore.filter((e: any) => e?.qualified !== false).length} qualified
+                </div>
+              )}
+            </div>
             <button
               className="btn btn-sm fw-bold d-inline-flex align-items-center gap-2"
-              onClick={() => setShowAllOverAllEmployeeByScore(true)}
+              onClick={() =>
+                boardMode === "no-late"
+                  ? setShowNoLateModal(true)
+                  : setShowAllOverAllEmployeeByScore(true)
+              }
               style={{
                 borderRadius: "10px",
                 padding: "7px 18px",
@@ -1398,6 +1516,203 @@ function LeaderBoardCore({
         </Modal.Body>
       </Modal>
 
+      {/* ════════════════════════════════════════════
+          MODAL — No Late
+          Opened from: No Late → View All
+          Deliberately SEPARATE from the Full Leaderboard modal above: that one renders
+          RankingRow in `overallMode`, which prints `score.toFixed(2)` under a "KPI SCORE"
+          label. No-Late entries carry attendance counters and no score, so reusing it
+          showed 0.00 on every row. Shows the same rows as the main page, unabridged.
+          ════════════════════════════════════════════ */}
+      <Modal
+        show={showNoLateModal}
+        onHide={() => setShowNoLateModal(false)}
+        size="lg"
+        centered
+      >
+        <Modal.Header
+          closeButton
+          style={{ borderBottom: "2px solid #EFF2F5", padding: "20px 28px" }}
+        >
+          <div className="d-flex align-items-center justify-content-between w-100">
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <Modal.Title style={{ fontSize: "20px", fontWeight: 800, color: "#181C32" }}>
+                No Late
+              </Modal.Title>
+              <span className="text-muted fs-7 fw-bold">
+                No late marks &middot; up to 1 leave allowed
+              </span>
+            </div>
+            <div className="bg-light-success rounded-pill px-5 py-2 border border-success border-dashed">
+              <span className="text-success fw-bolder fs-7">
+                {noLateModalRows.filter((r) => r.qualified).length} of {noLateModalRows.length} Qualified
+              </span>
+            </div>
+          </div>
+        </Modal.Header>
+        <Modal.Body style={{ maxHeight: "72vh", overflowY: "auto", padding: "20px 28px" }}>
+          {noLateModalRows.length === 0 ? (
+            <div style={{ padding: "20px", color: COLORS.gray, textAlign: "center" }}>
+              No employees for this period.
+            </div>
+          ) : (
+            noLateModalRows.map((row) => {
+              // Same visual language as the Top Performers modal: STATE.success surface,
+              // MEDAL border + glow + left stripe for the podium, star rank icons and
+              // SafeAvatar. Built here rather than through RankingRow so that component
+              // (and the Top Performers modal it drives) stays untouched.
+              // Qualifiers get the green success surface and a podium medal; everyone
+              // else is rendered in the danger red, with the reason they missed out.
+              const medal = row.qualified ? MEDAL[row.rank] ?? null : null;
+              const surface = row.qualified ? STATE.success : STATE.danger;
+              return (
+                <div
+                  key={row.rank}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "14px",
+                    padding: "14px 18px",
+                    borderRadius: "12px",
+                    backgroundColor: surface.bg,
+                    border: `1.5px solid ${medal ? medal.border : surface.border}`,
+                    boxShadow: medal ? `0 2px 12px ${medal.glow}, ${surface.shadow}` : surface.shadow,
+                    marginBottom: "10px",
+                    borderLeft: medal ? `4px solid ${medal.border}` : undefined,
+                  }}
+                >
+                  {/* ── Rank ── */}
+                  <div style={{ minWidth: "36px", textAlign: "center", flexShrink: 0 }}>
+                    {row.rank <= 3 ? (
+                      <SVG
+                        src={
+                          miscellaneousIcons[
+                          `StarEmployeeRank${row.rank}` as keyof typeof miscellaneousIcons
+                          ] || miscellaneousIcons.StarEmployeeRank1
+                        }
+                        style={{ width: "32px", height: "32px" }}
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: "28px",
+                          height: "28px",
+                          borderRadius: "50%",
+                          backgroundColor: "#F5F8FA",
+                          fontSize: "13px",
+                          fontWeight: 800,
+                          color: COLORS.gray,
+                        }}
+                      >
+                        {row.rank}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* ── Avatar ── */}
+                  <SafeAvatar
+                    src={row.avatar}
+                    alt={row.name}
+                    size="44px"
+                    border={medal ? `2.5px solid ${medal.border}` : "2px solid white"}
+                    shadow={medal ? `0 0 0 2px white, 0 2px 8px ${medal.glow}` : "0 2px 6px rgba(0,0,0,0.1)"}
+                  />
+
+                  {/* ── Name ── */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: "14.5px",
+                        fontWeight: 700,
+                        color: "#181C32",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {row.name}
+                    </div>
+                    {row.designation ? (
+                      <div
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          color: COLORS.gray,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {row.designation}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* ── Why they missed out (red rows only) ── */}
+                  {!row.qualified && row.disqualifyReason ? (
+                    <span
+                      style={{
+                        fontSize: "10.5px",
+                        fontWeight: 700,
+                        color: STATE.danger.text,
+                        background: "#FFFFFF",
+                        border: `1px solid ${STATE.danger.border}`,
+                        borderRadius: "999px",
+                        padding: "2px 9px",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {row.disqualifyReason}
+                    </span>
+                  ) : null}
+
+                  {/* ── Concession badge ── */}
+                  {row.qualified && row.isConcession ? (
+                    <span
+                      style={{
+                        fontSize: "10.5px",
+                        fontWeight: 700,
+                        color: "#B08421",
+                        background: "#FEF7E6",
+                        border: "1px solid #F0DCA8",
+                        borderRadius: "999px",
+                        padding: "2px 9px",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {row.leaveDays === 0.5 ? "½ leave" : `${row.leaveDays} leave`}
+                    </span>
+                  ) : null}
+
+                  {/* ── Days present ── */}
+                  <div style={{ textAlign: "right", flexShrink: 0, minWidth: "74px" }}>
+                    <div style={{ fontSize: "17px", fontWeight: 800, color: surface.text }}>
+                      {row.workingDays}/{row.expectedWorkingDays}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "9px",
+                        fontWeight: 800,
+                        color: COLORS.gray,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.09em",
+                      }}
+                    >
+                      Days
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </Modal.Body>
+      </Modal>
+
       {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           MODAL â€” Factor Rankings
           Opened from: any factor "View All" button
@@ -1488,7 +1803,7 @@ const KpiInfoModal = ({ show, onHide, factorsGroups }: any) => {
         
         {/* SECTION 1: WHAT IS KPI SCORE? */}
         <div className="mb-10 text-center p-8 bg-light-primary rounded-4 border border-primary border-opacity-10">
-          <h3 className="fw-bolder text-primary mb-3">What is KPI Score?</h3>
+          <h3 className="fw-bolder text-primary mb-3">What Is KPI Score?</h3>
           <p className="text-gray-700 fs-6 fw-semibold mb-0 px-md-10 lh-lg">
             Your KPI score shows your overall <strong>work discipline</strong>, <strong>attendance consistency</strong>, 
             and <strong>contribution</strong> during the selected period. A higher score directly reflects better overall performance.

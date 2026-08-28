@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { Button, ButtonProps, IconButton, IconButtonProps, Tooltip, useTheme } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { titleCaseNode } from './text';
 
 /**
  * Reusable button primitives for the premium UI kit — single source of truth for CTA physics.
@@ -32,20 +33,34 @@ const CTA: Record<WtCtaTone, { from: string; to: string; glow: string }> = {
   success: { from: '#16a34a', to: '#15803d', glow: '#16a34a' },
 };
 
-/** The raw sx for a CTA tone — exported for the rare case a plain MUI Button must stay in place. */
-export const ctaSx = (tone: WtCtaTone = 'primary'): SxProps<Theme> => {
+/**
+ * The raw sx for a CTA tone — exported for the rare case a plain MUI Button must stay in place.
+ *
+ * `flat` keeps the colour and the lift/press physics but drops the long coloured glow to a
+ * plain neutral elevation. The glow is tuned for ONE hero CTA on a surface; put two of them
+ * side by side in a toolbar and the two halos bloom into each other and the row reads as
+ * lit up rather than as a pair of buttons. Reach for it whenever CTAs sit adjacent.
+ */
+export const ctaSx = (tone: WtCtaTone = 'primary', flat = false): SxProps<Theme> => {
   const c = CTA[tone];
+  const rest = flat
+    ? '0 1px 2px rgba(16,24,40,.10), 0 2px 6px -2px rgba(16,24,40,.10), inset 0 1px 0 rgba(255,255,255,.16)'
+    : `0 1px 2px ${c.glow}59, 0 12px 26px -10px ${c.glow}b3, inset 0 1px 0 rgba(255,255,255,.16)`;
+  const hover = flat
+    ? '0 2px 4px rgba(16,24,40,.12), 0 6px 14px -6px rgba(16,24,40,.18), inset 0 1px 0 rgba(255,255,255,.16)'
+    : `0 3px 6px ${c.glow}59, 0 18px 32px -10px ${c.glow}cc, inset 0 1px 0 rgba(255,255,255,.16)`;
+
   return {
     textTransform: 'none', fontWeight: 700, letterSpacing: '-0.01em', borderRadius: '13px',
     // Larger, more tappable, more readable — a proper primary CTA.
     fontSize: 14.5, lineHeight: 1.2, minHeight: 46, px: 2.75, py: 1.1,
     background: `linear-gradient(135deg, ${c.from}, ${c.to})`, color: '#fff',
-    boxShadow: `0 1px 2px ${c.glow}59, 0 12px 26px -10px ${c.glow}b3, inset 0 1px 0 rgba(255,255,255,.16)`,
+    boxShadow: rest,
     transition: `transform .16s ${MRD_EASE}, box-shadow .2s, filter .15s`,
     '& .MuiButton-startIcon': { mr: 0.9, '& .fs-2, & .fs-3': { fontSize: '1.15rem' } },
     '&:hover': {
       background: `linear-gradient(135deg, ${c.from}, ${c.to})`, transform: 'translateY(-1.5px)', filter: 'brightness(1.04)',
-      boxShadow: `0 3px 6px ${c.glow}59, 0 18px 32px -10px ${c.glow}cc, inset 0 1px 0 rgba(255,255,255,.16)`,
+      boxShadow: hover,
     },
     '&:active': { transform: 'translateY(0) scale(.975)' },
     '&:focus-visible': { outline: `2px solid ${c.glow}`, outlineOffset: 2 },
@@ -105,13 +120,15 @@ export interface WtButtonProps extends ButtonProps {
   ghost?: boolean;
   /** White pill with navy text (the gradient-header "Add" pill) — secondary/launch actions. */
   inverted?: boolean;
+  /** Same colour, no coloured glow — for toolbars where CTAs sit side by side. */
+  flat?: boolean;
 }
 
 export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function WtButton(
-  { tone = 'primary', ghost = false, inverted = false, sx, variant, ...rest }, ref,
+  { tone = 'primary', ghost = false, inverted = false, flat = false, sx, variant, children, ...rest }, ref,
 ) {
   const dark = useTheme().palette.mode === 'dark';
-  const base = ghost ? ghostSx : inverted ? invertedSx : ctaSx(tone);
+  const base = ghost ? ghostSx : inverted ? invertedSx : ctaSx(tone, flat);
   const darkOverride = dark ? (ghost ? ghostDarkSx : inverted ? invertedDarkSx : ctaDarkSx) : null;
   return (
     <Button
@@ -120,7 +137,13 @@ export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function Wt
       // recipe → dark override → caller sx, so per-use tweaks (width, margins) always win
       sx={[base, darkOverride, ...(Array.isArray(sx) ? sx : [sx])].filter(Boolean) as SxProps<Theme>}
       {...rest}
-    />
+    >
+      {/* Labels are title-cased here so every button reads the same without
+          each call site remembering. Only a plain string is touched — a caller
+          passing nodes has already decided how it looks. WtIconButton is NOT
+          wrapped: its children are a glyph, not a label. */}
+      {titleCaseNode(children)}
+    </Button>
   );
 });
 

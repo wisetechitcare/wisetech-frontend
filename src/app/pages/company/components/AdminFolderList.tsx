@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminFolder } from '@models/media';
 import Loader from '@app/modules/common/utils/Loader';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface AdminFolderListProps {
   admins: AdminFolder[];
@@ -54,10 +55,7 @@ const AdminFolderList: React.FC<AdminFolderListProps> = ({ admins }) => {
                   onClick={() => navigate(`/company/media/${admin.id}`)}
                 >
                   <div className="d-flex align-items-center">
-                    <i className="ki-duotone ki-folder fs-2x fs-sm-2x text-primary me-2 me-sm-3">
-                      <span className="path1" />
-                      <span className="path2" />
-                    </i>
+                    <AppIcon name="folder" className="fs-2x fs-sm-2x text-primary me-2 me-sm-3" />
                     <div className="fw-bold text-gray-800 text-hover-primary fs-7 fs-sm-6">
                       {admin.name}
                     </div>

@@ -7,6 +7,7 @@ import PipelineDistribution from "./PipelineDistribution";
 import PipelineHealthRing from "./PipelineHealthRing";
 import {
   ChartDatum,
+  ChartMetric,
   StatusDistributionRow,
   buildStatusDistribution,
   computeLeadStatusKpis,
@@ -15,6 +16,7 @@ import {
   summarizeStatusGroups,
   toneColor,
 } from "./leadAnalyticsUtils";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface PipelinePerformanceProps {
   statusData: ChartDatum[];
@@ -26,6 +28,15 @@ interface PipelinePerformanceProps {
   loading?: boolean;
   /** Context: 'leads' | 'projects' — controls title & labels. Default: 'leads' */
   context?: 'leads' | 'projects';
+  /** Whether `statusData.value` holds counts or money. Default: 'count'. */
+  metric?: ChartMetric;
+  /**
+   * Count-based data for the health score, used when `statusData` has been
+   * switched to money. Health measures delivery progress (how many projects are
+   * stalled vs done), so weighting it by budget would let a few expensive rows
+   * swing the score; it deliberately stays on counts. Defaults to `statusData`.
+   */
+  healthData?: ChartDatum[];
 }
 
 /* ── Compact KPI pill ───────────────────────────────────────────────────── */
@@ -96,7 +107,7 @@ const KpiPill: React.FC<PillProps> = ({
             flexShrink: 0,
           }}
         >
-          <i className={`bi ${icon}`} style={{ fontSize: 14 }} />
+          <AppIcon name={icon} className="fs-6" />
         </span>
         <span
           style={{
@@ -285,20 +296,37 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
   index = 0,
   loading = false,
   context = 'leads',
+  metric = 'count',
+  healthData,
 }) => {
   const rows = useMemo(() => buildStatusDistribution(statusData), [statusData]);
   const kpis = useMemo(() => computeLeadStatusKpis(statusData), [statusData]);
   const groups = useMemo(() => summarizeStatusGroups(rows), [rows]);
-  const health = useMemo(() => computePipelineHealth(kpis), [kpis]);
+  // Health always scores counts — see the `healthData` prop note.
+  const healthKpis = useMemo(
+    () => computeLeadStatusKpis(healthData ?? statusData),
+    [healthData, statusData]
+  );
+  const health = useMemo(() => computePipelineHealth(healthKpis), [healthKpis]);
+  // Insights are phrased in counts ("N projects on hold"), so they read off the
+  // count data too — otherwise flipping to amount would produce sentences that
+  // sound like counts but quote rupees.
+  const countRows = useMemo(
+    () => (healthData ? buildStatusDistribution(healthData) : rows),
+    [healthData, rows]
+  );
   const insights = useMemo(
-    () => generatePipelineInsights(kpis, rows, health),
-    [kpis, rows, health]
+    () => generatePipelineInsights(healthKpis, countRows, health),
+    [healthKpis, countRows, health]
   );
   // Smart Insights is a collapsible dropdown — collapsed by default to keep the
   // card compact; click the header to expand.
   const [insightsOpen, setInsightsOpen] = useState(false);
 
-  const isEmpty = kpis.total === 0;
+  // Emptiness is a question about whether any projects exist, not whether they
+  // carry a budget — so judge it on counts. Otherwise a period whose projects
+  // all have a zero budget would render as "no data" in amount mode.
+  const isEmpty = healthKpis.total === 0;
 
   // Contextual titles based on whether this is for leads or projects
   const titles = context === 'projects' ? {
@@ -362,7 +390,10 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
 
       <AnalyticsCard
         title={titles.cardTitle}
-        subtitle={context === 'projects' ? 'Tap any row to see those projects' : 'Tap any row to see those leads'}
+        subtitle={
+          (context === 'projects' ? 'Tap any row to see those projects' : 'Tap any row to see those leads') +
+          (metric === 'amount' ? ' · showing value, health still scored on count' : '')
+        }
         index={index}
         isEmpty={!loading && isEmpty}
         emptyHint="Create leads to see the pipeline distribution."
@@ -426,7 +457,7 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                   gap: 18,
                 }}
               >
-                <PipelineDistribution rows={rows} onSelect={onSelect} context={context} />
+                <PipelineDistribution rows={rows} onSelect={onSelect} context={context} metric={metric} />
                 {/* Lifecycle roll-up removed — its Active/Converted/Lost numbers
                     duplicated the KPI pills above. */}
               </div>
@@ -464,7 +495,7 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                     width: "100%",
                   }}
                 >
-                  <i className="bi bi-stars" style={{ color: "#F59E0B" }} />
+                  <AppIcon name="bi-stars" color="#F59E0B" />
                   What This Means
                   <span
                     style={{
@@ -516,7 +547,7 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                                 borderLeft: `3px solid ${c}`,
                               }}
                             >
-                              <i className={`bi ${ins.icon}`} style={{ color: c, fontSize: 13, marginTop: 1, flexShrink: 0 }} />
+                              <AppIcon name={ins.icon} className="fs-7" color={c} style={{ marginTop: 1, flexShrink: 0 }} />
                               <span
                                 style={{
                                   fontFamily: "Inter, sans-serif",

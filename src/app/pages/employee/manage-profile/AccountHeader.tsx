@@ -1,8 +1,8 @@
 ﻿import React from "react";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Dropdown1 } from "@metronic/partials";
-import { useLocation } from "react-router";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const AccountHeader: React.FC = () => {
   const location = useLocation();
@@ -99,7 +99,7 @@ const AccountHeader: React.FC = () => {
                       data-kt-menu-placement="bottom-end"
                       data-kt-menu-flip="top-end"
                     >
-                      <i className="bi bi-three-dots fs-3"></i>
+                      <AppIcon name="bi-three-dots" className="fs-3" />
                     </button>
                     <Dropdown1 />
                   </div>

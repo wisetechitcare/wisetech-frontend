@@ -776,6 +776,25 @@
   transition: border-color var(--ob-tr), background var(--ob-tr), box-shadow var(--ob-tr);
   outline: none; width: 100%; letter-spacing: -0.01em;
 }
+/* …but NOT the input inside a MUI field. MUI renders its date/time inputs as
+   `type="text"`, so the rule above was giving them their own border, background and
+   full 44px height INSIDE the OutlinedInput that already draws all three — a second
+   box nested in the first, with the calendar adornment stranded outside it. That is
+   the "two overlapping fields" look on Date Started / Date Completed.
+
+   MUI owns the chrome for its own fields (.MuiOutlinedInput-root above sets the
+   height, radius and fill; .MuiOutlinedInput-notchedOutline sets the border), so the
+   inner input just has to carry text. Focus is included because the generic :focus
+   rule repaints the border and background too. */
+.ob-wizard-root .MuiInputBase-root input,
+.ob-wizard-root .MuiInputBase-root input:hover,
+.ob-wizard-root .MuiInputBase-root input:focus {
+  height: 100% !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
 .ob-wizard-root .form-control:hover:not(:focus),
 .ob-wizard-root input[type="text"]:hover:not(:focus),
 .ob-wizard-root input[type="email"]:hover:not(:focus) {
@@ -800,7 +819,7 @@
 .ob-pill-group { display: flex; gap: 8px; flex-wrap: wrap; }
 .ob-pill {
   display: flex; align-items: center; gap: 6px;
-  height: 38px; padding: 0 16px; border-radius: var(--ob-r-full);
+  height: 38px; padding: 0 16px; border-radius: var(--ob-r);
   border: 1.5px solid var(--ob-border); background: var(--ob-surface);
   color: var(--ob-text-2); font-size: 0.8375rem; font-weight: 600;
   cursor: pointer; transition: all var(--ob-tr); outline: none; user-select: none;
@@ -1026,7 +1045,7 @@
   flex-shrink: 0;
   height: 32px;
   padding: 0 14px;
-  border-radius: var(--ob-r-full);
+  border-radius: var(--ob-r);
   background: var(--ob-accent);
   color: #fff;
   font-size: 0.75rem;
@@ -1060,7 +1079,7 @@
   height: 32px;
   padding: 0 12px;
   border: 1px solid var(--ob-accent);
-  border-radius: var(--ob-r-full);
+  border-radius: var(--ob-r);
   background: #fff;
   color: var(--ob-accent);
   font-size: 0.75rem;
@@ -1079,6 +1098,148 @@
 
 .ob-document-row {
   width: 100%;
+}
+
+/* ════════════════════════════════════════
+   ONBOARDING DOCUMENT ATTACHMENT CARD
+   One card per document type configured in Company → Onboarding Docs.
+   ════════════════════════════════════════ */
+.ob-doc-card {
+  width: 100%;
+  padding: 16px 18px;
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-r-md);
+  background: var(--ob-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+  transition: border-color var(--ob-tr), box-shadow var(--ob-tr);
+}
+
+.ob-doc-card:hover {
+  border-color: var(--ob-border-2);
+  box-shadow: var(--ob-shadow-xs);
+}
+
+.ob-doc-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ob-doc-card-icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--ob-r);
+  background: var(--ob-accent-soft);
+  color: var(--ob-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Turns green alongside the "Attached" pill, so state reads from either end of
+   the row rather than only from the pill on the far right. */
+.ob-doc-card-icon.is-attached {
+  background: var(--ob-success-soft);
+  color: var(--ob-success);
+}
+
+.ob-doc-card-name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--ob-font);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ob-text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Attached / not attached, so the state of a card is readable without opening
+   the file field — the whole point of the section is "what is on file". */
+.ob-doc-card-state {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: var(--ob-surface-2);
+  color: var(--ob-text-4);
+  border: 1px solid var(--ob-border);
+}
+
+.ob-doc-card-state.is-attached {
+  background: var(--ob-success-soft, #ecfdf5);
+  color: var(--ob-success, #059669);
+  border-color: transparent;
+}
+
+.ob-doc-card-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--ob-r);
+  background: var(--ob-accent-soft);
+  color: var(--ob-text-2);
+  font-size: 0.78rem;
+}
+
+/* Number beside attachment on desktop; the attachment takes the full width when
+   the type carries no identity number, instead of leaving a dead column. */
+.ob-doc-card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 16px;
+  align-items: end;
+}
+
+.ob-doc-card-body.is-file-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ob-doc-card-file {
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .ob-doc-card-body {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+}
+
+/* Nothing configured yet — say so and point at where it is configured, rather
+   than rendering a section that looks broken. */
+.ob-doc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 20px;
+  border: 1px dashed var(--ob-border-2);
+  border-radius: var(--ob-r-md);
+  background: var(--ob-surface-2);
+  text-align: center;
+}
+
+.ob-doc-empty-title {
+  font-family: var(--ob-font);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ob-text-2);
+}
+
+.ob-doc-empty-hint {
+  font-size: 0.78rem;
+  color: var(--ob-text-4);
+  max-width: 42ch;
 }
 
 /* ════════════════════════════════════════
@@ -1127,7 +1288,13 @@
 .ob-photo-label    { font-size: 0.75rem; font-weight: 600; color: var(--ob-text-3); text-align: center; line-height: 1.3; }
 .ob-photo-sublabel { font-size: 0.68rem; color: var(--ob-text-4); text-align: center; line-height: 1.4; margin-top: 2px; max-width: 130px; }
 .ob-dropzone-preview { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; }
-.ob-dropzone-preview img { width: 100%; height: 100%; object-fit: cover !important; border-radius: 50%; }
+/* object-position anchors the cover-crop to the TOP. A portrait photo is taller
+   than this square circle, and the default `center` trims the top and bottom
+   equally — which cuts the top of the head off. Anchoring to the top keeps the
+   face whole and trims from the torso. A square photo (what the cropper below
+   now produces) is unaffected either way. Mirrored on the ID card SVG, which
+   uses preserveAspectRatio="xMidYMin slice" for the same reason. */
+.ob-dropzone-preview img { width: 100%; height: 100%; object-fit: cover !important; object-position: center top; border-radius: 50%; }
 .ob-dropzone-preview-overlay {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.4); color: #fff;
@@ -1136,14 +1303,86 @@
   font-size: 0.6875rem; font-weight: 600; border-radius: 50%;
 }
 .ob-dropzone-preview:hover .ob-dropzone-preview-overlay { opacity: 1; }
-.ob-photo-remove-btn {
-  position: absolute; top: -2px; right: -2px;
-  width: 24px; height: 24px; border-radius: 50%;
-  background: var(--ob-danger); color: #fff; border: 2px solid #fff;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; z-index: 10; box-shadow: var(--ob-shadow-sm); transition: transform var(--ob-tr);
+/* Photo actions — a labelled row under the avatar. Wraps to one-per-line rather
+   than letting the labels squash, so it survives the 180px column and mobile. */
+.ob-photo-actions {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 8px; width: 100%;
 }
-.ob-photo-remove-btn:hover { transform: scale(1.15); }
+.ob-photo-action-btn {
+  flex: 1 1 auto; min-width: 78px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  height: 30px; padding: 0 10px; border-radius: var(--ob-r);
+  border: 1.5px solid var(--ob-border); background: var(--ob-surface);
+  color: var(--ob-text-2); font-family: var(--ob-font);
+  font-size: 0.72rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1;
+  cursor: pointer; outline: none; user-select: none; white-space: nowrap;
+  transition: all var(--ob-tr);
+}
+.ob-photo-action-btn:hover {
+  border-color: var(--ob-accent); color: var(--ob-accent); background: var(--ob-accent-soft);
+}
+.ob-photo-action-btn:focus-visible {
+  border-color: var(--ob-accent); box-shadow: 0 0 0 3px var(--ob-accent-ring);
+}
+.ob-photo-action-btn--danger:hover {
+  border-color: var(--ob-danger); color: var(--ob-danger); background: transparent;
+}
+.ob-photo-action-btn--danger:focus-visible {
+  border-color: var(--ob-danger); box-shadow: none;
+}
+
+/* Image preview modal styling */
+.ob-photo-view-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+.ob-photo-view-content {
+  position: relative;
+  max-width: 90%;
+  max-height: 90%;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ob-photo-view-content img {
+  max-width: 500px;
+  max-height: 500px;
+  object-fit: contain;
+}
+.ob-photo-view-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.ob-photo-view-close:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
 .ob-profile-details-photo .ob-photo-label,
 .ob-profile-details-photo .ob-photo-sublabel { display: none !important; }
 
@@ -2068,4 +2307,86 @@
 [data-bs-theme="dark"] .ob-draft-notice-text,
 [data-bs-theme="dark"] .ob-draft-notice-discard { color: #aebee6; }
 [data-bs-theme="dark"] .ob-draft-notice-discard { border-color: rgba(174, 190, 230, 0.4); }
-[data-bs-theme="dark"] .ob-draft-notice-discard:hover { background: #aebee6; color: var(--gh-canvas, #0d1117); }
+[data-bs-theme="dark"] .ob-draft-notice-discard:hover { background: #aebee6; color: #12121c; }
+
+/* Crop Modal styles */
+.ob-crop-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(8px);
+}
+.ob-crop-dialog {
+  width: 90%;
+  max-width: 500px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+}
+.ob-crop-area {
+  position: relative;
+  width: 100%;
+  height: 350px;
+  background: #111;
+}
+.ob-crop-controls {
+  background: #fff;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  border-top: 1px solid var(--ob-border);
+}
+.ob-crop-zoom-slider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--ob-text-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.ob-crop-zoom-slider input[type="range"] {
+  flex: 1;
+  accent-color: var(--ob-accent);
+}
+.ob-crop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+.ob-crop-btn {
+  height: 38px;
+  padding: 0 1.25rem;
+  border-radius: var(--ob-r);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all var(--ob-tr);
+}
+.ob-crop-btn--cancel {
+  background: var(--ob-surface-2);
+  color: var(--ob-text-2);
+  border: 1px solid var(--ob-border);
+}
+.ob-crop-btn--cancel:hover {
+  background: var(--ob-surface-3);
+}
+.ob-crop-btn--apply {
+  background: var(--ob-accent);
+  color: #fff;
+}
+.ob-crop-btn--apply:hover {
+  background: var(--ob-accent-hover);
+}

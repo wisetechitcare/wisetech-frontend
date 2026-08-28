@@ -2,11 +2,21 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
+import { visualizer } from 'rollup-plugin-visualizer'
 import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), tsconfigPaths(), tailwindcss()],
+  plugins: [
+    react(),
+    tsconfigPaths(),
+    tailwindcss(),
+    // Opt-in bundle analysis: `ANALYZE=1 pnpm run build` writes dist/stats.json.
+    // Off by default so normal builds are unaffected.
+    ...(process.env.ANALYZE
+      ? [visualizer({ filename: 'dist/stats.json', template: 'raw-data', gzipSize: true })]
+      : []),
+  ],
   server: {
     host: '0.0.0.0',
     port: 5173,
@@ -84,13 +94,20 @@ export default defineConfig({
             'vendor-react': ['react', 'react-dom', 'react-router-dom', 'react-redux'],
             'vendor-mui': ['@mui/material', '@mui/icons-material', '@mui/x-date-pickers'],
             'vendor-charts': ['apexcharts', 'react-apexcharts', 'recharts', 'chart.js'],
-            'vendor-pdf': ['@react-pdf/renderer', 'jspdf', 'jspdf-autotable', 'pdf-lib', 'pdfmake'],
+            // echarts + its renderer zrender were 2.9MB — 39% of the ENTRY chunk —
+            // because manualChunks returns undefined for anything unlisted and unmatched
+            // node_modules fall into the default (entry) chunk. Only 6 lazy routes import
+            // echarts-for-react, so every other user was downloading it for nothing.
+            // Its own group, not vendor-charts: grouping it with apexcharts/recharts would
+            // make the 21 apexcharts screens pull echarts too.
+            'vendor-echarts': ['echarts', 'echarts-for-react', 'zrender'],
+            'vendor-pdf': ['@react-pdf/renderer'],
             'vendor-forms': ['formik', 'react-hook-form', 'yup', 'zod'],
             'vendor-table': ['material-react-table', 'react-table', '@tanstack/react-query'],
             'vendor-maps': ['leaflet', 'react-leaflet', '@react-google-maps/api', '@vis.gl/react-google-maps'],
             'vendor-calendar': ['@fullcalendar/react', '@fullcalendar/daygrid', '@fullcalendar/timegrid', '@fullcalendar/interaction', '@fullcalendar/multimonth'],
             'vendor-ui': ['antd', '@mantine/core', '@mantine/dates', 'framer-motion', 'react-select'],
-            'vendor-utils': ['axios', 'dayjs', 'lodash', 'xlsx', 'papaparse', 'jszip'],
+            'vendor-utils': ['axios', 'dayjs', 'lodash', 'jszip'],
           };
           for (const [chunk, pkgs] of Object.entries(chunks)) {
             if (pkgs.some(pkg => id.includes(`/node_modules/${pkg}/`) || id.includes(`\\node_modules\\${pkg}\\`))) {

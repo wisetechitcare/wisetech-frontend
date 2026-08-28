@@ -15,6 +15,7 @@ import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import type { AppDispatch, RootState } from "@redux/store";
 // Audit (change history)
 import { VersionHistory } from "@modules/audit/VersionHistory";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface ProjectData {
   currentStatus: string;
@@ -57,10 +58,8 @@ interface ProjectData {
   lastEditedBy: string;
   lastEdited: string;
   notes: string;
-  type?: string;
   latitude?: string;
   longitude?: string;
-  numberOfPages?: string;
   // Project Detail fields
   plotArea?: string;
   plotAreaUnit?: string;
@@ -207,8 +206,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       createdDate: lead.createdAt ? dayjs(lead.createdAt).format("DD/M/YYYY, h:mmA") : '-',
       lastEditedBy: lead.updatedBy?.users?.firstName+" "+lead.updatedBy?.users?.lastName || '-',
       lastEdited: lead.updatedAt ? dayjs(lead.updatedAt).format("DD/M/YYYY, h:mmA") : '-',
-      type: lead?.additionalDetails?.type || "-",
-      numberOfPages: lead?.additionalDetails?.numberOfPages || "-",
       projectAddress: lead?.additionalDetails?.projectAddress || '-',
       city: lead?.additionalDetails?.city || '-',
       state: lead?.additionalDetails?.state || '-',
@@ -271,10 +268,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
     latitude: '',
     longitude: '',
     notes: '-',
-    // ...(leadTemplateId && leadTemplateId == leadAndProjectTemplateTypeId.webDev && {
-      type: "-",
-      numberOfPages: "-",
-    // }),
     // Project Detail fields
     plotArea: '',
     plotAreaUnit: 'sqft',
@@ -609,7 +602,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
           value
         ) : label.toLowerCase() === 'branch location' && lead?.branchMappings?.[0]?.branch?.latitude && lead?.branchMappings?.[0]?.branch?.longitude ? (
           <div className="d-flex align-items-center" style={{ gap: "4px" }}>
-            <i className="bi bi-geo-alt" style={{ width: "20px", height: "20px", color: "#1E3A8A" }}></i>
+            <AppIcon name="bi-geo-alt" color="#1E3A8A" style={{ width: "20px", height: "20px" }} />
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${lead.branchMappings[0].branch.latitude},${lead.branchMappings[0].branch.longitude}`}
               target="_blank"
@@ -717,10 +710,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
               <InfoRow label="PO Number" value={projectData.poNumber} />
               <InfoRow label="PO Date" value={projectData.poDate} />
             </>} */}
-            {leadTemplateId==leadAndProjectTemplateTypeId.webDev && <>
-              <InfoRow label="Type" value={projectData?.type || "-"} />
-              <InfoRow label="Number Of Pages" value={projectData?.numberOfPages || "-"} />
-            </>}
           </InfoCard>
         </div>
 
@@ -815,7 +804,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
                         overflow: "hidden"
                       }}
                     >
-                      <i className="bi bi-currency-rupee" style={{ fontSize: "24px", color: "#1E1E1E" }}></i>
+                      <AppIcon name="bi-currency-rupee" className="fs-1" color="#1E1E1E" />
                     </div>
                     <span
                       style={{
@@ -1061,7 +1050,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
               >
                 <div style={{ fontWeight: "500" }}>Location</div>
                 <div className="d-flex align-items-center" style={{ gap: "4px" }}>
-                  <i className="bi bi-geo-alt" style={{ width: "20px", height: "20px", color: "#1E3A8A" }}></i>
+                  <AppIcon name="bi-geo-alt" color="#1E3A8A" style={{ width: "20px", height: "20px" }} />
                   <a
                     href={`https://www.google.com/maps/dir/?api=1&destination=${lead.additionalDetails.latitude},${lead.additionalDetails.longitude}`}
                     target="_blank"

@@ -8,7 +8,7 @@ import {
 
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { deleteConfirmation, successConfirmation } from "@utils/modal";
+import { deleteConfirmation, successConfirmation, errorConfirmation } from "@utils/modal";
 import {
   createReimbursementType,
   deleteReimbursementTypeByItsId,
@@ -22,6 +22,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import * as Yup from "yup";
 import IconPickerModal, { SelectedIcon } from "./IconPickerModal";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -35,11 +36,14 @@ const reimbursementTypeSchema = Yup.object({
     .label("Amount Limit"),
 });
 
-let initialState: { type: string; icon: string; amountLimit: number | null } = {
+// A factory, not a shared mutable object. This was a module-level `let` reassigned in
+// handleNew, so every mount of this form shared one object — two open tabs meant one form's
+// edits became the other's defaults.
+const makeCategoryInitialState = (): { type: string; icon: string; amountLimit: number | null } => ({
   type: "",
   icon: "",
   amountLimit: null,
-};
+});
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -211,7 +215,7 @@ const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit
               transition: "background 0.15s ease",
             }}
           >
-            <i className="bi bi-pencil" style={{ fontSize: "11px" }} />
+            <AppIcon name="bi-pencil" className="fs-8" />
           </button>
           <button
             onClick={onDelete}
@@ -227,7 +231,7 @@ const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit
               transition: "background 0.15s ease",
             }}
           >
-            <i className="bi bi-trash" style={{ fontSize: "11px" }} />
+            <AppIcon name="bi-trash" className="fs-8" />
           </button>
         </div>
       )}
@@ -243,7 +247,7 @@ const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const EmptyState: React.FC = () => (
   <div style={{ textAlign: "center", padding: "28px 16px", color: C.textMuted, fontFamily: FONT.body, fontSize: "13px" }}>
-    <i className="bi bi-inbox" style={{ fontSize: "28px", display: "block", marginBottom: "8px", opacity: 0.4 }} />
+    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: "block", marginBottom: "8px", opacity: 0.4 }} />
     No reimbursement categories configured yet
   </div>
 );
@@ -278,10 +282,16 @@ function Settings() {
 
   const handleDelete = async (rowDetails: IReimbursementTypeFetch) => {
     if (!rowDetails || !rowDetails.id) return;
-    const val = await deleteConfirmation("Reimbursement Type Deleted Successfully!");
-    if (val) {
+    // announce:false — the success alert used to fire on CONFIRM, before the delete ran, so a
+    // failed delete still told the user it had worked. Report what actually happened.
+    const val = await deleteConfirmation("Reimbursement Type Deleted Successfully!", "Delete", "Deleted", false);
+    if (!val) return;
+    try {
       await deleteReimbursementTypeByItsId(rowDetails?.id);
       setFetchAgain((prev) => !prev);
+      await successConfirmation("Reimbursement Type Deleted Successfully!");
+    } catch {
+      await errorConfirmation("Could not delete this category. It may still be in use.");
     }
   };
 
@@ -292,7 +302,7 @@ function Settings() {
   };
 
   const handleNew = () => {
-    initialState = { type: "", icon: "", amountLimit: null };
+    // (nothing to reset — makeCategoryInitialState() returns fresh values each render)
     setPreviewIconValue("");
     setSelectedReimbursement(null);
     setShow(true);
@@ -415,7 +425,7 @@ function Settings() {
         <Modal.Body style={{ paddingTop: "8px" }}>
           <Formik
             initialValues={
-              editMode && selectedReimbursement ? selectedReimbursement : initialState
+              editMode && selectedReimbursement ? selectedReimbursement : makeCategoryInitialState()
             }
             onSubmit={handleSubmit}
             validationSchema={reimbursementTypeSchema}

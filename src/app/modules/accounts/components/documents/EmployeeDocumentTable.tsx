@@ -9,6 +9,7 @@ import { Table, Pagination } from "react-bootstrap";
 import { fetchCurrentEmployeeByEmpId, fetchDocumentsField, fetchEmployeeDocuments, fetchEmployeeMediaByUserId } from '@services/employee';
 import dayjs from 'dayjs';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 function EmployeeDocumentTable({message1='No Documents Uploaded By User', message2='Documents Uploaded By User'}:{message1?: string, message2?: string}) {
     const { employeeId } = useParams();
@@ -29,6 +30,12 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
 
     const [file, setFile] = useState("");
     const [fileName, setFileName] = useState("");
+    // The employee's canonical avatar / signature URLs, used to name stored files by
+    // what they are rather than by the name they were uploaded under.
+    const [knownAssetPaths, setKnownAssetPaths] = useState<{ avatar: string; signature: string }>({
+        avatar: "",
+        signature: "",
+    });
     const handleViewDocument = (documentPath: string, documentName: string) => {
         setFile(documentPath);
         setFileName(documentName);
@@ -78,7 +85,14 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                 try {
                     const response = await fetchCurrentEmployeeByEmpId(currentEmployeeId);
                     if(response?.hasError) return;
-                    setUserId(response?.data?.employee?.userId);
+                    const employee = response?.data?.employee;
+                    setUserId(employee?.userId);
+                    // Kept so a stored file can be identified by WHAT IT IS rather than
+                    // by the name it happens to carry — see `resolveDisplayName`.
+                    setKnownAssetPaths({
+                        avatar: employee?.avatar || "",
+                        signature: employee?.digitalSignaturePath || "",
+                    });
                 } catch (error) {
                     console.error("Failed to fetch documents", error);
                 }
@@ -96,6 +110,23 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                     if (response?.hasError) return;
 
                     const { media = [] } = response?.data || {};
+
+                    /**
+                     * What this file should be CALLED.
+                     *
+                     * Both profile uploads used to be stored under the name "avatar",
+                     * so a signature was listed as a second profile picture. New
+                     * uploads carry the right name, but every file already on S3 is
+                     * still called "avatar" — and the two are indistinguishable by name.
+                     * They are not indistinguishable by PATH, though: the employee
+                     * record points at exactly which URL is the avatar and which is the
+                     * signature, so matching on that names old rows correctly too.
+                     */
+                    const resolveDisplayName = (fileName: string, path: string) => {
+                        if (path && path === knownAssetPaths.signature) return "Signature";
+                        if (path && path === knownAssetPaths.avatar) return "Profile Photo";
+                        return fileName;
+                    };
 
                     const formattedDocuments = media.map(({ fileName, createdAt, path, id, size }: any) => {
                         // Detect category from file path
@@ -116,7 +147,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
 
                         return {
                             id,
-                            fileName,
+                            fileName: resolveDisplayName(fileName, path),
                             status,
                             size,
                             fileUrl: path,
@@ -133,7 +164,9 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
         };
 
         fetchData();
-    }, [userId]);
+        // Re-runs when the known paths land: they arrive from a separate fetch, and
+        // without them every row would fall back to its raw stored name.
+    }, [userId, knownAssetPaths]);
 
     // Group documents by folder
     const folders = [
@@ -205,7 +238,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                         onClick={() => setCurrentFolder(null)}
                         disabled={!currentFolder}
                     >
-                        <i className="ki-duotone ki-home fs-3"></i>
+                        <AppIcon name="home" className="fs-3" />
                     </button>
                     <span className="text-gray-600">/</span>
                     <span className="fw-bold fs-6">
@@ -325,10 +358,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                             <tr>
                                                 <td colSpan={4}>
                                                     <div className="text-center py-5">
-                                                        <i className="ki-duotone ki-folder fs-3x text-muted mb-3">
-                                                            <span className="path1"></span>
-                                                            <span className="path2"></span>
-                                                        </i>
+                                                        <AppIcon name="folder" className="fs-3x text-muted mb-3" />
                                                         <div>{message1}</div>
                                                     </div>
                                                 </td>
@@ -344,10 +374,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                                 <td data-order="folder">
                                                     <div className="d-flex align-items-center">
                                                         <span className="icon-wrapper">
-                                                            <i className="ki-duotone ki-folder fs-2x text-primary me-4">
-                                                                <span className="path1"></span>
-                                                                <span className="path2"></span>
-                                                            </i>
+                                                            <AppIcon name="folder" className="fs-2x text-primary me-4" />
                                                         </span>
                                                         <span className="fw-bold">{folder.label}</span>
                                                     </div>
@@ -355,7 +382,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                                 <td>{folder.count} files</td>
                                                 <td>-</td>
                                                 <td className="text-end">
-                                                    <i className="ki-duotone ki-right fs-3 text-gray-500"></i>
+                                                    <AppIcon name="right" className="fs-3 text-gray-500" />
                                                 </td>
                                             </tr>
                                         ))}
@@ -365,7 +392,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                             <tr>
                                                 <td colSpan={4}>
                                                     <div className="text-center py-5">
-                                                        <i className="ki-duotone ki-file fs-3x text-muted mb-3"></i>
+                                                        <AppIcon name="file" className="fs-3x text-muted mb-3" />
                                                         <div>No files in this folder</div>
                                                     </div>
                                                 </td>
@@ -376,10 +403,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                                 <td data-order="index.html">
                                                     <div className="d-flex align-items-center">
                                                         <span className="icon-wrapper">
-                                                            <i className="ki-duotone ki-file fs-2x text-primary me-4">
-                                                                <span className="path1"></span>
-                                                                <span className="path2"></span>
-                                                            </i>
+                                                            <AppIcon name="file" className="fs-2x text-primary me-4" />
                                                         </span>
                                                         {document?.fileName || '-'}
                                                     </div>
@@ -408,10 +432,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                                                 data-kt-menu-trigger="click"
                                                                 data-kt-menu-placement="bottom-end"
                                                             >
-                                                                <i className="ki-duotone ki-fasten fs-5 m-0">
-                                                                    <span className="path1" />
-                                                                    <span className="path2" />
-                                                                </i>{" "}
+                                                                <AppIcon name="fasten" className="fs-5 m-0" />{" "}
                                                             </button>
                                                             <div
                                                                 className="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-semibold fs-7 w-300px"
@@ -439,7 +460,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                                                             data-kt-filemanger-table="copy_link_result"
                                                                         >
                                                                             <div className="d-flex mb-3">
-                                                                                <i className="ki-duotone ki-check fs-2 text-success me-3" />{" "}
+                                                                                <AppIcon name="check" className="fs-2 text-success me-3" />{" "}
                                                                                 <div className="fs-6 text-gray-900">
                                                                                     Share Link Generated
                                                                                 </div>
@@ -470,12 +491,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                                                 data-kt-menu-trigger="click"
                                                                 data-kt-menu-placement="bottom-end"
                                                             >
-                                                                <i className="ki-duotone ki-dots-square fs-5 m-0">
-                                                                    <span className="path1" />
-                                                                    <span className="path2" />
-                                                                    <span className="path3" />
-                                                                    <span className="path4" />
-                                                                </i>{" "}
+                                                                <AppIcon name="dots-square" className="fs-5 m-0" />{" "}
                                                             </button>
                                                             <div
                                                                 className="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-semibold fs-7 w-150px py-4"
@@ -512,7 +528,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                             <td data-order="landing.html">
                                                 <div className="d-flex align-items-center">
                                                     <span className="icon-wrapper">
-                                                        <i className="ki-duotone ki-files fs-2x text-primary me-4" />
+                                                        <AppIcon name="files" className="fs-2x text-primary me-4" />
                                                     </span>
                                                     <a
                                                         href="/metronic8/demo8/apps/file-manager/files/.html"
@@ -538,10 +554,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                                             data-kt-menu-trigger="click"
                                                             data-kt-menu-placement="bottom-end"
                                                         >
-                                                            <i className="ki-duotone ki-fasten fs-5 m-0">
-                                                                <span className="path1" />
-                                                                <span className="path2" />
-                                                            </i>{" "}
+                                                            <AppIcon name="fasten" className="fs-5 m-0" />{" "}
                                                         </button>
                                                         <div
                                                             className="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-semibold fs-7 w-300px"
@@ -567,7 +580,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                                                         data-kt-filemanger-table="copy_link_result"
                                                                     >
                                                                         <div className="d-flex mb-3">
-                                                                            <i className="ki-duotone ki-check fs-2 text-success me-3" />{" "}
+                                                                            <AppIcon name="check" className="fs-2 text-success me-3" />{" "}
                                                                             <div className="fs-6 text-gray-900">
                                                                                 Share Link Generated
                                                                             </div>
@@ -598,12 +611,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                                                             data-kt-menu-trigger="click"
                                                             data-kt-menu-placement="bottom-end"
                                                         >
-                                                            <i className="ki-duotone ki-dots-square fs-5 m-0">
-                                                                <span className="path1" />
-                                                                <span className="path2" />
-                                                                <span className="path3" />
-                                                                <span className="path4" />
-                                                            </i>{" "}
+                                                            <AppIcon name="dots-square" className="fs-5 m-0" />{" "}
                                                         </button>
                                                         <div
                                                             className="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-semibold fs-7 w-150px py-4"

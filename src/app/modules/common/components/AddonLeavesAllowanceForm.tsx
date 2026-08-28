@@ -11,6 +11,7 @@ import {
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface FormValues {
     experience1: number;
@@ -500,13 +501,9 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
 
                     {/* Info Section */}
                     <div className="alert alert-primary d-flex align-items-center mt-5">
-                        <i className="ki-duotone ki-information-5 fs-2hx text-primary me-4">
-                            <span className="path1"></span>
-                            <span className="path2"></span>
-                            <span className="path3"></span>
-                        </i>
+                        <AppIcon name="information-5" className="fs-2hx text-primary me-4" />
                         <div className="d-flex flex-column">
-                            <h4 className="mb-1 text-dark">How it works</h4>
+                            <h4 className="mb-1 text-dark">How It Works</h4>
                             <span>
                                 The system will automatically create new records for experience levels that don't exist, 
                                 and update existing records. Each employee's addon leaves will be calculated based on 

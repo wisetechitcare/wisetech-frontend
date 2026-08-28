@@ -16,6 +16,8 @@ interface LeavePolicyModalProps {
   open: boolean;
   onClose: () => void;
   readOnly?: boolean;
+  /** Inheritance scope (group → org → branch) this policy is read from and written to. */
+  scope?: { companyId?: string; branchId?: string };
 }
 
 const DEFAULT_PRIORITY = ['Casual Leaves', 'Sick Leaves', 'Floater Leaves', 'Annual Leaves'];
@@ -34,7 +36,20 @@ interface PolicyState {
   penaltyType: 'halfDaySalaryDeduction' | 'halfPaidLeave' | 'fixedAmountDeduction';
   penaltyFixedAmount: number;
   penaltyDays: 0.5 | 1;
+  conversionEnabled: boolean;
+  maxEncashDaysPerYear: number;
+  maxTransferDaysPerYear: number;
+  minBalanceToRetain: number;
+  /** Fiscal months conversion is allowed in — 1 = April … 12 = March. Empty = any month. */
+  allowedFiscalMonths: number[];
+  onBehalfEnabled: boolean;
+  onBehalfMaxDays: number;
+  settlementWindowDays: number;
 }
+
+/** Fiscal calendar: index 0 is month 1 = April, matching the backend's toFiscalMonth. */
+const FISCAL_MONTHS = ['April', 'May', 'June', 'July', 'August', 'September',
+  'October', 'November', 'December', 'January', 'February', 'March'];
 
 const DEFAULTS: PolicyState = {
   probationEnabled: false,
@@ -48,12 +63,32 @@ const DEFAULTS: PolicyState = {
   penaltyType: 'halfDaySalaryDeduction',
   penaltyFixedAmount: 0,
   penaltyDays: 0.5,
+  // Conversion defaults mirror the backend's DEFAULT_LEAVE_POLICY exactly: on, no ceilings, any
+  // month — so opening this screen and saving cannot silently start rejecting requests that work
+  // today. on-behalf is the one thing that starts OFF.
+  conversionEnabled: true,
+  maxEncashDaysPerYear: 0,
+  maxTransferDaysPerYear: 0,
+  minBalanceToRetain: 0,
+  allowedFiscalMonths: [],
+  onBehalfEnabled: false,
+  onBehalfMaxDays: 0,
+  settlementWindowDays: 0,
 };
 
-export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalProps) {
+export function LeavePolicyModal({ open, onClose, readOnly, scope }: LeavePolicyModalProps) {
   const theme = useTheme();
   const divider = theme.palette.divider;
   const [configId, setConfigId] = useState<string | null>(null);
+  /**
+   * The configuration exactly as it was read.
+   *
+   * handleSave rebuilds the payload from `state`, and the policy JSON holds blocks this screen does
+   * not edit (leaveInLieu, and leaveConversion.eligibleTypes). Rebuilt from state alone, a save here
+   * silently DELETED them and the backend fell back to defaults — turning Leave-in-Lieu off for the
+   * whole scope because someone changed a probation setting.
+   */
+  const rawCfgRef = useRef<Record<string, any>>({});
   const [state, setState] = useState<PolicyState>(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,12 +98,16 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
     (async () => {
       try {
         setLoading(true);
-        const { data: { configuration } } = await fetchConfiguration(LEAVE_POLICY_KEY);
+        const { data: { configuration } } = await fetchConfiguration(LEAVE_POLICY_KEY, undefined, undefined, scope);
         if (configuration?.id) setConfigId(configuration.id);
         const raw = configuration?.configuration;
         const cfg = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+        rawCfgRef.current = cfg && typeof cfg === 'object' ? cfg : {};
         const p = cfg.probation ?? {};
         const sp = cfg.sameDayPenalty ?? {};
+        const lc = cfg.leaveConversion ?? {};
+        const ob = lc.onBehalf ?? {};
+        const nonNeg = (v: unknown) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
         setState({
           probationEnabled: !!p.enabled,
           probationDurationDays: Number(p.durationDays) > 0 ? Number(p.durationDays) : 90,
@@ -86,6 +125,17 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
             : 'halfDaySalaryDeduction',
           penaltyFixedAmount: Number(sp.fixedDeductionAmount) || 0,
           penaltyDays: Number(sp.penaltyDays) === 1 ? 1 : 0.5,
+          // `enabled !== false` — an absent block means conversion is ON, same as the backend reads it.
+          conversionEnabled: lc.enabled !== false,
+          maxEncashDaysPerYear: nonNeg(lc.maxEncashDaysPerYear),
+          maxTransferDaysPerYear: nonNeg(lc.maxTransferDaysPerYear),
+          minBalanceToRetain: nonNeg(lc.minBalanceToRetain),
+          allowedFiscalMonths: Array.isArray(lc.allowedFiscalMonths)
+            ? lc.allowedFiscalMonths.map(Number).filter((m: number) => m >= 1 && m <= 12)
+            : [],
+          onBehalfEnabled: !!ob.enabled,
+          onBehalfMaxDays: nonNeg(ob.maxDays),
+          settlementWindowDays: nonNeg(ob.settlementWindowDays),
         });
       } catch {
         // No config yet — defaults stay
@@ -93,7 +143,7 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
         setLoading(false);
       }
     })();
-  }, [open]);
+  }, [open, scope?.companyId, scope?.branchId]);
 
   const movePriority = (index: number, dir: -1 | 1) => {
     setState((s) => {
@@ -109,6 +159,8 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
     setSaving(true);
     try {
       const configuration = {
+        // Spread first so blocks this screen does not edit survive; every key below overwrites it.
+        ...rawCfgRef.current,
         probation: {
           enabled: state.probationEnabled,
           durationDays: Number(state.probationDurationDays) || 90,
@@ -124,12 +176,38 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
           fixedDeductionAmount: state.penaltyFixedAmount || 0,
           penaltyDays: state.penaltyDays,
         },
+        leaveConversion: {
+          // eligibleTypes has no editor here (it is a leave-type list, not a policy switch), so it
+          // is carried through untouched rather than reset to "all paid types".
+          ...(rawCfgRef.current.leaveConversion ?? {}),
+          enabled: state.conversionEnabled,
+          maxEncashDaysPerYear: Number(state.maxEncashDaysPerYear) || 0,
+          maxTransferDaysPerYear: Number(state.maxTransferDaysPerYear) || 0,
+          minBalanceToRetain: Number(state.minBalanceToRetain) || 0,
+          allowedFiscalMonths: [...state.allowedFiscalMonths].sort((a, b) => a - b),
+          onBehalf: {
+            enabled: state.onBehalfEnabled,
+            maxDays: Number(state.onBehalfMaxDays) || 0,
+            settlementWindowDays: Number(state.settlementWindowDays) || 0,
+          },
+        },
       };
 
-      if (configId) {
-        await updateConfigurationById(configId, { module: LEAVE_POLICY_KEY, configuration } as any);
+      // Scoped → upsert for THIS scope. Never PUT by id when scoped: `configId` came from a
+      // resolved read and may be an inherited org/global row, so updating it would rewrite the
+      // policy for every sibling. The payload is rebuilt whole from state (which was seeded
+      // from the resolved read), so a new branch override inherits every field.
+      if (scope?.companyId || scope?.branchId) {
+        await createNewConfiguration({
+          module: LEAVE_POLICY_KEY,
+          configuration,
+          companyId: scope.companyId,
+          branchId: scope.branchId,
+        });
+      } else if (configId) {
+        await updateConfigurationById(configId, { module: LEAVE_POLICY_KEY, configuration });
       } else {
-        await createNewConfiguration({ module: LEAVE_POLICY_KEY, configuration } as any);
+        await createNewConfiguration({ module: LEAVE_POLICY_KEY, configuration });
       }
       await successConfirmation('Auto-allocation policy saved successfully');
       onClose();
@@ -146,7 +224,10 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
     const priorityCount = `${state.allocationPriority.length} Types`;
     const overflowText = state.cumulativeOverflow === 'spillToUnpaid' ? 'Spillover' : 'Block';
     const penaltyText = state.penaltyEnabled ? state.penaltyCutoffTime : 'Off';
-    return { probationText, priorityCount, overflowText, penaltyText };
+    const conversionText = !state.conversionEnabled
+      ? 'Off'
+      : state.onBehalfEnabled ? 'On + behalf' : 'On';
+    return { probationText, priorityCount, overflowText, penaltyText, conversionText };
   }, [state]);
 
   // Type scale mirrors the Sandwich Leave benchmark, nudged up for readability: 16 titles,
@@ -192,26 +273,29 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
       header={(
         <GlassHeader
           title="Auto-Allocation Policy"
-          subtitle="Configure new-joiner probation restrictions, paid consumption priority, cumulative overflow, and late penalty rules"
+          subtitle="Configure new-joiner probation restrictions, paid consumption priority, cumulative overflow, late penalty rules, and leave conversion limits"
           icon={<KTIcon iconName="route" className="fs-1 text-white" />}
           onClose={onClose}
         />
       )}
     >
       <Box sx={{ p: { xs: 1.75, sm: 2.5 }, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {/* Metric Summary Bar — 2×2 on phones so it isn't a tall stack, 4-across on desktop */}
+        {/* Metric Summary Bar — 2-across on phones so it isn't a tall stack, 5-across on desktop */}
         <Grid container spacing={{ xs: 1.25, sm: 2 }}>
-          <Grid item xs={6} md={3}>
+          <Grid item xs={6} md={2.4}>
             <StatTile label="Probation" value={stats.probationText} trio={state.probationEnabled ? TRIO.purple : TRIO.slate} icon="security-user" />
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid item xs={6} md={2.4}>
             <StatTile label="Priority" value={stats.priorityCount} trio={TRIO.blue} icon="ranking" />
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid item xs={6} md={2.4}>
             <StatTile label="Overflow" value={stats.overflowText} trio={state.cumulativeOverflow === 'spillToUnpaid' ? TRIO.cyan : TRIO.rose} icon="filter-search" />
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid item xs={6} md={2.4}>
             <StatTile label="Penalty" value={stats.penaltyText} trio={state.penaltyEnabled ? TRIO.amber : TRIO.slate} icon="time" />
+          </Grid>
+          <Grid item xs={12} md={2.4}>
+            <StatTile label="Conversion" value={stats.conversionText} trio={state.conversionEnabled ? TRIO.green : TRIO.slate} icon="dollar" />
           </Grid>
         </Grid>
 
@@ -400,9 +484,138 @@ export function LeavePolicyModal({ open, onClose, readOnly }: LeavePolicyModalPr
                 </Grid>
               )}
             </GlassSurface>
+
+            {/* Section 5: Leave Conversion (encashment & transfer) */}
+            <GlassSurface variant="thin" sx={{ p: { xs: 1.75, sm: 2.25 }, display: 'flex', flexDirection: 'column', gap: 1.75, borderTop: `3.5px solid ${TRIO.green.c}` }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
+                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+                  <IconBox icon="dollar" trio={TRIO.green} size={36} fs="fs-3" />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={titleSx}>Leave Conversion (Encashment &amp; Transfer)</Typography>
+                    <Typography sx={descSx}>
+                      Whether employees may cash out or transfer unused paid leave, and the ceilings that apply.
+                      Every limit here is enforced server-side on each request, not just in the modal.
+                    </Typography>
+                  </Box>
+                </Stack>
+                <WtSwitch tone={TRIO.green.c} checked={state.conversionEnabled} disabled={readOnly}
+                  onChange={(e) => setState((s) => ({ ...s, conversionEnabled: e.target.checked }))} />
+              </Box>
+
+              {state.conversionEnabled && (
+                <Grid container spacing={2} sx={{ pt: 1, borderTop: `1px solid ${divider}` }}>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FieldLabel icon="dollar" tone={TRIO.green}>Max Encashable Days / Year</FieldLabel>
+                    <TextField type="number" size="small" fullWidth disabled={readOnly} sx={inputSx}
+                      value={state.maxEncashDaysPerYear}
+                      onChange={(e) => setState((s) => ({ ...s, maxEncashDaysPerYear: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                      inputProps={{ min: 0, step: 0.5 }}
+                      helperText="0 = no limit" FormHelperTextProps={{ sx: { fontSize: 12 } }} />
+                  </Grid>
+
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FieldLabel icon="arrows-circle" tone={TRIO.green}>Max Transferable Days / Year</FieldLabel>
+                    <TextField type="number" size="small" fullWidth disabled={readOnly} sx={inputSx}
+                      value={state.maxTransferDaysPerYear}
+                      onChange={(e) => setState((s) => ({ ...s, maxTransferDaysPerYear: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                      inputProps={{ min: 0, step: 0.5 }}
+                      helperText="0 = no limit" FormHelperTextProps={{ sx: { fontSize: 12 } }} />
+                  </Grid>
+
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FieldLabel icon="shield-tick" tone={TRIO.green}>Minimum Balance To Retain</FieldLabel>
+                    <TextField type="number" size="small" fullWidth disabled={readOnly} sx={inputSx}
+                      value={state.minBalanceToRetain}
+                      onChange={(e) => setState((s) => ({ ...s, minBalanceToRetain: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                      inputProps={{ min: 0, step: 0.5 }}
+                      helperText="Days the employee must keep after converting" FormHelperTextProps={{ sx: { fontSize: 12 } }} />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <FieldLabel icon="calendar-8" tone={TRIO.green}>Allowed Months (fiscal year, April → March)</FieldLabel>
+                    <Stack direction="row" flexWrap="wrap" sx={{ gap: 0.75 }}>
+                      {FISCAL_MONTHS.map((label, idx) => {
+                        const month = idx + 1;
+                        const on = state.allowedFiscalMonths.includes(month);
+                        return (
+                          <ButtonBase key={label} disabled={readOnly}
+                            onClick={() => setState((s) => ({
+                              ...s,
+                              allowedFiscalMonths: on
+                                ? s.allowedFiscalMonths.filter((m) => m !== month)
+                                : [...s.allowedFiscalMonths, month],
+                            }))}
+                            sx={{
+                              px: 1.5, py: 0.75, borderRadius: '10px', fontSize: 13, fontWeight: 700,
+                              border: `1px solid ${on ? TRIO.green.bd : divider}`,
+                              bgcolor: on ? TRIO.green.bg : 'transparent',
+                              color: on ? TRIO.green.c : 'text.secondary',
+                              transition: 'all .15s',
+                              '&:hover': { borderColor: TRIO.green.bd },
+                            }}>
+                            {label}
+                          </ButtonBase>
+                        );
+                      })}
+                    </Stack>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.75 }}>
+                      Select none to allow conversion in any month. Encashment is conventionally a year-end action.
+                      This window never applies to an Admin/HR on-behalf settlement — a leaver does not wait for March.
+                    </Typography>
+                  </Grid>
+
+                  {/* Admin/HR converting for someone else — the leaver-settlement path */}
+                  <Grid item xs={12}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.75,
+                      p: 1.75, borderRadius: '12px', bgcolor: TRIO.green.bg, border: `1px solid ${TRIO.green.bd}` }}>
+                      <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ minWidth: 0 }}>
+                        <Box sx={{ display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: '9px',
+                          bgcolor: '#fff', border: `1px solid ${TRIO.green.bd}`, color: TRIO.green.c, flexShrink: 0, mt: 0.2, lineHeight: 0 }}>
+                          <KTIcon iconName="people" className="fs-4" />
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography sx={{ fontSize: 14.5, fontWeight: 700, color: 'text.primary', lineHeight: 1.4, letterSpacing: '-0.01em' }}>
+                            Allow Admin/HR to convert on an employee&apos;s behalf
+                          </Typography>
+                          <Typography sx={{ fontSize: 13.5, color: '#55606F', mt: 0.5, lineHeight: 1.6 }}>
+                            Required to settle a leaver&apos;s unused balance: conversion is otherwise employee-initiated,
+                            so someone who has already exited can never cash out what they are owed. This switch is what
+                            enables the Unsettled Leavers panel on the admin Leave Management screen.
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <WtSwitch tone={TRIO.green.c} checked={state.onBehalfEnabled} disabled={readOnly}
+                        onChange={(e) => setState((s) => ({ ...s, onBehalfEnabled: e.target.checked }))} />
+                    </Box>
+                  </Grid>
+
+                  {state.onBehalfEnabled && (
+                    <>
+                      <Grid item xs={12} sm={6}>
+                        <FieldLabel icon="dollar" tone={TRIO.green}>On-Behalf Ceiling (days)</FieldLabel>
+                        <TextField type="number" size="small" fullWidth disabled={readOnly} sx={inputSx}
+                          value={state.onBehalfMaxDays}
+                          onChange={(e) => setState((s) => ({ ...s, onBehalfMaxDays: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                          inputProps={{ min: 0, step: 0.5 }}
+                          helperText="0 = fall back to the employee ceiling above" FormHelperTextProps={{ sx: { fontSize: 12 } }} />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <FieldLabel icon="calendar-8" tone={TRIO.green}>Settlement Window (days after exit)</FieldLabel>
+                        <TextField type="number" size="small" fullWidth disabled={readOnly} sx={inputSx}
+                          value={state.settlementWindowDays}
+                          onChange={(e) => setState((s) => ({ ...s, settlementWindowDays: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                          inputProps={{ min: 0 }}
+                          helperText="0 = no deadline. Past the window a leaver is still listed, never hidden." FormHelperTextProps={{ sx: { fontSize: 12 } }} />
+                      </Grid>
+                    </>
+                  )}
+                </Grid>
+              )}
+            </GlassSurface>
           </Stack>
         )}
       </Box>
+
 
       {/* Footer Actions — benchmark spacing (px 2.5 / py 1.5) and button physics */}
       <Box sx={{

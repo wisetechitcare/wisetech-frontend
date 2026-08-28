@@ -21,7 +21,7 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { Image, OverlayTrigger, Tooltip, Alert, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { hasPermission } from "@utils/authAbac";
-import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTableFilters";
+import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import PeriodFilter from "@app/modules/common/components/PeriodFilter";
@@ -44,7 +44,7 @@ function isAttendanceDurationShort(checkIn: string | undefined, checkOut: string
 // Overview - see the two components below, not a local copy.
 import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
 import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
-import { ToneChip } from '@app/modules/common/components/ui';
+import { ToneChip, AppIcon } from '@app/modules/common/components/ui';
 
 type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | null;
 
@@ -196,6 +196,14 @@ const DashboardDailyAttendanceOverview = () => {
   const lateCheckInsCount = visibleAttendance.filter(att => {
     if (!att.checkIn) return false;
 
+    // THE SERVER'S VERDICT decides when present. This screen shares DailyAttendance's
+    // fetch, so its rows already carry `lateMark` — nothing was reading it. Everything
+    // below is the pre-fix derivation, kept only as a fallback for responses without a
+    // verdict: it applies just the ON-SITE third of the master switch and never consults
+    // the calendar, which is what showed red late marks on an exempted Saturday.
+    const serverVerdict = (att as any).lateMark as { isLate: boolean } | undefined;
+    if (serverVerdict) return serverVerdict.isLate;
+
     const attendanceDate = new Date(att.checkIn);
 
     // Get shift for this date
@@ -233,6 +241,10 @@ const DashboardDailyAttendanceOverview = () => {
     if (!att.checkOut) return false;
 
     const attendanceDate = new Date(att.checkOut);
+    // A check-out on a non-working day cannot be "early" — there is no shift to be early
+    // against. The server stamps `dayKind`; fall back to the local calendar check.
+    const kind = (att as any).dayKind as string | undefined;
+    if (kind ? kind !== 'working' : checkIfWeekendOrHoliday(attendanceDate)) return false;
 
     // If on-site settings is ON, skip on-site employees from early check-out
     const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
@@ -261,7 +273,20 @@ const DashboardDailyAttendanceOverview = () => {
   // employeesOnLeave from the API is a NUMBER (count), not an array — .length on a number
   // returns undefined, silently making on-leave employees appear as absent.
   // Use employesLeaveDatas (the ARRAY of leave detail objects) for the correct count.
-  const absentCount = Math.max(0, visibleEmployees.length - (visibleLeaveDatas?.length || 0) - visibleAttendance.length);
+  // Nobody is absent on a day the company does not work. Without this the whole roster
+  // minus whoever came in was reported as absent on weekends and holidays — the "32
+  // absent" on an exempted Saturday. Prefer the server's per-employee `dayKind`; fall
+  // back to the local calendar check when no row carries one.
+  const dashboardDayKinds = visibleAttendance
+    .map((a: any) => a.dayKind as string | undefined)
+    .filter(Boolean) as string[];
+  const isNonWorkingDay = dashboardDayKinds.length
+    ? dashboardDayKinds.every((k) => k !== 'working')
+    : checkIfWeekendOrHoliday(date.toDate());
+
+  const absentCount = isNonWorkingDay
+    ? 0
+    : Math.max(0, visibleEmployees.length - (visibleLeaveDatas?.length || 0) - visibleAttendance.length);
 
   // Modal handlers
   const handleCardClick = (type: ModalType) => {
@@ -596,14 +621,14 @@ const DashboardDailyAttendanceOverview = () => {
                         </td>
                         <td>
                           <div className="d-flex align-items-center">
-                            <i className="bi bi-calendar3 me-2"></i>
+                            <AppIcon name="bi-calendar3" className="me-2" />
                             {isSameDay ? startDate : `${startDate} to ${endDate}`}
                           </div>
                         </td>
                         <td>
                           {reason && (
                             <div className="text-truncate" style={{ maxWidth: '200px' }} title={reason}>
-                              <i className="bi bi-chat-square-text me-1"></i>
+                              <AppIcon name="bi-chat-square-text" className="me-1" />
                               {reason}
                             </div>
                           )}
@@ -713,7 +738,7 @@ const DashboardDailyAttendanceOverview = () => {
                 <>
                   {additionalInfo[emp._id] && (
                     <div className="text-primary small mt-1">
-                      <i className="bi bi-info-circle me-1"></i>
+                      <AppIcon name="bi-info-circle" className="me-1" />
                       {additionalInfo[emp._id]}
                     </div>
                   )}
@@ -772,11 +797,11 @@ const DashboardDailyAttendanceOverview = () => {
                         return (
                           <>
                             <span className={(isLateCheckIn || isShortDuration) ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                              <i className="bi bi-clock me-1"></i>
+                              <AppIcon name="bi-clock" className="me-1" />
                               {dayjs(emp.attendance.checkIn).format('h:mm A')}
                             </span>
                             <span className={isEarlyCheckOut ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                              <i className="bi bi-clock-fill me-1"></i>
+                              <AppIcon name="bi-clock-fill" className="me-1" />
                               {dayjs(emp.attendance.checkOut).format('h:mm A')}
                             </span>
                           </>
@@ -822,7 +847,7 @@ const DashboardDailyAttendanceOverview = () => {
                         // Employee hasn't checked out yet — duration is unknown, so only flag late check-in
                         return (
                           <span className={isLateCheckIn ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                            <i className="bi bi-clock me-1"></i>
+                            <AppIcon name="bi-clock" className="me-1" />
                             {dayjs(emp.attendance.checkIn).format('h:mm A')}
                           </span>
                         );
@@ -1100,7 +1125,7 @@ const DashboardDailyAttendanceOverview = () => {
                   backgroundColor: '#ffffff', color: '#dc2626', cursor: 'pointer',
                 }}
               >
-                <i className="bi bi-x-lg" /> Reset
+                <AppIcon name="bi-x-lg" /> Reset
               </button>
             )}
             {hasPermission(resourceNameMapWithCamelCase.employee, (permissionConstToUseWithHasPermission.editOthers || permissionConstToUseWithHasPermission.readOthers)) &&

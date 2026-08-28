@@ -2,17 +2,11 @@ import { useState } from "react";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
+import { BLOOD_GROUP_OPTIONS } from "@utils/employeeFormat";
 
-const bloodGroupOptions = [
-    { value: 'A_POS', label: 'A+' },
-    { value: 'A_NEG', label: 'A-' },
-    { value: 'B_POS', label: 'B+' },
-    { value: 'B_NEG', label: 'B-' },
-    { value: 'AB_POS', label: 'AB+' },
-    { value: 'AB_NEG', label: 'AB-' },
-    { value: 'O_POS', label: 'O+' },
-    { value: 'O_NEG', label: 'O-' },
-];
+// Derived from the same token→label map every display surface formats through, so the
+// picker and the places that render its value can never disagree.
+const bloodGroupOptions = BLOOD_GROUP_OPTIONS;
 
 function EmergencyDetails({ formikProps }: any) {
   const { values, setFieldValue } = formikProps;

@@ -2,6 +2,7 @@ import { safeJsonParse } from '@utils/safeJson';
 import { T as UiTokens } from '@app/modules/common/components/ui/tokens';
 import { useEffect, useRef, useState } from 'react';
 import { parseWorkingDays } from '@utils/workingDays';
+import { anniversaryDateOrNull } from '@utils/anniversary';
 import { useFormik } from 'formik';
 import Flatpickr from "react-flatpickr";
 import { Modal } from 'react-bootstrap';
@@ -50,6 +51,9 @@ import {
   SHOW_HOLIDAYS_ON_CALENDAR
 } from '@constants/configurations-key';
 import { getUpcomingContactsBirthdays } from '@services/companies';
+import Tooltip from '@mui/material/Tooltip';
+import BirthdayCardDialog from '@pages/employee/components/birthdaycard/BirthdayCardDialog';
+import type { BirthdayCardKind } from '@services/employee';
 import { fetchColorAndStoreInSlice } from '@utils/file';
 import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
@@ -143,6 +147,10 @@ const calendarEventSchema = Yup.object().shape({
 
 function CustomCalendar() {
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
+    // Who may issue a birthday card. Admin only, by request: a card is the company
+    // wishing someone publicly, so who sends one is an HR call. `/birthday-card`
+    // enforces the same thing server-side — this only decides whether the button draws.
+    const isAdmin = useSelector((state: RootState) => state?.auth?.currentUser?.isAdmin);
     const branchId = useSelector((state:RootState)=>state?.employee?.currentEmployee?.branchId);  
     // const weekendColor =  useSelector((state:RootState) => state?.customColors?.attendanceCalendar?.weekendColor);
     const birthdaysColor = useSelector((state:RootState) => state?.customColors?.momentsThatMatter?.birthdaysColor);  
@@ -158,6 +166,10 @@ function CustomCalendar() {
     const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
     // console.log("calendarEvents=>",calendarEvents)
     const [meetings, setMeetings] = useState<any[]>([]);
+    /** The birthday event a card is open for, or null. */
+    const [birthdayCardTarget, setBirthdayCardTarget] = useState<
+        { kind: BirthdayCardKind; id: string; name: string } | null
+    >(null);
     const [filterInternalBirthdays, setFilterInternalBirthdays] = useState(true);
     const [filterExternalBirthdays, setFilterExternalBirthdays] = useState(true);
     const [filterInternalAnniversaries, setFilterInternalAnniversaries] = useState(true);
@@ -483,7 +495,6 @@ function CustomCalendar() {
               }
             };
           });
-        //   debugger;
           const workingAndOffDays = parseWorkingDays(branchRes?.data?.branch?.workingAndOffDays);
           setBranchWorkingAndOffDays(workingAndOffDays);
       
@@ -598,12 +609,9 @@ function CustomCalendar() {
           employeeAnniversaries = allEmployeeDateOfjoining?.data?.employees
             ?.filter((employee: any) => employee.dateOfJoining && employee?.users)
             .map((employee: any) => {
-              const anniversaryDate = dayjs(employee.dateOfJoining);
-              const today = dayjs().startOf('day');
-              let nextAnniversary = dayjs(anniversaryDate).year(today.year());
-              if (nextAnniversary.isBefore(today, 'day')) {
-                nextAnniversary = dayjs(anniversaryDate).year(Number(currentYear));
-              }
+              const nextAnniversary = anniversaryDateOrNull(dayjs(employee.dateOfJoining), Number(currentYear));
+              // Joined less than a year ago: no anniversary to mark yet.
+              if (!nextAnniversary) return null;
               const isInactive = employee.isActive === false || employee.users?.isActive === false;
               
               if (isInactive && !showAnniversariesInternalInactiveEnabled) return null;
@@ -638,12 +646,8 @@ function CustomCalendar() {
             contactAnniversaries = allContacts
               .filter((c: any) => c.anniversary)
               .map((c: any) => {
-                const anniversaryDate = dayjs(c.anniversary);
-                const today = dayjs().startOf('day');
-                let nextAnniversary = dayjs(anniversaryDate).year(today.year());
-                if (nextAnniversary.isBefore(today, 'day')) {
-                  nextAnniversary = dayjs(anniversaryDate).year(Number(currentYear));
-                }
+                const nextAnniversary = anniversaryDateOrNull(dayjs(c.anniversary), Number(currentYear));
+                if (!nextAnniversary) return null;
                 return {
                   title: `${c.name}'s Anniversary`,
                   start: nextAnniversary.format('YYYY-MM-DD'),
@@ -658,7 +662,8 @@ function CustomCalendar() {
                     contact: c
                   }
                 };
-              });
+              })
+              .filter(Boolean);
           }
 
           // 5. Process employee marriage anniversaries (Internal Team) — same
@@ -671,12 +676,8 @@ function CustomCalendar() {
           employeeMarriageAnniversaries = allEmployeeDateOfjoining?.data?.employees
             ?.filter((employee: any) => employee.anniversary && employee?.users)
             .map((employee: any) => {
-              const marriageAnniversaryDate = dayjs(employee.anniversary);
-              const today = dayjs().startOf('day');
-              let nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(today.year());
-              if (nextMarriageAnniversary.isBefore(today, 'day')) {
-                nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(Number(currentYear));
-              }
+              const nextMarriageAnniversary = anniversaryDateOrNull(dayjs(employee.anniversary), Number(currentYear));
+              if (!nextMarriageAnniversary) return null;
               const isInactive = employee.isActive === false || employee.users?.isActive === false;
 
               if (isInactive && !showMarriageAnnyInternalInactiveEnabled) return null;
@@ -716,12 +717,8 @@ function CustomCalendar() {
             contactMarriageAnniversaries = allContacts
               .filter((c: any) => c.anniversary)
               .map((c: any) => {
-                const marriageAnniversaryDate = dayjs(c.anniversary);
-                const today = dayjs().startOf('day');
-                let nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(today.year());
-                if (nextMarriageAnniversary.isBefore(today, 'day')) {
-                  nextMarriageAnniversary = dayjs(marriageAnniversaryDate).year(Number(currentYear));
-                }
+                const nextMarriageAnniversary = anniversaryDateOrNull(dayjs(c.anniversary), Number(currentYear));
+                if (!nextMarriageAnniversary) return null;
                 return {
                   title: `${c.name}'s Marriage Anniversary`,
                   start: nextMarriageAnniversary.format('YYYY-MM-DD'),
@@ -736,7 +733,8 @@ function CustomCalendar() {
                     contact: c
                   }
                 };
-              });
+              })
+              .filter(Boolean);
           }
 
           for (let d = start; d.isBefore(end); d = d.add(1, 'day')) {
@@ -881,6 +879,26 @@ function CustomCalendar() {
     const evDateOf = (e: any) => e.date || e.start;
     const evType = (e: any): string => e.extendedProps?.type || (e.date ? 'holiday' : 'event');
     const evMeta = (e: any) => CAT[evType(e)] || CAT.event;
+
+    /**
+     * The card target for a birthday event, or null for anything that is not one.
+     *
+     * Employee events carry `extendedProps.user` (built from the users list, so the id
+     * is the USER's — which is what `/birthday-card/employee/:id` resolves on) and
+     * contact events carry `extendedProps.contact`. Anniversaries deliberately do NOT
+     * match: they are a different occasion and would want a different card.
+     */
+    const birthdayTargetOf = (e: any): { kind: BirthdayCardKind; id: string; name: string } | null => {
+        const type = evType(e);
+        if (type !== 'birthday' && type !== 'contact-birthday') return null;
+        const who = type === 'birthday' ? e.extendedProps?.user : e.extendedProps?.contact;
+        if (!who?.id) return null;
+        return {
+            kind: type === 'birthday' ? 'employee' : 'contact',
+            id: who.id,
+            name: who.name || e.title || '',
+        };
+    };
     
 
     const renderProfileOrIcon = (
@@ -1264,6 +1282,25 @@ function CustomCalendar() {
                                                             <div className="mrd-tl__title">{e.title}</div>
                                                             <div className="mrd-tl__sub">{m.label}</div>
                                                         </div>
+                                                        {/* Birthday cards are issued from here because this is the one
+                                                            place BOTH audiences already meet: employee and contact
+                                                            birthdays are the same list on this panel. Admin only. */}
+                                                        {(() => {
+                                                            const target = isAdmin ? birthdayTargetOf(e) : null;
+                                                            if (!target) return null;
+                                                            return (
+                                                                <Tooltip title={`Birthday card for ${target.name}`} arrow>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="mrd-tl__act"
+                                                                        aria-label={`Generate a birthday card for ${target.name}`}
+                                                                        onClick={() => setBirthdayCardTarget(target)}
+                                                                    >
+                                                                        <Ico n="gift" cls="sm" />
+                                                                    </button>
+                                                                </Tooltip>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                             );
@@ -1288,7 +1325,7 @@ function CustomCalendar() {
                                 <div className="mrd-sect">
                                     <div className="mrd-sect__head">
                                         <span className="mrd-sect__t">Upcoming Events</span>
-                                        <button type="button" className="mrd-sect__act" onClick={panelToday}>View all</button>
+                                        <button type="button" className="mrd-sect__act" onClick={panelToday}>View All</button>
                                     </div>
                                     {upcomingEvents.length ? (
                                         <div className="mrd-up">
@@ -1321,7 +1358,7 @@ function CustomCalendar() {
                                     <div className="mrd-sect__head">
                                         <span className="mrd-sect__t">Show on Calendar</span>
                                         {hiddenCats.size > 0 && (
-                                            <button type="button" className="mrd-sect__act" onClick={showAllCats}>Show all</button>
+                                            <button type="button" className="mrd-sect__act" onClick={showAllCats}>Show All</button>
                                         )}
                                     </div>
                                     <div className="mrd-leg">
@@ -1615,6 +1652,18 @@ function CustomCalendar() {
                     </section>
                 </div>
             </div>
+
+            {/* Mounted once for the whole calendar rather than per row: one open card at
+                a time, and the rail re-renders on every day change. */}
+            {birthdayCardTarget && (
+                <BirthdayCardDialog
+                    open
+                    kind={birthdayCardTarget.kind}
+                    personId={birthdayCardTarget.id}
+                    personName={birthdayCardTarget.name}
+                    onClose={() => setBirthdayCardTarget(null)}
+                />
+            )}
         </>
     );
 }

@@ -13,8 +13,10 @@ import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission, ui
 import { hasPermission } from "@utils/authAbac";
 import AppSettingsModal from "./components/AppSettingsModal";
 import { getEducationAcademicLabel, getEducationDetailValue } from "../../../utils/educationUtils";
+import { formatBloodGroup, formatPhoneWithCode } from "@utils/employeeFormat";
 import "./glass.css";
 import "./ShowEmployeeDetails.css";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /* ── Presentational building blocks (className-driven, zero inline sizing) ──
    All layout/typography comes from ShowEmployeeDetails.css tokens, so cards and rows
@@ -103,7 +105,6 @@ const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
     departments,
     designations,
     branches,
-    nickName,
     dateOfJoining,
     dateOfExit,
     companyPhoneNumber,
@@ -138,21 +139,9 @@ const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
   const getMaritalStatus = (val: number) => (val === 1 ? "Unmarried" : val === 0 ? "Married" : "-NA-");
   const getMethod = (val: number) => (val === 0 ? "Office" : val === 1 ? "Remote" : "-NA-");
 
-  // The onboarding phone input stores the country dial code (e.g. "91") in the *Extension field,
-  // so render it merged into the number ("+91 9987221079") instead of as a standalone "Extension".
-  const formatPhoneWithCode = (number?: string | null, code?: string | null) => {
-    if (!number) return "-NA-";
-    return code ? `+${code} ${number}` : number;
-  };
-
-  const formatBloodGroup = (bloodGroup: string | null | undefined) => {
-    if (!bloodGroup) return "-NA-";
-    const bloodGroupMap: { [key: string]: string } = {
-      'A_POS': 'A+', 'A_NEG': 'A-', 'B_POS': 'B+', 'B_NEG': 'B-',
-      'AB_POS': 'AB+', 'AB_NEG': 'AB-', 'O_POS': 'O+', 'O_NEG': 'O-',
-    };
-    return bloodGroupMap[bloodGroup] || bloodGroup;
-  };
+  // `formatPhoneWithCode` and `formatBloodGroup` were defined here. They now live in
+  // @utils/employeeFormat because the ID card needs the same two conversions, and the
+  // second copy got both wrong ("9987221079 x 91", "AB_POS" on a printed badge).
 
   const handleWhatsAppShare = () => {
     const message = `CONTACT CARD
@@ -236,7 +225,7 @@ Location: ${branches?.address || 'N/A'}`;
             className="emp-btn emp-btn-whatsapp"
             title="Share Employee Details via WhatsApp"
           >
-            <i className="bi bi-whatsapp" aria-hidden></i>
+            <AppIcon name="bi-whatsapp" aria-hidden />
             Share Details
           </button>
           {hasPermission(
@@ -249,7 +238,7 @@ Location: ${branches?.address || 'N/A'}`;
               className="emp-btn emp-btn-settings"
               title="App Settings"
             >
-              <i className="bi bi-gear" aria-hidden></i>
+              <AppIcon name="bi-gear" aria-hidden />
               App Settings
             </button>
           )}
@@ -259,9 +248,8 @@ Location: ${branches?.address || 'N/A'}`;
       {/* Fluid card grid — reflows 2-up ↔ 1-up from available width */}
       <div className="emp-grid">
         {/* Personal Details */}
-        <DetailCard icon={<i className="bi bi-person" aria-hidden></i>} title="Personal Details">
+        <DetailCard icon={<AppIcon name="bi-person" aria-hidden />} title="Personal Details">
           <DetailRow label="Full Name" value={`${users.firstName} ${users.lastName}`.trim() || "-NA-"} />
-          <DetailRow label="Nickname" value={nickName || "-NA-"} />
           <DetailRow label="Date of Birth" value={formatDate(users.dateOfBirth)} />
           <DetailRow label="Gender" value={getGender(gender)} />
           <DetailRow label="Marital Status" value={getMaritalStatus(maritalStatus)} />
@@ -270,7 +258,7 @@ Location: ${branches?.address || 'N/A'}`;
         </DetailCard>
 
         {/* Employee Details */}
-        <DetailCard icon={<i className="bi bi-briefcase" aria-hidden></i>} title="Employee Details">
+        <DetailCard icon={<AppIcon name="bi-briefcase" aria-hidden />} title="Employee Details">
           <DetailRow label="Job Profile" value={designations?.role || "-NA-"} />
           <DetailRow label="Department" value={departments?.name || "-NA-"} />
           <DetailRow label="Type of Employee" value={employeeType} />
@@ -279,7 +267,7 @@ Location: ${branches?.address || 'N/A'}`;
         </DetailCard>
 
         {/* Contact Details */}
-        <DetailCard icon={<i className="bi bi-telephone" aria-hidden></i>} title="Contact Details">
+        <DetailCard icon={<AppIcon name="bi-telephone" aria-hidden />} title="Contact Details">
           <DetailRow label="Company Email" value={companyEmailId || "-NA-"} link />
           <DetailRow label="Company Phone" value={formatPhoneWithCode(companyPhoneNumber, companyPhoneExtension)} />
           <DetailRow label="Personal Email" value={users?.personalEmailId || "-NA-"} link />
@@ -288,7 +276,7 @@ Location: ${branches?.address || 'N/A'}`;
         </DetailCard>
 
         {/* Hiring Details */}
-        <DetailCard icon={<i className="bi bi-building" aria-hidden></i>} title="Hiring Details">
+        <DetailCard icon={<AppIcon name="bi-building" aria-hidden />} title="Hiring Details">
           <DetailRow label="Hiring Source" value={employee?.companySrcOfHire?.source || "-NA-"} />
           {canSeePackage && (
             <DetailRow
@@ -304,7 +292,7 @@ Location: ${branches?.address || 'N/A'}`;
         </DetailCard>
 
         {/* Work Experience */}
-        <DetailCard icon={<i className="bi bi-briefcase" aria-hidden></i>} title="Work Experience">
+        <DetailCard icon={<AppIcon name="bi-briefcase" aria-hidden />} title="Work Experience">
           {EmployeePreviousExperience && EmployeePreviousExperience.length > 0 ? (
             <div className="emp-scroll-list">
               {EmployeePreviousExperience.map((exp: any, index: number) => (
@@ -322,7 +310,7 @@ Location: ${branches?.address || 'N/A'}`;
         </DetailCard>
 
         {/* Re-joining History */}
-        <DetailCard icon={<i className="bi bi-briefcase" aria-hidden></i>} title="Re-joining History">
+        <DetailCard icon={<AppIcon name="bi-briefcase" aria-hidden />} title="Re-joining History">
           {EmployeeRejoinHistory && EmployeeRejoinHistory.length > 0 ? (
             <div className="emp-scroll-list">
               {EmployeeRejoinHistory.map((exp: any, index: number) => (
@@ -339,7 +327,7 @@ Location: ${branches?.address || 'N/A'}`;
         </DetailCard>
 
         {/* Education */}
-        <DetailCard icon={<i className="bi bi-mortarboard" aria-hidden></i>} title="Education">
+        <DetailCard icon={<AppIcon name="bi-mortarboard" aria-hidden />} title="Education">
           {EmployeeEducationalDetails && EmployeeEducationalDetails.length > 0 ? (
             <div className="emp-scroll-list">
               {EmployeeEducationalDetails.map((edu: any, index: number) => {
@@ -364,7 +352,7 @@ Location: ${branches?.address || 'N/A'}`;
         </DetailCard>
 
         {/* Address — normal card; Permanent stacks under Current to stay compact */}
-        <DetailCard icon={<i className="bi bi-house" aria-hidden></i>} title="Address">
+        <DetailCard icon={<AppIcon name="bi-house" aria-hidden />} title="Address">
           {EmployeeAddressDetails && EmployeeAddressDetails.length > 0 ? (
             <div className="emp-address-grid">
               <div className="emp-address-block">
@@ -382,7 +370,7 @@ Location: ${branches?.address || 'N/A'}`;
         </DetailCard>
 
         {/* Family Details */}
-        <DetailCard icon={<i className="bi bi-people" aria-hidden></i>} title="Family Details">
+        <DetailCard icon={<AppIcon name="bi-people" aria-hidden />} title="Family Details">
           {EmergencyContacts && EmergencyContacts.length > 0 ? (
             <div className="emp-scroll-list">
               {EmergencyContacts.map((contact: any, index: number) => (
@@ -401,7 +389,7 @@ Location: ${branches?.address || 'N/A'}`;
 
         {/* Emergency Details */}
         <DetailCard
-          icon={<i className="bi bi-exclamation-triangle" aria-hidden></i>}
+          icon={<AppIcon name="bi-exclamation-triangle" aria-hidden />}
           title="Emergency Details"
           iconVariant="warn"
         >
@@ -419,7 +407,7 @@ Location: ${branches?.address || 'N/A'}`;
 
         {/* Bank Details */}
         <DetailCard
-          icon={<i className="bi bi-bank" aria-hidden></i>}
+          icon={<AppIcon name="bi-bank" aria-hidden />}
           title="Bank Details"
           iconVariant="success"
         >

@@ -41,6 +41,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { Close } from "@mui/icons-material";
 import { Box, IconButton, Typography } from "@mui/material";
 import dayjs from "dayjs";
+import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
 
 interface Company {
   id: string;
@@ -941,7 +942,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                             </Col>
                             <Col md={6} className="mt-2">
                               <label className="form-label">Sub-services</label>
-                              <Select
+                              <Select{...FLOATING_MENU_BEHAVIOUR}
                                 isMulti
                                 placeholder={
                                   values.companyId

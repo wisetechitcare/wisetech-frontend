@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from "react";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { Modal, Button, Container, OverlayTrigger, Tooltip as RBTooltip, Form } from "react-bootstrap";
 import { kpiAttendanceIcons } from "@metronic/assets/sidepanelicons";
 import { getAllKpiFactors, updateKpiFactors, getAllKpiModules, createKpiFactor } from "@services/employee";
@@ -374,7 +375,7 @@ export default function KpiSettings() {
                       e.currentTarget.style.boxShadow = 'none';
                     }}
                   >
-                    <i className="bi bi-plus me-2" /> Add Factor
+                    <AppIcon name="bi-plus" className="me-2" /> Add Factor
                   </button>
                 )}
 
@@ -437,7 +438,7 @@ export default function KpiSettings() {
                                       </RBTooltip>
                                     }
                                   >
-                                    <i className="bi bi-question-circle" style={{ fontSize: '14px', color: C.textMuted, cursor: 'help' }} />
+                                    <AppIcon name="bi-question-circle" className="fs-6" color={C.textMuted} style={{ cursor: 'help' }} />
                                   </OverlayTrigger>
                                 )}
                                 {!factor.isActive && (
@@ -512,7 +513,7 @@ export default function KpiSettings() {
                                         e.currentTarget.style.color = C.primary;
                                       }}
                                     >
-                                      <i className="bi bi-pencil" />
+                                      <AppIcon name="bi-pencil" />
                                     </button>
                                   </OverlayTrigger>
                                   <OverlayTrigger
@@ -542,7 +543,7 @@ export default function KpiSettings() {
                                         e.currentTarget.style.backgroundColor = 'transparent';
                                       }}
                                     >
-                                      <i className={`bi ${factor.isActive ? 'bi-toggle-on' : 'bi-toggle-off'}`} />
+                                      <AppIcon name={factor.isActive ? 'bi-toggle-on' : 'bi-toggle-off'} />
                                     </button>
                                   </OverlayTrigger>
                                 </div>

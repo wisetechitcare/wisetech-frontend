@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Button, ButtonGroup, Menu, MenuItem, ListItemIcon, ListItemText,
     Divider, CircularProgress,
@@ -8,6 +8,7 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import { saveAs } from 'file-saver';
+import { DRILLDOWN_Z_INDEX } from '@app/modules/common/components/DrillDownDialog';
 
 // ─── Column definition ─────────────────────────────────────────────────────────
 
@@ -58,9 +59,24 @@ export interface ExportButtonProps<T = any> {
     /** Disable both buttons */
     disabled?: boolean;
     size?: 'small' | 'medium';
+    /**
+     * Button text. Defaults to "Export".
+     *
+     * Set it whenever a screen offers TWO exports — two identical "Export" buttons side by side
+     * is a coin toss, and the reader finds out which one they wanted only after opening the file.
+     */
+    label?: string;
     /** Extra sx applied to the outer ButtonGroup */
     sx?: object;
 }
+
+/**
+ * Column-visibility map supplied by the surrounding table (accessorKey → visible).
+ * Any ExportButton rendered inside a table drops the columns the user toggled off,
+ * so the file matches what is on screen. A key the map does not mention stays in —
+ * export columns that have no table counterpart must not silently vanish.
+ */
+export const ExportVisibilityContext = React.createContext<Record<string, boolean> | null>(null);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -346,23 +362,50 @@ function ExportButton<T = any>({
     totalLabel = 'TOTAL',
     disabled = false,
     size = 'small',
+    label = 'Export',
     sx = {},
 }: ExportButtonProps<T>) {
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [loading, setLoading] = useState<'xlsx' | 'csv' | null>(null);
-    const open = Boolean(anchorEl);
+    /**
+     * The menu anchors to a REF, not to the node captured from the click event.
+     *
+     * It used to store `e.currentTarget`. This toolbar re-renders on every page change, filter
+     * and data refresh, and when React replaces the button node the stored one is detached from
+     * the document — `getBoundingClientRect()` on a detached node is all zeros, so MUI parked the
+     * menu in the top-left corner of the viewport, over the sidebar. That is the "it jumps to the
+     * top" report, and clicking anything that re-rendered the toolbar is what triggered it.
+     *
+     * A function anchor is re-evaluated every time the popover positions itself, so it always
+     * reads the node that is on screen right now.
+     */
+    const visibility = React.useContext(ExportVisibilityContext);
+    const exportCols = React.useMemo(
+        () => (visibility ? columns.filter(c => visibility[c.key] !== false) : columns),
+        [columns, visibility],
+    );
 
-    const handleOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
-    const handleClose = () => setAnchorEl(null);
+    const groupRef = useRef<HTMLDivElement>(null);
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState<'xlsx' | 'csv' | null>(null);
+
+    const handleOpen = () => setOpen(true);
+    const handleClose = useCallback(() => setOpen(false), []);
+
+    // An open menu whose anchor scrolls out from under it is worse than no menu: it hangs in
+    // place pointing at nothing. Any scroll of an ancestor closes it.
+    useEffect(() => {
+        if (!open) return;
+        window.addEventListener('scroll', handleClose, true);
+        return () => window.removeEventListener('scroll', handleClose, true);
+    }, [open, handleClose]);
 
     const runExport = async (type: 'xlsx' | 'csv') => {
         handleClose();
         setLoading(type);
         try {
             if (type === 'xlsx') {
-                await exportXlsx(data, columns, filename, title, subtitle, sheetName, showTotals, totalLabel);
+                await exportXlsx(data, exportCols, filename, title, subtitle, sheetName, showTotals, totalLabel);
             } else {
-                exportCsv(data, columns, filename, title, showTotals, totalLabel);
+                exportCsv(data, exportCols, filename, title, showTotals, totalLabel);
             }
         } finally {
             setLoading(null);
@@ -372,7 +415,7 @@ function ExportButton<T = any>({
     const btnSx = {
         textTransform: 'none',
         fontWeight: 700,
-        fontSize: size === 'small' ? 13 : 14,
+        fontSize: size === 'small' ? 12.5 : 13.5,
         borderColor: '#3b82f6',
         color: '#3b82f6',
         borderRadius: 0,
@@ -383,11 +426,12 @@ function ExportButton<T = any>({
     return (
         <>
             <ButtonGroup
+                ref={groupRef}
                 variant="outlined"
                 size={size}
                 disabled={disabled || loading !== null}
                 sx={{
-                    borderRadius: '10px',
+                    borderRadius: '8px',
                     overflow: 'hidden',
                     boxShadow: '0 1px 3px rgba(59,130,246,0.10)',
                     ...sx,
@@ -399,33 +443,41 @@ function ExportButton<T = any>({
                         loading ? (
                             <CircularProgress size={14} sx={{ color: '#3b82f6' }} />
                         ) : (
-                            <DownloadIcon sx={{ fontSize: 16 }} />
+                            <DownloadIcon sx={{ fontSize: 15 }} />
                         )
                     }
                     onClick={handleOpen}
-                    sx={{ ...btnSx, borderRadius: '10px 0 0 10px', px: 2, py: 0.75 }}
+                    sx={{ ...btnSx, borderRadius: '8px 0 0 8px', px: 1.25, py: 0.35 }}
                 >
-                    {loading ? 'Exporting…' : 'Export'}
+                    {loading ? 'Exporting…' : label}
                 </Button>
 
                 {/* Arrow to open menu */}
                 <Button
                     size="small"
                     onClick={handleOpen}
-                    sx={{ ...btnSx, borderRadius: '0 10px 10px 0', px: 0.5 }}
+                    sx={{ ...btnSx, borderRadius: '0 8px 8px 0', px: 0.25, minWidth: 26 }}
                     aria-controls={open ? 'export-menu' : undefined}
                     aria-haspopup="true"
                     aria-expanded={open ? 'true' : undefined}
                 >
-                    <ArrowDropDownIcon sx={{ fontSize: 20 }} />
+                    <ArrowDropDownIcon sx={{ fontSize: 18 }} />
                 </Button>
             </ButtonGroup>
 
             <Menu
                 id="export-menu"
-                anchorEl={anchorEl}
-                open={open}
+                anchorEl={() => groupRef.current as HTMLElement}
+                open={open && !!groupRef.current}
                 onClose={handleClose}
+                /**
+                 * A Menu is a portal at the theme's modal layer (1300). Inside a chart
+                 * drill-down — which pins its Dialog at DRILLDOWN_Z_INDEX so it can clear
+                 * a fullscreen chart — that puts the menu BEHIND the dialog: the button
+                 * "does nothing" because the format list is painted underneath. Sit above
+                 * the highest surface this button can be rendered on.
+                 */
+                sx={{ zIndex: DRILLDOWN_Z_INDEX + 100 }}
                 slotProps={{
                     paper: {
                         elevation: 3,

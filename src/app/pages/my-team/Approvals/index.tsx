@@ -1,246 +1,611 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Stack, Typography } from '@mui/material';
-import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
-import ReorderableGroup from '@app/modules/common/components/ReorderableGroup';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Box, CircularProgress, Stack, Typography, useTheme } from '@mui/material';
 import { PageTitle } from '@metronic/layout/core';
-import { fetchAllApprovalInstances, fetchPendingApprovals } from '@services/employee';
-import { navbarIcon } from '@metronic/assets/sidepanelicons';
-import AttendanceApprovals from './AttendanceApprovals';
-import LeaveApprovals from './LeaveApprovals';
-import TaskApprovals from './TaskApprovals';
-import OtherApprovals from './OtherApprovals';
-import ReimbursementApprovals from './ReimbursementApprovals';
+import { KTIcon } from '@metronic/helpers';
+import { getSocket } from '@utils/socketClient';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
+import { usePermission } from '@hooks/usePermission';
+import { successConfirmation, errorConfirmation } from '@utils/modal';
+import {
+    fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction,
+} from '@services/employee';
+import { fetchInboxTasks, acknowledgeInboxTask, type InboxTask } from '@services/inbox';
+import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui';
+import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
+import type { SemanticTone } from '@app/theme/tokens';
+import { RejectReasonModal } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
+import { BatchDetailModal } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
+import QueryConversationDialog from '@pages/employee/reimbursement/components/QueryConversation';
+import ReimbursementEditModal from '@pages/employee/reimbursement/components/ReimbursementEditModal';
+import { fetchReimbursementById } from '@services/reimbursementVersions';
+import type { IReimbursementsUpdate } from '@models/employee';
+import { getApprovalDomain, APPROVAL_DOMAIN_KEYS } from './domains/registry';
+import GenericDetail from './domains/GenericDetail';
+import type { ApprovalStep } from './domains/types';
+import InboxItemCard, { ageOf } from './InboxItem';
 
-type ApprovalStep = {
-  delegatedFrom?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-  instance: {
-    status: string;
-    createdAt: string;
-    workflowType: string;
-  };
-};
+/**
+ * The Inbox.
+ *
+ * WHAT THIS REPLACES
+ * ------------------
+ * A dashboard pretending to be a worklist. Five KPI cards across the top — Pending, Approved
+ * Today, Rejected Today, SLA Breaches, Delegated — which for most people on most days read
+ * 0 0 0 0 0 and cost the entire first screen. Below them, a fixed row of domain tabs, every one
+ * of which opened a full table shell with column headers, filter controls, an export menu and
+ * "No records found" in the middle. The page was almost entirely chrome describing an absence.
+ *
+ * THE RULE HERE
+ * -------------
+ * Nothing renders unless it has something to say. No counters for zero. No tab for a domain with
+ * no work in it. No table furniture around an empty list. If you are clear, you get one calm
+ * sentence saying so — not an interface for work that does not exist.
+ *
+ * WHAT IT SHOWS
+ * -------------
+ * Every domain, together, in one list: leave, attendance, reimbursement, tasks, requisitions,
+ * offers — plus your OWN items, the questions an approver asked you and the expenses that came
+ * back rejected, which the old page had no place for at all. Sorted by how long each has waited,
+ * because in an approval queue that is the thing that matters and nothing said it before.
+ */
 
-// ── Icons ─────────────────────────────────────────────────────────────────────
+type Segment = 'mine' | 'awaiting' | 'done';
 
-const IconPending = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-    <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const IconApprovedToday = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M3 9h18" stroke="currentColor" strokeWidth="2"/>
-    <path d="M8 2v4M16 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <path d="M8 14l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const IconRejectedToday = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M3 9h18" stroke="currentColor" strokeWidth="2"/>
-    <path d="M8 2v4M16 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <path d="M9.5 14.5l5 5M14.5 14.5l-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-  </svg>
-);
-
-const IconSLA = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <circle cx="12" cy="17" r="1" fill="currentColor"/>
-  </svg>
-);
-
-const IconDelegated = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-// ── Card definitions ──────────────────────────────────────────────────────────
-
-type KpiDef = {
-  id: string;
-  label: string;
-  sublabel: string;
-  accent: string;
-  iconBg: string;
-  icon: React.ReactNode;
-};
-
-const KPI_DEFS: KpiDef[] = [
-  { id: 'pending',       label: 'Pending',        sublabel: 'Awaiting your action', accent: '#d97706', iconBg: '#fffbeb', icon: <IconPending /> },
-  { id: 'approvedToday', label: 'Approved Today',  sublabel: 'Cleared today',        accent: '#16a34a', iconBg: '#f0fdf4', icon: <IconApprovedToday /> },
-  { id: 'rejectedToday', label: 'Rejected Today',  sublabel: 'Declined today',       accent: '#dc2626', iconBg: '#fef2f2', icon: <IconRejectedToday /> },
-  { id: 'slaBreaches',   label: 'SLA Breaches',   sublabel: 'Overdue 48h+',         accent: '#ea580c', iconBg: '#fff7ed', icon: <IconSLA /> },
-  { id: 'delegated',     label: 'Delegated',      sublabel: 'Forwarded to you',     accent: '#7c3aed', iconBg: '#f5f3ff', icon: <IconDelegated /> },
+/**
+ * Named for what is in them, in the words someone would use out loud.
+ *
+ * A label has to survive being read by a person who has never seen this screen and does not know
+ * what an "instance", a "step" or a "query" is. So: who is holding it right now. `hint` says the
+ * rest under the active tab rather than leaving it to be inferred.
+ */
+const SEGMENTS: Array<{ key: Segment; label: string; hint: string; blank: string }> = [
+    {
+        key: 'mine',
+        label: 'Waiting for You',
+        hint: 'Yours to deal with — requests to approve or reject, and questions asked about your own expenses.',
+        blank: 'Nothing is waiting for you.',
+    },
+    {
+        key: 'awaiting',
+        label: 'With Someone Else',
+        hint: 'Nothing for you to do yet — requests you sent in, and ones you have already passed on.',
+        blank: 'Nothing is with anyone else right now.',
+    },
+    {
+        key: 'done',
+        label: 'Finished',
+        hint: 'All done — requests that were approved or rejected, and questions you have answered.',
+        blank: 'Nothing has finished yet.',
+    },
 ];
 
-const KPI_DEFS_BY_ID = new Map(KPI_DEFS.map((d) => [d.id, d]));
-const DEFAULT_KPI_ORDER = KPI_DEFS.map((d) => d.id);
-const SESSION_KEY = 'approvals-kpi-order';
+/** When a step reached the inbox. ISO strings, so a string compare is a date compare. */
+const submittedKey = (s: ApprovalStep) =>
+    String((s.requestDetails as any)?.submittedAt ?? s.instance.createdAt ?? '');
 
-// ── KPI card ──────────────────────────────────────────────────────────────────
+/** Employee-facing and approver-actionable inbox tasks. */
+const MY_TASK_TYPES = new Set(['QUERY_RECEIVED', 'REJECTION_RECEIVED', 'ACTION_REQUIRED', 'QUERY_RESPONSE_RECEIVED']);
 
-function ApprovalKpiCard({ def, value }: { def: KpiDef; value: number }) {
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        height: '100%',
-        width: '100%',
-        borderRadius: '16px',
-        border: '1px solid #f0f0f0',
-        background: '#ffffff',
-        overflow: 'hidden',
-        position: 'relative',
-        transition: 'box-shadow 220ms ease, transform 220ms ease',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05)',
-        '&:hover': {
-          transform: 'translateY(-3px)',
-          boxShadow: '0 4px 8px rgba(0,0,0,0.06), 0 12px 24px rgba(0,0,0,0.08)',
-        },
-      }}
-    >
-      <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: def.accent, borderRadius: '16px 0 0 16px' }} />
-      <Box sx={{ p: '18px 20px 18px 24px' }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
-          <Box>
-            <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94a3b8', lineHeight: 1.2, mb: 0.3 }}>
-              {def.label}
-            </Typography>
-            <Typography sx={{ fontSize: '0.72rem', color: '#b0bec5', fontWeight: 500, lineHeight: 1.2 }}>
-              {def.sublabel}
-            </Typography>
-          </Box>
-          <Box sx={{ width: 40, height: 40, borderRadius: '12px', display: 'grid', placeItems: 'center', backgroundColor: def.iconBg, color: def.accent, flexShrink: 0 }}>
-            {def.icon}
-          </Box>
-        </Stack>
-        <Typography sx={{ fontSize: '2rem', fontWeight: 800, color: def.accent, lineHeight: 1.1, letterSpacing: '-0.5px' }}>
-          {value}
-        </Typography>
-      </Box>
-    </Paper>
-  );
+/** Tasks where you are waiting on someone else. */
+const AWAITING_TASK_TYPES = new Set<string>([]);
+
+const TASK_STYLE: Record<string, { tone: SemanticTone; icon: string; cta: string; label: string; doneLabel: string }> = {
+    QUERY_RECEIVED: { tone: 'warning', icon: 'message-text-2', cta: 'Answer', label: 'Question for You', doneLabel: 'You Answered' },
+    REJECTION_RECEIVED: { tone: 'danger', icon: 'cross-circle', cta: 'Mark as Seen', label: 'Expense Rejected', doneLabel: 'You Have Seen This' },
+    ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open', label: 'Needs Your Attention', doneLabel: 'Sorted' },
+    QUERY_RESPONSE_RECEIVED: { tone: 'cyan', icon: 'message-text-2', cta: 'Review', label: 'They Answered You', doneLabel: 'You Reviewed It' },
+};
+
+export default function Approvals() {
+    const theme = useTheme();
+    const canApprove = usePermission('approvals.approve.team');
+
+    const [segment, setSegment] = useState<Segment>('mine');
+    const [steps, setSteps] = useState<ApprovalStep[]>([]);
+    const [tasks, setTasks] = useState<InboxTask[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [domainFilter, setDomainFilter] = useState<string | null>(null);
+    const [busyId, setBusyId] = useState<string | null>(null);
+
+    const [detail, setDetail] = useState<ApprovalStep | null>(null);
+    const [batchDetail, setBatchDetail] = useState<{ batchId: string; instanceId: string } | null>(null);
+    const [conversation, setConversation] = useState<{ reimbursementId?: string; batchId?: string; queryId: string; label: string; level?: number } | null>(null);
+    // Same inline-edit affordance as the employee's own reimbursement screen (NeedsYourAttention):
+    // "Edit the Expense Instead" from inside a query conversation opens the form right here rather
+    // than a page of its own. This screen also lists the employee's OWN query tasks, so it needs
+    // the identical flow, not a second one.
+    const [editTarget, setEditTarget] = useState<{
+        reimbursement: IReimbursementsUpdate;
+        context: { type: 'query'; queryText?: string; level?: number };
+    } | null>(null);
+    const [rejectTarget, setRejectTarget] = useState<ApprovalStep | null>(null);
+    const [rejecting, setRejecting] = useState(false);
+
+    /** One segment's contents. Both the visible list and the tab badges go through this, so a
+        tab's number is produced by exactly the rule that builds its list. */
+    const fetchSegment = useCallback(async (seg: Segment) => {
+        const [approvals, myTasks] = await Promise.all([
+            seg === 'mine' ? fetchPendingApprovals() : fetchAllApprovalInstances(seg === 'done' ? 'completed' : 'awaiting'),
+            // Your own items appear in two of the three tabs: open ones under "Waiting for
+            // you", and closed ones under "Finished" — a question you answered IS
+            // something you completed, and Completed listing only approval instances meant
+            // your own half of the workflow vanished the moment you dealt with it.
+            // Awaiting tasks (e.g., query responses) appear in the "Awaiting others" segment.
+            seg === 'mine' ? fetchInboxTasks(false).catch(() => [] as InboxTask[])
+                : seg === 'awaiting' ? fetchInboxTasks(false).catch(() => [] as InboxTask[])
+                : seg === 'done' ? fetchInboxTasks(true).catch(() => [] as InboxTask[])
+                : Promise.resolve([] as InboxTask[]),
+        ]);
+        const raw = (approvals as any)?.data ?? approvals ?? [];
+        return {
+            steps: (Array.isArray(raw) ? raw : []) as ApprovalStep[],
+            tasks: (myTasks as InboxTask[]).filter((t) => {
+                const isMyType = MY_TASK_TYPES.has(t.type);
+                const isAwaitingType = AWAITING_TASK_TYPES.has(t.type);
+                if (seg === 'mine' && !isMyType) return false;
+                if (seg === 'awaiting' && !isAwaitingType) return false;
+                if (seg === 'done' && !(isMyType || isAwaitingType)) return false;
+                const open = t.status === 'OPEN' || t.status === 'IN_PROGRESS';
+                return seg === 'done' ? !open : open;
+            }),
+        };
+    }, []);
+
+    /** Per-tab totals, kept for ALL segments rather than only the open one. A badge that
+        appears only on the tab you are already looking at tells you nothing — the point of
+        the number is to say what is waiting on the tabs you are NOT looking at. */
+    const [counts, setCounts] = useState<Record<Segment, number>>({ mine: 0, awaiting: 0, done: 0 });
+
+    const load = useCallback(async (seg: Segment = segment) => {
+        setLoading(true);
+        try {
+            // All three segments on every refresh: one code path keeps the open list and the
+            // badges from drifting apart, at the cost of two extra fetches.
+            const results = await Promise.all(
+                SEGMENTS.map((s) => fetchSegment(s.key).catch(() => ({ steps: [] as ApprovalStep[], tasks: [] as InboxTask[] }))),
+            );
+            setCounts(
+                SEGMENTS.reduce((acc, s, i) => {
+                    // Steps AND tasks, in every segment. The list below renders `sortedTasks`
+                    // unconditionally, so counting tasks only under "mine" made the Resolved
+                    // badge read lower than the rows it was sitting above — an answered query
+                    // is listed there but was not being counted. `fetchSegment` has already
+                    // dropped the tasks that do not belong to this segment, so there is nothing
+                    // left to exclude here.
+                    acc[s.key] = results[i].steps.length + results[i].tasks.length;
+                    return acc;
+                }, {} as Record<Segment, number>),
+            );
+            const active = results[SEGMENTS.findIndex((s) => s.key === seg)];
+            setSteps(active.steps);
+            setTasks(active.tasks);
+        } catch {
+            setSteps([]);
+            setTasks([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [segment, fetchSegment]);
+
+    useEffect(() => { load(segment); }, [segment]);
+    useEventBus(EVENT_KEYS.reimbursementChanged, () => { load(); });
+
+    useEffect(() => {
+        const socket = getSocket();
+        const handler = () => load();
+        socket.on('approval:pending', handler);
+        socket.on('approval:updated', handler);
+        socket.on('approval:cancelled', handler);
+        return () => {
+            socket.off('approval:pending', handler);
+            socket.off('approval:updated', handler);
+            socket.off('approval:cancelled', handler);
+        };
+    }, [load]);
+
+    /** Newest first — the most recently submitted request is the one the approver is looking
+        for, and burying it under a month of older items is what made this list feel stale.
+        (It used to be oldest-first, on the theory that whatever has waited longest needs
+        deciding; the "waiting N days" line below still surfaces that, without ordering the
+        whole list around it.)
+
+        In "Waiting for you", resubmitted items still float above the rest: the employee has
+        already answered a query and is blocked on a re-review, which is more urgent than a
+        first look. Within each of those two groups the order is newest first. */
+    const sorted = useMemo(() => {
+        const filtered = [...steps];
+        // Descending: b vs a.
+        const byNewest = (a: ApprovalStep, b: ApprovalStep) =>
+            submittedKey(b).localeCompare(submittedKey(a));
+
+        if (segment === 'mine') {
+            filtered.sort((a, b) => {
+                const aResubmitted = (a.requestDetails as any)?.resubmittedCount > 0 ? 1 : 0;
+                const bResubmitted = (b.requestDetails as any)?.resubmittedCount > 0 ? 1 : 0;
+                if (aResubmitted !== bResubmitted) return bResubmitted - aResubmitted;
+                return byNewest(a, b);
+            });
+        } else {
+            filtered.sort(byNewest);
+        }
+
+        return filtered;
+    }, [steps, segment]);
+
+    /** Tasks are their own list rendered above the steps, so they need the same ordering —
+        otherwise "newest first" would hold for half the inbox and not the other half. */
+    const sortedTasks = useMemo(
+        () => [...tasks].sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))),
+        [tasks],
+    );
+
+    /** Only domains that actually have something. A tab for an empty domain is furniture. */
+    const domainCounts = useMemo(() => {
+        // Local name kept distinct from the `counts` tab-badge state above; they are different
+        // numbers over different populations and shadowing one with the other invites a mix-up.
+        const perDomain = new Map<string, number>();
+        for (const s of sorted) {
+            const type = (s.instance.workflowType || '').toLowerCase();
+            const key = APPROVAL_DOMAIN_KEYS.includes(type) ? type : 'other';
+            perDomain.set(key, (perDomain.get(key) ?? 0) + 1);
+        }
+        return perDomain;
+    }, [sorted]);
+
+    const visible = useMemo(
+        () => (domainFilter
+            ? sorted.filter((s) => (s.instance.workflowType || '').toLowerCase() === domainFilter)
+            : sorted),
+        [sorted, domainFilter],
+    );
+
+    // A filter that no longer matches anything would strand the reader on an empty list.
+    useEffect(() => {
+        if (domainFilter && !domainCounts.has(domainFilter)) setDomainFilter(null);
+    }, [domainCounts, domainFilter]);
+
+    // Exactly what the list below renders: the domain-filtered steps plus the tasks, which are
+    // rendered in every segment. This drives the "nothing here" state, so counting tasks only
+    // under "mine" showed the empty message above a list that had rows in it.
+    const total = visible.length + sortedTasks.length;
+    // The list is newest-first, so the item that has waited longest is the LAST one, not the
+    // first. Reading sorted[0] here after the flip would have reported the newest item's age
+    // as the backlog.
+    const oldestStep = sorted.length ? sorted[sorted.length - 1] : null;
+    const oldest = oldestStep
+        ? ageOf((oldestStep.requestDetails as any)?.submittedAt ?? oldestStep.instance.createdAt)
+        : null;
+
+    // ── Actions ──────────────────────────────────────────────────────────────
+
+    const decide = async (step: ApprovalStep, action: 'approve' | 'reject', comments?: string) => {
+        setBusyId(step.id);
+        try {
+            const res: any = await processApprovalAction(step.instance.id, action, comments);
+            successConfirmation(res?.message ?? `Request ${action}d`);
+            load();
+        } catch (err: any) {
+            errorConfirmation(err?.response?.data?.message || `Could not ${action} this request`);
+        } finally {
+            setBusyId(null);
+        }
+    };
+
+    const openStep = (step: ApprovalStep) => {
+        if ((step.instance.workflowType || '').toLowerCase() === 'reimbursement') {
+            setBatchDetail({ batchId: step.instance.requestId, instanceId: step.instance.id });
+            return;
+        }
+        setDetail(step);
+    };
+
+    const openTask = (task: InboxTask) => {
+        const payload = (task.payload ?? {}) as Record<string, unknown>;
+
+        // A rejection is final — there is nothing left to do about it. "Open" here just means
+        // "I've seen this", so it moves out of Pending and into Completed rather than opening
+        // anything to act on.
+        if (task.type === 'REJECTION_RECEIVED') {
+            acknowledgeInboxTask(task.id).then(() => load()).catch(() => {
+                errorConfirmation('Could not mark this as seen');
+            });
+            return;
+        }
+
+        if (task.type === 'QUERY_RECEIVED' && typeof payload.queryId === 'string') {
+            setConversation({
+                reimbursementId: typeof payload.reimbursementId === 'string' ? payload.reimbursementId : undefined,
+                batchId: typeof payload.reimbursementId === 'string' ? undefined : (task.batchId ?? undefined),
+                queryId: payload.queryId,
+                label: typeof payload.submissionId === 'string' ? `Submission ${payload.submissionId}` : task.title,
+                level: typeof payload.level === 'number' ? payload.level : undefined,
+            });
+            return;
+        }
+        if (task.type === 'QUERY_RESPONSE_RECEIVED' && typeof payload.queryId === 'string') {
+            setConversation({
+                reimbursementId: typeof payload.reimbursementId === 'string' ? payload.reimbursementId : undefined,
+                batchId: typeof payload.reimbursementId === 'string' ? undefined : (task.batchId ?? undefined),
+                queryId: payload.queryId,
+                label: typeof payload.submissionId === 'string' ? `Submission ${payload.submissionId}` : task.title,
+            });
+            return;
+        }
+        if (task.batchId) setBatchDetail({ batchId: task.batchId, instanceId: '' });
+    };
+
+    const openEdit = async (reimbursementId: string, context: { type: 'query'; queryText?: string; level?: number }) => {
+        try {
+            setEditTarget({ reimbursement: await fetchReimbursementById(reimbursementId), context });
+        } catch {
+            errorConfirmation('Could not load this reimbursement');
+        }
+    };
+
+    // Every row opens something. A domain with no canonical view falls back to the generic one —
+    // without it, `Detail` was undefined and the click rendered nothing at all.
+    const DetailComponent = detail
+        ? (getApprovalDomain(detail.instance.workflowType)?.Detail ?? GenericDetail)
+        : undefined;
+
+    const renderTabContent = () => (
+        <Box sx={{ maxWidth: 1100, mx: 'auto', width: '100%', pb: 6, pt: 2 }}>
+            {/* Domain filters, for the domains that actually have work. Shown from ONE domain
+                upwards: with a single domain the chips filter nothing, but they do say what
+                is in the list and where the control lives, which is what people came looking
+                for when everything in their inbox happened to be reimbursements. */}
+            {domainCounts.size >= 1 && (
+                <Stack direction="row" gap={0.75} flexWrap="wrap" sx={{ mb: 2 }}>
+                    <ToneChip
+                        tone="neutral" label={`All ${sorted.length}`} size="small"
+                        solid={!domainFilter} onClick={() => setDomainFilter(null)}
+                        sx={{ cursor: 'pointer' }}
+                    />
+                    {[...domainCounts.entries()].map(([key, count]) => {
+                        const domain = getApprovalDomain(key);
+                        return (
+                            <ToneChip
+                                key={key}
+                                tone={domain?.tone ?? 'neutral'}
+                                label={`${domain?.label ?? 'Other'} ${count}`}
+                                size="small"
+                                solid={domainFilter === key}
+                                onClick={() => setDomainFilter(domainFilter === key ? null : key)}
+                                sx={{ cursor: 'pointer' }}
+                            />
+                        );
+                    })}
+                </Stack>
+            )}
+
+            {loading ? (
+                <Stack alignItems="center" sx={{ py: 10 }}><CircularProgress size={26} /></Stack>
+            ) : total === 0 ? (
+                <Stack alignItems="center" gap={1.25} sx={{ py: 10, textAlign: 'center' }}>
+                    <Box sx={{
+                        width: 56, height: 56, borderRadius: '16px', display: 'grid', placeItems: 'center',
+                        bgcolor: tonePair('success').soft, color: tonePair('success').fg,
+                    }}>
+                        <KTIcon iconName="check-circle" className="fs-2hx" />
+                    </Box>
+                    <Typography sx={{ fontWeight: 700, fontSize: 15 }}>
+                        {SEGMENTS.find((s) => s.key === segment)?.blank}
+                    </Typography>
+                </Stack>
+            ) : (
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 1.5 }}>
+                    {sortedTasks.map((task) => {
+                        const style = TASK_STYLE[task.type] ?? TASK_STYLE.ACTION_REQUIRED;
+                        const pair = tonePair(style.tone);
+                        return (
+                            <Box
+                                key={task.id}
+                                tabIndex={0}
+                                onClick={() => openTask(task)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') openTask(task); }}
+                                sx={{
+                                    position: 'relative', cursor: 'pointer', minWidth: 0,
+                                    borderRadius: '12px', overflow: 'hidden',
+                                    border: `1px solid ${theme.palette.divider}`,
+                                    bgcolor: 'background.paper',
+                                    transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+                                    display: 'flex', flexDirection: 'column',
+                                    height: '100%',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',
+                                    '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        borderColor: pair.fg,
+                                        boxShadow: `0 8px 24px -8px ${pair.fg}25, 0 4px 12px rgba(0,0,0,0.03)`
+                                    },
+                                    '&:focus-visible': { outline: `2px solid ${pair.fg}`, outlineOffset: 2 },
+                                }}
+                            >
+                                <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, bgcolor: pair.fg }} />
+                                <Stack gap={1.2} sx={{ p: { xs: 1.75, sm: 2 }, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                    {/* Status badge */}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Box sx={{
+                                            width: 24, height: 24, borderRadius: '8px', flexShrink: 0,
+                                            display: 'grid', placeItems: 'center',
+                                            bgcolor: pair.soft, color: pair.fg,
+                                        }}>
+                                            <KTIcon iconName={style.icon} className="fs-6" />
+                                        </Box>
+                                        <Typography sx={{ fontSize: '10px', fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: pair.fg, lineHeight: 1 }}>
+                                            {segment === 'done' ? style.doneLabel : style.label}
+                                        </Typography>
+                                    </Box>
+
+                                    {/* Title */}
+                                    <Typography sx={{ fontSize: '14px', fontWeight: 700, lineHeight: 1.4, color: 'text.primary' }}>
+                                        {task.title}
+                                    </Typography>
+
+                                    {/* Message preview */}
+                                    {task.message && (
+                                        <Box sx={{
+                                            p: 1.25,
+                                            borderRadius: '8px',
+                                            bgcolor: 'rgba(0, 0, 0, 0.02)',
+                                            borderLeft: `3px solid ${theme.palette.divider}`,
+                                            mt: 0.25
+                                        }}>
+                                            <Typography sx={{
+                                                fontSize: '11px',
+                                                color: 'text.secondary',
+                                                lineHeight: 1.45,
+                                                fontStyle: 'italic',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 2,
+                                                WebkitBoxOrient: 'vertical',
+                                                overflow: 'hidden',
+                                            }}>
+                                                "{task.message}"
+                                            </Typography>
+                                        </Box>
+                                    )}
+
+                                    {/* Action button - premium outline styled */}
+                                    <Box sx={{ mt: 'auto', pt: 1 }}>
+                                        <WtButton size="small"
+                                            onClick={(e) => { e.stopPropagation(); openTask(task); }}
+                                            sx={{
+                                                width: '100%',
+                                                fontSize: '11px',
+                                                fontWeight: 650,
+                                                py: 0.5,
+                                                px: 1,
+                                                borderRadius: '8px',
+                                                border: `1px solid ${pair.fg}`,
+                                                color: pair.fg,
+                                                background: 'transparent !important',
+                                                boxShadow: 'none',
+                                                transition: 'all 160ms cubic-bezier(.22,.61,.36,1)',
+                                                '&:hover': {
+                                                    background: `${pair.fg}15 !important`,
+                                                    borderColor: pair.fg,
+                                                    color: pair.fg,
+                                                    boxShadow: `0 2px 8px ${pair.fg}24`,
+                                                },
+                                            }}>
+                                            {segment === 'done' ? 'View' : style.cta}
+                                        </WtButton>
+                                    </Box>
+                                </Stack>
+                            </Box>
+                        );
+                    })}
+
+                    {visible.map((step) => (
+                        <Box key={step.id} sx={{ gridColumn: { xs: 'span 1', sm: 'span 1', lg: 'span 1' }, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                            <InboxItemCard
+                                step={step}
+                                canDecide={segment === 'mine' && canApprove}
+                                busy={busyId === step.id}
+                                onOpen={() => openStep(step)}
+                                onApprove={() => decide(step, 'approve')}
+                                onReject={() => setRejectTarget(step)}
+                                onAsk={((step.instance.workflowType || '').toLowerCase() === 'reimbursement') ? () => setBatchDetail({ batchId: step.instance.requestId, instanceId: step.instance.id }) : undefined}
+                                compact
+                                variant={segment}
+                            />
+                        </Box>
+                    ))}
+                </Box>
+                )}
+        </Box>
+    );
+
+    const tabItems: TabItem[] = SEGMENTS.map((s) => ({
+        title: s.label,
+        icon: s.key === 'mine' ? 'bi-inbox' : s.key === 'awaiting' ? 'bi-hourglass-split' : 'bi-check2-circle',
+        component: renderTabContent(),
+        badge: counts[s.key],
+    }));
+
+    return (
+        <>
+            <PageTitle breadcrumbs={[]}>My Inbox</PageTitle>
+
+            <MaterialHeaderTab
+                tabItems={tabItems}
+                activeTab={SEGMENTS.findIndex((s) => s.key === segment)}
+                onTabChange={(index) => setSegment(SEGMENTS[index].key)}
+                hideScrollButtons
+            />
+
+            {/* Domain detail — the registry decides which component, so each domain opens in the
+                view it already has rather than a viewer built for this screen. */}
+            {detail && DetailComponent && (
+                <DetailComponent
+                    step={{ ...detail, _uid: detail.id }}
+                    onClose={() => setDetail(null)}
+                    onDone={() => { setDetail(null); load(); }}
+                    canEdit={canApprove}
+                    canDecide={segment === 'mine' && canApprove}
+                    onApprove={() => { decide(detail, 'approve'); setDetail(null); }}
+                    onReject={() => { setRejectTarget(detail); setDetail(null); }}
+                />
+            )}
+
+            {batchDetail && (
+                <BatchDetailModal
+                    batchId={batchDetail.batchId}
+                    approvalInstanceId={batchDetail.instanceId || null}
+                    onClose={() => setBatchDetail(null)}
+                    onBatchActionDone={() => load()}
+                    // Opened from a queue card, the modal shows that card's slice of the batch —
+                    // the expenses you have already passed on do not belong in the list you are
+                    // being asked to decide.
+                    slice={segment === 'awaiting' ? 'in-flight' : segment === 'mine' ? 'mine' : undefined}
+                />
+            )}
+
+            {conversation && (
+                <QueryConversationDialog
+                    reimbursementId={conversation.reimbursementId}
+                    batchId={conversation.batchId}
+                    focusQueryId={conversation.queryId}
+                    requestLabel={conversation.label}
+                    onClose={() => setConversation(null)}
+                    onChanged={() => load()}
+                    onEditRequest={
+                        conversation.reimbursementId
+                            ? () => {
+                                openEdit(conversation.reimbursementId!, {
+                                    type: 'query',
+                                    queryText: conversation.label,
+                                    level: conversation.level,
+                                });
+                                setConversation(null);
+                              }
+                            : undefined
+                    }
+                />
+            )}
+
+            <ReimbursementEditModal
+                show={!!editTarget}
+                onHide={() => setEditTarget(null)}
+                reimbursement={editTarget?.reimbursement ?? null}
+                editContext={editTarget?.context}
+                onSaved={() => { setEditTarget(null); load(); }}
+            />
+
+            <RejectReasonModal
+                show={!!rejectTarget}
+                submitting={rejecting}
+                onClose={() => setRejectTarget(null)}
+                onConfirm={async (reason) => {
+                    if (!rejectTarget) return;
+                    setRejecting(true);
+                    try {
+                        await decide(rejectTarget, 'reject', reason);
+                        setRejectTarget(null);
+                    } finally { setRejecting(false); }
+                }}
+            />
+        </>
+    );
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function isToday(value?: string) {
-  if (!value) return false;
-  const d = new Date(value);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
-
-function Approvals() {
-  const [activeTab, setActiveTab] = useState(0);
-  const [pending, setPending] = useState<ApprovalStep[]>([]);
-  const [completed, setCompleted] = useState<ApprovalStep[]>([]);
-
-  const [kpiOrder, setKpiOrder] = useState<string[]>(() => {
-    try {
-      const stored = sessionStorage.getItem(SESSION_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as string[];
-        if (Array.isArray(parsed) && parsed.length === DEFAULT_KPI_ORDER.length) return parsed;
-      }
-    } catch { /* ignore */ }
-    return DEFAULT_KPI_ORDER;
-  });
-
-  useEffect(() => {
-    fetchPendingApprovals().then((res: any) => setPending((res?.data ?? res ?? []) as ApprovalStep[])).catch(() => setPending([]));
-    fetchAllApprovalInstances('completed').then((res: any) => setCompleted((res?.data ?? res ?? []) as ApprovalStep[])).catch(() => setCompleted([]));
-  }, []);
-
-  const stats = useMemo(() => {
-    const approvedToday = completed.filter((s) => s.instance?.status === 'approved' && isToday(s.updatedAt || s.createdAt || s.instance?.createdAt)).length;
-    const rejectedToday = completed.filter((s) => s.instance?.status === 'rejected' && isToday(s.updatedAt || s.createdAt || s.instance?.createdAt)).length;
-    const slaBreaches = pending.filter((s) => {
-      const created = new Date(s.instance?.createdAt || s.createdAt || '');
-      if (Number.isNaN(created.getTime())) return false;
-      return Date.now() - created.getTime() > 48 * 60 * 60 * 1000;
-    }).length;
-    const delegated = pending.filter((s) => !!s.delegatedFrom).length;
-    return { pending: pending.length, approvedToday, rejectedToday, slaBreaches, delegated };
-  }, [completed, pending]);
-
-  const valueMap: Record<string, number> = {
-    pending: stats.pending,
-    approvedToday: stats.approvedToday,
-    rejectedToday: stats.rejectedToday,
-    slaBreaches: stats.slaBreaches,
-    delegated: stats.delegated,
-  };
-
-  // Pending counts per tab, using the same workflow-type buckets each tab filters by.
-  // Mirrors the include/exclude logic in DomainApprovalQueue so badges match the tables.
-  const pendingByTab = useMemo(() => {
-    const counts = { attendance: 0, leave: 0, reimbursement: 0, taskProject: 0, others: 0 };
-    for (const s of pending) {
-      const type = (s.instance?.workflowType || '').toLowerCase();
-      if (type === 'attendance') counts.attendance++;
-      else if (type === 'leave') counts.leave++;
-      else if (type === 'reimbursement') counts.reimbursement++;
-      else if (type === 'task' || type === 'project') counts.taskProject++;
-      else counts.others++;
-    }
-    return counts;
-  }, [pending]);
-
-  const handleKpiReorder = (newOrder: string[]) => {
-    setKpiOrder(newOrder);
-    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(newOrder)); } catch { /* ignore */ }
-  };
-
-  const kpiSection = (
-    <ReorderableGroup
-      items={kpiOrder}
-      getItemId={(id) => id}
-      onReorder={handleKpiReorder}
-      axis="x"
-      className="approvals-kpi-container"
-      itemStyle={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}
-      renderItem={(id) => {
-        const def = KPI_DEFS_BY_ID.get(id);
-        if (!def) return null;
-        return <ApprovalKpiCard def={def} value={valueMap[id] ?? 0} />;
-      }}
-    />
-  );
-
-  const tabItems: TabItem[] = [
-    { title: 'Attendance',    component: <AttendanceApprovals />,        icon: 'bi-calendar-check', badge: pendingByTab.attendance },
-    { title: 'Leaves',        component: <LeaveApprovals />,             icon: 'bi-calendar-x', badge: pendingByTab.leave },
-    { title: 'Reimbursements',component: <ReimbursementApprovals />,     icon: 'bi-receipt', badge: pendingByTab.reimbursement },
-    { title: 'Tasks/Projects',component: <TaskApprovals />,              icon: 'bi-kanban', badge: pendingByTab.taskProject },
-    { title: 'Others',        component: <OtherApprovals />,             icon: 'bi-three-dots', badge: pendingByTab.others },
-  ];
-
-  return (
-    <>
-      <PageTitle breadcrumbs={[]}>My Team - Approvals</PageTitle>
-      <MaterialHeaderTab
-        tabItems={tabItems}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        aboveContent={kpiSection}
-      />
-    </>
-  );
-}
-
-export default Approvals;

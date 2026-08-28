@@ -11,13 +11,16 @@ import {
   getAllStakeholders,
   deleteStakeholderService,
 } from "@services/projects";
+import { getAllPaymentPlans, deletePaymentPlan } from "@services/paymentPlan";
 import React, { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
 import ProjectConfigForm from "./components/ProjectConfigForm";
+import PaymentPlanModal from "../../leads/configuration/components/PaymentPlanModal";
 import { ProjectItem } from "@models/clientProject";
+import { PaymentPlan } from "@models/leads";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "./../../../../../types/deleteConfirmation";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
@@ -31,6 +34,7 @@ import {
   KEYFRAMES,
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ─── ColorChip ────────────────────────────────────────────────────────────────
 
@@ -85,14 +89,14 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
           onClick={onEdit}
           style={{ background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
         >
-          <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+          <AppIcon name="bi-pencil" className="fs-8" />
         </button>
         {onDelete && (
           <button
             onClick={onDelete}
             style={{ background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
           >
-            <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+            <AppIcon name="bi-trash" className="fs-8" />
           </button>
         )}
       </div>
@@ -187,27 +191,110 @@ const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
 
         {/* Reorder arrows */}
         <button type="button" title="Move earlier" onClick={onMoveUp} disabled={disabled || isFirst} style={iconBtn(!disabled && !isFirst ? C.textSecondary : '#ddd', onMoveUp, 'bi-chevron-left', 'Move earlier', !disabled && !isFirst)}>
-          <i className="bi bi-chevron-left" style={{ fontSize: '9px' }} />
+          <AppIcon name="bi-chevron-left" className="fs-9" />
         </button>
         <button type="button" title="Move later" onClick={onMoveDown} disabled={disabled || isLast} style={iconBtn(!disabled && !isLast ? C.textSecondary : '#ddd', onMoveDown, 'bi-chevron-right', 'Move later', !disabled && !isLast)}>
-          <i className="bi bi-chevron-right" style={{ fontSize: '9px' }} />
+          <AppIcon name="bi-chevron-right" className="fs-9" />
         </button>
 
         {/* Edit button */}
         <button type="button" title="Edit" onClick={onEdit} style={iconBtn('#4f82c4', onEdit, 'bi-pencil', 'Edit', true)}>
-          <i className="bi bi-pencil" style={{ fontSize: '9px' }} />
+          <AppIcon name="bi-pencil" className="fs-9" />
         </button>
 
         {/* Delete button */}
         <button type="button" title="Delete" onClick={onDelete} style={iconBtn(C.danger, onDelete, 'bi-trash', 'Delete', true)}>
-          <i className="bi bi-trash" style={{ fontSize: '9px' }} />
+          <AppIcon name="bi-trash" className="fs-9" />
         </button>
       </div>
 
       {/* Connector arrow */}
       {!isLast && (
-        <i className="bi bi-chevron-right" style={{ fontSize: '11px', color: '#D1D5E0', margin: '0 3px', flexShrink: 0 }} />
+        <AppIcon name="bi-chevron-right" className="fs-8" color="#D1D5E0" style={{ margin: '0 3px', flexShrink: 0 }} />
       )}
+    </div>
+  );
+};
+
+// ─── PaymentPlanChip ────────────────────────────────────────────────────────
+
+const PaymentPlanChip: React.FC<{
+  plan: PaymentPlan;
+  onEdit: () => void;
+  onDelete: () => void;
+}> = ({ plan, onEdit, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  const stageCount = plan.stages?.length || 0;
+  const total = (plan.stages || []).reduce(
+    (sum, s) => sum + (parseFloat(String(s.percentage)) || 0),
+    0,
+  );
+  const roundedTotal = Math.round(total * 1000) / 1000;
+  const balanced = roundedTotal === 100;
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        backgroundColor: hov ? '#ffffff' : '#f7f8fa',
+        border: `1px solid ${hov ? '#d1d5e0' : '#eaecf0'}`,
+        borderRadius: RADIUS.lg,
+        padding: '12px 14px',
+        transition: 'all 0.15s ease',
+        boxShadow: hov ? '0 4px 14px rgba(24,28,50,0.09)' : '0 1px 3px rgba(24,28,50,0.04)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              fontFamily: FONT.body, fontWeight: 600, fontSize: '13px', color: C.textPrimary,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {plan.name}
+            </span>
+            {plan.isDefault && (
+              <span style={{
+                fontFamily: FONT.body, fontSize: '9px', fontWeight: 700, color: '#0A5C2A',
+                background: '#EDFDF3', border: '1px solid #17C96433', borderRadius: '999px',
+                padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0,
+                textTransform: 'uppercase', letterSpacing: '0.4px',
+              }}>
+                Default
+              </span>
+            )}
+          </div>
+          <div style={{ marginTop: 4, fontFamily: FONT.body, fontSize: '11.5px', color: C.textMuted }}>
+            {stageCount} stage{stageCount === 1 ? '' : 's'}
+            {' · '}
+            <span style={{ color: balanced ? '#0A5C2A' : C.danger, fontWeight: 600 }}>
+              {roundedTotal}%
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
+          <button
+            onClick={onEdit}
+            style={{
+              background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
+              padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center',
+            }}
+          >
+            <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+          </button>
+          <button
+            onClick={onDelete}
+            style={{
+              background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
+              padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center',
+            }}
+          >
+            <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -220,7 +307,7 @@ const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const EmptyState: React.FC<{ label: string }> = ({ label }) => (
   <div style={{ textAlign: 'center', padding: '28px 16px', color: C.textMuted, fontFamily: FONT.body, fontSize: '13px' }}>
-    <i className="bi bi-inbox" style={{ fontSize: '28px', display: 'block', marginBottom: '8px', opacity: 0.4 }} />
+    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: 'block', marginBottom: '8px', opacity: 0.4 }} />
     No {label} configured yet
   </div>
 );
@@ -233,7 +320,16 @@ const TABS: ConfigTab[] = [
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const ProjectConfiguration = () => {
+interface ProjectConfigurationProps {
+  /**
+   * Render the settings sections on their own, without the page header and tab
+   * bar. Lets another configuration page host the real project config instead of
+   * duplicating it — see the Project Settings tab in Lead Configuration.
+   */
+  embedded?: boolean;
+}
+
+const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = {}) => {
   const [activeTab, setActiveTab] = useState('settings');
   const [loading, setLoading] = useState(false);
 
@@ -257,6 +353,10 @@ const ProjectConfiguration = () => {
   const [projectSubcategories, setProjectSubcategories] = useState<ProjectItem[]>([]);
   const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
   const [editingSubcategory, setEditingSubcategory] = useState<ProjectItem | null>(null);
+
+  const [paymentPlans, setPaymentPlans] = useState<PaymentPlan[]>([]);
+  const [showPaymentPlanModal, setShowPaymentPlanModal] = useState(false);
+  const [editingPaymentPlan, setEditingPaymentPlan] = useState<PaymentPlan | null>(null);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -306,6 +406,10 @@ const ProjectConfiguration = () => {
   const handleSubcategoryModalOpen = () => setShowSubcategoryModal(true);
   const handleSubcategoryModalClose = () => { setShowSubcategoryModal(false); setEditingSubcategory(null); };
   const handleSubcategoryEdit = (s: ProjectItem) => { setEditingSubcategory(s); setShowSubcategoryModal(true); };
+
+  const handlePaymentPlanModalOpen = () => { setEditingPaymentPlan(null); setShowPaymentPlanModal(true); };
+  const handlePaymentPlanModalClose = () => { setShowPaymentPlanModal(false); setEditingPaymentPlan(null); };
+  const handlePaymentPlanEdit = (p: PaymentPlan) => { setEditingPaymentPlan(p); setShowPaymentPlanModal(true); };
 
   // ── Fetch functions ─────────────────────────────────────────────────────────
 
@@ -368,6 +472,18 @@ const ProjectConfiguration = () => {
     finally { setLoading(false); }
   };
 
+  const fetchPaymentPlans = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllPaymentPlans();
+      if (response?.paymentPlans) setPaymentPlans(response.paymentPlans);
+    } catch (error) {
+      console.error('Error fetching payment plans:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ── Delete handlers ─────────────────────────────────────────────────────────
 
   const handleDelete = async (id: string, type: 'category' | 'subcategory' | 'service' | 'status' | 'stakeholder') => {
@@ -405,6 +521,17 @@ const ProjectConfiguration = () => {
     });
   };
 
+  const handlePaymentPlanDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation('Payment plan deleted successfully');
+      if (!confirmed) return;
+      await deletePaymentPlan(id);
+      fetchPaymentPlans();
+    } catch (error) {
+      console.error('Error deleting payment plan:', error);
+    }
+  };
+
   // ── Effects ─────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -413,6 +540,7 @@ const ProjectConfiguration = () => {
     fetchProjectServices();
     fetchProjectCategories();
     fetchProjectSubcategories();
+    fetchPaymentPlans();
   }, []);
 
   useEventBus(EVENT_KEYS.projectCategoryCreated, fetchProjectCategories);
@@ -425,24 +553,29 @@ const ProjectConfiguration = () => {
   useEventBus(EVENT_KEYS.projectStatusUpdated, fetchProjectStatuses);
   useEventBus(EVENT_KEYS.stakeholderCreated, fetchStakeholders);
   useEventBus(EVENT_KEYS.stakeholderUpdated, fetchStakeholders);
+  useEventBus(EVENT_KEYS.paymentPlanCreated, fetchPaymentPlans);
+  useEventBus(EVENT_KEYS.paymentPlanUpdated, fetchPaymentPlans);
+  useEventBus(EVENT_KEYS.paymentPlanDeleted, fetchPaymentPlans);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  return (
-    <>
-      <style>{KEYFRAMES}</style>
-      <ConfigPageLayout
-        title="Project Configuration"
-        subtitle="Manage project statuses, stakeholders, prefix, and UI settings"
-        tabs={TABS}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      >
-        {/* ── Project Settings Tab ─────────────────────────────────────────────── */}
-        {activeTab === 'settings' && (
+  // The settings themselves, independent of the page chrome, so they can be
+  // rendered standalone here or hosted inside another configuration page.
+  const settingsSections = (
           <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 
-            {/* Project Status */}
+            {/* 1. Project Prefix Settings — Auto-Numbering (TOP PRIORITY) */}
+            <ConfigSectionCard
+              title="Project Prefix Settings"
+              description="Configure the auto-generated prefix format for new project IDs."
+              icon="bi-hash"
+              iconColor="amber"
+              loading={loading}
+            >
+              <PrefixSettingsForm typeLabel="Project" typeValue="PROJECT" />
+            </ConfigSectionCard>
+
+            {/* 2. Project Status — Core */}
             <ConfigSectionCard
               title="Project Status"
               description="Define the order a project moves through — use the arrows to set the flow."
@@ -474,7 +607,38 @@ const ProjectConfiguration = () => {
               }
             </ConfigSectionCard>
 
-            {/* Stakeholders Services */}
+            {/* 3. Payment Plans — Financial Configuration */}
+            <ConfigSectionCard
+              title="Payment Plans"
+              description="Define stage-wise fee break-up plans. On a project, selecting a plan auto-splits the total commercial cost across its stages by percentage."
+              icon="bi-cash-stack"
+              iconColor="green"
+              primaryAction={{
+                label: 'New Plan',
+                icon: 'bi-plus-lg',
+                onClick: handlePaymentPlanModalOpen,
+                variant: 'primary',
+              }}
+              loading={loading}
+            >
+              {paymentPlans.length === 0
+                ? <EmptyState label="payment plans" />
+                : (
+                  <ChipGrid>
+                    {paymentPlans.map((plan) => (
+                      <PaymentPlanChip
+                        key={plan.id}
+                        plan={plan}
+                        onEdit={() => handlePaymentPlanEdit(plan)}
+                        onDelete={() => handlePaymentPlanDelete(plan.id!)}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
+
+            {/* 4. Stakeholders Services — Team Management */}
             <ConfigSectionCard
               title="Stakeholders Services"
               description="Configure stakeholder service types for project assignments."
@@ -497,20 +661,25 @@ const ProjectConfiguration = () => {
                 )
               }
             </ConfigSectionCard>
-
-            {/* Project Prefix Settings */}
-            <ConfigSectionCard
-              title="Project Prefix Settings"
-              description="Configure the auto-generated prefix format for new project IDs."
-              icon="bi-hash"
-              iconColor="amber"
-              loading={loading}
-            >
-              <PrefixSettingsForm typeLabel="Project" typeValue="PROJECT" />
-            </ConfigSectionCard>
           </div>
-        )}
-      </ConfigPageLayout>
+  );
+
+  return (
+    <>
+      {!embedded && <style>{KEYFRAMES}</style>}
+      {embedded ? (
+        settingsSections
+      ) : (
+        <ConfigPageLayout
+          title="Project Configuration"
+          subtitle="Manage project statuses, stakeholders, prefix, and UI settings"
+          tabs={TABS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        >
+          {activeTab === 'settings' && settingsSections}
+        </ConfigPageLayout>
+      )}
 
       {/* ── Modals ──────────────────────────────────────────────────────────────── */}
 
@@ -559,6 +728,14 @@ const ProjectConfiguration = () => {
         isEditing={!!editingSubcategory}
         type="subcategory"
         title="Subcategory"
+      />
+
+      <PaymentPlanModal
+        show={showPaymentPlanModal}
+        onClose={handlePaymentPlanModalClose}
+        onSuccess={fetchPaymentPlans}
+        initialData={editingPaymentPlan}
+        isEditing={!!editingPaymentPlan}
       />
 
       {serviceDeleteConfirmation.DeleteModal}

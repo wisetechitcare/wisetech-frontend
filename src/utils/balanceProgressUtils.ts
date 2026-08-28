@@ -5,23 +5,135 @@ import { calculateFiscalMonth } from "@utils/fiscalYearHelper";
 import { useState } from "react";
 
 /**
- * Cumulative paid-leave days allowed up to (and including) a given fiscal month.
+ * How much of a fiscal year's paid entitlement has unlocked as of now.
  *
- * Uses Math.floor so the result is always conservative, strictly monotone, and reaches
- * exactly totalAnnualLeaves at month 12 (when total is divisible by 12) or is off by at
- * most 1 otherwise — corrected in the final month.
+ * Frontend mirror of wisetech-backend/src/utils/leaveAccrual.accruedTillNow — keep the two in
+ * lockstep, they are what make the Apply-Leave preview agree with server enforcement. The window
+ * they are measured over comes FROM the server (see {@link accrualWindowAsOf}); this function is
+ * only the arithmetic.
  *
- * Why Math.floor instead of Math.round:
- *   Math.round creates double-increment jumps for non-divisible totals (e.g. 13 leaves
- *   jumps from 5 to 7 at fiscal month 6). Math.floor is uniformly conservative and avoids
- *   that surprise. The backend uses the same formula via leaveUtils.getCumulativeAllowedLeaves.
+ * Paces the entitlement across the employee's OWN months on the books (elapsed / eligible), not a
+ * flat Apr–Mar. The entitlement itself is NOT pro-rated by the backend — a part-year employee is
+ * granted the same figure and simply unlocks it across the months they are actually employed, so
+ * the year still ends with every granted day spendable.
  *
- * @param totalAnnualLeaves - Total paid leave allocation for the fiscal year
- * @param fiscalMonthIndex  - Target month (1=April … 12=March)
+ * Floor keeps it conservative and strictly monotone; the fully-elapsed short-circuit makes sure the
+ * last month releases the entitlement exactly rather than leaving a floored remainder (a fractional
+ * total like 19.5, left by a half-day encashment, would otherwise lose its half).
+ *
+ * @param entitlement    - Paid allocation for the fiscal year (from the balance API)
+ * @param elapsedMonths  - Eligible accrual months begun as of the day in question
+ * @param eligibleMonths - Accrual months on the books this fiscal year (12 = full-year employee)
  */
-export function getCumulativeAllowedLeaves(totalAnnualLeaves: number, fiscalMonthIndex: number): number {
-    return Math.floor((totalAnnualLeaves / 12) * fiscalMonthIndex);
+export function accruedTillNow(entitlement: number, elapsedMonths: number, eligibleMonths: number): number {
+    const total = Number(entitlement) || 0;
+    if (eligibleMonths <= 0 || total <= 0 || elapsedMonths <= 0) return 0;
+    if (elapsedMonths >= eligibleMonths) return total;
+    return Math.floor((total * elapsedMonths) / eligibleMonths);
 }
+
+export const FISCAL_MONTHS_IN_YEAR = 12;
+
+/**
+ * The accrual window as the SERVER resolved it, delivered in the leave-balance response
+ * (`data.accrualWindow`). Mirror of wisetech-backend/src/utils/leaveAccrual.AccrualWindowDTO.
+ */
+export interface ServerAccrualWindow {
+    fiscalYear?: string;
+    fiscalStartYear: number;
+    /** Fiscal months (1=Apr … 12=Mar) the employee is on the books for. */
+    months: number[];
+    eligibleMonths: number;
+    /** Elapsed as of the server's "today" — recomputed here for a picked date. */
+    elapsedMonths: number;
+    asOf?: string;
+}
+
+/** Fiscal month index (1=Apr … 12=Mar) of a 'YYYY-MM-DD' day. */
+export const fiscalMonthOfDay = (day: string): number => {
+    const m = Number(day.slice(5, 7));
+    return m >= 4 ? m - 3 : m + 9;
+};
+
+const toDay = (v: unknown): string | null =>
+    v == null || v === '' ? null : dayjs(v as any).isValid() ? dayjs(v as any).format('YYYY-MM-DD') : null;
+
+/**
+ * Re-measure the server's accrual window as of a chosen day.
+ *
+ * WHICH months count is decided ONCE, on the server (utils/leaveAccrual): it owns the employment
+ * timeline — joining and exit dates, and crucially the REJOIN history, which the browser has never
+ * been given. This function only asks how many of those months have begun by the date the employee
+ * is picking, which is pure indexing and so cannot drift from policy. Deriving the window here from
+ * dateOfJoining/dateOfExit is exactly what used to break: a re-hired employee's primary exit date
+ * is the end of an OLD stint, which read as "left years ago" → zero eligible months → the modal
+ * quoted a 0 allowance and booked every paid day as unpaid LOP while the server was granting it.
+ *
+ * FALLBACK — a full fiscal year, never zero. When the server sent no window (older backend), or
+ * sent one for a different fiscal year than the date being asked about, the employee is paced across
+ * Apr–Mar, which is the behaviour that predates windows entirely. Guessing a NARROWER window from
+ * incomplete data is what costs someone their paid leave; guessing a wider one costs nothing, because
+ * the per-type balance and the annual cap still bound every request.
+ */
+export function accrualWindowAsOf(
+    window: ServerAccrualWindow | null | undefined,
+    fiscalStartYear: number,
+    asOf: Date | string = new Date(),
+): PacingMonths {
+    const asOfDay = toDay(asOf) ?? `${fiscalStartYear + 1}-03-31`;
+    const fyFirst = `${fiscalStartYear}-04-01`;
+    const fyLast = `${fiscalStartYear + 1}-03-31`;
+    const fiscalMonthIndex = asOfDay < fyFirst ? 0 : asOfDay > fyLast ? FISCAL_MONTHS_IN_YEAR : fiscalMonthOfDay(asOfDay);
+
+    const usable =
+        window &&
+        Array.isArray(window.months) &&
+        window.months.length > 0 &&
+        Number(window.fiscalStartYear) === fiscalStartYear;
+    if (!usable) {
+        return { eligibleMonths: FISCAL_MONTHS_IN_YEAR, elapsedMonths: fiscalMonthIndex, fiscalMonthIndex };
+    }
+
+    const months = window!.months;
+    return {
+        eligibleMonths: months.length,
+        elapsedMonths:
+            asOfDay < fyFirst ? 0 : asOfDay > fyLast ? months.length : months.filter((m) => m <= fiscalMonthIndex).length,
+        fiscalMonthIndex,
+    };
+}
+
+/** The two month-counts a pacing decision needs. Mirror of leaveAccrual.PacingMonths. */
+export interface PacingMonths {
+    elapsedMonths: number;
+    eligibleMonths: number;
+    /** Fiscal month (1=Apr … 12=Mar) of the day in question — position in the CALENDAR year. */
+    fiscalMonthIndex: number;
+}
+
+/**
+ * Paid days unlocked so far — mirror of wisetech-backend/src/utils/leaveAccrual.unlockedTillNow,
+ * and the ONE figure both the chip and the preview engine compare against.
+ *
+ * `entitlement × elapsed / eligible`, paced across the employee's own months on the books.
+ *
+ * DIVIDE BY eligibleMonths, NEVER BY 12. The entitlement the balance API returns has already been
+ * cut to the employee's window by the server; pacing it over a flat twelve months as well would
+ * pro-rate the same window twice and strand days the employee had genuinely earned.
+ *
+ * Never looser than a flat fiscal-year pace: substituting the pro-rated entitlement gives
+ * `annual × elapsed / 12` — the original rule with the absent months struck out. A full-year
+ * employee's elapsed IS the fiscal month index and eligible is 12, so nothing moves for them.
+ */
+export function unlockedTillNow(entitlement: number, pacing: PacingMonths): number {
+    return accruedTillNow(entitlement, pacing.elapsedMonths, pacing.eligibleMonths);
+}
+
+/** Fiscal year (April start) a 'YYYY-MM-DD' day belongs to — Jan–Mar belong to the FY that began last April. */
+export const fiscalStartYearOfDay = (day: string): number => {
+    const [y, m] = day.split('-').map(Number);
+    return m >= 4 ? y : y - 1;
+};
 
 /**
  * Returns the fiscal month index for today's date.
@@ -225,6 +337,25 @@ export const calculateTransferredLeaves = async (
 };
 
 /**
+ * Days ENCASHED per leave type, straight from the balance summary the server sends.
+ *
+ * The card and the pacing pool are both drawn from the ENTITLEMENT, not from availableBalance, so an
+ * encashed day stayed visible on them long after the server had taken it out of what can be booked.
+ *
+ * Read, never re-derived: the rule for what counts (CASH, not rejected, not revoked, this fiscal
+ * year) lives in the backend's encashedDaysForType, and a second copy of it here is exactly how the
+ * screens and the enforcement drift apart.
+ */
+export const encashedByType = (leavesSummary: any[] = []): Record<string, number> => {
+    const encashed: Record<string, number> = {};
+    (leavesSummary || []).forEach((summary: any) => {
+        const days = Number(summary?.encashedDays) || 0;
+        if (summary?.leaveType && days > 0) encashed[summary.leaveType] = days;
+    });
+    return encashed;
+};
+
+/**
  * Check if there's a pending or approved encash/transfer request
  */
 export const hasPendingOrApprovedEncashTransfer = async (
@@ -276,47 +407,37 @@ export const calculateLeaveBalances = (
     branchLeaveBalances: Record<string, number>,
     transferredLeaves: Record<string, number>,
     addonLeaveAllowanceCount: number,
-    proRatedMonths: number,
+    _proRatedMonths: number,
     hasPendingOrApprovedTransfer: boolean,
-    tenureMonths: number = 1
+    _tenureMonths: number = 1
 ): { balances: Record<string, number>; proRated: Record<string, number> } => {
-    const monthsInYear = 12;
     const balances: Record<string, number> = {};
     const proRated: Record<string, number> = {};
 
-    // Always calculate and show actual balances in BalanceProgress
-    // LeaveRequestForm handles preventing new leave applications when there's a pending/approved transfer
+    // PRO-RATING IS NOT DONE HERE ANY MORE — and must never come back.
+    //
+    // This function used to re-derive a pro-rated total for Annual and Casual from
+    // `proRatedMonths` (months from DOJ to FY end). That was DISPLAY-ONLY: the server stored
+    // and enforced the full-year figure, so the card promised a mid-year joiner 9 days while
+    // the allocation engine would happily grant 12. The card and the engine disagreed by
+    // construction.
+    //
+    // `leave_balance.totalAllocated` IS the employee's earned entitlement: recalculateBalance cuts
+    // the branch annual (plus the Annual addon tier) to the fiscal months they are actually on the
+    // books, rejoin history included — wisetech-backend/src/utils/leaveAccrual.prorateAllocation.
+    // `numberOfDays` on the balance API carries that figure verbatim, so applying a month fraction
+    // on top would pro-rate a second time: a July joiner's real 15 days would render as 11.
+    //
+    // `proRated` is still populated (identical to `balances`) because callers index it first
+    // and fall back to `balances`; keeping both keys filled leaves every call site working
+    // without a coordinated edit. The two parameters that drove the old math are retained and
+    // underscore-prefixed so the signature stays stable for existing callers.
     Object.keys(branchLeaveBalances).forEach((leaveType: string) => {
         const totalYearlyDays = branchLeaveBalances[leaveType];
         const transferred = transferredLeaves[leaveType] || 0;
-
-        // Apply pro-rating for Casual, Annual, and Maternal leaves
-        if (leaveType === CASUAL_LEAVES) {
-            const monthlyLeave = totalYearlyDays / monthsInYear;
-            // B7: Use direct floor — multiply/divide by 10 introduces floating-point errors
-            const proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
-
-            proRated[leaveType] = proRatedLeaves + transferred;
-            balances[leaveType] = totalYearlyDays + transferred;
-        } else if (leaveType === ANNUAL_LEAVES) {
-            // FIX: Use backend-provided `totalYearlyDays` with pro-rating rather than hardcoding with tenureMonths
-            const monthlyLeave = totalYearlyDays / monthsInYear;
-            const proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
-
-            // Add addon leave allowance (experience-based leaves) and transferred leaves
-            const totalWithAddon = proRatedLeaves + addonLeaveAllowanceCount;
-            proRated[leaveType] = totalWithAddon + transferred;
-            balances[leaveType] = totalYearlyDays + addonLeaveAllowanceCount + transferred;
-        } else if (leaveType === MATERNAL_LEAVES) {
-            // BUG 4 FIX: Maternal leave is a special-purpose leave (e.g. 90 days at once).
-            // It must NOT be pro-rated — the employee gets the full yearly allocation
-            // available from day 1.
-            proRated[leaveType] = totalYearlyDays + transferred;
-            balances[leaveType] = totalYearlyDays + transferred;
-        } else {
-            // For other leave types, no pro-rating, just add transferred
-            balances[leaveType] = totalYearlyDays + transferred;
-        }
+        const total = totalYearlyDays + transferred;
+        balances[leaveType] = total;
+        proRated[leaveType] = total;
     });
 
     return { balances, proRated };
@@ -328,38 +449,46 @@ export const calculateLeaveBalances = (
 export const buildLeaveData = (
     leavesTakenCount: Record<string, number>,
     proRatedBalances: Record<string, number>,
-    leaveBalances: Record<string, number>
+    leaveBalances: Record<string, number>,
+    /** Days cashed out this fiscal year, per type — no longer part of the entitlement. */
+    encashedLeaves: Record<string, number> = {}
 ) => {
+    // An encashed day has left the balance: the employee was paid for it and can no longer take it.
+    // Netting it out of the row's total keeps the card's arithmetic identical to the server's
+    // availableBalance (allocated − used − encashed), which is what ApplyLeave books against.
+    const entitlement = (type: string, allocated: number) =>
+        Math.max(0, allocated - (encashedLeaves[type] || 0));
+
     const allPaidLeaves = [
         {
             label: ANNUAL_LEAVES,
             used: leavesTakenCount[ANNUAL_LEAVES] || 0,
-            total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
+            total: entitlement(ANNUAL_LEAVES, proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             label: SICK_LEAVES,
             used: leavesTakenCount[SICK_LEAVES] || 0,
-            total: leaveBalances[SICK_LEAVES] || 0,
+            total: entitlement(SICK_LEAVES, leaveBalances[SICK_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             // label: 'Paid Leaves',  // Renamed from Floater Leaves
             label: 'Floater Leaves',  // Renamed from Floater Leaves
             used: leavesTakenCount[FLOATER_LEAVES] || 0,
-            total: leaveBalances[FLOATER_LEAVES] || 0,
+            total: entitlement(FLOATER_LEAVES, leaveBalances[FLOATER_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             label: CASUAL_LEAVES,
             used: leavesTakenCount[CASUAL_LEAVES] || 0,
-            total: proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0,
+            total: entitlement(CASUAL_LEAVES, proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0),
             color: '#1E3A8A',
         },
         {
             label: MATERNAL_LEAVES,
             used: leavesTakenCount[MATERNAL_LEAVES] || 0,
-            total: proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0,
+            total: entitlement(MATERNAL_LEAVES, proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0),
             color: '#1E3A8A',
         },
     ];
@@ -447,7 +576,13 @@ export const buildCumulativeInputs = (leavesSummary: any[] = []): CumulativeInpu
         const isPaidType = summary?.isPaid !== false && !t.includes('unpaid');
         if (!isPaidType || t.includes('matern')) return;
 
-        totalNonMaternalPaidAllocated += Number(summary.numberOfDays) || 0;
+        // Encashed days have been paid out — they are not spendable, so they leave the paced pool.
+        // Server-reported (leavesSummary.encashedDays) rather than re-derived here, so this can never
+        // disagree with the balance the allocation engine enforces against.
+        totalNonMaternalPaidAllocated += Math.max(
+            0,
+            (Number(summary.numberOfDays) || 0) - (Number(summary.encashedDays) || 0),
+        );
         takenIncludingPendingByType[leaveType] =
             (Number(summary.leaveTaken) || 0) + (Number(summary.pendingDays) || 0);
     });
@@ -468,10 +603,19 @@ export const buildCumulativeInputs = (leavesSummary: any[] = []): CumulativeInpu
 export const calculateCumulativeSummary = (
     totalPaidAllocated: number,
     leavesTakenIncludingPending: Record<string, number>,
-    fiscalStartMonth: number = 4
+    fiscalStartMonth: number = 4,
+    accrual?: PacingMonths
 ) => {
-    const fiscalMonthIdx = getCurrentFiscalMonthIndex(fiscalStartMonth);
-    const allowedTillNow = getCumulativeAllowedLeaves(totalPaidAllocated, fiscalMonthIdx);
+    // Pace across the SERVER-resolved accrual window when we have it. Without one, fall back to the
+    // calendar fiscal month over a full 12 — the behaviour that predates windows entirely, and never
+    // a narrower guess. This whole branch is itself a fallback: the backend sends `cumulativeSummary`
+    // and BalanceProgress prefers it.
+    const window: PacingMonths = accrual ?? {
+        elapsedMonths: getCurrentFiscalMonthIndex(fiscalStartMonth),
+        eligibleMonths: FISCAL_MONTHS_IN_YEAR,
+        fiscalMonthIndex: getCurrentFiscalMonthIndex(fiscalStartMonth),
+    };
+    const allowedTillNow = unlockedTillNow(totalPaidAllocated, window);
 
     // Sum EVERY paid non-Maternal type that buildCumulativeInputs already collected (name-agnostic) —
     // NOT a hardcoded {Casual, Annual, Sick, Floater} whitelist. The whitelist silently dropped the

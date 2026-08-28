@@ -2,8 +2,8 @@
  * Approval-domain registry — the single place that knows what each workflow type IS.
  *
  * To support a new workflow: add one entry. The queue reads `label`/`tone`/`icon` for the Type
- * chip and mounts `Detail` on row click. A domain with no `Detail` degrades gracefully to the
- * row's expandable panel (approval progress + audit), which every domain gets for free.
+ * chip and mounts `Detail` on row click. A domain with no `Detail` falls back to `GenericDetail`,
+ * which renders the row summary and the decision buttons — so every row opens something.
  *
  * Rule: `Detail` must point at the domain's EXISTING canonical component — never a viewer built
  * for the queue. Leave → ApplyLeave; reimbursement → BatchDetailModal.
@@ -33,8 +33,8 @@ const DOMAINS: ApprovalDomain[] = [
         label: 'Attendance',
         tone: 'warning',
         icon: 'time',
-        // No modal: attendance's detail is the AttendanceDetailCard inside the expandable panel.
-        // When a canonical attendance view exists, register it here — nothing else changes.
+        // Falls back to GenericDetail. When a canonical attendance view exists, register it here —
+        // nothing else changes.
     },
     { key: 'task', label: 'Task', tone: 'cyan', icon: 'check-circle' },
     { key: 'project', label: 'Project', tone: 'brand', icon: 'briefcase' },
@@ -54,6 +54,28 @@ const BY_KEY = new Map(DOMAINS.map((d) => [d.key, d]));
 /** Resolve a domain by `instance.workflowType`. Case-insensitive; undefined when unregistered. */
 export const getApprovalDomain = (workflowType?: string | null): ApprovalDomain | undefined =>
     workflowType ? BY_KEY.get(workflowType.toLowerCase()) : undefined;
+
+/**
+ * Request models that must NOT open their workflow's canonical Detail.
+ *
+ * Leave CONVERSION (encash/transfer) runs on workflowType 'leave' deliberately — that is how it
+ * reuses the employee's existing leave approval chain instead of needing one configured all over
+ * again. But it is a LeaveManagement row, not a leave request, so handing it to LeaveDetail →
+ * ApplyLeave would feed a leave-request viewer a shape it cannot read. It falls through to
+ * GenericDetail, which renders the approval progress, the audit trail and the detail payload
+ * approvalService.fetchRequestDetails builds for it.
+ */
+const NO_CANONICAL_DETAIL = new Set(['LeaveManagement']);
+
+/**
+ * The Detail component for a queue row. Resolves by workflowType, then lets the request MODEL veto
+ * it — two different record types can legitimately share one workflow (and therefore one chain).
+ */
+export const getApprovalDetail = (
+    workflowType?: string | null,
+    requestModel?: string | null,
+): ApprovalDomain['Detail'] | undefined =>
+    requestModel && NO_CANONICAL_DETAIL.has(requestModel) ? undefined : getApprovalDomain(workflowType)?.Detail;
 
 /** Every registered domain key — the source of truth for tab bucketing. */
 export const APPROVAL_DOMAIN_KEYS = DOMAINS.map((d) => d.key);

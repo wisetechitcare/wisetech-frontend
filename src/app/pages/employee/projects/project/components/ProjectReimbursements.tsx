@@ -7,6 +7,7 @@ import { IReimbursements, IReimbursementsFetch } from "@models/employee";
 import { fetchReimbursementsByProjectId } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { Box, Paper, Stack, Typography } from "@mui/material";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 // ---------------------------------------------------------------------------
 // DocumentPreviewModal
@@ -309,7 +310,7 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
             {renderedCellValue ? (
               <KTIcon iconName="eye" className="fs-3" />
             ) : (
-              <i className="bi bi-file-earmark-x fs-3 text-danger" />
+              <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
             )}
           </button>
         ),
@@ -337,7 +338,7 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
         className="d-flex flex-column align-items-center justify-content-center text-center"
         style={{ minHeight: "300px" }}
       >
-        <i className="bi bi-receipt fs-2x text-muted mb-4" style={{ fontSize: "3rem" }} />
+        <AppIcon name="bi-receipt" className="fs-2x text-muted mb-4" style={{ fontSize: "3rem" }} />
         <h4 className="text-muted fw-semibold mb-2">No Reimbursements Found</h4>
         <p className="text-gray-500 fs-6 mb-0">
           No reimbursements have been linked to this project yet.

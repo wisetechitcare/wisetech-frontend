@@ -406,7 +406,7 @@ function Attendance() {
             <MaterialTable
                 columns={columns}
                 data={tableData}
-                tableName='Attendance'
+                tableName='AttendanceWizard'
                 employeeId={employeeId} />
         </>
     );

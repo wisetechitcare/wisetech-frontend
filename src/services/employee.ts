@@ -29,14 +29,84 @@ export const fetchAllKpiScores = async (startDate: string, endDate: string) => {
   return data;
 };
 
-export const fetchAllEmployees = async (isActive?: boolean) => {
+/** Filters the employee list understands server-side. All optional. */
+export interface EmployeeListParams {
+    isActive?: boolean;
+    branchId?: string;
+    companyId?: string;
+    departmentId?: string;
+    designationId?: string;
+    payType?: string;
+    search?: string;
+    sort?: { id: string; desc: boolean };
+}
+
+const employeeListQuery = (p: EmployeeListParams): URLSearchParams => {
+    const q = new URLSearchParams();
+    if (p.isActive !== undefined) q.append('isActive', String(p.isActive));
+    for (const k of ['branchId', 'companyId', 'departmentId', 'designationId', 'payType', 'search'] as const) {
+        const v = p[k];
+        if (v) q.append(k, v);
+    }
+    if (p.sort?.id) {
+        q.append('sortBy', p.sort.id);
+        q.append('sortOrder', p.sort.desc ? 'desc' : 'asc');
+    }
+    return q;
+};
+
+/**
+ * Server-paginated employee list.
+ *
+ * Separate from {@link fetchAllEmployees} on purpose — that one has 27 callers (pickers,
+ * lookups, dropdowns) that need every row, and the API only paginates when page/limit are
+ * actually sent. Returns `counts` for the status tabs, derived in SQL from the same
+ * filters, so they stay correct across pages.
+ */
+export const fetchEmployeesPage = async (page: number, limit: number, params: EmployeeListParams = {}) => {
+    try {
+        const q = employeeListQuery(params);
+        q.append('page', String(page));
+        q.append('limit', String(limit));
+        const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE}?${q.toString()}`);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/**
+ * Distinct filter-dropdown values, scoped by the same filters as the list.
+ * A paginated table can no longer build these from its loaded rows.
+ */
+export const fetchEmployeeFacets = async (params: EmployeeListParams = {}) => {
+    try {
+        const q = employeeListQuery(params);
+        const suffix = q.toString() ? `?${q.toString()}` : '';
+        const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE}/facets${suffix}`);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/**
+ * @param isActive filter to employed staff. OMITTING IT RETURNS EVERYONE, exited
+ *                 included — the server applies no where clause at all when it is
+ *                 undefined.
+ * @param from,to  the window "employed" is judged against (YYYY-MM-DD). Defaults to
+ *                 today server-side, which is wrong for any period-scoped screen: a board
+ *                 showing 1-31 August must judge who was employed during August. Pass the
+ *                 screen's real range, exactly as payroll passes its run month.
+ */
+export const fetchAllEmployees = async (isActive?: boolean, from?: string, to?: string) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE}`;
 
-        // Add query parameter if isActive is defined
-        if (isActive !== undefined) {
-            endpoint += `?isActive=${isActive}`;
-        }
+        const params = new URLSearchParams();
+        if (isActive !== undefined) params.set('isActive', String(isActive));
+        if (from && to) { params.set('from', from); params.set('to', to); }
+        if ([...params].length) endpoint += `?${params.toString()}`;
 
         const { data } = await axios.get(endpoint);
         return data;
@@ -280,9 +350,20 @@ export const rejectAttendanceRequestLimitReset = async (requestId: string) => {
     }
 }
 
-export const fetchDocumentsField = async () => {
+/**
+ * The company's configured onboarding document types — the SAME list the
+ * Company → Onboarding Docs screen manages (`fetchOnboardingDocs`), read here so
+ * the wizard's Upload Documents section stays a view of that configuration
+ * rather than a second, drifting list.
+ *
+ * `companyId` is optional only as a safety net: the backend's `where` clause
+ * SKIPS an undefined companyId, so omitting it returns every company's document
+ * types. Always pass one when it can be resolved.
+ */
+export const fetchDocumentsField = async (companyId?: string) => {
     try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ONBOARDING_DOC_LIST}`;
+        const base = `${API_BASE_URL}/${EMPLOYEE.GET_ONBOARDING_DOC_LIST}`;
+        const endpoint = companyId ? `${base}?companyId=${encodeURIComponent(companyId)}` : base;
         const { data } = await axios.get(endpoint);
         return data;
     }
@@ -583,6 +664,28 @@ export const createQualificationMaster = async (payload: { name: string }) => {
     }
 }
 
+export const updateQualificationMaster = async (id: string, payload: { name: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_QUALIFICATION_MASTER(id)}`;
+        const { data } = await axios.put(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const deleteQualificationMaster = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.DELETE_QUALIFICATION_MASTER(id)}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const updateRejoinHistoryDetails = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_REJOIN_HISTORY_BY_ID}?id=${id}`;
@@ -648,6 +751,232 @@ export const fetchEmployeeProfileData = async (employeeId: string) => {
         throw err;
     }
 }
+
+/* ── Document vault ───────────────────────────────────────────────────────────
+   Two reads behind the Documents module. The directory is the HR landing list;
+   the vault is everything held on ONE person, joined server-side from the five
+   tables that each store a file next to the data it belongs to. */
+
+export interface DocumentsDirectoryEntry {
+    id: string;
+    /** Human-facing code (e.g. "WT-60"). */
+    employeeCode: string | null;
+    name: string;
+    avatar: string | null;
+    dateOfJoining: string | null;
+    dateOfExit: string | null;
+    /** Employment-window status, resolved server-side with the shared predicate. */
+    isCurrentlyActive: boolean;
+    jobProfile: string | null;
+    branch: { id: string; name: string } | null;
+    subOrganization: { id: string; name: string } | null;
+    documentCount: number;
+    lastUpdatedAt: string | null;
+}
+
+export type VaultDocumentCategory = 'photo' | 'onboarding' | 'identity' | 'signature' | 'bank' | 'education';
+
+export interface VaultDocument {
+    id: string;
+    category: VaultDocumentCategory;
+    title: string;
+    subtitle: string | null;
+    path: string;
+    fileName: string | null;
+    identityNumber: string | null;
+    uploadedAt: string | null;
+}
+
+export interface DocumentVault {
+    employee: {
+        id: string;
+        /** Human-facing code (e.g. "WT-60"). */
+        employeeCode: string | null;
+        name: string;
+        email: string | null;
+        avatar: string | null;
+        jobProfile: string | null;
+        dateOfJoining: string | null;
+        dateOfExit: string | null;
+        branch: { id: string; name: string } | null;
+        subOrganization: { id: string; name: string } | null;
+    };
+    documents: VaultDocument[];
+}
+
+export const fetchDocumentsDirectory = async (params: {
+    subOrganizationId?: string;
+    branchId?: string;
+    search?: string;
+    /** 'active' (still employed) or 'inactive' (has left). Omit for everyone. */
+    status?: 'active' | 'inactive';
+} = {}) => {
+    try {
+        const query = new URLSearchParams();
+        if (params.subOrganizationId) query.set('subOrganizationId', params.subOrganizationId);
+        if (params.branchId) query.set('branchId', params.branchId);
+        if (params.search) query.set('search', params.search);
+        if (params.status) query.set('status', params.status);
+
+        const suffix = query.toString() ? `?${query}` : '';
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_DOCUMENTS_DIRECTORY}${suffix}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/**
+ * `employeeId` may be the literal "me", which the backend resolves to the caller.
+ * That is what the employee's OWN Documents screen uses — it never sends an id, so
+ * it can never be pointed at somebody else.
+ */
+export const fetchDocumentVault = async (employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_DOCUMENT_VAULT}/${employeeId}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/* ── Employee ID card ─────────────────────────────────────────────────────────
+   The print-ready card for one employee, every field sourced from the onboarding
+   record. The photo and org logo arrive as base64 `data:` URIs rather than S3 URLs
+   — the card is rasterised to PNG through a <canvas> for the download, and a
+   cross-origin image would taint that canvas and make `toBlob()` throw. */
+export interface EmployeeIdCardDetails {
+    id: string;
+    fullName: string;
+    employeeCode: string | null;
+    designation: string | null;
+    department: string | null;
+    branch: string | null;
+    /** ISO `YYYY-MM-DD`. Format for display with `formatDate` at the render site. */
+    dateOfJoining: string | null;
+    /** As stored, WITHOUT its country code — merge with `formatPhoneWithCode`. */
+    phone: string | null;
+    /** Country dial code, e.g. "91". Renders as a `+91` prefix, not a suffix. */
+    phoneCountryCode: string | null;
+    email: string | null;
+    /** Stored token, e.g. "AB_POS" — map with `formatBloodGroup` before display. */
+    bloodGroup: string | null;
+    emergencyContactName: string | null;
+    emergencyContactNumber: string | null;
+    photo: string | null;
+    isActive: boolean;
+}
+
+export interface EmployeeIdCardOrganization {
+    name: string | null;
+    logo: string | null;
+    /**
+     * The logo's intrinsic dimensions, read server-side from its header. The card
+     * needs them to size the logo box itself: SVG's own auto-fitting aligns a raster
+     * logo and an SVG logo differently, so two sub-organizations whose marks are in
+     * different formats would not share a left edge. Null when unreadable — the card
+     * then falls back to letting the browser fit it.
+     */
+    logoWidth: number | null;
+    logoHeight: number | null;
+}
+
+export interface EmployeeIdCardPayload {
+    employee: EmployeeIdCardDetails;
+    organization: EmployeeIdCardOrganization;
+}
+
+/**
+ * `employeeId` may be the literal "me", which the backend resolves to the caller —
+ * that is how an employee pulls their own card without a cross-employee permission.
+ */
+export const fetchEmployeeIdCard = async (employeeId: string): Promise<EmployeeIdCardPayload> => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_ID_CARD}/${employeeId}`;
+        const { data } = await axios.get(endpoint);
+        return data.data as EmployeeIdCardPayload;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/* ── Birthday card ────────────────────────────────────────────────────────────
+   One payload for both audiences. `kind` is 'employee' or 'contact'; the id is the
+   USER's for an employee (the calendar's birthday events are built from the users
+   list, where the date of birth lives) and the contact's own for a contact.
+
+   Photo and logo arrive as base64 `data:` URIs for the same reason the ID card's do —
+   the card is rasterised to PNG through a <canvas>, and a cross-origin S3 image would
+   taint it and make `toBlob()` throw. */
+export type BirthdayCardKind = 'employee' | 'contact';
+
+export interface BirthdayCardPerson {
+    id: string;
+    name: string;
+    /** Base64 `data:` URI, or null — the card falls back to an initials monogram. */
+    photo: string | null;
+    /**
+     * ISO `YYYY-MM-DD`, or null when none is on file. Only contacts can be null: the
+     * column is optional for them and NOT NULL for employees. A null drops the age
+     * line and the card greets them by name alone.
+     */
+    dateOfBirth: string | null;
+    /** Designation for an employee, "Role · Company" for a contact. */
+    subtitle: string | null;
+}
+
+export interface BirthdayCardPayload {
+    person: BirthdayCardPerson;
+    /** Same shape the ID card uses — the sub-organization's mark, or the group's. */
+    organization: EmployeeIdCardOrganization;
+}
+
+export const fetchBirthdayCard = async (kind: BirthdayCardKind, id: string): Promise<BirthdayCardPayload> => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_BIRTHDAY_CARD}/${kind}/${encodeURIComponent(id)}`;
+        const { data } = await axios.get(endpoint);
+        return data.data as BirthdayCardPayload;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/**
+ * Every document for one employee as a single zip.
+ *
+ * The archive is built on the SERVER — zipping in the browser would mean fetching
+ * each file from S3 with JavaScript, which needs a CORS grant per origin and fails
+ * outright on any object that is not public. Comes back as a blob so the caller can
+ * hand it straight to a download.
+ */
+/**
+ * One document's bytes, served from our own origin as an attachment.
+ *
+ * Not a direct S3 link: the browser IGNORES `<a download>` on a cross-origin URL and
+ * navigates to the file instead, so a PDF opened in a tab rather than saving. The API
+ * resolves the key from the employee's own vault and sets Content-Disposition.
+ */
+export const downloadDocumentFile = async (employeeId: string, documentId: string): Promise<Blob> => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_DOCUMENT_FILE}/${employeeId}/file/${encodeURIComponent(documentId)}`;
+        const { data } = await axios.get(endpoint, { responseType: 'blob' });
+        return data as Blob;
+    } catch (err) {
+        throw err;
+    }
+};
+
+export const downloadDocumentArchive = async (employeeId: string): Promise<Blob> => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_DOCUMENT_ARCHIVE}/${employeeId}/archive`;
+        const { data } = await axios.get(endpoint, { responseType: 'blob' });
+        return data as Blob;
+    } catch (err) {
+        throw err;
+    }
+};
 
 export const fetchEmployeeDocuments = async (employeeId: string) => {
     try {
@@ -1098,6 +1427,15 @@ export const fetchLeaveRequest = async (
     /** Exclude employees explicitly flagged inactive. Filtered in SQL — see the API's
      *  `activeEmployeeRelationFilter`. Off by default so existing callers are unchanged. */
     activeOnly?: boolean,
+    /** Sort the WHOLE result set in SQL. Required for a paginated table: without it the
+     *  browser only reorders the page it happens to be holding. Unknown columns are
+     *  ignored server-side (whitelist in utils/sortParams). */
+    sort?: { id: string; desc: boolean },
+    /** Free-text search over the WHOLE result set in SQL, for the same reason as `sort`:
+     *  a paginated table filtering in the browser only ever matches the page it holds, so
+     *  searching a long queue returns "no results" for rows that exist on page 2.
+     *  Columns searched are fixed server-side (see EMPLOYEE_SEARCH_PATHS). */
+    search?: string,
 ) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_LEAVE_REQUEST}`;
@@ -1106,12 +1444,19 @@ export const fetchLeaveRequest = async (
         if (status !== undefined) params.append('status', status.toString());
         if (page !== undefined) params.append('page', page.toString());
         if (limit !== undefined) params.append('limit', limit.toString());
+        if (sort?.id) {
+            params.append('sortBy', sort.id);
+            params.append('sortOrder', sort.desc ? 'desc' : 'asc');
+        }
         // Both or neither — the API rejects a half-specified window on purpose.
         if (range?.startDate && range?.endDate) {
             params.append('startDate', range.startDate);
             params.append('endDate', range.endDate);
         }
         if (activeOnly) params.append('activeOnly', 'true');
+        // Trimmed, and omitted when empty: a blank `search=` would be a filter the API has
+        // to decide to ignore, rather than one that was never requested.
+        if (search?.trim()) params.append('search', search.trim());
 
         if (params.toString()) {
             endpoint += `?${params.toString()}`;
@@ -1258,8 +1603,18 @@ export const fetchReimbursementBatchById = async (batchId: string) => {
     return data;
 };
 
-export const processBatchRequestAction = async (batchId: string, requestId: string, action: 'approve' | 'reject', comments?: string) => {
-    const { data } = await axios.put(`${API_BASE_URL}/${EMPLOYEE.PROCESS_BATCH_REQUEST}/${batchId}/requests/${requestId}`, { action, comments });
+export const processBatchRequestAction = async (
+    batchId: string,
+    requestId: string,
+    action: 'approve' | 'reject' | 'request-info',
+    comments?: string,
+    /** Only meaningful for 'request-info' — files the question under a query category. */
+    category?: string,
+) => {
+    const { data } = await axios.put(
+        `${API_BASE_URL}/${EMPLOYEE.PROCESS_BATCH_REQUEST}/${batchId}/requests/${requestId}`,
+        { action, comments, category },
+    );
     return data;
 };
 
@@ -1424,6 +1779,10 @@ export const getAllAttendanceRequestByCompanyId = async (
     range?: { startDate: string; endDate: string },
     /** Exclude employees explicitly flagged inactive. Filtered in SQL. Off by default. */
     activeOnly?: boolean,
+    /** Sort the WHOLE result set in SQL — see fetchLeaveRequest. */
+    sort?: { id: string; desc: boolean },
+    /** Search the WHOLE result set in SQL — see fetchLeaveRequest. */
+    search?: string,
 ) => {
     try {
         const params = new URLSearchParams({ companyId, page: String(page), limit: String(limit) });
@@ -1433,6 +1792,11 @@ export const getAllAttendanceRequestByCompanyId = async (
             params.append('endDate', range.endDate);
         }
         if (activeOnly) params.append('activeOnly', 'true');
+        if (sort?.id) {
+            params.append('sortBy', sort.id);
+            params.append('sortOrder', sort.desc ? 'desc' : 'asc');
+        }
+        if (search?.trim()) params.append('search', search.trim());
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_ATTENDANCE_REQUEST}?${params.toString()}`;
         const { data } = await axios.get(endpoint);
         return data;
@@ -1658,6 +2022,27 @@ export const fetchPendingApprovals = async () => {
     const { data } = await axios.get(endpoint);
     return data;
 }
+
+/**
+ * Decide several of ONE employee's pending requests in one call.
+ *
+ * The API rejects a payload spanning multiple employees — that constraint is what keeps
+ * the requester's inbox to a single summary email and bounds a mistake to one person.
+ * Returns a per-item outcome: some instances legitimately fail (already decided, no longer
+ * your step), and the caller must show which.
+ */
+export const bulkDecideApprovals = async (
+    instanceIds: string[],
+    action: 'approve' | 'reject',
+    comments?: string,
+) => {
+    try {
+        const { data } = await axios.post(`${API_BASE_URL}/api/approvals/bulk`, { instanceIds, action, comments });
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
 
 export const processApprovalAction = async (instanceId: string, action: 'approve' | 'reject', comments?: string) => {
     const endpoint = `${API_BASE_URL}/api/approvals/instance/${instanceId}/process`;
@@ -2165,23 +2550,6 @@ export const updateReimbursementPaymentById = async (id: string, payload: {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_REIMBURSEMENT_PAYMENT}/${id}`;
         const { data } = await axios.patch(endpoint, payload);
-        return data?.data?.payment;
-    } catch (err) {
-        throw err;
-    }
-}
-
-export const createAdvanceReimbursementPayment = async (payload: {
-    employeeId: string;
-    amountPaid: number;
-    paymentDate: string;
-    paymentMethod: string;
-    transactionId?: string;
-    remarks?: string;
-}) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_ADVANCE_REIMBURSEMENT_PAYMENT}`;
-        const { data } = await axios.post(endpoint, payload);
         return data?.data?.payment;
     } catch (err) {
         throw err;
@@ -2760,3 +3128,39 @@ export const saveEmployeeAccessSettings = async (
     return employeeRes;
 };
 
+
+/**
+ * Ex-employees who still hold paid leave nobody converted.
+ *
+ * Conversion is employee-initiated and fiscalYearRollover only iterates ACTIVE employees, so a
+ * leaver's balance is never rolled forward, encashed or expired — it sits stranded until someone
+ * asks. This is the list that surfaces them for an Admin/HR settlement. Admin/HR only, and scoped
+ * server-side to the caller's tenant family.
+ */
+export interface UnsettledLeaver {
+    employeeId: string;
+    employeeName: string;
+    employeeCode: string | null;
+    branchId: string | null;
+    dateOfExit: string;
+    daysSinceExit: number;
+    balanceByType: Record<string, number>;
+    totalDays: number;
+    /** Past the configured settlement window. Still listed — flagged, never hidden. */
+    windowClosed: boolean;
+    hasOpenConversion: boolean;
+}
+
+export const fetchUnsettledLeavers = async (params?: { branchId?: string; lookbackDays?: number }) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_UNSETTLED_LEAVERS}`, { params });
+    return data as {
+        data: {
+            leavers: UnsettledLeaver[];
+            total: number;
+            totalDays: number;
+            /** False until leaveConversion.onBehalf.enabled is turned on in the leave policy. */
+            onBehalfEnabled: boolean;
+            settlementWindowDays: number;
+        };
+    };
+};

@@ -2,6 +2,7 @@ import React, { type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { C, FONT, ICON_COLORS, RADIUS, SP } from '../configuration/ConfigDesignSystem';
 import './DetailPageResponsive.css';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export type AccentColor = keyof typeof ICON_COLORS;
 
@@ -288,7 +289,7 @@ export const DetailMapLink: React.FC<{
       gap: '5px',
     }}
   >
-    <i className="bi bi-geo-alt-fill" style={{ fontSize: '13px' }} />
+    <AppIcon name="bi-geo-alt-fill" className="fs-7" />
     {label}
   </a>
 );

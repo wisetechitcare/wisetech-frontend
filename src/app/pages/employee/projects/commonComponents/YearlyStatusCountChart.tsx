@@ -4,6 +4,7 @@ import { Col, Card } from "react-bootstrap";
 import { ChartDialogModal } from "../../leads/overview/components/ChartDialogModal";
 
 import { Dayjs } from "dayjs";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 type TransformedSeriesItem = {
   label: string;
@@ -140,17 +141,22 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
         return val.toString();
       },
       offsetY: -8,
+      // NOTE: in ApexCharts `background.foreColor` is the box FILL, not the text —
+      // `style.colors` is the text. Both were #0F172A, so every label painted as a
+      // solid dark blob. Light pill + dark text, with a hairline border so the pill
+      // still reads against the white plot area.
       background: {
         enabled: true,
-        foreColor: "#0F172A",
-        borderRadius: 6,
-        padding: 4,
-        opacity: 0.9,
-        borderWidth: 0,
+        foreColor: "#FFFFFF",
+        borderRadius: 4,
+        padding: 3,
+        opacity: 0.92,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
       } as any,
       style: {
-        fontSize: "12px",
-        fontWeight: "700",
+        fontSize: "11px",
+        fontWeight: "600",
         fontFamily: "Inter",
         colors: ["#0F172A"],
       },
@@ -376,7 +382,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
                   }}
                 >
                   <div>
-                    <i className="bi bi-graph-up-arrow" style={{ fontSize: "32px", color: "#9CAFC9" }}></i>
+                    <AppIcon name="bi-graph-up-arrow" className="fs-2hx" color="#9CAFC9" />
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>

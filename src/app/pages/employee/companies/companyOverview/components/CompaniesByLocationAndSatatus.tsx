@@ -4,6 +4,7 @@ import { Box, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Typo
 import { Card } from 'react-bootstrap';
 import { CompanyDialogModal } from './CompanyDialogModal';
 import dayjs, { Dayjs } from 'dayjs';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 type LocationFilterType = {
   country: string;
@@ -262,7 +263,7 @@ const processedData = useMemo(() => {
                 }}
               >
                 <div>
-                  <i className="bi bi-info-circle" style={{ fontSize: "24px", color: "#9CAFC9" }}></i>
+                  <AppIcon name="bi-info-circle" className="fs-1" color="#9CAFC9" />
                 </div>
 
                 <div

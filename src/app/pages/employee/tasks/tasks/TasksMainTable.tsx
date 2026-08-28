@@ -11,6 +11,7 @@ import dayjs from "dayjs";
 import Loader from "@app/modules/common/utils/Loader";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
+import { PATH_SEPARATOR } from "@utils/presetTaskHierarchy";
 
 interface Props {
     projectId?: string;
@@ -103,27 +104,50 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
             accessorKey: "taskName",
             header: "Task Name",
             Cell: ({ row }: any) => {
+                // The name is the task's own name (the selected node's), exactly as stored.
                 const taskName = row?.original?.taskName || "N/A";
+                // Ancestors only, derived server-side from the configuration link. Empty
+                // for custom tasks and for rows created before the link existed — those
+                // render exactly as they always did.
+                const ancestors: string[] = row?.original?.taskParentPath || [];
+                const hierarchy = ancestors.join(PATH_SEPARATOR);
 
                 return (
                     <OverlayTrigger
                         placement="top"
                         overlay={
                             <Tooltip id={`tooltip-taskname-${row?.original?.id}`}>
-                                {taskName}
+                                {hierarchy ? `${hierarchy}${PATH_SEPARATOR}${taskName}` : taskName}
                             </Tooltip>
                         }
                     >
-                        <div
-                            style={{
-                                maxWidth: '200px',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            {taskName}
+                        <div style={{ maxWidth: '200px', cursor: 'pointer' }}>
+                            <div
+                                style={{
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                }}
+                            >
+                                {taskName}
+                            </div>
+                            {hierarchy && (
+                                // Ellipsised from the LEFT so the nearest ancestors — the
+                                // ones that disambiguate the task — stay visible on a deep path.
+                                <div
+                                    style={{
+                                        fontSize: '11px',
+                                        color: '#8893a0',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        direction: 'rtl',
+                                        textAlign: 'left',
+                                    }}
+                                >
+                                    <bdi>{hierarchy}</bdi>
+                                </div>
+                            )}
                         </div>
                     </OverlayTrigger>
                 );
@@ -354,7 +378,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
                     <MaterialTable
                         columns={columns}
                         data={tasks}
-                        tableName="Tasks"
+                        tableName="TasksMain"
                         muiTableProps={{
                             sx: {
                                 borderCollapse: 'separate',

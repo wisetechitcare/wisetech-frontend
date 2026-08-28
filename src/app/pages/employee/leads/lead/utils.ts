@@ -240,19 +240,10 @@ export function mapLeadToFormInitialValues(
               poDate: (additional.poDate || firstAdditional.poDate)
                 ? dayjs(additional.poDate || firstAdditional.poDate).format("YYYY-MM-DD")
                 : "",
-              // Additional fields for web-dev
-              ...(leadTemplateId == leadAndProjectTemplateTypeId.webDev && {
-                type: additional.type || firstAdditional.type || "",
-                numberOfPages: additional.numberOfPages || firstAdditional.numberOfPages || "",
-                latitude: additional.latitude || firstAdditional.latitude || "",
-                longitude: additional.longitude || firstAdditional.longitude || "",
-                mapLocation: additional.mapLocation || firstAdditional.mapLocation || "",
-                country: additional.country || firstAdditional.country || "",
-                state: additional.state || firstAdditional.state || "",
-                city: additional.city || firstAdditional.city || "",
-                locality: additional.locality || firstAdditional.locality || "",
-                zipCode: additional.zipCode || firstAdditional.zipCode || "",
-              }),
+              // The lead's OWN organization — never the one currently selected
+              // elsewhere. Legacy leads have none and show as unassigned until
+              // someone picks one.
+              organizationId: lead?.organizationId || "",
               // Additional fields for mep / blank
               ...((leadTemplateId == leadAndProjectTemplateTypeId.mep || leadTemplateId == leadAndProjectTemplateTypeId.newLead) && {
                 projectAreas: projectAreas,

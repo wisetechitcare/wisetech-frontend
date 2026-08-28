@@ -9,6 +9,7 @@ import {
 import { EmptyState } from '../widgets';
 import { DASH } from '../entityViewModel';
 import type { EntityVM } from '../facets';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /** Addresses card — lead & project-site locations with map links. Surfaced on the
  *  Overview sub-page (the lead address belongs with the at-a-glance summary). */
@@ -89,7 +90,7 @@ const CompaniesCard: React.FC<{ companies: EntityVM['client']['companies'] }> = 
             <div style={{ marginTop: 12 }}>
               {c.subCompany && (
                 <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <i className="bi bi-diagram-3" style={{ color: '#64748B', fontSize: 14 }}></i>
+                  <AppIcon name="bi-diagram-3" className="fs-6" color="#64748B" />
                   <div>
                     <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500, marginBottom: 2 }}>Sub-company</div>
                     <div style={{ fontSize: 14, color: '#1E293B', fontWeight: 500 }}>{c.subCompany}</div>
@@ -99,7 +100,7 @@ const CompaniesCard: React.FC<{ companies: EntityVM['client']['companies'] }> = 
 
               {c.contact && (
                 <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <i className="bi bi-person-circle" style={{ color: '#64748B', fontSize: 14 }}></i>
+                  <AppIcon name="bi-person-circle" className="fs-6" color="#64748B" />
                   <div>
                     <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500, marginBottom: 2 }}>Contact Person</div>
                     <DetailLink href={c.contactId ? `/contacts/${c.contactId}` : '#'} style={{ fontSize: 14, fontWeight: 500 }}>
@@ -111,7 +112,7 @@ const CompaniesCard: React.FC<{ companies: EntityVM['client']['companies'] }> = 
 
               {c.phone && (
                 <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <i className="bi bi-telephone-fill" style={{ color: '#64748B', fontSize: 14 }}></i>
+                  <AppIcon name="bi-telephone-fill" className="fs-6" color="#64748B" />
                   <div>
                     <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500, marginBottom: 2 }}>Phone</div>
                     <a href={`tel:${c.phone}`} style={{ fontSize: 14, color: '#3B82F6', fontWeight: 500, textDecoration: 'none' }}>
@@ -123,7 +124,7 @@ const CompaniesCard: React.FC<{ companies: EntityVM['client']['companies'] }> = 
 
               {c.email && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <i className="bi bi-envelope-fill" style={{ color: '#64748B', fontSize: 14 }}></i>
+                  <AppIcon name="bi-envelope-fill" className="fs-6" color="#64748B" />
                   <div>
                     <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500, marginBottom: 2 }}>Email</div>
                     <a href={`mailto:${c.email}`} style={{ fontSize: 14, color: '#3B82F6', fontWeight: 500, textDecoration: 'none', wordBreak: 'break-all' }}>

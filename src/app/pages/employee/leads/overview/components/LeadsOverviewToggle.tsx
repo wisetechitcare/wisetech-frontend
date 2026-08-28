@@ -2,7 +2,7 @@ import { Container } from "@mui/material";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import dayjs, { Dayjs } from "dayjs";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -10,7 +10,10 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import PeriodFilter, { PeriodRange } from "@app/modules/common/components/PeriodFilter";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import { ChartMetric } from "@pages/dashboard/leadAnalytics";
 import { DATE_FORMATS } from "@utils/dateFormats";
+import { isSectionBlocked } from "@utils/accessAreas";
 import Monthly from "./Monthly";
 import Yearly from "./Yearly";
 import Custom from "./Custom";
@@ -23,6 +26,7 @@ import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import LeadBulkImport from "../../lead/LeadBulkImport";
 import LeadWizardModal from "../../lead/LeadWizardModal";
+import SelectLeadOrganizationDialog from "../../lead/SelectLeadOrganizationDialog";
 
 export type ToggleItemsCallBackFunctions = {
   monthly: (date: Dayjs, endDate: Dayjs) => void;
@@ -54,12 +58,37 @@ const LeadsOverviewToggle = ({
   const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(undefined);
   const [formValues, setFormValues] = useState<any | null>(null);
+  const [showOrgPicker, setShowOrgPicker] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [showChartSettingsModal, setShowChartSettingsModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // Plot lead COUNT or lead VALUE. Lives here (not in each period view) so one
+  // switch covers Daily/Weekly/Monthly/Yearly/All Time/Custom, and the choice
+  // survives switching period. Pure display toggle — no refetch.
+  const [metric, setMetric] = useState<ChartMetric>("count");
+
   useEffect(() => {
     dispatch(fetchRolesAndPermissions() as any);
+  }, []);
+
+  // If user loses access to amount view, revert to count
+  useEffect(() => {
+    if (metric === "amount" && isSectionBlocked('crm.leads')) {
+      setMetric("count");
+    }
+  }, [metric]);
+
+  // Compute metric options based on user permissions (must be at component level, not conditional)
+  const metricOptions = useMemo(() => {
+    const baseOptions = [
+      { label: "Number", value: "count" },
+    ];
+    // Only show "Amount" if user has access to financial data (not blocked from leads analytics)
+    if (!isSectionBlocked('crm.leads')) {
+      baseOptions.push({ label: "Amount", value: "amount" });
+    }
+    return baseOptions;
   }, []);
 
   useEffect(() => {
@@ -143,7 +172,7 @@ const LeadsOverviewToggle = ({
           </button>
           <button 
             className="btn btn-sm btn-primary fw-bold"
-            onClick={() => setFormValues({ leadTemplateId: "blank" })}
+            onClick={() => setShowOrgPicker(true)}
             style={{ backgroundColor: "#1E3A8A", border: "none" }}
           >
             + New Lead
@@ -151,7 +180,7 @@ const LeadsOverviewToggle = ({
         </div>
       </div>
 
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center mb-6 gap-3 w-100">
+      <div className="d-flex flex-column flex-lg-row justify-content-between align-items-stretch align-items-lg-start mb-6 gap-3 w-100">
         <div className="d-flex align-items-center gap-4 flex-wrap" style={{ flex: "1 1 auto", minWidth: 0 }}>
           <PeriodFilter
             onChange={setPeriodRange}
@@ -184,15 +213,56 @@ const LeadsOverviewToggle = ({
           )}
         </div>
 
-        {/* Sub-tabs (Summary / Services / Sources / Insights) portal into here,
-            so they share this row and sit on the right. On desktop the slot keeps
-            its natural width (flex-shrink:0) so the tabs never clip; on mobile it
-            stacks full-width and can scroll if the tabs overflow a tiny screen. */}
-        <div
-          id="leadOverviewTabSlot"
-          className="d-flex justify-content-center justify-content-md-end"
-          style={{ flexShrink: 0, minWidth: 0, overflowX: "auto" }}
-        />
+        {/* Right side controls: Metric selector & Tab slot grouped together */}
+        <div className="d-flex align-items-center gap-3 flex-wrap justify-content-start justify-content-lg-end mt-2 mt-lg-0" style={{ flexShrink: 0, minWidth: 0 }}>
+          {["monthly", "yearly", "allyear"].includes(periodRange.mode) && (
+            <div className="d-flex align-items-center gap-2" style={{ height: "40px" }}>
+              <span
+                style={{
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: "#94A3B8",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Based on
+              </span>
+              <PeriodTabs
+                value={metric}
+                options={metricOptions}
+                onChange={(val) => setMetric(val as ChartMetric)}
+                ariaLabel="measure selection"
+                sx={{
+                  height: 32,
+                  bgcolor: '#EEF2F7',
+                  border: 'none',
+                  p: '3px',
+                  borderRadius: '10px',
+                  '& .MuiToggleButtonGroup-grouped': {
+                    px: 2.2,
+                    borderRadius: '8px !important',
+                  },
+                  '& .Mui-selected': {
+                    bgcolor: '#FFFFFF !important',
+                    color: '#1E3A8A !important',
+                    boxShadow: '0 1px 3px rgba(15,23,42,0.10)',
+                    '&::after': {
+                      display: 'none',
+                    }
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {/* Sub-tabs (Summary / Services / Sources / Insights) portal into here */}
+          <div
+            id="leadOverviewTabSlot"
+            className="d-flex align-items-center"
+            style={{ minWidth: 0 }}
+          />
+        </div>
       </div>
 
       {/* Daily & Weekly are range views — reuse the range-based Custom dashboard
@@ -213,13 +283,13 @@ const LeadsOverviewToggle = ({
         />
       )}
       {periodRange.mode === "monthly" && periodRange.start && periodRange.end && (
-        <Monthly month={periodRange.start} endDate={periodRange.end} key={`monthly-${refreshTrigger}`} />
+        <Monthly month={periodRange.start} endDate={periodRange.end} key={`monthly-${refreshTrigger}`} metric={metric} />
       )}
       {periodRange.mode === "yearly" && periodRange.start && periodRange.end && (
-        <Yearly startDate={periodRange.start} endDate={periodRange.end} key={`yearly-${refreshTrigger}`} />
+        <Yearly startDate={periodRange.start} endDate={periodRange.end} key={`yearly-${refreshTrigger}`} metric={metric} />
       )}
       {periodRange.mode === "allyear" && (
-        <AllTime key={`alltime-${refreshTrigger}`} />
+        <AllTime key={`alltime-${refreshTrigger}`} metric={metric} />
       )}
       {periodRange.mode === "custom" ? (
         customStartDate && customEndDate ? (
@@ -247,6 +317,18 @@ const LeadsOverviewToggle = ({
       ) : null}
 
       
+
+      {/* Same pre-step as the Leads tab. The organization fixes the lead's prefix and
+          number series, so it has to be chosen before the wizard opens — skipping it
+          here sent the wizard in with no organizationId and the create failed server-side. */}
+      <SelectLeadOrganizationDialog
+        open={showOrgPicker}
+        onClose={() => setShowOrgPicker(false)}
+        onContinue={(organizationId) => {
+          setShowOrgPicker(false);
+          setFormValues({ leadTemplateId: "blank", organizationId });
+        }}
+      />
 
       <LeadWizardModal
         key={formValues ? `new-${formValues.leadTemplateId}` : "new-lead-modal"}

@@ -468,7 +468,7 @@ const ProposalConfigurationPage: React.FC = () => {
                       <div>
                         <div className="d-flex justify-content-between align-items-center mb-6">
                           <h5 className="fw-bolder mb-0">
-                            Select fields to enable in this template:
+                            Select Fields to Enable in This Template:
                           </h5>
                           <Button
                             variant="light-primary"

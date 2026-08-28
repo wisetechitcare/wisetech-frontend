@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { ProjectItem } from '@models/clientProject';
 import { C, FONT, SP, RADIUS } from '@app/modules/configuration';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * CategoryTreeExplorer
@@ -84,7 +85,7 @@ const IconBtn: React.FC<{
         display: 'flex', alignItems: 'center', transition: 'background 0.15s ease',
       }}
     >
-      <i className={`bi ${icon}`} style={{ fontSize: '11px' }} />
+      <AppIcon name={icon} className="fs-8" />
     </button>
   );
 };
@@ -108,7 +109,7 @@ const SubRow: React.FC<{
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
-        <i className="bi bi-arrow-return-right" style={{ fontSize: '10px', color: C.textMuted, opacity: 0.55, flexShrink: 0 }} />
+        <AppIcon name="bi-arrow-return-right" className="fs-9" color={C.textMuted} style={{ opacity: 0.55, flexShrink: 0 }} />
         <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: sub.color || '#ccc', flexShrink: 0 }} />
         <span style={{
           fontFamily: FONT.body, fontWeight: 400, fontSize: '12.5px', color: C.textPrimary,
@@ -169,13 +170,7 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
           transition: 'background 0.12s ease',
         }}
       >
-        <i
-          className="bi bi-chevron-right"
-          style={{
-            fontSize: '10px', color: C.textMuted, flexShrink: 0, width: '12px', textAlign: 'center',
-            transition: 'transform 0.18s ease', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-          }}
-        />
+        <AppIcon name="bi-chevron-right" className="fs-9" color={C.textMuted} style={{ flexShrink: 0, width: '12px', textAlign: 'center', transition: 'transform 0.18s ease', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }} />
         <span style={{
           width: '10px', height: '10px', borderRadius: '50%', backgroundColor: color, flexShrink: 0,
           boxShadow: `0 0 0 2px ${color}28`,
@@ -219,7 +214,7 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '6px 10px', color: C.textMuted, fontFamily: FONT.body, fontSize: '12px',
             }}>
-              <i className="bi bi-dash" style={{ opacity: 0.4 }} />
+              <AppIcon name="bi-dash" style={{ opacity: 0.4 }} />
               No subcategories —
               <button
                 type="button"
@@ -364,10 +359,7 @@ const CategoryTreeExplorer: React.FC<CategoryTreeExplorerProps> = ({
       >
         {/* Search */}
         <div className="cte-search" style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
-          <i
-            className="bi bi-search"
-            style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: C.textMuted }}
-          />
+          <AppIcon name="bi-search" className="fs-7" color={C.textMuted} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)' }} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -388,7 +380,7 @@ const CategoryTreeExplorer: React.FC<CategoryTreeExplorerProps> = ({
               title="Clear"
               style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, padding: '2px', display: 'flex' }}
             >
-              <i className="bi bi-x-lg" style={{ fontSize: '11px' }} />
+              <AppIcon name="bi-x-lg" className="fs-8" />
             </button>
           )}
         </div>
@@ -402,7 +394,7 @@ const CategoryTreeExplorer: React.FC<CategoryTreeExplorerProps> = ({
             title="Expand all"
             style={toolBtnStyle(allExpanded || !!q)}
           >
-            <i className="bi bi-arrows-expand" style={{ fontSize: '12px' }} /> Expand all
+            <AppIcon name="bi-arrows-expand" className="fs-7" /> Expand all
           </button>
           <button
             type="button"
@@ -411,7 +403,7 @@ const CategoryTreeExplorer: React.FC<CategoryTreeExplorerProps> = ({
             title="Collapse all"
             style={toolBtnStyle(allCollapsed || !!q)}
           >
-            <i className="bi bi-arrows-collapse" style={{ fontSize: '12px' }} /> Collapse all
+            <AppIcon name="bi-arrows-collapse" className="fs-7" /> Collapse all
           </button>
         </div>
       </div>
@@ -427,7 +419,7 @@ const CategoryTreeExplorer: React.FC<CategoryTreeExplorerProps> = ({
       {/* Tree */}
       {filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '28px 16px', color: C.textMuted, fontFamily: FONT.body, fontSize: '13px' }}>
-          <i className="bi bi-search" style={{ fontSize: '24px', display: 'block', marginBottom: '8px', opacity: 0.4 }} />
+          <AppIcon name="bi-search" className="fs-1" style={{ display: 'block', marginBottom: '8px', opacity: 0.4 }} />
           No categories or subcategories match “{query}”.
         </div>
       ) : (

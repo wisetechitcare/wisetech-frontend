@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import ManageTargetModal from "../modals/ManageTargetModal";
 import dayjs from "dayjs";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface YearlyCumulativePerformanceProps {
   startDate: dayjs.Dayjs;
@@ -263,10 +264,7 @@ const YearlyCumulativePerformance: React.FC<
                   onClick={() => navigateYear("prev")}
                   style={{ textDecoration: "none" }}
                 >
-                  <i
-                    className="bi bi-chevron-left"
-                    style={{ fontSize: "14px", fontWeight: "800" }}
-                  ></i>
+                  <AppIcon name="bi-chevron-left" className="fs-6" style={{ fontWeight: "800" }} />
                 </Button>
                 <div className="px-3 border-start border-end">
                   <span
@@ -287,10 +285,7 @@ const YearlyCumulativePerformance: React.FC<
                   onClick={() => navigateYear("next")}
                   style={{ textDecoration: "none" }}
                 >
-                  <i
-                    className="bi bi-chevron-right"
-                    style={{ fontSize: "14px", fontWeight: "800" }}
-                  ></i>
+                  <AppIcon name="bi-chevron-right" className="fs-6" style={{ fontWeight: "800" }} />
                 </Button>
               </div>
               <p
@@ -316,7 +311,7 @@ const YearlyCumulativePerformance: React.FC<
                   borderRadius: "8px",
                 }}
               >
-                <i className="bi bi-gear-fill"></i>
+                <AppIcon name="bi-gear-fill" />
                 SET INQUIRY TARGET
               </Button>
             ) : (
@@ -332,7 +327,7 @@ const YearlyCumulativePerformance: React.FC<
                   borderRadius: "8px",
                 }}
               >
-                <i className="bi bi-gear-fill"></i>
+                <AppIcon name="bi-gear-fill" />
                 SET RECEIVED TARGET
               </Button>
             )}
@@ -364,10 +359,7 @@ const YearlyCumulativePerformance: React.FC<
               className="border shadow-sm rounded-3 p-2 bg-white"
               onClick={toggleExpand}
             >
-              <i
-                className={`bi ${isExpanded ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"}`}
-                style={{ fontSize: "14px" }}
-              ></i>
+              <AppIcon name={isExpanded ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"} className="fs-6" />
             </Button>
           </div>
         </div>

@@ -12,7 +12,8 @@ import {
   DISABLE_LAUNCH_DEDUCTION_TIME_KEY,
   RESTRICT_ATTENDANCE_TO_7_DAYS_KEY,
   DATE_SETTINGS_KEY,
-  LEAVE_MANAGEMENT
+  LEAVE_MANAGEMENT,
+  REQUIRE_SITE_HYBRID_APPROVAL_KEY
 } from '@constants/configurations-key';
 import { onSiteAndHolidayWeekendSettingsOnOffName } from '@constants/statistics';
 import {
@@ -31,6 +32,7 @@ import Loader from '@app/modules/common/utils/Loader';
 interface OtherSettingsValues {
   enableLunchDeduction: string;
   onSiteHolidayWeekendSettings: string;
+  requireSiteHybridApproval: string;
   allowedDistance: string;
   restrictAttendanceRequestDays: string;
   showDataUpToToday: string;
@@ -70,8 +72,17 @@ function SettingRow({ icon, trio, title, desc, control }: {
   );
 }
 
-const OtherSettings: React.FC = () => {
+interface OtherSettingsProps {
+  /**
+   * Inheritance scope (group → org → branch). Reads resolve branch → org → global; writes
+   * upsert the row for EXACTLY this scope, so editing one org/branch never touches another's.
+   */
+  scope?: { companyId?: string; branchId?: string };
+}
+
+const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
   const dispatch = useDispatch();
+  const scoped = Boolean(scope?.companyId || scope?.branchId);
   const featureConfig = useSelector((state: any) => state.featureConfiguration);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -107,8 +118,35 @@ const OtherSettings: React.FC = () => {
   } = useConfiguration(
     DISABLE_LAUNCH_DEDUCTION_TIME_KEY,
     'disableLaunchDeductionTime',
-    updateReduxConfig
+    updateReduxConfig,
+    scope
   );
+
+  /**
+   * The single write path for every config module in this modal.
+   *
+   * Scoped → always UPSERT for exactly this companyId/branchId. Never PUT by id, because the
+   * id came from a resolved read and may belong to an inherited org/global row — updating it
+   * would silently change the default for every sibling org/branch.
+   * Unscoped → unchanged legacy behaviour (update by id, else create).
+   * Returns the row id to store.
+   */
+  const persistConfig = useCallback(async (
+    module: string,
+    configuration: Record<string, unknown>,
+    existingId: string | null,
+  ): Promise<string | null> => {
+    if (!scoped && existingId) {
+      await updateConfigurationById(existingId, { module, configuration });
+      return existingId;
+    }
+    const response = await createNewConfiguration({
+      module,
+      configuration,
+      ...(scoped ? { companyId: scope?.companyId, branchId: scope?.branchId } : {}),
+    });
+    return response?.data?.configuration?.id || null;
+  }, [scoped, scope?.companyId, scope?.branchId]);
 
   const validationSchema = Yup.object().shape({
     allowedDistance: Yup.number()
@@ -127,6 +165,7 @@ const OtherSettings: React.FC = () => {
   const [initialValues, setInitialValues] = useState<OtherSettingsValues>({
     enableLunchDeduction: 'off',
     onSiteHolidayWeekendSettings: 'off',
+    requireSiteHybridApproval: 'off',
     allowedDistance: '100',
     restrictAttendanceRequestDays: '7',
     showDataUpToToday: 'off',
@@ -146,10 +185,10 @@ const OtherSettings: React.FC = () => {
         companySettingsRes,
         companyOverviewRes
       ] = await Promise.all([
-        fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY),
-        fetchConfiguration(LEAVE_MANAGEMENT),
-        fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY),
-        fetchConfiguration(DATE_SETTINGS_KEY),
+        fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY, undefined, undefined, scope),
+        fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, scope),
+        fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY, undefined, undefined, scope),
+        fetchConfiguration(DATE_SETTINGS_KEY, undefined, undefined, scope),
         fetchCompanySettings(),
         fetchCompanyOverview()
       ]);
@@ -167,6 +206,8 @@ const OtherSettings: React.FC = () => {
       const leaveManagementConfig = safeJsonParse(leaveManagementConfigRes?.data?.configuration?.configuration || '{}');
       const onSiteValue = leaveManagementConfig?.[onSiteAndHolidayWeekendSettingsOnOffName];
       const onSiteEnabled = onSiteValue === '1' || onSiteValue === 1;
+      const siteHybridApprovalValue = leaveManagementConfig?.[REQUIRE_SITE_HYBRID_APPROVAL_KEY];
+      const siteHybridApprovalEnabled = siteHybridApprovalValue === '1' || siteHybridApprovalValue === 1;
       const monthlyAnnualLeaveLimit = leaveManagementConfig?.['Number of Annual Leaves allowed per month'] || '2';
       setLeaveManagementConfigId(leaveManagementConfigRes?.data?.configuration?.id || null);
 
@@ -199,6 +240,7 @@ const OtherSettings: React.FC = () => {
       const newInitialValues = {
         enableLunchDeduction: lunchEnabled ? 'on' : 'off',
         onSiteHolidayWeekendSettings: onSiteEnabled ? 'on' : 'off',
+        requireSiteHybridApproval: siteHybridApprovalEnabled ? 'on' : 'off',
         allowedDistance: allowedDistance.toString(),
         restrictAttendanceRequestDays: restrictDays.toString(),
         showDataUpToToday: dateSettingsEnabled ? 'on' : 'off',
@@ -222,11 +264,13 @@ const OtherSettings: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [dispatch, featureConfig.leaveManagement, loadLunchConfig, disableLunchDeductionTime]);
+  }, [dispatch, featureConfig.leaveManagement, loadLunchConfig, disableLunchDeductionTime, scope?.companyId, scope?.branchId]);
 
+  // Reload when the scope changes so the form always shows the values for the org/branch
+  // being edited — otherwise it would keep whatever the first-mounted scope resolved.
   useEffect(() => {
     loadAllConfigurations();
-  }, []);
+  }, [scope?.companyId, scope?.branchId]);
 
   const handleSubmit = async (values: OtherSettingsValues) => {
     try {
@@ -248,28 +292,20 @@ const OtherSettings: React.FC = () => {
       }
 
       // 2. Save on-site/holiday/weekend setting and monthly annual leave limit (stored in LEAVE_MANAGEMENT)
-      if (leaveManagementConfigId) {
-        const leaveManagementConfigRes = await fetchConfiguration(LEAVE_MANAGEMENT);
-        const currentLeaveManagementConfig = safeJsonParse(leaveManagementConfigRes?.data?.configuration?.configuration || '{}');
+      // Always read-merge-write the WHOLE object. LEAVE_MANAGEMENT is a shared bag (grace,
+      // lunch, shift times, late-night waiver...) owned by several screens; writing only the
+      // two fields this modal edits would wipe the rest. That matters most for a first-time
+      // branch override, where the resolved read returns INHERITED values that must be
+      // carried into the new scoped row rather than dropped.
+      const leaveManagementRes = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, scope);
+      const mergedLeaveManagement = safeJsonParse(leaveManagementRes?.data?.configuration?.configuration || '{}');
+      mergedLeaveManagement[onSiteAndHolidayWeekendSettingsOnOffName] = values.onSiteHolidayWeekendSettings === 'on' ? '1' : '0';
+      mergedLeaveManagement[REQUIRE_SITE_HYBRID_APPROVAL_KEY] = values.requireSiteHybridApproval === 'on' ? '1' : '0';
+      mergedLeaveManagement['Number of Annual Leaves allowed per month'] = values.monthlyAnnualLeaveLimit;
 
-        currentLeaveManagementConfig[onSiteAndHolidayWeekendSettingsOnOffName] = values.onSiteHolidayWeekendSettings === 'on' ? '1' : '0';
-        currentLeaveManagementConfig['Number of Annual Leaves allowed per month'] = values.monthlyAnnualLeaveLimit;
-
-        await updateConfigurationById(leaveManagementConfigId, {
-          module: LEAVE_MANAGEMENT,
-          configuration: currentLeaveManagementConfig,
-        });
-      } else {
-        const leaveManagementPayload = {
-          [onSiteAndHolidayWeekendSettingsOnOffName]: values.onSiteHolidayWeekendSettings === 'on' ? '1' : '0',
-          'Number of Annual Leaves allowed per month': values.monthlyAnnualLeaveLimit
-        };
-        const response = await createNewConfiguration({
-          module: LEAVE_MANAGEMENT,
-          configuration: leaveManagementPayload,
-        });
-        setLeaveManagementConfigId(response?.data?.configuration?.id || null);
-      }
+      setLeaveManagementConfigId(
+        await persistConfig(LEAVE_MANAGEMENT, mergedLeaveManagement, leaveManagementConfigId)
+      );
 
       // 3. Save allowed distance (AppSettings)
       if (appSettingsId) {
@@ -282,33 +318,15 @@ const OtherSettings: React.FC = () => {
       // 4. Save restrict attendance days
       const restrictDays = Number(values.restrictAttendanceRequestDays);
       const restrictPayload = { restrictAttendanceTo7Days: restrictDays };
-      if (restrictConfigId) {
-        await updateConfigurationById(restrictConfigId, {
-          module: RESTRICT_ATTENDANCE_TO_7_DAYS_KEY,
-          configuration: restrictPayload,
-        });
-      } else {
-        const response = await createNewConfiguration({
-          module: RESTRICT_ATTENDANCE_TO_7_DAYS_KEY,
-          configuration: restrictPayload,
-        });
-        setRestrictConfigId(response?.data?.configuration?.id || null);
-      }
+      setRestrictConfigId(
+        await persistConfig(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY, restrictPayload, restrictConfigId)
+      );
 
       // 6. Save date settings
       const datePayload = { useDateSettings: values.showDataUpToToday === 'on' };
-      if (dateConfigId) {
-        await updateConfigurationById(dateConfigId, {
-          module: DATE_SETTINGS_KEY,
-          configuration: datePayload,
-        });
-      } else {
-        const response = await createNewConfiguration({
-          module: DATE_SETTINGS_KEY,
-          configuration: datePayload,
-        });
-        setDateConfigId(response?.data?.configuration?.id || null);
-      }
+      setDateConfigId(
+        await persistConfig(DATE_SETTINGS_KEY, datePayload, dateConfigId)
+      );
 
       // Update Redux
       dispatch(
@@ -359,6 +377,12 @@ const OtherSettings: React.FC = () => {
                 icon="shield-tick" trio={TRIO.purple}
                 title="On-site, Holiday & Weekend Settings for late attendance"
                 control={<WtSwitch tone={TRIO.purple.c} checked={values.onSiteHolidayWeekendSettings === 'on'} onChange={(e) => setFieldValue('onSiteHolidayWeekendSettings', e.target.checked ? 'on' : 'off')} />}
+              />
+              <SettingRow
+                icon="check-square" trio={TRIO.cyan}
+                title="Require Approval for Site & Hybrid Attendance"
+                desc="When ON, an On-site or Hybrid check-in/check-out is submitted for approval instead of being marked immediately — it appears in the approver's queue and counts only once approved. Office attendance is unaffected."
+                control={<WtSwitch tone={TRIO.cyan.c} checked={values.requireSiteHybridApproval === 'on'} onChange={(e) => setFieldValue('requireSiteHybridApproval', e.target.checked ? 'on' : 'off')} />}
               />
             </Stack>
 

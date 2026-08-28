@@ -32,6 +32,7 @@ import {
   DetailSummaryBar,
   DetailProfileBlock,
 } from '@app/modules/detail-page/DetailPageComponents';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * Project Workspace — the execution-persona home for a project (Phase 3 of
@@ -160,7 +161,7 @@ const ExecutionOverview: React.FC<{ lead: any; onOpenLead: () => void }> = ({ le
             accentColor="blue"
             actions={
               <button className="btn btn-sm btn-light" onClick={onOpenLead} style={{ fontWeight: 600 }}>
-                Edit in Lead <i className="bi bi-arrow-right ms-1" />
+                Edit in Lead <AppIcon name="bi-arrow-right" className="ms-1" />
               </button>
             }
           >
@@ -196,7 +197,7 @@ const ProjectWorkspacePage: React.FC = () => {
   // A lead that isn't (yet) a project belongs in the Lead workspace — same
   // aggregate, different stage. Redirect instead of 404-ing.
   useEffect(() => {
-    if (lead && !isProject) navigate(`/employee/lead/${lead.id}`, { replace: true });
+    if (lead && !isProject) navigate(`/leads/${lead.id}`, { replace: true });
   }, [lead, isProject, navigate]);
 
   const vm = useMemo(() => (lead ? buildEntityVM(lead) : null), [lead]);
@@ -215,7 +216,7 @@ const ProjectWorkspacePage: React.FC = () => {
   const refetchLead = () => {
     if (projectId) queryClient.invalidateQueries({ queryKey: queryKeys.leads.detail(projectId) });
   };
-  const openLead = () => lead && navigate(`/employee/lead/${lead.id}`);
+  const openLead = () => lead && navigate(`/leads/${lead.id}`);
 
   if (leadQuery.isLoading) {
     return (
@@ -234,7 +235,7 @@ const ProjectWorkspacePage: React.FC = () => {
         <p className="text-muted">
           This project id doesn't resolve to a record. It may be a legacy id from the retired projects table.
         </p>
-        <button className="btn btn-primary" onClick={() => navigate('/qc/projects')} style={{ backgroundColor: ACCENT, borderColor: ACCENT }}>
+        <button className="btn btn-primary" onClick={() => navigate('/projects')} style={{ backgroundColor: ACCENT, borderColor: ACCENT }}>
           Back to Projects
         </button>
       </div>
@@ -268,13 +269,13 @@ const ProjectWorkspacePage: React.FC = () => {
         {/* ── Header ── */}
         <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
           <div className="d-flex align-items-center gap-2 gap-md-3 flex-grow-1">
-            <button className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm" onClick={() => navigate('/qc/projects')}>
+            <button className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm" onClick={() => navigate('/projects')}>
               <img src={miscellaneousIcons.leftArrow} alt="Back" style={{ width: 36, height: 36, cursor: 'pointer' }} />
             </button>
             <div className="flex-grow-1">
               <div className="text-muted small font-inter d-flex align-items-center flex-wrap gap-2">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: ACCENT_SOFT, color: ACCENT, borderRadius: 999, padding: '3px 12px', fontSize: 11, fontWeight: 700, fontFamily: 'Inter, sans-serif', border: `1px solid ${ACCENT}33` }}>
-                  <i className="bi bi-kanban-fill" style={{ fontSize: 10 }} />
+                  <AppIcon name="bi-kanban-fill" className="fs-9" />
                   PROJECT WORKSPACE
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: phaseTheme.bg, color: phaseTheme.fg, borderRadius: 999, padding: '3px 12px', fontSize: 11, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
@@ -292,7 +293,7 @@ const ProjectWorkspacePage: React.FC = () => {
 
           <div className="d-flex align-items-center gap-2 flex-wrap">
             <button className="btn btn-light" onClick={openLead} style={{ fontWeight: 600 }}>
-              <i className="bi bi-arrow-up-right-square me-1" /> Originating Lead
+              <AppIcon name="bi-arrow-up-right-square" className="me-1" /> Originating Lead
             </button>
           </div>
         </div>

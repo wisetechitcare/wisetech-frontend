@@ -5,6 +5,7 @@ import { DiffViewer, DiffMode } from './DiffViewer';
 import { useAuditDiff, useAuditTimeline } from './hooks';
 import { actorKind, displayActor, humanizeSummary, initials } from './tokens';
 import { fromNow } from './time';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export interface RevisionMeta {
   rev: number;
@@ -56,7 +57,7 @@ const Avatar: React.FC<{ meta: RevisionMeta; size?: number }> = ({ meta, size = 
     aria-hidden
   >
     {meta.isSystem ? (
-      <i className="bi bi-gear-fill" style={{ fontSize: size * 0.42 }} />
+      <AppIcon name="bi-gear-fill" style={{ fontSize: size * 0.42 }} />
     ) : (
       initials(meta.actorName.split(' ')[0], meta.actorName.split(' ')[1])
     )}
@@ -129,7 +130,7 @@ const RevisionPicker: React.FC<{
         ) : (
           <span style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: C.textMuted }}>Select a revision…</span>
         )}
-        <i className="bi bi-chevron-down" style={{ fontSize: 11, color: C.textMuted, transition: 'transform .2s ease', transform: open ? 'rotate(180deg)' : 'none' }} aria-hidden />
+        <AppIcon name="bi-chevron-down" className="fs-8" color={C.textMuted} style={{ transition: 'transform .2s ease', transform: open ? 'rotate(180deg)' : 'none' }} aria-hidden />
       </button>
 
       {open && (
@@ -199,7 +200,7 @@ const RevisionPicker: React.FC<{
                     {o.synthetic ? 'Baseline' : `${fromNow(o.changedAt)} · ${humanizeSummary({ summary: o.summary })}`}
                   </span>
                 </span>
-                {isSel && <i className="bi bi-check-lg" style={{ color: C.primary, fontSize: 14 }} aria-hidden />}
+                {isSel && <AppIcon name="bi-check-lg" className="fs-6" color={C.primary} aria-hidden />}
               </button>
             );
           })}
@@ -316,7 +317,7 @@ export const ComparePanel: React.FC<Props> = ({ type, id, from, to, onApply, onR
               justifyContent: 'center',
             }}
           >
-            <i className="bi bi-arrow-left-right" style={{ fontSize: 13 }} aria-hidden />
+            <AppIcon name="bi-arrow-left-right" className="fs-7" aria-hidden />
           </button>
           <RevisionPicker
             label="COMPARE TO"
@@ -348,13 +349,13 @@ export const ComparePanel: React.FC<Props> = ({ type, id, from, to, onApply, onR
               transition: 'all .15s ease',
             }}
           >
-            <i className="bi bi-arrow-left-right" aria-hidden /> Compare
+            <AppIcon name="bi-arrow-left-right" aria-hidden /> Compare
           </button>
         </div>
 
         {sameSelected && (
           <div style={{ fontFamily: FONT.body, fontSize: 11.5, color: C.amber, marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <i className="bi bi-exclamation-circle" aria-hidden /> Pick two different revisions to compare.
+            <AppIcon name="bi-exclamation-circle" aria-hidden /> Pick two different revisions to compare.
           </div>
         )}
       </div>
@@ -366,7 +367,7 @@ export const ComparePanel: React.FC<Props> = ({ type, id, from, to, onApply, onR
         <LoadingState />
       ) : diff.isError ? (
         <div style={{ textAlign: 'center', padding: '28px 0', color: C.danger, fontFamily: FONT.body, fontSize: 13 }}>
-          <i className="bi bi-exclamation-triangle" style={{ fontSize: 22, display: 'block', marginBottom: 6 }} aria-hidden />
+          <AppIcon name="bi-exclamation-triangle" className="fs-1" style={{ display: 'block', marginBottom: 6 }} aria-hidden />
           Couldn't compute the diff (check the revision range).
         </div>
       ) : diff.data ? (
@@ -401,7 +402,7 @@ export const ComparePanel: React.FC<Props> = ({ type, id, from, to, onApply, onR
                     gap: 5,
                   }}
                 >
-                  <i className="bi bi-arrow-counterclockwise" aria-hidden /> Reset to R{from}
+                  <AppIcon name="bi-arrow-counterclockwise" aria-hidden /> Reset to R{from}
                 </button>
               ) : null
             }
@@ -426,7 +427,7 @@ const EmptyState: React.FC = () => (
         marginBottom: 12,
       }}
     >
-      <i className="bi bi-file-earmark-diff" style={{ fontSize: 24, color: C.textMuted }} aria-hidden />
+      <AppIcon name="bi-file-earmark-diff" className="fs-1" color={C.textMuted} aria-hidden />
     </div>
     <div style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 700, color: C.textSecondary }}>Compare two revisions</div>
     <div style={{ fontFamily: FONT.body, fontSize: 13, color: C.textMuted, marginTop: 4 }}>
@@ -437,7 +438,7 @@ const EmptyState: React.FC = () => (
 
 const LoadingState: React.FC = () => (
   <div style={{ textAlign: 'center', padding: '40px 0', color: C.textMuted, fontFamily: FONT.body, fontSize: 13 }}>
-    <i className="bi bi-arrow-repeat ci-spin" style={{ fontSize: 22 }} aria-hidden /> Computing differences…
+    <AppIcon name="bi-arrow-repeat" className="fs-1 ci-spin" aria-hidden /> Computing differences…
   </div>
 );
 

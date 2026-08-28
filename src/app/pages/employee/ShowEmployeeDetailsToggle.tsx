@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -19,6 +19,7 @@ import { usePermission } from "@hooks/usePermission";
 import EmployeeAccessTab from "./EmployeeAccessTab";
 import EmployeeProject from "./EmployeeProject";
 import MeetingsList from "@app/modules/common/components/MeetingsList";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 const ShowEmployeeDetailsToggle = () => {
   const { employeeId } = useParams<{ employeeId: string }>();
@@ -27,6 +28,7 @@ const ShowEmployeeDetailsToggle = () => {
   const [employee, setEmployee] = useState<any>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("details");
   const canManageAccess = usePermission("users.manage.all");
   const dispatch = useDispatch<AppDispatch>();
@@ -56,8 +58,8 @@ const ShowEmployeeDetailsToggle = () => {
     return (
       <div className="card border-0 shadow-sm m-8">
         <div className="card-body text-center py-10">
-          <i className="bi bi-exclamation-triangle fs-1 text-warning mb-3 d-block"></i>
-          <h5 className="fw-semibold">This page isn't available</h5>
+          <AppIcon name="bi-exclamation-triangle" className="fs-1 text-warning mb-3 d-block" />
+          <h5 className="fw-semibold">This Page Isn't Available</h5>
           <p className="text-muted mb-4">We couldn't open this employee record. It may have moved or you may not have access.</p>
           <button className="btn btn-primary" onClick={() => navigate("/dashboard")}>Go to Dashboard</button>
         </div>
@@ -92,7 +94,10 @@ const ShowEmployeeDetailsToggle = () => {
   };
 
   const handleEditClick = async (employeeId: string) => {
-    navigate(`/employees/edit/${employeeId}`, { state: { employeeId } });
+    // Cancelling the wizard comes back HERE, not to the employee list.
+    navigate(`/employees/edit/${employeeId}`, {
+      state: { employeeId, returnTo: `${location.pathname}${location.search}` },
+    });
   };
 
   const handleTabChange = (
@@ -263,7 +268,7 @@ const ShowEmployeeDetailsToggle = () => {
           <div className="tab-pane fade show active">
             <div className="card border-0 shadow-sm">
               <div className="card-body text-center py-5">
-                <i className="bi bi-gear fs-1 text-muted mb-3"></i>
+                <AppIcon name="bi-gear" className="fs-1 text-muted mb-3" />
                 <h5 className="fw-semibold text-muted">Configure Settings</h5>
                 <p className="text-muted small mb-0">
                   Configuration options will be available here.

@@ -23,8 +23,10 @@ export default function LeaveDetail({ step, onClose, onDone, canEdit, canDecide,
     const [mode, setMode] = useState<'view' | 'edit'>('view');
     const { instance, requestDetails } = step;
 
-    // A queue row is only ever shown for a live request; a split sub-row carries its own status.
-    const existing = fromApprovalRequest(requestDetails, instance.requestId, step._splitStatus ?? 0);
+    // A queue row is only ever shown for a live request, so it is opened as pending. This read
+    // `step._splitStatus ?? 0`, but split sub-rows only ever existed for reimbursement batches —
+    // the field was always undefined here and the expression was always 0.
+    const existing = fromApprovalRequest(requestDetails, instance.requestId, 0);
 
     // Approve/Reject rendered inside ApplyLeave's view footer — the approver reviews and decides in
     // one place. These reuse the queue's own handlers (same API call + toast + row refresh).

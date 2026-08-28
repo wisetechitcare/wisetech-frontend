@@ -17,6 +17,17 @@ import {
   submitReimbursementBatch,
 } from '@services/employee';
 import { uploadUserAsset } from '@services/uploader';
+import ReimbursementKpiRow from './components/ReimbursementKpiRow';
+import PrivacyToggle from '@app/modules/common/components/PrivacyToggle';
+import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { TOOLBAR_ROW, lightToolbarButton } from './utils/toolbarButton';
+import { Button } from '@mui/material';
+import DocumentPreviewModal from './components/DocumentPreviewModal';
+import OverLimitChip from './components/OverLimitChip';
+import { ReimbursementDraft, ReimbursementOption } from './utils/reimbursementTypes';
+import { useReimbursementFormLookups } from './hooks/useReimbursementFormLookups';
+import { fmtAmount, projectTitle } from './utils/reimbursementFormat';
+import LoadErrorState from './components/LoadErrorState';
 import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
 import { getReimbursementProjectOptions, getAllProjectStatuses } from '@services/projects';
@@ -34,305 +45,24 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { IReimbursementsCreate } from '@models/employee';
 import { useEventBus } from '@hooks/useEventBus';
+import { WtButton, AppIcon } from '@app/modules/common/components/ui';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation, describeLimitBreach } from './utils/reimbursementSchema';
 
 const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 
 // ── Validation schema (mirrors Reimbursement.tsx exactly) ─────────────────────
 
-const getReimbursementSchema = (currentReimbursement: any) => {
-  return Yup.object({
-    expenseDate: currentReimbursement
-      ? Yup.string().label('Date')
-      : Yup.string().required().label('Date'),
-    clientTypeId: Yup.string().label('Company Type'),
-    clientCompanyId: Yup.string().label('Company Name'),
-    projectId: Yup.string().label('Project'),
-    reimbursementTypeId: currentReimbursement
-      ? Yup.string().label('Reimbursement For')
-      : Yup.string().required().label('Reimbursement For'),
-    amount: currentReimbursement
-      ? Yup.number().required().label('Amount').min(1, 'Amount must be greater than 0').max(1000000, 'Amount must be less than 10,00,000')
-      : Yup.number().required().label('Amount').min(1, 'Amount must be greater than 0').max(1000000, 'Amount must be less than 10,00,000'),
-    description: Yup.string().label('Note'),
-    document: Yup.string().label('Reference Document'),
-    fromLocation: Yup.string().matches(/^[a-zA-Z\s]*$/, 'From Location must contain only alphabets').label('From Location'),
-    toLocation: Yup.string().matches(/^[a-zA-Z\s]*$/, 'To Location must contain only alphabets').label('To Location'),
-  });
-};
+
 
 // Module-level mutable initial state — reset in handleNew exactly like Reimbursement.tsx
-let initialState = {
-  expenseDate: dayjs().format('YYYY-MM-DD'),
-  clientTypeId: '',
-  clientCompanyId: '',
-  projectId: '',
-  reimbursementTypeId: '',
-  fromLocation: '',
-  toLocation: '',
-  amount: undefined as number | undefined,
-  document: '',
-  description: '',
-};
+
 
 // ── Document Preview Modal (identical to Monthly.tsx) ─────────────────────────
 
-interface DocumentPreviewModalProps { url: string; onClose: () => void; }
-
-function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
-  const cleanUrl = url.split('?')[0].toLowerCase();
-  const isImage = /\.(png|jpe?g|gif|webp|svg|bmp)$/.test(cleanUrl);
-  const isPdf = cleanUrl.endsWith('.pdf');
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
-
-  const modalContent = (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.65)' }}
-      onClick={onClose} role='dialog' aria-modal='true' aria-label='Document preview'
-    >
-      <div
-        className='d-flex flex-column bg-white rounded shadow overflow-hidden'
-        style={{ width: 'min(75vw, 900px)', height: 'min(78vh, 710px)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className='d-flex align-items-center justify-content-between px-4 py-3 border-bottom bg-light flex-shrink-0'>
-          <div className='d-flex align-items-center gap-2 text-gray-700 fw-semibold fs-7 text-truncate'>
-            <KTIcon iconName='document' className='fs-4 text-primary' />
-            <span className='text-truncate' style={{ maxWidth: 560 }}>
-              {url.split('/').pop()?.split('?')[0] ?? 'Document'}
-            </span>
-          </div>
-          <div className='d-flex align-items-center gap-2 flex-shrink-0'>
-            <a href={url} target='_blank' rel='noopener noreferrer'
-              className='btn btn-sm btn-light btn-active-light-primary d-flex align-items-center gap-1' title='Open in new tab'>
-              <KTIcon iconName='exit-right-corner' className='fs-5' />
-              <span className='d-none d-sm-inline'>Open in tab</span>
-            </a>
-            <button className='btn btn-sm btn-icon btn-light btn-active-light-danger' onClick={onClose} title='Close preview (Esc)'>
-              <KTIcon iconName='cross' className='fs-2' />
-            </button>
-          </div>
-        </div>
-        <div className='flex-grow-1 overflow-hidden bg-light d-flex align-items-center justify-content-center' style={{ minHeight: 0 }}>
-          {isImage ? (
-            <img src={url} alt='Document preview' style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', padding: '1rem', userSelect: 'none' }} />
-          ) : isPdf ? (
-            <iframe src={url} title='PDF preview' style={{ width: '100%', height: '100%', border: 'none' }} allow='fullscreen' />
-          ) : (
-            <div className='d-flex flex-column align-items-center gap-3 p-5 text-center w-100 h-100'>
-              <iframe src={url} title='Document preview' style={{ width: '100%', flex: 1, border: 'none', borderRadius: 8, minHeight: 0 }} allow='fullscreen' />
-              <p className='text-muted fs-7 mb-0'>
-                If the document does not display,{' '}
-                <a href={url} target='_blank' rel='noopener noreferrer' className='text-primary'>open it in a new tab</a>.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  return ReactDOM.createPortal(modalContent, document.body);
-}
-
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function fmtAmount(n: number | string) {
-  return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
-}
 
-function fmtAmountRounded(n: number) {
-  return Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-
-// ── KPI icons ──────────────────────────────────────────────────────────────────
-
-const KpiIconRequests = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <line x1="8" y1="17" x2="12" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
-const KpiIconAmount = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <circle cx="12" cy="15" r="1.5" fill="currentColor" />
-  </svg>
-);
-
-const KpiIconApproved = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const KpiIconApprovedAmount = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <path d="M9 15l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const KpiIconPending = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-    <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const KpiIconPendingAmount = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <polyline points="14 14 14 12 12 12 12 16 14 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const KpiIconRejected = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
-const KpiIconRejectedAmount = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <line x1="10" y1="13.5" x2="14" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <line x1="14" y1="13.5" x2="10" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
-const KpiIconPaymentPaid = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <path d="M7 15l2.5 2.5L17 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const KpiIconPaymentRemaining = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
-    <circle cx="12" cy="15" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-    <path d="M12 13.5V15h1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-  </svg>
-);
-
-// ── Compact KPI card (salary-module style) ─────────────────────────────────────
-
-interface ReimbKpiCardProps {
-  label: string;
-  value: string | number;
-  accent: string;
-  iconBg: string;
-  iconBorder: string;
-  icon: React.ReactNode;
-  loading: boolean;
-}
-
-function ReimbKpiCard({ label, value, accent, iconBg, iconBorder, icon, loading }: ReimbKpiCardProps) {
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        height: { xs: 76, md: 80 },
-        p: { xs: '12px 13px', md: '13px 14px' },
-        borderRadius: '16px',
-        background: 'linear-gradient(180deg, #ffffff 0%, #fcfdff 100%)',
-        border: '1px solid #e9eef5',
-        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 16px rgba(15, 23, 42, 0.035)',
-        transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-        display: 'flex',
-        alignItems: 'stretch',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 2px 4px rgba(15, 23, 42, 0.04), 0 14px 22px rgba(15, 23, 42, 0.055)',
-          borderColor: iconBorder,
-        },
-      }}
-    >
-      <Stack direction="row" alignItems="flex-start" spacing={1.5} sx={{ width: '100%', minWidth: 0 }}>
-        <Box
-          sx={{
-            width: 38,
-            height: 38,
-            flex: '0 0 38px',
-            borderRadius: '11px',
-            display: 'grid',
-            placeItems: 'center',
-            color: accent,
-            backgroundColor: iconBg,
-            border: `1px solid ${iconBorder}`,
-          }}
-        >
-          {icon}
-        </Box>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              display: 'block',
-              color: '#64748b',
-              fontWeight: 700,
-              fontSize: '0.72rem',
-              lineHeight: 1.2,
-              mb: 0.35,
-              letterSpacing: 0,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {label}
-          </Typography>
-          {loading
-            ? <Skeleton width={60} height={22} />
-            : (
-              <Typography
-                sx={{
-                  color: '#0f172a',
-                  fontSize: { xs: '0.9rem', md: '0.96rem' },
-                  fontWeight: 800,
-                  lineHeight: 1.25,
-                  whiteSpace: 'normal',
-                  wordBreak: 'break-word',
-                  overflowWrap: 'break-word',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  minHeight: '38px',
-                }}
-              >
-                {value}
-              </Typography>
-            )
-          }
-        </Box>
-      </Stack>
-    </Paper>
-  );
-}
 
 // ── Employee profile card (left panel) ────────────────────────────────────────
 
@@ -506,31 +236,51 @@ export function EmployeeDetailsSection({
 }: EmployeeDetailsSectionProps) {
   const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee);
   const employee = employeeProp !== undefined ? employeeProp : currentEmployee;
+  const sensitive = useSensitiveData();
 
-  // Kept as two semantically distinct groups — request counts vs. money amounts —
-  // instead of one mixed 10-card grid, so each row reads as one unit (plain counts
-  // vs. currency) rather than a count tile awkwardly sharing a row with amount tiles.
-  const countCards: ReimbKpiCardProps[] = [
-    { label: 'Total Requests', value: totalRequests, accent: '#7c3aed', iconBg: '#f5f3ff', iconBorder: '#ede9fe', icon: <KpiIconRequests />, loading: overviewLoading },
-    { label: 'Total Approved Requests', value: approvedRequests, accent: '#16a34a', iconBg: '#f0fdf4', iconBorder: '#dcfce7', icon: <KpiIconApproved />, loading: overviewLoading },
-    { label: 'Total Pending Requests', value: pendingRequests, accent: '#d97706', iconBg: '#fffbeb', iconBorder: '#fef3c7', icon: <KpiIconPending />, loading: overviewLoading },
-    { label: 'Total Rejected Requests', value: rejectedRequests, accent: '#dc2626', iconBg: '#fef2f2', iconBorder: '#fecaca', icon: <KpiIconRejected />, loading: overviewLoading },
-  ];
-
-  const amountCards: ReimbKpiCardProps[] = [
-    { label: 'Total Requested Amount', value: `₹${fmtAmountRounded(totalRequestedAmount)}`, accent: '#2563eb', iconBg: '#eff6ff', iconBorder: '#dbeafe', icon: <KpiIconAmount />, loading: overviewLoading },
-    { label: 'Total Approved Amount', value: `₹${fmtAmountRounded(approvedAmount)}`, accent: '#0891b2', iconBg: '#ecfeff', iconBorder: '#cffafe', icon: <KpiIconApprovedAmount />, loading: overviewLoading },
-    { label: 'Total Pending Amount', value: `₹${fmtAmountRounded(pendingAmount)}`, accent: '#ea580c', iconBg: '#fff7ed', iconBorder: '#ffedd5', icon: <KpiIconPendingAmount />, loading: overviewLoading },
-    { label: 'Total Rejected Amount', value: `₹${fmtAmountRounded(rejectedAmount)}`, accent: '#e11d48', iconBg: '#fff1f2', iconBorder: '#ffe4e6', icon: <KpiIconRejectedAmount />, loading: overviewLoading },
-    { label: 'Total Paid Amount', value: `₹${fmtAmountRounded(paidAmount)}`, accent: '#059669', iconBg: '#ecfdf5', iconBorder: '#a7f3d0', icon: <KpiIconPaymentPaid />, loading: overviewLoading },
-    { label: 'Total Remaining Amount', value: `₹${fmtAmountRounded(remainingAmount)}`, accent: '#b45309', iconBg: '#fefce8', iconBorder: '#fef08a', icon: <KpiIconPaymentRemaining />, loading: overviewLoading },
-  ];
+  // Ten tiles became four cards.
+  //
+  // The ten were five count/amount pairs split into separate boxes — "24 approved" in one tile
+  // and "₹98,000 approved" in another, with the reader left to pair them. `YearlyKpiCard` renders
+  // a value with a footer strip beneath it, so each pair is one card, and the row reads in the
+  // order an expense actually moves: submitted, approved, awaiting, paid.
+  //
+  // Rejected loses its dedicated tiles. It is a terminal state you look up when it happens, not a
+  // number worth a quarter of the page every day — the records table below carries it as a status
+  // chip with a live count, which is also where the reason lives.
+  const kpis = {
+    totalAmount: totalRequestedAmount,
+    totalRequests,
+    approvedAmount,
+    approvedCount: approvedRequests,
+    pendingAmount,
+    pendingCount: pendingRequests,
+    paidAmount,
+  };
 
   return (
     <Box sx={{ width: '100%', mb: 4 }}>
-      <Typography className="font-barlow" sx={{ color: '#0f172a', fontSize: { xs: 20, md: 22 }, fontWeight: 800, lineHeight: 1.2, mb: 1.25 }}>
-        Employee Details
-      </Typography>
+      {/* The eye sits with the heading, where salary puts it — one switch for every figure
+          below it, so a total is not readable over a shoulder in an open-plan office. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25 }}>
+        <Typography className="font-barlow" sx={{ color: '#0f172a', fontSize: { xs: 20, md: 22 }, fontWeight: 800, lineHeight: 1.2 }}>
+          Employee Details
+        </Typography>
+        <Box
+          sx={{
+            ml: 'auto',
+            width: 32, height: 32, borderRadius: '50%', display: 'grid', placeItems: 'center',
+            color: '#64748b', bgcolor: '#f1f5f9', transition: 'background-color 200ms',
+            '&:hover': { bgcolor: '#e2e8f0' },
+            '& .privacy-toggle': {
+              width: 30, height: 30, cursor: 'pointer',
+              display: 'grid', placeItems: 'center', borderRadius: '50%',
+            },
+          }}
+        >
+          <PrivacyToggle isVisible={sensitive.visible} onToggle={sensitive.toggle} color="#64748b" />
+        </Box>
+      </Box>
 
       {!employee ? (
         <EmployeeDetailsSkeleton />
@@ -556,18 +306,7 @@ export function EmployeeDetailsSection({
           >
             <ReimbEmployeeProfileCard employee={employee} />
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0 }}>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))', xl: 'repeat(5, minmax(0, 1fr))' },
-                  gap: 1.25,
-                  gridAutoRows: { xs: '76px', md: '80px' },
-                }}
-              >
-                {[...countCards, ...amountCards].map((card) => (
-                  <ReimbKpiCard key={card.label} {...card} />
-                ))}
-              </Box>
+              <ReimbursementKpiRow kpis={kpis} loading={overviewLoading} showSensitiveData={sensitive.visible} />
             </Box>
           </Box>
         </Paper>
@@ -584,6 +323,10 @@ export interface PendingReimbursementsPageHandle {
 
 interface PendingReimbursementsPageProps extends Partial<EmployeeDetailsSectionProps> {
   onDraftsChange?: (count: number) => void;
+  /** The page's period selector — rendered directly under the KPI cards it drives. */
+  periodSlot?: React.ReactNode;
+  /** Current period (month/year) for constraining date picker. Format: dayjs Dayjs object. */
+  currentPeriod?: any; // Dayjs object
 }
 
 const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, PendingReimbursementsPageProps>(function PendingReimbursementsPage({
@@ -599,11 +342,18 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   remainingAmount = 0,
   overviewLoading = false,
   onDraftsChange,
+  periodSlot,
+  currentPeriod,
 }, ref) {
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
+  // Per-request cap for the live limit warning under the Amount field.
+  const perRequestLimit = useSelector((state: RootState) => (state.employee.currentEmployee as any)?.reimbursementLimitPerRequest);
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
+  const sensitive = useSensitiveData();
 
-  const [drafts, setDrafts] = useState<any[]>([]);
+  const [drafts, setDrafts] = useState<ReimbursementDraft[]>([]);
+  // A failed fetch used to render as "no drafts", which is indistinguishable from success.
+  const [draftsError, setDraftsError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -615,30 +365,34 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   // Document preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Presigned URL for a receipt uploaded in this session but not yet saved as a draft.
+  const [justUploadedUrl, setJustUploadedUrl] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Dropdown option lists — same names as Reimbursement.tsx
-  const [reimbursementOptions, setReimbursementOptions] = useState<any[]>([]);
-  // companyTypeOptions is scoped to types actually used as a project's File Location;
-  // allCompanyTypeOptions is the full master list, kept only to resolve labels for
-  // legacy reimbursements whose saved type/company predates that scoping.
-  const [companyTypeOptions, setCompanyTypeOptions] = useState<Option[]>([]);
-  const [allCompanyTypeOptions, setAllCompanyTypeOptions] = useState<Option[]>([]);
-  const [allClientCompanies, setAllClientCompanies] = useState<any[]>([]);
-  const [filteredCompanies, setFilteredCompanies] = useState<any[]>([]);
-  // Full project list (title + fileLocationCompanyType/fileLocationCompany), loaded once.
-  // Powers the Project dropdown's direct-search + Company Type/Name reverse-autofill.
-  const [allProjects, setAllProjects] = useState<any[]>([]);
-  const [projectOptions, setProjectOptions] = useState<Option[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(false);
-  const [selectedReimbursementFor, setSelectedReimbursementFor] = useState<Option | null>(null);
-  const [selectedClientType, setSelectedClientType] = useState<Option | null>(null);
-  const [selectedClientCompany, setSelectedClientCompany] = useState<Option | null>(null);
-  const [selectedProject, setSelectedProject] = useState<Option | null>(null);
-  const [ongoingStatusIds, setOngoingStatusIds] = useState<string[]>([]);
+  // One hook for the whole lookup cascade — see hooks/useReimbursementFormLookups.
+  const {
+    reimbursementOptions, companyTypeOptions, filteredCompanies, projectOptions, projectsLoading,
+    projectStatusOptions,
+    selectedReimbursementFor, selectedClientType, selectedClientCompany, selectedProject,
+    selectedProjectStatus,
+    handleCategoryChange, handleClientTypeChange, handleClientCompanyChange, handleProjectChange,
+    handleProjectStatusChange,
+    reset: resetLookups,
+  } = useReimbursementFormLookups(currentReimbursement);
+
 
   // Table lookup resolvers
   const { resolveClientType, resolveClientCompany, resolveProject } = useReimbursementLookups(drafts);
+
+  // Phase 1: Filter drafts by current period for month-aware inbox
+  const filteredDrafts = useMemo(() => {
+    if (!currentPeriod) return drafts;
+    return drafts.filter(draft => {
+      const draftMonth = dayjs(draft.expenseDate);
+      return draftMonth.month() === currentPeriod.month() && draftMonth.year() === currentPeriod.year();
+    });
+  }, [drafts, currentPeriod]);
 
   // ── Load drafts ────────────────────────────────────────────────────────────
 
@@ -650,6 +404,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       setDrafts(res?.data?.drafts || res?.drafts || []);
     } catch {
       setDrafts([]);
+      setDraftsError(true);
     } finally {
       setLoading(false);
     }
@@ -669,186 +424,15 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   // Reimbursement types use fetchAllReimbursementTypesFromDb (the working utility),
   // loaded independently so a failure here doesn't block company type loading.
 
-  const fetchAllReimbursementsTypesData = async () => {
-    const reimbursementResponse = await fetchAllReimbursementTypesFromDb();
-    const opts = reimbursementResponse.map((r: any) => ({
-      value: r.id,
-      label: r.type,
-      icon: r.icon,
-    })).sort((a: any, b: any) => a.label.localeCompare(b.label));
-    setReimbursementOptions(opts);
-  };
-
-  const loadClientTypeAndCompanyData = async () => {
-    setProjectsLoading(true);
-    try {
-      // allSettled so one failing lookup can't blank the whole form — each
-      // dropdown that CAN load still loads.
-      const results = await Promise.allSettled([
-        getAllCompanyTypes(),
-        getAllClientCompanies(),
-        getAllProjectStatuses(),
-        getReimbursementProjectOptions(),
-      ]);
-      const val = (r: PromiseSettledResult<any>) => (r.status === "fulfilled" ? r.value : undefined);
-      const [typesResR, companiesResR, statusesResR, projectsResR] = results;
-      const typesRes = val(typesResR) || {};
-      const companiesRes = val(companiesResR) || {};
-      const statusesRes = val(statusesResR) || {};
-      const projectsRes = val(projectsResR) || {};
-      const types = (typesRes.companyTypes || []).map((ct: any) => ({
-        value: ct.id,
-        label: ct.name,
-      })).sort((a: Option, b: Option) => a.label.localeCompare(b.label));
-      setAllCompanyTypeOptions(types);
-
-      const companies =
-        companiesRes?.data?.companies ||
-        companiesRes?.clientCompanies ||
-        companiesRes?.data?.clientCompanies ||
-        companiesRes?.companies ||
-        [];
-      setAllClientCompanies(companies);
-
-      const projects = projectsRes?.data?.projects || projectsRes?.projects || [];
-      setAllProjects(projects);
-
-      // Company Type/Name options are scoped to only those actually set as a
-      // project's File Location In Computer Folder — not the full client-company
-      // master list — per the "fetch from File Location" flow requirement.
-      const usedTypeIds = new Set(
-        projects.map((p: any) => p.fileLocationCompanyType).filter(Boolean)
-      );
-      setCompanyTypeOptions(types.filter((t: Option) => usedTypeIds.has(t.value)));
-
-      const allStatuses: any[] = statusesRes?.projectStatuses || [];
-      const ids = allStatuses
-        .filter((s: any) => s.name?.trim().toLowerCase() === 'on ongoing')
-        .map((s: any) => s.id);
-      setOngoingStatusIds(ids);
-    } catch (err) {
-      console.error('Failed to load client data', err);
-    } finally {
-      setProjectsLoading(false);
-    }
-  };
-
-  // Company Name options for a given Company Type — scoped to companies actually
-  // used as a project's File Location under that type.
-  const computeFilteredCompaniesForType = (typeId: string) => {
-    const usedCompanyIds = new Set(
-      allProjects
-        .filter((p: any) => p.fileLocationCompanyType === typeId)
-        .map((p: any) => p.fileLocationCompany)
-        .filter(Boolean)
-    );
-    return allClientCompanies
-      .filter((c: any) => c.companyTypeId === typeId && usedCompanyIds.has(c.id))
-      .sort((a: any, b: any) => a.companyName.localeCompare(b.companyName));
-  };
-
-  useEffect(() => {
-    fetchAllReimbursementsTypesData();
-    loadClientTypeAndCompanyData();
-  }, []);
-
-  // ── Reactive edit-mode restoration (identical to Reimbursement.tsx) ────────
-  // Runs whenever editMode, currentReimbursement, or any loaded array changes.
-
-  useEffect(() => {
-    if (!editMode || !currentReimbursement) return;
-    if (allCompanyTypeOptions.length === 0 || allClientCompanies.length === 0) return;
-
-    const rec = currentReimbursement;
-
-    // 1. Reimbursement For — preserve full option object so icon renders correctly
-    if (rec.reimbursementTypeId && reimbursementOptions.length > 0) {
-      const match = reimbursementOptions.find((o: any) => o.value === rec.reimbursementTypeId);
-      if (match) {
-        setSelectedReimbursementFor({ value: match.value, label: match.label, ...(match.icon && { icon: match.icon }) } as any);
-      }
-    }
-
-    // 2. Company Type — resolved against the FULL master list (not the File-Location-scoped
-    // one) so editing an older reimbursement never shows a blank Type.
-    if (rec.clientTypeId) {
-      const ctMatch = allCompanyTypeOptions.find((c) => c.value === rec.clientTypeId);
-      if (ctMatch) setSelectedClientType({ value: ctMatch.value, label: ctMatch.label });
-
-      let filtered = computeFilteredCompaniesForType(rec.clientTypeId);
-
-      // 3. Company Name — legacy data may reference a company that isn't (yet) a File
-      // Location company for any project; still show it so editing doesn't drop it.
-      if (rec.clientCompanyId) {
-        const ccMatch = allClientCompanies.find((c: any) => c.id === rec.clientCompanyId);
-        if (ccMatch) {
-          setSelectedClientCompany({ value: ccMatch.id, label: ccMatch.companyName });
-          if (!filtered.some((c: any) => c.id === ccMatch.id)) {
-            filtered = [...filtered, ccMatch].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName));
-          }
-        }
-      }
-      setFilteredCompanies(filtered);
-    }
-  }, [editMode, currentReimbursement, allCompanyTypeOptions, allClientCompanies, reimbursementOptions]);
-
-  // ── Project options — always derived locally from the bulk project list so the field
-  // can be searched directly regardless of Company Type/Name selection. Picking a Company
-  // Type/Name narrows the list; picking a Project directly reverse-autofills them instead.
-  useEffect(() => {
-    if (allProjects.length === 0) {
-      setProjectOptions([]);
-      return;
-    }
-    let list = allProjects;
-    if (selectedClientCompany?.value) {
-      list = list.filter((p: any) => p.fileLocationCompany === selectedClientCompany.value);
-    } else if (selectedClientType?.value) {
-      list = list.filter((p: any) => p.fileLocationCompanyType === selectedClientType.value);
-    }
-    const keepId = editMode ? currentReimbursement?.projectId : undefined;
-    list = list.filter((p: any) => (p.status?.id && ongoingStatusIds.includes(p.status.id)) || p.id === keepId);
-
-    const opts: Option[] = [...list]
-      .sort((a: any, b: any) => (a.title || "").localeCompare(b.title || ""))
-      .map((p: any) => ({
-        value: p.id,
-        label: p.projectPrefix ? `${p.projectPrefix} - ${p.title}` : p.title,
-      }));
-    setProjectOptions(opts);
-
-    if (editMode && currentReimbursement?.projectId) {
-      const projMatch = opts.find((o) => o.value === currentReimbursement.projectId);
-      if (projMatch) setSelectedProject(projMatch);
-    }
-  }, [allProjects, selectedClientType, selectedClientCompany, ongoingStatusIds, editMode, currentReimbursement]);
-
-  // ── Handlers — identical flow to Reimbursement.tsx ────────────────────────
-
   const handleNew = () => {
-    setSelectedReimbursementFor(null);
-    setSelectedClientType(null);
-    setSelectedClientCompany(null);
-    setSelectedProject(null);
-    setFilteredCompanies([]);
-    // projectOptions is NOT reset here — it's owned by the reactive effect above,
+    resetLookups();
+// projectOptions is NOT reset here — it's owned by the reactive effect above,
     // which recomputes it from allProjects/selectedClientType/selectedClientCompany.
     // Clearing it imperatively here left it stuck empty on a fresh "Add" open,
     // since selectedClientType/selectedClientCompany are already null at rest and
     // setState with an unchanged value doesn't re-trigger that effect.
 
-    initialState = {
-      expenseDate: dayjs().format('YYYY-MM-DD'),
-      clientTypeId: '',
-      clientCompanyId: '',
-      projectId: '',
-      reimbursementTypeId: '',
-      fromLocation: '',
-      toLocation: '',
-      amount: undefined,
-      document: '',
-      description: '',
-    };
+    // (shared mutable initialState removed — makeReimbursementInitialState)
 
     setShow(true);
     setEditMode(false);
@@ -857,12 +441,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   handleNewRef.current = handleNew;
 
   const handleEdit = (draft: any) => {
-    setSelectedReimbursementFor(null);
-    setSelectedClientType(null);
-    setSelectedClientCompany(null);
-    setSelectedProject(null);
-    setFilteredCompanies([]);
-    // projectOptions is left alone here too — see handleNew for why.
+    resetLookups();
+// projectOptions is left alone here too — see handleNew for why.
 
     setCurrentReimbursement(draft);
     setEditMode(true);
@@ -924,7 +504,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       actions.setFieldValue('description', '');
       actions.setTouched({});
       actions.setSubmitting(false);
-      setSelectedReimbursementFor(null);
+      resetLookups();
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       setFormLoading(false);
@@ -941,51 +521,6 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     setSelectedOptionState(selectedOption || null);
   };
 
-  const handleClientTypeChange = (option: any, setFieldValue: (f: string, v: any) => void) => {
-    setSelectedClientType(option);
-    setFieldValue('clientTypeId', option?.value || '');
-    setSelectedClientCompany(null);
-    setFieldValue('clientCompanyId', '');
-    setSelectedProject(null);
-    setFieldValue('projectId', '');
-    setFilteredCompanies(option?.value ? computeFilteredCompaniesForType(option.value) : []);
-  };
-
-  const handleClientCompanyChange = (option: any, setFieldValue: (f: string, v: any) => void) => {
-    setSelectedClientCompany(option);
-    setFieldValue('clientCompanyId', option?.value || '');
-    // Reset project — the reactive projectOptions effect repopulates it for the new company.
-    setSelectedProject(null);
-    setFieldValue('projectId', '');
-  };
-
-  // Reverse autofill: picking a Project directly (independent of Company Type/Name)
-  // backfills Company Type + Company Name from that project's File Location fields.
-  const handleProjectChange = (option: any, setFieldValue: (f: string, v: any) => void) => {
-    setSelectedProject(option);
-    setFieldValue('projectId', option?.value || '');
-    if (!option?.value) return;
-
-    const proj = allProjects.find((p: any) => p.id === option.value);
-    if (!proj) return;
-
-    if (proj.fileLocationCompanyType) {
-      const typeMatch = allCompanyTypeOptions.find((t) => t.value === proj.fileLocationCompanyType);
-      if (typeMatch) {
-        setSelectedClientType(typeMatch);
-        setFieldValue('clientTypeId', typeMatch.value);
-        setFilteredCompanies(computeFilteredCompaniesForType(typeMatch.value));
-      }
-    }
-    if (proj.fileLocationCompany) {
-      const companyMatch = allClientCompanies.find((c: any) => c.id === proj.fileLocationCompany);
-      if (companyMatch) {
-        setSelectedClientCompany({ value: companyMatch.id, label: companyMatch.companyName });
-        setFieldValue('clientCompanyId', companyMatch.id);
-      }
-    }
-  };
-
   const uploadFile = async (
     event: React.ChangeEvent<HTMLInputElement>,
     formikProps: any,
@@ -993,7 +528,9 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   ) => {
     const { target: { files } } = event;
     if (files && files[0].size > fileMaxUploadSize) {
-      alert('File size should not exceed 5 MB');
+      // A raw browser alert() in a fully styled app. The server caps uploads at 10 MB
+      // anyway (Phase 0); this is the friendly early warning, not the enforcement.
+      errorConfirmation("That file is over 5 MB. Please attach a smaller receipt.");
       event.target.value = '';
       return;
     }
@@ -1001,8 +538,11 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       const form = new FormData();
       form.append('file', files[0]);
       try {
-        const { data: { path } } = await uploadUserAsset(form, userId, undefined, 'reimbursement-docs');
+        const { data: { path, previewUrl: signedUrl } } = await uploadUserAsset(form, userId, undefined, 'reimbursement-docs');
         formikProps.setFieldValue('document', path, true);
+        // Receipts are stored private, so `path` alone won't render. Saved drafts come back
+        // presigned from the API; this covers the gap before the draft is saved.
+        setJustUploadedUrl(signedUrl ?? path);
       } catch (error) {
         console.error('Failed to upload file. Please try again.');
       }
@@ -1049,9 +589,10 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   // ── Table columns ──────────────────────────────────────────────────────────
 
+  // Phase 1: Use filtered drafts for period-aware totals
   const totalAmount = useMemo(
-    () => drafts.reduce((sum, d) => sum + Number(d.amount || 0), 0),
-    [drafts]
+    () => filteredDrafts.reduce((sum, d) => sum + Number(d.amount || 0), 0),
+    [filteredDrafts]
   );
 
   const columns = useMemo<MRT_ColumnDef<any>[]>(() => [
@@ -1088,8 +629,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       size: 200,
       enableColumnActions: false,
       Cell: ({ row }) => {
-        const found = allProjects.find((p: any) => p.id === row.original.projectId);
-        return <span>{row.original.project?.title || found?.title || resolveProject(row.original.projectId) || 'N/A'}</span>;
+        return <span>{projectTitle(row.original, resolveProject)}</span>;
       },
     },
     {
@@ -1105,12 +645,13 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       size: 110,
       enableColumnActions: false,
       Cell: ({ row }) => (
-        <span className={row.original.isExceedingLimit ? 'fw-bold fs-7' : 'text-dark fw-bold fs-7'}
-          style={row.original.isExceedingLimit ? { color: '#ef4444' } : undefined}>
-          {fmtAmount(row.original.amount)}
+        // Colour alone is not a status — the chip carries the word too.
+        <span className='d-inline-flex align-items-center gap-2'>
+          <span className={`text-dark fw-bold fs-7 ${sensitive.cls}`}>{fmtAmount(row.original.amount)}</span>
+          {row.original.isExceedingLimit && <OverLimitChip />}
         </span>
       ),
-      Footer: () => <span className='text-dark fw-bold fs-7'>{fmtAmount(totalAmount)}</span>,
+      Footer: () => <span className={`text-dark fw-bold fs-7 ${sensitive.cls}`}>{fmtAmount(totalAmount)}</span>,
     },
     {
       id: 'route',
@@ -1141,11 +682,12 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
           className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
           onClick={() => { if (row.original.document) setPreviewUrl(row.original.document); }}
           disabled={!row.original.document}
+          aria-label={row.original.document ? 'Preview receipt' : 'No receipt attached'}
           title={row.original.document ? 'Preview document' : 'No document attached'}
         >
           {row.original.document
             ? <KTIcon iconName='eye' className='fs-3' />
-            : <i className='bi bi-file-earmark-x fs-3 text-danger'></i>
+            : <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
           }
         </button>
       ),
@@ -1161,21 +703,23 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
           <button
             className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
             onClick={() => handleEdit(row.original)}
+            aria-label='Edit this expense'
             title='Edit'
           >
-            <KTIcon iconName='pencil' className='inline fs-4 text-red-500' />
+            <i className='bi bi-pencil fs-4 text-gray-500' />
           </button>
           <button
             className='btn btn-icon btn-active-color-primary btn-sm w-4'
             onClick={() => handleDelete(row.original.id)}
+            aria-label='Delete this expense'
             title='Delete'
           >
-            <KTIcon iconName='trash' className='inline fs-4 text-red-500' />
+            <i className='bi bi-trash3 fs-4 text-danger' />
           </button>
         </div>
       ),
     },
-  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount, allProjects]);
+  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount, sensitive.cls]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -1196,84 +740,87 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         overviewLoading={overviewLoading}
       />
 
-      {/* Action bar — only visible when inbox is shown */}
+      {periodSlot}
+
+      {/* Action bar — only visible when inbox is shown.
+          No `paddingRight` on the row: it pushed this row's right edge 1.25rem inside the
+          period bar's above, so the buttons on the two rows could never line up. */}
       {(loading || drafts.length > 0) && (
-        <div className='d-flex justify-content-between align-items-center mb-4' style={{ paddingRight: '1.25rem' }}>
+        <div className='d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4'>
           <h2 className='mb-0'>Reimbursement Request Inbox</h2>
-          <div className='d-flex gap-3'>
+          <div className={TOOLBAR_ROW}>
             {hasPermission(
               resourceNameMapWithCamelCase.reimbursement,
               permissionConstToUseWithHasPermission.create
             ) && (
-                <button
+                // Same action, same emphasis as the one on the records bar below —
+                // this is the one the user sees once drafts exist, and the two must
+                // not disagree about how prominent "add a request" is.
+                <Button
                   onClick={handleNew}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '5px',
-                    padding: '7px 14px',
-                    border: '1.5px solid #e2e8f0',
-                    borderRadius: '6px',
-                    background: '#f8fafc',
-                    color: '#475569',
-                    fontWeight: 500,
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
+                  startIcon={<KTIcon iconName='plus' className='fs-3' />}
+                  sx={lightToolbarButton('accent')}
                 >
-                  <KTIcon iconName='plus' className='fs-6' />
-                  <span>Add Reimbursement Request</span>
-                </button>
+                  Add Reimbursement Request
+                </Button>
               )}
             {drafts.length > 0 && (
-              <button
+              <Button
                 onClick={handleSendForApproval}
                 disabled={submitting}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '5px',
-                  padding: '7px 14px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  background: '#16a34a',
-                  color: '#fff',
-                  fontWeight: 500,
-                  fontSize: '12px',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 2px 6px rgba(22, 163, 74, 0.2)',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap',
-                  opacity: submitting ? 0.7 : 1
-                }}
-                onMouseEnter={e => { if (!submitting) { (e.currentTarget as HTMLButtonElement).style.background = '#15803d'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(22, 163, 74, 0.3)'; } }}
-                onMouseLeave={e => { if (!submitting) { (e.currentTarget as HTMLButtonElement).style.background = '#16a34a'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(22, 163, 74, 0.2)'; } }}
-              >
-                {submitting
-                  ? <span className='spinner-border spinner-border-sm' style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
-                  : <KTIcon iconName='send' className='fs-6 text-white' />
+                startIcon={
+                  submitting
+                    ? <span className='spinner-border spinner-border-sm' style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
+                    : <KTIcon iconName='send' className='fs-3' />
                 }
-                <span>{submitting ? 'Submitting...' : 'Send for Approval'}</span>
-              </button>
+                sx={lightToolbarButton('success', submitting)}
+              >
+                {submitting ? 'Submitting...' : 'Send for Approval'}
+              </Button>
             )}
           </div>
         </div>
       )}
 
+      {draftsError && !loading && (
+        <LoadErrorState what="your unsubmitted drafts" onRetry={loadDrafts} />
+      )}
+
       {/* Table — only shown when there are drafts or while loading */}
-      {(loading || drafts.length > 0) && (
+      {/* Phase 1: Show filtered drafts for current period */}
+      {!draftsError && (loading || filteredDrafts.length > 0) && (
         <MaterialTable
-          data={drafts}
+          data={filteredDrafts}
           columns={columns}
           tableName='Pending Reimbursements'
           hideFilters={false}
           showColumnFooter={true}
+          renderMobileCard={({ row }: any) => (
+            <div
+              onClick={() => handleEdit(row.original)}
+              style={{
+                padding: '12px', background: '#fff', border: `2px solid ${row.original?.isExceedingLimit ? '#ef4444' : '#f59e0b'}`,
+                borderRadius: '8px', marginBottom: '8px', cursor: 'pointer'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Date</div>
+                  <div style={{ fontWeight: 600, color: '#0f172a' }}>{dayjs(row.original.expenseDate).format('DD MMM YYYY')}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Amount</div>
+                  <div style={{ fontWeight: 700, color: '#0f172a' }} className={sensitive.cls}>₹{fmtAmount(row.original.amount)}</div>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#475569', marginBottom: '6px' }}>
+                <strong>{row.original.reimbursementType?.type || 'N/A'}</strong>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: '1.3' }}>
+                {row.original.clientTypeId && `${resolveClientType(row.original.clientTypeId)} • ${resolveClientCompany(row.original.clientCompanyId) || 'N/A'}`}
+              </div>
+            </div>
+          )}
           muiTableProps={{
             muiTableBodyRowProps: ({ row }: any) => {
               if (row.original?.isExceedingLimit) {
@@ -1305,20 +852,31 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       )}
 
       {/* Add / Edit modal — structure identical to Reimbursement.tsx */}
-      <Modal show={show} onHide={handleClose} centered>
+      <Modal show={show} onHide={handleClose} centered size="lg">
         <Modal.Header closeButton>
-          <Modal.Title>{editMode ? 'Edit' : 'New'} Reimbursement Request</Modal.Title>
+          <Modal.Title>
+            {editMode ? 'Edit' : 'New'} Reimbursement Request
+            {currentPeriod && !editMode && (
+              <span style={{ fontSize: '0.8rem', fontWeight: 400, marginLeft: '0.5rem', color: '#666' }}>
+                — {currentPeriod.format('MMMM YYYY')}
+              </span>
+            )}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Formik
             initialValues={{
-              ...initialState,
+              ...makeReimbursementInitialState(),
+              expenseDate: editMode && currentReimbursement?.expenseDate
+                ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
+                : (currentPeriod
+                    ? (currentPeriod.isSame(dayjs(), 'month')
+                        ? dayjs().format('YYYY-MM-DD')
+                        : currentPeriod.startOf('month').format('YYYY-MM-DD'))
+                    : dayjs().format('YYYY-MM-DD')),
               ...(editMode &&
                 currentReimbursement && {
                 ...currentReimbursement,
-                expenseDate: currentReimbursement.expenseDate
-                  ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
-                  : dayjs().format('YYYY-MM-DD'),
                 clientTypeId: currentReimbursement?.clientTypeId ?? '',
                 clientCompanyId: currentReimbursement?.clientCompanyId ?? '',
                 projectId: currentReimbursement?.projectId ?? '',
@@ -1328,32 +886,41 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 document: currentReimbursement?.document ?? '',
               }),
             }}
+            enableReinitialize={true}
             onSubmit={handleSubmit}
-            validationSchema={getReimbursementSchema(currentReimbursement)}
+            // The schema now depends on the chosen category: From/To are required for travel
+            // and not collected at all for meals, instead of being demanded everywhere and
+            // filled with junk to get past them.
+            validationSchema={getReimbursementSchema({
+              isEditing: !!currentReimbursement,
+              category: selectedReimbursementFor,
+            })}
           >
             {(formikProps) => (
               <Form className='d-flex flex-column' noValidate id='pending_reimbursement_form'>
 
                 {/* Row 1: Date */}
-                <div className='row'>
-                  <div className='col-lg-6 mb-7'>
+                <div className='row gx-2 gx-lg-3'>
+                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
                     <DateInput
                       isRequired={currentReimbursement ? false : true}
                       inputLabel='Select Date'
                       formikProps={formikProps}
                       formikField='expenseDate'
                       placeHolder='Select Date'
-                      maxDate={true}
-                      // Claimable window: this month only, up to today — no past
-                      // months, no future days.
-                      minDate={dayjs().startOf('month')}
+                      // Phase 1: Constrain to batch period (one month).
+                      // If viewing a specific month, only allow dates in that month.
+                      maxDate={currentPeriod ? currentPeriod.endOf('month') : true}
+                      minDate={currentPeriod ? currentPeriod.startOf('month') : dayjs().startOf('month')}
                     />
                   </div>
                 </div>
 
+
+
                 {/* Row 2: Company Type + Company Name */}
-                <div className='row'>
-                  <div className='col-lg-6 mb-7'>
+                <div className='row gx-2 gx-lg-3'>
+                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
                     <DropDownInput
                       isRequired={true}
                       formikField='clientTypeId'
@@ -1364,7 +931,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       value={selectedClientType}
                     />
                   </div>
-                  <div className='col-lg-6 mb-7'>
+                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
                     <DropDownInput
                       isRequired={false}
                       formikField='clientCompanyId'
@@ -1386,9 +953,29 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                   </div>
                 </div>
 
-                {/* Row 3: Project */}
-                <div className='row'>
-                  <div className='col-lg mb-7'>
+                {/* Row 3: Project status filter + Project */}
+                <div className='row gx-2 gx-lg-3'>
+                  <div className='col-12 col-lg-4 mb-5 mb-lg-7'>
+                    {/* Filter only — deliberately no formikField, so it never reaches the
+                        saved record. It narrows the picker beside it. */}
+                    <DropDownInput
+                      isRequired={false}
+                      formikField=''
+                      inputLabel='Project Status'
+                      placeholder={
+                        projectsLoading
+                          ? 'Loading...'
+                          : projectStatusOptions.length === 0
+                            ? 'No statuses'
+                            : 'All Statuses'
+                      }
+                      options={projectStatusOptions}
+                      disabled={projectsLoading || projectStatusOptions.length === 0}
+                      onChange={(option: any) => handleProjectStatusChange(option)}
+                      value={selectedProjectStatus}
+                    />
+                  </div>
+                  <div className='col-12 col-lg-8 mb-5 mb-lg-7'>
                     <DropDownInput
                       isRequired={false}
                       formikField='projectId'
@@ -1410,42 +997,85 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 </div>
 
                 {/* Row 4: Reimbursement For + Amount */}
-                <div className='row'>
-                  <div className='col-lg-6 mb-7'>
+                <div className='row gx-2 gx-lg-3'>
+                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
                     <ReimbursementDropdown
                       isRequired={true}
-                      handleChange={(option: any) => {
-                        handleChange(option, 'reimbursementTypeId', setSelectedReimbursementFor, formikProps.setFieldValue);
-                      }}
+                      handleChange={(option: any) => handleCategoryChange(option, formikProps.setFieldValue)}
                       formikField='reimbursementTypeId'
                       inputLabel='Reimbursement For'
                       options={reimbursementOptions}
                       value={selectedReimbursementFor}
                     />
                   </div>
-                  <div className='col-lg-6'>
+                  <div className='col-12 col-lg-6'>
                     <TextInput
                       isRequired={true}
                       label='Enter Amount'
-                      margin='mb-7'
+                      margin='mb-5 mb-lg-7'
                       formikField='amount'
                       inputValidation='decimal'
                     />
+                    {/* The cap, as the amount is typed. `isExceedingLimit` is computed once at
+                        create and surfaced days later as a red row an approver finds — by then
+                        the only person who could have acted on it is long gone. */}
+                    {(() => {
+                      const breach = describeLimitBreach(formikProps.values.amount, {
+                        perRequest: perRequestLimit,
+                        category: selectedReimbursementFor?.amountLimit,
+                        categoryName: selectedReimbursementFor?.label,
+                      });
+                      if (!breach) return null;
+                      return (
+                        <div style={{
+                          marginTop: -18, marginBottom: 18,
+                          fontSize: '0.78rem', fontWeight: 600, color: '#b45309',
+                        }}>
+                          {breach} — it can still be submitted, but expect a question.
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
-                {/* Row 5: From Location + To Location */}
-                <div className='row'>
-                  <div className='col-lg-6'>
-                    <label className='form-label fw-bold'>From Location</label>
+                {/* Advisory duplicate check. Two cab rides on one day are a real thing, so this
+                    warns and never blocks — matched against the drafts already on screen rather
+                    than a new endpoint, because those are what the user is filing against. */}
+                {(() => {
+                  const dupe = findDuplicateCandidate(drafts, {
+                    expenseDate: formikProps.values.expenseDate,
+                    amount: formikProps.values.amount,
+                    reimbursementTypeId: formikProps.values.reimbursementTypeId,
+                  }, currentReimbursement?.id);
+                  if (!dupe) return null;
+                  return (
+                    <div className='row'>
+                      <div className='col-lg-12 mb-7'>
+                        <div style={{
+                          padding: '10px 14px', borderRadius: 10,
+                          background: '#fffbeb', border: '1px solid #fde68a',
+                          color: '#92400e', fontSize: '0.82rem', fontWeight: 600,
+                        }}>
+                          You already have a ₹{fmtAmount(dupe.amount ?? 0)} expense in this category on{' '}
+                          {dayjs(formikProps.values.expenseDate).format('DD MMM')}. Submit anyway if this is a separate claim.
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* From/To render only for categories that involve travelling between two
+                    places. They used to be required on every category, including meals and
+                    accommodation, so people typed junk to get past them. */}
+                {categoryRequiresLocation(selectedReimbursementFor) && (
+                <div className='row gx-2 gx-lg-3'>
+                  <div className='col-12 col-lg-6'>
+                    <label className='form-label fw-bold'>From Location <span className='text-danger'>*</span></label>
                     <input
                       type='text'
                       className={`form-control form-control-lg form-control-solid${formikProps.touched.fromLocation && formikProps.errors.fromLocation ? ' is-invalid' : ''}`}
                       placeholder='From Location'
                       {...formikProps.getFieldProps('fromLocation')}
-                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                        if (!/^[a-zA-Z\s]$/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) e.preventDefault();
-                      }}
                     />
                     {formikProps.touched.fromLocation && formikProps.errors.fromLocation && (
                       <div className='fv-plugins-message-container'>
@@ -1453,16 +1083,13 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       </div>
                     )}
                   </div>
-                  <div className='col-lg-6 mb-7'>
-                    <label className='form-label fw-bold'>To Location</label>
+                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
+                    <label className='form-label fw-bold'>To Location <span className='text-danger'>*</span></label>
                     <input
                       type='text'
                       className={`form-control form-control-lg form-control-solid${formikProps.touched.toLocation && formikProps.errors.toLocation ? ' is-invalid' : ''}`}
                       placeholder='To Location'
                       {...formikProps.getFieldProps('toLocation')}
-                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                        if (!/^[a-zA-Z\s]$/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) e.preventDefault();
-                      }}
                     />
                     {formikProps.touched.toLocation && formikProps.errors.toLocation && (
                       <div className='fv-plugins-message-container'>
@@ -1471,16 +1098,19 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                     )}
                   </div>
                 </div>
-
+                )}
                 {/* Row 6: Document Upload */}
-                <div className='row mb-7'>
-                  <div className='col-lg-12'>
+                <div className='row mb-5 mb-lg-7'>
+                  <div className='col-12'>
                     <label className='mb-2 fw-bold'>Upload Reimbursement Bill</label>
 
                     {/* Hidden real file input */}
                     <input
                       ref={fileInputRef}
                       type='file'
+                      // Opens the camera directly on a phone instead of a file browser — a receipt is
+                      // something you photograph, not something you already have on disk.
+                      capture='environment'
                       accept='image/*,application/pdf'
                       className='d-none'
                       onChange={(event) => uploadFile(event, formikProps, 5 * 1024 * 1024)}
@@ -1538,21 +1168,21 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                           <button
                             type='button'
                             className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
-                            title='Preview document'
-                            onClick={() => setPreviewUrl(String(formikProps.values.document))}
+                            aria-label='Preview document' title='Preview document'
+                            onClick={() => setPreviewUrl(justUploadedUrl ?? String(formikProps.values.document))}
                           >
                             <KTIcon iconName='eye' className='fs-3' />
                           </button>
                           <button
                             type='button'
                             className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
-                            title='Remove document'
+                            aria-label='Remove document' title='Remove document'
                             onClick={() => {
                               formikProps.setFieldValue('document', '');
                               if (fileInputRef.current) fileInputRef.current.value = '';
                             }}
                           >
-                            <KTIcon iconName='trash' className='fs-3' />
+                            <i className='bi bi-trash3 fs-3 text-danger' />
                           </button>
                         </>
                       )}
@@ -1561,17 +1191,19 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 </div>
 
                 {/* Row 7: Remark */}
-                <div className='col-lg'>
-                  <TextInput
-                    label='Remark'
-                    margin='mb-7'
-                    formikField='description'
-                    isRequired={false}
-                  />
+                <div className='row'>
+                  <div className='col-12'>
+                    <TextInput
+                      label='Remark'
+                      margin='mb-5 mb-lg-7'
+                      formikField='description'
+                      isRequired={false}
+                    />
+                  </div>
                 </div>
 
                 {/* Submit */}
-                <div className='d-flex justify-content-end mt-5'>
+                <div className='d-flex justify-content-end gap-2 mt-5 flex-wrap'>
                   <button
                     type='submit'
                     className='btn btn-primary'

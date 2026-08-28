@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
  * CompaniesByTypeChart — custom (no ApexCharts) horizontal bar tree.
@@ -405,7 +406,7 @@ const CompaniesByTypeChart: React.FC<Props> = ({
         </div>
 
         <div style={{ position: "relative", width: isMobile ? "100%" : undefined, flex: isMobile ? undefined : "1", minWidth: isMobile ? undefined : 200, maxWidth: isMobile ? undefined : 300 }}>
-          <i className="bi bi-search" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#aab2bd", fontSize: 13 }} />
+          <AppIcon name="bi-search" className="fs-7" color="#aab2bd" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)" }} />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search type, service or sub-service…"
             style={{ width: "100%", height: 34, border: "1px solid #dde2e8", borderRadius: 8, padding: "0 12px 0 30px", fontSize: 13, fontFamily: "inherit", outline: "none", color: "#1f2733", boxSizing: "border-box" }} />
         </div>
@@ -417,7 +418,7 @@ const CompaniesByTypeChart: React.FC<Props> = ({
             <div style={{ position: "relative" }} ref={filterWrapRef}>
               <button onClick={() => setFilterOpen((v) => !v)}
                 style={{ ...ctrlBtn, display: "flex", alignItems: "center", gap: 6, border: `1px solid ${selectedCount > 0 ? ACCENT : "#dde2e8"}`, background: selectedCount > 0 ? "#fbf3f3" : "#fff", color: selectedCount > 0 ? ACCENT : "#46505d", whiteSpace: "nowrap" }}>
-                <i className="bi bi-funnel" style={{ fontSize: 13 }} /> Filter{selectedCount > 0 ? ` (${selectedCount}/${tree.length})` : ""}
+                <AppIcon name="bi-funnel" className="fs-7" /> Filter{selectedCount > 0 ? ` (${selectedCount}/${tree.length})` : ""}
               </button>
               {filterOpen && (
                 <div style={{ position: "absolute", [isMobile ? "left" : "right"]: 0, top: 40, zIndex: 20, background: "#fff", border: "1px solid #e2e6ec", borderRadius: 10, boxShadow: "0 8px 28px rgba(16,24,40,.16)", padding: 8, width: 248, maxHeight: 300, overflow: "auto" } as React.CSSProperties}>

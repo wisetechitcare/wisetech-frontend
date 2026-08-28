@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { HealthResult, MissingItem } from './entityViewModel';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /** Compact circular health gauge with explainable factor list on hover. */
 export const HealthGauge: React.FC<{ health: HealthResult; probability?: number | null }> = ({
@@ -90,7 +91,7 @@ export const MissingInfoChip: React.FC<{ items: MissingItem[]; onJump: (step: nu
           fontWeight: 700,
         }}
       >
-        <i className="bi bi-check-circle-fill" /> Complete record
+        <AppIcon name="bi-check-circle-fill" /> Complete record
       </span>
     );
   }
@@ -114,7 +115,7 @@ export const MissingInfoChip: React.FC<{ items: MissingItem[]; onJump: (step: nu
           cursor: 'pointer',
         }}
       >
-        <i className="bi bi-exclamation-triangle-fill" /> {items.length} field{items.length === 1 ? '' : 's'} missing
+        <AppIcon name="bi-exclamation-triangle-fill" /> {items.length} field{items.length === 1 ? '' : 's'} missing
         <i className={`bi bi-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 10 }} />
       </button>
       {open && (
@@ -160,10 +161,10 @@ export const MissingInfoChip: React.FC<{ items: MissingItem[]; onJump: (step: nu
               onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'transparent')}
             >
               <span>
-                <i className="bi bi-dash-circle me-2" style={{ color: '#F5A623' }} />
+                <AppIcon name="bi-dash-circle" className="me-2" color="#F5A623" />
                 {it.label}
               </span>
-              <i className="bi bi-pencil-square" style={{ color: '#1E3A8A', fontSize: 12 }} />
+              <AppIcon name="bi-pencil-square" className="fs-7" color="#1E3A8A" />
             </button>
           ))}
         </div>
@@ -222,7 +223,7 @@ export const EmptyState: React.FC<{
           color: '#64748B',
         }}
       >
-        <i className="bi bi-info-circle" /> {hint}
+        <AppIcon name="bi-info-circle" /> {hint}
       </div>
     )}
   </div>

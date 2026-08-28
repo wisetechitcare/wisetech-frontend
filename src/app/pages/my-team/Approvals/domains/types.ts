@@ -46,6 +46,13 @@ export interface ApprovalRequestDetails {
     totalDays?: number | null;
     paidDays?: number | null;
     unpaidDays?: number | null;
+    // Reimbursement batch specifics
+    submissionId?: string | null;
+    pendingCount?: number | null;
+    queriedCount?: number | null;
+    approvedCount?: number | null;
+    rejectedCount?: number | null;
+    resubmittedCount?: number | null;
 }
 
 export interface ApprovalInstance {
@@ -72,16 +79,35 @@ export interface ApprovalStep {
     status: string;
     delegatedFrom?: string | null;
     requestDetails?: ApprovalRequestDetails | null;
+    /**
+     * When THIS approver acted on the step — null while it is still pending. The Resolved lane
+     * reads it to date the decision, which is the only clock that means anything once a request
+     * is closed. Already returned by `getAllInstancesForApprover` (the step query selects no
+     * subset, so every scalar comes back); it was simply never typed.
+     */
+    actedAt?: string | null;
     instance: ApprovalInstance;
+    /**
+     * Whose move it is now — the employee while a question is out, otherwise the approver at the
+     * instance's current level. Computed server-side from the same rule that picks the tab.
+     */
+    waitingOn?: { role: 'EMPLOYEE' | 'APPROVER'; name: string | null } | null;
+    /**
+     * This is a request YOU submitted, listed under "Waiting on others" because it is sitting with
+     * an approver. You hold no step on it, so it carries no decision — the card reads it out
+     * rather than asking anything of you.
+     */
+    submittedByMe?: boolean;
 }
 
-/** Row-splitting metadata the reimbursement flow adds (approved/rejected sub-rows). */
-export type DisplayStep = ApprovalStep & {
-    _uid: string;
-    _splitStatus?: 1 | 2;
-    _splitCount?: number;
-    _splitAmount?: number;
-};
+/**
+ * A queue row.
+ *
+ * It used to carry `_splitStatus`/`_splitCount`/`_splitAmount` — a mixed reimbursement batch was
+ * split into a fake "approved" row and a fake "rejected" row, because the queue had no way to say
+ * a batch was partly both. The server reports `processingStatus` now, so one approval is one row.
+ */
+export type DisplayStep = ApprovalStep & { _uid: string };
 
 export interface ApprovalDetailProps {
     step: DisplayStep;

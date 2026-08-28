@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import { ChartDialogModal } from "../components/ChartDialogModal";
 import dayjs from "dayjs";
-import { AnalyticsCard, RankedBarChart, ChartDatum } from "@pages/dashboard/leadAnalytics";
+import { AnalyticsCard, RankedBarChart, ChartDatum, ChartMetric, applyMetric } from "@pages/dashboard/leadAnalytics";
 
 
 type Filters = {
@@ -54,7 +54,7 @@ const normalize = (v?: string | null) => {
 const uniqueSorted = (arr: string[]) =>
   Array.from(new Set(arr)).sort((a, b) => a.localeCompare(b));
 
-export default function LeadByLocationAndStatus({data, startDate, endDate, entityScope = "lead", receivedOnly = false}: {data: LocationAnalytics[], startDate?: dayjs.Dayjs, endDate?: dayjs.Dayjs, entityScope?: "lead" | "project", receivedOnly?: boolean}) {
+export default function LeadByLocationAndStatus({data, startDate, endDate, entityScope = "lead", receivedOnly = false, metric = "count"}: {data: LocationAnalytics[], startDate?: dayjs.Dayjs, endDate?: dayjs.Dayjs, entityScope?: "lead" | "project", receivedOnly?: boolean, metric?: ChartMetric}) {
   // console.log("leaddata",data);
 
   // default filters
@@ -227,13 +227,26 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
     }
   };
 
-  // Map grouped data into chart format for each level
-  const createChartData = (grouped: any[]) => grouped.map((g) => ({
-    label: g.name,
-    value: g.totalCount,
-    totalCost: Math.round(g.totalBudget),
-    id: g.id,
-  }));
+  // This chart is reused for both leads and projects, so the tooltip/subtitle
+  // noun follows the scope instead of always reading "Leads".
+  const entityNoun = entityScope === "project" ? "Projects" : "Leads";
+  const locSubtitle = (what: string) =>
+    metric === "amount"
+      ? `Top ${what} by ${entityNoun.toLowerCase()} value · count in tooltip`
+      : `Top ${what} by ${entityNoun.toLowerCase()} volume · revenue in tooltip`;
+
+  // Map grouped data into chart format for each level, then re-point it at the
+  // selected measure (count vs budget). The grouping above always accumulates
+  // both, so switching costs nothing.
+  const createChartData = (grouped: any[]) => applyMetric(
+    grouped.map((g) => ({
+      label: g.name,
+      value: g.totalCount,
+      totalCost: Math.round(g.totalBudget),
+      id: g.id,
+    })),
+    metric,
+  );
 
   const countryChartData: ChartDatum[] = createChartData(countryGrouped);
   const stateChartData: ChartDatum[] = createChartData(stateGrouped);
@@ -437,7 +450,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
               {/* Country Ranking */}
               <AnalyticsCard
                 title="By Country"
-                subtitle="Top locations by lead volume · revenue in tooltip"
+                subtitle={locSubtitle("locations")}
                 index={0}
                 isEmpty={countryChartData.length === 0}
                 emptyHint="No country data."
@@ -445,7 +458,9 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
                 <RankedBarChart
                   data={countryChartData}
                   onSelect={handleLevelClick("country")}
-                  showRevenue
+                  showRevenue={metric !== "amount"}
+                  metric={metric}
+                  entityLabel={entityNoun}
                   barColor="#0EA5E9"
                   height={380}
                   valueLabel
@@ -456,7 +471,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
               {/* State Ranking */}
               <AnalyticsCard
                 title="By State"
-                subtitle="Top locations by lead volume · revenue in tooltip"
+                subtitle={locSubtitle("locations")}
                 index={1}
                 isEmpty={stateChartData.length === 0}
                 emptyHint="No state data."
@@ -464,7 +479,9 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
                 <RankedBarChart
                   data={stateChartData}
                   onSelect={handleLevelClick("state")}
-                  showRevenue
+                  showRevenue={metric !== "amount"}
+                  metric={metric}
+                  entityLabel={entityNoun}
                   barColor="#10B981"
                   height={380}
                   valueLabel
@@ -475,7 +492,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
               {/* City Ranking */}
               <AnalyticsCard
                 title="By City"
-                subtitle="Top locations by lead volume · revenue in tooltip"
+                subtitle={locSubtitle("locations")}
                 index={2}
                 isEmpty={cityChartData.length === 0}
                 emptyHint="No city data."
@@ -483,7 +500,9 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
                 <RankedBarChart
                   data={cityChartData}
                   onSelect={handleLevelClick("city")}
-                  showRevenue
+                  showRevenue={metric !== "amount"}
+                  metric={metric}
+                  entityLabel={entityNoun}
                   barColor="#F59E0B"
                   height={380}
                   valueLabel
@@ -494,7 +513,7 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
               {/* Locality Ranking */}
               <AnalyticsCard
                 title="By Locality"
-                subtitle="Top neighborhoods by lead volume · revenue in tooltip"
+                subtitle={locSubtitle("neighborhoods")}
                 index={3}
                 isEmpty={localityChartData.length === 0}
                 emptyHint="No locality data."
@@ -502,7 +521,9 @@ export default function LeadByLocationAndStatus({data, startDate, endDate, entit
                 <RankedBarChart
                   data={localityChartData}
                   onSelect={handleLevelClick("locality")}
-                  showRevenue
+                  showRevenue={metric !== "amount"}
+                  metric={metric}
+                  entityLabel={entityNoun}
                   barColor="#8B5CF6"
                   height={380}
                   valueLabel

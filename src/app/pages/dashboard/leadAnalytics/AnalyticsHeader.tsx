@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface AnalyticsHeaderProps {
   title: string;
@@ -38,7 +39,7 @@ const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
           marginTop: 2,
         }}
       >
-        <i className={`bi ${icon}`} style={{ fontSize: 20, fontWeight: 600 }} />
+        <AppIcon name={icon} className="fs-2" style={{ fontWeight: 600 }} />
       </span>
     )}
     <div style={{ flex: 1 }}>

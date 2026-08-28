@@ -1,6 +1,6 @@
-import { Field, useField } from "formik";
+import { Box } from "@mui/material";
 import HighlightErrors from "../../errors/components/HighlightErrors";
-import  Select  from "react-select"
+import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
 import { useMemo } from "react";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 
@@ -16,10 +16,10 @@ interface DropDownInputProps {
 
 function ReimbursementDropdown({ formikField, inputLabel, options, isRequired, placeholder, handleChange, value }: DropDownInputProps) {
     const formatOptionLabel = ({ value, label, icon }: any) => (
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-            {icon && <img src={icon} alt="" style={{ width: '20px', height: '20px', marginRight: '10px' }} />}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            {icon && <Box component="img" src={icon} alt="" sx={{ width: 20, height: 20 }} />}
             {label}
-        </div>
+        </Box>
     );
 
     const sortedOptions = useMemo(() => {
@@ -27,21 +27,29 @@ function ReimbursementDropdown({ formikField, inputLabel, options, isRequired, p
     }, [options]);
 
     return (
-        <div className="d-flex flex-column fv-row">
-            <label className={`form-label ${isRequired ? 'required' : ''}`}>{inputLabel}</label>
-            <Select
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            {/* Asterisk explicit — Metronic's `.required::after` goes with the Bootstrap class. */}
+            <Box component="label" sx={{
+                display: 'flex', alignItems: 'center', gap: 0.5, mb: 1,
+                fontSize: 13.5, fontWeight: 500, color: 'text.primary',
+            }}>
+                {inputLabel}
+                {isRequired && <Box component="span" aria-hidden sx={{ color: 'error.main' }}>*</Box>}
+            </Box>
+            <WtSelect
                 name={formikField}
                 options={sortedOptions}
                 onChange={handleChange}
                 placeholder={placeholder}
                 isClearable
-                classNamePrefix="react-select"
-                className="react-select-styled"
                 value={value}
                 formatOptionLabel={formatOptionLabel}
+                // Reimbursement type names are long and wordy; the list is short, so
+                // wrapping beats ellipsising here.
+                allowOptionWrap
             />
             <HighlightErrors isRequired={isRequired} formikField={formikField} />
-        </div>
+        </Box>
     );
 }
 

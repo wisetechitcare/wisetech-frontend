@@ -14,6 +14,7 @@ import { successConfirmation } from "@utils/modal";
 import { CUSTOM_SALARY } from "@constants/configurations-key";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface ICustomRules {
   name: string,
@@ -209,7 +210,7 @@ function CustomRules() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 3px 10px rgba(30, 58, 138,0.25)', flexShrink: 0,
         }}>
-          <i className="bi bi-sliders" style={{ fontSize: '15px', color: '#fff' }} />
+          <AppIcon name="bi-sliders" className="fs-5" color="#fff" />
         </div>
         <div>
           <h2 style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '16px', color: '#181C32', margin: 0, letterSpacing: '-0.2px' }}>
@@ -284,7 +285,7 @@ function CustomRules() {
                 cursor: 'pointer'
               }}
             >
-              <i className="bi bi-x"></i>
+              <AppIcon name="bi-x" />
             </button>
           </div>
           <Formik

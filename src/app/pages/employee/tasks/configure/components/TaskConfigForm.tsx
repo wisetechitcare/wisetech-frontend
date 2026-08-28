@@ -2,16 +2,18 @@
 import { Modal, Button, Form } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
-
 import {
   createTasksStatus,
   updateTasksStatus,
   createPriority,
   updatePriority,
   createPresetTask,
-  updatePresetTask
+  updatePresetTask,
+  getAllPersetTasks
 } from "@services/tasks"
 import { successConfirmation } from "@utils/modal";
+import HierarchicalTaskSelect, { buildTaskOptions } from "@app/pages/employee/tasks/components/HierarchicalTaskSelect";
+import { PATH_SEPARATOR, getPresetPath, getPresetSubtreeIds } from "@utils/presetTaskHierarchy";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import { ConfigItem, ProjectCategory } from "@models/clientProject";
@@ -24,12 +26,19 @@ interface ConfigFormProps {
   isEditing?: boolean;
   type: "taskStatus" | "taskPriority" | "presetTask";
   title: string;
+  // presetTask callers that already hold the list (e.g. TasksConfigure, which loads it
+  // for the tree) should pass it here — avoids an internal re-fetch racing the modal's
+  // first open, which would briefly show the Parent Task picker as empty.
+  presetTasks?: ConfigItem[];
 }
 
 const validationSchema = (type: string) => {
   const baseSchema = {
     name: Yup.string().required('Name is required'),
-    color: Yup.string().required('Color is required'),
+    // Preset tasks carry no colour — the tree derives one from the row id.
+    color: type === 'presetTask'
+      ? Yup.string()
+      : Yup.string().required('Color is required'),
     isActive: Yup.boolean().required()
   };
 
@@ -51,12 +60,37 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
   initialData,
   isEditing = false,
   type,
-  title
+  title,
+  presetTasks: presetTasksProp
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  // presetTask → every node this one could be filed under.
+  const [fetchedPresetTasks, setFetchedPresetTasks] = useState<ConfigItem[]>([]);
+  const presetTasks = presetTasksProp || fetchedPresetTasks;
+
+  useEffect(() => {
+    if (!presetTasksProp && show && type === "presetTask") {
+      getAllPersetTasks()
+        .then((res: any) => setFetchedPresetTasks(res?.presetTaskStatuses || []))
+        .catch(() => setFetchedPresetTasks([]));
+    }
+  }, [show, type, presetTasksProp]);
+
+  // Any node may be the parent, at any depth — EXCEPT the node being edited and
+  // everything beneath it, which would detach that subtree from every root. The server
+  // rejects those moves too; excluding them here keeps the invalid choice off-screen.
+  const parentTaskOptions = React.useMemo(() => {
+    // ConfigItem types `id` as optional; a saved row always has one.
+    const nodes = presetTasks.filter((t) => !!t.id) as { id: string; name: string; parentId?: string | null }[];
+    return buildTaskOptions(nodes, getPresetSubtreeIds(nodes, initialData?.id));
+  }, [presetTasks, initialData?.id]);
+
+  /** The chosen parent's own hierarchy, so it is obvious where this task will sit. */
+  const parentPathFor = (parentId?: string) =>
+    parentId ? getPresetPath(presetTasks as { id: string; name: string; parentId?: string | null }[], parentId) : [];
 
   // const needsCategory = type === 'subcategory';
 
@@ -87,6 +121,8 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
     color: initialData?.color || "#1E3A8A",
     isActive: initialData?.isActive ?? true,
     categoryId: initialData?.categoryId || "",
+    // Preset from the tree's "Add child" action, or the row's current parent when editing.
+    parentId: initialData?.parentId || "",
   };
 
   type ApiFunction = ((id: string, payload: any) => Promise<any>) | ((payload: any) => Promise<any>);
@@ -135,14 +171,17 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
       // Only include color if not presetTask
       if (type !== 'presetTask') {
         payload.color = values.color;
+      } else {
+        // Only preset tasks carry a parent; null = a top-level task.
+        payload.parentId = values.parentId || null;
       }
 
       if (isEditing && initialData?.id) {
         await (apiFunction as (id: string, payload: any) => Promise<any>)(initialData.id, payload);
-        successConfirmation(`${title} updated successfully`);
+        successConfirmation(`${effectiveTitle} updated successfully`);
       } else {
         await (apiFunction as (payload: any) => Promise<any>)(payload);
-        successConfirmation(`${title} created successfully`);
+        successConfirmation(`${effectiveTitle} created successfully`);
       }
 
       const eventKey = getEventKey(type);
@@ -152,7 +191,13 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
       onClose();
     } catch (err: any) {
       const action = isEditing ? "update" : "create";
-      setError(err.response?.data?.message || `Failed to ${action} ${title.toLowerCase()}`);
+      // `detail` carries the specific reason (e.g. a rejected circular move); `message`
+      // is only the generic status text.
+      setError(
+        err.response?.data?.detail
+        || err.response?.data?.message
+        || `Failed to ${action} ${effectiveTitle.toLowerCase()}`
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -162,7 +207,8 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
     switch (type) {
       case 'taskStatus': return 'Task Status Name';
       case 'taskPriority': return 'Task Priority Name';
-      case 'presetTask': return 'Preset Task Name';
+      // The name is always the node's OWN name — never its path.
+      case 'presetTask': return 'Task Name';
       default: return 'Name';
     }
   };
@@ -171,10 +217,13 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
     switch (type) {
       case 'taskStatus': return 'Enter task status name';
       case 'taskPriority': return 'Enter task priority name';
-      case 'presetTask': return 'Enter preset task name';
+      case 'presetTask': return 'Enter task name';
       default: return 'Enter name';
     }
   };
+
+  // Every level is the same entity, so the modal reads "Preset Task" at any depth.
+  const effectiveTitle = title;
 
   if (!show) return null;
 
@@ -183,7 +232,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
       <Modal show={show} onHide={onClose} centered style={{ zIndex: 1500 }}>
         <Modal.Header closeButton style={{ borderBottom: 'none', paddingBottom: '8px' }}>
           <Modal.Title style={{ fontWeight: '600', fontSize: '18px', color: '#1a1a1a' }}>
-            {isEditing ? "Edit" : "New"} {title}
+            {isEditing ? "Edit" : "New"} {effectiveTitle}
           </Modal.Title>
         </Modal.Header>
         <Formik
@@ -237,7 +286,45 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                   <ErrorMessage name="name" component="div" className="text-danger mt-1" />
                 </div>
 
-                {/* Color Picker */}
+                {/* Parent Task — one searchable picker over the whole tree. Choosing a
+                    parent is what places this node in the hierarchy; leaving it empty
+                    makes it a root. A node can be moved to any branch except its own. */}
+                {type === 'presetTask' && (
+                  <div className="mb-4">
+                    <HierarchicalTaskSelect
+                      formikField="parentId"
+                      inputLabel={
+                        <>
+                          Parent Task <span style={{ color: '#6c757d', fontWeight: 400, marginLeft: 4 }}>(optional)</span>
+                        </>
+                      }
+                      options={parentTaskOptions}
+                      placeholder="None — top-level task"
+                      helpText={
+                        <div className="text-muted mt-1" style={{ fontSize: '12px' }}>
+                          {values.parentId ? (
+                            <>
+                              <span style={{ fontWeight: 500 }}>Parent:</span>{' '}
+                              {parentPathFor(values.parentId).join(PATH_SEPARATOR)}
+                              {values.name ? (
+                                <>
+                                  <br />
+                                  <span style={{ fontWeight: 500 }}>{isEditing ? 'Full hierarchy:' : 'Will be created as:'}</span>{' '}
+                                  {[...parentPathFor(values.parentId), values.name].join(PATH_SEPARATOR)}
+                                </>
+                              ) : null}
+                            </>
+                          ) : (
+                            'Leave empty for a top-level task. Pick any task to file this one under it.'
+                          )}
+                        </div>
+                      }
+                    />
+                  </div>
+                )}
+
+                {/* Color Picker — preset tasks don't store a colour, the tree derives one. */}
+                {type !== 'presetTask' && (
                 <div className="mb-4">
                   <label
                     className="form-label"
@@ -311,6 +398,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                   </div>
                   <ErrorMessage name="color" component="div" className="text-danger mt-1" />
                 </div>
+                )}
               </Modal.Body>
 
               <Modal.Footer style={{ borderTop: 'none', paddingTop: '0' }}>

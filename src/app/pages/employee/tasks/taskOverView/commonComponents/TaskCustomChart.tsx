@@ -1,6 +1,7 @@
 ﻿import React, { useMemo } from "react";
 import ReactApexChart from "react-apexcharts";
 import { Card } from "react-bootstrap";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 type TaskChartDataItem = {
   label: string;
@@ -197,7 +198,7 @@ const TaskCustomChart: React.FC<TaskCustomChartProps> = ({
               }}
             >
               <div>
-                <i className="bi bi-info-circle" style={{ fontSize: "24px", color: "#9CAFC9" }}></i>
+                <AppIcon name="bi-info-circle" className="fs-1" color="#9CAFC9" />
               </div>
               <div
                 style={{

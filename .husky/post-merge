@@ -1,0 +1,2 @@
+#!/bin/sh
+sh scripts/hooks/sync-deps.sh ORIG_HEAD HEAD

@@ -24,6 +24,12 @@ export interface EmployeeIdentityCellProps {
   /** Compact mode: smaller avatar + tighter spacing (dense tables). */
   dense?: boolean;
   /**
+   * Employment status, shown as a dot on the avatar. Carries a title +
+   * aria-label because colour alone fails WCAG 1.4.1 — a red/green dot is
+   * invisible to the ~8% of men with red-green colour blindness.
+   */
+  status?: "active" | "inactive" | null;
+  /**
    * Let the text block use all available width instead of the fixed px caps
    * that keep table cells from stretching. Set this in card/grid layouts, where
    * the container already bounds the width and capping just truncates early.
@@ -64,6 +70,7 @@ const EmployeeIdentityCell: React.FC<EmployeeIdentityCellProps> = ({
   subtitle,
   dense = false,
   fluid = false,
+  status = null,
 }) => {
   const safeName = (name || "").trim() || "Unknown";
   const tint = tintFor(code || safeName);
@@ -106,23 +113,46 @@ const EmployeeIdentityCell: React.FC<EmployeeIdentityCellProps> = ({
         ...(fluid && { width: "100%" }),
       }}
     >
-      <Avatar
-        src={avatarUrl || undefined}
-        alt={safeName}
-        sx={{
-          width: size,
-          height: size,
-          flexShrink: 0,
-          bgcolor: tint.bg,
-          color: tint.fg,
-          fontSize: dense ? "0.72rem" : "0.8rem",
-          fontWeight: 700,
-          letterSpacing: "0.02em",
-          border: "1px solid rgba(16,24,40,0.06)",
-        }}
-      >
-        {initialsOf(safeName)}
-      </Avatar>
+      <Box sx={{ position: "relative", flexShrink: 0, display: "inline-flex" }}>
+        <Avatar
+          src={avatarUrl || undefined}
+          alt={safeName}
+          sx={{
+            width: size,
+            height: size,
+            flexShrink: 0,
+            bgcolor: tint.bg,
+            color: tint.fg,
+            fontSize: dense ? "0.72rem" : "0.8rem",
+            fontWeight: 700,
+            letterSpacing: "0.02em",
+            border: "1px solid rgba(16,24,40,0.06)",
+          }}
+        >
+          {initialsOf(safeName)}
+        </Avatar>
+        {status && (
+          <Box
+            component="span"
+            role="img"
+            aria-label={status === "active" ? "Active" : "Inactive"}
+            title={status === "active" ? "Active" : "Inactive"}
+            sx={{
+              position: "absolute",
+              right: -1,
+              bottom: -1,
+              width: dense ? 8 : 10,
+              height: dense ? 8 : 10,
+              borderRadius: "50%",
+              // Border is the paper colour so the dot reads as cut out of the
+              // avatar in BOTH themes — a hardcoded #fff ring goes wrong in dark.
+              border: 2,
+              borderColor: "background.paper",
+              bgcolor: status === "active" ? "success.main" : "text.disabled",
+            }}
+          />
+        )}
+      </Box>
 
       <Box sx={{ minWidth: 0, lineHeight: 1.3, ...(fluid && { flex: 1 }) }}>
         {/* Name row — the code rides alongside it when a subtitle owns line 2,

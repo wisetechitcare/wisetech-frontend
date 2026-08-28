@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { StatusDistributionRow, groupMeta } from "./leadAnalyticsUtils";
+import { formatCurrencyCompact } from "@utils/currency";
+import { ChartMetric, StatusDistributionRow, groupMeta } from "./leadAnalyticsUtils";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface PipelineDistributionProps {
   rows: StatusDistributionRow[];
@@ -8,6 +10,8 @@ interface PipelineDistributionProps {
   onSelect?: (label: string) => void;
   /** Context: 'leads' | 'projects' — filters displayed statuses */
   context?: 'leads' | 'projects';
+  /** Whether `row.value` is a count or money — money renders as compact ₹. */
+  metric?: ChartMetric;
 }
 
 /**
@@ -23,9 +27,13 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
   rows,
   onSelect,
   context = 'leads',
+  metric = 'count',
 }) => {
   const [hover, setHover] = useState<string | null>(null);
   const interactive = typeof onSelect === "function";
+  // In amount mode the bar value is money, so a bare number would read as a
+  // count. Compact ₹ (Cr / L) keeps long budgets from overflowing the row.
+  const showValue = (n: number) => (metric === 'amount' ? formatCurrencyCompact(n) : String(n));
 
   const select = (row: StatusDistributionRow) => {
     if (interactive) onSelect!(row.label);
@@ -57,7 +65,11 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
             key={row.key || i}
             role={interactive ? "button" : "group"}
             tabIndex={interactive ? 0 : -1}
-            aria-label={`${row.label}: ${row.value} ${entityType.toLowerCase()}, ${row.pct}% of total`}
+            aria-label={
+              metric === 'amount'
+                ? `${row.label}: ${showValue(row.value)}, ${row.pct}% of total value`
+                : `${row.label}: ${row.value} ${entityType.toLowerCase()}, ${row.pct}% of total`
+            }
             onClick={() => select(row)}
             onKeyDown={(e) => {
               if (interactive && (e.key === "Enter" || e.key === " ")) {
@@ -98,7 +110,7 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
                   color: row.color,
                 }}
               >
-                <i className={`bi ${row.icon}`} style={{ fontSize: 13 }} />
+                <AppIcon name={row.icon} className="fs-7" />
               </span>
               <span
                 style={{
@@ -150,18 +162,21 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
                 alignItems: "baseline",
                 gap: 6,
                 justifyContent: "flex-end",
-                minWidth: 78,
+                // "₹24,947.01 Cr" needs far more room than "444", so widen the
+                // value gutter in amount mode instead of letting it wrap.
+                minWidth: metric === 'amount' ? 132 : 78,
               }}
             >
               <span
                 style={{
                   fontFamily: "Barlow, sans-serif",
                   fontWeight: 700,
-                  fontSize: 16,
+                  fontSize: metric === 'amount' ? 14 : 16,
                   color: "#0F172A",
+                  whiteSpace: "nowrap",
                 }}
               >
-                {row.value}
+                {showValue(row.value)}
               </span>
               <span
                 style={{
@@ -203,7 +218,23 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
               >
                 <strong>{row.label}</strong>
                 <br />
-                {row.value} {entityType} · {row.pct}% of total
+                {metric === 'amount' ? (
+                  <>
+                    {showValue(row.value)} · {row.pct}% of total value
+                    {/* The count still rides along as volumeValue, so amount mode
+                        can show both measures rather than hiding the count. */}
+                    {row.volumeValue !== undefined && (
+                      <>
+                        <br />
+                        {row.volumeValue} {entityType}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {row.value} {entityType} · {row.pct}% of total
+                  </>
+                )}
                 <br />
                 <span style={{ color: groupMeta(row.group).color }}>
                   {groupMeta(row.group).label}

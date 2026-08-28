@@ -28,7 +28,13 @@ export const WtCloseButton = forwardRef<HTMLButtonElement, WtCloseButtonProps>(f
             aria-label={ariaLabel}
             title={ariaLabel}
             className={cn(
-                'inline-grid place-items-center rounded-full shrink-0 outline-none',
+                // `rounded-full!`: Metronic's SCSS (imported globally in main.tsx)
+                // carries Bootstrap's button rules, which are unlayered and so
+                // outrank Tailwind's utility layer. Without the important flag a
+                // plain `rounded-full` loses and the button renders as a rounded
+                // SQUARE — which is why close buttons looked inconsistent from one
+                // dialog to the next. Same fix as the section chips in FaqsBoard.
+                'inline-grid place-items-center rounded-full! shrink-0 outline-none',
                 'transition-[background,color,transform,box-shadow] duration-150 ease-[cubic-bezier(.22,.61,.36,1)]',
                 'hover:-translate-y-px active:translate-y-0 active:scale-90',
                 'disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0',

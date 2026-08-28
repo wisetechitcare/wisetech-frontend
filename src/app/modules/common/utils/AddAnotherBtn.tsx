@@ -26,7 +26,7 @@ function AddAnotherBtn({ onClick }: AddAnotherBtnProps) {
                 padding: '7px 0',
             }}
         >
-            Add another
+            Add Another
         </button>
     );
 }

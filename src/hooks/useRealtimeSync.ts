@@ -69,12 +69,6 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       eventBus.emit(EVENT_KEYS.attendanceUpdated, payload || {});
     };
 
-    // a biometric sync queued a conflict (proposed overwrite of human-entered
-    // check-in/out) → refresh the pending-conflicts review panel/badge live.
-    const onAttendanceSyncConflict = (payload: { employeeId?: string; branchIds?: string[] }) => {
-      eventBus.emit(EVENT_KEYS.attendanceSyncConflict, payload || {});
-    };
-
     // leave mutations (apply/edit/delete/per-segment) + approval decisions/cancellations. The
     // Balance board (BalanceProgress) subscribes to the eventBus leaveRequestUpdated key but NOT to
     // sockets directly, so without this bridge the balance card stayed stale after an approver acted
@@ -92,7 +86,20 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       eventBus.emit(EVENT_KEYS.attendanceRequestUpdated, { id: payload?.id ?? '' });
     };
 
+    // FAQ content changed (HR/admin created, edited or deleted one). Bridges to
+    // the faq* eventBus keys that already existed but were only ever emitted
+    // locally by the acting component — so before this, an HR edit reached
+    // nobody else's screen until they reloaded.
+    const onFaqsUpdated = (payload: { action?: string; id?: string }) => {
+      const key =
+        payload?.action === 'created' ? EVENT_KEYS.faqCreated :
+        payload?.action === 'deleted' ? EVENT_KEYS.faqDeleted :
+        EVENT_KEYS.faqUpdated;
+      eventBus.emit(key, { id: payload?.id ?? '' });
+    };
+
     socket.on('connect', onConnect);
+    socket.on('faqs_updated', onFaqsUpdated);
     socket.on('attendanceRequests:updated', onAttendanceRequestChanged);
     socket.on('lead_project_synced', onLeadProjectSynced);
     socket.on('project_linked', onProjectLinked);
@@ -100,13 +107,13 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
     socket.on('biometric_device_updated', onBiometricDeviceUpdated);
     socket.on('reimbursement_changed', onReimbursementChanged);
     socket.on('attendance_updated', onAttendanceUpdated);
-    socket.on('attendance_sync_conflict', onAttendanceSyncConflict);
     socket.on('leaveRequests:updated', onLeaveChanged);
     socket.on('approval:updated', onLeaveChanged);
     socket.on('approval:cancelled', onLeaveChanged);
 
     return () => {
       socket.off('connect', onConnect);
+      socket.off('faqs_updated', onFaqsUpdated);
       socket.off('attendanceRequests:updated', onAttendanceRequestChanged);
       socket.off('lead_project_synced', onLeadProjectSynced);
       socket.off('project_linked', onProjectLinked);
@@ -114,7 +121,6 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       socket.off('biometric_device_updated', onBiometricDeviceUpdated);
       socket.off('reimbursement_changed', onReimbursementChanged);
       socket.off('attendance_updated', onAttendanceUpdated);
-      socket.off('attendance_sync_conflict', onAttendanceSyncConflict);
       socket.off('leaveRequests:updated', onLeaveChanged);
       socket.off('approval:updated', onLeaveChanged);
       socket.off('approval:cancelled', onLeaveChanged);

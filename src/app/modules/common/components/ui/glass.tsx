@@ -1,12 +1,15 @@
-import { forwardRef } from 'react';
+import { Children, forwardRef, isValidElement } from 'react';
 import {
-  Box, BoxProps, Dialog, DialogProps, Fade, Grow, IconButton, Stack, Typography, useMediaQuery, useTheme,
+  Box, BoxProps, Dialog, DialogActions, DialogContent, DialogProps, Fade, Grow, IconButton,
+  Stack, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { T, GlassVariant, VividTone, ThemeMode, label } from './tokens';
+import { toTitleCase } from './text';
 import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
+import { WtCloseButton } from './tw/WtCloseButton';
 
 /** Read the active MUI theme mode as our ThemeMode ('light' | 'dark'). */
 function useMode(): ThemeMode {
@@ -181,7 +184,7 @@ export function GlassHeader({
         )}
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontWeight: 700, fontSize: { xs: 15.5, sm: 17 }, lineHeight: 1.25, color: gradient ? '#fff' : label(mode, 'primary') }}>
-            {title}
+            {toTitleCase(title)}
           </Typography>
           {subtitle && (
             <Typography sx={{ fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: gradient ? 'rgba(255,255,255,0.72)' : label(mode, 'secondary') }}>
@@ -193,16 +196,15 @@ export function GlassHeader({
       <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
         {action}
         {onClose && (
-          <IconButton onClick={onClose} aria-label="Close" sx={{
-            width: 38, height: 38,
-            ...(gradient
-              ? { color: '#fff', bgcolor: 'rgba(255,255,255,0.10)', '&:hover': { bgcolor: 'rgba(255,255,255,0.20)' } }
-              : { color: label(mode, 'secondary'), bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.08)' : T.color.panelAlt, '&:hover': { bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.14)' : T.color.line } }),
-            transition: `background-color .15s, transform .12s ${MRD_EASE}`,
-            '&:active': { transform: 'scale(.92)' },
-          }}>
-            {closeIcon ?? <Box component="span" sx={{ fontSize: 20, lineHeight: 1, fontWeight: 400 }}>&times;</Box>}
-          </IconButton>
+          // SINGLE SOURCE OF TRUTH: this used to be a bespoke MUI IconButton
+          // rendering a `&times;` text glyph, while the Tailwind GlassHeader used
+          // WtCloseButton. Two dialog systems, two different close controls —
+          // which is why the × looked round on some dialogs and square on others.
+          // Both now render the same component. `closeIcon` is still honoured for
+          // the rare header that needs a different glyph.
+          closeIcon
+            ? <IconButton onClick={onClose} aria-label="Close" sx={{ width: 38, height: 38 }}>{closeIcon}</IconButton>
+            : <WtCloseButton variant={gradient ? 'dark' : 'light'} onClick={onClose} size={38} />
         )}
       </Stack>
     </Box>
@@ -230,6 +232,21 @@ export function GlassDialog({
   const fullScreen = mobileFullScreen && isPhone;
   const scrim = T.glass[mode].scrim;
   const scrimBlur = `blur(${T.glass[mode].scrimBlur}px)`;
+
+  // Does the caller use MUI's own dialog scaffolding? `DialogContent` is already a
+  // flex-1 scroll region and `DialogActions` is already a pinned footer, so those
+  // dialogs must be left alone — wrapping them would put the footer inside the
+  // scroller and it would scroll away with the content.
+  //
+  // Everyone else passes a plain <Box>/fragment. A flex item with visible overflow
+  // resolves `min-height: auto`, so it refuses to shrink, grows past the Paper, and
+  // is then CLIPPED by the `overflow: hidden` below (which the rounded glass corners
+  // need). MUI's stock Paper avoids this with `overflow-y: auto`; the glass override
+  // traded that away and never replaced it, so tall content was unreachable —
+  // no scrollbar, no keyboard scroll, just cut off.
+  const managesOwnScrolling = Children.toArray(children).some(
+    (child) => isValidElement(child) && (child.type === DialogContent || child.type === DialogActions),
+  );
 
   return (
     <Dialog
@@ -259,8 +276,25 @@ export function GlassDialog({
         },
       }}
     >
-      {header}
-      {children}
+      {/* flexShrink:0 — the header is chrome; it must not be squeezed to make room
+          for a tall body, which is what a default flex item would do. */}
+      {header ? <Box sx={{ flexShrink: 0 }}>{header}</Box> : null}
+      {managesOwnScrolling ? children : (
+        <Box
+          sx={{
+            flex: '1 1 auto',
+            // Required: without it this flex item keeps `min-height: auto` and will not
+            // shrink below its content, so overflowY never has anything to scroll.
+            minHeight: 0,
+            overflowY: 'auto',
+            // Keep a wheel/trackpad gesture that reaches the end of the dialog from
+            // continuing on to scroll the page behind the scrim.
+            overscrollBehavior: 'contain',
+          }}
+        >
+          {children}
+        </Box>
+      )}
     </Dialog>
   );
 }

@@ -237,8 +237,7 @@ export const KPI_Module_Name = {
 
 export const leadAndProjectTemplateTypeId = {
     newLead: "blank",
-    mep: "mep",
-    webDev: "web-dev"
+    mep: "mep"
 }
 
 /** @deprecated Alias — prefer ONSITE_HOLIDAY_WEEKEND_EXEMPTION_KEY from @constants/configurations-key. */

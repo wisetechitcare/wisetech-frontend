@@ -5,6 +5,8 @@ import PlainDatePicker from '../common/inputs/PlainDatePicker';
 import { C, FONT, RADIUS } from '../configuration/ConfigDesignSystem';
 import { DetailCard, type AccentColor } from './DetailPageComponents';
 import './DetailPageResponsive.css';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
 
 /**
  * EditableDetailCard — a DetailCard that flips between read-only and inline-edit
@@ -93,14 +95,14 @@ export function EditableDetailCard<T extends Record<string, any>>({
         {saving ? (
           <span className="spinner-border spinner-border-sm" role="status" style={{ width: 12, height: 12 }} />
         ) : (
-          <i className="bi bi-check2" style={{ fontSize: 14 }} />
+          <AppIcon name="bi-check2" className="fs-6" />
         )}
         {saving ? 'Saving…' : 'Save'}
       </button>
     </div>
   ) : (
     <button type="button" style={iconBtn} onClick={open}>
-      <i className="bi bi-pencil" style={{ fontSize: 12 }} /> Edit
+      <AppIcon name="bi-pencil" className="fs-7" /> Edit
     </button>
   );
 
@@ -121,7 +123,7 @@ export function EditableDetailCard<T extends Record<string, any>>({
             fontWeight: 500,
           }}
         >
-          <i className="bi bi-exclamation-triangle me-2" />
+          <AppIcon name="bi-exclamation-triangle" className="me-2" />
           {error}
         </div>
       )}
@@ -251,7 +253,7 @@ export const SearchableSelectEditor: React.FC<{
   showColor?: boolean;
   formatOptionLabel?: (option: any, context: any) => React.ReactNode;
 }> = ({ value, onChange, options, placeholder = 'Select…', showColor, formatOptionLabel }) => (
-  <Select
+  <Select{...FLOATING_MENU_BEHAVIOUR}
     options={options}
     value={options.find(o => String(o.value) === String(value ?? '')) ?? null}
     onChange={(opt: any) => onChange(opt?.value ?? '')}

@@ -127,10 +127,21 @@ export interface GlassDialogProps {
   header?: React.ReactNode;
   className?: string;
   children?: React.ReactNode;
+  /**
+   * Wrap `children` in the dialog's scroll region. Default TRUE.
+   *
+   * Set false ONLY when the caller lays out its own flex column inside the panel — a `shrink-0`
+   * header and a `grow overflow-y-auto` body, say — because wrapping that would put the pinned
+   * parts inside the scroller and they would scroll away with the content. This is the tw
+   * equivalent of the MUI kit's DialogContent/DialogActions detection, which cannot work here
+   * because the tw kit has no such marker components.
+   */
+  scrollBody?: boolean;
 }
 
 export function GlassDialog({
   open, onClose, maxWidth = 'md', mobileFullScreen = true, header, className, children,
+  scrollBody = true,
 }: GlassDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
@@ -181,8 +192,27 @@ export function GlassDialog({
             transition={{ duration: reduce ? 0 : 0.22, ease: [0.22, 0.61, 0.36, 1] }}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            {header}
-            {children}
+            {/* shrink-0 — the header is chrome and must not be squeezed to make room for a tall
+                body, which is what a default flex item would do. */}
+            {header ? <div className="shrink-0">{header}</div> : null}
+            {/*
+              THE SCROLL REGION. Without it, `children` is a plain flex item of a
+              `flex flex-col overflow-hidden max-h-[92vh]` panel: it keeps `min-height: auto` and
+              `flex-shrink: 1`, so tall content is first SQUEEZED and then CLIPPED, with no
+              scrollbar and no keyboard scroll — the bottom of the dialog simply unreachable.
+
+              The MUI twin (ui/glass.tsx) carries this same fix with the same reasoning. This kit
+              was re-platformed onto Tailwind "with API parity" and the fix was not ported, so every
+              tw GlassDialog whose content exceeds the panel has been silently truncated.
+
+              `min-h-0` is the load-bearing half: a flex item's automatic minimum size otherwise
+              refuses to shrink below its content, and `overflow-y-auto` then has nothing to scroll.
+              `overscroll-contain` stops a gesture that reaches the end from scrolling the page
+              behind the scrim.
+            */}
+            {scrollBody
+              ? <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">{children}</div>
+              : children}
           </motion.div>
         </motion.div>
       )}

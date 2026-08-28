@@ -11,6 +11,7 @@ import { fetchAllCountries } from "@services/options";
 import { fetchHolidays } from '@services/company';
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import DropdownAdd from "@app/modules/common/utils/DropdownAdd";
+import { FLOATING_MENU_PROPS } from "@app/modules/common/inputs/selectMenuProps";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 
@@ -120,6 +121,7 @@ function PublicHolidayForm({ onClose, setShowNewHolidayForm }: { onClose: () => 
                             <div className='col-lg-6 fv-row mb-9 mb-lg-0'>
                                 <label className='required fs-6 fw-bold form-label mb-4'>Holiday Name</label>
                                 <Select
+                                    {...FLOATING_MENU_PROPS}
                                     components={{ MenuList: (props) => <DropdownAdd{...props} onClick={addDropdown} /> }}
                                     options={holidaysOption}
                                     onChange={(option: any) => formik.setFieldValue('holidayId', option.value, true)} />
@@ -229,6 +231,7 @@ function PublicHolidayForm({ onClose, setShowNewHolidayForm }: { onClose: () => 
                             <div className='col-lg-6 fv-row' onClick={getAllCountries}>
                                 <label className='required col-lg-6 col-form-label fw-bold fs-6 mb-4'>Observed In</label>
                                 <Select
+                                    {...FLOATING_MENU_PROPS}
                                     options={countriesOption}
                                     onChange={(option: any) => formik.setFieldValue('observedIn', option.label, true)} />
 

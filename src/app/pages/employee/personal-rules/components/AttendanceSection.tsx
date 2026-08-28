@@ -14,6 +14,7 @@ import Loader from '@app/modules/common/utils/Loader';
 import DailyShiftTimeSection from './DailyShiftTimeSection';
 import OtherSettingsSection from './OtherSettingsSection';
 import { fetchCompanySettings } from '@services/options';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface DayWiseShiftData {
   id: string;
@@ -183,14 +184,7 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <i className="ki-duotone ki-calendar-8 fs-2">
-              <span className="path1"></span>
-              <span className="path2"></span>
-              <span className="path3"></span>
-              <span className="path4"></span>
-              <span className="path5"></span>
-              <span className="path6"></span>
-            </i>
+            <AppIcon name="calendar-8" className="fs-2" />
           </div>
           <p style={{
             fontFamily: 'Barlow, sans-serif',

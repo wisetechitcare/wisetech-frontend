@@ -27,6 +27,7 @@ import { fetchAppSettings } from "@redux/slices/appSettings";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { Status } from "@constants/statistics";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface MarkAttendanceProps {
     variant?: 'default' | 'dashboard';
@@ -237,7 +238,6 @@ useEffect(() => {
                 dayjs(leave.date).format('YYYY-MM-DD')
             );
             
-            // debugger;
             const holidaysDates = filteredLeavesHolidays?.publicHolidays.map((holiday) => 
                 dayjs(holiday.date).format('YYYY-MM-DD')
             );
@@ -267,7 +267,6 @@ useEffect(() => {
                 const holidayObj = publicHolidaysMap.get(date);
                 const isHolidayMarkedAsWeekend = holidayObj && holidayObj.isWeekend === true;
                 const res = isWeekend || isOffDay || isHoliday || isLeave || isHolidayMarkedAsWeekend;
-                // debugger;
                 return res;
             };
 
@@ -299,7 +298,6 @@ useEffect(() => {
                     hasPendingRequest: hasPendingRequest || hasCompleteRequest, // Allow if pending OR complete
                     rawRequests: attendanceRequests // For debugging
                 };
-                // debugger;
                 return {
                     hasAttendanceRecord: empAttendanceStatistics.length > 0,
                     hasCheckIn: empAttendanceStatistics.length > 0 && empAttendanceStatistics[0].checkIn !== null,
@@ -353,7 +351,6 @@ useEffect(() => {
                 
                 const attendanceStatus = await checkAttendanceStatus(dateToCheck);
                 const isNonWorking = isNonWorkingDay(dateToCheck);
-                // debugger;
                 if(dayjs(dateToCheck).isSameOrBefore(dayjs(dateOfJoining))){
                     canCheckIn = true;
                     setPreviousWorkingDay("");
@@ -1068,7 +1065,7 @@ const getBlockingMessage = async () => {
             >
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
                     <IconButton onClick={handleClose} aria-label="close">
-                        <i className="bi bi-x-lg" />
+                        <AppIcon name="bi-x-lg" />
                     </IconButton>
                 </DialogTitle>
                 <DialogContent>

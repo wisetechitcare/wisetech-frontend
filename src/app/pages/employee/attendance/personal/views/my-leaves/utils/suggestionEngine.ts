@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { computeLeaveBreakdown } from '@utils/leaveCalcEngine';
+import { isNonWorkingWeekday } from '@utils/workingDays';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -393,6 +394,13 @@ export function generateMonthlySuggestions(
   holidays: Set<string>,
   maxLeave: number,
   maxSuggestions = 3,
+  /**
+   * The branch's `workingAndOffDays`. Without it every Saturday is assumed to be a
+   * weekend, which is wrong for a branch that works Saturdays — the engine then
+   * suggests bridging around days the employee is expected to work. The genuine
+   * off-Saturdays already arrive in `holidays`, so they stay covered either way.
+   */
+  workingAndOffDays?: unknown,
 ): Suggestion[] {
   const today = new Date();
   const windowEnd = dayjs(today).add(90, 'day').toDate();
@@ -401,7 +409,7 @@ export function generateMonthlySuggestions(
       windowStart: today,
       windowEnd,
       holidays,
-      isWeekendFn: (d) => d.getDay() === 0 || d.getDay() === 6,
+      isWeekendFn: (d) => isNonWorkingWeekday(d, workingAndOffDays),
       balanceAvailable: maxLeave,
       capRemaining: Infinity,
       existingLeaves: [],

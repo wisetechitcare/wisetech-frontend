@@ -7,6 +7,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
 import OrganizationConfigureForm from "./components/OrganizationConfigureForm";
+import { ActionIconButton, AppIcon } from "@app/modules/common/components/ui";
 import {
   ConfigPageLayout,
   ConfigSectionCard,
@@ -53,7 +54,7 @@ const NameChip: React.FC<NameChipProps> = ({ name, onEdit, onDelete }) => {
         transition: 'opacity 0.15s ease',
       }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0, paddingLeft: '4px' }}>
-        <i className="bi bi-dash-circle" style={{ fontSize: '11px', color: C.textMuted, flexShrink: 0 }} />
+        <AppIcon name="bi-dash-circle" className="fs-8" color={C.textMuted} style={{ flexShrink: 0 }} />
         <span style={{
           fontFamily: FONT.body, fontWeight: 500, fontSize: '13px',
           color: C.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -61,19 +62,11 @@ const NameChip: React.FC<NameChipProps> = ({ name, onEdit, onDelete }) => {
           {name}
         </span>
       </div>
-      <div style={{ display: 'flex', gap: '4px', flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
-        <button
-          onClick={onEdit}
-          style={{ background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
-        >
-          <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
-        </button>
-        <button
-          onClick={onDelete}
-          style={{ background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
-        >
-          <i className="bi bi-trash" style={{ fontSize: '11px' }} />
-        </button>
+      {/* Always visible: these used to sit at 0.35 opacity until hover, which read as
+          disabled and is unreachable on touch, where there is no hover at all. */}
+      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+        <ActionIconButton iconName="pencil" title="Edit" onClick={onEdit} size="sm" />
+        <ActionIconButton iconName="trash" title="Delete" tone="danger" onClick={onDelete} size="sm" />
       </div>
     </div>
   );
@@ -87,7 +80,7 @@ const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const EmptyState: React.FC<{ label: string }> = ({ label }) => (
   <div style={{ textAlign: 'center', padding: '28px 16px', color: C.textMuted, fontFamily: FONT.body, fontSize: '13px' }}>
-    <i className="bi bi-inbox" style={{ fontSize: '28px', display: 'block', marginBottom: '8px', opacity: 0.4 }} />
+    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: 'block', marginBottom: '8px', opacity: 0.4 }} />
     No {label} configured yet
   </div>
 );
@@ -115,10 +108,6 @@ const OrganizationConfigure = () => {
   const [showWorkingTypeModal, setShowWorkingTypeModal] = useState(false);
   const [editingWorkingType, setEditingWorkingType] = useState<OrganizationConfigItem | null>(null);
 
-  const [roomBlocks, setRoomBlocks] = useState<OrganizationConfigItem[]>([]);
-  const [showRoomBlockModal, setShowRoomBlockModal] = useState(false);
-  const [editingRoomBlock, setEditingRoomBlock] = useState<OrganizationConfigItem | null>(null);
-
   // ── Handlers ────────────────────────────────────────────────────────────────
 
   const handleShiftModalOpen = () => setShowShiftModal(true);
@@ -129,9 +118,6 @@ const OrganizationConfigure = () => {
   const handleWorkingTypeModalClose = () => { setShowWorkingTypeModal(false); setEditingWorkingType(null); };
   const handleWorkingTypeEdit = (w: OrganizationConfigItem) => { setEditingWorkingType(w); setShowWorkingTypeModal(true); };
 
-  const handleRoomBlockModalOpen = () => setShowRoomBlockModal(true);
-  const handleRoomBlockModalClose = () => { setShowRoomBlockModal(false); setEditingRoomBlock(null); };
-  const handleRoomBlockEdit = (r: OrganizationConfigItem) => { setEditingRoomBlock(r); setShowRoomBlockModal(true); };
 
   // ── Fetch functions ─────────────────────────────────────────────────────────
 
@@ -153,18 +139,9 @@ const OrganizationConfigure = () => {
     finally { setLoading(false); }
   };
 
-  const fetchRoomBlocks = async () => {
-    try {
-      setLoading(true);
-      const response = await fetchAllOrganizationConfigurations('ROOM_BLOCK');
-      if (response?.data?.organizationConfigurations) setRoomBlocks(response.data.organizationConfigurations);
-    } catch (error) { console.error('Error fetching room blocks:', error); }
-    finally { setLoading(false); }
-  };
-
   // ── Delete handler ──────────────────────────────────────────────────────────
 
-  const handleDelete = async (id: string, type: 'SHIFT' | 'WORKING_TYPE' | 'ROOM_BLOCK') => {
+  const handleDelete = async (id: string, type: 'SHIFT' | 'WORKING_TYPE') => {
     try {
       const confirmed = await deleteConfirmation(`Successfully deleted ${type.toLowerCase().replace('_', ' ')}`);
       if (!confirmed) return;
@@ -172,17 +149,16 @@ const OrganizationConfigure = () => {
       switch (type) {
         case 'SHIFT': fetchShifts(); break;
         case 'WORKING_TYPE': fetchWorkingTypes(); break;
-        case 'ROOM_BLOCK': fetchRoomBlocks(); break;
       }
     } catch (error) { console.error(`Error deleting ${type}:`, error); }
   };
 
   // ── Effects ─────────────────────────────────────────────────────────────────
 
-  useEffect(() => { fetchShifts(); fetchWorkingTypes(); fetchRoomBlocks(); }, []);
+  useEffect(() => { fetchShifts(); fetchWorkingTypes(); }, []);
 
-  useEventBus(EVENT_KEYS.organizationConfigCreated, () => { fetchShifts(); fetchWorkingTypes(); fetchRoomBlocks(); });
-  useEventBus(EVENT_KEYS.organizationConfigUpdated, () => { fetchShifts(); fetchWorkingTypes(); fetchRoomBlocks(); });
+  useEventBus(EVENT_KEYS.organizationConfigCreated, () => { fetchShifts(); fetchWorkingTypes(); });
+  useEventBus(EVENT_KEYS.organizationConfigUpdated, () => { fetchShifts(); fetchWorkingTypes(); });
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -191,34 +167,9 @@ const OrganizationConfigure = () => {
       <style>{KEYFRAMES}</style>
       <ConfigPageLayout
         title="Company Configuration"
-        subtitle="Manage office rooms, shifts, and working location types"
+        subtitle="Manage shifts and working location types"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
-
-          {/* Room / Blocks */}
-          <ConfigSectionCard
-            title="Rooms / Blocks"
-            description="Define the physical rooms or blocks available across your office locations."
-            icon="bi-building"
-            iconColor="blue"
-            primaryAction={{ label: 'New Room/Block', icon: 'bi-plus-lg', onClick: handleRoomBlockModalOpen, variant: 'primary' }}
-            loading={loading}
-          >
-            {roomBlocks.length === 0
-              ? <EmptyState label="rooms or blocks" />
-              : (
-                <ChipGrid>
-                  {roomBlocks.map((r) => (
-                    <NameChip
-                      key={r.id} name={r.name}
-                      onEdit={() => handleRoomBlockEdit(r)}
-                      onDelete={() => handleDelete(r.id, 'ROOM_BLOCK')}
-                    />
-                  ))}
-                </ChipGrid>
-              )
-            }
-          </ConfigSectionCard>
 
           {/* Shifts */}
           <ConfigSectionCard
@@ -249,15 +200,6 @@ const OrganizationConfigure = () => {
 
       {/* ── Modals ──────────────────────────────────────────────────────────────── */}
 
-      <OrganizationConfigureForm
-        show={showRoomBlockModal}
-        onClose={handleRoomBlockModalClose}
-        onSuccess={fetchRoomBlocks}
-        initialData={editingRoomBlock}
-        isEditing={!!editingRoomBlock}
-        type="ROOM_BLOCK"
-        title="Room/Block"
-      />
       <OrganizationConfigureForm
         show={showShiftModal}
         onClose={handleShiftModalClose}

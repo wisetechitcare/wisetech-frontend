@@ -10,6 +10,7 @@ import { KTIcon } from '@metronic/helpers';
 import SandwichLeave from '@pages/company/settings/SandwhichLeave';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface LeavesSectionProps {
   sectionRef?: (el: HTMLDivElement | null) => void;
@@ -120,14 +121,7 @@ const LeavesSection: React.FC<LeavesSectionProps> = ({ sectionRef }) => {
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <i className="ki-duotone ki-calendar-tick fs-2">
-              <span className="path1"></span>
-              <span className="path2"></span>
-              <span className="path3"></span>
-              <span className="path4"></span>
-              <span className="path5"></span>
-              <span className="path6"></span>
-            </i>
+            <AppIcon name="calendar-tick" className="fs-2" />
           </div>
           <p style={{
             fontFamily: 'Barlow, sans-serif',

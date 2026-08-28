@@ -86,9 +86,12 @@ function LastSynced({ ts }: { ts: string | null }) {
   );
 }
 
+// No hardcoded background here: the gradient this used to carry was white-to-near-white,
+// so the tile stayed white on a dark page. `Paper variant="outlined"` already resolves
+// `background.paper` for the active theme — the override was defeating it.
 function StatTile({ label, value, tone, icon }: { label: string; value: ReactNode; tone: string; icon: ReactNode }) {
   return (
-    <Paper variant="outlined" sx={{ minWidth: 0, p: 1.5, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: 1.25, background: 'linear-gradient(180deg, #ffffff 0%, #FCFDFF 100%)' }}>
+    <Paper variant="outlined" sx={{ minWidth: 0, p: 1.5, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: 1.25 }}>
       <Box sx={{ width: 42, height: 42, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: `${tone}1A`, color: tone, border: `1px solid ${tone}2E`, flexShrink: 0 }}>{icon}</Box>
       <Box sx={{ minWidth: 0 }}>
         <Typography noWrap sx={{ fontSize: 19, fontWeight: 750, lineHeight: 1.15, color: 'text.primary' }}>{value}</Typography>

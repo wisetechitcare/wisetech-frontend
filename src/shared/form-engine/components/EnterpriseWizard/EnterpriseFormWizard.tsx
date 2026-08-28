@@ -6,6 +6,7 @@ import { EnterpriseWizardStep, WizardActionConfig, WizardSummaryConfig } from ".
 import { SummarySidebar } from "../SummarySidebar/SummarySidebar";
 import { WizardSidebar } from "../WizardSidebar/WizardSidebar";
 import "@app/pages/employee/forms/shared/Workspace.css";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
   module: string;
@@ -16,6 +17,8 @@ interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
   headerTitle?: string;
   headerSub?: React.ReactNode;
   headerActions?: React.ReactNode;
+  /** Bootstrap-icon class for the header avatar. Defaults per `module`. */
+  moduleIcon?: string;
   sidebarTitle?: string;
   breadcrumb?: string[];
   onStepChange?: (step: number) => void;
@@ -30,6 +33,8 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
   actions,
   headerTitle,
   headerSub,
+  headerActions,
+  moduleIcon,
   sidebarTitle,
   breadcrumb,
   onStepChange,
@@ -109,7 +114,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
           {/* Title with module avatar */}
           <div className="wizard-title-row">
             <div className="wizard-header-avatar" aria-hidden>
-              <i className={`bi ${module === "project" ? "bi-buildings-fill" : "bi-building"}`} />
+              <AppIcon name={moduleIcon || (module === "project" ? "bi-buildings-fill" : "bi-building")} />
             </div>
             <div style={{ minWidth: 0 }}>
               <h1 className="wizard-title">{headerTitle}</h1>
@@ -118,9 +123,14 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
           </div>
         </div>
 
-        {/* Header action buttons */}
-        <div className="wizard-header-actions" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          {/* Export buttons moved to Summary sidebar */}
+        {/* Header action buttons. Export lives in the Summary sidebar; this slot is
+            for module-level actions (e.g. the Company form's schema manager). The
+            close button is absolutely positioned by the host modal, so leave room. */}
+        <div
+          className="wizard-header-actions"
+          style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginRight: "2.5rem" }}
+        >
+          {headerActions}
         </div>
       </div>
 

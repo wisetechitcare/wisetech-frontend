@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { C, FONT, SP, RADIUS, KEYFRAMES } from './ConfigDesignSystem';
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 export interface ConfigTab {
   id: string;
@@ -80,7 +81,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
                 flexShrink: 0,
                 boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
               }}>
-                <i className={`bi ${icon}`} style={{ fontSize: '20px', color: '#fff' }} />
+                <AppIcon name={icon} className="fs-2" color="#fff" />
               </div>
             )}
             <div>
@@ -167,7 +168,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
                     letterSpacing: '0',
                   }}
                 >
-                  <i className={`bi ${tab.icon}`} style={{ fontSize: '14px', opacity: isActive ? 1 : 0.75 }} />
+                  <AppIcon name={tab.icon} className="fs-6" style={{ opacity: isActive ? 1 : 0.75 }} />
                   {tab.label}
                   {tab.badge !== undefined && (
                     <span style={{

@@ -94,7 +94,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
 
     return (
         <Box>
-            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
+            <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
                 <Typography sx={{ fontWeight: 700, fontSize: 16, flex: 1 }}>Interviews — {applicantName}</Typography>
                 {evaluation && evaluation.scorecardCount > 0 && (
                     <ToneChip tone={evaluation.recommendation?.includes("YES") ? "success" : "danger"} label={`${evaluation.averageOverall ?? "—"}/5 · ${evaluation.scorecardCount} scorecard(s)`} dense />

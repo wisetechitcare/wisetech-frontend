@@ -16,6 +16,7 @@ import BirthdayConfetti from "@app/modules/common/utils/BirthdayConfetti";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 import GlobalSearch from "@app/modules/common/components/GlobalSearch/GlobalSearch";
 import { ColorModeToggle } from "@app/theme/ColorMode";
+import { NavTransformToggle } from "@/contexts/NavTransformContext";
 
 const HeaderToolbar = () => {
   const { classes } = useLayout();
@@ -117,6 +118,10 @@ const HeaderToolbar = () => {
               <div className="wt-header-actions d-flex gap-lg-3 gap-5" >
                 <div className="d-flex align-items-center">
                   <GlobalSearch />
+                </div>
+                {/* sidebar <-> container navigation (renders null below lg) */}
+                <div className="d-flex align-items-center">
+                  <NavTransformToggle className="btn-icon btn-active-color-primary" />
                 </div>
                 {/* light / dark mode toggle (drives the app-wide unified color mode) */}
                 <div className="d-flex align-items-center">

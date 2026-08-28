@@ -3,6 +3,7 @@ import Select, { components, MultiValue, ActionMeta } from 'react-select';
 import { Modal } from 'react-bootstrap';
 import { useFormikContext } from 'formik';
 import { sortOptionsAlphabetically } from '@utils/sortUtils';
+import { FLOATING_MENU_BEHAVIOUR, MENU_PORTAL_STYLE } from "@app/modules/common/inputs/selectMenuProps";
 
 // TypeScript interfaces
 export interface Option {
@@ -205,7 +206,7 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
           {inputLabel}
         </label>
         
-        <Select
+        <Select{...FLOATING_MENU_BEHAVIOUR}
           isMulti
           name={formikField}
           options={sortedOptions}
@@ -224,15 +225,21 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
               createButtonText 
             }) 
           } : undefined}
-          styles={hasError ? {
-            control: (base) => ({
-              ...base,
-              borderColor: '#dc3545',
-              '&:hover': {
+          // MENU_PORTAL_STYLE must always be merged in: the menu is portalled to
+          // <body>, and without its z-index it paints BEHIND any dialog/modal that
+          // owns the field — the menu opens, but is invisible and unclickable.
+          styles={{
+            ...MENU_PORTAL_STYLE,
+            ...(hasError ? {
+              control: (base: any) => ({
+                ...base,
                 borderColor: '#dc3545',
-              },
-            }),
-          } : undefined}
+                '&:hover': {
+                  borderColor: '#dc3545',
+                },
+              }),
+            } : {}),
+          }}
         />
 
         {hasError && (
@@ -257,7 +264,7 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
                   {parentSelectLabel}
                 </label>
                 {parentOptions && parentOptions.length > 0 ? (
-                  <Select
+                  <Select{...FLOATING_MENU_BEHAVIOUR}
                     options={sortOptionsAlphabetically(parentOptions)}
                     value={parentOptions.find((o) => o.value === parentId) || null}
                     onChange={(opt: any) => setParentId(opt?.value || '')}
