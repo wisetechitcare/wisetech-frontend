@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { KTIcon } from '@metronic/helpers';
 import { C, FONT, T, SP, RADIUS, BTN, ICON_COLORS } from './ConfigDesignSystem';
 import { keeniconFor } from '@app/modules/common/components/ui/iconMap';
@@ -134,6 +134,23 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
   const [collapsed, setCollapsed] = useState(false);
   const [hov, setHov] = useState(false);
 
+  /**
+   * Skeletons are for the FIRST paint only — never for a refetch.
+   *
+   * Swapping `children` out on every `loading` pass UNMOUNTS them, and a section body is not
+   * a dumb list: the category and preset-task trees keep their expanded set in local state, so
+   * a save that triggered a refetch silently collapsed the tree the user had just opened. The
+   * card also shrank to three skeleton lines, which collapsed the page height and threw the
+   * scroll position back to the top — so an edit made three screens down came back at screen
+   * one, with the tree closed.
+   *
+   * Once the body has rendered real content, a later load keeps showing it. The header still
+   * reflects `loading`, so the refresh remains visible without destroying what is on screen.
+   */
+  const hasRenderedBody = useRef(false);
+  if (!loading) hasRenderedBody.current = true;
+  const showSkeleton = loading && !hasRenderedBody.current;
+
   const scheme = ICON_COLORS[iconColor] ?? ICON_COLORS.primary;
   const pad = compact ? SP.md : SP.lg;
 
@@ -257,7 +274,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
       {/* Body */}
       {children && !collapsed && (
         <div style={{ padding: `${SP.md} ${pad} ${pad} calc(${pad} + 8px)` }}>
-          {loading
+          {showSkeleton
             ? <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
                 <SkeletonLine /><SkeletonLine width="80%" /><SkeletonLine width="60%" />
               </div>

@@ -71,6 +71,16 @@ interface EmployeeConfigItem {
 
 const EmployeeConfigure = () => {
   const [loading, setLoading] = useState(false);
+  /** Flips once the first load settles; from then on refreshes happen behind the content. */
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  /**
+   * Every fetcher ends here, including the failed ones — a first load that errors should show
+   * the page and its error, not a spinner with nothing behind it.
+   */
+  const finishLoading = () => {
+    setLoading(false);
+    setHasLoadedOnce(true);
+  };
 
   /**
    * Which section the rail highlights. Every section is on the page at once, so this
@@ -296,7 +306,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching qualifications:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -347,7 +357,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching job profiles:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -370,7 +380,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching shifts:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -420,7 +430,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching onboarding documents:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -448,7 +458,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching working location types:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -483,7 +493,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching sources of hire:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -536,7 +546,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching departments:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -567,7 +577,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching employee types:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -582,7 +592,7 @@ const EmployeeConfigure = () => {
     } catch (error) {
       console.error("Error fetching employee levels:", error);
     } finally {
-      setLoading(false);
+      finishLoading();
     }
   };
 
@@ -629,7 +639,11 @@ const EmployeeConfigure = () => {
     });
   };
 
-  if (loading) {
+  // Only the FIRST load blanks the page. Every fetcher on this screen sets `loading`, so a
+  // refetch after a save used to unmount the whole configuration — which reset each tree's
+  // expanded set and sent the scroll back to the top, landing the user at screen one after
+  // editing a job profile three screens down.
+  if (loading && !hasLoadedOnce) {
     return <Loader />;
   }
 

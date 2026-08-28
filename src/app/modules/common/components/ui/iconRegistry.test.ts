@@ -22,6 +22,14 @@ function iconNamesIn(source: string): string[] {
     const names: string[] = [];
     for (const [, name] of source.matchAll(/<AppIcon[^>]*?\sname=\{?"([a-z0-9-]+)"/g)) names.push(name);
     for (const [, name] of source.matchAll(/<KTIcon[^>]*?\siconName=\{?"([a-z0-9-]+)"/g)) names.push(name);
+    // Names that reach an icon through an OPTIONS ARRAY or lookup map rather than JSX —
+    // `{ value: 'table', icon: 'burger-menu-1' }`. Scanning JSX alone missed every one of
+    // them, so the font migration left the Tasks board's Table toggle rendering a blank
+    // button, and ~40 others like it, with the suite green.
+    for (const [, , name] of source.matchAll(/(?:^|[\s,{(])(icon|iconName)\s*:\s*['"]([a-z0-9-]{3,})['"]/g)) {
+        // `bi-*` are Bootstrap Icon CLASSES drawn by the icon font, not registry keys.
+        if (!name.startsWith('bi-')) names.push(name);
+    }
     return names;
 }
 

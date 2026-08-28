@@ -28,6 +28,7 @@ import type { LucideIcon, LucideProps } from 'lucide-react';
 import { BI_TO_KEENICON } from './iconMap';
 import { FacebookIcon, TwitterIcon, WhatsAppIcon } from './brandIcons';
 import {
+    List, User, Circle, Share2, Sheet, Images, Cake, Pin, Truck, UserX, Cpu, Frown, Smile,
     Activity, AlarmClock, Archive, ArrowDownLeft, BadgeCheck, Database, Inbox, Link, ListTree, Printer, Receipt, ChartColumn, ChartNoAxesColumn, ChartPie,
     FileClock, IdCard, ShieldUser, StickyNote, X, ArrowDown, ArrowDownRight, ArrowLeft, ArrowLeftRight,
     ArrowRight, ArrowUp, ArrowUpDown, ArrowUpRight, Award, Banknote, Bell, BellRing,
@@ -73,6 +74,24 @@ const brand = (Mark: ComponentType<Record<string, unknown>>): AppIconComponent =
 
 /** Keenicon names — the largest namespace, 135 in use across ~570 call sites. */
 const KEENICON: Record<string, AppIconComponent> = {
+    // Names reaching the registry from an OPTIONS ARRAY rather than a JSX literal — view
+    // toggles, document-type maps, status maps, the global search index. The font migration
+    // could not see them (`iconRegistry.test.ts` scanned JSX only), so each rendered nothing
+    // at all: the Tasks board's Table toggle was a blank button.
+    'burger-menu-1': List, 'grid-2': LayoutGrid, 'grid': Grid2x2, 'element-equal': Grid2x2,
+    'abstract-8': Component, 'auto-brightness': Sun, 'calendar-2': Calendar,
+    'circle': Circle, 'clock': Clock, 'delivery': Truck, 'download-1': Download,
+    'error': CircleX, 'file-added': FilePlus, 'file-pdf': FileText, 'file-sheet': Sheet,
+    'file-text': FileText, 'gallery': Images, 'graph-3': ChartColumn, 'cake': Cake,
+    'info': Info, 'information-4': Info, 'mail': Mail, 'map001': Map, 'pin': Pin,
+    'notification-bing': Bell, 'receipt-square': Receipt, 'share': Share2, 'share-1': Share2,
+    'success': CircleCheck, 'technology-2': Cpu, 'user-cross': UserX, 'video': Video,
+    'warning': TriangleAlert,
+    // Prefixed spellings some call sites still pass.
+    'ki-user': User, 'ki-document': FileText, 'ki-bank': Landmark, 'ki-education': GraduationCap,
+    'ki-bill': Receipt, 'ki-wallet': Wallet, 'ki-folder': Folder,
+    'fa-crown': Crown, 'fa-bolt': Zap, 'fa-face-frown': Frown, 'fa-face-smile': Smile,
+    'fa-arrow-trend-up': TrendingUp,
     // Metronic's abstract/decorative shapes. These never named a concept, so the
     // replacement only has to be neutral and in-family, not literal.
     'abstract-14': Shapes, 'abstract-21': LayoutGrid, 'abstract-26': Layers,
