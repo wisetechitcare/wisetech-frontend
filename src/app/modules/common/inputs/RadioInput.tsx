@@ -58,9 +58,12 @@ interface RadioInputProps {
   formikField: string;
   customCss?: string;
   hideError?: boolean;
+  /** Renders the group read-only. Use for a value the server refuses to change (e.g. an
+   *  immutable field in edit mode) so the UI cannot offer an edit the API would reject. */
+  disabled?: boolean;
 }
 
-function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss = "", hideError = false }: RadioInputProps) {
+function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss = "", hideError = false, disabled = false }: RadioInputProps) {
   return (
     <div className={`d-flex flex-column mb-7 fv-row`}>
       {inputLabel && (
@@ -84,9 +87,12 @@ function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss 
                   type="button"
                   className={`ob-pill${isChecked ? " selected" : ""}`}
                   onClick={() => {
+                    if (disabled) return;
                     form.setFieldValue(formikField, radioBtn.value);
                   }}
                   aria-pressed={isChecked}
+                  disabled={disabled}
+                  style={disabled ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
                 >
                   {radioBtn.label}
                 </button>

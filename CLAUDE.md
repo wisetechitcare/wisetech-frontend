@@ -83,8 +83,44 @@ Single source of truth: `src/utils/dateFormats.ts`.
 - Notifications: prefer the kit's `toast` / `confirmDialog` / `alertDialog` (`ui/feedback.ts`). react-toastify / sonner / sweetalert2 all exist from earlier eras; don't add new direct usages.
 - Heavy libs (PDF, charts, maps, xlsx) are code-split via `manualChunks` in `vite.config.ts`. Prefer lazy-loading heavy routes/components; don't import a vendor bundle into a hot common path.
 
-## Billing module (planned, not yet built)
+## Billing module (partly built)
 Plan: [../BILLING/INDEX.md](../BILLING/INDEX.md). The project Billing tab already exists as a placeholder — `pages/employee/entity/detail/sections/BillingSection.tsx`, registered in `detail/facets.ts` and rendered from `EntityDetailPage.tsx`. It predates the UI standard (raw divs, hardcoded hex), so **replace it wholesale rather than extending it**.
+
+## Billing Operations (built)
+Design doc: [../BILLING_OPERATIONS.md](../BILLING_OPERATIONS.md). Pages under `pages/billing/operations/`, client in `services/billingOperations.ts`.
+
+- **Monitoring, not editing.** Project/client/deliverable/amount data is read-only on these screens. The only write is the status transition, and its dropdown is populated from the server's `allowedTransitions` — never hardcode the status list in the UI.
+- **Server-side filter/sort/pagination.** Don't switch the list to client-side paging: the totals have to be right across pages, that's the whole point of the screen.
+- Each KPI tile is a saved query — clicking filters the table beneath it. Statistics share the list's scoping so the two can't disagree.
+- Reuses `BillingTable`, `BillingTimeline`, `BillingStatsCard`, `BillingStatusBadge`, `BillingPageHeader`. New status tones go in `BILLING_STATUS_TONES`, not in the page.
+
+## Payment Collection (built)
+Design doc: [../PAYMENT_COLLECTION.md](../PAYMENT_COLLECTION.md). Pages under `pages/billing/payments/`, client in `services/payments.ts`.
+
+- **A "payment" row in the list IS a Billing Operation** — there's no separate payment-collection entity to fetch. Don't build a second data model for it.
+- **Every payment is its own transaction.** `RecordPaymentDialog` records ONE receipt and closes; recording payment 2 of 3 is opening it again. Never build a multi-line batch form here.
+- The overpayment checkbox only appears once amount actually exceeds outstanding (compared in paise, not floats) — don't show it unconditionally.
+- `readyForInvoice` and `invoiceNumber: null` are already on every payload — the Tax Invoice phase filters on the former and fills the latter. No shape change needed there.
+
+## Proforma Management (built)
+Design doc: [../PROFORMA_MANAGEMENT.md](../PROFORMA_MANAGEMENT.md). Pages under `pages/billing/proformas/`, client in `services/proformas.ts`.
+
+- **Two URLs, two jobs:** `/billing/proformas/:id` is the read-only repository record (revision chain, compare, activity); `/billing/proformas/:id/edit` is the document editor. Don't merge them.
+- The tree groups revisions under their parent and **pages by document, not version** — one proforma with six revisions must not eat a page.
+- Status buttons come from the server's `allowedStatuses` per version. Never hardcode the lifecycle in the UI.
+- "Archived" is a switch, not a status option — the list is a deliberate either/or so the count is trustworthy.
+- The Document tab renders the version's **stored HTML** via `DocumentSheet`. Never re-render a version for display.
+
+## Billing Document Engine (built — Proforma + Tax Invoice live)
+Design doc: [../BILLING_DOCUMENT_ENGINE.md](../BILLING_DOCUMENT_ENGINE.md) (this phase); [../DOCUMENT_ENGINE.md](../DOCUMENT_ENGINE.md) (original). Editor pages under `pages/billing/documents/`, client in `services/documents.ts`; repository pages under `pages/billing/proformas/`, client in `services/proformas.ts` (also serves the generic `/billing/documents` mount).
+
+- **`DocumentSheet` injects server-rendered HTML and patches it — it does not re-implement the template.** The same HTML string is what the PDF and Word export print, so a React version of the layout would immediately drift. Never build one.
+- Live editing writes `textContent` on `[data-field]` spans the server emitted. `textContent`, never `innerHTML` — typed text must never be parsed as markup.
+- The left panel (`DocumentPropertiesPanel`) is **built from the template's `fieldPolicy`**, not hardcoded. A template that adds a field gets an input for free; `fieldMeta.ts` only supplies the label/grouping (with a title-case fallback).
+- The A4 sheet is a fixed 210mm scaled by transform. Don't make it responsive — it is page geometry, not a layout.
+- Proforma is a `kind`, not a route. The list and editor work unchanged for Tax Invoice and the rest — **generating a Tax Invoice reuses `openDocument({ kind: "TAX_INVOICE", subjectId })`, the exact call Proforma uses**; see the button on `PaymentDetailPage.tsx`'s Invoice panel, gated on `readyForInvoice`. Don't build a second generation flow for a new kind.
+- **`NON_REVISABLE_KINDS` in `DocumentEditorPage.tsx` mirrors the backend's `revisable: false` registry entries** — UI-only hint (hides the Revise button), the server is the actual enforcement. Keep the two lists in sync when a new non-revisable kind goes live.
+- `downloadWord()` (`services/proformas.ts`) streams a binary blob (`responseType: "blob"`), unlike `accessProforma`'s PDF path which returns a JSON presigned URL — don't conflate the two response shapes.
 
 ## Dependencies & CI
 - **Security floors** for transitive packages live in `pnpm-workspace.yaml` → `overrides` (9 entries, each pinned to the lowest patched version from its advisory). After any dependency change run `pnpm audit --audit-level high` — CI blocks on high/critical, and reports moderate/low without blocking.
@@ -104,3 +140,14 @@ Run `pnpm exec tsc --noEmit` (or a full `pnpm run build`) — it must pass clean
 
 ## Auto-verify hook
 A `PostToolUse` hook (`../.claude/settings.local.json` → `../.claude/hooks/typecheck.sh`) runs after any Edit/Write to a `.ts`/`.tsx` file in this project, in the background: whole-project `pnpm exec tsc --noEmit` plus `pnpm exec eslint --quiet` on just the edited file. Any type error or lint **error** (warnings excluded) is surfaced automatically.
+
+## Project Financial Workspace (built)
+Project → Billing. Pages under `pages/employee/entity/detail/sections/billing/`, client in `services/projectBilling.ts`. `sections/BillingSection.tsx` is now a 3-line adapter that passes `lead.id` in.
+
+- **A CONSUMER of Billing, never a copy.** One call to `/billing/projects/:id/workspace` returns every number pre-computed; documents are served by Billing's own access endpoint; **every write navigates INTO Billing**. Don't add a mutation here.
+- **The Billing tab is URL-addressable (`?tab=billing`)** — `EntityDetailPage` syncs `activeTab` to a search param (written with `replace`, so flipping tabs doesn't stack history). This is load-bearing: it's the return address handed to Billing. Don't revert it to plain `useState`.
+- **Return context** (`hooks/useReturnContext.ts`): the ORIGIN states where Back goes via `withReturnContext()`; the destination resolves it with `useReturnContext(fallback)`, falling back to its own parent. Wired into the Proforma/Payment/Request/Operation detail pages — arriving from a Billing list behaves exactly as before. Carried in `history.state`, not the URL: it's navigation bookkeeping, and a `?returnTo=` would make every detail link unshareable.
+- **Sections 3 (Timeline) and 10 (Activity Feed) are ONE dataset** — `ActivityFeed` renders both via a `variant`. Two components would be two places for the same list to go stale.
+- Proformas reuse `ProformaTreeRow` verbatim for revision grouping; the other three tables are `BillingTable` + a column set. Financial Summary is `BillingSummaryCard`. Nothing here re-implements a Billing primitive.
+- **Drill-down**: `ProformasPage`/`PaymentCollectionPage`/`InvoicesPage` now read `?projectId=` and show `ProjectFilterBanner` when filtered — a silent filter is the fastest way to make people distrust a list.
+- ⚠️ `capabilities` from the server is **advisory** (backend has no action-level write gates yet). It drives disabled states only — don't treat a hidden button as security.

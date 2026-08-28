@@ -28,7 +28,7 @@ import type { LucideIcon, LucideProps } from 'lucide-react';
 import { BI_TO_KEENICON } from './iconMap';
 import { FacebookIcon, TwitterIcon, WhatsAppIcon } from './brandIcons';
 import {
-    Activity, AlarmClock, Archive, BadgeCheck, ChartColumn, ChartNoAxesColumn, ChartPie,
+    Activity, AlarmClock, Archive, ArrowDownLeft, BadgeCheck, Database, Inbox, Link, ListTree, Printer, Receipt, ChartColumn, ChartNoAxesColumn, ChartPie,
     FileClock, IdCard, ShieldUser, StickyNote, X, ArrowDown, ArrowDownRight, ArrowLeft, ArrowLeftRight,
     ArrowRight, ArrowUp, ArrowUpDown, ArrowUpRight, Award, Banknote, Bell, BellRing,
     Book, Boxes, Briefcase, Building2, Calculator, Calendar, CalendarCheck, CalendarDays,
@@ -103,6 +103,12 @@ const KEENICON: Record<string, AppIconComponent> = {
     'message-text-2': MessageSquareText, 'minus': Minus, 'minus-circle': CircleMinus,
     'moon': Moon, 'night-day': SunMoon, 'note-2': StickyNote, 'notepad-edit': NotebookPen,
     'notification': Bell, 'notification-on': BellRing, 'office-bag': Briefcase,
+    // Names the billing and task screens were already passing when the icon fonts were
+    // replaced with Lucide. Unmapped, they render nothing at all — `iconRegistry.test.ts`
+    // scans every call site for exactly this.
+    'arrow-down-left': ArrowDownLeft, 'data': Database, 'dots-vertical': EllipsisVertical,
+    'inbox': Inbox, 'link': Link, 'lock-2': Lock, 'printer': Printer,
+    'receipt-cutoff': Receipt, 'tree': ListTree,
     'package': Package, 'paper-clip': Paperclip, 'pencil': Pencil, 'people': Users,
     'percentage': Percent, 'phone': Phone, 'plus': Plus, 'plus-square': SquarePlus,
     'pointers': MousePointerClick, 'profile-circle': CircleUser, 'pulse': Activity,

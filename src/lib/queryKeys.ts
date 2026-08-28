@@ -27,6 +27,34 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.projects.all, 'detail', id] as const,
     mapPoints: () => [...queryKeys.projects.all, 'map-points'] as const,
   },
+  /**
+   * Task module (Phase 4). The old module used no React Query at all — bare `useEffect`s with
+   * no cancellation, which is how one task's data ended up rendering under another task's id.
+   *
+   * Invalidation contract: any task WRITE (create, update, stage move, delete, subtask,
+   * timesheet) invalidates `tasks.all`. The board and the list are two projections of one
+   * dataset, so they must never be invalidated separately — a stage move that refreshed the
+   * board but not the table would leave the two disagreeing on screen.
+   */
+  tasks: {
+    all: ['tasks'] as const,
+    board: (filters: Record<string, unknown> = {}) => [...queryKeys.tasks.all, 'board', filters] as const,
+    lists: () => [...queryKeys.tasks.all, 'list'] as const,
+    list: (filters: Record<string, unknown> = {}) => [...queryKeys.tasks.lists(), filters] as const,
+    detail: (id: string) => [...queryKeys.tasks.all, 'detail', id] as const,
+    subtasks: (id: string) => [...queryKeys.tasks.all, 'subtasks', id] as const,
+    timesheets: (id: string) => [...queryKeys.tasks.all, 'timesheets', id] as const,
+    statuses: (projectId?: string) => [...queryKeys.tasks.all, 'statuses', projectId ?? 'company'] as const,
+    priorities: () => [...queryKeys.tasks.all, 'priorities'] as const,
+    presets: (scope?: string) => [...queryKeys.tasks.all, 'presets', scope ?? 'PROJECT'] as const,
+    /** Authorized selectors — the server decides membership, so these are cached per actor session. */
+    availableProjects: () => [...queryKeys.tasks.all, 'available-projects'] as const,
+    /** The BROWSE list — derived from visible tasks, unlike availableProjects (create authority). */
+    boardProjects: () => [...queryKeys.tasks.all, 'board-projects'] as const,
+    projectAssignees: (projectId: string) => [...queryKeys.tasks.all, 'project-assignees', projectId] as const,
+    projectTeam: (projectId: string) => [...queryKeys.tasks.all, 'project-team', projectId] as const,
+    generalAssignees: () => [...queryKeys.tasks.all, 'general-assignees'] as const,
+  },
   masters: {
     all: ['masters'] as const,
     leadStatuses: () => [...queryKeys.masters.all, 'lead-statuses'] as const,

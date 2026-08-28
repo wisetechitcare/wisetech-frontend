@@ -40,6 +40,8 @@ export interface LeadCancellationReason {
 
 /** A single stage within a payment plan (e.g. "Advance", 30%). */
 export interface PaymentPlanStage {
+  /** Send this back when saving an existing stage so the row — and the deliverables
+   *  configured under it — survive the update instead of being recreated. */
   id?: string;
   name: string;
   /** Percentage of the total commercial cost. All stages in a plan sum to 100. */
@@ -47,14 +49,50 @@ export interface PaymentPlanStage {
   sortOrder?: number;
 }
 
+/**
+ * A work item configured under a payment-plan stage (e.g. "Site Survey"). Pure
+ * configuration — no status, owner or progress; a project takes a copy of these when a
+ * lead converts. Deliberately NOT surfaced anywhere in the lead workflow.
+ */
+export interface PaymentPlanStageDeliverable {
+  id: string;
+  stageId: string;
+  name: string;
+  description?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Create/update payload for a deliverable. PATCH honours only the keys present. */
+export interface DeliverablePayload {
+  name?: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
 /** A reusable, stage-wise fee break-up plan ("payment method"). */
 export interface PaymentPlan {
   id?: string;
-  name: string;
+  /**
+   * Derived by the server from the project category ("Bungalow & Duplex → Bungalow (SINGLE)").
+   * Always present on a plan read from the API; never sent on a write — the category is the
+   * plan's identity, so a client-supplied name would be a second source for the same label.
+   */
+  name?: string;
   description?: string | null;
   isDefault?: boolean;
   isActive?: boolean;
   stages: PaymentPlanStage[];
+  /**
+   * The project type this plan bills. `subCategoryId` null = the whole category; BOTH null =
+   * an un-typed plan written before plans were scoped, which every lead is still offered.
+   */
+  categoryId?: string | null;
+  subCategoryId?: string | null;
+  category?: { id: string; name: string; color?: string | null } | null;
+  subCategory?: { id: string; name: string; color?: string | null } | null;
   createdAt?: string;
   updatedAt?: string;
 }

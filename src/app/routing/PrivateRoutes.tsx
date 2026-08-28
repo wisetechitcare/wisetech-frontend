@@ -14,6 +14,7 @@ import { fetchCurrentEmployeeByEmpId } from '@services/employee'
 import { useSelector } from 'react-redux'
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
 import { SectionGuard } from '@app/modules/common/components/SectionGuard'
+import { RequirePermission } from '@app/modules/common/components/RequirePermission'
 import { can } from '@utils/can'
 
 const PublicHoliday = lazy(() => import('@pages/company/PublicHoliday'))
@@ -33,6 +34,7 @@ const OnBoardingDocs = lazy(() => import('@pages/company/OnboardingDocs'))
 const PersonalAttendanceView = lazy(() => import('@pages/employee/PersonalAttendanceView'))
 const EmployeesAttendanceView = lazy(() => import('@pages/employee/EmployeesAttendanceView'))
 const AdminAndEmployeeReimbursementViewer = lazy(() => import('@pages/employee/reimbursement/AdminAndEmployeeReimbursementViewer'))
+const BillingRoutes = lazy(() => import('@pages/billing/routes/BillingRoutes'))
 const Salary = lazy(() => import('@pages/employee/salary/Salary'))
 const Increment = lazy(() => import('@pages/employee/increment/Increment'))
 const Media = lazy(() => import('@pages/company/Media'))
@@ -60,9 +62,13 @@ const OrganisationProfileMain = lazy(() => import('@pages/company/organisation/O
 const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/OrganizationProfilePage'))
 const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
 const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
+// Phase 4 — the rebuilt Task UI (Kanban-first workspace + task detail workspace)
+const TasksWorkspace = lazy(() => import('@pages/employee/tasks/TasksWorkspace'))
+// Task configuration — statuses, priorities and the preset task tree.
+const TasksConfigure = lazy(() => import('@pages/employee/tasks/configure/TasksConfigure'))
+const TaskDetailPage = lazy(() => import('@pages/employee/tasks/TaskDetailPage'))
 const MyTimeSheetMain = lazy(() => import('@pages/employee/timesheet/mytimesheet/MyTimeSheetMain'))
 const EmployeeTimeSheetMain = lazy(() => import('@pages/employee/timesheet/employeetimesheet/EmployeeTimeSheetMain'))
-const TimeSheetByIdOverview = lazy(() => import('@pages/employee/timesheet/mytimesheet/component/TimeSheetByIdOverview'))
 const ShowEmployeeDetailsToggle = lazy(() => import('@pages/employee/ShowEmployeeDetailsToggle'))
 const TaskDetails = lazy(() => import('@pages/employee/tasks/tasks/components/TaskDetails'))
 const TasksMainCalenderPage = lazy(() => import('@pages/employee/tasks/calender/TasksMainCalenderPage'))
@@ -183,6 +189,11 @@ const PrivateRoutes = () => {
           <Route path='leaves' element={<Navigate to='/my-team/overview' replace />} />
 
           <Route path='salary' element={<Navigate to='/finance/salary' replace />} />
+          {/* Phase 4 §27 — this was '/tasks/employee-level-teams', a route that never existed:
+              it fell through to '/tasks/:taskId' and rendered a crashed detail page on every
+              click. The destination below is the real team page defined further down this file.
+              '/projects' and '/leads' are the current homes of both screens; the '/qc/*' paths
+              they used to live at are now redirect stubs a few lines above. */}
           <Route path='tasks' element={<Navigate to='/company/employee-level-teams' replace />} />
           <Route path='projects' element={<Navigate to='/projects' replace />} />
           <Route path='leads' element={<Navigate to='/leads' replace />} />
@@ -233,6 +244,19 @@ const PrivateRoutes = () => {
           }
         />
 
+        {/* Billing is its own top-level ERP module: one nested route tree that owns its
+            header tabs, so every Billing page is a real URL under /billing/*. Access per
+            tab is handled inside via the `billing.*` access areas. */}
+        <Route
+          path='/billing/*'
+          element={
+            <SuspensedView>
+              <BillingRoutes />
+            </SuspensedView>
+          }
+        />
+        {/* The Accounts queue used to live under Finance; keep the old link working. */}
+        <Route path='/finance/billing-queue' element={<Navigate to='/billing/accounts' replace />} />
         {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
           path='/finance/reimbursements'
           element={
@@ -568,8 +592,28 @@ const PrivateRoutes = () => {
           element={
             <SectionGuard module='tasks'>
               <SuspensedView>
-                <TasksMain />
+                <TasksWorkspace />
               </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          // Task Statuses / Priorities / Preset Tasks. Its own destination rather than a tab,
+          // so it can be linked to and so it can carry a permission of its own: task config is
+          // shared by EVERY tenant, which makes deactivating a status a cross-tenant outage
+          // (Phase 0 audit §4.1) rather than a personal preference.
+          //
+          // ⚠️ This gate is UX. The backend `task-statuses` / `task-priorities` / `task-persest`
+          // write routes still carry no `authorize()` at all — hiding the page does not protect
+          // the endpoints. See RSK-091.
+          path='/tasks/configure'
+          element={
+            <SectionGuard module='tasks'>
+              <RequirePermission perm='tasks.manage.all' redirectTo='/tasks'>
+                <SuspensedView>
+                  <TasksConfigure />
+                </SuspensedView>
+              </RequirePermission>
             </SectionGuard>
           }
         />
@@ -584,9 +628,13 @@ const PrivateRoutes = () => {
         <Route
           path='/tasks/:taskId'
           element={
-            <SuspensedView>
-              <TaskDetails />
-            </SuspensedView>
+            // Phase 0 audit §4.4 — this route had NO SectionGuard, so a user with the tasks
+            // section blocked could deep-link straight to a task and read, edit and delete it.
+            <SectionGuard module='tasks'>
+              <SuspensedView>
+                <TaskDetailPage />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route
@@ -676,13 +724,11 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
+        {/* A time log is now read in a dialog over the timesheet it belongs to, not on a page
+            of its own. Old links land on the list rather than a 404. */}
         <Route
           path='/tasks/timesheet/:timesheetId/:employeeId/:startDate/:endDate'
-          element={
-            <SuspensedView>
-              <TimeSheetByIdOverview />
-            </SuspensedView>
-          }
+          element={<Navigate to='/tasks/timesheet' replace />}
         />
         <Route
           path='/search-results'

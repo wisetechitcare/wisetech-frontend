@@ -8,7 +8,7 @@ import {
   saveApprovalWorkflowChain,
 } from '@services/employee';
 
-type WorkflowType = 'attendance' | 'leave' | 'reimbursement';
+type WorkflowType = 'attendance' | 'leave' | 'reimbursement' | 'billing_request';
 
 interface ApproverOption {
   value: string;
@@ -47,6 +47,9 @@ const MODULES: Array<{ key: WorkflowType; label: string }> = [
   { key: 'attendance', label: 'Attendance' },
   { key: 'leave', label: 'Leave' },
   { key: 'reimbursement', label: 'Reimbursement' },
+  // Billing Request approval chain. Same generic framework as every other module —
+  // configuring approvers here is all that is needed to route a billing request.
+  { key: 'billing_request', label: 'Billing Request' },
 ];
 
 const emptyChain = (): string[] => ['', '', '', '', ''];
@@ -55,9 +58,13 @@ const emptyRecord = (): Record<WorkflowType, string[]> => ({
   attendance: emptyChain(),
   leave: emptyChain(),
   reimbursement: emptyChain(),
+  billing_request: emptyChain(),
 });
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+// Read the display name off MODULES rather than capitalizing the key — a snake_case key
+// like `billing_request` would otherwise surface as "Billing_request" in toasts.
+const capitalize = (s: string) =>
+  MODULES.find((m) => m.key === s)?.label ?? s.charAt(0).toUpperCase() + s.slice(1);
 
 export const emptyApprovalChains = (): ApprovalChains => emptyRecord();
 
@@ -130,7 +137,12 @@ export const persistApprovalChains = async (
 ): Promise<void> => {
   if (!chains || !targetEmployeeId) return;
 
-  for (const type of ['attendance', 'leave', 'reimbursement'] as const) {
+  // Derived from MODULES, not listed by hand. This helper arrived with three workflow
+  // types hardcoded and the branch it merged into had added a fourth
+  // (`billing_request`), so a billing chain would have been configured in the UI and
+  // then silently not written. Deriving it means adding a workflow stays a one-line
+  // change instead of a hunt for every hardcoded list.
+  for (const { key: type } of MODULES) {
     const chain: string[] = Array.isArray(chains?.[type]) ? (chains[type] as string[]) : [];
     if (!chain.some(Boolean)) continue;
     if (validateApprovalChain(chain)) continue;

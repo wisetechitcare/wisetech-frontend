@@ -16,7 +16,10 @@ export type InboxTaskType =
     | 'RESUBMISSION_RECEIVED'
     | 'QUERY_RECEIVED'
     | 'REJECTION_RECEIVED'
-    | 'ACTION_REQUIRED';
+    | 'ACTION_REQUIRED'
+    /** Work somebody handed to you. Raised and cleared from the task's own state - assigned,
+     *  unassigned, finished or deleted - by the backend's taskInbox generator. */
+    | 'TASK_ASSIGNED';
 
 export type InboxTaskStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 

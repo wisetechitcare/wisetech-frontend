@@ -231,6 +231,8 @@ const PaymentPlanChip: React.FC<{
   );
   const roundedTotal = Math.round(total * 1000) / 1000;
   const balanced = roundedTotal === 100;
+  // `plan.name` is the server-derived project-type label — a plan has no name of its own.
+  const scopeLabel = plan.name || '';
 
   return (
     <div
@@ -252,7 +254,7 @@ const PaymentPlanChip: React.FC<{
               fontFamily: FONT.body, fontWeight: 600, fontSize: '13px', color: C.textPrimary,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
-              {plan.name}
+              {scopeLabel || 'No project category'}
             </span>
             {plan.isDefault && (
               <span style={{
@@ -272,6 +274,13 @@ const PaymentPlanChip: React.FC<{
               {roundedTotal}%
             </span>
           </div>
+          {/* Plans written before they carried a project type fall back to a placeholder
+              title, so say what to do about it rather than leaving it unexplained. */}
+          {!plan.categoryId && (
+            <div style={{ marginTop: 2, fontFamily: FONT.body, fontSize: '11px', color: C.danger }}>
+              Edit to set its project category
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 4, flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
@@ -736,6 +745,12 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
         onSuccess={fetchPaymentPlans}
         initialData={editingPaymentPlan}
         isEditing={!!editingPaymentPlan}
+        // Already loaded for the Categories section on this page — passing them down means the
+        // plan's project-type picker opens populated rather than fetching the same lists again.
+        categories={projectCategories}
+        subCategories={projectSubcategories.filter(
+          (sub): sub is typeof sub & { categoryId: string } => !!sub.categoryId,
+        )}
       />
 
       {serviceDeleteConfirmation.DeleteModal}

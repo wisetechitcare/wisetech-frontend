@@ -58,6 +58,14 @@ export const ctaSx = (tone: WtCtaTone = 'primary', flat = false): SxProps<Theme>
     boxShadow: rest,
     transition: `transform .16s ${MRD_EASE}, box-shadow .2s, filter .15s`,
     '& .MuiButton-startIcon': { mr: 0.9, '& .fs-2, & .fs-3': { fontSize: '1.15rem' } },
+    // Keenicons draw a duotone glyph as several stacked <span class="pathN">, and the stylesheet
+    // dims all but the first to around 30%. On a white-on-gradient button that reads as a smudge
+    // rather than an icon, so on a filled CTA every path is taken up to full strength and to the
+    // button's own colour. Stated once here rather than per button.
+    '& .ki-duotone, & .ki-solid, & .ki-outline': {
+      color: 'inherit',
+      '& [class*="path"]': { opacity: 1, color: 'inherit' },
+    },
     '&:hover': {
       background: `linear-gradient(135deg, ${c.from}, ${c.to})`, transform: 'translateY(-1.5px)', filter: 'brightness(1.04)',
       boxShadow: hover,

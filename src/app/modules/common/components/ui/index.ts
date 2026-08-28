@@ -57,8 +57,6 @@ export { SettingsSection } from './SettingsSection';
 export type { SettingsSectionProps } from './SettingsSection';
 // The app-wide toolbar filter (SUB ORGANIZATION / BRANCH / STATUS). Previously
 // defined inside a payroll page that three other features imported across.
-// Exclusive 2–5 way choice (status filter, view switch). Same visual language as
-// TimePeriodSelector, with the choices left open.
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
 export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
