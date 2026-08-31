@@ -1,13 +1,13 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Box, CircularProgress, Collapse, DialogActions, DialogContent, LinearProgress,
+  Box, CircularProgress, DialogActions, DialogContent, LinearProgress,
   Menu, MenuItem, Stack, TextField, Typography,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import ReorderableGroup, { DragHandle, type DragHandleProps } from "@app/modules/common/components/ReorderableGroup";
 import {
-  GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton,
+  AutoGrid, GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton,
   IconBox, ToneChip, TRIO, toast, confirmDialog, type SemanticTone,
 } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
@@ -52,10 +52,31 @@ const RowAction = ({ title, icon, color, onClick }: { title: string; icon: strin
   </WtIconButton>
 );
 
-/** A count pill for the stage header — dimmed at zero so the eye skips empty buckets. */
-const CountPill = ({ label, value, tone }: { label: string; value: number; tone: SemanticTone }) => (
-  <ToneChip tone={value > 0 ? tone : "neutral"} label={`${value} ${label}`} dense />
-);
+/**
+ * One line instead of three chips.
+ *
+ * The header used to render "0 completed", "0 in progress" and "0 pending" as three
+ * separate pills, so an untouched stage — the common case — spent its widest row saying
+ * nothing three times. A stage's deliverables have exactly one fact worth reading at a
+ * glance ("how far through am I"), and it is a ratio, so it is written as one.
+ * In-progress is appended only when it is non-zero, because that is the only count that
+ * changes what someone would do next.
+ */
+const DeliverableSummary = ({ done, inProgress, total }: { done: number; inProgress: number; total: number }) => {
+  if (total === 0) {
+    return (
+      <Typography sx={{ fontSize: 11.5, color: "text.disabled", fontWeight: 600 }}>
+        No deliverables
+      </Typography>
+    );
+  }
+  return (
+    <Typography sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 600 }}>
+      <Box component="strong" sx={{ color: "text.primary" }}>{done} of {total}</Box> done
+      {inProgress > 0 ? ` · ${inProgress} in progress` : ""}
+    </Typography>
+  );
+};
 
 interface EditDialogState {
   stage: ProjectStage;
@@ -87,7 +108,9 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
     enabled: !!projectId,
   });
 
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  /** One stage at a time. The deliverables panel is a single full-width surface below the
+   *  board, so two stages open at once has nowhere to render. */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<EditDialogState | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -343,6 +366,12 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
     );
   }
 
+  // Resolved from the live list, never held in state — a refetch that drops or reorders a
+  // stage then closes the panel instead of leaving it pointing at a stale row.
+  const selectedIndex = stages.findIndex((s) => s.id === selectedId);
+  const selectedStage = selectedIndex >= 0 ? stages[selectedIndex] : null;
+  const panelId = `stage-deliverables-${projectId}`;
+
   const totalAmount = stages.reduce((sum, s) => sum + (s.amount || 0), 0);
   // Overall completion is weighted by stage value, not a mean of percentages — five
   // deliverables in a 5% stage must not count as much as five in a 30% stage.
@@ -365,36 +394,84 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
             Stage Management
           </Typography>
           <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.25 }}>
-            Stages are read-only. Progress is calculated from deliverables — {overallPercent}% of contract value complete.
+            Read-only. Progress is calculated from deliverables.
           </Typography>
         </Box>
-        <Stack alignItems={{ xs: "flex-start", sm: "flex-end" }} sx={{ flexShrink: 0 }}>
-          <Typography sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 600 }}>Contract Value</Typography>
-          <Typography sx={{ fontSize: 15, fontWeight: 700 }}>{formatCurrencyDecimal(totalAmount)}</Typography>
+        {/* Two figures, same treatment, read left to right: how much of the contract is
+            done, and what the contract is worth. The completion number used to be buried
+            mid-sentence in the subtitle, where the one number people open this tab for
+            was the least prominent thing on the row. */}
+        <Stack direction="row" spacing={{ xs: 2, sm: 3 }} sx={{ flexShrink: 0 }}>
+          <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
+            <Typography sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 600 }}>Complete</Typography>
+            <Typography sx={{ fontSize: 15, fontWeight: 700 }}>{overallPercent}%</Typography>
+          </Box>
+          <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
+            <Typography sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 600 }}>Contract Value</Typography>
+            <Typography sx={{ fontSize: 15, fontWeight: 700 }}>{formatCurrencyDecimal(totalAmount)}</Typography>
+          </Box>
         </Stack>
       </Stack>
 
+      {/* Two stages per row above ~1060px, one below — `min` is the track floor, so the
+          column count falls out of the available width rather than being pinned to
+          breakpoints.
+
+          Selecting a stage does NOT expand it in place. Inline expansion inside a
+          two-column grid strands a dead half-row beside the opened card, and a
+          deliverable row — drag handle, four actions, chips, description — is unreadable
+          at half width. So the board stays a regular board and the selected stage opens
+          in ONE full-width panel below it. */}
+      <AutoGrid min={520} gap={12}>
       {stages.map((stage, stageIndex) => {
-        const isOpen = !!expanded[stage.id];
+        const isOpen = selectedId === stage.id;
         const progress = stage.progress;
         const allocation = stage.allocation ?? { percentageTotal: 0, isBalanced: true, remaining: 0 };
         const stageMeta = STATUS_META[progress?.status ?? "PENDING"] ?? STATUS_META.PENDING;
         const percent = progress?.completionPercentage ?? 0;
+        const doneCount = progress?.completedCount ?? 0;
+        const inProgressCount = progress?.inProgressCount ?? 0;
+        const totalCount = doneCount + inProgressCount + (progress?.pendingCount ?? 0);
         return (
-          <GlassCard key={stage.id} preset="section" sx={{ p: { xs: 1.25, sm: 1.75 } }}>
+          <GlassCard
+            key={stage.id}
+            preset="section"
+            sx={{
+              p: { xs: 1.25, sm: 1.75 },
+              // The ring is the only selection cue that does not move anything. Drawn on
+              // an always-present transparent outline so selecting never shifts layout.
+              outline: "2px solid",
+              outlineColor: isOpen ? "primary.main" : "transparent",
+              transition: "outline-color .15s",
+            }}
+          >
             <Stack
               direction="row"
               alignItems="flex-start"
               spacing={1}
-              onClick={() => setExpanded((e) => ({ ...e, [stage.id]: !isOpen }))}
-              sx={{ cursor: "pointer", userSelect: "none" }}
+              role="button"
+              tabIndex={0}
+              aria-expanded={isOpen}
+              aria-controls={isOpen ? panelId : undefined}
+              onClick={() => setSelectedId(isOpen ? null : stage.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedId(isOpen ? null : stage.id);
+                }
+              }}
+              sx={{
+                cursor: "pointer", userSelect: "none", borderRadius: "10px",
+                "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 },
+              }}
             >
               <Box
                 sx={{
                   width: 28, height: 28, flexShrink: 0, borderRadius: "9px", mt: 0.25,
                   display: "grid", placeItems: "center",
-                  bgcolor: "action.selected", color: "text.secondary",
-                  fontSize: 12.5, fontWeight: 700,
+                  bgcolor: isOpen ? "primary.main" : "action.selected",
+                  color: isOpen ? "primary.contrastText" : "text.secondary",
+                  fontSize: 12.5, fontWeight: 700, transition: "background-color .15s",
                 }}
               >
                 {stageIndex + 1}
@@ -415,7 +492,11 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
                   </Typography>
                 </Stack>
 
-                {/* Progress bar — the number and the bar read the same derived value. */}
+                {/* Progress bar — the number and the bar read the same derived value.
+                    The neutral track matters: a global `!important` in main.css used to
+                    paint every track red-200, so a stage at 0% showed a full-width red
+                    wash that read as FAILED rather than not-started. That rule is gone;
+                    the track colour is set here. */}
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.75 }}>
                   <LinearProgress
                     variant="determinate"
@@ -429,80 +510,112 @@ const ExecutionSection: React.FC<{ projectId: string }> = ({ projectId }) => {
                       },
                     }}
                   />
-                  <Typography sx={{ fontSize: 12.5, fontWeight: 700, minWidth: 44, textAlign: "right" }}>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 700, minWidth: 40, textAlign: "right" }}>
                     {Math.round(percent)}%
                   </Typography>
                 </Stack>
 
                 <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={0.75} sx={{ mt: 0.6 }}>
-                  <CountPill label="completed" value={progress?.completedCount ?? 0} tone="success" />
-                  <CountPill label="in progress" value={progress?.inProgressCount ?? 0} tone="warning" />
-                  <CountPill label="pending" value={progress?.pendingCount ?? 0} tone="neutral" />
-                  {/* Running allocation total. Stays visible while balanced too, so the
-                      100% is reassurance rather than only ever an error. */}
-                  <ToneChip
-                    tone={allocation.isBalanced ? "success" : "danger"}
-                    label={
-                      allocation.isBalanced
-                        ? `${allocation.percentageTotal}% allocated ✓`
-                        : `${allocation.percentageTotal}% allocated — must be 100%`
-                    }
-                    dense
-                  />
+                  <DeliverableSummary done={doneCount} inProgress={inProgressCount} total={totalCount} />
+                  {/* Allocation is only meaningful once something has been allocated. An
+                      empty stage used to show "0% allocated ✓" in success green, which
+                      claimed a stage with nothing in it was correctly balanced. Balanced
+                      stays visible when there ARE deliverables, so the 100% is
+                      reassurance rather than only ever an error. */}
+                  {totalCount > 0 && (
+                    <ToneChip
+                      tone={allocation.isBalanced ? "success" : "danger"}
+                      label={
+                        allocation.isBalanced
+                          ? `${allocation.percentageTotal}% allocated`
+                          : `${allocation.percentageTotal}% allocated — must be 100%`
+                      }
+                      dense
+                    />
+                  )}
                 </Stack>
               </Box>
 
-              <Box sx={{ pt: 0.5 }}>
+              <Box sx={{ pt: 0.5, color: isOpen ? "primary.main" : "text.disabled" }}>
                 <KTIcon iconName={isOpen ? "up" : "down"} className="fs-4" />
               </Box>
             </Stack>
-
-            <Collapse in={isOpen} unmountOnExit>
-              <Box sx={{ mt: 1.5, pt: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
-                {stage.deliverables.length === 0 ? (
-                  <Box
-                    onClick={() => openNew(stage)}
-                    sx={{
-                      py: 1.75, px: 1.5, borderRadius: "12px", cursor: "pointer", textAlign: "center",
-                      border: "1px dashed", borderColor: "divider",
-                      transition: "border-color .15s, background-color .15s",
-                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
-                    }}
-                  >
-                    <Typography sx={{ color: "text.secondary", fontSize: 12.5, fontWeight: 600 }}>
-                      No deliverables in this stage
-                    </Typography>
-                    <Typography sx={{ color: "text.disabled", fontSize: 11.5, mt: 0.25 }}>
-                      Click to add the first one.
-                    </Typography>
-                  </Box>
-                ) : (
-                  <ReorderableGroup
-                    items={stage.deliverables}
-                    getItemId={(d) => d.id}
-                    axis="y"
-                    withHandle
-                    disabled={stage.deliverables.length < 2}
-                    className="flex flex-col gap-2"
-                    onReorder={(next) => void applyOrder(stage, next)}
-                    renderItem={renderDeliverable(stage)}
-                  />
-                )}
-
-                {stage.deliverables.length > 0 && (
-                  <WtButton
-                    tone="primary" size="small" ghost onClick={() => openNew(stage)}
-                    startIcon={<KTIcon iconName="plus" className="fs-6" />}
-                    sx={{ mt: 1, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
-                  >
-                    Add Deliverable
-                  </WtButton>
-                )}
-              </Box>
-            </Collapse>
           </GlassCard>
         );
       })}
+      </AutoGrid>
+
+      {/* The work surface. One panel, full width, for whichever stage is selected — so a
+          deliverable row always has the room it needs regardless of the board's column
+          count, and the board above never reflows. */}
+      {selectedStage && (
+        <GlassCard id={panelId} preset="section" sx={{ p: { xs: 1.25, sm: 1.75 } }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+            <IconBox icon="element-11" trio={TRIO.blue} size={32} fs="fs-5" />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 13.5, lineHeight: 1.3, wordBreak: "break-word" }}>
+                {selectedStage.name}
+              </Typography>
+              {/* Repeats the card's figures on purpose: the panel can sit a full screen
+                  below its card once there are several stages. */}
+              <Typography sx={{ fontSize: 11.5, color: "text.secondary", mt: 0.15 }}>
+                Stage {selectedIndex + 1} · {selectedStage.percentage}% · {formatCurrencyDecimal(selectedStage.amount)}
+              </Typography>
+            </Box>
+            {selectedStage.deliverables.length > 0 && (
+              <WtButton
+                tone="primary" size="small" ghost onClick={() => openNew(selectedStage)}
+                startIcon={<KTIcon iconName="plus" className="fs-6" />}
+                sx={{ minHeight: 32, fontSize: 12.5, borderRadius: "9px", flexShrink: 0 }}
+              >
+                Add Deliverable
+              </WtButton>
+            )}
+            <WtIconButton
+              title="Close"
+              onClick={() => setSelectedId(null)}
+              sx={{ width: 32, height: 32, borderRadius: "9px", flexShrink: 0 }}
+            >
+              <KTIcon iconName="cross" className="fs-5" />
+            </WtIconButton>
+          </Stack>
+
+          {selectedStage.deliverables.length === 0 ? (
+            <Box
+              role="button"
+              tabIndex={0}
+              onClick={() => openNew(selectedStage)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openNew(selectedStage); }
+              }}
+              sx={{
+                py: 2.25, px: 1.5, borderRadius: "12px", cursor: "pointer", textAlign: "center",
+                border: "1px dashed", borderColor: "divider",
+                transition: "border-color .15s, background-color .15s",
+                "&:hover, &:focus-visible": { borderColor: "primary.main", bgcolor: "action.hover" },
+              }}
+            >
+              <Typography sx={{ color: "text.secondary", fontSize: 12.5, fontWeight: 600 }}>
+                Add the first deliverable
+              </Typography>
+              <Typography sx={{ color: "text.disabled", fontSize: 11.5, mt: 0.25 }}>
+                Deliverables carry the stage&apos;s percentages, and must total 100%.
+              </Typography>
+            </Box>
+          ) : (
+            <ReorderableGroup
+              items={selectedStage.deliverables}
+              getItemId={(d) => d.id}
+              axis="y"
+              withHandle
+              disabled={selectedStage.deliverables.length < 2}
+              className="flex flex-col gap-2"
+              onReorder={(next) => void applyOrder(selectedStage, next)}
+              renderItem={renderDeliverable(selectedStage)}
+            />
+          )}
+        </GlassCard>
+      )}
 
       {/* Status picker. Three fixed options rather than a next/previous toggle, so a
           completion can be reopened in one click instead of cycling round. */}

@@ -1,3 +1,6 @@
+
+
+
 import React, { useEffect, useRef, useState } from 'react';
 import Select from 'react-select';
 import { ColourOption, SingleValue, DropdownIndicator } from '@app/modules/common/inputs/ColorInDropdwon';
@@ -211,6 +214,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
       );
 
       const nextChains = approvalChainsFromConfigs(workflowsRes?.data || workflowsRes || []);
+
 
       // Uncontrolled: hold the loaded chains ourselves so the pickers actually show them.
       if (!controlled) setInternalChains(nextChains);

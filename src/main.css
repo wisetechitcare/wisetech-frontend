@@ -706,14 +706,18 @@ thead.MuiTableHead-root th {
   font-size: 1rem !important;
 }
 
-/* Progress bar color */
-.MuiLinearProgress-bar {
-  background-color: #1E3A8A !important;
-}
-
-.MuiLinearProgress-root {
-  background-color: #FECACA !important;
-}
+/* Progress bar colour is set PER CALL SITE, not here.
+ *
+ * This used to force every bar to #1E3A8A and every track to #FECACA (red-200) with
+ * !important, which no `sx` could outrank. Five call sites were already passing their own
+ * colours and silently losing all of them:
+ *   - ui/stepper.tsx        color="error" could never render red
+ *   - ExecutionSection      success green at 100%; the red track read as a FAILED stage
+ *   - MonthlySalaryPieChart earning/OT colours + an #f1f5f9 track
+ *   - PaymentProgressCard   paid/remaining split
+ *   - ProjectReportPage     action.hover track
+ * The pink also came from a hardcoded hex, so it stayed pink in dark mode.
+ * A bar with no sx now falls back to the MUI theme's primary, which is the intent. */
 
 /* Column resize handle */
 .MuiDivider-root.MuiDivider-vertical[style] {
