@@ -39,7 +39,7 @@ function DockHomeLinkBase({ to }: { to: string }) {
         <span className={DOCK_HOME_GLYPH}>
           <HomeRounded sx={{ fontSize: TILE_ICON_SIZE_DOCKED }} />
         </span>
-        <span className={DOCK_HOME_LABEL}>Home</span>
+        <span data-dock-text className={DOCK_HOME_LABEL}>Home</span>
       </MotionLink>
       <span className={DOCK_DIVIDER} aria-hidden="true" />
     </>

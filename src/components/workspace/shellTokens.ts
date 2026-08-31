@@ -94,11 +94,15 @@ export const SHELL_HOME =
  *
  * `minmax(0, 1fr)` rather than `1fr`: a bare `1fr` has an implicit `min-width: auto`, so one
  * wide table inside a page would push the whole column and drag the boundary with it.
+ *
+ * The dock track reads `--wt-dock-eff` rather than stating its width here, because the width
+ * is no longer a constant: the collapse toggle switches it, and the header's brand cell has to
+ * land on the same seam. premium-layout.css owns that variable — one number, three consumers.
  */
 export const SHELL_DOCKED =
   'relative min-h-[78vh] w-full px-[16px] py-[20px] sm:px-[24px] ' +
-  'lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:items-start lg:gap-0 lg:px-0 lg:py-0 ' +
-  'xl:grid-cols-[268px_minmax(0,1fr)]';
+  'lg:grid lg:grid-cols-[var(--wt-dock-eff,268px)_minmax(0,1fr)] lg:items-start lg:gap-0 ' +
+  'lg:px-0 lg:py-0';
 
 /**
  * Visual order is flipped with flex `order`, NOT by reordering the JSX.
