@@ -129,7 +129,7 @@ describe('unlockedTillNow — paced across the SAME window the entitlement was c
             [[4, 5, 6, 7, 8, 9, 10, 11, 12], 15], // joined July
             [[7, 8, 9, 10, 11, 12], 10], // joined October
             [[1, 2, 3, 4, 5, 6], 10], // leaving in September
-            [[1], 1.5], // employed only in April
+            [[1], 1], // employed only in April
             [[1, 2, 3, 7, 8, 9, 10, 11, 12], 15], // out Jul-Sep
         ];
         for (const [months, entitlement] of shapes) {
