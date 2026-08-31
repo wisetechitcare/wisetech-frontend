@@ -9,6 +9,7 @@ import {PageDataProvider} from './core'
 import {SidebarCollapseProvider} from './core/SidebarCollapseContext'
 import {PinnedMenuProvider} from './core/PinnedMenuContext'
 import {NavTransformProvider} from '@/contexts/NavTransformContext'
+import {WorkspaceShellState} from '@components/workspace/WorkspaceShellContext'
 import {ActivityDrawer, DrawerMessenger, InviteUsers, UpgradePlan} from '../partials'
 import {MenuComponent} from '../assets/ts/components'
 import {BottomNav} from '@components/navigation/BottomNavigation'
@@ -29,6 +30,10 @@ const MasterLayout = () => {
       {/* Scoped to the layout, not App — the unmount cleanup strips
           `data-nav-transform` on logout so the auth screens never carry it. */}
       <NavTransformProvider>
+      {/* Shell state sits ABOVE the header: the header's breadcrumb is the shell's
+          breadcrumb (see DefaultTitle), and a consumer cannot live outside its provider.
+          Renders its children untouched in classic-sidebar mode. */}
+      <WorkspaceShellState>
       <SidebarCollapseProvider>
       <PinnedMenuProvider>
       <div className='page d-flex flex-row flex-column-fluid'>
@@ -71,6 +76,7 @@ const MasterLayout = () => {
       <ScrollTop />
       </PinnedMenuProvider>
       </SidebarCollapseProvider>
+      </WorkspaceShellState>
       </NavTransformProvider>
     </PageDataProvider>
   )

@@ -299,10 +299,12 @@ export const WORKSPACE_HOME = 'relative z-10 w-full';
  * navigation and workspace is therefore identical for every application.
  */
 export const WORKSPACE_DOCKED =
-  'w-full min-w-0 pt-[4px] lg:px-[32px] lg:py-[24px] xl:px-[40px]';
+  'w-full min-w-0 pt-[4px] lg:px-[24px] lg:py-[24px]';
 
-/** Caps the working area on ultrawide so text lines never run to 2000px. */
-export const WORKSPACE_INNER = 'mx-auto w-full max-w-[1400px]';
+/** No cap and no auto margins: the working area runs the full width of its track. A
+ *  max-width here centred the content and left a dead gutter on both sides — ~80px per
+ *  side at 1920, on top of the padding above. */
+export const WORKSPACE_INNER = 'w-full min-w-0';
 
 export const WORKSPACE_TITLE =
   'text-[22px] font-bold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[26px] ' +
