@@ -169,6 +169,8 @@
 
 /* timeline */
 .mrd-tl{ position:relative; }
+/* Back out of a single clicked event to the rest of that day. */
+.mrd-tl__all{ margin:0 0 8px -4px; }
 .mrd-tl__item{ position:relative; padding:0 0 4px 24px; }
 .mrd-tl__item::before{ content:""; position:absolute; left:6px; top:20px; bottom:-2px; width:1.5px; background:var(--mrd-border); }
 .mrd-tl__item:last-child::before{ display:none; }
@@ -410,7 +412,10 @@
 .mrd .fc-daygrid-dot-event, .mrd .fc-daygrid-dot-event:hover{ background:transparent; }
 .mrd .fc-daygrid-event .fc-event-time,
 .mrd .fc-daygrid-event .fc-event-title{ display:none; }   /* we render our own content */
+/* A chip opens that one event in the panel (the empty part of the cell opens the
+   whole day), so it has to read as its own target. */
 .mrd .fullcalendar__event__wrapper{
+  cursor:pointer;
   display:flex; align-items:center; gap:6px; min-width:0; width:100%;
   background:var(--event-bg, var(--mrd-inset)) !important; color:var(--mrd-ink) !important;
   border-radius:7px; padding:2px 7px 2px 6px; font-size:11px; font-weight:540; line-height:1.35;
@@ -452,22 +457,6 @@
 
 /* period-tabs (shared component) lift inside our toolbar */
 .mrd-toolbar .MuiToggleButtonGroup-root{ background:var(--mrd-surface); border-radius:11px; box-shadow:var(--mrd-sh-sm); }
-
-/* ---------- floating Create action (mobile only) ---------- */
-/* Clears the app-wide bottom nav bar (BottomNav.tsx — fixed, ~60px + safe-area)
-   using the same --bn-content-offset variable it and notifications.css already
-   coordinate through, so the FAB floats above it instead of overlapping it. */
-.mrd-fab{
-  display:none; /* shown ≤760px, see Responsive block */
-  position:fixed; right:18px; z-index:60; width:52px; height:52px; border-radius:50%; border:0;
-  cursor:pointer; align-items:center; justify-content:center;
-  background:linear-gradient(180deg,var(--mrd-primary),var(--mrd-primary-600)); color:#fff;
-  box-shadow:0 6px 18px -4px rgba(27,66,105,.45), 0 2px 6px rgba(27,66,105,.3);
-  bottom:calc(var(--bn-content-offset, 82px) + env(safe-area-inset-bottom, 0px) + 64px);
-  transition:transform .16s var(--mrd-ease);
-}
-.mrd-fab:active{ transform:scale(.94); }
-.mrd-fab .mrd-ico{ width:22px; height:22px; }
 
 /* ---------- mobile bottom-sheet variant of the day-detail panel ----------
 
@@ -556,27 +545,30 @@
   .mrd .fc-col-header-cell{ padding:4px 2px 6px; }
   .mrd .fc-col-header-cell-cushion{ font-size:10px; letter-spacing:.02em; }
 
-  /* The "New" button moves out of the controls row entirely below 760px —
-     the FAB below takes over so the row only has to fit tabs + nav.
-     !important so it still wins now that the button is a <PremiumButton>
-     (whose .wt-premium-btn display:inline-flex has equal specificity). */
+  /* The "New" button moves out of the controls row entirely below 760px — the
+     bottom nav's "+" (Quick Actions → New Event) owns creating on a phone, so the
+     row only has to fit tabs + nav. !important so it still wins now that the
+     button is a <PremiumButton> (whose .wt-premium-btn display:inline-flex has
+     equal specificity). */
   .mrd-btn--new{ display:none !important; }
-  .mrd-fab{ display:flex; }
 
   /* Touch targets grow slightly on touch-sized viewports (WCAG ~44px). */
   .mrd-navbtn{ width:40px; height:40px; }
 
   /* ---- Day-detail panel → bottom sheet ----
-     Anchored above the app's fixed bottom nav (--bn-content-offset), same as
-     the FAB, so its own Create/Quick-action buttons never sit under the nav. */
+     The sheet paints OVER the floating bottom nav (z-131 vs the nav's 105), so
+     it used to reserve --bn-content-offset at the bottom to clear a bar that is
+     no longer visible underneath it. All that bought was ~82px of blank card
+     under the list — and a list clipped that much short of the sheet's edge.
+     Only the device safe-area is worth keeping. */
   .mrd-panel-backdrop{ display:block; }
   .mrd-panel.mrd-panel--sheet{
     position:fixed; left:0; right:0;
     bottom:0;
-    padding-bottom:calc(var(--bn-content-offset, 82px) + env(safe-area-inset-bottom, 0px));
+    padding-bottom:env(safe-area-inset-bottom, 0px);
     /* See the note above the backdrop for why this is 131 and not 1081. */
     z-index:131;
-    max-height:calc(min(75dvh, 600px) + var(--bn-content-offset, 82px)); border-radius:20px 20px 0 0;
+    max-height:min(75dvh, 600px); border-radius:20px 20px 0 0;
     box-shadow:0 -8px 30px -8px rgba(20,28,41,.35);
     transform:translateY(100%);
     transition:transform .26s var(--mrd-ease);
