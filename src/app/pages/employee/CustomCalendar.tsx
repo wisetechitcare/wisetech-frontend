@@ -57,6 +57,7 @@ import type { BirthdayCardKind } from '@services/employee';
 import { fetchColorAndStoreInSlice } from '@utils/file';
 import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // ---- Premium outline icon set (consistent, no emoji) ----
 const ICONS: Record<string, JSX.Element> = {
@@ -76,6 +77,7 @@ const ICONS: Record<string, JSX.Element> = {
     gift: <><rect x="3.5" y="8.5" width="17" height="12" rx="2" /><path d="M3.5 12.5h17M12 8.5v12" /><path d="M12 8.5S10.5 4 8 4a2 2 0 0 0 0 4h4zM12 8.5S13.5 4 16 4a2 2 0 0 1 0 4h-4z" /></>,
     file: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>,
     eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></>,
+    filter: <path d="M3 5h18l-7 8.2V20l-4-2.2v-4.6z" />,
     eyeOff: <><path d="M9.9 5.1A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.5 6.6C3.7 8.2 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.2-.9M3 3l18 18M9.9 9.9a3 3 0 0 0 4.2 4.2" /></>,
 };
 const Ico = ({ n, cls = '' }: { n: string; cls?: string }) => (
@@ -272,7 +274,12 @@ function CustomCalendar() {
     // What the mobile bottom sheet is showing: the tapped day, or the filters.
     // On tablet+ the rail shows both at once and this is ignored.
     const [mobileFilters, setMobileFilters] = useState(false);
+    // Set when a single event chip was clicked — the panel then shows just that
+    // event instead of the whole day. Cleared by any day-level navigation.
+    const [focusedEvent, setFocusedEvent] = useState<any>(null);
     const [branchWorkingAndOffDays, setBranchWorkingAndOffDays] = useState<any>({});
+    const location = useLocation();
+    const navigate = useNavigate();
     // console.log("branchWorkingAndOffDays =>",branchWorkingAndOffDays)
     const selectRef = useRef(null);
 
@@ -353,8 +360,7 @@ function CustomCalendar() {
 
     const handleDateSelect = (selectInfo: any) => {
         setSelectedDateTimeInfo(selectInfo);
-        setPanelDate(new Date(selectInfo.startStr));
-        if (isMobile) openDaySheet();
+        showDay(new Date(selectInfo.startStr));
     };
 
     const handleShowLeaveRequestForm = () => {
@@ -921,6 +927,21 @@ function CustomCalendar() {
         return () => window.removeEventListener('resize', updateColumns);
     }, []);
 
+    /* Landed here from the mobile bottom-nav "+" quick-actions sheet — open the
+       "Select Event Type" chooser on today straight away, and clear the nav state
+       so a back/forward or refresh doesn't re-trigger it. Reads the width live
+       rather than through `isMobile`: that state is still false on this first
+       commit (its own effect above has run, but this render closed over the old
+       value), and on a phone the chooser lives inside the bottom sheet. */
+    useEffect(() => {
+        if ((location.state as any)?.quickAction !== 'newEvent') return;
+        setSelectedDateTimeInfo({ startStr: dayjs().format('YYYY-MM-DD') } as any);
+        setShowOptionsModal(true);
+        if (window.innerWidth <= 760) { setMobileFilters(false); setPanelSheetOpen(true); }
+        navigate(location.pathname, { replace: true, state: {} });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Lock background scroll while the mobile day-detail sheet is open, and
     // let Escape close it (the same affordance the backdrop/close button give).
     useEffect(() => {
@@ -1137,12 +1158,20 @@ function CustomCalendar() {
         .sort((a, b) => new Date(evDateOf(a)).getTime() - new Date(evDateOf(b)).getTime())
         .slice(0, 6);
 
-    const panelPrev = () => setPanelDate((d) => dayjs(d).subtract(1, 'day').toDate());
-    const panelNext = () => setPanelDate((d) => dayjs(d).add(1, 'day').toDate());
-    const panelToday = () => setPanelDate(new Date());
+    const panelPrev = () => { setFocusedEvent(null); setPanelDate((d) => dayjs(d).subtract(1, 'day').toDate()); };
+    const panelNext = () => { setFocusedEvent(null); setPanelDate((d) => dayjs(d).add(1, 'day').toDate()); };
+    const panelToday = () => { setFocusedEvent(null); setPanelDate(new Date()); };
     // The sheet is one surface with two modes — every day entry point resets it
     // to the day view so the filters never show up where they weren't asked for.
     const openDaySheet = () => { setMobileFilters(false); setPanelSheetOpen(true); };
+
+    /* Two ways into the panel, deliberately different: tapping a day cell shows
+       everything on that day, tapping one event chip narrows to that event.
+       `focusedEvent` is what separates them; anything that moves off the day
+       clears it. */
+    const showDay = (d: Date) => { setFocusedEvent(null); setPanelDate(d); if (isMobile) openDaySheet(); };
+    const showEvent = (e: any) => { setFocusedEvent(e); setPanelDate(new Date(evDateOf(e))); if (isMobile) openDaySheet(); };
+    const panelItems = focusedEvent ? [focusedEvent] : panelEvents;
     const openFilters = () => { setShowOptionsModal(false); setMobileFilters(true); setPanelSheetOpen(true); };
     // Filters replace the day view on mobile; on tablet+ the rail shows both.
     const sheetFilters = isMobile && mobileFilters;
@@ -1218,27 +1247,20 @@ function CustomCalendar() {
                                         aria-label="Filter what shows on the calendar"
                                         title="Filters"
                                     >
-                                        <Ico n="eye" cls="sm" />
+                                        <Ico n="filter" cls="sm" />
                                         {hiddenCats.size > 0 && <span className="mrd-btn__dot" />}
                                     </button>
                                 )}
                             </div>
-                            {/* Hidden below 760px (mrd-btn--new) — the mrd-fab below takes over
-                                so the controls row doesn't have to fit a fourth element on a
-                                narrow phone. */}
+                            {/* Hidden below 760px (mrd-btn--new) — on a phone the bottom nav's
+                                "+" → Quick Actions → New Event lands here with the chooser
+                                already open, so the compact toolbar stays uncluttered. */}
                             <PremiumButton className="mrd-btn--new" icon="bi-plus" onClick={() => openCreateFor(panelDate)}>
                                 New
                             </PremiumButton>
                         </div>
                     </div>
 
-                    {/* Mobile-only floating Create action — replaces the toolbar's "New"
-                        button below 760px (see .mrd-btn--new / .mrd-fab in the CSS) so the
-                        primary create action stays reachable with a thumb without crowding
-                        the compact toolbar. Respects safe-area-inset-bottom. */}
-                    <button type="button" className="mrd-fab" onClick={() => openCreateFor(panelDate)} aria-label="Create new event">
-                        <Ico n="plus" />
-                    </button>
 
                     <div className="mrd-main">
                         {/* ---- Main calendar card (FullCalendar engine, restyled) ---- */}
@@ -1278,12 +1300,24 @@ function CustomCalendar() {
                                 selectable={true}
                                 // editable={true}
                                 select={handleDateSelect}
-                                dateClick={(info: any) => { setPanelDate(info.date); if (isMobile) openDaySheet(); }}
+                                dateClick={(info: any) => showDay(info.date)}
                                 // Keep FullCalendar's default 1s long-press for touch selection.
                                 // A 1ms delay made every finger-down start a date drag-select, so
                                 // scrolling the month grid selected whatever cell you lifted off.
                                 longPressDelay={1000}
-                                // eventClick={handleEventClick}
+                                /* Clicking a chip opens that one event. FullCalendar hands back an
+                                   EventApi, not our source object, so rebuild the shape the panel
+                                   renderers expect (title / start / extendedProps) — extendedProps
+                                   is passed through untouched, which is where type, filterKey,
+                                   user and contact live. */
+                                eventClick={(info: any) => {
+                                    info.jsEvent?.preventDefault();
+                                    showEvent({
+                                        title: info.event.title,
+                                        start: info.event.start,
+                                        extendedProps: info.event.extendedProps,
+                                    });
+                                }}
                                 ref={calendarRef}
                                 datesSet={handleDatesSet}
                                 height={"auto"}
@@ -1380,11 +1414,17 @@ function CustomCalendar() {
                                     mode — tapping a day and tapping Filters are two different
                                     intents and the sheet answers exactly one at a time. */}
                                 {!sheetFilters && (<>
+                                {/* One clicked event, or the whole day. */}
+                                {focusedEvent && panelEvents.length > 1 && (
+                                    <button type="button" className="mrd-ghost mrd-tl__all" onClick={() => setFocusedEvent(null)}>
+                                        <Ico n="chevL" cls="xs" /> All {panelEvents.length} events on this day
+                                    </button>
+                                )}
                                 {/* Selected-day summary — timeline when busy, or a clean
                                     "no events" card with a Create Event CTA when clear. */}
-                                {panelEvents.length ? (
+                                {panelItems.length ? (
                                     <div className="mrd-tl">
-                                        {panelEvents.map((e: any, i: number) => {
+                                        {panelItems.map((e: any, i: number) => {
                                             const m = evMeta(e);
                                             return (
                                                 <div className="mrd-tl__item" key={i}>
@@ -1446,7 +1486,7 @@ function CustomCalendar() {
                                             {upcomingEvents.map((e: any, i: number) => {
                                                 const m = evMeta(e);
                                                 return (
-                                                    <button type="button" className="mrd-up__row" key={i} onClick={() => setPanelDate(new Date(evDateOf(e)))}>
+                                                    <button type="button" className="mrd-up__row" key={i} onClick={() => showEvent(e)}>
                                                         <span className="mrd-up__col">
                                                             {renderProfileOrIcon(e, 32, "circle", "mrd-up__dot", true)}
                                                         </span>
