@@ -14,9 +14,13 @@
  * The last active panel cannot be switched off — a workspace showing nothing is not a state anyone
  * asked for, so the control simply holds.
  *
- * Fixed to the viewport rather than parked at the end of the page, because the board scrolls and
- * this must not scroll away with it. The workspace reserves the height it occupies (see
- * `useFillViewport`'s `bottomGap`), so it never covers a card.
+ * It must not scroll away with the board, so it is never in flow. WHERE it pins depends on the
+ * layout: from `lg` up the workspace is exactly one screenful, so the pill is absolute INSIDE it
+ * and sits on the board it belongs to — fixed to the viewport, it floated below the workspace and
+ * landed on the page footer. Below `lg` the panes stack and the page scrolls normally, so there is
+ * no one screenful to pin inside and it stays fixed, clearing the app's mobile bottom nav.
+ *
+ * The workspace reserves the band it occupies (its `pb` at lg), so it never covers a card.
  */
 import { Box, Stack, Tooltip, alpha, useTheme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
@@ -41,9 +45,9 @@ export const BoardBottomNav = ({ active, onToggle }: BoardBottomNavProps) => {
 
     return (
         // `bottom-20` on phones clears the app's own mobile bottom navigation; on desktop that
-        // nav renders nothing, so the pill sits close to the edge.
+        // nav renders nothing, so the pill sits close to the board's own bottom edge.
         <Box
-            className="pointer-events-none fixed inset-x-0 bottom-20 z-[1200] flex justify-center px-3 lg:bottom-5"
+            className="pointer-events-none fixed inset-x-0 bottom-20 z-[1200] flex justify-center px-3 lg:absolute lg:bottom-4"
         >
             <Stack
                 direction="row"
