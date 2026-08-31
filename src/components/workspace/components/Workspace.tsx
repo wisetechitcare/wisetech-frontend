@@ -57,8 +57,7 @@ export function Workspace() {
       data-workspace-mode={mode}
       className={`${home ? WORKSPACE_HOME : WORKSPACE_DOCKED} ${home ? ORDER_WORKSPACE_HOME : ORDER_WORKSPACE_DOCKED}`}
     >
-      {/* Caps the working area on ultrawide so text lines never run to 2000px — the
-          difference between "fills the screen" and "was designed for it". */}
+      {/* Runs the full width of the workspace track — see WORKSPACE_INNER. */}
       <div className={WORKSPACE_INNER}>
         <WorkspaceHeader />
         <WorkspaceContent />

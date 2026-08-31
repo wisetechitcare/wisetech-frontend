@@ -1,7 +1,7 @@
 /**
  * The Tasks workspace — one board, one screenful, full bleed.
  *
- *     ┌── <project name>                      [backdrop] [gear]      [+ New task] ──┐
+ *     ┌── <project name>                             [backdrop]      [+ New task] ──┐
  *     │  ▓▓ board backdrop — preset · colour · wallpaper ▓▓                         │
  *     │  ┌ TODO (5) + ┐ ┌ ONGOING (3) + ┐ ┌ ON HOLD (1) + ┐ ┌ + Add another list ┐  │
  *     │  │ card       │ │ card          │ │ card          │                        │
@@ -39,7 +39,6 @@ import {
     Badge, Box, Button, Chip, CircularProgress, IconButton, Stack, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { RequirePermission } from '@app/modules/common/components/RequirePermission';
 import { useFillViewport } from '@app/hooks/useFillViewport';
 import { TaskFilterState, filtersToQuery, apiErrorMessage, activeFilterCount } from './taskDomain';
 import {
@@ -198,11 +197,12 @@ export const TasksWorkspace = () => {
      * property it publishes is consumed as `h-[var(--wt-fill-h)]` on the same element, and is set
      * to `auto` on narrow screens where the panes stack and the page should scroll normally.
      */
-    // `bottomGap` reserves the floating bottom bar's own height, so the pill sits in clear space
-    // instead of over the last row of cards. 1024px is Tailwind's `lg` — the same breakpoint the
-    // layout stacks at below, and the two must agree or a viewport-tall shell would wrap content
-    // that has gone vertical.
-    const fillRef = useFillViewport<HTMLDivElement>({ bottomGap: 76, minViewportWidth: 1024 });
+    // The bottom bar is parked INSIDE the workspace on desktop (see BoardBottomNav), so the
+    // space it needs is reserved as padding below — not carved out of the viewport here. Only a
+    // hair of breathing room above the footer is left. 1024px is Tailwind's `lg` — the same
+    // breakpoint the layout stacks at below, and the two must agree or a viewport-tall shell
+    // would wrap content that has gone vertical.
+    const fillRef = useFillViewport<HTMLDivElement>({ bottomGap: 8, minViewportWidth: 1024 });
 
     const { background, setBackground, resetBackground } = useBoardBackground();
     const ink = boardInk(background);
@@ -354,8 +354,10 @@ export const TasksWorkspace = () => {
         // nothing here escapes into a page-level scrollbar — each pane scrolls on its own.
         <Box
             ref={fillRef}
-            className="flex h-[var(--wt-fill-h)] w-full flex-col overflow-hidden"
-            sx={{ p: { xs: 1.5, md: 2.5 } }}
+            className="relative flex h-[var(--wt-fill-h)] w-full flex-col overflow-hidden"
+            // `pb` at lg is the band the bottom bar sits in: the bar is absolutely placed, so
+            // without it the pill would float over the last row of cards.
+            sx={{ p: { xs: 1.5, md: 2.5 }, pb: { lg: 8 } }}
         >
             {/* No `gap` on this row: the projects pane collapses to zero width, and a gap would
                 leave a visible seam where a closed pane used to be. The open pane carries its own
@@ -501,28 +503,6 @@ export const TasksWorkspace = () => {
                                 </IconButton>
                             </Tooltip>
 
-                            {/* Configure is a destination, not a tab — the board and the
-                                stage/priority/preset definitions are different jobs. Hidden
-                                rather than disabled for anyone who cannot open it, so nobody
-                                clicks a control that bounces them back here. */}
-                            <RequirePermission perm="tasks.manage.all" hideOnly>
-                                <Tooltip title="Configure statuses, priorities and preset tasks">
-                                    <IconButton
-                                        size="small"
-                                        aria-label="Configure tasks"
-                                        onClick={() => navigate('/tasks/configure')}
-                                        sx={{
-                                            border: `1px solid ${theme.palette.divider}`,
-                                            borderRadius: 1.5,
-                                            width: 34, height: 34,
-                                            color: 'text.secondary',
-                                            '&:hover': { color: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.08) },
-                                        }}
-                                    >
-                                        <KTIcon iconName="setting-2" className="fs-4" />
-                                    </IconButton>
-                                </Tooltip>
-                            </RequirePermission>
                             {/* Only for somebody the SERVER says may file one here. A team member
                                 can still break work down — "Add subtask" lives on the task
                                 itself — but the top-level button was shown to everyone and the

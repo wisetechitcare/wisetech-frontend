@@ -63,7 +63,6 @@ const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/O
 const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
 const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
 // Phase 4 — the rebuilt Task UI (Kanban-first workspace + task detail workspace)
-const TasksWorkspace = lazy(() => import('@pages/employee/tasks/TasksWorkspace'))
 // Task configuration — statuses, priorities and the preset task tree.
 const TasksConfigure = lazy(() => import('@pages/employee/tasks/configure/TasksConfigure'))
 const TaskDetailPage = lazy(() => import('@pages/employee/tasks/TaskDetailPage'))
@@ -588,11 +587,13 @@ const PrivateRoutes = () => {
           }
         />
         <Route
+          // The section's tab bar (Overview · Tasks · Configure). The Tasks tab renders the
+          // board that used to be mounted here directly, so this URL still lands on it.
           path='/tasks'
           element={
             <SectionGuard module='tasks'>
               <SuspensedView>
-                <TasksWorkspace />
+                <TasksMain />
               </SuspensedView>
             </SectionGuard>
           }

@@ -52,6 +52,7 @@ import {
     ShieldAlert, SlidersHorizontal, SquareCheck, SquareMinus, TextAlignStart,
     TextCursorInput, ToggleLeft, TrendingUp, UserPen, UserRound, Venus, Video, VideoOff,
     Wifi, Zap,
+    CircleArrowLeft, PanelLeft,
 } from 'lucide-react';
 
 /**
@@ -142,6 +143,12 @@ const KEENICON: Record<string, AppIconComponent> = {
     // Written as raw `ki-duotone ki-*` classes rather than through <KTIcon>, so they never
     // showed up in an `iconName` scan until the font was being removed.
     'burger-menu': Menu, 'files': Files,
+    // Chosen inside a JSX ternary — `iconName={cond ? 'a' : 'b'}` — which the call-site scan
+    // could not see until iconRegistry.test.ts learned to read the branches. All four were
+    // rendering nothing: the nav-style toggle in shell mode, the general-task glyph on a task
+    // detail, the PDF row in the DMS explorer, and unarchive on a proforma.
+    'panel-left': PanelLeft, 'home-2': House, 'pdf': FileText,
+    'arrow-circle-left': CircleArrowLeft,
     // Used as a dropdown trigger on the documents table, next to `dots-square`. The keenicon
     // was a clasp shape that never read as "more actions" anyway; an overflow ellipsis says
     // what the button does.

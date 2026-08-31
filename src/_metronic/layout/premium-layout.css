@@ -1428,15 +1428,10 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
      take the logo (and .wt-aside-toggle, absolutely positioned on it) with it.
      Give the cell its intrinsic width back — the logo is the way home. */
   body[data-workspace-shell='true'] .header .header-brand {
-    width: auto !important;
+    width: var(--wt-dock-eff) !important;
     min-width: 0;
     padding: 0 18px !important;
     border-right: 1px solid var(--nav-line) !important;
-  }
-
-  /* A collapse chevron for a rail that is not there is a dead control. */
-  body[data-workspace-shell='true'] .wt-aside-toggle {
-    display: none !important;
   }
 
   /* Collapsed + workspace: the collapsed rules swap the wordmark for the square
@@ -1470,4 +1465,83 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
 body[data-workspace-shell='true'] #kt_content_container {
   display: flex;
   flex-direction: column;
+}
+
+/* =============================================================================
+   WORKSPACE SHELL — THE DOCK COLLAPSES, on the sidebar's own switch
+
+   The shell had no collapse: the chevron was hidden because there was no legacy
+   rail to narrow, and the dock that replaced it was a fixed track. Same need,
+   though — so this reuses the switch that already exists rather than growing a
+   second one:
+
+     state   SidebarCollapseContext  (localStorage + body[data-aside-collapsed])
+     control .wt-aside-toggle in HeaderWrapper  (Ctrl+I, the chevron, the styling)
+     width   --wt-dock-eff, read by the grid track (shellTokens SHELL_DOCKED)
+             and by the header's brand cell, so the seam and the chevron agree
+
+   One preference drives BOTH navigations: collapse the sidebar, switch to the
+   shell, and it is still collapsed. Two flags would eventually disagree.
+
+   84px matches --wt-aside-collapsed exactly — the two rails are the same object
+   to a user, and a 12px difference between them would read as a bug.
+
+   Desktop only, like every other rule in this file: below 992px the dock is not
+   rendered at all once an app is chosen (WorkspaceLayout), and BottomNav is the
+   navigation surface.
+   ========================================================================== */
+body[data-workspace-shell='true'] {
+  --wt-dock-w: 232px;
+  --wt-dock-eff: var(--wt-dock-w);
+}
+
+@media (min-width: 1280px) {
+  body[data-workspace-shell='true'] {
+    --wt-dock-w: 268px;
+  }
+}
+
+@media (min-width: 992px) {
+  /* The NAV TRANSFORM block above hides the chevron, on the same reasoning the shell
+     block used to: no legacy rail to narrow. Shell mode has a dock to narrow, so it
+     comes back. Same specificity as that rule and later in the file, which is how the
+     rest of this cascade is settled — see the ordering note above. */
+  body[data-workspace-shell='true'] .wt-aside-toggle {
+    display: flex !important;
+  }
+
+  body[data-workspace-shell='true'][data-aside-collapsed='true'] {
+    --wt-dock-eff: var(--wt-aside-collapsed);
+  }
+
+  /* The words go, the glyphs stay. `title` is already on every tile and on the
+     Home link, so the accessible name survives the label being dropped. */
+  body[data-workspace-shell='true'][data-aside-collapsed='true'] [data-dock-mode='docked'] [data-dock-text] {
+    display: none !important;
+  }
+
+  /* Centre what is left. The rows keep their height so the rail does not jump. */
+  body[data-workspace-shell='true'][data-aside-collapsed='true'] [data-dock-mode='docked'] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    align-items: center;
+  }
+
+  body[data-workspace-shell='true'][data-aside-collapsed='true'] [data-dock-mode='docked'] > a {
+    width: 52px;
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Collapsed AND in the shell: the wordmark cannot fit an 84px cell, so the
+     square mark comes back — which is what the collapsed rail already does. The
+     shell's expanded rules force the reverse, so both need restating here. */
+  body[data-workspace-shell='true'][data-aside-collapsed='true'] .wt-logo-full {
+    display: none !important;
+  }
+
+  body[data-workspace-shell='true'][data-aside-collapsed='true'] .wt-logo-square {
+    display: block !important;
+  }
 }

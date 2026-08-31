@@ -35,7 +35,6 @@ import {
   deleteTaskStage,
 } from "@services/tasks";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useEventBus } from "@hooks/useEventBus";
 import { useInvalidateTasks } from "@app/pages/employee/tasks/useTaskQueries";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -78,7 +77,6 @@ const STAGE_VIEW_OPTIONS = [
 ];
 
 const TasksConfigure = () => {
-  const navigate = useNavigate();
   // Deletes here must reach the React Query cache the board and the New Task dialog read from,
   // for the same reason saves do — see the note in TaskConfigForm.
   const invalidateTasks = useInvalidateTasks();
@@ -652,19 +650,6 @@ const TasksConfigure = () => {
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        // This is its own route now rather than a tab beside the board, so it needs an explicit
-        // way back — `breadcrumbs` is accepted by the layout but never rendered, so the action
-        // slot is the one that actually reaches the screen.
-        actions={
-          <ActionIconButton
-            iconName="arrow-left"
-            title="Back to tasks"
-            // The banner is brand navy, so the default (built to read on a white card)
-            // all but disappeared on it.
-            tone="onBrand"
-            onClick={() => navigate('/tasks')}
-          />
-        }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 
