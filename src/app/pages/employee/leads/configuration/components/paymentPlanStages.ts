@@ -15,6 +15,13 @@ export interface PlanStage {
   name: string;
   /** Held as typed: "" is a half-typed field, not 0. */
   percentage: number | string;
+  /**
+   * Deliverables on this stage as the SERVER last reported it. Undefined for a stage that
+   * has never been saved. The editor prefers its own live tally once a branch has been
+   * opened and edited — this is the at-rest figure, so a closed stage still says whether
+   * it holds anything.
+   */
+  deliverableCount?: number;
 }
 
 let seq = 0;
@@ -24,7 +31,14 @@ export const toPlanStage = (
   name: string,
   percentage: number | string,
   id?: string,
-): PlanStage => ({ ...(id ? { id } : {}), uid: stageUid(), name, percentage });
+  deliverableCount?: number,
+): PlanStage => ({
+  ...(id ? { id } : {}),
+  uid: stageUid(),
+  name,
+  percentage,
+  ...(deliverableCount === undefined ? {} : { deliverableCount }),
+});
 
 export const pct = (value: number | string): number => parseFloat(String(value)) || 0;
 

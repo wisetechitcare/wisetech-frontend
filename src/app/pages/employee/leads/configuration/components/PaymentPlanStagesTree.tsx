@@ -66,7 +66,11 @@ const PaymentPlanStagesTree: React.FC<Props> = ({ stages, onChange, showDelivera
   const renderStage = (stage: PlanStage, handleProps?: DragHandleProps) => {
     const index = stages.findIndex((s) => s.uid === stage.uid);
     const isOpen = showDeliverables && expandedUid === stage.uid;
-    const count = stage.id ? counts[stage.id] : undefined;
+    // Live tally first (this branch has been opened and edited), else the figure the server
+    // sent with the plan. Undefined only for a stage that has never been saved, which cannot
+    // hold deliverables at all.
+    const count = stage.id ? counts[stage.id] ?? stage.deliverableCount ?? 0 : undefined;
+    const hasDeliverables = (count ?? 0) > 0;
 
     return (
       <Box
@@ -81,10 +85,35 @@ const PaymentPlanStagesTree: React.FC<Props> = ({ stages, onChange, showDelivera
 
           {showDeliverables && (
             <WtIconButton
-              title={isOpen ? "Hide deliverables" : "Show deliverables"}
+              title={
+                count === undefined
+                  ? "Save the plan to add deliverables"
+                  : hasDeliverables
+                    ? `${count} deliverable${count === 1 ? "" : "s"} — click to ${isOpen ? "hide" : "show"}`
+                    : "No deliverables yet — click to add"
+              }
               aria-expanded={isOpen}
+              aria-label={
+                count === undefined
+                  ? `Deliverables for stage ${index + 1}`
+                  : `${isOpen ? "Hide" : "Show"} deliverables for stage ${index + 1} — ${count} configured`
+              }
               onClick={() => toggle(stage)}
-              sx={{ width: 28, height: 28, borderRadius: "9px", flexShrink: 0 }}
+              sx={{
+                width: 28, height: 28, borderRadius: "9px", flexShrink: 0,
+                // THE indicator for the whole row. Filled = this stage's work is broken
+                // down; hollow = nothing yet. Six identical grey chevrons said nothing about
+                // which stages were configured, and the count that used to sit by the
+                // delete button was both noise and wrong (it only existed after opening).
+                // Binary is the read that matters here: which stages still need work.
+                ...(hasDeliverables
+                  ? {
+                      bgcolor: (t: any) => alpha(t.palette.primary.main, 0.12),
+                      color: "primary.main",
+                      "&:hover": { bgcolor: (t: any) => alpha(t.palette.primary.main, 0.2) },
+                    }
+                  : { color: "text.disabled" }),
+              }}
             >
               {/* The chevron IS the tree's open/closed state — rotate it rather than swap glyphs. */}
               <Box
@@ -130,11 +159,12 @@ const PaymentPlanStagesTree: React.FC<Props> = ({ stages, onChange, showDelivera
             }}
           />
 
-          {count !== undefined && count > 0 && (
-            <Typography sx={{ flexShrink: 0, fontSize: 11.5, fontWeight: 700, color: "text.secondary", minWidth: 34, textAlign: "center" }}>
-              {count} item{count === 1 ? "" : "s"}
-            </Typography>
-          )}
+          {/* No count badge here on purpose. A number wedged between the percentage field
+              and the delete button competes with the percentage — the row's actual data —
+              to say something the chevron already says. And once a branch is open the list
+              itself is the count; a "3 deliverables" heading above three visible rows is
+              the same fact twice. The exact number stays available on hover and to screen
+              readers via the chevron's label. */}
 
           <WtIconButton
             title="Remove stage"

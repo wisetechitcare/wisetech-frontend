@@ -69,7 +69,7 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
         (initialData.stages || [])
           .slice()
           .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-          .map((s) => toPlanStage(s.name, s.percentage, s.id)),
+          .map((s) => toPlanStage(s.name, s.percentage, s.id, s._count?.deliverables)),
       );
     } else {
       setDescription("");
@@ -185,31 +185,35 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
               "Interior Project") with nothing stopping the wrong one being chosen.
               The whole category and any single subcategory are both selectable — a grouped
               select cannot select its own group heading. */}
-          <div className="col-md-7">
+          <div className="col-12">
             <Form.Label className="fw-semibold text-gray-800 fs-7 mb-2">
               Project Category <span className="text-danger">*</span>
             </Form.Label>
-            <HierarchicalTaskPicker
-              value={scopeNodeId}
-              onChange={(option) => setScopeNodeId(option?.value || "")}
-              options={categoryOptions}
-              placeholder="Search categories & subcategories…"
-            />
-            <div className="text-muted mt-1" style={{ fontSize: 12 }}>
+            <div className="d-flex flex-column flex-md-row align-items-md-center gap-4">
+              <div className="flex-grow-1">
+                <HierarchicalTaskPicker
+                  value={scopeNodeId}
+                  onChange={(option) => setScopeNodeId(option?.value || "")}
+                  options={categoryOptions}
+                  placeholder="Search categories & subcategories…"
+                />
+              </div>
+              <div className="d-flex align-items-center">
+                <Form.Check
+                  type="checkbox"
+                  id="paymentPlanIsDefault"
+                  label="Set as default plan"
+                  checked={isDefault}
+                  onChange={(e) => setIsDefault(e.target.checked)}
+                  className="fw-semibold text-gray-700 mb-0"
+                />
+              </div>
+            </div>
+            <div className="text-muted mt-2" style={{ fontSize: 12 }}>
               {scopePath
                 ? `This is the fee split for ${scopePath}.`
                 : "Pick a category for the whole type, or a subcategory for just that one."}
             </div>
-          </div>
-          <div className="col-md-5 d-flex align-items-end pb-4">
-            <Form.Check
-              type="checkbox"
-              id="paymentPlanIsDefault"
-              label="Set as default plan"
-              checked={isDefault}
-              onChange={(e) => setIsDefault(e.target.checked)}
-              className="fw-semibold text-gray-700"
-            />
           </div>
           <div className="col-12">
             <Form.Label className="fw-semibold text-gray-800 fs-7 mb-2">

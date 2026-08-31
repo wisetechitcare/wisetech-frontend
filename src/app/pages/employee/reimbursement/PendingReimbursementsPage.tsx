@@ -494,9 +494,19 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       successConfirmation('Reimbursement saved to Pending Requests.');
       loadDrafts();
 
-      // Keep modal open — clear only per-entry fields so Date, Company Type,
-      // Company Name, and Project Name stay populated for the next entry.
-      actions.setFieldValue('reimbursementTypeId', '');
+      // Keep the modal open AND keep the project context — Date, Company Type, Company
+      // Name, Project Status and Project Name all stay put, so a run of expenses against
+      // one project is one selection followed by N amounts, not N full re-selections.
+      //
+      // Only the expense itself is cleared. `handleCategoryChange(null, …)` is what clears
+      // the category, because it owns BOTH halves of that field — the dropdown's selected
+      // Option and the Formik value. Clearing `reimbursementTypeId` alone would leave the
+      // dropdown still showing "Bike" over an empty value.
+      //
+      // This deliberately does NOT call resetLookups(): that clears all five selections,
+      // which blanked the project context the comment above promises to keep. It is still
+      // right for handleNew/handleEdit, where a genuinely fresh form is wanted.
+      handleCategoryChange(null, actions.setFieldValue);
       actions.setFieldValue('amount', undefined);
       actions.setFieldValue('fromLocation', '');
       actions.setFieldValue('toLocation', '');
@@ -504,7 +514,6 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       actions.setFieldValue('description', '');
       actions.setTouched({});
       actions.setSubmitting(false);
-      resetLookups();
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       setFormLoading(false);
