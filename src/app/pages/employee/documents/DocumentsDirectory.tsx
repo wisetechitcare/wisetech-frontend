@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Box, Typography } from "@mui/material";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
-import { GlassCard, GlassSurface, ListHeader, ToneChip, ToolbarFilterSelect } from "@app/modules/common/components/ui";
+import { GlassCard, GlassSurface, ListHeader, StatusCyclePill, ToneChip, ToolbarFilterSelect } from "@app/modules/common/components/ui";
 import { formatDate } from "@utils/dateFormats";
 import { fetchDocumentsDirectory } from "@services/employee";
 import type { DocumentsDirectoryEntry } from "@services/employee";
@@ -15,26 +15,15 @@ interface OrgOption {
   name: string;
 }
 
-/**
- * Active → Inactive → All, cycled by one button.
- *
- * Still a single control, as before — "All" is simply a third stop on the same
- * rotation rather than a separate dropdown, so the button keeps naming exactly what
- * is on screen and costs one click to change.
- */
+/** Active → Inactive → All. "All" is a third stop on the same rotation rather than
+ *  a separate control, so the button always names exactly what is on screen. */
 type StatusFilter = "active" | "inactive" | "all";
 
-const STATUS_CYCLE: Record<StatusFilter, StatusFilter> = {
-  active: "inactive",
-  inactive: "all",
-  all: "active",
-};
-
-const STATUS_STYLE: Record<StatusFilter, { label: string; fg: string; bg: string; border: string }> = {
-  active: { label: "Active", fg: "#15803D", bg: "rgba(22, 163, 74, 0.10)", border: "rgba(22, 163, 74, 0.35)" },
-  inactive: { label: "Inactive", fg: "#B45309", bg: "rgba(180, 83, 9, 0.10)", border: "rgba(180, 83, 9, 0.35)" },
-  all: { label: "All", fg: "#1E3A8A", bg: "rgba(30, 58, 138, 0.10)", border: "rgba(30, 58, 138, 0.35)" },
-};
+const STATUS_OPTIONS = [
+  { value: "active" as const, label: "Active", color: "#15803D" },
+  { value: "inactive" as const, label: "Inactive", color: "#B45309" },
+  { value: "all" as const, label: "All", color: "#1E3A8A" },
+];
 
 const FILTER_ACTIVE_THEME = {
   icon: "#3b82f6",
@@ -291,8 +280,6 @@ const DocumentsDirectory: React.FC = () => {
     [navigate]
   );
 
-  const statusStyle = STATUS_STYLE[status];
-
   return (
     <Box sx={{ maxWidth: 1600, mx: "auto", p: { xs: 1.5, sm: 2.5 }, display: "flex", flexDirection: "column", gap: 2 }}>
       <ListHeader
@@ -311,40 +298,11 @@ const DocumentsDirectory: React.FC = () => {
         radius={16}
         sx={{ p: 1.5, display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "center" }}
       >
-        {/* One button, three states: it names the CURRENT view and cycles on click. */}
-        <Box
-          component="button"
-          type="button"
-          onClick={() => setStatus((prev) => STATUS_CYCLE[prev])}
-          title={`Showing ${statusStyle.label.toLowerCase()} employees — click to show ${STATUS_STYLE[STATUS_CYCLE[status]].label.toLowerCase()}`}
-          sx={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 0.875,
-            px: 1.5,
-            height: 38,
-            flexShrink: 0,
-            border: "1px solid",
-            // Metronic's unlayered Bootstrap button rules outrank a utility class.
-            borderRadius: "10px",
-            cursor: "pointer",
-            font: "inherit",
-            fontSize: 12.5,
-            fontWeight: 600,
-            transition: "background-color .15s, color .15s, border-color .15s",
-            borderColor: statusStyle.border,
-            bgcolor: statusStyle.bg,
-            color: statusStyle.fg,
-            "&:hover": { filter: "brightness(0.97)" },
-          }}
-        >
-          <Box
-            component="span"
-            aria-hidden
-            sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "currentColor", flexShrink: 0 }}
-          />
-          {statusStyle.label}
-        </Box>
+        <StatusCyclePill<StatusFilter>
+          options={STATUS_OPTIONS}
+          value={status}
+          onChange={setStatus}
+        />
 
         <ToolbarFilterSelect
           label="Sub Organization"

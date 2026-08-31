@@ -151,7 +151,11 @@ const TimePickerInput: React.FC<TimePickerInputProps> = ({
             textField: {
               fullWidth: true,
               placeholder: placeholder,
-              className: 'form-control form-control-lg form-control-solid',
+              // NO `form-control form-control-solid` here. Metronic's input classes paint their
+              // own border, background and radius, and MUI's outlined input paints a
+              // `notchedOutline` on top — so the field rendered with TWO bottom edges, a
+              // Metronic one and a MUI one a pixel apart. Everything those classes were doing
+              // is already set by the `sx` below, from the theme.
               sx: {
                 // Value text follows the theme so it never renders white-on-white in dark mode.
                 "& .MuiInputBase-input": { fontSize: "1.2rem", color: fieldText, WebkitTextFillColor: fieldText },

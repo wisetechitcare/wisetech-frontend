@@ -897,6 +897,13 @@ export const TASKS = {
     CREATE_TASK_PRIORITY: "api/task-and-time/task-priorities",
     GET_ALL_TASK_PRIORITIES: "api/task-and-time/task-priorities",
     UPDATE_TASK_PRIORITY: "api/task-and-time/task-priorities",
+    DELETE_TASK_PRIORITY: "api/task-and-time/task-priorities",
+
+    // Configuration stages — a named bundle of preset tasks. Not a board column.
+    GET_ALL_TASK_STAGES: "api/task-and-time/task-stages",
+    CREATE_TASK_STAGE: "api/task-and-time/task-stages",
+    UPDATE_TASK_STAGE: "api/task-and-time/task-stages",
+    DELETE_TASK_STAGE: "api/task-and-time/task-stages",
 
     CREATE_PRESET_TASKS_STATUS: "api/task-and-time/task-persest",
     GET_ALL_PRESET_TASKS_STATUSES: "api/task-and-time/task-persest",
@@ -907,7 +914,7 @@ export const TASKS = {
     CREATE_TASK: "api/task-and-time/task",
     UPDATE_TASK: "api/task-and-time/task",
     DELETE_TASK: "api/task-and-time/task",
-    UPDATE_TASK_STATUS_BY_TASKID: "/api/task-and-time/task/:taskId",
+    UPDATE_TASK_STATUS_BY_TASKID: "/api/task-and-time/task/:taskId/status",
     GET_TASKS_BY_PROJECT_ID: "/api/task-and-time/task/project/:projectId",
     GET_TIMESHEETS_BY_PROJECTID: "/api/task-and-time/time-sheets/project/:projectId?billable=:billable",
     GET_TIMESHEETS_BY_PROJECTID_WITH_COST: "/api/task-and-time/time-sheets/project/:projectId/with-costing?billable=:billable",
@@ -925,6 +932,26 @@ export const TASKS = {
     GET_TASK_BY_ID: "/api/task-and-time/task/:id",
     GET_TASKS_STATUS_START_END_DATE: "/api/task-and-time/tasks/status/start-end-date?startDate=:startDate&endDate=:endDate",
     GET_ALL_PROJECT_ONLY_SELECTED_FIELDS: "/api/task-and-time/task/get-all-project-only-selected-fields",
+    // Phase 3 — authorized selectors (server decides, UI reflects)
+    GET_AVAILABLE_PROJECTS: "/api/task-and-time/task/available-projects",
+    GET_GENERAL_ASSIGNEES: "/api/task-and-time/task/general-assignees",
+    GET_PROJECT_ASSIGNEES: "/api/task-and-time/task/project/:projectId/assignees",
+    // The whole internal team of one project (board header dialog). Rail-authorized, unlike
+    // GET_PROJECT_ASSIGNEES which is filtered to whom the caller may assign.
+    GET_PROJECT_TEAM: "/api/task-and-time/task/project/:projectId/team",
+    // Remove ONE person from that team, from the board dialog.
+    REMOVE_PROJECT_TEAM_MEMBER: "/api/task-and-time/task/project/:projectId/team/:employeeId",
+    // Promote a team member to project manager, from the board dialog.
+    PROMOTE_PROJECT_TEAM_MEMBER: "/api/task-and-time/task/project/:projectId/team/:employeeId/promote",
+    // Phase 4 — Kanban board + subtasks + stage ordering
+    GET_TASK_BOARD: "/api/task-and-time/task/board",
+    GET_BOARD_PROJECTS: "/api/task-and-time/task/board-projects",
+    /** The assigner's own WhatsApp link for one person on a task. Gated on edit rights server-side. */
+    GET_TASK_WHATSAPP_NUDGE: "/api/task-and-time/task/:id/whatsapp/:employeeId",
+    GET_TASK_SUBTASKS: "/api/task-and-time/task/:id/subtasks",
+    REORDER_TASK_STATUSES: "/api/task-and-time/task-statuses/reorder",
+    /** Card order within ONE lane — the whole lane, top to bottom. */
+    REORDER_BOARD_TASKS: "/api/task-and-time/task/board/reorder",
 }
 
 export const ORGANIZATION_CONFIGURATION = {

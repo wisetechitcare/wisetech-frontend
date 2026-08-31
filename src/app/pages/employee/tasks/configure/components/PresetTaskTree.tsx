@@ -49,14 +49,36 @@ export interface PresetTaskRow {
   parentId?: string | null;
 }
 
+/**
+ * What the rows are CALLED. The structure is identical for anything stored as one
+ * self-referencing table — preset tasks, job profiles — so only the nouns differ,
+ * and hardcoding them was the one thing stopping a second consumer from reusing
+ * this instead of growing its own tree.
+ *
+ * Defaults keep the preset-task wording, so the original call site needs no change.
+ */
+export interface TreeLabels {
+  /** Singular, lower case: "task", "job profile". */
+  noun: string;
+  /** Plural, lower case: "tasks", "job profiles". */
+  plural: string;
+  /** The uppercase pill on every row. Defaults to `noun`. */
+  kind?: string;
+  /** Shown when nothing is configured at all. */
+  empty?: string;
+}
+
+const DEFAULT_LABELS: TreeLabels = { noun: "task", plural: "tasks", empty: "No preset tasks configured yet." };
+
 // Generic over the caller's own row type so the edit callback hands back the very
 // object that was passed in (a ProjectItem here), not a narrowed copy.
 interface Props<T extends PresetTaskRow> {
   presetTasks: T[];
-  // "Add child" — creates a preset task row under the given node, at any depth.
+  // "Add child" — creates a row under the given node, at any depth.
   onAddChild: (parentId: string) => void;
   onEditTask: (task: T) => void;
   onDeleteTask: (id: string) => void;
+  labels?: TreeLabels;
 }
 
 /** A tree row: the shared node shape plus the display-only bits this view needs. */
@@ -117,7 +139,7 @@ const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (
   );
 };
 
-function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEditTask, onDeleteTask }: Props<T>) {
+function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEditTask, onDeleteTask, labels = DEFAULT_LABELS }: Props<T>) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [hovered, setHovered] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -174,7 +196,7 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
 
   // Every level is the same entity, so every row carries the same label — the
   // indentation is what communicates depth.
-  const KIND_LABEL = "task";
+  const KIND_LABEL = labels.kind ?? labels.noun;
 
   const toolBtn = (active: boolean): React.CSSProperties => ({
     display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
@@ -191,7 +213,7 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search tasks at any level…"
+            placeholder={`Search ${labels.plural} at any level…`}
             style={{ width: "100%", height: 36, border: "1px solid #dde2e8", borderRadius: 8, padding: "0 30px 0 32px", fontSize: 13, outline: "none", color: "#1f2733", boxSizing: "border-box" }}
           />
           {query && (
@@ -215,8 +237,8 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
         {flat.length === 0 ? (
           <div style={{ textAlign: "center", padding: "28px 16px", color: "#aab2bd", fontSize: 13 }}>
             {query
-              ? `No tasks match “${query}”.`
-              : "No preset tasks configured yet."}
+              ? `No ${labels.plural} match “${query}”.`
+              : labels.empty ?? `No ${labels.plural} configured yet.`}
           </div>
         ) : (
           flat.map(({ node, depth, open, hasChildren }) => {
@@ -296,9 +318,9 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
 
                 {/* Row actions — every node can take children, at any depth. */}
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <IconBtn icon="bi-diagram-3" title={`Add a task under "${node.name}"`} color={ACTION.addChild} onClick={() => onAddChild(node.id)} />
-                  <IconBtn icon="bi-pencil" title="Edit task" color={ACTION.edit} onClick={() => onEditTask(node.entity)} />
-                  <IconBtn icon="bi-trash" title="Delete task" color={ACTION.remove} onClick={() => onDeleteTask(node.id)} />
+                  <IconBtn icon="bi-diagram-3" title={`Add a ${labels.noun} under "${node.name}"`} color={ACTION.addChild} onClick={() => onAddChild(node.id)} />
+                  <IconBtn icon="bi-pencil" title={`Edit ${labels.noun}`} color={ACTION.edit} onClick={() => onEditTask(node.entity)} />
+                  <IconBtn icon="bi-trash" title={`Delete ${labels.noun}`} color={ACTION.remove} onClick={() => onDeleteTask(node.id)} />
                 </div>
               </div>
             );

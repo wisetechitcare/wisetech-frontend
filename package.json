@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "lint:ui:baseline": "eslint \"src/**/*.{ts,tsx}\" -f json > .eslint-ui-tmp.json; node scripts/gen-ui-baseline.cjs < .eslint-ui-tmp.json; rm -f .eslint-ui-tmp.json"
+    "lint:ui:baseline": "eslint \"src/**/*.{ts,tsx}\" -f json > .eslint-ui-tmp.json; node scripts/gen-ui-baseline.cjs < .eslint-ui-tmp.json; rm -f .eslint-ui-tmp.json",
+    "test:tasks": "esbuild src/app/pages/employee/tasks/__tests__/taskDomain.test.ts --bundle --platform=node --format=esm --outfile=.task-tests/taskDomain.test.mjs --external:node:* --log-level=warning && node --test .task-tests/taskDomain.test.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",
@@ -67,6 +68,8 @@
     "framer-motion": "^12.38.0",
     "js-confetti": "^0.12.0",
     "json2csv": "^6.0.0-alpha.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "jsonwebtoken": "^9.0.2",
     "jszip": "^3.10.1",
     "jwt-decode": "^4.0.0",

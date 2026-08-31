@@ -291,7 +291,8 @@ export function useNavigation() {
         fontIcon: 'bi-receipt',
         visible: !isSectionBlocked('billing'),
       },
-      // CRM
+
+      // ── CRM ───────────────────────────────────────────────────────────────
       {
         type: 'section',
         id: 'crm-section',

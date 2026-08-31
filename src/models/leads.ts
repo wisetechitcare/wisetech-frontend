@@ -75,11 +75,24 @@ export interface DeliverablePayload {
 /** A reusable, stage-wise fee break-up plan ("payment method"). */
 export interface PaymentPlan {
   id?: string;
-  name: string;
+  /**
+   * Derived by the server from the project category ("Bungalow & Duplex → Bungalow (SINGLE)").
+   * Always present on a plan read from the API; never sent on a write — the category is the
+   * plan's identity, so a client-supplied name would be a second source for the same label.
+   */
+  name?: string;
   description?: string | null;
   isDefault?: boolean;
   isActive?: boolean;
   stages: PaymentPlanStage[];
+  /**
+   * The project type this plan bills. `subCategoryId` null = the whole category; BOTH null =
+   * an un-typed plan written before plans were scoped, which every lead is still offered.
+   */
+  categoryId?: string | null;
+  subCategoryId?: string | null;
+  category?: { id: string; name: string; color?: string | null } | null;
+  subCategory?: { id: string; name: string; color?: string | null } | null;
   createdAt?: string;
   updatedAt?: string;
 }

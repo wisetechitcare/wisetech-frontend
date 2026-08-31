@@ -6,13 +6,14 @@ import { getAllEmployeeLevels } from "@services/employee";
 import { getAllTeams } from "@services/projects";
 import { fetchAllOrganizationConfigurations, fetchAllEmployeeConfigurations } from "@services/configurations";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import HierarchicalTaskSelect, { buildTaskOptions, type HierarchicalTaskOption } from "@app/pages/employee/tasks/components/HierarchicalTaskSelect";
 import { IOrgNode } from "@models/company";
 
 function EmployeeInfo() {
     const { values, setFieldValue, setValues } = useFormikContext<any>();
     const [orgTree, setOrgTree] = useState<IOrgNode[]>([]);
     const [allBranches, setAllBranches] = useState<any[]>([]);
-    const [designationOptions, setDesignationOptions] = useState([]);
+    const [designationOptions, setDesignationOptions] = useState<HierarchicalTaskOption[]>([]);
     const [departmentOpions, setDepartmentOptions] = useState([]);
     const [branchOptions, setBrancheOptions] = useState([]);
 const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
@@ -38,9 +39,23 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
             setBrancheOptions(options);
         }
 
+        /**
+         * Job profiles are a TREE — the same self-referencing table the preset-task
+         * configure page nests, so the picker drills into it rather than listing 24
+         * flat rows where "Associate" and "Associate (D) (L1)" look unrelated.
+         *
+         * The API still returns them FLAT; `parentId` is what nests them, and
+         * `buildTaskOptions` is the same builder the task picker uses.
+         */
         async function getAllDesignations() {
             const { data: { designations } } = await fetchDesignations();
-            const options = designations.map((designation: any) => ({ value: designation.id, label: designation.role }));
+            const options = buildTaskOptions(
+                designations.map((designation: any) => ({
+                    id: designation.id,
+                    name: designation.role,
+                    parentId: designation.parentId ?? null,
+                })),
+            );
             setDesignationOptions(options);
         }
 
@@ -225,7 +240,24 @@ const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
   {/* Remaining fields: flowing 3-column grid — fills left-to-right with no empty gaps */}
   <div className="row">
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
-      <DropDownInput isRequired={true} formikField="designationId" inputLabel="Job Profile" options={designationOptions} />
+      {/* The same drill-down the Add-New-Task picker uses — a parent profile is
+          selectable in its own right, exactly as a parent preset task is, so no level
+          of the tree is unreachable.
+
+          The label is wrapped rather than passed as a bare string: the shared
+          component labels with Bootstrap's `fs-6` (~17px), while every other field in
+          this grid is a DropDownInput at 13.5px. A span with its own size wins over
+          the inherited class, so "Job Profile" matches "Department" and "Team" beside
+          it without the component itself changing for the task picker. */}
+      <HierarchicalTaskSelect
+        isRequired
+        formikField="designationId"
+        inputLabel={
+          <span style={{ fontSize: 13.5, fontWeight: 500 }}>Job Profile</span>
+        }
+        options={designationOptions}
+        placeholder="Search and select a job profile…"
+      />
     </div>
     <div className="col-lg-4 col-md-6 col-sm-12 mb-4">
       <DropDownInput isRequired={true} formikField="departmentId" inputLabel="Department" options={departmentOpions} />

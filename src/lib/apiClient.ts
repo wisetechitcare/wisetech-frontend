@@ -46,8 +46,15 @@ apiClient.interceptors.response.use(
         if (isSessionDeathResponse(error) && getAuth()) {
             endSessionAndRedirect();
         }
-        // Unwrap server error body so callers get a consistent shape
-        return Promise.reject(error.response?.data ?? error);
+        // Unwrap the server error body so callers get a consistent shape — but keep `response`
+        // on it. Callers overwhelmingly read `e.response.data.message` (110 sites do), and a
+        // bare body has no `response`, so every failure on this client surfaced as the caller's
+        // generic fallback and the server's actual reason was thrown away.
+        const body = error.response?.data;
+        if (body && typeof body === 'object') {
+            return Promise.reject(Object.assign(body, { response: error.response }));
+        }
+        return Promise.reject(error);
     },
 );
 

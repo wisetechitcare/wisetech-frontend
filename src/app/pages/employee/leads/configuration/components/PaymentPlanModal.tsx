@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
-import PercentageConfigurationTable from "../../lead/components/PercentageConfigurationTable";
-import StageDeliverablesEditor from "./StageDeliverablesEditor";
+import PaymentPlanStagesTree from "./PaymentPlanStagesTree";
+import { pct, stageTotal, toPlanStage, type PlanStage } from "./paymentPlanStages";
 import { createPaymentPlan, updatePaymentPlan } from "@services/paymentPlan";
 import { showSuccess, showError } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import type { PaymentPlan, PaymentPlanStage } from "@models/leads";
+import { HierarchicalTaskPicker, buildTaskOptions } from "@app/pages/employee/tasks/components/HierarchicalTaskSelect";
+import {
+  CategoryLike,
+  SubCategoryLike,
+  buildCategoryNodes,
+  nodeIdFromScope,
+  scopeFromNodeId,
+} from "@utils/categoryScope";
+import { getPresetPath, PATH_SEPARATOR } from "@utils/presetTaskHierarchy";
 
 interface PaymentPlanModalProps {
   show: boolean;
@@ -14,23 +23,10 @@ interface PaymentPlanModalProps {
   onSuccess?: () => void;
   initialData?: PaymentPlan | null;
   isEditing?: boolean;
-}
-
-// Shape expected by PercentageConfigurationTable (it reads `config_key` for the label
-// and `value` for the percentage). We adapt to/from our PaymentPlanStage model here so
-// the polished table (drag-reorder, auto-fix, live total badge) can be reused as-is.
-//
-// `id` rides along untouched — the table copies rows by spread, so it survives edits,
-// reorders and auto-fix. Sending it back on save is what keeps a stage's row (and the
-// deliverables configured under it) alive instead of being recreated under a new id.
-interface StageRow {
-  id?: string;
-  config_key: string;
-  configKey: string;
-  config_type: string;
-  configType: string;
-  value: number | string;
-  config_value: number | string;
+  // The project-category tree, supplied by the page that already loaded it so the picker
+  // opens populated instead of racing its own fetch.
+  categories?: CategoryLike[];
+  subCategories?: SubCategoryLike[];
 }
 
 // A sensible starter matching the common "stage-wise break-up of fee" (sums to 100).
@@ -43,27 +39,21 @@ const DEFAULT_STAGES: { name: string; percentage: number }[] = [
   { name: "Procurement, Installation & Commissioning (Part-2)", percentage: 5 },
 ];
 
-const toRow = (name: string, percentage: number | string, id?: string): StageRow => ({
-  ...(id ? { id } : {}),
-  config_key: name,
-  configKey: name,
-  config_type: "percentage",
-  configType: "percentage",
-  value: percentage,
-  config_value: percentage,
-});
-
 const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
   show,
   onClose,
   onSuccess,
   initialData,
   isEditing = false,
+  categories = [],
+  subCategories = [],
 }) => {
-  const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isDefault, setIsDefault] = useState(false);
-  const [rows, setRows] = useState<StageRow[]>([]);
+  // The picked category OR subcategory node. One field, because the picker returns one id;
+  // it is split back into the (categoryId, subCategoryId) pair on save.
+  const [scopeNodeId, setScopeNodeId] = useState("");
+  const [rows, setRows] = useState<PlanStage[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,37 +62,43 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
     if (!show) return;
     setError(null);
     if (isEditing && initialData) {
-      setName(initialData.name || "");
       setDescription(initialData.description || "");
       setIsDefault(!!initialData.isDefault);
+      setScopeNodeId(nodeIdFromScope(initialData));
       setRows(
         (initialData.stages || [])
           .slice()
           .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-          .map((s) => toRow(s.name, s.percentage, s.id)),
+          .map((s) => toPlanStage(s.name, s.percentage, s.id)),
       );
     } else {
-      setName("");
       setDescription("");
       setIsDefault(false);
-      setRows(DEFAULT_STAGES.map((s) => toRow(s.name, s.percentage)));
+      setScopeNodeId("");
+      setRows(DEFAULT_STAGES.map((s) => toPlanStage(s.name, s.percentage)));
     }
   }, [show, isEditing, initialData]);
 
-  const total = rows.reduce((sum, r) => sum + (parseFloat(String(r.value)) || 0), 0);
-  // Round to 3dp to match the backend Decimal(6,3) and avoid float-noise mismatches.
-  const roundedTotal = Math.round(total * 1000) / 1000;
-  const hasNegative = rows.some((r) => (parseFloat(String(r.value)) || 0) < 0);
-  const hasEmptyName = rows.some((r) => !String(r.config_key || "").trim());
+  const categoryNodes = React.useMemo(
+    () => buildCategoryNodes(categories, subCategories),
+    [categories, subCategories],
+  );
+  const categoryOptions = React.useMemo(() => buildTaskOptions(categoryNodes), [categoryNodes]);
+  /** "Bungalow & Duplex → Bungalow (SINGLE)" — so the type being billed is unambiguous. */
+  const scopePath = scopeNodeId ? getPresetPath(categoryNodes, scopeNodeId).join(PATH_SEPARATOR) : "";
+
+  const roundedTotal = stageTotal(rows);
+  const hasNegative = rows.some((r) => pct(r.percentage) < 0);
+  const hasEmptyName = rows.some((r) => !r.name.trim());
   const isTotalValid = roundedTotal === 100;
   const canSave =
-    !!name.trim() && rows.length > 0 && isTotalValid && !hasNegative && !hasEmptyName;
+    !!scopeNodeId && rows.length > 0 && isTotalValid && !hasNegative && !hasEmptyName;
 
   const handleSave = async () => {
     setError(null);
 
-    if (!name.trim()) {
-      setError("Plan name is required.");
+    if (!scopeNodeId) {
+      setError("Pick the project category this plan bills.");
       return;
     }
     if (rows.length === 0) {
@@ -124,17 +120,24 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
 
     const stages: PaymentPlanStage[] = rows.map((r, idx) => ({
       ...(r.id ? { id: r.id } : {}),
-      name: String(r.config_key || "").trim(),
-      percentage: parseFloat(String(r.value)) || 0,
+      name: r.name.trim(),
+      percentage: pct(r.percentage),
       sortOrder: idx,
     }));
 
+    // One picked node → the pair the API stores. The server re-checks that the subcategory
+    // belongs to the category, so a stale tree here cannot file a plan under two branches.
+    const scope = scopeFromNodeId(scopeNodeId, subCategories);
+
     const payload: PaymentPlan = {
-      name: name.trim(),
+      // No `name`: a plan IS the fee split for a project type, so the server names it from
+      // the category. Sending one here would be a second source for the same label.
       description: description.trim() || null,
       isDefault,
       isActive: true,
       stages,
+      categoryId: scope?.categoryId,
+      subCategoryId: scope?.subCategoryId ?? null,
     };
 
     setIsSubmitting(true);
@@ -177,19 +180,28 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
         {error && <div className="alert alert-danger mb-4">{error}</div>}
 
         <div className="row g-4 mb-2">
+          {/* The project type this plan bills. A lead already declares its category, so before
+              this the two were unrelated and plans were named after types by hand ("Bungalow",
+              "Interior Project") with nothing stopping the wrong one being chosen.
+              The whole category and any single subcategory are both selectable — a grouped
+              select cannot select its own group heading. */}
           <div className="col-md-7">
             <Form.Label className="fw-semibold text-gray-800 fs-7 mb-2">
-              Plan Name <span className="text-danger">*</span>
+              Project Category <span className="text-danger">*</span>
             </Form.Label>
-            <Form.Control
-              type="text"
-              className="form-control-solid"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Standard Interior Fee Plan"
+            <HierarchicalTaskPicker
+              value={scopeNodeId}
+              onChange={(option) => setScopeNodeId(option?.value || "")}
+              options={categoryOptions}
+              placeholder="Search categories & subcategories…"
             />
+            <div className="text-muted mt-1" style={{ fontSize: 12 }}>
+              {scopePath
+                ? `This is the fee split for ${scopePath}.`
+                : "Pick a category for the whole type, or a subcategory for just that one."}
+            </div>
           </div>
-          <div className="col-md-5 d-flex align-items-end">
+          <div className="col-md-5 d-flex align-items-end pb-4">
             <Form.Check
               type="checkbox"
               id="paymentPlanIsDefault"
@@ -216,32 +228,10 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
 
         <div className="separator separator-dashed my-5" />
 
-        {/* Reused stage editor: add / remove / drag-reorder / auto-fix / live total. */}
-        <PercentageConfigurationTable
-          percentages={rows}
-          setPercentages={(data) => setRows(data as StageRow[])}
-          title="Payment Stages"
-          description="Each stage is a % of the total commercial cost — they must total 100%."
-        />
-
-        <div
-          className={`d-flex justify-content-between align-items-center mt-2 px-3 py-2 rounded ${
-            isTotalValid ? "bg-light-success" : "bg-light-danger"
-          }`}
-        >
-          <span className="fw-bold fs-7 text-gray-700">Total</span>
-          <span className={`fw-bolder fs-6 ${isTotalValid ? "text-success" : "text-danger"}`}>
-            {roundedTotal}% {isTotalValid ? "✓" : "(must equal 100%)"}
-          </span>
-        </div>
-
-        {/* Deliverables are configuration under each stage — they never surface on a
-            lead, which keeps showing plan → stages only. Saved every action, so they
-            do NOT ride along with this modal's Save button. */}
-        <div className="separator separator-dashed my-5" />
-        <StageDeliverablesEditor
-          stages={rows.map((r) => ({ id: r.id, name: String(r.config_key || "").trim() || "Untitled stage" }))}
-        />
+        {/* One tree: a stage row IS the branch its deliverables hang off. Stage edits are
+            form state and save with this modal; deliverables save on every action, because
+            they belong to a stage row that already exists on the server. */}
+        <PaymentPlanStagesTree stages={rows} onChange={setRows} showDeliverables />
       </Modal.Body>
 
       <Modal.Footer style={{ borderTop: "none" }}>

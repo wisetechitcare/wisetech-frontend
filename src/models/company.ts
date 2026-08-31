@@ -184,6 +184,16 @@ export interface ICompanyDesignation {
     role?: string;
     companyId?: string;
     isActive?: boolean;
+    /**
+     * Files this profile under another one — job profiles are a tree, the same shape
+     * preset tasks use.
+     *
+     * On UPDATE the three states are distinct and all three are used: omitted leaves
+     * the current parent alone (so a rename cannot silently promote a nested profile
+     * to the top level), `null` moves it to the top level, and an id moves it under
+     * that node. The server rejects a parent that would create a cycle.
+     */
+    parentId?: string | null;
 }
 
 export interface ICompanyEmployeeTypeUpdate {

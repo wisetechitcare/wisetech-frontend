@@ -1,23 +1,45 @@
 /**
- * Pull the human-readable reason out of an API error.
+ * The human-readable reason out of an API failure.
  *
- * The backend's error envelope (see `utils/response.ts` + `utils/API.ts`) puts the
- * GENERIC HTTP phrase in `message` ("Bad request", "Conflict") and the ACTUAL reason in
- * `detail`. Reading `message` first — which is the intuitive thing to do, and what most
- * call sites in this app happen to do — therefore shows the user "Bad request" and throws
- * away the sentence that tells them what to fix.
+ * This API's failure envelope (backend `utils/response.ts` → `failureHandler`) is:
  *
- * `detail` first, `message` as a fallback, caller's text last.
+ *   { statusCode: 400, message: "Bad request", detail: "\"Design\" is still used by 3 employees…" }
+ *
+ * `message` is the HTTP STATUS NAME. `detail` is the sentence a person should read.
+ * Reading `.message` — which most of this codebase does — puts "Bad request" or
+ * "Internal server error" in front of the user and throws away the only part that
+ * says what went wrong or what to do about it.
+ *
+ * One extractor so a screen cannot get that wrong by accident, and so the next change
+ * to the envelope is a change in one place.
  */
-export function apiErrorMessage(err: unknown, fallback: string): string {
-  const data = (err as { response?: { data?: { detail?: unknown; message?: unknown } } })?.response?.data;
-  const detail = typeof data?.detail === "string" ? data.detail.trim() : "";
-  if (detail) return detail;
-  const message = typeof data?.message === "string" ? data.message.trim() : "";
-  // Guard against the generic phrases: they are never more useful than the caller's
-  // context-specific fallback.
-  if (message && !/^(bad request|conflict|not found|internal server error|unprocessable entity)$/i.test(message)) {
-    return message;
-  }
-  return fallback;
-}
+
+/** HTTP status names, which are never worth showing on their own. */
+const STATUS_NAMES = new Set([
+    'bad request',
+    'unauthorized',
+    'forbidden',
+    'not found',
+    'method not allowed',
+    'conflict',
+    'unprocessable entity',
+    'internal server error',
+]);
+
+const clean = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
+
+export const apiErrorMessage = (error: unknown, fallback: string): string => {
+    const data = (error as any)?.response?.data;
+
+    const detail = clean(data?.detail);
+    if (detail) return detail;
+
+    // Some endpoints put the real sentence in `message`. Take it — unless it is just
+    // the status name, which is what the envelope above always puts there.
+    const message = clean(data?.message);
+    if (message && !STATUS_NAMES.has(message.toLowerCase())) return message;
+
+    return fallback;
+};
+
+export default apiErrorMessage;

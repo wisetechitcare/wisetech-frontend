@@ -106,6 +106,20 @@ const ContactMainToggle = () => {
     );
   }
 
+  /**
+   * The eyebrow above the name. It used to read `Contact #{contact.id}` — the raw uuid,
+   * printed on every visit to every contact.
+   *
+   * The Companies header it was copied from prints `Company #{prefix}`, a short
+   * human-readable code; contacts have no such column, so there was nothing to shorten
+   * the uuid down to and it went out whole. Say what the line is actually for instead:
+   * who this person is, and where. Empty when neither is known, rather than a stray
+   * grey line.
+   */
+  const headerSubtitle = [contact.roleInCompany, contact.company?.companyName]
+    .filter(Boolean)
+    .join(" • ");
+
   return (
     <div className="p-2 p-md-4">
       {/* Header */}
@@ -152,8 +166,9 @@ const ContactMainToggle = () => {
             status={contact.isContactActive === false ? "inactive" : "active"}
             enablePreview
           />
+          {/* Name first, role and company underneath — the person is what the reader
+              came for; the eyebrow above it only pushed the name off the avatar's line. */}
           <div className="flex-grow-1">
-            <div className="text-muted small">Contact #{contact.id}</div>
             <div className="d-flex align-items-center gap-2">
               <h2
                 className="mb-0 text-truncate"
@@ -166,6 +181,7 @@ const ContactMainToggle = () => {
                 {contact.fullName}
               </h2>
             </div>
+            {headerSubtitle && <div className="text-muted small">{headerSubtitle}</div>}
           </div>
         </div>
         {/* <div className="d-flex align-items-center gap-2 flex-shrink-0">
