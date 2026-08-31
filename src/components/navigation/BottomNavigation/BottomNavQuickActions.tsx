@@ -16,6 +16,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   { id: 'markAttendance', label: 'Mark Attendance', icon: 'bi-fingerprint', to: '/employee/attendance-and-leaves', quickAction: 'markAttendance' },
   { id: 'newExpense', label: 'New Expense', icon: 'bi-receipt', to: '/finance/reimbursements', quickAction: 'newExpense' },
   { id: 'newTask', label: 'New Task', icon: 'bi-list-check', to: '/tasks', quickAction: 'newTask' },
+  { id: 'newEvent', label: 'New Event', icon: 'bi-calendar-plus', to: '/employees/calendar', quickAction: 'newEvent' },
 ]
 
 interface Props {
@@ -30,7 +31,7 @@ interface Props {
  * system. Each tile navigates to the destination page and passes a
  * `quickAction` nav-state flag that the target page reads on mount to
  * auto-open its own existing "create" modal (see TasksMainTable.tsx,
- * Reimbursement.tsx, MarkAttendance.tsx).
+ * Reimbursement.tsx, MarkAttendance.tsx, CustomCalendar.tsx).
  */
 function BottomNavQuickActionsBase({ open, onClose }: Props) {
   const reduce = useReducedMotion()
