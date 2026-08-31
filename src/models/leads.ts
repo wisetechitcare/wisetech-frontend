@@ -47,6 +47,12 @@ export interface PaymentPlanStage {
   /** Percentage of the total commercial cost. All stages in a plan sum to 100. */
   percentage: number | string;
   sortOrder?: number;
+  /**
+   * How many deliverables hang off this stage. Server-supplied on every read
+   * (`PLAN_INCLUDE`), so the editor can show it for a CLOSED stage — the list itself is
+   * still fetched lazily, one stage at a time, when a branch is opened.
+   */
+  _count?: { deliverables: number };
 }
 
 /**

@@ -1,8 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  Accordion, AccordionDetails, AccordionSummary, Box, CircularProgress,
-  DialogActions, DialogContent, Stack, TextField, Typography,
-} from "@mui/material";
+import { Box, CircularProgress, DialogActions, DialogContent, Stack, TextField, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import ReorderableGroup, { DragHandle, type DragHandleProps } from "@app/modules/common/components/ReorderableGroup";
 import {
@@ -18,15 +15,12 @@ import { apiErrorMessage } from "@utils/apiError";
 
 const NAME_MAX = 100;
 
-/** Stage identity as the editor needs it. `id` is absent for a stage the user has
- *  added but not saved yet — there is no row to hang deliverables off until then. */
-export interface DeliverableStage {
-  id?: string;
-  name: string;
-}
-
 interface Props {
-  stages: DeliverableStage[];
+  stageId: string;
+  /** Fetch only once the branch has actually been opened — a plan with eight stages
+   *  should not fire eight requests when the editor mounts. */
+  loaded: boolean;
+  onCountChange: (n: number) => void;
 }
 
 const RowAction = ({ title, icon, color, onClick }: { title: string; icon: string; color?: string; onClick: () => void }) => (
@@ -36,13 +30,17 @@ const RowAction = ({ title, icon, color, onClick }: { title: string; icon: strin
 );
 
 /**
- * The deliverable list for ONE stage: add / edit / delete / reorder / enable-disable.
- * Loads lazily the first time its stage is expanded — a plan with eight stages should
- * not fire eight requests on open.
+ * The deliverable list for ONE stage — the leaf level of the payment-plan tree:
+ * add / edit / delete / reorder / enable-disable.
+ *
+ * Every action saves immediately. Deliverables are children of a saved stage row, not
+ * fields of the plan form, so they do NOT ride along with the modal's Save button.
+ *
+ * Rows hang off the tree's rail: the `::before` tick reaches back to the `borderLeft`
+ * their container draws, which is what makes the nesting read as a branch instead of a
+ * second, unrelated list.
  */
-const StageDeliverableList: React.FC<{ stageId: string; loaded: boolean; onCountChange: (n: number) => void }> = ({
-  stageId, loaded, onCountChange,
-}) => {
+const StageDeliverableList: React.FC<Props> = ({ stageId, loaded, onCountChange }) => {
   const [rows, setRows] = useState<PaymentPlanStageDeliverable[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,9 +101,7 @@ const StageDeliverableList: React.FC<{ stageId: string; loaded: boolean; onCount
       }
       close();
     } catch (err: unknown) {
-      const message =
-        apiErrorMessage(err, "Could not save the deliverable.");
-      setFormError(message);
+      setFormError(apiErrorMessage(err, "Could not save the deliverable."));
     } finally {
       setSaving(false);
     }
@@ -167,11 +163,17 @@ const StageDeliverableList: React.FC<{ stageId: string; loaded: boolean; onCount
         alignItems="center"
         spacing={0.75}
         sx={{
+          position: "relative",
           px: { xs: 0.75, sm: 1 }, py: 0.75, borderRadius: "12px",
           border: "1px solid", borderColor: "divider", bgcolor: "action.hover",
           opacity: row.isActive ? 1 : 0.6,
           transition: "border-color .15s, opacity .15s",
           "&:hover": { borderColor: "text.disabled" },
+          // The tick back to the branch rail.
+          "&::before": {
+            content: '""', position: "absolute", left: -14, top: "50%",
+            width: 14, height: "2px", bgcolor: "divider",
+          },
         }}
       >
         <DragHandle handleProps={handleProps} disabled={rows.length < 2} onNudge={(dir) => nudge(index, dir)} />
@@ -216,7 +218,7 @@ const StageDeliverableList: React.FC<{ stageId: string; loaded: boolean; onCount
         <Box
           onClick={openNew}
           sx={{
-            py: 1.75, px: 1.5, borderRadius: "12px", cursor: "pointer", textAlign: "center",
+            py: 1.5, px: 1.5, borderRadius: "12px", cursor: "pointer",
             border: "1px dashed", borderColor: "divider",
             transition: "border-color .15s, background-color .15s",
             "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
@@ -267,6 +269,7 @@ const StageDeliverableList: React.FC<{ stageId: string; loaded: boolean; onCount
               size="small"
               fullWidth
               autoFocus
+              required
               value={name}
               error={!!formError}
               helperText={formError ?? `${name.trim().length}/${NAME_MAX}`}
@@ -302,95 +305,4 @@ const StageDeliverableList: React.FC<{ stageId: string; loaded: boolean; onCount
   );
 };
 
-/**
- * Deliverable configuration for every stage of a payment plan — one collapsible
- * section per stage.
- *
- * CONFIGURATION ONLY. Nothing here is rendered inside a lead: a lead still shows its
- * payment plan and stages and nothing more. These rows are the template a project will
- * copy from when a lead is received.
- */
-const StageDeliverablesEditor: React.FC<Props> = ({ stages }) => {
-  const [expanded, setExpanded] = useState<string | null>(null);
-  // Stages keep their panel mounted once opened, so switching back doesn't refetch.
-  const [visited, setVisited] = useState<Record<string, boolean>>({});
-  const [counts, setCounts] = useState<Record<string, number>>({});
-
-  const setCount = useCallback((stageId: string, n: number) => {
-    setCounts((prev) => (prev[stageId] === n ? prev : { ...prev, [stageId]: n }));
-  }, []);
-
-  const saved = stages.filter((s) => !!s.id);
-  const unsavedCount = stages.length - saved.length;
-
-  return (
-    <Box>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-        <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>Deliverables</Typography>
-        <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
-          Work items configured under each stage. Not shown on leads.
-        </Typography>
-      </Stack>
-
-      {saved.length === 0 ? (
-        <Box sx={{ py: 1.75, px: 1.5, borderRadius: "12px", border: "1px dashed", borderColor: "divider" }}>
-          <Typography sx={{ color: "text.secondary", fontSize: 12.5 }}>
-            Save the plan first — deliverables attach to a saved stage.
-          </Typography>
-        </Box>
-      ) : (
-        <Stack spacing={1}>
-          {saved.map((stage) => {
-            const stageId = stage.id as string;
-            const isOpen = expanded === stageId;
-            const count = counts[stageId];
-            return (
-              <Accordion
-                key={stageId}
-                expanded={isOpen}
-                disableGutters
-                elevation={0}
-                onChange={() => {
-                  setExpanded(isOpen ? null : stageId);
-                  if (!isOpen) setVisited((v) => ({ ...v, [stageId]: true }));
-                }}
-                sx={{
-                  border: "1px solid", borderColor: "divider", borderRadius: "12px",
-                  bgcolor: "background.paper", "&::before": { display: "none" },
-                  "&.Mui-expanded": { margin: 0 },
-                }}
-              >
-                <AccordionSummary
-                  expandIcon={<KTIcon iconName="down" className="fs-5" />}
-                  sx={{ minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.75, alignItems: "center", gap: 1 } }}
-                >
-                  <Typography sx={{ fontWeight: 600, fontSize: 13.5, flex: 1, minWidth: 0, wordBreak: "break-word" }}>
-                    {stage.name}
-                  </Typography>
-                  {count !== undefined && (
-                    <ToneChip tone={count > 0 ? "brand" : "neutral"} label={`${count}`} dense />
-                  )}
-                </AccordionSummary>
-                <AccordionDetails sx={{ pt: 0 }}>
-                  <StageDeliverableList
-                    stageId={stageId}
-                    loaded={!!visited[stageId]}
-                    onCountChange={(n) => setCount(stageId, n)}
-                  />
-                </AccordionDetails>
-              </Accordion>
-            );
-          })}
-        </Stack>
-      )}
-
-      {unsavedCount > 0 && saved.length > 0 && (
-        <Typography sx={{ fontSize: 12, color: "text.disabled", mt: 1 }}>
-          {unsavedCount} unsaved {unsavedCount === 1 ? "stage is" : "stages are"} hidden here — save the plan to configure them.
-        </Typography>
-      )}
-    </Box>
-  );
-};
-
-export default StageDeliverablesEditor;
+export default StageDeliverableList;
