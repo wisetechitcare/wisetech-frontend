@@ -86,7 +86,6 @@ Single source of truth: `src/utils/dateFormats.ts`.
 ## Billing module (partly built)
 Plan: [../BILLING/INDEX.md](../BILLING/INDEX.md). The project Billing tab already exists as a placeholder — `pages/employee/entity/detail/sections/BillingSection.tsx`, registered in `detail/facets.ts` and rendered from `EntityDetailPage.tsx`. It predates the UI standard (raw divs, hardcoded hex), so **replace it wholesale rather than extending it**.
 
-<<<<<<< HEAD
 ## Billing Operations (built)
 Design doc: [../BILLING_OPERATIONS.md](../BILLING_OPERATIONS.md). Pages under `pages/billing/operations/`, client in `services/billingOperations.ts`.
 
@@ -122,7 +121,6 @@ Design doc: [../BILLING_DOCUMENT_ENGINE.md](../BILLING_DOCUMENT_ENGINE.md) (this
 - Proforma is a `kind`, not a route. The list and editor work unchanged for Tax Invoice and the rest — **generating a Tax Invoice reuses `openDocument({ kind: "TAX_INVOICE", subjectId })`, the exact call Proforma uses**; see the button on `PaymentDetailPage.tsx`'s Invoice panel, gated on `readyForInvoice`. Don't build a second generation flow for a new kind.
 - **`NON_REVISABLE_KINDS` in `DocumentEditorPage.tsx` mirrors the backend's `revisable: false` registry entries** — UI-only hint (hides the Revise button), the server is the actual enforcement. Keep the two lists in sync when a new non-revisable kind goes live.
 - `downloadWord()` (`services/proformas.ts`) streams a binary blob (`responseType: "blob"`), unlike `accessProforma`'s PDF path which returns a JSON presigned URL — don't conflate the two response shapes.
-=======
 ## Dependencies & CI
 - **Security floors** for transitive packages live in `pnpm-workspace.yaml` → `overrides` (9 entries, each pinned to the lowest patched version from its advisory). After any dependency change run `pnpm audit --audit-level high` — CI blocks on high/critical, and reports moderate/low without blocking.
 - **The webpack toolchain was removed** (2026-08-10): `webpack`, `webpack-cli`, `css-loader`, `mini-css-extract-plugin`, `sass-loader`, `@types/sass-loader`, the two RTL plugins, `remove-files-webpack-plugin`, `del`. No config file, script, or import referenced any of them — leftover Metronic scaffolding, and the only path to a high-severity `svgo` advisory. Builds are Vite-only. **`sass` stays** (Vite compiles the Metronic `.scss`). Don't reintroduce them.
@@ -135,14 +133,12 @@ Installed by `pnpm install` (`prepare: husky` → `core.hooksPath=.husky/_`). By
 - **pre-push** (~90s) — blocks direct pushes to `main`/`master`/`develop`, then `tsc --noEmit` + `eslint --quiet` on files changed vs `origin/main` (same rule as CI — a whole-repo lint gate would trip the legacy warning backlog).
 - **post-merge / post-checkout** — print a hint when `pnpm-lock.yaml` moved. Never auto-installs.
 - `pnpm run hooks:test` runs the guard's own assertions.
->>>>>>> a167b739d1f4de34d7c3a952e654ab5b9cc5d194
 
 ## Before saying a change is done
 Run `pnpm exec tsc --noEmit` (or a full `pnpm run build`) — it must pass clean. Run `pnpm run lint` on files you touched (warnings are informational; don't introduce new errors).
 
 ## Auto-verify hook
-<<<<<<< HEAD
-A `PostToolUse` hook (`../.claude/settings.local.json` → `../.claude/hooks/typecheck.sh`) runs after any Edit/Write to a `.ts`/`.tsx` file in this project, in the background: whole-project `npx tsc --noEmit` plus `npx eslint --quiet` on just the edited file. Any type error or lint **error** (warnings excluded) is surfaced automatically.
+A `PostToolUse` hook (`../.claude/settings.local.json` → `../.claude/hooks/typecheck.sh`) runs after any Edit/Write to a `.ts`/`.tsx` file in this project, in the background: whole-project `pnpm exec tsc --noEmit` plus `pnpm exec eslint --quiet` on just the edited file. Any type error or lint **error** (warnings excluded) is surfaced automatically.
 
 ## Project Financial Workspace (built)
 Project → Billing. Pages under `pages/employee/entity/detail/sections/billing/`, client in `services/projectBilling.ts`. `sections/BillingSection.tsx` is now a 3-line adapter that passes `lead.id` in.
@@ -154,6 +150,3 @@ Project → Billing. Pages under `pages/employee/entity/detail/sections/billing/
 - Proformas reuse `ProformaTreeRow` verbatim for revision grouping; the other three tables are `BillingTable` + a column set. Financial Summary is `BillingSummaryCard`. Nothing here re-implements a Billing primitive.
 - **Drill-down**: `ProformasPage`/`PaymentCollectionPage`/`InvoicesPage` now read `?projectId=` and show `ProjectFilterBanner` when filtered — a silent filter is the fastest way to make people distrust a list.
 - ⚠️ `capabilities` from the server is **advisory** (backend has no action-level write gates yet). It drives disabled states only — don't treat a hidden button as security.
-=======
-A `PostToolUse` hook (`../.claude/settings.local.json` → `../.claude/hooks/typecheck.sh`) runs after any Edit/Write to a `.ts`/`.tsx` file in this project, in the background: whole-project `pnpm exec tsc --noEmit` plus `pnpm exec eslint --quiet` on just the edited file. Any type error or lint **error** (warnings excluded) is surfaced automatically.
->>>>>>> a167b739d1f4de34d7c3a952e654ab5b9cc5d194

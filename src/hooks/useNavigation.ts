@@ -280,52 +280,6 @@ export function useNavigation() {
       // cluster inside the HR & People workspace. It is its own application now —
       // see the Finance section between Projects and Organization below.
 
-      // Finance
-      {
-        type: 'section',
-        id: 'finance-section',
-        title: 'Finance',
-        visible: !isSectionBlocked('finance'),
-      },
-      {
-        type: 'sub',
-        id: 'finance-group',
-        title: 'Finance',
-        fontIcon: 'bi-cash-coin',
-        visible: !isSectionBlocked('finance'),
-        children: [
-          {
-            type: 'item',
-            id: 'fin-loans',
-            to: '/finance/loans',
-            title: 'Loans',
-            visible: isSubsectionVisible('finance.loans', hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'fin-reimbursements',
-            to: '/finance/bills',
-            title: 'Reimbursements',
-            visible: isSubsectionVisible('finance.reimbursements', hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'fin-salary',
-            to: '/finance/salary',
-            title: 'Salary',
-            visible: isSubsectionVisible('finance.salary', hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-          {
-            type: 'item',
-            id: 'fin-increment',
-            to: '/finance/increment',
-            title: 'Increment',
-            visible: isSubsectionVisible('finance.increment', hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers)),
-          },
-        ]
-      },
-
-
       // Billing — a top-level ERP module in its own right, NOT a project sub-page.
       // A single flat entry by design: the module's own header tabs handle everything
       // below it, so the sidebar stays one level deep.

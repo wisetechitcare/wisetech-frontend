@@ -134,20 +134,6 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
 }) => {
   const [approverOptions, setApproverOptions] = useState<ApproverOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-<<<<<<< HEAD
-  const [isSaving, setIsSaving] = useState<Record<WorkflowType, boolean>>({
-    attendance: false,
-    leave: false,
-    reimbursement: false,
-    billing_request: false,
-  });
-  const [chains, setChains] = useState<Record<WorkflowType, string[]>>(emptyRecord());
-  const [configIds, setConfigIds] = useState<Record<WorkflowType, string[]>>(emptyRecord());
-  // What is actually PERSISTED, mirrored from the server on load and after each save.
-  // `configIds` can't stand in for this: it stays populated when the user swaps an
-  // already-saved approver for another, so it can't tell "saved" from "edited but unsaved".
-  const [savedChains, setSavedChains] = useState<Record<WorkflowType, string[]>>(emptyRecord());
-=======
   // Which employee's saved chains have already been pushed up to the parent. Guards the
   // one-time seed below so a re-render can never overwrite edits the user has since made.
   const seededFor = useRef<string | null>(null);
@@ -164,7 +150,6 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
   const controlled = typeof onChange === 'function';
   const [internalChains, setInternalChains] = useState<ApprovalChains>(emptyRecord());
   const chainsInUse: ApprovalChains = controlled ? (value ?? emptyRecord()) : internalChains;
->>>>>>> a167b739d1f4de34d7c3a952e654ab5b9cc5d194
 
   useEffect(() => {
     // Runs in BOTH modes: even with no employee to load chains for, the approver
@@ -204,18 +189,6 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
         }
       });
 
-<<<<<<< HEAD
-      setChains(nextChains);
-      setConfigIds(nextIds);
-      // Derived from MODULES rather than listed by hand, so adding a workflow type is a
-      // one-line change instead of a hunt for every hardcoded key.
-      setSavedChains(
-        Object.fromEntries(MODULES.map(({ key }) => [key, [...nextChains[key]]])) as Record<
-          WorkflowType,
-          string[]
-        >,
-      );
-=======
       // Uncontrolled: hold the loaded chains ourselves so the pickers actually show them.
       if (!controlled) setInternalChains(nextChains);
 
@@ -226,7 +199,6 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
         seededFor.current = employeeId;
         onChange?.(nextChains);
       }
->>>>>>> a167b739d1f4de34d7c3a952e654ab5b9cc5d194
     } catch (err) {
       console.error('Failed to load approval settings:', err);
     } finally {
