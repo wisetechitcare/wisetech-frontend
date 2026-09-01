@@ -13,18 +13,13 @@ import {
   InputAdornment,
 } from "@mui/material";
 import { getRowBackgroundColor } from "@app/modules/common/design-tokens";
-import { deleteLead, getAllLeadsComplete } from "@services/leads";
+import { getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
-import {
-  errorConfirmation,
-  rejectConfirmation,
-  successConfirmation,
-} from "@utils/modal";
 import LeadWizardModal from "@pages/employee/leads/lead/LeadWizardModal";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
@@ -42,10 +37,8 @@ import {
 } from "@services/options";
 import { AppDispatch, RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
-import eventBus from "@utils/EventBus";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { mapLeadToFormInitialValues } from "@pages/employee/leads/lead/utils";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -1142,41 +1135,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       },
     ];
 
-    const actions: any[] = isDrillDown
-      ? []
-      : [
-        {
-          accessorKey: "actions",
-          header: "Actions",
-          size: 120,
-          enableEditing: false,
-          Cell: ({ row }: { row: any }) => (
-            <Box sx={{ display: "flex", gap: "8px" }}>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const currLead = rawLeadsDatas.find((l: any) => l.id === row.original.id);
-                  setFormValues(mapLeadToFormInitialValues(currLead));
-                }}
-              >
-                <KTIcon iconName="pencil" className="fs-2" />
-              </button>
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteLead(row.original.id);
-                }}
-              >
-                <KTIcon iconName="trash" className="fs-2" />
-              </button>
-            </Box>
-          ),
-        },
-      ];
-
-    const assembled = [...base, ...leadOnly, ...projectCols, ...tail, ...actions];
+    const assembled = [...base, ...leadOnly, ...projectCols, ...tail];
 
     // Full-page table: every column visible by default (user toggles via the menu).
     // Drill-down: only the curated base + the drilled dimension's context column are
@@ -1199,24 +1158,6 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       meta: { ...(col.meta || {}), defaultVisible: essentialDrillColumns.has(col.accessorKey) },
     }));
   }, [view, projectColumnsActive, isDrillDown, drillVisibleKeys, projectServices, projectCategories, projectSubcategories, allemployees, rawLeadsDatas]);
-
-  // ── Handlers ──────────────────────────────────────────────────────────────────
-  const handleDeleteLead = async (id: string) => {
-    try {
-      const confirmed = await rejectConfirmation("Yes, delete it!");
-      if (confirmed) {
-        setTableData((prev) => prev.filter((l: any) => l.id !== id));
-        setRawLeadsDatas((prev) => prev.filter((l: any) => l.id !== id));
-        await deleteLead(id);
-        successConfirmation("Lead deleted successfully!");
-        eventBus.emit(EVENT_KEYS.leadDeleted, { id });
-      }
-    } catch (error) {
-      console.error("Error deleting lead:", error);
-      errorConfirmation("Failed to delete lead. Please try again.");
-      fetchAllData();
-    }
-  };
 
   // ── Export columns (adapt to view) ───────────────────────────────────────────
   const exportColumns = useMemo(() => {

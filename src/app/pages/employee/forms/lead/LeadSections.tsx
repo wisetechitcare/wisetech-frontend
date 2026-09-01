@@ -1383,11 +1383,14 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
               <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
                 Contract Financials
               </Typography>
+              <p className="text-muted fs-8 mb-3">
+                Auto-filled from the Commercials step totals when the status is set to Received. Adjust if needed.
+              </p>
               <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
                   <TextInput
-                    formikField="projectMeta.contractRate"
-                    label="Contract Rate"
+                    formikField="projectArea"
+                    label="Total Area (sqft)"
                     isRequired={false}
                     inputValidation="decimal"
                   />
